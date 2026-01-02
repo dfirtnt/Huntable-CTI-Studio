@@ -93,6 +93,7 @@ celery_app.autodiscover_tasks()
 # Ensure local task modules are registered
 import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
+import src.worker.tasks.test_agents  # noqa: E402,F401
 
 
 # Define periodic tasks
@@ -653,7 +654,8 @@ def trigger_agentic_workflow(self, article_id: int):
                 logger.error(
                     f"Error running agentic workflow for article {article_id}: {e}"
                 )
-                raise
+                # Convert to new exception to avoid serializing ArticleTable in traceback
+                raise Exception(f"Workflow execution failed: {str(e)}") from None
 
         # Run async workflow
         loop = asyncio.new_event_loop()
@@ -667,7 +669,9 @@ def trigger_agentic_workflow(self, article_id: int):
     except Exception as exc:
         logger.error(f"Agentic workflow task failed for article {article_id}: {exc}")
         # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        # Convert exception to string to avoid serializing ORM objects in traceback
+        error_msg = str(exc)
+        raise self.retry(exc=Exception(error_msg), countdown=60 * (2**self.request.retries))
 
 
 @celery_app.task(bind=True, max_retries=2)

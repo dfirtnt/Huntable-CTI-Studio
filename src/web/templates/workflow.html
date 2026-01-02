@@ -291,9 +291,6 @@
             <button onclick="switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                 📥 SIGMA Queue
             </button>
-            <button onclick="switchTab('evals')" id="tab-evals" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
-                🧪 Evals
-            </button>
         </nav>
     </div>
 
@@ -1972,119 +1969,7 @@
         </div>
     </div>
 
-    <!-- Evals Tab -->
-    <div id="tab-content-evals" class="tab-content hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Preset Evaluation</h2>
-            <p class="text-gray-600 dark:text-gray-300 mb-6">
-                Run preset-based evaluations against Gold articles from Langfuse datasets.
-                Each evaluation creates an immutable snapshot of the current preset configuration.
-            </p>
 
-            <!-- Evaluation Configuration -->
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Dataset Name
-                    </label>
-                    <input 
-                        type="text" 
-                        id="evalDatasetName" 
-                        value="cmdline_extractor_gt" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="cmdline_extractor_gt"
-                    />
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Name of the Langfuse dataset containing Gold articles
-                    </p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Preset (Optional)
-                    </label>
-                    <select 
-                        id="evalPresetId" 
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                        <option value="">Use Active Preset</option>
-                    </select>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Leave empty to use the currently active preset
-                    </p>
-                </div>
-            </div>
-
-            <!-- Start Evaluation Button -->
-            <button 
-                id="startEvalBtn" 
-                onclick="startEvaluation()"
-                class="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                🚀 Start Evaluation Run
-            </button>
-
-            <!-- Evaluation Status -->
-            <div id="evalStatusContainer" class="mt-6 hidden">
-                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Evaluation Status</h3>
-                        <div class="flex gap-2">
-                            <button 
-                                id="viewLangfuseBtn"
-                                onclick="viewEvalInLangfuse()" 
-                                class="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md hidden"
-                            >
-                                🔍 View in Langfuse
-                            </button>
-                            <button 
-                                onclick="refreshEvalStatus()" 
-                                class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                            >
-                                🔄 Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div id="evalStatusContent" class="space-y-2">
-                        <!-- Status loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Progress Bar -->
-                <div id="evalProgressContainer" class="mb-4 hidden">
-                    <div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        <span id="evalProgressText">Progress</span>
-                        <span id="evalProgressPercent">0%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div 
-                            id="evalProgressBar" 
-                            class="bg-green-600 h-2.5 rounded-full transition-all duration-300"
-                            style="width: 0%"
-                        ></div>
-                    </div>
-                </div>
-
-                <!-- Results -->
-                <div id="evalResultsContainer" class="hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                            <div class="text-sm text-gray-600 dark:text-gray-300">Accuracy</div>
-                            <div id="evalAccuracy" class="text-2xl font-bold text-green-600 dark:text-green-400">-</div>
-                        </div>
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                            <div class="text-sm text-gray-600 dark:text-gray-300">Mean Count Diff</div>
-                            <div id="evalMeanDiff" class="text-2xl font-bold text-blue-600 dark:text-blue-400">-</div>
-                        </div>
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                            <div class="text-sm text-gray-600 dark:text-gray-300">Status</div>
-                            <div id="evalPassed" class="text-2xl font-bold">-</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
@@ -2171,8 +2056,6 @@ function switchTab(tab) {
             loadExecutions().catch(err => console.error('Error loading executions:', err));
     } else if (tab === 'queue') {
             loadQueue().catch(err => console.error('Error loading queue:', err));
-    } else if (tab === 'evals') {
-            loadEvalPresets().catch(err => console.error('Error loading eval presets:', err));
         }
     } catch (error) {
         console.error(`Error loading tab ${tab}:`, error);
@@ -3677,16 +3560,37 @@ function renderAgentPrompts() {
     const parsePromptParts = (rawPrompt) => {
         let system = '';
         let user = rawPrompt || '';
+        let isTemplateFormat = false;
+        let templateData = {};
+        
         try {
             const parsed = JSON.parse(rawPrompt);
             if (parsed && typeof parsed === 'object') {
-                system = parsed.system || '';
-                user = parsed.user || parsed.prompt || '';
+                // Check if it's the new template format (extraction agents)
+                if (parsed.user_template) {
+                    isTemplateFormat = true;
+                    system = parsed.role || '';
+                    user = parsed.user_template || '';
+                    templateData = {
+                        role: parsed.role || '',
+                        user_template: parsed.user_template || '',
+                        task: parsed.task || parsed.objective || '',
+                        json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
+                        instructions: parsed.instructions || ''
+                    };
+                } else if (parsed.system || parsed.user) {
+                    // Legacy simple format
+                    system = parsed.system || '';
+                    user = parsed.user || parsed.prompt || '';
+                } else {
+                    // Fallback: treat as user content
+                    user = rawPrompt;
+                }
             }
         } catch (e) {
             // fallback: treat entire prompt as user content
         }
-        return { system, user };
+        return { system, user, isTemplateFormat, templateData };
     };
     
     // Display name mapping for agents
@@ -3707,6 +3611,11 @@ function renderAgentPrompts() {
         const isEditing = editingPrompts[agentName] || false;
         const displayName = agentDisplayNames[agentName] || agentName;
         const panelId = `${agentId}-prompt-panel`;
+        const isTemplateFormat = promptParts.isTemplateFormat;
+        const templateData = promptParts.templateData || {};
+        
+        // Check if this is an extraction agent (has template format)
+        const isExtractionAgent = isTemplateFormat || ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'CmdLineQA', 'SigQA', 'EventCodeQA', 'ProcTreeQA', 'RegQA'].includes(agentName);
         
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
@@ -3746,43 +3655,100 @@ function renderAgentPrompts() {
                                 `}
                             </div>
                         </div>
-                        ${instructions ? `
-                            <div class="mb-3">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
-                                ${isEditing ? `
-                                    <textarea id="${agentId}-instructions" 
-                                              rows="4"
-                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
-                                ` : `
-                                    <div id="${agentId}-instructions-display" 
-                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(instructions)}</div>
-                                `}
+                        ${isTemplateFormat || isExtractionAgent ? `
+                            <!-- Template-based format for extraction agents -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Role (Role)</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-role" 
+                                                  rows="2"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.role || promptParts.system)}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(templateData.role || promptParts.system)}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Template (with placeholders: {title}, {url}, {content}, {task}, {json_example}, {instructions})</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-user-template" 
+                                                  rows="10"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.user_template || promptParts.user)}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(templateData.user_template || promptParts.user)}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-task" 
+                                                  rows="2"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.task || '')}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(templateData.task || '')}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">JSON Example</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-json-example" 
+                                                  rows="8"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.json_example || '')}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(templateData.json_example || '')}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-instructions" 
+                                                  rows="8"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.instructions || instructions)}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(templateData.instructions || instructions)}</div>
+                                    `}
+                                </div>
                             </div>
-                        ` : ''}
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
-                                ${isEditing ? `
-                                    <textarea id="${agentId}-prompt-system" 
-                                              rows="6"
-                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
-                                ` : `
-                                    <div id="${agentId}-prompt-system-display" 
-                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.system)}</div>
-                                `}
+                        ` : `
+                            <!-- Legacy simple format -->
+                            ${instructions ? `
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-instructions" 
+                                                  rows="4"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                                    ` : `
+                                        <div id="${agentId}-instructions-display" 
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(instructions)}</div>
+                                    `}
+                                </div>
+                            ` : ''}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-system" 
+                                                  rows="6"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                    ` : `
+                                        <div id="${agentId}-prompt-system-display" 
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.system)}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Prompt</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-user" 
+                                                  rows="6"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                    ` : `
+                                        <div id="${agentId}-prompt-user-display" 
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.user)}</div>
+                                    `}
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Prompt</label>
-                                ${isEditing ? `
-                                    <textarea id="${agentId}-prompt-user" 
-                                              rows="6"
-                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
-                                ` : `
-                                    <div id="${agentId}-prompt-user-display" 
-                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.user)}</div>
-                                `}
-                            </div>
-                        </div>
+                        `}
                         ${isEditing ? `
                             <div class="mt-2">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
@@ -3823,25 +3789,59 @@ function escapeHtml(text) {
 
 async function saveAgentPrompt(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
-    const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
-    const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
-    const instructionsElement = document.getElementById(`${agentId}-instructions`);
     const changeDescriptionElement = document.getElementById(`${agentId}-change-description`);
     
-    if (!promptSystemElement || !promptUserElement) {
-        alert('Prompt elements not found');
-        return;
-    }
+    // Check if this is a template-format agent (extraction agents)
+    const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'CmdLineQA', 'SigQA', 'EventCodeQA', 'ProcTreeQA', 'RegQA'].includes(agentName);
     
-    const combinedPrompt = JSON.stringify({
-        system: promptSystemElement.value || "",
-        user: promptUserElement.value || ""
-    });
+    let combinedPrompt;
+    let instructions = null;
+    
+    if (isExtractionAgent) {
+        // Template format - collect all fields
+        const roleElement = document.getElementById(`${agentId}-prompt-role`);
+        const userTemplateElement = document.getElementById(`${agentId}-prompt-user-template`);
+        const taskElement = document.getElementById(`${agentId}-prompt-task`);
+        const jsonExampleElement = document.getElementById(`${agentId}-prompt-json-example`);
+        const instructionsElement = document.getElementById(`${agentId}-prompt-instructions`);
+        
+        if (!roleElement || !userTemplateElement) {
+            alert('Template prompt elements not found');
+            return;
+        }
+        
+        combinedPrompt = JSON.stringify({
+            role: roleElement.value || "",
+            user_template: userTemplateElement.value || "",
+            task: taskElement ? taskElement.value : "",
+            json_example: jsonExampleElement ? jsonExampleElement.value : "",
+            instructions: instructionsElement ? instructionsElement.value : ""
+        });
+        
+        instructions = instructionsElement ? instructionsElement.value : null;
+    } else {
+        // Legacy format
+        const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
+        const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
+        const instructionsElement = document.getElementById(`${agentId}-instructions`);
+        
+        if (!promptSystemElement || !promptUserElement) {
+            alert('Prompt elements not found');
+            return;
+        }
+        
+        combinedPrompt = JSON.stringify({
+            system: promptSystemElement.value || "",
+            user: promptUserElement.value || ""
+        });
+        
+        instructions = instructionsElement ? instructionsElement.value : null;
+    }
 
     const promptData = {
         agent_name: agentName,
         prompt: combinedPrompt,
-        instructions: instructionsElement ? instructionsElement.value : null,
+        instructions: instructions,
         change_description: changeDescriptionElement ? changeDescriptionElement.value : null
     };
     
@@ -4932,7 +4932,7 @@ function showTestModal(agentName, articleId) {
                     <div id="test-modal-progress" class="mb-4">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                            <span class="text-sm text-gray-500 dark:text-gray-400">Running extraction...</span>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">Dispatching to worker...</span>
                         </div>
                     </div>
                     <div id="test-modal-results" class="hidden">
@@ -4976,6 +4976,84 @@ function closeTestModal() {
     }
 }
 
+// Poll test status until complete
+async function pollTestStatus(taskId, agentName, articleId) {
+    const maxAttempts = 120; // 10 minutes max (5s intervals)
+    let attempts = 0;
+    
+    const pollInterval = setInterval(async () => {
+        attempts++;
+        
+        try {
+            const response = await fetch(`/api/workflow/config/test-status/${taskId}`);
+            const data = await response.json();
+            
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                
+                // Hide progress, show results
+                document.getElementById('test-modal-progress').classList.add('hidden');
+                const resultsDiv = document.getElementById('test-modal-results');
+                resultsDiv.classList.remove('hidden');
+                
+                const resultsContent = document.getElementById('test-modal-results-content');
+                
+                if (data.result && data.result.success) {
+                    resultsContent.textContent = JSON.stringify(data.result.result || data.result, null, 2);
+                    resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                } else {
+                    const errorMsg = data.result?.error || data.error || 'Unknown error';
+                    resultsContent.textContent = `Error: ${errorMsg}`;
+                    resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                }
+                
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+                
+            } else if (data.status === 'failed') {
+                clearInterval(pollInterval);
+                
+                document.getElementById('test-modal-progress').classList.add('hidden');
+                const resultsDiv = document.getElementById('test-modal-results');
+                resultsDiv.classList.remove('hidden');
+                const resultsContent = document.getElementById('test-modal-results-content');
+                resultsContent.textContent = `Error: ${data.error || 'Test failed'}`;
+                resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+                
+            } else if (data.status === 'pending') {
+                // Still running, update progress message
+                const progressDiv = document.getElementById('test-modal-progress');
+                const progressText = progressDiv.querySelector('span');
+                if (progressText) {
+                    progressText.textContent = `Test is running in worker... (${attempts * 5}s)`;
+                }
+            }
+            
+            // Timeout after max attempts
+            if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                document.getElementById('test-modal-progress').classList.add('hidden');
+                const resultsDiv = document.getElementById('test-modal-results');
+                resultsDiv.classList.remove('hidden');
+                const resultsContent = document.getElementById('test-modal-results-content');
+                resultsContent.textContent = `Error: Test timed out after ${maxAttempts * 5} seconds. The task may still be running in the worker.`;
+                resultsContent.className = 'bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded border border-yellow-200 dark:border-yellow-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+            }
+            
+        } catch (error) {
+            clearInterval(pollInterval);
+            document.getElementById('test-modal-progress').classList.add('hidden');
+            const resultsDiv = document.getElementById('test-modal-results');
+            resultsDiv.classList.remove('hidden');
+            const resultsContent = document.getElementById('test-modal-results-content');
+            resultsContent.textContent = `Error polling status: ${error.message}`;
+            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+        }
+    }, 5000); // Poll every 5 seconds
+}
+
 function promptForArticleId(defaultId = 2155) {
     const articleId = prompt(`Enter article ID to test with:`, defaultId.toString());
     if (articleId === null) return null; // User cancelled
@@ -5003,6 +5081,7 @@ async function testSubAgent(agentName, articleId) {
     const filterSettings = getContentFilterSettings();
     
     try {
+        // Dispatch test task to worker
         const response = await fetch('/api/workflow/config/test-subagent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -5014,42 +5093,21 @@ async function testSubAgent(agentName, articleId) {
             })
         });
         
-        const data = await response.json();
-        
-        // Hide progress, show results
-        document.getElementById('test-modal-progress').classList.add('hidden');
-        const resultsDiv = document.getElementById('test-modal-results');
-        resultsDiv.classList.remove('hidden');
-        
-        const resultsContent = document.getElementById('test-modal-results-content');
-        if (response.ok && data.success) {
-            resultsContent.textContent = JSON.stringify(data.result, null, 2);
-            resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-            // Reset actions to just Close button
-            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
-        } else {
-            const errorMsg = data.detail || 'Unknown error';
-            resultsContent.textContent = `Error: ${errorMsg}`;
-            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-            
-            // Check if LMStudio is busy
-            const isLmstudioBusy = response.status === 503 && (
-                errorMsg.toLowerCase().includes('busy') || 
-                errorMsg.toLowerCase().includes('unavailable') ||
-                errorMsg.toLowerCase().includes('would you like to wait')
-            );
-            
-            if (isLmstudioBusy) {
-                // Show retry options
-                document.getElementById('test-modal-actions').innerHTML = `
-                    <button onclick="testSubAgent('${agentName}', ${articleId})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">Wait and Retry</button>
-                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
-                `;
-            } else {
-                // Reset actions to just Close button
-                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
-            }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to start test');
         }
+        
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        if (!taskId) {
+            throw new Error('No task ID returned from server');
+        }
+        
+        // Poll for results
+        await pollTestStatus(taskId, agentName, articleId);
+        
     } catch (error) {
         document.getElementById('test-modal-progress').classList.add('hidden');
         const resultsDiv = document.getElementById('test-modal-results');
@@ -5057,7 +5115,6 @@ async function testSubAgent(agentName, articleId) {
         const resultsContent = document.getElementById('test-modal-results-content');
         resultsContent.textContent = `Error: ${error.message}`;
         resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-        // Reset actions to just Close button
         document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
     }
 }
@@ -5068,6 +5125,7 @@ async function testRankAgent(articleId) {
     const filterSettings = getContentFilterSettings();
     
     try {
+        // Dispatch test task to worker
         const response = await fetch('/api/workflow/config/test-rankagent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -5078,42 +5136,21 @@ async function testRankAgent(articleId) {
             })
         });
         
-        const data = await response.json();
-        
-        // Hide progress, show results
-        document.getElementById('test-modal-progress').classList.add('hidden');
-        const resultsDiv = document.getElementById('test-modal-results');
-        resultsDiv.classList.remove('hidden');
-        
-        const resultsContent = document.getElementById('test-modal-results-content');
-        if (response.ok && data.success) {
-            resultsContent.textContent = JSON.stringify(data.result, null, 2);
-            resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-            // Reset actions to just Close button
-            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
-        } else {
-            const errorMsg = data.detail || 'Unknown error';
-            resultsContent.textContent = `Error: ${errorMsg}`;
-            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-            
-            // Check if LMStudio is busy
-            const isLmstudioBusy = response.status === 503 && (
-                errorMsg.toLowerCase().includes('busy') || 
-                errorMsg.toLowerCase().includes('unavailable') ||
-                errorMsg.toLowerCase().includes('would you like to wait')
-            );
-            
-            if (isLmstudioBusy) {
-                // Show retry options
-                document.getElementById('test-modal-actions').innerHTML = `
-                    <button onclick="testRankAgent(${articleId})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">Wait and Retry</button>
-                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
-                `;
-            } else {
-                // Reset actions to just Close button
-                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
-            }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to start test');
         }
+        
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        if (!taskId) {
+            throw new Error('No task ID returned from server');
+        }
+        
+        // Poll for results
+        await pollTestStatus(taskId, 'RankAgent', articleId);
+        
     } catch (error) {
         document.getElementById('test-modal-progress').classList.add('hidden');
         const resultsDiv = document.getElementById('test-modal-results');
@@ -5121,7 +5158,6 @@ async function testRankAgent(articleId) {
         const resultsContent = document.getElementById('test-modal-results-content');
         resultsContent.textContent = `Error: ${error.message}`;
         resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-        // Reset actions to just Close button
         document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
     }
 }
@@ -5132,6 +5168,7 @@ async function testSigmaAgent(articleId) {
     const filterSettings = getContentFilterSettings();
 
     try {
+        // Dispatch test task to worker
         const response = await fetch('/api/workflow/config/test-sigmaagent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -5142,38 +5179,21 @@ async function testSigmaAgent(articleId) {
             })
         });
 
-        const data = await response.json();
-
-        // Hide progress, show results
-        document.getElementById('test-modal-progress').classList.add('hidden');
-        const resultsDiv = document.getElementById('test-modal-results');
-        resultsDiv.classList.remove('hidden');
-
-        const resultsContent = document.getElementById('test-modal-results-content');
-        if (response.ok && data.success) {
-            resultsContent.textContent = JSON.stringify(data.result, null, 2);
-            resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
-        } else {
-            const errorMsg = data.detail || 'Unknown error';
-            resultsContent.textContent = `Error: ${errorMsg}`;
-            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
-
-            const isLmstudioBusy = response.status === 503 && (
-                errorMsg.toLowerCase().includes('busy') ||
-                errorMsg.toLowerCase().includes('unavailable') ||
-                errorMsg.toLowerCase().includes('would you like to wait')
-            );
-
-            if (isLmstudioBusy) {
-                document.getElementById('test-modal-actions').innerHTML = `
-                    <button onclick="testSigmaAgent(${articleId})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm">Wait and Retry</button>
-                    <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
-                `;
-            } else {
-                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
-            }
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to start test');
         }
+
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        if (!taskId) {
+            throw new Error('No task ID returned from server');
+        }
+        
+        // Poll for results
+        await pollTestStatus(taskId, 'SigmaAgent', articleId);
+        
     } catch (error) {
         document.getElementById('test-modal-progress').classList.add('hidden');
         const resultsDiv = document.getElementById('test-modal-results');
@@ -10367,7 +10387,7 @@ function initializeTabs() {
             window.location.hash = 'executions';
             return;
         }
-        if (hash && ['config', 'executions', 'queue', 'evals'].includes(hash)) {
+        if (hash && ['config', 'executions', 'queue'].includes(hash)) {
             switchTab(hash);
         } else {
             // Default to config tab
@@ -10385,7 +10405,7 @@ function initializeTabs() {
         hash = 'executions';
         window.location.hash = 'executions';
         switchTab('executions');
-    } else if (hash && ['config', 'executions', 'queue', 'evals'].includes(hash)) {
+    } else if (hash && ['config', 'executions', 'queue'].includes(hash)) {
         switchTab(hash);
     } else {
         // Default to config tab
@@ -10404,254 +10424,7 @@ function initializeSaveButton() {
     }
 }
 
-// Evaluation Functions
-let currentEvalRunId = null;
-let evalStatusInterval = null;
 
-async function loadEvalPresets() {
-    try {
-        const response = await fetch('/api/evaluations/workflow-configs');
-        const data = await response.json();
-        const presetSelect = document.getElementById('evalPresetId');
-        
-        // Clear existing options except "Use Active Preset"
-        presetSelect.innerHTML = '<option value="">Use Active Preset</option>';
-        
-        // Add preset options
-        data.configs.forEach(config => {
-            const option = document.createElement('option');
-            option.value = config.id;
-            option.textContent = `${config.description || `Config v${config.version}`} ${config.is_active ? '(Active)' : ''}`;
-            presetSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading eval presets:', error);
-        alert('Failed to load presets: ' + error.message);
-    }
-}
-
-async function startEvaluation() {
-    const btn = document.getElementById('startEvalBtn');
-    const datasetName = document.getElementById('evalDatasetName').value.trim() || 'cmdline_extractor_gt';
-    const presetId = document.getElementById('evalPresetId').value;
-    
-    if (!datasetName) {
-        alert('Dataset name is required');
-        return;
-    }
-    
-    btn.disabled = true;
-    btn.textContent = 'Starting...';
-    
-    try {
-        const requestBody = {
-            dataset_name: datasetName
-        };
-        
-        if (presetId) {
-            requestBody.preset_id = parseInt(presetId);
-        }
-        
-        const response = await fetch('/api/evaluations/run-preset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to start evaluation');
-        }
-        
-        const data = await response.json();
-        currentEvalRunId = data.eval_run_id;
-        
-        // Show status container
-        document.getElementById('evalStatusContainer').classList.remove('hidden');
-        
-        // Start polling for status
-        startEvalStatusPolling();
-        
-        alert('Evaluation started successfully');
-        btn.disabled = false;
-        btn.textContent = '🚀 Start Evaluation Run';
-        
-    } catch (error) {
-        console.error('Error starting evaluation:', error);
-        alert('Failed to start evaluation: ' + error.message);
-        btn.disabled = false;
-        btn.textContent = '🚀 Start Evaluation Run';
-    }
-}
-
-function startEvalStatusPolling() {
-    if (evalStatusInterval) {
-        clearInterval(evalStatusInterval);
-    }
-    
-    // Poll immediately, then every 3 seconds
-    refreshEvalStatus();
-    evalStatusInterval = setInterval(refreshEvalStatus, 3000);
-}
-
-function stopEvalStatusPolling() {
-    if (evalStatusInterval) {
-        clearInterval(evalStatusInterval);
-        evalStatusInterval = null;
-    }
-}
-
-async function refreshEvalStatus() {
-    if (!currentEvalRunId) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/evaluations/runs/${currentEvalRunId}/status`);
-        if (!response.ok) {
-            throw new Error('Failed to fetch status');
-        }
-        
-        const data = await response.json();
-        updateEvalStatusDisplay(data);
-        
-        // Stop polling if completed or failed
-        if (data.status === 'completed' || data.status === 'failed') {
-            stopEvalStatusPolling();
-        }
-    } catch (error) {
-        console.error('Error refreshing eval status:', error);
-    }
-}
-
-// Store eval run ID for Langfuse access
-let currentEvalRunIdForLangfuse = null;
-
-async function viewEvalInLangfuse() {
-    if (!currentEvalRunIdForLangfuse) {
-        alert('No evaluation run selected. Start an evaluation first.');
-        return;
-    }
-    
-    try {
-        // Get debug info (Langfuse trace URL) - same pattern as workflow executions
-        const response = await fetch(`/api/evaluations/runs/${currentEvalRunIdForLangfuse}/debug-info`);
-        if (response.ok) {
-            const info = await response.json();
-            const traceUrl = info.agent_chat_url || info.search_url;
-            
-            if (traceUrl) {
-                // Check if Langfuse is configured
-                if (!info.uses_langsmith && info.instructions && info.instructions.includes('not configured')) {
-                    const proceed = confirm(
-                        'Langfuse keys are not configured. The trace will only exist if the evaluation ran with Langfuse tracing enabled.\n\n' +
-                        'Would you like to open the trace URL anyway?'
-                    );
-                    if (!proceed) {
-                        return;
-                    }
-                }
-                
-                // Log instructions if available
-                if (info.instructions) {
-                    console.log('Debug Instructions:', info.instructions);
-                }
-                
-                // Show helpful message with search info
-                let message = 'Opening Langfuse session...\n\n';
-                if (info.session_id) {
-                    message += `If the session is not found (404), search for:\n`;
-                    message += `Session ID: ${info.session_id}\n`;
-                    message += `\nUse the search/filter in Langfuse UI to find traces by session_id.`;
-                }
-                
-                // Open Langfuse session directly in new tab
-                window.open(traceUrl, '_blank');
-                
-                // Show message after a brief delay
-                setTimeout(() => {
-                    if (info.instructions) {
-                        console.log('Langfuse Debug Info:', info);
-                    }
-                }, 100);
-            } else {
-                alert('Langfuse URL not available. Make sure Langfuse is configured.');
-            }
-        } else {
-            const error = await response.json();
-            alert('Failed to get Langfuse URL: ' + (error.detail || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('Error opening Langfuse:', error);
-        alert('Error opening Langfuse: ' + error.message);
-    }
-}
-
-function updateEvalStatusDisplay(data) {
-    const statusContent = document.getElementById('evalStatusContent');
-    const progressContainer = document.getElementById('evalProgressContainer');
-    const resultsContainer = document.getElementById('evalResultsContainer');
-    const langfuseBtn = document.getElementById('viewLangfuseBtn');
-    
-    // Store eval run ID for Langfuse access
-    currentEvalRunIdForLangfuse = data.eval_run_id || null;
-    
-    // Show Langfuse button if we have an eval run ID
-    if (currentEvalRunIdForLangfuse) {
-        langfuseBtn.classList.remove('hidden');
-    } else {
-        langfuseBtn.classList.add('hidden');
-    }
-    
-    // Status text
-    let statusHtml = `
-        <div class="flex items-center gap-2 mb-2">
-            <span class="font-medium text-gray-900 dark:text-white">Status:</span>
-            <span class="px-2 py-1 rounded text-sm font-semibold ${
-                data.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                data.status === 'running' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                data.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-            }">${data.status.toUpperCase()}</span>
-        </div>
-        <div class="text-sm text-gray-600 dark:text-gray-400">
-            <div>Eval Run ID: <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${data.eval_run_id}</code></div>
-            ${data.langfuse_experiment_name ? `<div>Experiment: ${data.langfuse_experiment_name}</div>` : ''}
-            ${data.error_message ? `<div class="text-red-600 dark:text-red-400 mt-2">Error: ${data.error_message}</div>` : ''}
-        </div>
-    `;
-    statusContent.innerHTML = statusHtml;
-    
-    // Progress bar
-    if (data.total_items > 0) {
-        progressContainer.classList.remove('hidden');
-        const progress = (data.completed_items / data.total_items) * 100;
-        document.getElementById('evalProgressText').textContent = 
-            `Processing: ${data.completed_items} / ${data.total_items} articles`;
-        document.getElementById('evalProgressPercent').textContent = `${Math.round(progress)}%`;
-        document.getElementById('evalProgressBar').style.width = `${progress}%`;
-    } else {
-        progressContainer.classList.add('hidden');
-    }
-    
-    // Results
-    if (data.status === 'completed' && data.accuracy !== null) {
-        resultsContainer.classList.remove('hidden');
-        document.getElementById('evalAccuracy').textContent = 
-            data.accuracy !== null ? `${(data.accuracy * 100).toFixed(1)}%` : '-';
-        document.getElementById('evalMeanDiff').textContent = 
-            data.mean_count_diff !== null ? data.mean_count_diff.toFixed(2) : '-';
-        document.getElementById('evalPassed').textContent = 
-            data.passed ? '✅ Passed' : '❌ Failed';
-        document.getElementById('evalPassed').className = 
-            data.passed ? 'text-2xl font-bold text-green-600 dark:text-green-400' : 
-            'text-2xl font-bold text-red-600 dark:text-red-400';
-    } else {
-        resultsContainer.classList.add('hidden');
-    }
-}
 
 // --- Global fallback definitions to ensure sub-agent provider inputs always render ---
 const subAgentModelKeysGlobal = {
