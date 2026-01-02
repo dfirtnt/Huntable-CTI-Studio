@@ -2068,12 +2068,16 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                 
                 # Update SubagentEvaluationTable if this is an eval run
                 # Do this AFTER commit to ensure execution.extraction_result is saved
+                # Refresh execution to ensure we have the latest extraction_result
+                db_session.refresh(execution)
                 _update_subagent_eval_on_completion(execution, db_session)
                 
                 logger.info(f"[Workflow {execution.id}] Marked as 'completed' - workflow finished normally")
             elif execution.status == 'completed':
                 # Execution already marked as completed - still update eval if needed
                 # This handles cases where execution was completed elsewhere
+                # Refresh execution to ensure we have the latest extraction_result
+                db_session.refresh(execution)
                 _update_subagent_eval_on_completion(execution, db_session)
             elif execution.status == 'failed':
                 # Already marked as failed - ensure current_step is correct

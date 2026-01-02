@@ -128,6 +128,23 @@
         </div>
     </div>
 
+    <!-- Commandlines Modal -->
+    <div id="commandlinesModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Extracted Commandlines</h3>
+                <button id="closeCommandlinesModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="commandlinesContent" class="p-6 overflow-y-auto flex-1">
+                <p class="text-gray-500 dark:text-gray-400">Loading commandlines...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Results Comparison -->
     <div class="eval-card rounded-lg shadow-lg p-6">
         <div class="flex justify-between items-center mb-4">
@@ -146,9 +163,17 @@
         </div>
         
         <!-- Aggregate Scores Section -->
-        <div id="aggregateScores" class="mb-6 hidden">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Aggregate Scores by Config Version</h3>
-            <div id="aggregateScoresContent" class="space-y-4"></div>
+        <div id="aggregateScores" class="mb-6 hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+            <div 
+                data-collapsible-panel="aggregate-scores-panel"
+                class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer"
+            >
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Aggregate Scores by Config Version</h3>
+                <span id="aggregate-scores-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+            </div>
+            <div id="aggregate-scores-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+                <div id="aggregateScoresContent" class="space-y-4"></div>
+            </div>
         </div>
         
         <div id="resultsTable" class="comparison-table">
@@ -688,12 +713,12 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     }
     
     // Build table with horizontal scrolling wrapper
-    let html = '<div class="overflow-x-auto">';
+    let html = '<div id="resultsTableScrollContainer" class="overflow-x-auto">';
     html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Article URL</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="min-width: 350px;">Article URL</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 350px; min-width: 100px;">Expected</th>';
     
     // Add one column per config version with tooltip
     configVersions.forEach(version => {
@@ -715,9 +740,17 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         const urlDisplay = article.url.length > 70 ? article.url.substring(0, 70) + '...' : article.url;
         const expectedCount = article.expected_count || 0;
         
+        // Get article_id from article object or first version result
+        const articleId = article.article_id || (Object.values(article.versions)[0]?.article_id);
+        
+        // Make URL clickable if article_id is available
+        const urlCell = articleId 
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${article.url}">${urlDisplay}</a>`
+            : `<span title="${article.url}">${urlDisplay}</span>`;
+        
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" title="${article.url}">${urlDisplay}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" style="min-width: 350px;">${urlCell}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-9" style="left: 350px; min-width: 100px;">${expectedCount}</td>`;
         
         // Add one cell per config version
         configVersions.forEach(version => {
@@ -760,7 +793,12 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                     ? (result.score === 0 ? 'status-exact' : scoreClass)
                     : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
                 
-                html += `<td class="px-4 py-3 whitespace-nowrap text-center">`;
+                // Make cell clickable if completed and has execution_id
+                const isClickable = result.status === 'completed' && result.execution_id;
+                const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
+                const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
+                
+                html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" ${onClickAttr}>`;
                 html += `<div class="flex flex-col items-center gap-1.5">`;
                 if (actualCount !== '-') {
                     // Main count: larger, prominent
@@ -788,6 +826,14 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
+    
+    // Scroll to the right to show latest config versions
+    setTimeout(() => {
+        const scrollContainer = document.getElementById('resultsTableScrollContainer');
+        if (scrollContainer) {
+            scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+        }
+    }, 0);
 }
 
 // Render subagent eval results with color-coded scores
@@ -815,6 +861,12 @@ function renderSubagentResults(results) {
         const expectedCount = result.expected_count || 0;
         const actualCount = result.actual_count !== null ? result.actual_count : '-';
         const score = result.score !== null ? result.score : '-';
+        
+        // Make URL clickable if article_id is available
+        const articleId = result.article_id;
+        const urlCell = articleId 
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${result.url}">${urlDisplay}</a>`
+            : `<span title="${result.url}">${urlDisplay}</span>`;
         
         // Determine color coding based on score
         let scoreClass = 'status-pending';
@@ -846,11 +898,16 @@ function renderSubagentResults(results) {
             ? (result.score === 0 ? 'status-exact' : scoreClass)
             : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
         
+        // Make result cell clickable if completed and has execution_id
+        const isClickable = result.status === 'completed' && result.execution_id;
+        const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
+        const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
+        
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white" title="${result.url}">${urlDisplay}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${urlCell}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${actualCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm">`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
         html += `<div class="flex items-center gap-2">`;
         html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
         if (scoreBadge) {
@@ -911,6 +968,11 @@ async function loadAggregateScores() {
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';
+        
+        // Initialize collapsible panel after showing
+        if (typeof initCollapsiblePanels === 'function') {
+            initCollapsiblePanels(aggregateScores);
+        }
         
         aggregates.forEach(agg => {
             const card = document.createElement('div');
@@ -1001,6 +1063,7 @@ async function loadPreviousResults() {
                 byUrl[url] = {
                     url: url,
                     expected_count: result.expected_count,
+                    article_id: result.article_id, // Store article_id at top level
                     versions: {}
                 };
             }
@@ -1010,7 +1073,9 @@ async function loadPreviousResults() {
         });
         
         // Get all unique config versions and sort them (ascending - oldest first)
-        const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown').sort((a, b) => parseInt(a) - parseInt(b));
+        // Filter out excluded versions
+        const excludedVersions = [594, 603, 606];
+        const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
         
         // Fetch model info for all config versions
         let modelsByVersion = {};
@@ -1138,6 +1203,104 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+});
+
+// Show commandlines modal
+async function showCommandlines(executionId, articleUrl, count) {
+    const modal = document.getElementById('commandlinesModal');
+    const content = document.getElementById('commandlinesContent');
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    content.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading commandlines...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/execution/${executionId}/commandlines`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const commandlines = data.commandlines || [];
+        
+        if (commandlines.length === 0) {
+            content.innerHTML = `
+                <div class="text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">No commandlines found for this execution.</p>
+                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${articleUrl}</a></p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Display commandlines
+        let html = `
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> commandline(s) 
+                    from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
+                </p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${articleUrl}</a>
+                </p>
+            </div>
+            <div class="space-y-2">
+        `;
+        
+        commandlines.forEach((cmdline, index) => {
+            html += `
+                <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                    <div class="flex items-start gap-3">
+                        <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
+                        <code class="flex-1 text-sm font-mono text-gray-900 dark:text-gray-100 break-all">${escapeHtml(cmdline)}</code>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        content.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading commandlines:', error);
+        content.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-red-600 dark:text-red-400">Error loading commandlines: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Close modal
+function closeCommandlinesModal() {
+    const modal = document.getElementById('commandlinesModal');
+    modal.classList.add('hidden');
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Event listeners for modal
+document.getElementById('closeCommandlinesModal').addEventListener('click', closeCommandlinesModal);
+document.getElementById('commandlinesModal').addEventListener('click', (e) => {
+    if (e.target.id === 'commandlinesModal') {
+        closeCommandlinesModal();
+    }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('commandlinesModal');
+        if (!modal.classList.contains('hidden')) {
+            closeCommandlinesModal();
+        }
+    }
 });
 
 // Initialize
