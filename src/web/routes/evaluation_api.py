@@ -388,6 +388,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                             "config_id": config.id,
                             "config_version": config.version,
                             "eval_run": True,
+                            "skip_rank_agent": True,  # Bypass rank agent for evals
                             "original_config_id": original_active.id
                             if original_active
                             else None,
@@ -1126,4 +1127,71 @@ async def get_subagent_eval_aggregate(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting aggregate eval scores: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config-versions-models")
+async def get_config_versions_models(
+    request: Request,
+    config_versions: str = Query(..., description="Comma-separated list of config version numbers"),
+):
+    """Get agent models for specified config versions."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            version_list = [int(v.strip()) for v in config_versions.split(",") if v.strip()]
+            
+            if not version_list:
+                return {"models_by_version": {}}
+            
+            configs = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.version.in_(version_list)
+            ).all()
+            
+            models_by_version = {}
+            for config in configs:
+                agent_models = config.agent_models or {}
+                qa_enabled = config.qa_enabled or {}
+                agent_prompts = config.agent_prompts or {}
+                
+                # Get disabled extract agents (same logic as frontend)
+                extract_settings = agent_prompts.get("ExtractAgentSettings") or agent_prompts.get("ExtractAgent") or {}
+                disabled_raw = extract_settings.get("disabled_agents") or extract_settings.get("disabled_sub_agents") or []
+                
+                disabled_set = set()
+                if isinstance(disabled_raw, list):
+                    disabled_set = set(disabled_raw)
+                elif isinstance(disabled_raw, dict):
+                    disabled_set = {
+                        key for key, value in disabled_raw.items()
+                        if value is False or value == 0 or (isinstance(value, str) and value.lower() == "false")
+                    }
+                
+                # Build model list (same format as frontend)
+                model_list = []
+                
+                # Main agents (only if QA enabled)
+                if agent_models.get("SigmaAgent") and qa_enabled.get("SigmaAgent"):
+                    provider = agent_models.get("SigmaAgent_provider") or "lmstudio"
+                    model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider})")
+                
+                # Sub-agents (only if enabled and has model)
+                for agent in ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract"]:
+                    model_key = f"{agent}_model"
+                    if agent_models.get(model_key) and agent not in disabled_set:
+                        provider = agent_models.get(f"{agent}_provider") or "lmstudio"
+                        model_list.append(f"{agent}: {agent_models[model_key]} ({provider})")
+                
+                models_by_version[config.version] = {
+                    "agent_models": agent_models,
+                    "display_text": "\n".join(model_list) if model_list else "No models configured"
+                }
+            
+            return {"models_by_version": models_by_version}
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error getting config versions models: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

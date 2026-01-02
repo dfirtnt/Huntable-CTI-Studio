@@ -26,7 +26,6 @@
     }
     .comparison-table {
         overflow-x: auto;
-        width: 100%;
     }
     .status-badge {
         padding: 0.25rem 0.75rem;
@@ -43,6 +42,10 @@
         color: white;
     }
     .status-pending {
+        background-color: #F59E0B;
+        color: white;
+    }
+    .status-warning {
         background-color: #F59E0B;
         color: white;
     }
@@ -199,92 +202,22 @@ async function loadActiveConfig() {
         const disabled = getDisabledExtractAgentsFromConfig(data);
         const disabledSet = new Set(disabled);
         
-        // Helper to check if model is embedding (exclude from display)
-        function isEmbeddingModel(modelName) {
-            if (!modelName) return false;
-            const lower = modelName.toLowerCase();
-            return lower.includes('bert') || 
-                   lower.includes('embedding') || 
-                   lower.includes('encoder') ||
-                   lower.includes('text-embedding') ||
-                   lower.includes('sentence-transformers') ||
-                   lower.includes('all-mpnet') ||
-                   lower.includes('e5-');
-        }
-        
-        // Main agents - only show if enabled
-        // Rank Agent - check if enabled
-        const rankAgentEnabled = data.rank_agent_enabled !== false; // Default true
-        if (rankAgentEnabled && models.RankAgent && !isEmbeddingModel(models.RankAgent)) {
-            const provider = models.RankAgent_provider || 'lmstudio';
-            selectedModels.push(`Rank: ${models.RankAgent} (${provider})`);
-        }
-        
-        // Extract Agent - always enabled (no toggle)
-        if (models.ExtractAgent && !isEmbeddingModel(models.ExtractAgent)) {
-            const provider = models.ExtractAgent_provider || 'lmstudio';
-            selectedModels.push(`Extract: ${models.ExtractAgent} (${provider})`);
-        }
-        
-        // SIGMA Agent - only show if QA enabled (matching workflow.html logic)
-        if (qaEnabled.SigmaAgent && models.SigmaAgent && !isEmbeddingModel(models.SigmaAgent)) {
+        // Main agents (only if QA enabled)
+        if (models.SigmaAgent && qaEnabled.SigmaAgent) {
             const provider = models.SigmaAgent_provider || 'lmstudio';
             selectedModels.push(`SIGMA: ${models.SigmaAgent} (${provider})`);
         }
+        // Note: Extract and Rank agents are not shown in Selected Models (only SIGMA and sub-agents)
         
-        // Sub-agents - only show if not disabled
-        const subAgents = [
-            { name: 'CmdlineExtract', modelKey: 'CmdlineExtract_model' },
-            { name: 'SigExtract', modelKey: 'SigExtract_model' },
-            { name: 'EventCodeExtract', modelKey: 'EventCodeExtract_model' },
-            { name: 'ProcTreeExtract', modelKey: 'ProcTreeExtract_model' },
-            { name: 'RegExtract', modelKey: 'RegExtract_model' }
-        ];
-        
-        subAgents.forEach(subAgent => {
-            // Skip if agent is disabled
-            if (disabledSet.has(subAgent.name)) return;
-            
-            const model = models[subAgent.modelKey];
-            if (model && !isEmbeddingModel(model)) {
-                const provider = models[`${subAgent.name}_provider`] || 'lmstudio';
-                selectedModels.push(`${subAgent.name}: ${model} (${provider})`);
+        // Sub-agents (only if enabled and has model)
+        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+            const modelKey = `${agent}_model`;
+            // Only show if model exists and agent is not disabled
+            if (models[modelKey] && !disabledSet.has(agent)) {
+                const provider = models[`${agent}_provider`] || 'lmstudio';
+                selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
             }
         });
-        
-        // QA agents - only show if corresponding agent is enabled AND QA is enabled
-        const qaAgents = [
-            { name: 'CmdLineQA', modelKey: 'CmdLineQA', subAgent: 'CmdlineExtract' },
-            { name: 'SigQA', modelKey: 'SigQA', subAgent: 'SigExtract' },
-            { name: 'EventCodeQA', modelKey: 'EventCodeQA', subAgent: 'EventCodeExtract' },
-            { name: 'ProcTreeQA', modelKey: 'ProcTreeQA', subAgent: 'ProcTreeExtract' },
-            { name: 'RegQA', modelKey: 'RegQA', subAgent: 'RegExtract' },
-            { name: 'RankAgentQA', modelKey: 'RankAgentQA', subAgent: null } // RankAgentQA doesn't have a sub-agent
-        ];
-        
-        qaAgents.forEach(qaAgent => {
-            // For sub-agent QA: check if sub-agent is enabled AND QA is enabled
-            if (qaAgent.subAgent) {
-                if (disabledSet.has(qaAgent.subAgent)) return; // Sub-agent is disabled
-                if (!qaEnabled[qaAgent.subAgent]) return; // QA not enabled for this sub-agent
-            } else {
-                // For RankAgentQA: check if RankAgent is enabled AND QA is enabled
-                if (!rankAgentEnabled) return;
-                if (!qaEnabled.RankAgent) return;
-            }
-            
-            const model = models[qaAgent.modelKey];
-            if (model && !isEmbeddingModel(model)) {
-                const provider = models[`${qaAgent.modelKey}_provider`] || 'lmstudio';
-                selectedModels.push(`${qaAgent.name}: ${model} (${provider})`);
-            }
-        });
-        
-        // OS Detection fallback - only if enabled and has model
-        if (data.sigma_fallback_enabled && models.OSDetectionAgent_fallback && !isEmbeddingModel(models.OSDetectionAgent_fallback)) {
-            const provider = models.OSDetectionAgent_fallback_provider || 'lmstudio';
-            selectedModels.push(`OS Fallback: ${models.OSDetectionAgent_fallback} (${provider})`);
-        }
         
         const modelsHtml = selectedModels.length > 0 
             ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
@@ -721,12 +654,9 @@ async function pollSubagentResults(executions) {
                 statusText.textContent = `✅ All executions completed. Rendering results...`;
                 statusText.className = 'text-sm text-green-600 dark:text-green-400';
                 
-                // Small delay to ensure UI updates, then render and update status
+                // Small delay to ensure UI updates
                 setTimeout(() => {
                     renderSubagentResults(results);
-                    // Update status after rendering completes
-                    statusText.textContent = `✅ Results rendered. ${results.length} evaluation(s) completed.`;
-                    statusText.className = 'text-sm text-green-600 dark:text-green-400';
                 }, 100);
             } else if (isPolling) {
                 // Schedule next poll
@@ -749,7 +679,7 @@ async function pollSubagentResults(executions) {
 }
 
 // Render subagent eval results with color-coded scores (pivot format: one row per article, config versions as columns)
-function renderSubagentResultsPivot(articleRows, configVersions) {
+function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion = {}) {
     const resultsTable = document.getElementById('resultsTable');
     
     if (!articleRows || articleRows.length === 0) {
@@ -765,9 +695,18 @@ function renderSubagentResultsPivot(articleRows, configVersions) {
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Article URL</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">Expected</th>';
     
-    // Add one column per config version
+    // Add one column per config version with tooltip
     configVersions.forEach(version => {
-        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">v${version}</th>`;
+        const modelInfo = modelsByVersion[version];
+        let tooltipText = 'Model info not available';
+        
+        if (modelInfo && modelInfo.display_text) {
+            tooltipText = modelInfo.display_text;
+        }
+        
+        // Escape HTML in tooltip text
+        const escapedTooltip = tooltipText.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap cursor-help" title="${escapedTooltip}">v${version}</th>`;
     });
     
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
@@ -777,8 +716,8 @@ function renderSubagentResultsPivot(articleRows, configVersions) {
         const expectedCount = article.expected_count || 0;
         
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" title="${article.url}">${urlDisplay}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-300 font-medium whitespace-nowrap text-center">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" title="${article.url}">${urlDisplay}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center">${expectedCount}</td>`;
         
         // Add one cell per config version
         configVersions.forEach(version => {
@@ -821,19 +760,23 @@ function renderSubagentResultsPivot(articleRows, configVersions) {
                     ? (result.score === 0 ? 'status-exact' : scoreClass)
                     : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
                 
-                html += `<td class="px-4 py-3 text-sm whitespace-nowrap text-center">`;
-                html += `<div class="flex flex-col items-center gap-1">`;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-center">`;
+                html += `<div class="flex flex-col items-center gap-1.5">`;
                 if (actualCount !== '-') {
-                    html += `<span class="font-medium text-gray-900 dark:text-gray-300">${actualCount}</span>`;
-                    html += `<span class="text-xs text-gray-600 dark:text-gray-400">(${scoreDisplay})</span>`;
+                    // Main count: larger, prominent
+                    html += `<span class="text-lg font-semibold text-gray-700 dark:text-gray-200">${actualCount}</span>`;
+                    // Difference and error on same line for better readability
+                    if (scoreBadge) {
+                        html += `<div class="flex items-center gap-1.5 text-xs">`;
+                        html += `<span class="text-gray-500 dark:text-gray-400">${scoreDisplay}</span>`;
+                        html += `<span class="status-badge ${scoreClass} px-1.5 py-0.5">${scoreBadge}</span>`;
+                        html += `</div>`;
+                    }
                 } else {
                     html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
                 }
-                if (scoreBadge) {
-                    html += `<span class="status-badge ${scoreClass} text-xs">${scoreBadge}</span>`;
-                }
                 if (result.status !== 'completed') {
-                    html += `<span class="status-badge ${statusClass} text-xs">${result.status}</span>`;
+                    html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
                 html += `</div></td>`;
             }
@@ -845,36 +788,83 @@ function renderSubagentResultsPivot(articleRows, configVersions) {
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
-    
-    // Update status text after rendering (if called directly)
-    const statusText = document.getElementById('evalStatusText');
-    if (statusText && statusText.textContent.includes('Rendering results')) {
-        statusText.textContent = `✅ Results rendered. ${articleRows.length} article(s) with results.`;
-        statusText.className = 'text-sm text-green-600 dark:text-green-400';
-    }
 }
 
-// Render subagent eval results with color-coded scores (legacy format - kept for compatibility)
+// Render subagent eval results with color-coded scores
 function renderSubagentResults(results) {
-    // For backward compatibility, convert to pivot format
-    const byUrl = {};
+    const resultsTable = document.getElementById('resultsTable');
+    
+    if (!results || results.length === 0) {
+        resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
+        return;
+    }
+    
+    // Build table
+    let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
+    html += '<thead class="bg-gray-50 dark:bg-gray-800">';
+    html += '<tr>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article URL</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>';
+    html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
+    
     results.forEach(result => {
-        const url = result.url;
-        if (!byUrl[url]) {
-            byUrl[url] = {
-                url: url,
-                expected_count: result.expected_count,
-                versions: {}
-            };
+        const urlDisplay = result.url.length > 70 ? result.url.substring(0, 70) + '...' : result.url;
+        const expectedCount = result.expected_count || 0;
+        const actualCount = result.actual_count !== null ? result.actual_count : '-';
+        const score = result.score !== null ? result.score : '-';
+        
+        // Determine color coding based on score
+        let scoreClass = 'status-pending';
+        let scoreDisplay = '-';
+        let scoreBadge = '';
+        
+        if (result.status === 'completed' && result.score !== null) {
+            const absScore = Math.abs(result.score);
+            if (result.score === 0) {
+                scoreClass = 'status-exact'; // Green
+                scoreDisplay = '0';
+                scoreBadge = '✓';
+            } else if (absScore <= 2) {
+                scoreClass = 'status-warning'; // Yellow
+                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                scoreBadge = `±${absScore}`;
+            } else {
+                scoreClass = 'status-mismatch'; // Red
+                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                scoreBadge = `±${absScore}`;
+            }
+        } else if (result.status === 'failed') {
+            scoreClass = 'status-mismatch';
+            scoreDisplay = 'Failed';
         }
-        const version = result.config_version || 'unknown';
-        byUrl[url].versions[version] = result;
+        
+        // Status badge
+        const statusClass = result.status === 'completed' 
+            ? (result.score === 0 ? 'status-exact' : scoreClass)
+            : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
+        
+        html += '<tr>';
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white" title="${result.url}">${urlDisplay}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${actualCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm">`;
+        html += `<div class="flex items-center gap-2">`;
+        html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
+        if (scoreBadge) {
+            html += `<span class="status-badge ${scoreClass}">${scoreBadge}</span>`;
+        }
+        html += `</div></td>`;
+        html += `<td class="px-4 py-3 text-sm">`;
+        html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
+        html += `</td>`;
+        html += '</tr>';
     });
     
-    const allVersions = [...new Set(results.map(r => r.config_version))].sort((a, b) => parseInt(a) - parseInt(b));
-    const articleRows = Object.values(byUrl).sort((a, b) => a.url.localeCompare(b.url));
-    
-    renderSubagentResultsPivot(articleRows, allVersions);
+    html += '</tbody></table>';
+    resultsTable.innerHTML = html;
 }
 
 // Event listeners
@@ -1020,18 +1010,27 @@ async function loadPreviousResults() {
         });
         
         // Get all unique config versions and sort them (ascending - oldest first)
-        const allVersions = [...new Set(results.map(r => r.config_version))].sort((a, b) => parseInt(a) - parseInt(b));
+        const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown').sort((a, b) => parseInt(a) - parseInt(b));
+        
+        // Fetch model info for all config versions
+        let modelsByVersion = {};
+        if (allVersions.length > 0) {
+            try {
+                const versionsStr = allVersions.join(',');
+                const modelResponse = await fetch(`/api/evaluations/config-versions-models?config_versions=${versionsStr}`);
+                if (modelResponse.ok) {
+                    const modelData = await modelResponse.json();
+                    modelsByVersion = modelData.models_by_version || {};
+                }
+            } catch (error) {
+                console.warn('Failed to load model info for tooltips:', error);
+            }
+        }
         
         // Convert to array of article objects
         const articleRows = Object.values(byUrl).sort((a, b) => a.url.localeCompare(b.url));
         
-        renderSubagentResultsPivot(articleRows, allVersions);
-        
-        // Show info message
-        const infoMsg = document.createElement('p');
-        infoMsg.className = 'text-sm text-blue-600 dark:text-blue-400 mt-2';
-        infoMsg.textContent = `✅ Loaded ${articleRows.length} article(s) with results from ${allVersions.length} config version(s): ${allVersions.join(', ')}`;
-        resultsTable.appendChild(infoMsg);
+        renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
         
     } catch (error) {
         console.error('Error loading previous results:', error);
