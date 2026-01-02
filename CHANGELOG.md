@@ -1,3 +1,33 @@
+## 2026-01-02
+
+### Added
+- **Test Endpoint Refactoring**: Moved test agent endpoints to Celery worker tasks for proper separation of concerns
+  - Test tasks now run in `cti_workflow_worker` instead of `cti_web` container
+  - Added async task status polling endpoint `/api/workflow/config/test-status/{task_id}`
+  - UI now polls for test results instead of blocking
+- **Prompt Testing Script**: Added flexible script for testing prompts against LMStudio models
+  - `scripts/test_prompt_with_models.py`: Test prompts with wildcard model selection
+  - Supports single/multiple articles, all eval articles, multiple models
+  - Tab-completable model selection with wildcard support
+  - Results saved to JSON file
+- **Shared Prompt Parsing**: Added `parse_prompt_from_config()` helper with JSON repair logic
+  - Handles malformed JSON from UI edits
+  - Used by all test tasks for consistency
+
+### Changed
+- **Test Architecture**: All "Test with Custom ArticleID" buttons now dispatch to worker tasks
+  - Maintains separation: web server handles requests, worker handles LLM processing
+  - Test tasks load prompts from database (same source as UI)
+  - Consistent with production workflow architecture
+- **Prompt Loading**: Test tasks now use active prompts from database instead of files
+  - Matches exactly what's shown in UI
+  - All test buttons use same prompt source as production
+
+### Fixed
+- **JSON Parsing**: Added repair logic for malformed JSON in database prompts
+  - Handles unquoted string values in `user_template` field
+  - Provides clear error messages when repair fails
+
 ## 2025-12-27
 
 ### Fixed
