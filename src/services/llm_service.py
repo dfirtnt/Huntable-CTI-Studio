@@ -2580,20 +2580,57 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             
             # 1. Run Extraction
             try:
-                # Build prompt
-                task = prompt_config.get("objective", "Extract information.")
-                instructions = prompt_config.get("instructions", "Output valid JSON.")
-                output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
-                json_example = prompt_config.get("json_example")
-                json_example_str = ""
-                if json_example:
-                    json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json.dumps(json_example, indent=2)}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
-                
-                # Construct prompt similar to extract_observables
+                # Truncate content first
                 truncated_content = self._truncate_content(content, 4000, 1000)
                 logger.info(f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}")
                 
-                user_prompt = f"""Title: {title}
+                # Check if using new template-based format or legacy format
+                user_template = prompt_config.get("user_template")
+                
+                if user_template:
+                    # New template-based format - use direct substitution
+                    task = prompt_config.get("task", prompt_config.get("objective", "Extract information."))
+                    instructions = prompt_config.get("instructions", "Output valid JSON.")
+                    json_example = prompt_config.get("json_example", "")
+                    
+                    # Format json_example if it's a dict (backward compat)
+                    if isinstance(json_example, dict):
+                        json_example = json.dumps(json_example, indent=2)
+                    elif not json_example:
+                        json_example = "{}"
+                    
+                    # Substitute template placeholders with error handling
+                    try:
+                        user_prompt = user_template.format(
+                            title=title,
+                            url=url,
+                            content=truncated_content,
+                            task=task,
+                            json_example=json_example,
+                            instructions=instructions
+                        )
+                    except KeyError as e:
+                        logger.error(f"{agent_name} template missing placeholder: {e}, falling back to legacy format")
+                        # Fall through to legacy format
+                        user_template = None
+                    except Exception as e:
+                        logger.error(f"{agent_name} template substitution error: {e}, falling back to legacy format")
+                        user_prompt = None
+                
+                if not user_prompt:
+                    # Legacy format - build prompt from individual fields (backward compatibility)
+                    task = prompt_config.get("objective", "Extract information.")
+                    instructions = prompt_config.get("instructions", "Output valid JSON.")
+                    output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
+                    json_example = prompt_config.get("json_example")
+                    json_example_str = ""
+                    if json_example:
+                        if isinstance(json_example, dict):
+                            json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json.dumps(json_example, indent=2)}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                        else:
+                            json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                    
+                    user_prompt = f"""Title: {title}
 URL: {url}
 
 Content:
@@ -2608,6 +2645,7 @@ CRITICAL INSTRUCTIONS: {instructions}
 
 IMPORTANT: Your response must end with a valid JSON object matching the structure above. If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
+                
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:
                     user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt

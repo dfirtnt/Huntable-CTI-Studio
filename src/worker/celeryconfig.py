@@ -40,6 +40,9 @@ task_routes = {
     'src.worker.celery_app.test_source_connectivity': {'queue': 'connectivity'},
     'src.worker.celery_app.collect_from_source': {'queue': 'collection'},
     'src.worker.celery_app.trigger_agentic_workflow': {'queue': 'workflows'},
+    'test.test_sub_agent': {'queue': 'workflows'},
+    'test.test_rank_agent': {'queue': 'workflows'},
+    'test.test_sigma_agent': {'queue': 'workflows'},
 }
 
 # Queue definitions

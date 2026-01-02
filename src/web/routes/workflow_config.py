@@ -2,6 +2,7 @@
 API routes for agentic workflow configuration management.
 """
 
+import json
 import logging
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request
@@ -48,6 +49,7 @@ class WorkflowConfigUpdate(BaseModel):
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: Optional[bool] = False
+    rank_agent_enabled: Optional[bool] = True
     qa_max_retries: Optional[int] = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
 
 
@@ -193,19 +195,89 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             elif current_config:
                 merged_agent_models = current_config.agent_models
             
+            # Determine final values for new config
+            final_min_hunt_score = config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0)
+            final_description = config_update.description or (current_config.description if current_config else "Updated configuration")
+            final_agent_prompts = config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
+            final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
+            
+            # Check if the new config would be identical to the current one
+            if current_config:
+                # Compare all fields
+                final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
+                
+                configs_identical = (
+                    abs(current_config.min_hunt_score - final_min_hunt_score) < 0.0001 and
+                    abs(current_config.ranking_threshold - ranking_threshold) < 0.0001 and
+                    abs(current_config.similarity_threshold - similarity_threshold) < 0.0001 and
+                    abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001 and
+                    current_config.sigma_fallback_enabled == sigma_fallback and
+                    current_config.qa_max_retries == qa_max_retries and
+                    getattr(current_config, 'rank_agent_enabled', True) == final_rank_agent_enabled
+                )
+                
+                # Deep compare JSONB fields
+                if configs_identical:
+                    # Compare agent_models
+                    current_models = current_config.agent_models or {}
+                    new_models = merged_agent_models or {}
+                    if json.dumps(current_models, sort_keys=True) != json.dumps(new_models, sort_keys=True):
+                        configs_identical = False
+                
+                if configs_identical:
+                    # Compare qa_enabled
+                    current_qa = current_config.qa_enabled or {}
+                    new_qa = final_qa_enabled or {}
+                    if json.dumps(current_qa, sort_keys=True) != json.dumps(new_qa, sort_keys=True):
+                        configs_identical = False
+                
+                if configs_identical:
+                    # Compare agent_prompts
+                    current_prompts = current_config.agent_prompts or {}
+                    new_prompts = final_agent_prompts or {}
+                    if json.dumps(current_prompts, sort_keys=True) != json.dumps(new_prompts, sort_keys=True):
+                        configs_identical = False
+                
+                if configs_identical:
+                    # No changes detected - reactivate current config and return it
+                    current_config.is_active = True
+                    db_session.commit()
+                    db_session.refresh(current_config)
+                    logger.info(f"No changes detected - keeping current config version {current_config.version}")
+                    
+                    return WorkflowConfigResponse(
+                        id=current_config.id,
+                        min_hunt_score=current_config.min_hunt_score,
+                        ranking_threshold=current_config.ranking_threshold,
+                        similarity_threshold=current_config.similarity_threshold,
+                        junk_filter_threshold=current_config.junk_filter_threshold,
+                        version=current_config.version,
+                        is_active=current_config.is_active,
+                        description=current_config.description,
+                        agent_prompts=current_config.agent_prompts,
+                        agent_models=current_config.agent_models,
+                        qa_enabled=current_config.qa_enabled,
+                        sigma_fallback_enabled=current_config.sigma_fallback_enabled,
+                        qa_max_retries=current_config.qa_max_retries,
+                        created_at=current_config.created_at.isoformat(),
+                        updated_at=current_config.updated_at.isoformat()
+                    )
+            
+            # Create new config version (only if changes were detected)
             new_config = AgenticWorkflowConfigTable(
-                min_hunt_score=config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0),
+                min_hunt_score=final_min_hunt_score,
                 ranking_threshold=ranking_threshold,
                 similarity_threshold=similarity_threshold,
                 junk_filter_threshold=junk_filter_threshold,
                 version=new_version,
                 is_active=True,
-                description=config_update.description or (current_config.description if current_config else "Updated configuration"),
-                agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
+                description=final_description,
+                agent_prompts=final_agent_prompts,
                 agent_models=merged_agent_models,
-                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {}),
+                qa_enabled=final_qa_enabled,
                 sigma_fallback_enabled=sigma_fallback,
-                qa_max_retries=qa_max_retries
+                qa_max_retries=qa_max_retries,
+                rank_agent_enabled=final_rank_agent_enabled
             )
             
             db_session.add(new_config)
@@ -546,138 +618,24 @@ class TestSigmaAgentRequest(BaseModel):
 
 @router.post("/config/test-subagent")
 async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
-    """Test a sub-agent extraction on a specific article."""
+    """Test a sub-agent extraction on a specific article (dispatches to worker)."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
+        from src.worker.tasks.test_agents import test_sub_agent_task
         
-        try:
-            # Get article
-            from src.database.models import ArticleTable
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
-            
-            # Get active config
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
-            # Load prompt configs
-            from pathlib import Path
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-            
-            agent_name = test_request.agent_name
-            prompt_path = prompts_dir / agent_name
-            
-            if not prompt_path.exists():
-                raise HTTPException(status_code=404, detail=f"Prompt file not found for {agent_name}")
-            
-            # Load prompt config
-            import json
-            with open(prompt_path, 'r') as f:
-                prompt_config = json.load(f)
-            
-            # Load QA config if exists
-            qa_agent_map = {
-                "CmdlineExtract": "CmdLineQA",
-                "SigExtract": "SigQA",
-                "EventCodeExtract": "EventCodeQA",
-                "ProcTreeExtract": "ProcTreeQA",
-                "RegExtract": "RegQA"
-            }
-            qa_name = qa_agent_map.get(agent_name)
-            qa_prompt_config = None
-            if qa_name:
-                qa_path = prompts_dir / qa_name
-                if qa_path.exists():
-                    with open(qa_path, 'r') as f:
-                        qa_prompt_config = json.load(f)
-            
-            # Initialize LLM service
-            from src.services.llm_service import LLMService
-            agent_models = config.agent_models if config.agent_models else {}
-            llm_service = LLMService(config_models=agent_models)
-            
-            # Validate article has content
-            if not article.content or len(article.content.strip()) == 0:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Article {test_request.article_id} has no content to process"
-                )
-            
-            # Apply content filtering if enabled
-            content_to_use = article.content
-            original_content_length = len(article.content) if article.content else 0
-            logger.info(f"Testing {agent_name} on article {test_request.article_id}: original content length={original_content_length}")
-            
-            if test_request.use_junk_filter:
-                from src.utils.content_filter import ContentFilter
-                content_filter = ContentFilter()
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=test_request.junk_filter_threshold,
-                    hunt_score=hunt_score,
-                    article_id=article.id
-                )
-                content_to_use = filter_result.filtered_content or article.content
-                filtered_content_length = len(content_to_use) if content_to_use else 0
-                logger.info(f"After filtering: content length={filtered_content_length}, is_huntable={filter_result.is_huntable}, removed_chunks={len(filter_result.removed_chunks)}")
-                
-                # Validate filtered content is not empty
-                if not content_to_use or len(content_to_use.strip()) == 0:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Article {test_request.article_id} content was filtered to empty. All content was removed by the content filter (threshold: {test_request.junk_filter_threshold}). Try lowering the threshold or disabling the filter."
-                    )
-            
-            # Get model and temperature for this agent
-            model_key = f"{agent_name}_model"
-            temperature_key = f"{agent_name}_temperature"
-            agent_model = agent_models.get(model_key) or agent_models.get("ExtractAgent")
-            agent_temperature = agent_models.get(temperature_key, 0.0)
-            
-            # Validate model is configured
-            if not agent_model:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"No model configured for {agent_name}. Please configure a model in the workflow config."
-                )
-            
-            # Run extraction agent
-            # For testing, disable hybrid extractor to force LLM extraction
-            result = await llm_service.run_extraction_agent(
-                agent_name=agent_name,
-                content=content_to_use,
-                title=article.title,
-                url=article.canonical_url or "",
-                prompt_config=prompt_config,
-                qa_prompt_config=None,  # Ignore QA for test endpoint
-                max_retries=1,          # Single attempt for testing
-                execution_id=None,
-                model_name=agent_model,
-                temperature=float(agent_temperature),
-                qa_model_override=None,
-                use_hybrid_extractor=False  # Disable hybrid extractor for testing - force LLM extraction
-            )
-            
-            return {
-                "success": True,
-                "agent_name": agent_name,
-                "article_id": test_request.article_id,
-                "article_title": article.title,
-                "qa_enabled": False,
-                "result": result
-            }
-            
-        finally:
-            db_session.close()
+        # Dispatch task to worker
+        task = test_sub_agent_task.delay(
+            agent_name=test_request.agent_name,
+            article_id=test_request.article_id,
+            use_junk_filter=test_request.use_junk_filter,
+            junk_filter_threshold=test_request.junk_filter_threshold
+        )
+        
+        return {
+            "success": True,
+            "task_id": task.id,
+            "status": "pending",
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+        }
             
     except HTTPException:
         raise
@@ -890,73 +848,66 @@ async def bootstrap_prompts_from_files(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/config/test-sigmaagent")
-async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
-    """Test SIGMA generation agent on a specific article."""
+@router.get("/config/test-status/{task_id}")
+async def get_test_status(request: Request, task_id: str):
+    """Get the status and result of a test task."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-
-        try:
-            from src.database.models import ArticleTable
-
-            # Get article
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
-
-            # Get active config
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-
-            if not config:
-                raise HTTPException(status_code=404, detail="No active workflow configuration found")
-
-            # Apply content filtering if enabled
-            content_to_use = article.content
-            if test_request.use_junk_filter:
-                from src.utils.content_filter import ContentFilter
-
-                content_filter = ContentFilter()
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=test_request.junk_filter_threshold,
-                    hunt_score=hunt_score,
-                    article_id=article.id
-                )
-                content_to_use = filter_result.filtered_content or article.content
-
-            agent_models = config.agent_models if config.agent_models else {}
-            sigma_service = SigmaGenerationService(config_models=agent_models)
-
-            source_name = article.source.name if article.source else "Unknown Source"
-            article_url = article.canonical_url or "N/A"
-
-            sigma_result = await sigma_service.generate_sigma_rules(
-                article_title=article.title,
-                article_content=content_to_use,
-                source_name=source_name,
-                url=article_url,
-                ai_model="lmstudio",
-                article_id=article.id,
-                min_confidence=test_request.junk_filter_threshold,
-                max_attempts=test_request.max_attempts
-            )
-
+        from celery.result import AsyncResult
+        from src.worker.celery_app import celery_app
+        
+        task_result = AsyncResult(task_id, app=celery_app)
+        
+        if task_result.ready():
+            if task_result.successful():
+                result = task_result.result
+                return {
+                    "success": True,
+                    "task_id": task_id,
+                    "status": "completed",
+                    "result": result
+                }
+            else:
+                # Task failed
+                error = str(task_result.result) if task_result.result else "Unknown error"
+                return {
+                    "success": False,
+                    "task_id": task_id,
+                    "status": "failed",
+                    "error": error
+                }
+        else:
+            # Task still running
             return {
                 "success": True,
-                "agent_name": "SigmaAgent",
-                "article_id": test_request.article_id,
-                "article_title": article.title,
-                "qa_enabled": False,
-                "result": sigma_result
+                "task_id": task_id,
+                "status": "pending",
+                "message": "Test is still running in worker"
             }
-        finally:
-            db_session.close()
+    except Exception as e:
+        logger.error(f"Error checking test status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/test-sigmaagent")
+async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
+    """Test SIGMA generation agent on a specific article (dispatches to worker)."""
+    try:
+        from src.worker.tasks.test_agents import test_sigma_agent_task
+        
+        # Dispatch task to worker
+        task = test_sigma_agent_task.delay(
+            article_id=test_request.article_id,
+            use_junk_filter=test_request.use_junk_filter,
+            junk_filter_threshold=test_request.junk_filter_threshold,
+            max_attempts=test_request.max_attempts
+        )
+        
+        return {
+            "success": True,
+            "task_id": task.id,
+            "status": "pending",
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+        }
 
     except HTTPException:
         raise
@@ -988,100 +939,23 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
 
 @router.post("/config/test-rankagent")
 async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
-    """Test Rank Agent on a specific article."""
+    """Test Rank Agent on a specific article (dispatches to worker)."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
+        from src.worker.tasks.test_agents import test_rank_agent_task
         
-        try:
-            # Get article
-            from src.database.models import ArticleTable
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
-            
-            # Get active config
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
-            # Initialize LLM service
-            from src.services.llm_service import LLMService
-            agent_models = config.agent_models if config.agent_models else {}
-            logger.info(f"Testing Rank Agent with config agent_models: {agent_models}")
-            rank_model = agent_models.get("RankAgent")
-            if not rank_model:
-                raise HTTPException(status_code=400, detail="RankAgent model not configured. Please set it in the workflow configuration.")
-            logger.info(f"Using RankAgent model: {rank_model}")
-            llm_service = LLMService(config_models=agent_models)
-            
-            # Apply content filtering if enabled
-            content_to_use = article.content
-            if test_request.use_junk_filter:
-                from src.utils.content_filter import ContentFilter
-                content_filter = ContentFilter()
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=test_request.junk_filter_threshold,
-                    hunt_score=hunt_score,
-                    article_id=article.id
-                )
-                content_to_use = filter_result.filtered_content or article.content
-            
-            # Get source name
-            source_name = article.source.name if article.source else "Unknown"
-
-            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
-            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
-            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
-            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
-            
-            # Get prompt from config only (no file fallback)
-            if not config.agent_prompts or "RankAgent" not in config.agent_prompts:
-                raise HTTPException(
-                    status_code=400,
-                    detail="RankAgent prompt not found in workflow config. Please configure it in the workflow settings."
-                )
-            
-            rank_prompt_data = config.agent_prompts["RankAgent"]
-            if not isinstance(rank_prompt_data.get("prompt"), str):
-                raise HTTPException(
-                    status_code=400,
-                    detail="RankAgent prompt in config is not a string. Please check the workflow configuration."
-                )
-            
-            rank_prompt_template = rank_prompt_data["prompt"]
-            logger.info(f"Using RankAgent prompt from config (length: {len(rank_prompt_template)} chars)")
-            
-            # Run ranking
-            ranking_result = await llm_service.rank_article(
-                title=article.title,
-                content=content_to_use,
-                source=source_name,
-                url=article.canonical_url or "",
-                prompt_template=rank_prompt_template,
-                execution_id=None,
-                article_id=test_request.article_id,
-                ground_truth_rank=ground_truth_rank,
-                ground_truth_details=ground_truth_details
-            )
-            
-            return {
-                "success": True,
-                "agent_name": "RankAgent",
-                "article_id": test_request.article_id,
-                "article_title": article.title,
-                "result": ranking_result
-            }
-            
-        finally:
-            db_session.close()
+        # Dispatch task to worker
+        task = test_rank_agent_task.delay(
+            article_id=test_request.article_id,
+            use_junk_filter=test_request.use_junk_filter,
+            junk_filter_threshold=test_request.junk_filter_threshold
+        )
+        
+        return {
+            "success": True,
+            "task_id": task.id,
+            "status": "pending",
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+        }
             
     except HTTPException:
         raise
