@@ -1,6 +1,21 @@
 ## 2026-01-02
 
 ### Added
+- **Clickable Eval Results**: Added clickable result cells in evaluation results table
+  - Click any completed result to view extracted commandlines in a modal
+  - Modal displays all commandlines with numbered list and article link
+  - API endpoint: `/api/evaluations/execution/{execution_id}/commandlines`
+- **Sticky Expected Column**: Made "Expected" column sticky in pivot view for better visibility
+- **Auto-scroll to Latest**: Results table now auto-scrolls to show latest config versions on load
+
+### Changed
+- **Eval Articles Config**: Updated `config/eval_articles.yaml` with 13 articles for cmdline extractor
+  - Added new articles: Trustwave/LevelBlue, Fortinet Darkcloud, Recorded Future, Elastic RONINGLOADER
+  - Updated expected counts based on actual extraction results
+  - Fixed Trustwave→LevelBlue URL redirect issue (article ID 1474)
+- **Expected Counts**: Updated Recorded Future article expected count from 0 to 2 (actual: 6 found, but 2 expected after review)
+
+### Fixed
 - **Test Endpoint Refactoring**: Moved test agent endpoints to Celery worker tasks for proper separation of concerns
   - Test tasks now run in `cti_workflow_worker` instead of `cti_web` container
   - Added async task status polling endpoint `/api/workflow/config/test-status/{task_id}`
