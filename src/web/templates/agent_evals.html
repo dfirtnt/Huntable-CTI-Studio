@@ -176,6 +176,16 @@
             </div>
         </div>
         
+        <!-- MAE Chart -->
+        <div id="maeChartContainer" class="mb-6 hidden">
+            <div class="eval-card rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Mean Absolute Error by Config Version</h3>
+                <div class="h-64">
+                    <canvas id="maeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
         <div id="resultsTable" class="comparison-table">
             <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results, or click "Load Previous Results" to view past evaluations.</p>
         </div>
@@ -717,8 +727,8 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="min-width: 350px;">Article URL</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 350px; min-width: 100px;">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">Article ID</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 120px; width: 100px; min-width: 100px; max-width: 100px;">Expected</th>';
     
     // Add one column per config version with tooltip
     configVersions.forEach(version => {
@@ -737,20 +747,19 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
     articleRows.forEach(article => {
-        const urlDisplay = article.url.length > 70 ? article.url.substring(0, 70) + '...' : article.url;
         const expectedCount = article.expected_count || 0;
         
         // Get article_id from article object or first version result
         const articleId = article.article_id || (Object.values(article.versions)[0]?.article_id);
         
-        // Make URL clickable if article_id is available
-        const urlCell = articleId 
-            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${article.url}">${urlDisplay}</a>`
-            : `<span title="${article.url}">${urlDisplay}</span>`;
+        // Display Article ID, clickable if available
+        const articleIdCell = articleId 
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${article.url}">${articleId}</a>`
+            : `<span class="text-gray-400 dark:text-gray-600" title="${article.url}">-</span>`;
         
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" style="min-width: 350px;">${urlCell}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-9" style="left: 350px; min-width: 100px;">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">${articleIdCell}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-9" style="left: 120px; width: 100px; min-width: 100px; max-width: 100px;">${expectedCount}</td>`;
         
         // Add one cell per config version
         configVersions.forEach(version => {
@@ -849,7 +858,7 @@ function renderSubagentResults(results) {
     let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article URL</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article ID</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
@@ -857,16 +866,15 @@ function renderSubagentResults(results) {
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
     results.forEach(result => {
-        const urlDisplay = result.url.length > 70 ? result.url.substring(0, 70) + '...' : result.url;
         const expectedCount = result.expected_count || 0;
         const actualCount = result.actual_count !== null ? result.actual_count : '-';
         const score = result.score !== null ? result.score : '-';
         
-        // Make URL clickable if article_id is available
+        // Display Article ID, clickable if available
         const articleId = result.article_id;
-        const urlCell = articleId 
-            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${result.url}">${urlDisplay}</a>`
-            : `<span title="${result.url}">${urlDisplay}</span>`;
+        const articleIdCell = articleId 
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${result.url}">${articleId}</a>`
+            : `<span class="text-gray-400 dark:text-gray-600" title="${result.url}">-</span>`;
         
         // Determine color coding based on score
         let scoreClass = 'status-pending';
@@ -904,7 +912,7 @@ function renderSubagentResults(results) {
         const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
         
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${urlCell}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${articleIdCell}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
         html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
@@ -945,6 +953,117 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
     updateRunButton();
 });
 
+// Chart instance for MAE chart
+let maeChart = null;
+
+// Render MAE line chart
+function renderMAEChart(aggregates) {
+    if (!window.Chart) {
+        console.warn('Chart.js not loaded');
+        return;
+    }
+    
+    // Filter aggregates that have MAE data
+    const validAggregates = aggregates.filter(agg => agg.mean_absolute_error !== null);
+    
+    if (validAggregates.length === 0) {
+        document.getElementById('maeChartContainer').classList.add('hidden');
+        return;
+    }
+    
+    // Sort by config version
+    validAggregates.sort((a, b) => parseInt(a.config_version) - parseInt(b.config_version));
+    
+    const labels = validAggregates.map(agg => `v${agg.config_version}`);
+    const maeData = validAggregates.map(agg => agg.mean_absolute_error);
+    
+    const chartContainer = document.getElementById('maeChartContainer');
+    chartContainer.classList.remove('hidden');
+    
+    const canvas = document.getElementById('maeChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (maeChart) {
+        maeChart.destroy();
+    }
+    
+    // Determine color based on MAE values
+    const colors = maeData.map(mae => {
+        if (mae <= 2) return '#10B981'; // green
+        if (mae <= 5) return '#F59E0B'; // yellow
+        return '#EF4444'; // red
+    });
+    
+    maeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Mean Absolute Error',
+                data: maeData,
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointBackgroundColor: colors,
+                pointBorderColor: colors,
+                pointHoverRadius: 7,
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#9CA3AF'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    callbacks: {
+                        label: function(context) {
+                            const mae = context.parsed.y;
+                            let quality = '';
+                            if (mae <= 2) quality = ' (Excellent)';
+                            else if (mae <= 5) quality = ' (Good)';
+                            else quality = ' (Needs Improvement)';
+                            return `MAE: ${mae.toFixed(2)}${quality}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#9CA3AF'
+                    },
+                    grid: {
+                        color: 'rgba(156, 163, 175, 0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#9CA3AF'
+                    },
+                    grid: {
+                        color: 'rgba(156, 163, 175, 0.1)'
+                    }
+                }
+            }
+        }
+    });
+}
+
 // Load aggregate scores for current subagent
 async function loadAggregateScores() {
     const subagent = document.getElementById('subagentSelect').value;
@@ -963,8 +1082,12 @@ async function loadAggregateScores() {
         
         if (aggregates.length === 0) {
             aggregateScores.classList.add('hidden');
+            document.getElementById('maeChartContainer').classList.add('hidden');
             return;
         }
+        
+        // Render MAE chart
+        renderMAEChart(aggregates);
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';

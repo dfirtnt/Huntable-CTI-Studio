@@ -354,6 +354,28 @@ class EvalRunner:
             "model": normalized_model
         }
         
+        # Check if QA is enabled for CmdlineExtract
+        qa_enabled = snapshot_data.get("qa_enabled", {}).get("CmdlineExtract", False)
+        qa_prompt_config = None
+        if qa_enabled:
+            # Get CmdLineQA prompt config from snapshot
+            cmdline_qa_prompt_config = agent_prompts.get("CmdLineQA")
+            if cmdline_qa_prompt_config:
+                # Normalize QA model name
+                qa_raw_model = cmdline_qa_prompt_config.get("model", normalized_agent_models.get("CmdLineQA", normalized_model))
+                qa_normalized_model = self._normalize_lmstudio_model_name(qa_raw_model)
+                qa_prompt_config = {
+                    "prompt": cmdline_qa_prompt_config.get("prompt", ""),
+                    "instructions": cmdline_qa_prompt_config.get("instructions", ""),
+                    "model": qa_normalized_model,
+                    "role": cmdline_qa_prompt_config.get("role", "You are a QA agent."),
+                    "objective": cmdline_qa_prompt_config.get("objective", "Verify extraction."),
+                    "evaluation_criteria": cmdline_qa_prompt_config.get("evaluation_criteria", [])
+                }
+                logger.info(f"QA enabled for CmdlineExtract: using model={qa_normalized_model}")
+            else:
+                logger.warning("QA enabled for CmdlineExtract but CmdLineQA prompt not found in snapshot, disabling QA")
+        
         # Run extraction
         coro = llm_service.run_extraction_agent(
             agent_name="CmdlineExtract",
@@ -361,7 +383,7 @@ class EvalRunner:
             title=article_title,
             url=article_url,
             prompt_config=prompt_config,
-            qa_prompt_config=None,  # No QA for evaluation
+            qa_prompt_config=qa_prompt_config,
             max_retries=3,
             execution_id=None,
             model_name=prompt_config.get("model"),

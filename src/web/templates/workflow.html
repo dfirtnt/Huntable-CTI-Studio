@@ -3069,14 +3069,16 @@ async function loadLMStudioModels() {
                     return; // Skip regular model select for OSDetectionAgent
                 }
                 
-                const select = document.getElementById(`${agentId}-model`);
+                // Check for both -model-2 (current) and -model (legacy) variants
+                const select = document.getElementById(`${agentId}-model-2`) || document.getElementById(`${agentId}-model`);
                 if (!select) return;
                 
                 // Get current model from config
                 const currentModel = agentModels[agentName] || '';
                 
                 // Clear existing options except the placeholder
-                select.innerHTML = '<option value="">-- Select model --</option>';
+                const placeholderText = select.querySelector('option[value=""]')?.textContent || '-- Select model --';
+                select.innerHTML = `<option value="">${placeholderText}</option>`;
                 
                 // Sort models alphabetically
                 const sortedModels = [...data.models].sort();
@@ -3204,6 +3206,26 @@ function applyProviderSelections(models) {
     if (providerAdjusted && typeof window.autoSaveModelChange === 'function') {
         setTimeout(() => window.autoSaveModelChange(), 0);
     }
+    
+    // Populate sub-agent LMStudio model dropdowns after provider selections are applied
+    // This ensures dropdowns are populated even when provider is already set to LMStudio
+    const subAgentMap = {
+        'cmdlineextract': 'CmdlineExtract',
+        'sigextract': 'SigExtract',
+        'eventcodeextract': 'EventCodeExtract',
+        'proctreeextract': 'ProcTreeExtract',
+        'regextract': 'RegExtract'
+    };
+    
+    Object.entries(subAgentMap).forEach(([prefix, agentName]) => {
+        const providerSelect = document.getElementById(`${prefix}-provider`);
+        if (providerSelect) {
+            const provider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+            if (provider === 'lmstudio' && typeof repopulateSubAgentModelDropdown === 'function') {
+                repopulateSubAgentModelDropdown(prefix, agentName);
+            }
+        }
+    });
     
     // Update LMStudio context panel visibility after provider selections are applied
     if (typeof updateLMStudioContextPanelVisibility === 'function') {
@@ -4183,8 +4205,7 @@ async function loadConfig(skipPromptReload = false) {
                 }
             }
 
-            // Display current config
-            updateConfigDisplay();
+            // Don't update config display here - wait until models are loaded
         } else {
             // Config API failed - still try to render agent models with empty config
             console.warn('Config API failed, using empty config');
@@ -4198,6 +4219,12 @@ async function loadConfig(skipPromptReload = false) {
             await loadAgentPrompts();
         }
         refreshAllProviderBlocks();
+        
+        // Update config display and LMStudio panel visibility after models are loaded
+        updateConfigDisplay();
+        if (typeof updateLMStudioContextPanelVisibility === 'function') {
+            updateLMStudioContextPanelVisibility();
+        }
         
         // Load QA settings - ensure currentConfig.qa_enabled is properly set
         if (currentConfig && !currentConfig.qa_enabled) {
@@ -5346,6 +5373,11 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             // Update config display to show current UI state
             if (typeof updateConfigDisplay === 'function') {
                 updateConfigDisplay();
+            }
+            
+            // Update LMStudio context panel visibility after model changes
+            if (typeof updateLMStudioContextPanelVisibility === 'function') {
+                updateLMStudioContextPanelVisibility();
             }
             
             // Verify the saved value matches what we sent
@@ -6779,8 +6811,83 @@ function updateConfigDisplay() {
     
     // Build selected models summary from UI state (not just saved config)
     // This ensures we show all models currently selected in the UI
-    const uiModels = getAllSelectedModelsWithProviders();
-    const selectedModels = uiModels.map(m => `${m.agent}: ${m.model} (${m.provider})`);
+    let uiModels = getAllSelectedModelsWithProviders();
+    let selectedModels = uiModels.map(m => `${m.agent}: ${m.model} (${m.provider})`);
+    
+    // Fallback: if UI doesn't have models yet, read from saved config
+    if (selectedModels.length === 0 && currentConfig.agent_models) {
+        const agentModels = currentConfig.agent_models;
+        const modelsList = [];
+        
+        // Map agent model keys to display names
+        const agentMap = {
+            'RankAgent': 'Rank',
+            'ExtractAgent': 'Extract',
+            'SigmaAgent': 'SIGMA',
+            'CmdlineExtract_model': 'CmdlineExtract',
+            'SigExtract_model': 'SigExtract',
+            'EventCodeExtract_model': 'EventCodeExtract',
+            'ProcTreeExtract_model': 'ProcTreeExtract',
+            'RegExtract_model': 'RegExtract',
+            'RankAgentQA': 'RankAgentQA',
+            'CmdlineExtractQA': 'CmdLineQA',
+            'SigExtractQA': 'SigQA',
+            'EventCodeExtractQA': 'EventCodeQA',
+            'ProcTreeExtractQA': 'ProcTreeQA',
+            'RegExtractQA': 'RegQA'
+        };
+        
+        // Get disabled extract agents
+        const disabled = typeof disabledExtractAgents !== 'undefined' ? disabledExtractAgents : new Set();
+        const qaEnabled = currentConfig.qa_enabled || {};
+        
+        // Main agents
+        if (agentModels.RankAgent) {
+            const provider = agentModels.RankAgent_provider || 'lmstudio';
+            modelsList.push(`Rank: ${agentModels.RankAgent} (${provider})`);
+        }
+        if (agentModels.ExtractAgent) {
+            const provider = agentModels.ExtractAgent_provider || 'lmstudio';
+            modelsList.push(`Extract: ${agentModels.ExtractAgent} (${provider})`);
+        }
+        if (agentModels.SigmaAgent && qaEnabled.SigmaAgent) {
+            const provider = agentModels.SigmaAgent_provider || 'lmstudio';
+            modelsList.push(`SIGMA: ${agentModels.SigmaAgent} (${provider})`);
+        }
+        
+        // Sub-agents
+        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+            if (disabled.has(agent)) return;
+            const modelKey = `${agent}_model`;
+            if (agentModels[modelKey]) {
+                const provider = agentModels[`${agent}_provider`] || 'lmstudio';
+                modelsList.push(`${agent}: ${agentModels[modelKey]} (${provider})`);
+            }
+        });
+        
+        // QA agents
+        if (agentModels.RankAgentQA && qaEnabled.RankAgent) {
+            const provider = agentModels.RankAgentQA_provider || 'lmstudio';
+            modelsList.push(`RankAgentQA: ${agentModels.RankAgentQA} (${provider})`);
+        }
+        const qaAgentMap = {
+            'CmdlineExtract': 'CmdLineQA',
+            'SigExtract': 'SigQA',
+            'EventCodeExtract': 'EventCodeQA',
+            'ProcTreeExtract': 'ProcTreeQA',
+            'RegExtract': 'RegQA'
+        };
+        Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
+            if (disabled.has(agent)) return;
+            if (!qaEnabled[agent]) return;
+            if (agentModels[qaKey]) {
+                const provider = agentModels[`${qaKey}_provider`] || 'lmstudio';
+                modelsList.push(`${qaKey}: ${agentModels[qaKey]} (${provider})`);
+            }
+        });
+        
+        selectedModels = modelsList;
+    }
     
     const modelsHtml = selectedModels.length > 0 
         ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs">${m}</li>`).join('')}</ul></div>`
@@ -6807,8 +6914,11 @@ function updateLMStudioContextPanelVisibility() {
     // Default to hidden
     panel.style.display = 'none';
     
-    // Check if LMStudio is enabled in settings
-    if (!enabledProviders || !enabledProviders.lmstudio) {
+    // Check if LMStudio is enabled in settings (default to true if not loaded yet)
+    if (!enabledProviders) {
+        enabledProviders = { lmstudio: true, openai: true, anthropic: true };
+    }
+    if (!enabledProviders.lmstudio) {
         return;
     }
     
@@ -6823,7 +6933,7 @@ function updateLMStudioContextPanelVisibility() {
     
     // Show panel only if LMStudio models are found
     if (hasLMStudio) {
-        panel.style.display = '';
+        panel.style.display = 'block';
     }
 }
 
