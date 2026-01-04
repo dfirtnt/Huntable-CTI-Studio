@@ -34,6 +34,7 @@ class WorkflowConfigResponse(BaseModel):
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: bool = False
     qa_max_retries: int = 5
+    rank_agent_enabled: bool = True
     created_at: str
     updated_at: str
 
@@ -118,6 +119,7 @@ async def get_workflow_config(request: Request):
                 qa_enabled=qa_enabled,
                 sigma_fallback_enabled=config.sigma_fallback_enabled if hasattr(config, 'sigma_fallback_enabled') else False,
                 qa_max_retries=config.qa_max_retries if hasattr(config, 'qa_max_retries') else 5,
+                rank_agent_enabled=config.rank_agent_enabled if hasattr(config, 'rank_agent_enabled') else True,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -259,6 +261,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         qa_enabled=current_config.qa_enabled,
                         sigma_fallback_enabled=current_config.sigma_fallback_enabled,
                         qa_max_retries=current_config.qa_max_retries,
+                        rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat()
                     )
@@ -300,6 +303,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
                 qa_max_retries=new_config.qa_max_retries,
+                rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, 'rank_agent_enabled') else True,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
             )
