@@ -319,12 +319,23 @@ class SigmaGenerationService:
         execution_id: Optional[int] = None,
         article_id: Optional[int] = None
     ) -> str:
-        model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider, self.llm_service.lmstudio_model)
+        raw_model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider, self.llm_service.lmstudio_model)
+        
+        # Normalize model name for LMStudio (remove prefix and date suffix)
+        # e.g., "qwen/qwen3-4b-2507" -> "qwen3-4b"
+        model_name = raw_model_name
+        if provider == "lmstudio" and model_name:
+            # Remove common prefixes (e.g., "qwen/", "mistralai/")
+            if "/" in model_name:
+                model_name = model_name.split("/")[-1]
+            # Remove date suffixes (e.g., "-2507", "-2024")
+            import re
+            model_name = re.sub(r'-\d{4,8}$', '', model_name)
 
         messages = [
             {
                 "role": "system",
-                "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations."
+                "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\"."
             },
             {
                 "role": "user",

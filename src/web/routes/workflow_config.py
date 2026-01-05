@@ -26,6 +26,7 @@ class WorkflowConfigResponse(BaseModel):
     ranking_threshold: float
     similarity_threshold: float
     junk_filter_threshold: float
+    auto_trigger_hunt_score_threshold: float
     version: int
     is_active: bool
     description: Optional[str]
@@ -45,6 +46,7 @@ class WorkflowConfigUpdate(BaseModel):
     ranking_threshold: Optional[float] = Field(None, ge=0.0, le=10.0, description="Must be between 0.0 and 10.0")
     similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
     junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
+    auto_trigger_hunt_score_threshold: Optional[float] = Field(None, ge=0.0, le=100.0, description="RegexHuntScore threshold for auto-triggering workflows (0-100)")
     description: Optional[str] = None
     agent_prompts: Optional[Dict[str, Any]] = None
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
@@ -88,6 +90,7 @@ async def get_workflow_config(request: Request):
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
+                    auto_trigger_hunt_score_threshold=60.0,
                     version=1,
                     is_active=True,
                     description="Default configuration",
@@ -105,12 +108,21 @@ async def get_workflow_config(request: Request):
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             qa_enabled = config.qa_enabled if config.qa_enabled is not None else {}
             
+            # Get auto_trigger_hunt_score_threshold, handling both attribute access and potential None
+            auto_trigger_threshold = 60.0  # default
+            try:
+                if hasattr(config, 'auto_trigger_hunt_score_threshold'):
+                    auto_trigger_threshold = config.auto_trigger_hunt_score_threshold if config.auto_trigger_hunt_score_threshold is not None else 60.0
+            except (AttributeError, TypeError):
+                pass
+            
             return WorkflowConfigResponse(
                 id=config.id,
                 min_hunt_score=config.min_hunt_score,
                 ranking_threshold=config.ranking_threshold,
                 similarity_threshold=config.similarity_threshold,
                 junk_filter_threshold=config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=auto_trigger_threshold,
                 version=config.version,
                 is_active=config.is_active,
                 description=config.description,
@@ -155,6 +167,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             ranking_threshold = config_update.ranking_threshold if config_update.ranking_threshold is not None else (current_config.ranking_threshold if current_config else 6.0)
             similarity_threshold = config_update.similarity_threshold if config_update.similarity_threshold is not None else (current_config.similarity_threshold if current_config else 0.5)
             junk_filter_threshold = config_update.junk_filter_threshold if config_update.junk_filter_threshold is not None else (current_config.junk_filter_threshold if current_config else 0.8)
+            auto_trigger_hunt_score_threshold = config_update.auto_trigger_hunt_score_threshold if config_update.auto_trigger_hunt_score_threshold is not None else (current_config.auto_trigger_hunt_score_threshold if current_config and hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0)
             
             if not (0.0 <= ranking_threshold <= 10.0):
                 raise HTTPException(status_code=400, detail=f"Ranking threshold must be between 0.0 and 10.0, got {ranking_threshold}")
@@ -162,6 +175,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 raise HTTPException(status_code=400, detail=f"Similarity threshold must be between 0.0 and 1.0, got {similarity_threshold}")
             if not (0.0 <= junk_filter_threshold <= 1.0):
                 raise HTTPException(status_code=400, detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}")
+            if not (0.0 <= auto_trigger_hunt_score_threshold <= 100.0):
+                raise HTTPException(status_code=400, detail=f"Auto trigger hunt score threshold must be between 0.0 and 100.0, got {auto_trigger_hunt_score_threshold}")
             
             # Create new config version
             sigma_fallback = config_update.sigma_fallback_enabled if config_update.sigma_fallback_enabled is not None else (current_config.sigma_fallback_enabled if current_config and hasattr(current_config, 'sigma_fallback_enabled') else False)
@@ -253,6 +268,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         ranking_threshold=current_config.ranking_threshold,
                         similarity_threshold=current_config.similarity_threshold,
                         junk_filter_threshold=current_config.junk_filter_threshold,
+                        auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
                         version=current_config.version,
                         is_active=current_config.is_active,
                         description=current_config.description,
@@ -272,6 +288,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 ranking_threshold=ranking_threshold,
                 similarity_threshold=similarity_threshold,
                 junk_filter_threshold=junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=auto_trigger_hunt_score_threshold,
                 version=new_version,
                 is_active=True,
                 description=final_description,
@@ -295,6 +312,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 ranking_threshold=new_config.ranking_threshold,
                 similarity_threshold=new_config.similarity_threshold,
                 junk_filter_threshold=new_config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=new_config.auto_trigger_hunt_score_threshold if hasattr(new_config, 'auto_trigger_hunt_score_threshold') else 60.0,
                 version=new_config.version,
                 is_active=new_config.is_active,
                 description=new_config.description,

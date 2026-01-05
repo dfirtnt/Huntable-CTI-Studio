@@ -226,19 +226,38 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                     score,
                 )
 
-                # Check if workflow should be triggered
-                # Hunt score threshold check is DISABLED - all articles can enter workflow
+                # Get threshold from workflow config
+                from src.database.manager import DatabaseManager
+                from src.database.models import AgenticWorkflowConfigTable
+                db_manager = DatabaseManager()
+                db_session = db_manager.get_session()
                 try:
-                    # Threshold check disabled - always trigger workflow regardless of score
-                    from src.worker.celery_app import trigger_agentic_workflow
+                    config = db_session.query(AgenticWorkflowConfigTable).filter(
+                        AgenticWorkflowConfigTable.is_active == True
+                    ).order_by(
+                        AgenticWorkflowConfigTable.version.desc()
+                    ).first()
+                    threshold = config.auto_trigger_hunt_score_threshold if config and hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
+                finally:
+                    db_session.close()
 
-                    trigger_agentic_workflow.delay(article_id)
-                    logger.info(
-                        f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score}, threshold check disabled)"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to trigger workflow for PDF article {article_id}: {e}"
+                # Check if workflow should be triggered
+                # Only trigger if RegexHuntScore > threshold
+                if score > threshold:
+                    try:
+                        from src.worker.celery_app import trigger_agentic_workflow
+
+                        trigger_agentic_workflow.delay(article_id)
+                        logger.info(
+                            f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score} > {threshold})"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to trigger workflow for PDF article {article_id}: {e}"
+                        )
+                else:
+                    logger.debug(
+                        f"Skipping workflow trigger for PDF article {article_id} (hunt_score: {score} <= {threshold})"
                     )
 
             except Exception as exc:  # noqa: BLE001
