@@ -41,6 +41,14 @@ from src.workflows.status_utils import (
 )
 
 logger = logging.getLogger(__name__)
+ 
+def _bool_from_value(val: Any) -> bool:
+    """Normalize various truthy/falsey inputs to a boolean."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() == 'true'
+    return bool(val)
 
 
 class WorkflowState(TypedDict):
@@ -49,6 +57,8 @@ class WorkflowState(TypedDict):
     execution_id: int
     article: Optional[ArticleTable]
     config: Optional[Dict[str, Any]]
+    eval_run: bool
+    skip_rank_agent: bool
     
     # Step 0: Junk Filter
     filtered_content: Optional[str]
@@ -283,14 +293,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         
         # Determine bypass reason
         config_snapshot = execution.config_snapshot if execution else {}
-        # Handle both boolean and string "true"/"false" values from JSON
-        eval_run_flag = config_snapshot.get('eval_run', False)
-        if isinstance(eval_run_flag, str):
-            eval_run_flag = eval_run_flag.lower() == 'true'
-        skip_rank_flag = config_snapshot.get('skip_rank_agent', False)
-        if isinstance(skip_rank_flag, str):
-            skip_rank_flag = skip_rank_flag.lower() == 'true'
-        is_eval_run = eval_run_flag or skip_rank_flag
+        eval_run_flag = _bool_from_value(config_snapshot.get('eval_run', False))
+        skip_rank_flag = _bool_from_value(config_snapshot.get('skip_rank_agent', False))
+        state_eval_run = _bool_from_value(state.get('eval_run', False))
+        is_eval_run = state_eval_run or eval_run_flag
         bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
         
         logger.info(f"[Workflow {state['execution_id']}] {bypass_reason}")
@@ -321,20 +327,32 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 AgenticWorkflowExecutionTable.id == state['execution_id']
             ).first()
             
+            state_eval_run = _bool_from_value(state.get('eval_run', False))
+            state_skip_rank = _bool_from_value(state.get('skip_rank_agent', False))
+            if state_eval_run or state_skip_rank:
+                logger.warning(f"[Workflow {state['execution_id']}] BLOCKED: Rank agent node called for eval run - redirecting to bypass")
+                if execution:
+                    execution.current_step = 'rank_article_bypassed'
+                    execution.ranking_score = None
+                    execution.ranking_reasoning = "Rank Agent blocked for eval run"
+                    db_session.commit()
+
+                return {
+                    **state,
+                    'ranking_score': None,
+                    'ranking_reasoning': "Rank Agent blocked for eval run",
+                    'should_continue': True,
+                    'current_step': 'rank_article_bypassed',
+                    'status': state.get('status', 'running'),
+                }
+
             if execution and execution.config_snapshot:
                 config_snapshot = execution.config_snapshot or {}
-                def _bool_from_value(val):
-                    if isinstance(val, bool):
-                        return val
-                    if isinstance(val, str):
-                        return val.lower() == 'true'
-                    return bool(val)
-                
                 skip_rank_agent = (
                     _bool_from_value(config_snapshot.get('skip_rank_agent', False)) or
                     _bool_from_value(config_snapshot.get('eval_run', False))
                 )
-                
+
                 if skip_rank_agent:
                     logger.warning(f"[Workflow {state['execution_id']}] BLOCKED: Rank agent node called for eval run - redirecting to bypass")
                     # Redirect to bypass node behavior
@@ -343,7 +361,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         execution.ranking_score = None
                         execution.ranking_reasoning = "Rank Agent blocked for eval run"
                         db_session.commit()
-                    
+
                     return {
                         **state,
                         'ranking_score': None,
@@ -807,14 +825,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Check if this is an eval run (check both config_snapshot and state config)
                 config_snapshot = execution.config_snapshot if execution else {}
                 state_config = state.get('config', {})
-                # Handle both boolean and string "true"/"false" values from JSON
-                def _bool_from_value(val):
-                    if isinstance(val, bool):
-                        return val
-                    if isinstance(val, str):
-                        return val.lower() == 'true'
-                    return bool(val)
-                
                 is_eval_run = (
                     _bool_from_value(config_snapshot.get('eval_run', False)) or
                     _bool_from_value(config_snapshot.get('skip_sigma_generation', False)) or
@@ -1680,20 +1690,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         """
         config = state.get('config', {})
         execution_id = state.get('execution_id')
+        state_eval_run = _bool_from_value(state.get('eval_run', False))
+        state_skip_rank = _bool_from_value(state.get('skip_rank_agent', False))
+        if state_eval_run or state_skip_rank:
+            reason = "eval run from state config" if state_eval_run else "skip flag in state"
+            logger.info(f"[Workflow {execution_id}] Skipping Rank Agent ({reason})")
+            return "rank_agent_bypass"
         
         # Check if this is an eval run that should skip rank agent
         # This check takes precedence over any config setting
         execution = db_session.query(AgenticWorkflowExecutionTable).filter(
             AgenticWorkflowExecutionTable.id == execution_id
         ).first()
-        
-        # Handle both boolean and string "true"/"false" values from JSON
-        def _bool_from_value(val):
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() == 'true'
-            return bool(val)
         
         # Check execution config_snapshot first (most reliable for evals)
         if execution and execution.config_snapshot:
@@ -1716,17 +1724,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if skip_from_state:
                 logger.info(f"[Workflow {execution_id}] Skipping Rank Agent (eval run from state config)")
                 return "rank_agent_bypass"
-            
-            # Check state-level skip flag
-            if _bool_from_value(state.get('skip_rank_agent', False)):
-                logger.info(f"[Workflow {execution_id}] Skipping Rank Agent (skip flag in state)")
-                return "rank_agent_bypass"
         
         # Check config setting (only if not an eval run)
-        rank_agent_enabled = config.get('rank_agent_enabled', True) if isinstance(config, dict) else True
+        # CRITICAL: Use _bool_from_value to handle string/None values correctly
+        rank_agent_enabled_raw = config.get('rank_agent_enabled', True) if isinstance(config, dict) else True
+        rank_agent_enabled = _bool_from_value(rank_agent_enabled_raw)
+        logger.info(f"[Workflow {execution_id}] Rank agent enabled check: rank_agent_enabled={rank_agent_enabled} (raw: {rank_agent_enabled_raw}, type: {type(rank_agent_enabled_raw).__name__}), config keys: {list(config.keys()) if isinstance(config, dict) else 'N/A'}")
         if rank_agent_enabled:
             return "rank_article"
         else:
+            logger.info(f"[Workflow {execution_id}] Rank agent disabled - bypassing to extract_agent")
             return "rank_agent_bypass"
     
     def check_should_continue_after_rank(state: WorkflowState) -> str:
@@ -1744,14 +1751,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         
         if execution:
             config_snapshot = execution.config_snapshot or {}
-            # Handle both boolean and string "true"/"false" values from JSON
-            def _bool_from_value(val):
-                if isinstance(val, bool):
-                    return val
-                if isinstance(val, str):
-                    return val.lower() == 'true'
-                return bool(val)
-            
             skip_sigma = (
                 _bool_from_value(config_snapshot.get('skip_sigma_generation', False)) or
                 _bool_from_value(config_snapshot.get('eval_run', False)) or
@@ -1831,7 +1830,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     return workflow.compile()
 
 
-async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
+async def run_workflow(article_id: int, db_session: Session, execution_id: Optional[int] = None) -> Dict[str, Any]:
     """
     Run agentic workflow for an article.
     
@@ -1848,12 +1847,17 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         if not article:
             raise ValueError(f"Article {article_id} not found")
         
-        # Try to find execution - check both pending and running status
-        # (execution might have started but not completed)
-        execution = db_session.query(AgenticWorkflowExecutionTable).filter(
-            AgenticWorkflowExecutionTable.article_id == article_id,
-            AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
-        ).order_by(AgenticWorkflowExecutionTable.created_at.desc()).first()
+        execution = None
+        if execution_id is not None:
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == execution_id
+            ).first()
+
+        if not execution:
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.article_id == article_id,
+                AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
+            ).order_by(AgenticWorkflowExecutionTable.created_at.desc()).first()
         
         # Get config service (needed for both paths)
         trigger_service = WorkflowTriggerService(db_session)
@@ -1874,6 +1878,7 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                     'agent_models': config_obj.agent_models if config_obj else {},
                     'agent_prompts': config_obj.agent_prompts if config_obj else {},
                     'qa_enabled': config_obj.qa_enabled if config_obj else {},
+                    'rank_agent_enabled': config_obj.rank_agent_enabled if config_obj and hasattr(config_obj, 'rank_agent_enabled') else True,
                     'config_id': config_obj.id if config_obj else None,
                     'config_version': config_obj.version if config_obj else None
                 } if config_obj else None
@@ -1922,13 +1927,6 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
                     config[key] = value
             
             # Ensure evals always skip rank agent regardless of config setting
-            def _bool_from_value(val):
-                if isinstance(val, bool):
-                    return val
-                if isinstance(val, str):
-                    return val.lower() == 'true'
-                return bool(val)
-            
             skip_rank_agent = (
                 _bool_from_value(snapshot.get('skip_rank_agent', False)) or
                 _bool_from_value(snapshot.get('eval_run', False))
@@ -1936,6 +1934,19 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             
             if skip_rank_agent:
                 config['rank_agent_enabled'] = False
+                logger.info(f"[Workflow {execution.id}] Rank agent disabled: skip_rank_agent=True (eval run)")
+            elif 'rank_agent_enabled' in snapshot:
+                # Explicitly use rank_agent_enabled from snapshot if present (for non-eval runs)
+                # CRITICAL: Convert to bool to handle string/None values
+                snapshot_value = snapshot.get('rank_agent_enabled', True)
+                config['rank_agent_enabled'] = _bool_from_value(snapshot_value)
+                logger.info(f"[Workflow {execution.id}] Using rank_agent_enabled={config['rank_agent_enabled']} from config_snapshot (raw value: {snapshot_value}, type: {type(snapshot_value).__name__})")
+            else:
+                # Snapshot doesn't have rank_agent_enabled - keep value from active config
+                logger.info(f"[Workflow {execution.id}] rank_agent_enabled not in snapshot, using active config value: {config.get('rank_agent_enabled', True)}")
+        
+        state_eval_run_flag = _bool_from_value(config.get('eval_run', False))
+        state_skip_rank_flag = _bool_from_value(config.get('skip_rank_agent', False))
         
         # Initialize state
         execution.status = 'running'
@@ -1948,6 +1959,8 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
             'execution_id': execution.id,
             'article': None,  # Don't store ArticleTable in state - load from DB when needed
             'config': config,
+            'eval_run': state_eval_run_flag,
+            'skip_rank_agent': state_skip_rank_flag,
             'filtered_content': None,
             'junk_filter_result': None,
             'ranking_score': None,
@@ -1978,20 +1991,29 @@ async def run_workflow(article_id: int, db_session: Session) -> Dict[str, Any]:
         llm_service._current_article_id = article_id
         
         # Check context length before starting workflow
-        try:
-            context_check = await llm_service.check_model_context_length()
+        # Skip rank agent model check if rank_agent_enabled is False
+        rank_agent_enabled = _bool_from_value(config.get('rank_agent_enabled', True))
+        logger.info(f"[Workflow {execution.id}] Context check: rank_agent_enabled={rank_agent_enabled}, config keys: {list(config.keys())}")
+        if rank_agent_enabled:
+            try:
+                context_check = await llm_service.check_model_context_length()
+                logger.info(
+                    f"Context length validation passed for workflow execution {execution.id}: "
+                    f"{context_check['context_length']} tokens (threshold: {context_check['threshold']})"
+                )
+            except RuntimeError as e:
+                # Update execution status to failed with context length error
+                execution.status = 'failed'
+                execution.error_message = str(e)
+                execution.current_step = 'context_length_check'
+                db_session.commit()
+                logger.error(f"Workflow execution {execution.id} failed context length check: {e}")
+                raise
+        else:
             logger.info(
-                f"Context length validation passed for workflow execution {execution.id}: "
-                f"{context_check['context_length']} tokens (threshold: {context_check['threshold']})"
+                f"Workflow execution {execution.id}: Skipping rank agent context length check "
+                f"(rank_agent_enabled=False)"
             )
-        except RuntimeError as e:
-            # Update execution status to failed with context length error
-            execution.status = 'failed'
-            execution.error_message = str(e)
-            execution.current_step = 'context_length_check'
-            db_session.commit()
-            logger.error(f"Workflow execution {execution.id} failed context length check: {e}")
-            raise
         
         # Create and run workflow with LangFuse tracing
         workflow_completed = False

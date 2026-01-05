@@ -397,6 +397,7 @@
                     <div data-collapsible-panel="rank-agent-configs-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Rank Agent Configs</h3>
+                            <span id="rank-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                             <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -413,14 +414,17 @@
                                         If enabled, articles are ranked using LLM before extraction. If disabled, ranking is skipped and workflow proceeds directly to extraction.
                                     </p>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" 
-                                           id="rank-agent-enabled" 
-                                           name="rank_agent_enabled"
-                                           class="sr-only peer"
-                                           onchange="updateRankQAState(false); updateSaveButtonState();">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                                </label>
+                                <div class="flex items-center gap-2">
+                                    <span id="rank-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" 
+                                               id="rank-agent-enabled" 
+                                               name="rank_agent_enabled"
+                                               class="sr-only peer"
+                                               onchange="updateRankEnabledBadge(); updateRankQAState(false); updateSaveButtonState();">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         <!-- Rank Agent Model -->
@@ -1355,6 +1359,7 @@
                     <div data-collapsible-panel="sigma-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">SIGMA Generator Agent</h3>
+                            <span id="sigma-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                             <span id="sigma-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -4249,6 +4254,10 @@ async function loadConfig(skipPromptReload = false) {
             // Default to true if not specified
             rankAgentEnabledCheckbox.checked = true;
         }
+        // Update badge to reflect initial state
+        if (typeof updateRankEnabledBadge === 'function') {
+            updateRankEnabledBadge();
+        }
         
         // Update Rank QA state based on Rank Agent enabled state (restore from config on initial load)
         updateRankQAState(true);
@@ -5901,6 +5910,26 @@ function updateExtractAgentStatusBadge(agentName, enabled) {
     });
 }
 
+function updateRankEnabledBadge() {
+    const checkbox = document.getElementById('rank-agent-enabled');
+    const enabled = checkbox ? checkbox.checked : true;
+    const ids = [
+        'rank-agent-enabled-badge',
+        'rank-agent-enabled-pill'
+    ];
+    ids.forEach(badgeId => {
+        const badge = document.getElementById(badgeId);
+        if (!badge) return;
+        badge.textContent = enabled ? 'Enabled' : 'Disabled';
+        badge.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200', 'bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        if (enabled) {
+            badge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+        } else {
+            badge.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        }
+    });
+}
+
 function syncExtractAgentTogglesFromConfig() {
     const disabled = new Set(getDisabledExtractAgentsFromConfig(currentConfig));
     disabledExtractAgents = disabled;
@@ -6320,6 +6349,10 @@ async function applyPreset(preset) {
             const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
             if (rankAgentEnabledCheckbox) {
                 rankAgentEnabledCheckbox.checked = preset.rank_agent_enabled;
+                // Update badge to reflect preset state
+                if (typeof updateRankEnabledBadge === 'function') {
+                    updateRankEnabledBadge();
+                }
             }
         }
         

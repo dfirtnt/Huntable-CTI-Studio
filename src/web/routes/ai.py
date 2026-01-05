@@ -1261,8 +1261,12 @@ async def api_test_langfuse_connection(request: Request):
 
 @router.post("/{article_id}/rank-with-gpt4o")
 async def api_rank_with_gpt4o(article_id: int, request: Request):
-    """API endpoint for GPT4o SIGMA huntability ranking (frontend-compatible endpoint)."""
+    """API endpoint for SIGMA huntability ranking using Workflow config (prompt and model)."""
     try:
+        from src.services.llm_service import LLMService
+        from src.services.workflow_trigger_service import WorkflowTriggerService
+        from src.database.manager import DatabaseManager
+
         # Get the article
         article = await async_db_manager.get_article(article_id)
         if not article:
@@ -1270,76 +1274,13 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
-        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
-        # Support both OpenAI and Anthropic headers
-        api_key_raw = (
-            request.headers.get("X-OpenAI-API-Key")
-            or request.headers.get("X-Anthropic-API-Key")
-            or body.get("api_key")
-        )
-
-        # DEBUG: Log raw key before any processing
-        if api_key_raw:
-            api_key_source = (
-                "header (OpenAI)"
-                if request.headers.get("X-OpenAI-API-Key")
-                else "header (Anthropic)"
-                if request.headers.get("X-Anthropic-API-Key")
-                else "body"
-            )
-            logger.info(
-                f"🔍 DEBUG Ranking: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}"
-            )
-
-        # Strip whitespace from API key (common issue when copying/pasting)
-        api_key = api_key_raw.strip() if api_key_raw else None
-
-        # DEBUG: Log after stripping
-        if api_key:
-            logger.info(
-                f"🔍 DEBUG Ranking: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
-            )
-
-        ai_model = body.get("ai_model", "chatgpt")  # Get AI model from request
         optimization_options = body.get("optimization_options", {})
         use_filtering = body.get("use_filtering", True)  # Enable filtering by default
         min_confidence = body.get("min_confidence", 0.7)  # Confidence threshold
         force_regenerate = body.get("force_regenerate", False)  # Force regeneration
 
         logger.info(
-            f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}"
-        )
-
-        # Check if API key is provided (required for ChatGPT and Anthropic)
-        if ai_model == "chatgpt" and not api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.",
-            )
-        elif ai_model == "anthropic" and not api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="Anthropic API key is required for Claude. Please configure it in Settings.",
-            )
-
-        # Validate API key format before making request
-        if ai_model == "chatgpt" and api_key:
-            if not api_key.startswith("sk-"):
-                error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
-                logger.error(
-                    f"❌ Ranking API key validation failed: does not start with 'sk-' (length: {len(api_key)})"
-                )
-                raise HTTPException(status_code=400, detail=error_detail)
-            if len(api_key) < 20:
-                error_detail = "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
-                logger.error(
-                    f"❌ Ranking API key validation failed: too short (length: {len(api_key)})"
-                )
-                raise HTTPException(status_code=400, detail=error_detail)
-            # Log key info (masked)
-            logger.info(
-                f"🔑 Ranking with OpenAI: api_key length: {len(api_key)}, starts_with: {api_key[:8]}..., ends_with: ...{api_key[-4:]}"
+            f"Ranking request for article {article_id}, force_regenerate: {force_regenerate}"
             )
 
         # Check for existing ranking data (unless force regeneration is requested)
@@ -1374,6 +1315,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         content_filtering_enabled = (
             os.getenv("CONTENT_FILTERING_ENABLED", "true").lower() == "true"
         )
+        optimization_result = {}
 
         if content_filtering_enabled and use_filtering:
             from src.utils.llm_optimizer import optimize_article_content
@@ -1385,319 +1327,96 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     article_metadata=article.article_metadata,
                     content_hash=article.content_hash,
                 )
-                if optimization_result["success"]:
+                if optimization_result.get("success"):
                     content_to_analyze = optimization_result["filtered_content"]
                     logger.info(
-                        f"Content filtered for GPT-4o ranking: {optimization_result['tokens_saved']:,} tokens saved, "
-                        f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction"
+                        f"Content filtered for ranking: {optimization_result.get('tokens_saved', 0):,} tokens saved, "
+                        f"{optimization_result.get('cost_reduction_percent', 0):.1f}% cost reduction"
                     )
                 else:
                     # Fallback to original content if filtering fails
                     content_to_analyze = article.content
                     logger.warning(
-                        "Content filtering failed for GPT-4o ranking, using original content"
+                        "Content filtering failed for ranking, using original content"
                     )
             except Exception as e:
                 logger.error(
-                    f"Content filtering error for GPT-4o ranking: {e}, using original content"
+                    f"Content filtering error for ranking: {e}, using original content"
                 )
                 content_to_analyze = article.content
         else:
             # Use original content if filtering is disabled
             content_to_analyze = article.content
 
-        # Use environment-configured content limits (no hardcoded truncation)
-        # Content filtering already optimizes content, so we trust the configured limits
-
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
 
-        # Choose prompt based on AI model
-        if ai_model in ["chatgpt", "anthropic"]:
-            # Use detailed prompt for cloud models
-            sigma_prompt = format_prompt(
-                "gpt4o_sigma_ranking",
-                title=article.title,
-                source=source_name,
-                url=article.canonical_url or "N/A",
-                content=content_to_analyze,
-            )
-        elif ai_model == "lmstudio":
-            # Use ultra-short prompt for LMStudio
-            sigma_prompt = format_prompt(
-                "lmstudio_sigma_ranking",
-                title=article.title,
-                source=source_name,
-                content=content_to_analyze[:2000],  # Limit content to 2000 chars
-            )
-        else:
-            # Use simplified prompt for other local LLMs
-            sigma_prompt = format_prompt(
-                "llm_sigma_ranking_simple",
-                title=article.title,
-                source=source_name,
-                url=article.canonical_url or "N/A",
-                content=content_to_analyze,
-            )
-
-        # Generate ranking based on AI model
-        if ai_model == "chatgpt":
-            # Use ChatGPT API
-            chatgpt_api_url = os.getenv(
-                "CHATGPT_API_URL", "https://api.openai.com/v1/chat/completions"
-            )
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    chatgpt_api_url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "gpt-4o",
-                        "messages": [{"role": "user", "content": sigma_prompt}],
-                        "max_tokens": 2000,
-                        "temperature": 0.3,
-                    },
-                    timeout=60.0,
-                )
-
-                if response.status_code == 401:
-                    # Try to extract more details from the error
-                    try:
-                        error_json = response.json()
-                        error_message = error_json.get("error", {}).get(
-                            "message", "Invalid API key"
-                        )
-                        logger.error(
-                            f"❌ Ranking OpenAI 401 error: {error_message}, api_key ends_with: ...{api_key[-4:] if api_key and len(api_key) >= 4 else 'N/A'}"
-                        )
-                        raise HTTPException(
-                            status_code=401,
-                            detail=f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings.",
-                        )
-                    except:
-                        logger.error(
-                            f"❌ Ranking OpenAI 401 error, response: {response.text}"
-                        )
-                        raise HTTPException(
-                            status_code=401,
-                            detail="OpenAI API key is invalid or expired. Please check your API key in Settings.",
-                        )
-                elif response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(
-                        f"❌ Ranking OpenAI API error {response.status_code}: {error_detail}"
-                    )
-                    raise HTTPException(
-                        status_code=500, detail=f"OpenAI API error: {error_detail}"
-                    )
-
-                result = response.json()
-                analysis = result["choices"][0]["message"]["content"]
-                model_used = "chatgpt"
-                model_name = "gpt-4o"
-        elif ai_model == "anthropic":
-            # Use Anthropic API with rate limit handling
-            anthropic_api_url = os.getenv(
-                "ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages"
-            )
-
-            payload = {
-                "model": "claude-sonnet-4-5",
-                "max_tokens": 2000,
-                "temperature": 0.3,
-                "messages": [{"role": "user", "content": sigma_prompt}],
-            }
-
-            response = await _call_anthropic_with_retry(
-                api_key=api_key,
-                payload=payload,
-                anthropic_api_url=anthropic_api_url,
-                timeout=60.0,
-            )
-
-            result = response.json()
-            analysis = result["content"][0]["text"]
-            model_used = "anthropic"
-            model_name = "claude-sonnet-4-5"
-        elif ai_model == "tinyllama":
-            # Use Ollama API with TinyLlama model
-            ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-
-            logger.info(f"Using Ollama at {ollama_url} with TinyLlama model")
-
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": "tinyllama",
-                            "prompt": sigma_prompt,
-                            "stream": True,  # Enable streaming for better responsiveness
-                            "options": {"temperature": 0.3, "num_predict": 2000},
-                        },
-                        timeout=300.0,
-                    )
-
-                    if response.status_code != 200:
-                        logger.error(
-                            f"Ollama API error: {response.status_code} - {response.text}"
-                        )
+        # Get workflow config for RankAgent prompt and model
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            
+            if not config_obj:
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Failed to get ranking from TinyLlama: {response.status_code}",
-                        )
-
-                    # Collect streaming response
-                    analysis = ""
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                if "response" in chunk:
-                                    analysis += chunk["response"]
-                                if chunk.get("done", False):
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-
-                    if not analysis:
-                        analysis = "No analysis available"
-
-                    model_used = "tinyllama"
-                    model_name = "tinyllama"
-                    logger.info(
-                        f"Successfully got ranking from TinyLlama: {len(analysis)} characters"
-                    )
-
-                except Exception as e:
-                    logger.error(f"TinyLlama API request failed: {e}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Failed to get ranking from TinyLlama: {str(e)}",
-                    )
-        elif ai_model == "lmstudio":
-            # Use LMStudio API with recommended settings
-            lmstudio_model = await _get_current_lmstudio_model()
-            lmstudio_settings = _get_lmstudio_settings()
-
-            payload = {
-                "model": lmstudio_model,
-                "messages": [{"role": "user", "content": sigma_prompt}],
-                "max_tokens": 2000,
-                "temperature": lmstudio_settings["temperature"],
-                "top_p": lmstudio_settings["top_p"],
-            }
-            if lmstudio_settings["seed"] is not None:
-                payload["seed"] = lmstudio_settings["seed"]
-
-            result = await _post_lmstudio_chat(
-                payload,
-                model_name=lmstudio_model,
-                timeout=300.0,
-                failure_context="Failed to get ranking from LMStudio",
-            )
-
-            analysis = result["choices"][0]["message"]["content"]
-
-            if not analysis:
-                analysis = "No analysis available"
-
-            model_used = "lmstudio"
-            model_name = lmstudio_model
-            logger.info(
-                f"Successfully got ranking from LMStudio: {len(analysis)} characters"
-            )
-        elif ai_model == "ollama":
-            # Use Ollama API with default model (Llama 3.2 1B)
-            ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-            ollama_model = os.getenv("LLM_MODEL", "llama3.2:1b")
-
-            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": sigma_prompt,
-                            "stream": True,  # Enable streaming for better responsiveness
-                            "options": {"temperature": 0.3, "num_predict": 2000},
-                        },
-                        timeout=300.0,
-                    )
-
-                    if response.status_code != 200:
-                        logger.error(
-                            f"Ollama API error: {response.status_code} - {response.text}"
-                        )
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Failed to get ranking from Ollama: {response.status_code}",
-                        )
-
-                    # Collect streaming response
-                    analysis = ""
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                if "response" in chunk:
-                                    analysis += chunk["response"]
-                                if chunk.get("done", False):
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-
-                    if not analysis:
-                        analysis = "No analysis available"
-
-                    model_used = "ollama"
-                    model_name = ollama_model
-                    logger.info(
-                        f"Successfully got ranking from Ollama: {len(analysis)} characters"
-                    )
-
-                except Exception as e:
-                    logger.error(f"Ollama API request failed: {e}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Failed to get ranking from Ollama: {str(e)}",
-                    )
-        else:
-            # Default fallback - use OpenAI API
-            logger.warning(f"Unknown AI model '{ai_model}', falling back to OpenAI")
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "gpt-4o",
-                        "messages": [{"role": "user", "content": sigma_prompt}],
-                        "max_tokens": 2000,
-                        "temperature": 0.3,
-                    },
-                    timeout=60.0,
+                    detail="No active workflow configuration found. Please configure the workflow first."
                 )
-
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"OpenAI API error: {error_detail}")
+            
+            # Get RankAgent prompt from config
+            rank_prompt_template = None
+            if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
+                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
+                if isinstance(rank_prompt_data.get("prompt"), str):
+                    rank_prompt_template = rank_prompt_data["prompt"]
+                    logger.info(f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)")
+            
+            if not rank_prompt_template:
                     raise HTTPException(
-                        status_code=500, detail=f"OpenAI API error: {error_detail}"
-                    )
-
-                result = response.json()
-                analysis = result["choices"][0]["message"]["content"]
-                model_used = "openai"
-                model_name = "gpt-4o"
+                    status_code=400,
+                    detail="RankAgent prompt not configured in workflow. Please configure the RankAgent prompt in Workflow settings."
+                )
+            
+            # Get agent models from config
+            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
+            
+            # Initialize LLMService with config models
+            llm_service = LLMService(config_models=agent_models)
+            llm_service._current_article_id = article_id
+            
+            # Get ground truth details for logging
+            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
+            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
+            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
+            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
+            
+            # Call LLMService.rank_article() with workflow config prompt
+            ranking_result = await llm_service.rank_article(
+                title=article.title,
+                content=content_to_analyze,
+                source=source_name,
+                url=article.canonical_url or "",
+                prompt_template=rank_prompt_template,
+                article_id=article.id,
+                ground_truth_rank=ground_truth_rank,
+                ground_truth_details=ground_truth_details
+            )
+            
+            # Extract score and reasoning from ranking result
+            score = ranking_result.get("score")
+            reasoning = ranking_result.get("reasoning", "")
+            
+            # Format analysis similar to original endpoint format
+            analysis = f"Score: {score}/10\n\nReasoning:\n{reasoning}"
+            
+            # Get model name from LLMService
+            model_name = llm_service.model_rank or "unknown"
+            model_used = "workflow_config"
+            
+        finally:
+            db_session.close()
 
         # Save the analysis to the article's metadata
         if article.article_metadata is None:
@@ -1747,7 +1466,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"API GPT4o ranking error: {e}")
+        logger.error(f"API ranking error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

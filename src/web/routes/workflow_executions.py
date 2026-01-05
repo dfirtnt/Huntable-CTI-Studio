@@ -555,7 +555,7 @@ async def trigger_stuck_executions(request: Request):
             for execution in pending_executions:
                 try:
                     logger.info(f"Triggering stuck execution {execution.id} for article {execution.article_id}")
-                    result = await run_workflow(execution.article_id, db_session)
+                    result = await run_workflow(execution.article_id, db_session, execution_id=execution.id)
                     
                     results.append({
                         'execution_id': execution.id,
@@ -618,20 +618,45 @@ async def retry_workflow_execution(request: Request, execution_id: int):
             if execution.status not in ['failed', 'completed']:
                 raise HTTPException(status_code=400, detail="Can only retry failed or completed executions")
             
+            # Merge old config_snapshot with current active config to ensure rank_agent_enabled is up-to-date
+            from src.services.workflow_trigger_service import WorkflowTriggerService
+            trigger_service = WorkflowTriggerService(db_session)
+            current_config = trigger_service.get_active_config()
+            
+            # Start with old snapshot (preserves eval flags, thresholds, etc.)
+            new_config_snapshot = execution.config_snapshot.copy() if execution.config_snapshot else {}
+            
+            # Update rank_agent_enabled from current active config (if available)
+            # CRITICAL: Always use current active config value, not the old snapshot value
+            if current_config and hasattr(current_config, 'rank_agent_enabled'):
+                new_config_snapshot['rank_agent_enabled'] = bool(current_config.rank_agent_enabled)
+                logger.info(f"Retry execution {execution_id}: Updated rank_agent_enabled to {new_config_snapshot['rank_agent_enabled']} (was {execution.config_snapshot.get('rank_agent_enabled') if execution.config_snapshot else 'N/A'}) from current active config")
+            elif 'rank_agent_enabled' not in new_config_snapshot:
+                # Fallback: ensure it exists even if not in old snapshot
+                new_config_snapshot['rank_agent_enabled'] = True
+                logger.info(f"Retry execution {execution_id}: Added default rank_agent_enabled=True to config_snapshot (no current config available)")
+            else:
+                # Convert existing value to bool to ensure consistency
+                new_config_snapshot['rank_agent_enabled'] = bool(new_config_snapshot.get('rank_agent_enabled', True))
+                logger.info(f"Retry execution {execution_id}: Preserved rank_agent_enabled={new_config_snapshot['rank_agent_enabled']} from old snapshot (no current config to update from)")
+            
             # Create new execution record
             new_execution = AgenticWorkflowExecutionTable(
                 article_id=execution.article_id,
                 status='pending',
-                config_snapshot=execution.config_snapshot,
+                config_snapshot=new_config_snapshot,
                 retry_count=execution.retry_count + 1
             )
             db_session.add(new_execution)
             db_session.commit()
             db_session.refresh(new_execution)
             
+            # Verify the snapshot was saved correctly
+            logger.info(f"Retry execution {execution_id}: Created new execution {new_execution.id} with rank_agent_enabled={new_config_snapshot.get('rank_agent_enabled')} in snapshot")
+            
             # Trigger workflow via Celery (uses Langfuse if enabled)
             logger.info(f"Retry requested for execution {execution_id}")
-            trigger_agentic_workflow.delay(execution.article_id)
+            trigger_agentic_workflow.delay(execution.article_id, new_execution.id)
             
             return {
                 "success": True,

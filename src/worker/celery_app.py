@@ -8,7 +8,7 @@ import os
 import logging
 import time
 import sys
-from typing import List
+from typing import List, Optional
 from celery import Celery
 from celery.schedules import crontab
 
@@ -628,7 +628,7 @@ def check_source(self, source_identifier: str):
 
 
 @celery_app.task(bind=True, max_retries=3)
-def trigger_agentic_workflow(self, article_id: int):
+def trigger_agentic_workflow(self, article_id: int, execution_id: Optional[int] = None):
     """Trigger agentic workflow for an article with high hunt score."""
     try:
         import asyncio
@@ -642,7 +642,7 @@ def trigger_agentic_workflow(self, article_id: int):
                 db_session = db_manager.get_session()
 
                 try:
-                    result = await run_workflow(article_id, db_session)
+                    result = await run_workflow(article_id, db_session, execution_id=execution_id)
                     logger.info(
                         f"Agentic workflow completed for article {article_id}: {result.get('success', False)}"
                     )
