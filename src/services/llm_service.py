@@ -2972,25 +2972,106 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     )
                 
                 qa_result = {}
+                parse_error = None
+                parsing_failed = False
                 try:
-                    s = qa_text.find('{')
-                    e = qa_text.rfind('}')
-                    if s != -1 and e != -1:
-                        qa_result = json.loads(qa_text[s:e+1])
-                        logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
+                    # Robust JSON extraction: try multiple strategies
+                    # Strategy 1: Find balanced braces (most reliable for nested JSON)
+                    # This handles nested objects correctly by counting braces
+                    start_idx = qa_text.find('{')
+                    if start_idx != -1:
+                        brace_count = 0
+                        end_idx = start_idx
+                        in_string = False
+                        escape_next = False
+                        
+                        for i in range(start_idx, len(qa_text)):
+                            char = qa_text[i]
+                            
+                            if escape_next:
+                                escape_next = False
+                                continue
+                            
+                            if char == '\\':
+                                escape_next = True
+                                continue
+                            
+                            if char == '"' and not escape_next:
+                                in_string = not in_string
+                                continue
+                            
+                            if not in_string:
+                                if char == '{':
+                                    brace_count += 1
+                                elif char == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        end_idx = i
+                                        break
+                        
+                        if brace_count == 0 and end_idx > start_idx:
+                            json_str = qa_text[start_idx:end_idx+1]
+                            qa_result = json.loads(json_str)
+                            logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
+                        else:
+                            raise ValueError(f"Unbalanced braces in JSON (count: {brace_count})")
+                    else:
+                        # Strategy 2: Try parsing entire text if it looks like JSON
+                        qa_text_stripped = qa_text.strip()
+                        if qa_text_stripped.startswith('{') and qa_text_stripped.endswith('}'):
+                            qa_result = json.loads(qa_text_stripped)
+                            logger.info(f"{agent_name} QA parsed keys (full text): {list(qa_result.keys())}")
+                        else:
+                            raise ValueError("No JSON object found in response")
+                except json.JSONDecodeError as e:
+                    parse_error = f"JSON decode error: {e}"
+                    parsing_failed = True
+                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:300]}. Treating as pass to avoid retry loop.")
+                except ValueError as e:
+                    parse_error = f"JSON extraction error: {e}"
+                    parsing_failed = True
+                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:300]}. Treating as pass to avoid retry loop.")
                 except Exception as e:
-                    logger.warning(f"{agent_name} QA parse error: {e}")
-                    pass
+                    parse_error = f"Unexpected parse error: {e}"
+                    parsing_failed = True
+                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:300]}. Treating as pass to avoid retry loop.")
                 
-                status = qa_result.get("status", "pass").lower() # Default to pass if parse fail to avoid loops
+                # Default to pass if parse fail to avoid retry loops, but log as error
+                status = qa_result.get("status", "pass").lower() if not parsing_failed else "pass"
                 # Handle "needs_revision" as fail for retry logic
                 if status == "needs_revision":
                     status = "fail"
                 
+                # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
+                extracted_feedback = ""
+                if qa_result and len(qa_result) > 0:
+                    # Try multiple possible feedback fields
+                    extracted_feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied") or qa_result.get("summary") or ""
+                else:
+                    # QA parsing failed - try to extract feedback from raw text
+                    # Look for common feedback patterns in the raw QA text
+                    if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
+                        # Try to extract a meaningful snippet from the QA text
+                        # Look for sentences that might contain feedback
+                        import re
+                        # Try to find feedback-like content (sentences with "missing", "incorrect", "should", etc.)
+                        feedback_patterns = re.findall(r'[^.!?]*(?:missing|incorrect|wrong|should|must|need|issue|problem)[^.!?]*[.!?]', qa_text, re.IGNORECASE)
+                        if feedback_patterns:
+                            extracted_feedback = " ".join(feedback_patterns[:3])  # Take first 3 feedback sentences
+                        else:
+                            # Fallback: use first 200 chars of QA text as feedback
+                            extracted_feedback = qa_text[:200] if qa_text else ""
+                    else:
+                        extracted_feedback = ""
+                
+                # If still no feedback, use default
+                if not extracted_feedback:
+                    extracted_feedback = "QA failed without feedback."
+                
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
                     # Convert QA result format to match UI expectations
-                    qa_status = qa_result.get("status", "pass").lower()
+                    qa_status = qa_result.get("status", "pass").lower() if qa_result else "fail"
                     # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
                     if qa_status == "needs_revision":
                         verdict = "needs_revision"
@@ -2999,12 +3080,9 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     else:
                         verdict = "needs_revision"
                     
-                    # Extract feedback/summary from various possible fields
-                    feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied") or qa_result.get("summary") or ""
-                    
                     # Build issues list from corrected_commands if available
                     issues = []
-                    if "corrected_commands" in qa_result:
+                    if qa_result and "corrected_commands" in qa_result:
                         corrected = qa_result["corrected_commands"]
                         for removed in corrected.get("removed", []):
                             issues.append({
@@ -3021,20 +3099,28 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     
                     # Always store QA result when QA runs, even if parsing failed
                     if not qa_result or len(qa_result) == 0:
-                        # QA parsing failed, store error result
+                        # QA parsing failed, store error result with diagnostic info
+                        error_description = "QA response parsing failed"
+                        if parse_error:
+                            error_description = f"QA response parsing failed: {parse_error}"
+                        
+                        # Include raw response snippet in feedback for debugging
+                        raw_snippet = qa_text[:500] if qa_text else "No response received"
+                        feedback_with_diagnostic = extracted_feedback or f"QA response could not be parsed. Raw response preview: {raw_snippet}"
+                        
                         last_result["_qa_result"] = {
                             "verdict": "needs_revision",
-                            "summary": "QA evaluation ran but response parsing failed",
+                            "summary": extracted_feedback or "QA evaluation ran but response parsing failed",
                             "status": "fail",
-                            "feedback": "QA response could not be parsed",
-                            "issues": [{"type": "compliance", "description": "QA response parsing failed", "severity": "medium"}]
+                            "feedback": feedback_with_diagnostic,
+                            "issues": [{"type": "compliance", "description": error_description, "severity": "medium"}]
                         }
                     else:
                         last_result["_qa_result"] = {
                             "verdict": verdict,
-                            "summary": feedback,
+                            "summary": extracted_feedback,
                             "status": qa_status,
-                            "feedback": feedback,
+                            "feedback": extracted_feedback,
                             "issues": issues
                         }
                 
@@ -3042,7 +3128,8 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     logger.info(f"{agent_name} QA Passed on attempt {current_try}. Returning {len(last_result.get('cmdline_items', last_result.get('items', [])))} items")
                     return last_result
                 else:
-                    feedback = qa_result.get("feedback", "QA failed without feedback.")
+                    # Use the extracted feedback (already extracted above)
+                    feedback = extracted_feedback
                     logger.info(f"{agent_name} QA Failed on attempt {current_try}: {feedback}. Current items: {len(last_result.get('cmdline_items', last_result.get('items', [])))}")
                     # Continue loop
             

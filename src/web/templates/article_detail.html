@@ -4472,7 +4472,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
                                 title="${hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article'}">
                             <span class="mr-2">🔍</span>
-                            ${hasSigmaRules ? 'Display SIGMA Rules' : 'Generate SIGMA Rules'}
+                            ${hasSigmaRules ? 'Display SIGMA Rules' : 'One Shot SIGMA'}
                             ${showSigmaWarning ? '<span class="ml-2 text-yellow-300">⚠️</span>' : ''}
                         </button>
                         ${showSigmaWarning ? '<div class="text-xs text-yellow-600 text-center mt-1">⚠️ Low threat hunting score (' + threatHuntingScore + '/100) - SIGMA rules may lack technical depth</div>' : ''}
@@ -4511,7 +4511,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             <button onclick="generateAIAnalysis('cmdlines')" 
                                     class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">🧾</span>
-                                Extract Command Lines
+                                Extract CMDlines with CTI-BERT
                             </button>
 
                             <button onclick="closeAIAssistantModal()" 
