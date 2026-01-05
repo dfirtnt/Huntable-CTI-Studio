@@ -680,8 +680,19 @@ class LLMService:
         resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
 
         if provider == "lmstudio":
+            # Normalize model name for LMStudio (remove prefix and date suffix)
+            # e.g., "qwen/qwen3-4b-2507" -> "qwen3-4b"
+            normalized_model = resolved_model
+            if normalized_model:
+                # Remove common prefixes (e.g., "qwen/", "mistralai/")
+                if "/" in normalized_model:
+                    normalized_model = normalized_model.split("/")[-1]
+                # Remove date suffixes (e.g., "-2507", "-2024")
+                import re
+                normalized_model = re.sub(r'-\d{4,8}$', '', normalized_model)
+            
             payload = {
-                "model": resolved_model,
+                "model": normalized_model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
@@ -2924,7 +2935,6 @@ Evaluation Criteria:
 {qa_criteria}
 
 Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")}
-Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string explanation).
 """
                 
                 qa_messages = [
@@ -2974,8 +2984,11 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                 qa_result = {}
                 parse_error = None
                 parsing_failed = False
+                
+                # Try multiple parsing strategies in order
+                strategies_tried = []
+                
                 try:
-                    # Robust JSON extraction: try multiple strategies
                     # Strategy 1: Find balanced braces (most reliable for nested JSON)
                     # This handles nested objects correctly by counting braces
                     start_idx = qa_text.find('{')
@@ -3014,27 +3027,115 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                             qa_result = json.loads(json_str)
                             logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
                         else:
+                            strategies_tried.append(f"balanced_braces_unbalanced(count={brace_count})")
                             raise ValueError(f"Unbalanced braces in JSON (count: {brace_count})")
                     else:
-                        # Strategy 2: Try parsing entire text if it looks like JSON
+                        strategies_tried.append("no_opening_brace")
+                        raise ValueError("No opening brace found")
+                        
+                except (json.JSONDecodeError, ValueError) as e:
+                    # Strategy 2: Try parsing entire text if it looks like JSON
+                    try:
                         qa_text_stripped = qa_text.strip()
                         if qa_text_stripped.startswith('{') and qa_text_stripped.endswith('}'):
                             qa_result = json.loads(qa_text_stripped)
                             logger.info(f"{agent_name} QA parsed keys (full text): {list(qa_result.keys())}")
                         else:
-                            raise ValueError("No JSON object found in response")
-                except json.JSONDecodeError as e:
-                    parse_error = f"JSON decode error: {e}"
-                    parsing_failed = True
-                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:300]}. Treating as pass to avoid retry loop.")
-                except ValueError as e:
-                    parse_error = f"JSON extraction error: {e}"
-                    parsing_failed = True
-                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:300]}. Treating as pass to avoid retry loop.")
+                            strategies_tried.append("full_text_not_json")
+                            raise ValueError("Full text doesn't look like JSON")
+                    except (json.JSONDecodeError, ValueError) as e2:
+                        # Strategy 3: Try extracting JSON from markdown code blocks
+                        try:
+                            import re
+                            # Look for JSON in ```json ... ``` or ``` ... ``` blocks
+                            code_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+                            code_match = re.search(code_block_pattern, qa_text, re.DOTALL)
+                            if code_match:
+                                json_str = code_match.group(1)
+                                qa_result = json.loads(json_str)
+                                logger.info(f"{agent_name} QA parsed keys (code block): {list(qa_result.keys())}")
+                            else:
+                                strategies_tried.append("no_code_block")
+                                raise ValueError("No code block found")
+                        except (json.JSONDecodeError, ValueError) as e3:
+                            # Strategy 4: Try regex to find any JSON-like structure
+                            try:
+                                # More permissive regex that finds JSON objects
+                                json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+                                json_matches = re.findall(json_pattern, qa_text, re.DOTALL)
+                                for match in json_matches:
+                                    try:
+                                        qa_result = json.loads(match)
+                                        if "status" in qa_result or "verdict" in qa_result:
+                                            logger.info(f"{agent_name} QA parsed keys (regex match): {list(qa_result.keys())}")
+                                            break
+                                    except json.JSONDecodeError:
+                                        continue
+                                if not qa_result:
+                                    strategies_tried.append("regex_no_valid_json")
+                                    raise ValueError("No valid JSON found via regex")
+                            except (json.JSONDecodeError, ValueError) as e4:
+                                # Strategy 5: Try finding JSON after common prefixes
+                                try:
+                                    prefixes = ['```json', '```', 'JSON:', 'Response:', 'Output:']
+                                    for prefix in prefixes:
+                                        prefix_idx = qa_text.find(prefix)
+                                        if prefix_idx != -1:
+                                            # Look for JSON after prefix
+                                            after_prefix = qa_text[prefix_idx + len(prefix):].strip()
+                                            start_idx = after_prefix.find('{')
+                                            if start_idx != -1:
+                                                # Try balanced brace extraction on remaining text (simplified, no string handling)
+                                                brace_count = 0
+                                                end_idx = start_idx
+                                                for i in range(start_idx, len(after_prefix)):
+                                                    if after_prefix[i] == '{':
+                                                        brace_count += 1
+                                                    elif after_prefix[i] == '}':
+                                                        brace_count -= 1
+                                                        if brace_count == 0:
+                                                            end_idx = i
+                                                            break
+                                                if brace_count == 0:
+                                                    json_str = after_prefix[start_idx:end_idx+1]
+                                                    qa_result = json.loads(json_str)
+                                                    logger.info(f"{agent_name} QA parsed keys (after prefix '{prefix}'): {list(qa_result.keys())}")
+                                                    break
+                                    if not qa_result:
+                                        strategies_tried.append("prefix_extraction_failed")
+                                        raise ValueError("Could not extract JSON after common prefixes")
+                                except (json.JSONDecodeError, ValueError) as e5:
+                                    # Strategy 6: Last resort - try to find any substring that parses as JSON
+                                    try:
+                                        # Find all potential JSON start positions
+                                        for start_pos in range(len(qa_text)):
+                                            if qa_text[start_pos] == '{':
+                                                # Try to parse from this position with increasing lengths
+                                                for end_pos in range(start_pos + 1, min(start_pos + 5000, len(qa_text) + 1)):
+                                                    try:
+                                                        candidate = qa_text[start_pos:end_pos]
+                                                        test_result = json.loads(candidate)
+                                                        # Validate it has expected QA fields
+                                                        if isinstance(test_result, dict) and ("status" in test_result or "verdict" in test_result or "summary" in test_result):
+                                                            qa_result = test_result
+                                                            logger.info(f"{agent_name} QA parsed keys (brute force): {list(qa_result.keys())}")
+                                                            break
+                                                    except (json.JSONDecodeError, ValueError):
+                                                        continue
+                                                if qa_result:
+                                                    break
+                                        if not qa_result:
+                                            strategies_tried.append("brute_force_failed")
+                                            raise ValueError("Brute force extraction failed")
+                                    except (json.JSONDecodeError, ValueError) as e6:
+                                        # All strategies failed
+                                        parse_error = f"All parsing strategies failed. Tried: {', '.join(strategies_tried)}. Last error: {str(e6)}"
+                                        parsing_failed = True
+                                        logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:500]}. Treating as pass to avoid retry loop.")
                 except Exception as e:
                     parse_error = f"Unexpected parse error: {e}"
                     parsing_failed = True
-                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:300]}. Treating as pass to avoid retry loop.")
+                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:500]}. Treating as pass to avoid retry loop.")
                 
                 # Default to pass if parse fail to avoid retry loops, but log as error
                 status = qa_result.get("status", "pass").lower() if not parsing_failed else "pass"

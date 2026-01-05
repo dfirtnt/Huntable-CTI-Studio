@@ -1041,19 +1041,32 @@ class AsyncDatabaseManager:
                     else 0
                 )
 
-                # Check if workflow should be triggered
-                # Hunt score threshold check is DISABLED - all articles can enter workflow
-                try:
-                    # Threshold check disabled - always trigger workflow regardless of score
-                    from src.worker.celery_app import trigger_agentic_workflow
+                # Get threshold from workflow config
+                from src.database.models import AgenticWorkflowConfigTable
+                config = session.query(AgenticWorkflowConfigTable).filter(
+                    AgenticWorkflowConfigTable.is_active == True
+                ).order_by(
+                    AgenticWorkflowConfigTable.version.desc()
+                ).first()
+                threshold = config.auto_trigger_hunt_score_threshold if config and hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
 
-                    trigger_agentic_workflow.delay(new_article.id)
-                    logger.info(
-                        f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score}, threshold check disabled)"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to trigger workflow for article {new_article.id}: {e}"
+                # Check if workflow should be triggered
+                # Only trigger if RegexHuntScore > threshold
+                if hunt_score > threshold:
+                    try:
+                        from src.worker.celery_app import trigger_agentic_workflow
+
+                        trigger_agentic_workflow.delay(new_article.id)
+                        logger.info(
+                            f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score} > {threshold})"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to trigger workflow for article {new_article.id}: {e}"
+                        )
+                else:
+                    logger.debug(
+                        f"Skipping workflow trigger for article {new_article.id} (hunt_score: {hunt_score} <= {threshold})"
                     )
 
                 # Automatically run chunk analysis for articles with hunt_score > 50

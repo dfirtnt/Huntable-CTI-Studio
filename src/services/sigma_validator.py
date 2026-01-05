@@ -94,6 +94,113 @@ def clean_sigma_rule(rule_content: str) -> str:
     # Clean up whitespace
     cleaned = '\n'.join(line.rstrip() for line in cleaned.split('\n'))
     cleaned = cleaned.strip()
+    
+    # Strategy 4.5: Pre-fix common YAML issues with regex before line-by-line processing
+    # Fix unquoted title/description with special characters using regex
+    import re
+    # Pattern: title: value (where value contains ? or : and isn't quoted)
+    def fix_unquoted_special_chars(text, field_name):
+        # Match: optional whitespace, field name, colon, whitespace, then rest of line
+        pattern = rf'^(\s*{field_name}\s*:\s*)(.+?)(\s*)$'
+        def quote_value(match):
+            indent_key, value, trailing = match.groups()
+            value = value.strip()
+            # Skip if already quoted, empty, or doesn't have special chars
+            if not value:
+                return match.group(0)
+            if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                return match.group(0)
+            # Check if value contains special YAML characters that require quoting
+            special_chars = ['?', ':', '[', ']', '{', '}', '|', '&', '*', '#', '@', '`']
+            has_special = any(char in value for char in special_chars)
+            # Also check if value has multiple colons (key:value:more is problematic)
+            has_multiple_colons = value.count(':') > 0
+            if has_special or has_multiple_colons:
+                # Quote the value
+                if '"' in value:
+                    return f"{indent_key}'{value}'{trailing}"
+                else:
+                    return f'{indent_key}"{value}"{trailing}'
+            return match.group(0)
+        return re.sub(pattern, quote_value, text, flags=re.MULTILINE)
+    
+    cleaned = fix_unquoted_special_chars(cleaned, 'title')
+    cleaned = fix_unquoted_special_chars(cleaned, 'description')
+    
+    # Strategy 5: Fix unquoted YAML values with special characters
+    # YAML special characters that require quoting: ?, :, [, ], {, }, |, &, *, #, @, `
+    # Common fields that might have special chars: title, description
+    lines = cleaned.split('\n')
+    fixed_lines = []
+    for line in lines:
+        # Check if line is a key:value pair (not a comment and has colon)
+        stripped = line.strip()
+        if ':' in stripped and not stripped.startswith('#'):
+            # Split on first colon only (maxsplit=1) to handle values with colons
+            # Use regex to be more precise: match key:value where key is a word
+            import re
+            match = re.match(r'^(\s*)(\w+)\s*:\s*(.+)$', line)
+            if match:
+                indent, key, value = match.groups()
+                value = value.strip()
+                
+                # Check if value contains special YAML characters and isn't already quoted
+                special_chars = ['?', ':', '[', ']', '{', '}', '|', '&', '*', '#', '@', '`']
+                is_quoted = (
+                    (value.startswith('"') and value.endswith('"')) or
+                    (value.startswith("'") and value.endswith("'"))
+                )
+                has_special_chars = any(char in value for char in special_chars)
+                is_simple_value = not value.startswith('[') and not value.startswith('{') and not value.startswith('-')
+                is_target_field = key in ['title', 'description', 'id']
+                
+                needs_quoting = (
+                    value and 
+                    not is_quoted and
+                    has_special_chars and
+                    is_simple_value and
+                    is_target_field
+                )
+                
+                if needs_quoting:
+                    # Quote the value, escaping any existing quotes
+                    if '"' in value:
+                        # Use single quotes if value contains double quotes
+                        value = f"'{value}'"
+                    else:
+                        # Use double quotes
+                        value = f'"{value}"'
+                    fixed_lines.append(f"{indent}{key}: {value}")
+                    logger.debug(f"Quoted {key} value due to special characters: {value}")
+                else:
+                    fixed_lines.append(line)
+            else:
+                # Fallback: try simple split if regex doesn't match
+                parts = stripped.split(':', 1)
+                if len(parts) == 2:
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+                    if key in ['title', 'description', 'id'] and value and ('?' in value or (':' in value and value.count(':') > 1)):
+                        # Quote if it has special chars
+                        if not ((value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'"))):
+                            if '"' in value:
+                                value = f"'{value}'"
+                            else:
+                                value = f'"{value}"'
+                            indent = len(line) - len(line.lstrip())
+                            fixed_lines.append(' ' * indent + f"{key}: {value}")
+                            logger.debug(f"Quoted {key} value (fallback): {value}")
+                        else:
+                            fixed_lines.append(line)
+                    else:
+                        fixed_lines.append(line)
+                else:
+                    fixed_lines.append(line)
+        else:
+            fixed_lines.append(line)
+    
+    cleaned = '\n'.join(fixed_lines)
+    cleaned = cleaned.strip()
 
     logger.debug(f"Cleaned content starts with: {repr(cleaned[:100])}")
 
