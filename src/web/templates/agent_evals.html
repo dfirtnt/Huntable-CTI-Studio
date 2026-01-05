@@ -199,6 +199,7 @@ let activeConfig = null;
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
 let executionResults = {};
+const excludedVersions = [594, 603, 606, 633, 665, 668];
 
 // Load active workflow config
 async function loadActiveConfig() {
@@ -963,8 +964,12 @@ function renderMAEChart(aggregates) {
         return;
     }
     
-    // Filter aggregates that have MAE data
-    const validAggregates = aggregates.filter(agg => agg.mean_absolute_error !== null);
+    // Filter aggregates that have MAE data and exclude specified versions
+    const validAggregates = aggregates.filter(agg => 
+        agg.mean_absolute_error !== null && 
+        agg.config_version && 
+        !excludedVersions.includes(parseInt(agg.config_version))
+    );
     
     if (validAggregates.length === 0) {
         document.getElementById('maeChartContainer').classList.add('hidden');
@@ -1080,14 +1085,19 @@ async function loadAggregateScores() {
         const data = await response.json();
         const aggregates = data.aggregates || [];
         
-        if (aggregates.length === 0) {
+        // Filter out excluded versions
+        const filteredAggregates = aggregates.filter(agg => 
+            agg.config_version && !excludedVersions.includes(parseInt(agg.config_version))
+        );
+        
+        if (filteredAggregates.length === 0) {
             aggregateScores.classList.add('hidden');
             document.getElementById('maeChartContainer').classList.add('hidden');
             return;
         }
         
         // Render MAE chart
-        renderMAEChart(aggregates);
+        renderMAEChart(filteredAggregates);
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';
@@ -1097,7 +1107,7 @@ async function loadAggregateScores() {
             initCollapsiblePanels(aggregateScores);
         }
         
-        aggregates.forEach(agg => {
+        filteredAggregates.forEach(agg => {
             const card = document.createElement('div');
             card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800';
             
@@ -1197,7 +1207,6 @@ async function loadPreviousResults() {
         
         // Get all unique config versions and sort them (ascending - oldest first)
         // Filter out excluded versions
-        const excludedVersions = [594, 603, 606];
         const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
         
         // Fetch model info for all config versions
