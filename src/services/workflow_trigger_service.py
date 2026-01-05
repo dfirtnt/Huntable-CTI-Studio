@@ -145,6 +145,7 @@ class WorkflowTriggerService:
                     'junk_filter_threshold': config.junk_filter_threshold,
                     'agent_models': config.agent_models,
                     'qa_enabled': config.qa_enabled if config and config.qa_enabled is not None else {},
+                    'rank_agent_enabled': config.rank_agent_enabled if config and hasattr(config, 'rank_agent_enabled') else True,
                     'config_id': config.id,
                     'config_version': config.version
                 } if config else None

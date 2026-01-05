@@ -202,11 +202,11 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             final_description = config_update.description or (current_config.description if current_config else "Updated configuration")
             final_agent_prompts = config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
             final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
+            final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
             
             # Check if the new config would be identical to the current one
             if current_config:
                 # Compare all fields
-                final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
                 
                 configs_identical = (
                     abs(current_config.min_hunt_score - final_min_hunt_score) < 0.0001 and

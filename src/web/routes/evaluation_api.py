@@ -385,6 +385,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                             "agent_models": config.agent_models or {},
                             "agent_prompts": config.agent_prompts or {},
                             "qa_enabled": config.qa_enabled or {},
+                            "rank_agent_enabled": config.rank_agent_enabled if hasattr(config, 'rank_agent_enabled') else True,
                             "config_id": config.id,
                             "config_version": config.version,
                             "eval_run": True,
@@ -399,7 +400,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     db_session.refresh(execution)
 
                     # Trigger workflow via Celery (will use the now-active config)
-                    trigger_agentic_workflow.delay(article_id)
+                    trigger_agentic_workflow.delay(article_id, execution.id)
 
                     # Note: Config remains active - user should restore original manually
                     # Or implement proper config restoration after workflow completes
@@ -784,7 +785,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
             # Trigger workflows one at a time (sequential batch)
             for exec_info in executions:
-                trigger_agentic_workflow.delay(exec_info["article_id"])
+                trigger_agentic_workflow.delay(exec_info["article_id"], exec_info["execution_id"])
                 logger.info(
                     f"Triggered workflow execution {exec_info['execution_id']} for article {exec_info['article_id']}"
                 )

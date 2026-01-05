@@ -2600,6 +2600,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                         json_example = "{}"
                     
                     # Substitute template placeholders with error handling
+                    user_prompt = None  # Initialize before try block
                     try:
                         user_prompt = user_template.format(
                             title=title,
@@ -2612,7 +2613,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     except KeyError as e:
                         logger.error(f"{agent_name} template missing placeholder: {e}, falling back to legacy format")
                         # Fall through to legacy format
-                        user_template = None
+                        user_prompt = None
                     except Exception as e:
                         logger.error(f"{agent_name} template substitution error: {e}, falling back to legacy format")
                         user_prompt = None

@@ -43,7 +43,7 @@ async def trigger_stuck_executions():
         for execution in pending_executions:
             try:
                 print(f"\n[Execution {execution.id}] Processing article {execution.article_id}...")
-                result = await run_workflow(execution.article_id, db_session)
+                result = await run_workflow(execution.article_id, db_session, execution_id=execution.id)
                 
                 if result.get('success'):
                     print(f"  ✅ Success: {result.get('message', 'Workflow completed')}")
@@ -86,4 +86,3 @@ async def trigger_stuck_executions():
 
 if __name__ == '__main__':
     asyncio.run(trigger_stuck_executions())
-
