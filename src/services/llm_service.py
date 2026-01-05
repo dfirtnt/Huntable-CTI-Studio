@@ -680,14 +680,15 @@ class LLMService:
         resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
 
         if provider == "lmstudio":
-            # Normalize model name for LMStudio (remove prefix and date suffix)
-            # e.g., "qwen/qwen3-4b-2507" -> "qwen3-4b"
+            # Normalize model name for LMStudio
+            # Try to keep full name first (some models like google/gemma-3-12b need the prefix)
+            # If that fails, fall back to removing prefix and date suffix
             normalized_model = resolved_model
             if normalized_model:
-                # Remove common prefixes (e.g., "qwen/", "mistralai/")
-                if "/" in normalized_model:
-                    normalized_model = normalized_model.split("/")[-1]
-                # Remove date suffixes (e.g., "-2507", "-2024")
+                # First, try the model name as-is (some models need the full path)
+                # Only normalize if we get an error (handled in _post_lmstudio_chat)
+                # For now, keep the full name - LMStudio will accept it if the model is loaded with that name
+                # Remove only date suffixes (e.g., "-2507", "-2024") but keep prefixes
                 import re
                 normalized_model = re.sub(r'-\d{4,8}$', '', normalized_model)
             
@@ -1070,8 +1071,29 @@ class LLMService:
                         last_error_detail = f"Status {response.status_code}: {error_message}"
                         logger.error(f"LMStudio at {lmstudio_url} returned {response.status_code}: {error_message}")
                         
-                        # For 400 errors, don't try other URLs - the request is invalid
+                        # For 400 errors, check if it's a model name issue and retry with different format
                         if response.status_code == 400:
+                            error_lower = error_message.lower()
+                            current_model_in_payload = payload.get("model", "")
+                            
+                            # Check if it's a model identifier error - try with/without prefix
+                            if "invalid model identifier" in error_lower or ("model" in error_lower and ("not found" in error_lower or "not loaded" in error_lower)):
+                                # If we have a prefix in model_name but not in payload, try with prefix
+                                if "/" in model_name and "/" not in current_model_in_payload:
+                                    logger.info(f"Retrying with full model name (with prefix): {model_name}")
+                                    payload_retry = payload.copy()
+                                    payload_retry["model"] = model_name
+                                    try:
+                                        response_retry = await make_request(client, lmstudio_url)
+                                        if response_retry.status_code == 200:
+                                            result = response_retry.json()
+                                            logger.info(f"LMStudio accepted model with full name: {model_name}")
+                                            return result
+                                        else:
+                                            logger.warning(f"Retry with full name also failed: {response_retry.status_code}")
+                                    except Exception as retry_exc:
+                                        logger.debug(f"Retry with full model name failed: {retry_exc}")
+                            
                             # Close client before raising
                             try:
                                 await client.aclose()
@@ -1079,10 +1101,9 @@ class LLMService:
                                 pass
                             
                             # Check for common errors that indicate LMStudio isn't ready
-                            error_lower = error_message.lower()
                             if (
                                 "context length" in error_lower
-                                or "model" in error_lower and "not loaded" in error_lower
+                                or ("model" in error_lower and "not loaded" in error_lower and "invalid model identifier" not in error_lower)
                                 or "no model" in error_lower
                             ):
                                 raise RuntimeError(
@@ -2530,7 +2551,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         model_name: Optional[str] = None,
         temperature: float = 0.0,
         qa_model_override: Optional[str] = None,
-        use_hybrid_extractor: Optional[bool] = None
+        use_hybrid_extractor: Optional[bool] = None,
+        provider: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -2545,17 +2567,26 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             max_retries: Max QA retries
             use_hybrid_extractor: If False, skip hybrid extractor and use LLM prompt. 
                                  If None, use env var USE_HYBRID_CMDLINE_EXTRACTOR (default: True)
+            provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
+                     If None, uses self.provider_extract (from ExtractAgent_provider)
             
         Returns:
             Dict with extraction results
         """
-        logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)})")
+        logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)}, provider={provider}, model_name={model_name})")
         
         # Validate content is not empty
         if not content or len(content.strip()) == 0:
             error_msg = f"Empty content provided to {agent_name}. Cannot run extraction."
             logger.error(error_msg)
             raise ValueError(error_msg)
+        
+        # Validate prompt_config
+        if not prompt_config:
+            error_msg = f"Empty prompt_config provided to {agent_name}. Cannot run extraction."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        logger.debug(f"{agent_name} prompt_config keys: {list(prompt_config.keys())}")
 
         # Determine if hybrid extractor should be used
         should_use_hybrid = use_hybrid_extractor
@@ -2582,9 +2613,16 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         last_result = {"items": [], "count": 0}
         
         # Determine model to use
-        # Use provided model_name, or fall back to ExtractAgent model, or default
+        # Priority: 1) provided model_name, 2) prompt_config.model, 3) ExtractAgent model, 4) error
+        if not model_name:
+            # Check if prompt_config has a model field (some prompts store model in config)
+            model_name = prompt_config.get("model")
         if not model_name:
             model_name = self.model_extract
+        if not model_name:
+            raise ValueError(f"No model configured for {agent_name}. Please set {agent_name}_model or ExtractAgent model in workflow config.")
+        
+        logger.info(f"{agent_name} resolved model: {model_name} (from: {'parameter' if model_name == prompt_config.get('model') else 'fallback'})")
         
         while current_try < max_retries:
             current_try += 1
@@ -2597,6 +2635,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 
                 # Check if using new template-based format or legacy format
                 user_template = prompt_config.get("user_template")
+                user_prompt = None  # Initialize at the top to avoid UnboundLocalError
                 
                 if user_template:
                     # New template-based format - use direct substitution
@@ -2611,7 +2650,6 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                         json_example = "{}"
                     
                     # Substitute template placeholders with error handling
-                    user_prompt = None  # Initialize before try block
                     try:
                         user_prompt = user_template.format(
                             title=title,
@@ -2688,8 +2726,12 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         "messages": messages  # Include messages for input display
                     }
                 ) as generation:
+                    # Use provided provider or fall back to ExtractAgent provider
+                    effective_provider = provider or self.provider_extract
+                    effective_provider = self._canonicalize_provider(effective_provider)
+                    logger.info(f"{agent_name} extraction attempt {current_try}: using provider={effective_provider}, model={model_name}, temperature={temperature}")
                     response = await self.request_chat(
-                        provider=self.provider_extract,
+                        provider=effective_provider,
                         model_name=model_name,
                         messages=converted_messages,
                         max_tokens=2000,
@@ -2848,8 +2890,8 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                                     candidate = response_text[open_pos:json_end]
                                     parsed, success = try_parse_json(candidate)
                                     if success and parsed:
-                                        # Prefer structures with expected keys
-                                        if "cmdline_items" in parsed or "items" in parsed or "count" in parsed:
+                                        # Prefer structures with expected keys (support all extract agent result formats)
+                                        if any(key in parsed for key in ["cmdline_items", "items", "process_lineage", "sigma_queries", "event_ids", "registry_keys", "count"]):
                                             json_candidates.append((len(candidate), parsed))
                                 
                                 search_pos = open_pos + 1
@@ -2862,16 +2904,34 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     
                     if last_result:
                         logger.info(f"{agent_name} parsed JSON keys: {list(last_result.keys())}")
+                        # Check for agent-specific result keys
                         if "cmdline_items" in last_result:
                             count = len(last_result.get("cmdline_items", []))
                             logger.info(f"{agent_name} found {count} cmdline_items")
                             if count == 0:
                                 logger.warning(f"{agent_name}: cmdline_items array is empty!")
+                        elif "process_lineage" in last_result:
+                            count = len(last_result.get("process_lineage", []))
+                            logger.info(f"{agent_name} found {count} process_lineage items")
+                            # Normalize to 'items' for consistency with frontend
+                            last_result["items"] = last_result.pop("process_lineage")
+                        elif "sigma_queries" in last_result:
+                            count = len(last_result.get("sigma_queries", []))
+                            logger.info(f"{agent_name} found {count} sigma_queries")
+                            last_result["items"] = last_result.pop("sigma_queries")
+                        elif "event_ids" in last_result:
+                            count = len(last_result.get("event_ids", []))
+                            logger.info(f"{agent_name} found {count} event_ids")
+                            last_result["items"] = last_result.pop("event_ids")
+                        elif "registry_keys" in last_result:
+                            count = len(last_result.get("registry_keys", []))
+                            logger.info(f"{agent_name} found {count} registry_keys")
+                            last_result["items"] = last_result.pop("registry_keys")
                         elif "items" in last_result:
                             count = len(last_result.get("items", []))
-                            logger.info(f"{agent_name} found {count} items (not cmdline_items)")
+                            logger.info(f"{agent_name} found {count} items")
                         else:
-                            logger.warning(f"{agent_name}: No cmdline_items or items key found. Keys: {list(last_result.keys())}")
+                            logger.warning(f"{agent_name}: No recognized items key found. Keys: {list(last_result.keys())}")
                     else:
                         # Fallback if no JSON found
                         logger.warning(f"{agent_name}: No JSON found in response. Response length: {len(response_text)}")

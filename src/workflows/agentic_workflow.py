@@ -901,6 +901,45 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 disabled_agents_cfg = set(disabled_agents_value)
             
             logger.info(f"[Workflow {state['execution_id']}] Final disabled_agents_cfg: {disabled_agents_cfg}")
+            
+            # Check if this is a subagent eval run - if so, only run the specified agent
+            config_snapshot = execution.config_snapshot if execution else {}
+            subagent_eval = config_snapshot.get('subagent_eval') or state_config.get('subagent_eval')
+            
+            if subagent_eval:
+                # Filter sub_agents to only include the agent being evaluated
+                original_sub_agents = sub_agents
+                sub_agents = [agent for agent in sub_agents if agent[0] == subagent_eval]
+                if not sub_agents:
+                    logger.warning(
+                        f"[Workflow {state['execution_id']}] ⚠️ subagent_eval={subagent_eval} not found in sub_agents list. "
+                        f"Available agents: {[name for name, _, _ in original_sub_agents]}"
+                    )
+                    # Reset to original if agent not found (fallback to all agents)
+                    sub_agents = original_sub_agents
+                else:
+                    logger.info(
+                        f"[Workflow {state['execution_id']}] 🔬 Eval mode: Only running {subagent_eval}. "
+                        f"Other agents will be skipped."
+                    )
+                    # Mark all non-evaluated agents as skipped
+                    evaluated_agent_names = {agent[0] for agent in sub_agents}
+                    for agent_name, result_key, _ in original_sub_agents:
+                        if agent_name not in evaluated_agent_names and agent_name not in disabled_agents_cfg:
+                            subresults[result_key] = {
+                                "items": [],
+                                "count": 0,
+                                "raw": {"status": "skipped_for_eval"}
+                            }
+                            conversation_log.append({
+                                'agent': agent_name,
+                                'items_count': 0,
+                                'result': {'status': 'skipped_for_eval'}
+                            })
+                            logger.info(
+                                f"[Workflow {state['execution_id']}] ⏭️ {agent_name} skipped (eval mode: only {subagent_eval} running)"
+                            )
+            
             logger.info(f"[Workflow {state['execution_id']}] Sub-agents to process: {[name for name, _, _ in sub_agents]}")
             
             for agent_name, result_key, qa_name in sub_agents:
