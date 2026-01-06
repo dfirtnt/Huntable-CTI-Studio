@@ -466,10 +466,15 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 AgentPromptVersionTable.agent_name == prompt_update.agent_name
             ).scalar() or 0
             
+            # Always save version history for all agents (same behavior as CmdlineExtract)
+            # Use the new prompt/instructions if provided, otherwise use the old ones
+            version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
+            version_instructions = prompt_update.instructions if prompt_update.instructions is not None else old_instructions
+            
             prompt_version = AgentPromptVersionTable(
                 agent_name=prompt_update.agent_name,
-                prompt=prompt_update.prompt or old_prompt,
-                instructions=prompt_update.instructions if prompt_update.instructions is not None else old_instructions,
+                prompt=version_prompt,
+                instructions=version_instructions,
                 version=max_version + 1,
                 workflow_config_version=new_version,
                 change_description=prompt_update.change_description
@@ -477,6 +482,8 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             
             db_session.add(prompt_version)
             db_session.commit()
+            
+            logger.debug(f"Saved prompt version history for {prompt_update.agent_name}: version={max_version + 1}, workflow_config_version={new_version}")
             db_session.refresh(new_config)
             
             logger.info(f"Updated agent prompt for {prompt_update.agent_name} in config version {new_version}")
