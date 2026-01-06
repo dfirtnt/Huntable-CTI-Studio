@@ -34,6 +34,24 @@ subagents:
   # Placeholder for other subagents (to be populated later)
   sigextract: []
   event_ids: []
-  process_lineage: []
+  process_lineage:
+    - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
+      expected_count: 2
+    - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
+      expected_count: 3
+    - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
+      expected_count: 7
+    - url: "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/"
+      expected_count: 3
+    - url: "https://thedfirreport.com/2021/05/12/conti-ransomware/"
+      expected_count: 1
+    - url: "https://thedfirreport.com/2021/05/02/trickbot-brief-creds-and-beacons/"
+      expected_count: 1
+    - url: "https://thedfirreport.com/2021/03/29/sodinokibi-aka-revil-ransomware/"
+      expected_count: 0
+    - url: "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/"
+      expected_count: 3
+    - url: "http://127.0.0.1:8001/articles/1523"
+      expected_count: 4
   registry_keys: []
 

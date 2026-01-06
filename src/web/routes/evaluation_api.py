@@ -4,7 +4,7 @@ API routes for agent evaluation management.
 
 import logging
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from src.database.models import (
     SubagentEvaluationTable,
 )
 from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 import yaml
 from pathlib import Path
@@ -27,6 +28,17 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
+
+
+def _resolve_subagent_query(subagent: str) -> Tuple[str, List[str]]:
+    """Return the canonical name plus matching candidates for a subagent."""
+    canonical, lookup_values = build_subagent_lookup_values(subagent)
+    if not lookup_values:
+        normalized_raw = str(subagent).strip()
+        lookup_values = {normalized_raw} if normalized_raw else {subagent}
+
+    canonical_value = canonical or (next(iter(lookup_values)) if lookup_values else subagent)
+    return canonical_value, list(lookup_values)
 
 
 def _get_langfuse_setting(
@@ -501,35 +513,59 @@ async def get_execution_commandlines(
             if not execution:
                 raise HTTPException(status_code=404, detail="Execution not found")
 
+            # Check if this is a subagent eval and which subagent
+            config_snapshot = execution.config_snapshot or {}
+            raw_subagent_eval = config_snapshot.get("subagent_eval")
+            normalized_subagent_eval = normalize_subagent_name(raw_subagent_eval)
+
+            # Determine which results to return based on subagent_eval
+            result_key = normalized_subagent_eval or "cmdline"
+
             commandlines = []
             extraction_result = execution.extraction_result
 
             if extraction_result and isinstance(extraction_result, dict):
-                # Check observables list
+                # Check observables list first
                 observables = extraction_result.get("observables", [])
                 if isinstance(observables, list):
-                    commandlines = [
-                        obs.get("value", str(obs))
-                        for obs in observables
-                        if obs.get("type") == "cmdline" or obs.get("type") == "commandline"
-                    ]
+                    if result_key == "cmdline":
+                        commandlines = [
+                            obs.get("value", str(obs))
+                            for obs in observables
+                            if obs.get("type") == "cmdline" or obs.get("type") == "commandline"
+                        ]
+                    elif result_key == "process_lineage":
+                        commandlines = [
+                            obs.get("value", str(obs))
+                            for obs in observables
+                            if obs.get("type") == "process_lineage"
+                        ]
                 
                 # Also check subresults
                 if not commandlines:
                     subresults = extraction_result.get("subresults", {})
                     if isinstance(subresults, dict):
-                        # Check cmdline subresult
-                        cmdline_result = subresults.get("cmdline", {}) or subresults.get("CmdlineExtract", {})
-                        if isinstance(cmdline_result, dict):
-                            items = cmdline_result.get("items", [])
-                            if items:
-                                commandlines = items if isinstance(items, list) else [items]
+                        # Get results for the appropriate subagent
+                        if result_key == "cmdline":
+                            cmdline_result = subresults.get("cmdline", {}) or subresults.get("CmdlineExtract", {})
+                            if isinstance(cmdline_result, dict):
+                                items = cmdline_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
+                        elif result_key == "process_lineage":
+                            proc_tree_result = subresults.get("process_lineage", {}) or subresults.get("ProcTreeExtract", {})
+                            if isinstance(proc_tree_result, dict):
+                                items = proc_tree_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
 
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
                 "commandlines": commandlines,
                 "count": len(commandlines),
+                "subagent_eval": normalized_subagent_eval or (raw_subagent_eval or ""),
+                "result_type": result_key
             }
         finally:
             db_session.close()
@@ -551,6 +587,30 @@ def resolve_article_by_url(url: str) -> Optional[int]:
         Article ID if found, None otherwise
     """
     try:
+        from urllib.parse import urlparse
+        import re
+
+        # Handle localhost/article ID URLs (e.g., http://127.0.0.1:8001/articles/1523)
+        parsed = urlparse(url)
+        if parsed.netloc in ('127.0.0.1:8001', 'localhost:8001', '127.0.0.1', 'localhost'):
+            # Extract article ID from path like /articles/1523
+            match = re.match(r'/articles/(\d+)', parsed.path)
+            if match:
+                article_id = int(match.group(1))
+                # Verify article exists in database
+                db_manager = DatabaseManager()
+                db_session = db_manager.get_session()
+                try:
+                    article = (
+                        db_session.query(ArticleTable)
+                        .filter(ArticleTable.id == article_id)
+                        .first()
+                    )
+                    if article:
+                        return article.id
+                finally:
+                    db_session.close()
+
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
@@ -567,7 +627,7 @@ def resolve_article_by_url(url: str) -> Optional[int]:
 
             # Try partial match (URL might have query params or fragments)
             # Normalize URL by removing query params and fragments for comparison
-            from urllib.parse import urlparse, urlunparse
+            from urllib.parse import urlunparse
 
             parsed = urlparse(url)
             normalized_url = urlunparse(
@@ -612,12 +672,14 @@ async def get_subagent_eval_articles(
             config = yaml.safe_load(f)
 
         subagents = config.get("subagents", {})
-        if subagent not in subagents:
+        canonical_subagent, _ = _resolve_subagent_query(subagent)
+        subagent_key = canonical_subagent if canonical_subagent in subagents else subagent
+        if subagent_key not in subagents:
             raise HTTPException(
                 status_code=404, detail=f"Subagent '{subagent}' not found in config"
             )
 
-        articles = subagents[subagent]
+        articles = subagents.get(subagent_key, [])
         if not isinstance(articles, list):
             articles = []
 
@@ -693,6 +755,13 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         {"url": url, "article_id": article_id, "found": True}
                     )
 
+            raw_subagent_name = str(eval_request.subagent_name or "").strip()
+            canonical_subagent_name = normalize_subagent_name(raw_subagent_name)
+            if not canonical_subagent_name:
+                canonical_subagent_name = raw_subagent_name
+            if not canonical_subagent_name:
+                canonical_subagent_name = eval_request.subagent_name
+
             # Get expected counts from config (go up 4 levels from src/web/routes/ to project root)
             config_path = (
                 Path(__file__).parent.parent.parent.parent
@@ -704,7 +773,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 with open(config_path, "r") as f:
                     config = yaml.safe_load(f)
                     subagent_articles = config.get("subagents", {}).get(
-                        eval_request.subagent_name, []
+                        canonical_subagent_name, []
                     )
                     for article_def in subagent_articles:
                         url = article_def.get("url")
@@ -724,7 +793,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 if not article_id:
                     # Create eval record but mark as failed
                     eval_record = SubagentEvaluationTable(
-                        subagent_name=eval_request.subagent_name,
+                        subagent_name=canonical_subagent_name,
                         article_url=url,
                         article_id=None,
                         expected_count=expected_count,
@@ -753,7 +822,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "skip_os_detection": True,  # Bypass OS detection for evals
                         "skip_rank_agent": True,  # Bypass rank agent for evals
                         "skip_sigma_generation": True,  # Skip SIGMA generation for evals
-                        "subagent_eval": eval_request.subagent_name,
+                        "subagent_eval": canonical_subagent_name,
                     },
                 )
                 db_session.add(execution)
@@ -761,7 +830,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
                 # Create SubagentEvaluationTable record
                 eval_record = SubagentEvaluationTable(
-                    subagent_name=eval_request.subagent_name,
+                    subagent_name=canonical_subagent_name,
                     article_url=url,
                     article_id=article_id,
                     expected_count=expected_count,
@@ -792,11 +861,11 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
             return {
                 "success": True,
-                "subagent": eval_request.subagent_name,
+                "subagent": canonical_subagent_name,
                 "total_articles": len(eval_request.article_urls),
                 "found_articles": sum(1 for m in article_mappings if m["found"]),
                 "executions": executions,
-                "message": f"Triggered {len(executions)} workflow executions for {eval_request.subagent_name} evaluation",
+                "message": f"Triggered {len(executions)} workflow executions for {canonical_subagent_name} evaluation",
             }
         finally:
             db_session.close()
@@ -821,9 +890,12 @@ async def get_subagent_eval_results(
         db_session = db_manager.get_session()
 
         try:
-            query = db_session.query(SubagentEvaluationTable).filter(
-                SubagentEvaluationTable.subagent_name == subagent
-            )
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+            query = db_session.query(SubagentEvaluationTable)
+            if lookup_values:
+                query = query.filter(
+                    SubagentEvaluationTable.subagent_name.in_(lookup_values)
+                )
 
             if eval_run_id:
                 query = query.filter(SubagentEvaluationTable.id == eval_run_id)
@@ -860,7 +932,7 @@ async def get_subagent_eval_results(
                     }
                 )
 
-            return {"subagent": subagent, "results": results, "total": len(results)}
+            return {"subagent": canonical_subagent, "results": results, "total": len(results)}
         finally:
             db_session.close()
     except Exception as e:
@@ -965,11 +1037,12 @@ async def clear_pending_eval_records(
         db_session = db_manager.get_session()
 
         try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             # Find all pending records for this subagent
             pending_records = (
                 db_session.query(SubagentEvaluationTable)
                 .filter(
-                    SubagentEvaluationTable.subagent_name == subagent,
+                    SubagentEvaluationTable.subagent_name.in_(lookup_values),
                     SubagentEvaluationTable.status == "pending",
                 )
                 .all()
@@ -984,13 +1057,13 @@ async def clear_pending_eval_records(
             db_session.commit()
 
             logger.info(
-                f"Deleted {deleted_count} pending evaluation records for subagent {subagent}"
+                f"Deleted {deleted_count} pending evaluation records for subagent {canonical_subagent}"
             )
 
             return {
                 "success": True,
                 "deleted_count": deleted_count,
-                "subagent": subagent,
+                "subagent": canonical_subagent,
                 "message": f"Deleted {deleted_count} pending evaluation record(s)",
             }
         finally:
@@ -1012,11 +1085,12 @@ async def backfill_eval_records(
         db_session = db_manager.get_session()
 
         try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             # Find all pending eval records for this subagent
             pending_evals = (
                 db_session.query(SubagentEvaluationTable)
                 .filter(
-                    SubagentEvaluationTable.subagent_name == subagent,
+                    SubagentEvaluationTable.subagent_name.in_(lookup_values),
                     SubagentEvaluationTable.status == "pending",
                 )
                 .all()
@@ -1057,14 +1131,14 @@ async def backfill_eval_records(
             db_session.commit()
 
             logger.info(
-                f"Backfilled {updated_count} eval records for subagent {subagent}"
+                f"Backfilled {updated_count} eval records for subagent {canonical_subagent}"
             )
 
             return {
                 "success": True,
                 "updated_count": updated_count,
                 "failed_count": failed_count,
-                "subagent": subagent,
+                "subagent": canonical_subagent,
                 "message": f"Updated {updated_count} record(s), {failed_count} marked as failed",
             }
         finally:
@@ -1088,9 +1162,12 @@ async def get_subagent_eval_aggregate(
         db_session = db_manager.get_session()
 
         try:
-            query = db_session.query(SubagentEvaluationTable).filter(
-                SubagentEvaluationTable.subagent_name == subagent
-            )
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+            query = db_session.query(SubagentEvaluationTable)
+            if lookup_values:
+                query = query.filter(
+                    SubagentEvaluationTable.subagent_name.in_(lookup_values)
+                )
 
             if config_version:
                 query = query.filter(
