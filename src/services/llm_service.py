@@ -165,6 +165,9 @@ class LLMService:
         self.temperature_rank = float(
             config_models.get("RankAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         )
+        self.temperature_extract = float(
+            config_models.get("ExtractAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        )
         self.temperature_sigma = float(
             config_models.get("SigmaAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         )
@@ -984,7 +987,7 @@ class LLMService:
                     f"Attempting LMStudio at {lmstudio_url} with model {model_name} "
                     f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
                 )
-                logger.debug(f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}")
+                logger.debug(f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}, temperature={payload.get('temperature')}, top_p={payload.get('top_p')}")
                 
                 # Log full payload for debugging (truncate long content)
                 if logger.isEnabledFor(logging.DEBUG):
@@ -1409,7 +1412,7 @@ class LLMService:
                     model_name=model_name,
                     messages=converted_messages,
                     max_tokens=max_output_tokens,
-                    temperature=self.temperature,
+                    temperature=self.temperature_rank,
                     timeout=ranking_timeout,
                     failure_context="Failed to rank article",
                     top_p=self.top_p,
@@ -1739,7 +1742,7 @@ class LLMService:
                     model_name=model_name,
                     messages=converted_messages,
                     max_tokens=max_output_tokens,
-                    temperature=self.temperature,
+                    temperature=self.temperature_extract,
                     timeout=extraction_timeout,
                     failure_context="Failed to extract behaviors",
                     top_p=self.top_p,
@@ -2154,7 +2157,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 model_name=model_name,
                 messages=converted_messages,
                 max_tokens=4000,
-                temperature=self.temperature,
+                temperature=self.temperature_extract,
                 timeout=180.0,
                 failure_context="Failed to extract observables",
                 seed=self.seed,
