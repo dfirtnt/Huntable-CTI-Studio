@@ -219,6 +219,21 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
             final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
             
+            # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
+            if final_agent_prompts:
+                extraction_agents = ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract", "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA"]
+                for agent_name, prompt_data in final_agent_prompts.items():
+                    if agent_name in extraction_agents and isinstance(prompt_data, dict):
+                        prompt_str = prompt_data.get("prompt")
+                        if prompt_str and isinstance(prompt_str, str):
+                            try:
+                                json.loads(prompt_str)
+                            except json.JSONDecodeError as e:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}"
+                                )
+            
             # Check if the new config would be identical to the current one
             if current_config:
                 # Compare all fields
@@ -437,7 +452,17 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             if prompt_update.agent_name not in agent_prompts:
                 agent_prompts[prompt_update.agent_name] = {}
             
+            # Validate JSON format for extraction agents
             if prompt_update.prompt is not None:
+                extraction_agents = ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract", "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA"]
+                if prompt_update.agent_name in extraction_agents:
+                    try:
+                        json.loads(prompt_update.prompt)
+                    except json.JSONDecodeError as e:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}"
+                        )
                 agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
             if prompt_update.instructions is not None:
                 agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions

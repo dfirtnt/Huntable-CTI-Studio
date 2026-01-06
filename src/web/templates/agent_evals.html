@@ -132,7 +132,7 @@
     <div id="commandlinesModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Extracted Commandlines</h3>
+                <h3 id="commandlinesModalTitle" class="text-xl font-semibold text-gray-900 dark:text-white">Extracted Commandlines</h3>
                 <button id="closeCommandlinesModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1355,22 +1355,38 @@ async function showCommandlines(executionId, articleUrl, count) {
         
         const data = await response.json();
         const commandlines = data.commandlines || [];
+        const resultType = data.result_type || 'cmdline';
+        const subagentEval = data.subagent_eval || '';
+        
+        // Update modal title based on result type
+        const modalTitle = document.getElementById('commandlinesModalTitle');
+        if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
+            modalTitle.textContent = 'Extracted Process Lineage';
+        } else {
+            modalTitle.textContent = 'Extracted Commandlines';
+        }
         
         if (commandlines.length === 0) {
+            const emptyMessage = resultType === 'process_lineage' || subagentEval === 'process_lineage'
+                ? 'No process lineage relationships found for this execution.'
+                : 'No commandlines found for this execution.';
             content.innerHTML = `
                 <div class="text-center py-8">
-                    <p class="text-gray-500 dark:text-gray-400">No commandlines found for this execution.</p>
+                    <p class="text-gray-500 dark:text-gray-400">${emptyMessage}</p>
                     <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${articleUrl}</a></p>
                 </div>
             `;
             return;
         }
         
-        // Display commandlines
+        // Display results
+        const itemLabel = resultType === 'process_lineage' || subagentEval === 'process_lineage'
+            ? 'process lineage relationship(s)'
+            : 'commandline(s)';
         let html = `
             <div class="mb-4">
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> commandline(s) 
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${itemLabel} 
                     from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -1380,12 +1396,29 @@ async function showCommandlines(executionId, articleUrl, count) {
             <div class="space-y-2">
         `;
         
-        commandlines.forEach((cmdline, index) => {
+        commandlines.forEach((item, index) => {
+            let displayContent = '';
+            if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
+                // Process lineage items are objects with parent/child
+                if (typeof item === 'object' && item !== null) {
+                    const parent = item.parent || 'N/A';
+                    const child = item.child || 'N/A';
+                    const args = item.arguments ? ` (args: ${item.arguments})` : '';
+                    const context = item.context ? ` - ${item.context}` : '';
+                    displayContent = `<strong>${escapeHtml(parent)}</strong> → <strong>${escapeHtml(child)}</strong>${escapeHtml(args)}${escapeHtml(context)}`;
+                } else {
+                    displayContent = escapeHtml(String(item));
+                }
+            } else {
+                // Commandlines are strings
+                displayContent = escapeHtml(String(item));
+            }
+            
             html += `
                 <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
                     <div class="flex items-start gap-3">
                         <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
-                        <code class="flex-1 text-sm font-mono text-gray-900 dark:text-gray-100 break-all">${escapeHtml(cmdline)}</code>
+                        <div class="flex-1 text-sm ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
                     </div>
                 </div>
             `;
