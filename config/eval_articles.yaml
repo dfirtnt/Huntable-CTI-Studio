@@ -17,7 +17,7 @@ subagents:
     - url: "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793"
       expected_count: 15
     - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
-      expected_count: 14
+      expected_count: 24
     - url: "https://research.checkpoint.com/2025/under-the-pure-curtain-from-rat-to-builder-to-coder/"
       expected_count: 5
     - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
