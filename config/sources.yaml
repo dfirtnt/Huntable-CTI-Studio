@@ -448,7 +448,7 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Network detection and response (NDR) blog with threat hunting, detection engineering, and threat intelligence research"
 
-  # Sekoia.io Threat Research & Intelligence (RSS-Only)
+   # Sekoia.io Threat Research & Intelligence (RSS-Only)
    - id: "sekoia_io_blog"
      name: "Sekoia.io Threat Research & Intelligence"
      url: "https://blog.sekoia.io/category/threat-research/"

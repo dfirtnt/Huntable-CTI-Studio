@@ -2489,8 +2489,13 @@ function collectAllAgentConfigs(models = null) {
         
         // Get model (respects provider)
         const model = getAgentModel(config.prefix, provider);
-        if (model) {
+        // Always include model key, even if empty string (to clear fallback settings)
+        // Empty string means "use fallback", null/undefined means "not set" (skip it)
+        if (model !== null && model !== undefined) {
             collected[config.modelKey] = model;
+        } else {
+            // Log if model couldn't be read (for debugging)
+            console.warn(`collectAllAgentConfigs: Could not read model for ${config.prefix} (provider: ${provider})`);
         }
         
         // Get temperature if applicable
@@ -2723,10 +2728,22 @@ function getActiveAgentModelValue(agentPrefix, provider) {
     // Handle LMStudio select variants (-model-2 is the current ID, plain -model is legacy)
     if (provider === 'lmstudio') {
         const lmstudioSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
-        return lmstudioSelect?.value?.trim() || null;
+        if (!lmstudioSelect) {
+            console.warn(`getActiveAgentModelValue: LMStudio select not found for ${agentPrefix}`);
+            return null;
+        }
+        const value = lmstudioSelect.value?.trim() || '';
+        // Return empty string if no value (to allow clearing fallback), null only if element doesn't exist
+        return value;
     }
     const input = document.getElementById(`${agentPrefix}-model-${provider}`);
-    return input?.value?.trim() || null;
+    if (!input) {
+        console.warn(`getActiveAgentModelValue: Input not found for ${agentPrefix} provider ${provider}`);
+        return null;
+    }
+    const value = input.value?.trim() || '';
+    // Return empty string if no value, null only if element doesn't exist
+    return value;
 }
 
 function renderAgentModels() {
@@ -3122,11 +3139,27 @@ function applyProviderSelections(models) {
         }
         
         // Ensure model value is set for the selected provider
-        if (storedModel && provider !== 'lmstudio') {
-            // For commercial providers, set the model input value
-            const modelInput = document.getElementById(`${config.prefix}-model-${provider}`);
-            if (modelInput && modelInput.value !== storedModel) {
-                modelInput.value = storedModel;
+        if (storedModel) {
+            if (provider === 'lmstudio') {
+                // For LMStudio, set the model dropdown value
+                const modelSelect = document.getElementById(`${config.prefix}-model-2`) || document.getElementById(`${config.prefix}-model`);
+                if (modelSelect && modelSelect.value !== storedModel) {
+                    modelSelect.value = storedModel;
+                }
+            } else {
+                // For commercial providers, set the model input value
+                const modelInput = document.getElementById(`${config.prefix}-model-${provider}`);
+                if (modelInput && modelInput.value !== storedModel) {
+                    modelInput.value = storedModel;
+                }
+            }
+        }
+        
+        // Set temperature if applicable
+        if (config.temperatureKey && activeModels[config.temperatureKey] !== undefined) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput) {
+                tempInput.value = activeModels[config.temperatureKey];
             }
         }
     });
@@ -4147,6 +4180,12 @@ async function loadConfig(skipPromptReload = false) {
             await loadAgentPrompts();
         }
         refreshAllProviderBlocks();
+        
+        // CRITICAL: Apply agent configs (models, providers, temperatures) from saved config
+        // This ensures extractor LLM settings survive refresh after save
+        if (currentConfig && currentConfig.agent_models) {
+            applyAgentConfigs(currentConfig.agent_models);
+        }
         
         // Update config display and LMStudio panel visibility after models are loaded
         updateConfigDisplay();
@@ -5920,13 +5959,28 @@ async function persistExtractAgentSettings() {
         extractSettings.disabled_agents = disabledList;
         promptsCopy.ExtractAgentSettings = extractSettings;
         
+        // CRITICAL: Collect agent_models from DOM to ensure we save current values
+        // This prevents losing settings after prompt rollbacks
+        console.log('🔍 persistExtractAgentSettings: Collecting agent configs from DOM...');
+        const collectedAgentConfigs = collectAllAgentConfigs();
+        console.log('🔍 Collected agent configs:', collectedAgentConfigs);
+        
+        // Merge with existing agent_models to preserve settings not in DOM (e.g., embeddings, QA models)
+        const existingAgentModels = currentConfig.agent_models || {};
+        console.log('🔍 Existing agent models:', existingAgentModels);
+        const mergedAgentModels = {
+            ...existingAgentModels,
+            ...collectedAgentConfigs
+        };
+        console.log('🔍 Merged agent models:', mergedAgentModels);
+        
         const payload = {
             min_hunt_score: currentConfig.min_hunt_score ?? 97.0,
             ranking_threshold: currentConfig.ranking_threshold ?? 6.0,
             similarity_threshold: currentConfig.similarity_threshold ?? 0.5,
             junk_filter_threshold: currentConfig.junk_filter_threshold ?? 0.8,
             description: currentConfig.description || null,
-            agent_models: currentConfig.agent_models || {},
+            agent_models: mergedAgentModels,
             qa_enabled: currentConfig.qa_enabled || {},
             sigma_fallback_enabled: currentConfig.sigma_fallback_enabled ?? false,
             agent_prompts: promptsCopy
