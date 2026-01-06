@@ -298,45 +298,6 @@
     <div id="tab-content-config" class="tab-content">
         <div class="agents-panel rounded-lg shadow-lg p-6 mb-8">
             <form id="workflowConfigForm" class="space-y-6">
-                <!-- Auto Trigger Threshold -->
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div data-collapsible-panel="auto-trigger-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
-                        <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Auto Trigger Settings</h3>
-                        </div>
-                        <span id="auto-trigger-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
-                    </div>
-                    <div id="auto-trigger-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Auto Trigger Hunt Score Threshold -->
-                            <div>
-                                <label for="autoTriggerHuntScoreThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Auto Trigger RegexHuntScore Threshold
-                                    <button type="button" 
-                                            onclick="showHelp('autoTriggerHuntScoreThreshold')"
-                                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
-                                            title="Help">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                        </svg>
-                                    </button>
-                                </label>
-                                <input type="number" 
-                                       id="autoTriggerHuntScoreThreshold" 
-                                       name="auto_trigger_hunt_score_threshold"
-                                       min="0" 
-                                       max="100" 
-                                       step="1"
-                                       required
-                                       oninput="validateThreshold(this, 0, 100)"
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
-                                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum RegexHuntScore (0-100) to auto-trigger workflows on new articles</p>
-                                <p id="autoTriggerHuntScoreThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Other Thresholds -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="other-thresholds-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
@@ -2286,7 +2247,7 @@ const AGENT_CONFIG = {
         prefix: 'extractagent',
         providerKey: 'ExtractAgent_provider',
         modelKey: 'ExtractAgent',
-        temperatureKey: null,
+        temperatureKey: 'ExtractAgent_temperature',
         name: 'ExtractAgent',
         isSubAgent: false,
         isQA: false,
@@ -2296,7 +2257,7 @@ const AGENT_CONFIG = {
         prefix: 'sigmaagent',
         providerKey: 'SigmaAgent_provider',
         modelKey: 'SigmaAgent',
-        temperatureKey: 'SigmaAgent_temperature',
+        temperatureKey: null,
         name: 'SigmaAgent',
         isSubAgent: false,
         isQA: false,
@@ -3976,9 +3937,6 @@ async function rollbackPrompt(agentName, versionId) {
 
 // Validation function for thresholds
 function validateThreshold(input, min, max) {
-    if (!input) {
-        return true; // Allow if input doesn't exist (backward compatibility)
-    }
     const value = parseFloat(input.value);
     const errorElement = document.getElementById(input.id + '-error');
     
@@ -4168,12 +4126,6 @@ async function loadConfig(skipPromptReload = false) {
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             }
-            if (currentConfig.auto_trigger_hunt_score_threshold !== undefined) {
-                const autoTriggerInput = document.getElementById('autoTriggerHuntScoreThreshold');
-                if (autoTriggerInput) {
-                    autoTriggerInput.value = currentConfig.auto_trigger_hunt_score_threshold;
-                }
-            }
             if (currentConfig.qa_max_retries !== undefined) {
                 const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
                 if (qaMaxRetriesInput) {
@@ -4183,22 +4135,9 @@ async function loadConfig(skipPromptReload = false) {
 
             // Don't update config display here - wait until models are loaded
         } else {
-            // Config API failed - log error and show message
-            const errorText = await response.text();
-            console.error('Config API failed:', response.status, errorText);
+            // Config API failed - still try to render agent models with empty config
             console.warn('Config API failed, using empty config');
             currentConfig = { agent_models: {} };
-            // Show error in config display
-            const configDisplay = document.getElementById('configDisplay');
-            if (configDisplay) {
-                configDisplay.innerHTML = `
-                    <div class="space-y-1 text-red-500">
-                        <p><strong>Error loading configuration</strong></p>
-                        <p class="text-xs">Status: ${response.status}</p>
-                        <p class="text-xs">Please refresh the page or check the server logs.</p>
-                    </div>
-                `;
-            }
         }
 
         // Always load agent models and prompts, even if config API failed
@@ -4720,6 +4659,7 @@ function renderAgentModels(lmstudioModels) {
     const extractContainer = getContainer('extract-agent-model-container');
     if (extractContainer) {
         const currentModel = agentModels['ExtractAgent'] || '';
+        const currentTemperature = agentModels['ExtractAgent_temperature'] !== undefined ? agentModels['ExtractAgent_temperature'] : 0.0;
         const currentProvider = (agentModels && agentModels['ExtractAgent_provider']) || 'lmstudio';
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
@@ -4762,6 +4702,12 @@ function renderAgentModels(lmstudioModels) {
                             ${buildCommercialProviderInput('extractagent', 'anthropic', currentProvider, currentModel)}
                         </div>
                     </div>
+                 </div>
+                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Extract Agent operations.</p>
+                 ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
+                 <div class="mt-3">
+                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                     <input type="number" id="extractagent-temperature" name="agent_models[ExtractAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
                  </div>
              </div>
         `;
@@ -5361,7 +5307,6 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             ranking_threshold: currentConfig.ranking_threshold,
             similarity_threshold: currentConfig.similarity_threshold,
             junk_filter_threshold: currentConfig.junk_filter_threshold,
-            auto_trigger_hunt_score_threshold: currentConfig.auto_trigger_hunt_score_threshold || 60.0,
             description: currentConfig.description || null,
             agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
             qa_enabled: currentConfig.qa_enabled || null
@@ -6134,8 +6079,7 @@ function getFullPresetState() {
         thresholds: {
             junk_filter_threshold: formState.junk_filter_threshold,
             ranking_threshold: formState.ranking_threshold,
-            similarity_threshold: formState.similarity_threshold,
-            auto_trigger_hunt_score_threshold: formState.auto_trigger_hunt_score_threshold
+            similarity_threshold: formState.similarity_threshold
         },
         agent_models: formState.agent_models,
         qa_enabled: formState.qa_enabled,
@@ -6267,6 +6211,10 @@ async function applyPreset(preset) {
             const extractModelSelect = document.getElementById('extractagent-model-2');
             if (extractModelSelect && preset.agent_models.ExtractAgent) {
                 extractModelSelect.value = preset.agent_models.ExtractAgent;
+            }
+            const extractTempInput = document.getElementById('extractagent-temperature');
+            if (extractTempInput && preset.agent_models.ExtractAgent_temperature !== undefined) {
+                extractTempInput.value = preset.agent_models.ExtractAgent_temperature;
             }
             
             // Sigma Agent
@@ -6639,7 +6587,6 @@ function resetOriginalConfigStateFromCurrent() {
         junk_filter_threshold: currentConfig.junk_filter_threshold || 0,
         ranking_threshold: currentConfig.ranking_threshold || 0,
         similarity_threshold: currentConfig.similarity_threshold || 0,
-        auto_trigger_hunt_score_threshold: currentConfig.auto_trigger_hunt_score_threshold || 60.0,
         description: null,
         qa_enabled: currentConfig.qa_enabled || {},
         agent_models: currentConfig.agent_models || {},
@@ -6939,27 +6886,13 @@ function updateConfigDisplay() {
         ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs">${m}</li>`).join('')}</ul></div>`
         : '';
     
-    // Safely format updated_at date
-    let updatedDateStr = 'N/A';
-    if (currentConfig.updated_at) {
-        try {
-            const updatedDate = new Date(currentConfig.updated_at);
-            if (!isNaN(updatedDate.getTime())) {
-                updatedDateStr = updatedDate.toLocaleString();
-            }
-        } catch (e) {
-            console.warn('Error parsing updated_at:', e);
-        }
-    }
-    
     configDisplay.innerHTML = `
         <div class="space-y-1">
-            <p><strong>Version:</strong> ${currentConfig.version !== undefined ? currentConfig.version : 'N/A'}</p>
-            <p><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold !== undefined ? currentConfig.ranking_threshold : 'N/A'}</p>
-            <p><strong>Junk Filter Threshold:</strong> ${currentConfig.junk_filter_threshold !== undefined ? currentConfig.junk_filter_threshold : 'N/A'}</p>
-            <p><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold !== undefined ? currentConfig.similarity_threshold : 'N/A'}</p>
-            <p><strong>Auto Trigger Threshold:</strong> ${currentConfig.auto_trigger_hunt_score_threshold !== undefined ? currentConfig.auto_trigger_hunt_score_threshold : 'N/A'}</p>
-            <p><strong>Updated:</strong> ${updatedDateStr}</p>
+            <p><strong>Version:</strong> ${currentConfig.version || 'N/A'}</p>
+            <p><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold || 'N/A'}</p>
+            <p><strong>Junk Filter Threshold:</strong> ${currentConfig.junk_filter_threshold || 'N/A'}</p>
+            <p><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold || 'N/A'}</p>
+            <p><strong>Updated:</strong> ${new Date(currentConfig.updated_at).toLocaleString()}</p>
             ${modelsHtml}
         </div>
     `;
@@ -7230,6 +7163,9 @@ function getCurrentFormState() {
     const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
     if (extractModel) agent_models.ExtractAgent = extractModel;
     
+    const extractTemp = document.getElementById('extractagent-temperature')?.value;
+    if (extractTemp !== undefined) agent_models.ExtractAgent_temperature = parseFloat(extractTemp) || 0.0;
+    
     const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
     if (sigmaModel) agent_models.SigmaAgent = sigmaModel;
     
@@ -7303,11 +7239,6 @@ function getCurrentFormState() {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold')?.value || '0'),
-        auto_trigger_hunt_score_threshold: (() => {
-            const input = document.getElementById('autoTriggerHuntScoreThreshold');
-            const value = input ? parseFloat(input.value) : 60;
-            return isNaN(value) ? 60 : value;
-        })(),
         description: null,
         qa_enabled: qaEnabled,
         agent_models: agent_models,
@@ -7332,7 +7263,6 @@ function checkForUnsavedChanges() {
     if (Math.abs(currentState.junk_filter_threshold - originalState.junk_filter_threshold) > 0.0001) return true;
     if (Math.abs(currentState.ranking_threshold - originalState.ranking_threshold) > 0.0001) return true;
     if (Math.abs(currentState.similarity_threshold - originalState.similarity_threshold) > 0.0001) return true;
-    if (Math.abs((currentState.auto_trigger_hunt_score_threshold || 60) - (originalState.auto_trigger_hunt_score_threshold || 60)) > 0.0001) return true;
     
     
     // Compare QA enabled settings
@@ -7437,8 +7367,7 @@ function initializeChangeTracking() {
     const fields = [
         'junkFilterThreshold',
         'rankingThreshold',
-        'similarityThreshold',
-        'autoTriggerHuntScoreThreshold'
+        'similarityThreshold'
     ];
     
     fields.forEach(fieldId => {
@@ -7559,17 +7488,8 @@ if (workflowConfigForm) {
     const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
     const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
     const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
-    const autoTriggerInput = document.getElementById('autoTriggerHuntScoreThreshold');
-    // If field doesn't exist or is empty, use default and skip validation
-    if (!autoTriggerInput || !autoTriggerInput.value) {
-        // Set default value if missing
-        if (autoTriggerInput) {
-            autoTriggerInput.value = '60';
-        }
-    }
-    const autoTriggerValid = autoTriggerInput ? validateThreshold(autoTriggerInput, 0, 100) : true;
     
-    if (!junkFilterValid || !rankingValid || !similarityValid || !autoTriggerValid) {
+    if (!junkFilterValid || !rankingValid || !similarityValid) {
         alert('Please fix the validation errors before saving.');
         return;
     }
@@ -7624,11 +7544,6 @@ if (workflowConfigForm) {
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
         ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
-        auto_trigger_hunt_score_threshold: (() => {
-            const input = document.getElementById('autoTriggerHuntScoreThreshold');
-            const value = input ? parseFloat(input.value) : 60;
-            return isNaN(value) ? 60 : value;
-        })(),
         description: null,
         agent_models: {
             ...collectedAgentConfigs,
@@ -7729,12 +7644,6 @@ if (workflowConfigForm) {
             }
             if (updatedConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
-            }
-            if (updatedConfig.auto_trigger_hunt_score_threshold !== undefined) {
-                const autoTriggerInput = document.getElementById('autoTriggerHuntScoreThreshold');
-                if (autoTriggerInput) {
-                    autoTriggerInput.value = updatedConfig.auto_trigger_hunt_score_threshold;
-                }
             }
             
             // Update config display
@@ -8346,12 +8255,7 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 // Get model used for extraction
-                // CmdlineExtract uses CmdlineExtract_model, fallback to ExtractAgent
-                const extractModel = exec.config_snapshot?.agent_models?.['CmdlineExtract_model'] ||
-                                    exec.config_snapshot?.agent_models?.['ExtractAgent'] ||
-                                    activeConfig?.agent_models?.['CmdlineExtract_model'] ||
-                                    activeConfig?.agent_models?.['ExtractAgent'] ||
-                                    'From environment';
+                const extractModel = getModel('ExtractAgent');
                 
                 steps.push({
                     name: 'Step 3: Extract Agents',
