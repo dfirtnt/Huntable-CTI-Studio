@@ -6,6 +6,7 @@
 .env.development
 .env.test
 *.env
+!.env.example
 secrets/
 credentials/
 api_keys.txt
