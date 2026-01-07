@@ -1222,8 +1222,14 @@ async def get_subagent_eval_aggregate(
 
                 # Calculate metrics
                 scores = [r.score for r in completed_records]
+                expected_counts = [r.expected_count for r in completed_records]
                 mean_score = sum(scores) / len(scores)
                 mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
+                
+                # Calculate normalized MAE (nMAE): MAE / mean(expected_count)
+                mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
+                normalized_mean_absolute_error = mean_absolute_error / mean_expected_count if mean_expected_count > 0 else None
+                
                 mean_squared_error = sum(s * s for s in scores) / len(scores)
                 perfect_matches = sum(1 for s in scores if s == 0)
                 perfect_match_percentage = (
@@ -1243,7 +1249,7 @@ async def get_subagent_eval_aggregate(
                         "failed": len(failed_records),
                         "pending": len(pending_records),
                         "mean_score": round(mean_score, 2),
-                        "mean_absolute_error": round(mean_absolute_error, 2),
+                        "mean_absolute_error": round(normalized_mean_absolute_error, 4) if normalized_mean_absolute_error is not None else None,
                         "mean_squared_error": round(mean_squared_error, 2),
                         "perfect_matches": perfect_matches,
                         "perfect_match_percentage": round(perfect_match_percentage, 1),

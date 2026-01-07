@@ -179,7 +179,7 @@
         <!-- MAE Chart -->
         <div id="maeChartContainer" class="mb-6 hidden">
             <div class="eval-card rounded-lg shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Mean Absolute Error by Config Version</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Normalized Mean Absolute Error (nMAE) by Config Version</h3>
                 <div class="h-64">
                     <canvas id="maeChart"></canvas>
                 </div>
@@ -1049,7 +1049,7 @@ function renderMAEChart(aggregates) {
         return;
     }
     
-    // Filter aggregates that have MAE data and exclude specified versions
+    // Filter aggregates that have nMAE data and exclude specified versions
     const validAggregates = aggregates.filter(agg => 
         agg.mean_absolute_error !== null && 
         agg.config_version && 
@@ -1065,7 +1065,7 @@ function renderMAEChart(aggregates) {
     validAggregates.sort((a, b) => parseInt(a.config_version) - parseInt(b.config_version));
     
     const labels = validAggregates.map(agg => `v${agg.config_version}`);
-    const maeData = validAggregates.map(agg => agg.mean_absolute_error);
+    const nmaeData = validAggregates.map(agg => agg.mean_absolute_error);
     
     const chartContainer = document.getElementById('maeChartContainer');
     chartContainer.classList.remove('hidden');
@@ -1080,11 +1080,11 @@ function renderMAEChart(aggregates) {
         maeChart.destroy();
     }
     
-    // Determine color based on MAE values
-    const colors = maeData.map(mae => {
-        if (mae <= 2) return '#10B981'; // green
-        if (mae <= 5) return '#F59E0B'; // yellow
-        return '#EF4444'; // red
+    // Determine color based on nMAE values (nMAE thresholds adjusted for normalized scale)
+    const colors = nmaeData.map(nmae => {
+        if (nmae <= 0.2) return '#10B981'; // green (20% error)
+        if (nmae <= 0.5) return '#F59E0B'; // yellow (50% error)
+        return '#EF4444'; // red (>50% error)
     });
     
     maeChart = new Chart(ctx, {
@@ -1092,8 +1092,8 @@ function renderMAEChart(aggregates) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Mean Absolute Error',
-                data: maeData,
+                label: 'Normalized Mean Absolute Error (nMAE)',
+                data: nmaeData,
                 borderColor: '#3B82F6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 borderWidth: 2,
@@ -1121,12 +1121,12 @@ function renderMAEChart(aggregates) {
                     bodyColor: '#fff',
                     callbacks: {
                         label: function(context) {
-                            const mae = context.parsed.y;
+                            const nmae = context.parsed.y;
                             let quality = '';
-                            if (mae <= 2) quality = ' (Excellent)';
-                            else if (mae <= 5) quality = ' (Good)';
+                            if (nmae <= 0.2) quality = ' (Excellent)';
+                            else if (nmae <= 0.5) quality = ' (Good)';
                             else quality = ' (Needs Improvement)';
-                            return `MAE: ${mae.toFixed(2)}${quality}`;
+                            return `nMAE: ${nmae.toFixed(4)}${quality}`;
                         }
                     }
                 }
@@ -1275,8 +1275,8 @@ async function loadAggregateScores() {
             
             let metricsHtml = '';
             if (agg.mean_score !== null) {
-                const maeClass = agg.mean_absolute_error <= 2 ? 'text-green-600 dark:text-green-400' : 
-                                 agg.mean_absolute_error <= 5 ? 'text-yellow-600 dark:text-yellow-400' : 
+                const nmaeClass = agg.mean_absolute_error <= 0.2 ? 'text-green-600 dark:text-green-400' : 
+                                 agg.mean_absolute_error <= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 
                                  'text-red-600 dark:text-red-400';
                 
                 metricsHtml = `
@@ -1286,8 +1286,8 @@ async function loadAggregateScores() {
                             <div class="font-semibold text-gray-900 dark:text-white">${agg.mean_score}</div>
                         </div>
                         <div>
-                            <div class="text-gray-500 dark:text-gray-400">Mean Absolute Error</div>
-                            <div class="font-semibold ${maeClass}">${agg.mean_absolute_error}</div>
+                            <div class="text-gray-500 dark:text-gray-400">Normalized MAE (nMAE)</div>
+                            <div class="font-semibold ${nmaeClass}">${agg.mean_absolute_error !== null ? agg.mean_absolute_error.toFixed(4) : 'N/A'}</div>
                         </div>
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
