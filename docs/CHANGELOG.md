@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Top_P Control for All Agents** (2026-01-07): Added per-agent Top_P (top-p sampling) parameter control
+  - Top_P input fields for all agents: RankAgent, ExtractAgent, SigmaAgent, all sub-agents (CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract), and all QA agents
+  - Top_P values are saved to workflow config and persist across saves
+  - Top_P values are read from config and passed to LMStudio API calls
+  - Test functions now use Top_P from saved config (requires save before testing)
+  - Added debug logging for Top_P values throughout the pipeline
+  - Type conversion handles JSONB string/number values correctly
+  - Active Workflow Config panel displays Top_P for selected agent
 - **Clickable Eval Results** (2026-01-02): Added clickable result cells in evaluation results table
   - Click any completed result to view extracted commandlines in a modal
   - Modal displays all commandlines with numbered list and article link
@@ -60,6 +68,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated panels: articles.html (filters), workflow.html (12 panels), article_detail.html (keyword matches), diags.html (job history), scraper_metrics.html (source performance), hunt_metrics.html (keyword analysis)
 
 ### Fixed
+- **Top_P Parameter Handling** (2026-01-07): Fixed Top_P values not being passed correctly to LMStudio
+  - Added explicit float conversion for Top_P values from JSONB config (handles string/number types)
+  - Fixed test functions to read and pass Top_P from config
+  - Fixed Rank Agent test to override top_p_rank after LLMService initialization
+  - Ensured Top_P is always sent as float to LMStudio API payload
+  - Fixed Top_P collection in collectAllAgentConfigs() and form submit handlers
 - **Test Endpoint Refactoring** (2026-01-02): Moved test agent endpoints to Celery worker tasks for proper separation of concerns
   - Test tasks now run in `cti_workflow_worker` instead of `cti_web` container
   - Added async task status polling endpoint `/api/workflow/config/test-status/{task_id}`
