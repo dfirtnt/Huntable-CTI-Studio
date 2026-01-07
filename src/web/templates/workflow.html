@@ -1608,18 +1608,25 @@
                 </div>
 
                 <!-- Buttons -->
-                <div class="flex justify-end space-x-4">
+                <div class="flex justify-between items-center">
                     <button type="button" 
-                            onclick="loadConfig()" 
-                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        Reset
+                            onclick="showGenerateCommandsModal()" 
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                        🔧 Generate Commands
                     </button>
-                    <button type="submit" 
-                            id="save-config-button"
-                            class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled>
-                        Save Configuration
-                    </button>
+                    <div class="flex space-x-4">
+                        <button type="button" 
+                                onclick="loadConfig()" 
+                                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            Reset
+                        </button>
+                        <button type="submit" 
+                                id="save-config-button"
+                                class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled>
+                            Save Configuration
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -3426,6 +3433,19 @@ function onAgentProviderChange(agentPrefix) {
     if (provider === 'lmstudio') {
         // Clear commercial provider inputs
         modelInputs.forEach(input => input.value = '');
+        
+        // Repopulate LMStudio model dropdown for main agents (RankAgent, ExtractAgent, SigmaAgent)
+        const mainAgentMap = {
+            'rankagent': 'RankAgent',
+            'extractagent': 'ExtractAgent',
+            'sigmaagent': 'SigmaAgent'
+        };
+        const mainAgentName = mainAgentMap[agentPrefix];
+        if (mainAgentName && typeof loadLMStudioModels === 'function') {
+            // Repopulate main agent dropdown by reloading all LMStudio models
+            loadLMStudioModels();
+        }
+        
         // Repopulate LMStudio model dropdown for sub-agents
         const subAgentMap = {
             'cmdlineextract': 'CmdlineExtract',
@@ -6867,13 +6887,11 @@ function getAllSelectedModelsWithProviders() {
         selectedModels.push({ agent: 'Extract', model: extractModel, provider: extractProvider });
     }
     
-    // SIGMA Agent - only show if QA enabled
-    if (qaEnabled.SigmaAgent) {
-        const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
-        const sigmaModel = document.getElementById('sigmaagent-model-2')?.value?.trim();
-        if (sigmaModel && !isEmbeddingModel(sigmaModel)) {
-            selectedModels.push({ agent: 'SIGMA', model: sigmaModel, provider: sigmaProvider });
-        }
+    // SIGMA Agent - always show if model is configured
+    const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
+    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value?.trim();
+    if (sigmaModel && !isEmbeddingModel(sigmaModel)) {
+        selectedModels.push({ agent: 'SIGMA', model: sigmaModel, provider: sigmaProvider });
     }
     
     // Sub-agents - only show if not disabled
@@ -6906,15 +6924,15 @@ function getAllSelectedModelsWithProviders() {
     ];
     
     qaAgents.forEach(qaAgent => {
-        // For sub-agent QA: check if sub-agent is enabled AND QA is enabled
+        // For sub-agent QA: check if sub-agent is enabled (QA enabled check removed - show if model exists)
         if (qaAgent.subAgent) {
             if (disabled.has(qaAgent.subAgent)) return; // Sub-agent is disabled
-            if (!qaEnabled[qaAgent.subAgent]) return; // QA not enabled for this sub-agent
+            // Removed QA enabled check - show QA agent if model is configured
         } else {
-            // For RankAgentQA: check if RankAgent is enabled AND QA is enabled
+            // For RankAgentQA: check if RankAgent is enabled (QA enabled check removed)
             const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
             if (!rankAgentEnabled) return;
-            if (!qaEnabled.RankAgent) return;
+            // Removed QA enabled check - show QA agent if model is configured
         }
         
         const modelInfo = getModelWithProvider(qaAgent.prefix, qaAgent.providerId, qaAgent.name);
@@ -6982,7 +7000,7 @@ function updateConfigDisplay() {
             const provider = agentModels.ExtractAgent_provider || 'lmstudio';
             modelsList.push(`Extract: ${agentModels.ExtractAgent} (${provider})`);
         }
-        if (agentModels.SigmaAgent && qaEnabled.SigmaAgent) {
+        if (agentModels.SigmaAgent) {
             const provider = agentModels.SigmaAgent_provider || 'lmstudio';
             modelsList.push(`SIGMA: ${agentModels.SigmaAgent} (${provider})`);
         }
@@ -6997,8 +7015,8 @@ function updateConfigDisplay() {
             }
         });
         
-        // QA agents
-        if (agentModels.RankAgentQA && qaEnabled.RankAgent) {
+        // QA agents - show if model is configured (regardless of QA enabled status)
+        if (agentModels.RankAgentQA) {
             const provider = agentModels.RankAgentQA_provider || 'lmstudio';
             modelsList.push(`RankAgentQA: ${agentModels.RankAgentQA} (${provider})`);
         }
@@ -7011,7 +7029,7 @@ function updateConfigDisplay() {
         };
         Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
             if (disabled.has(agent)) return;
-            if (!qaEnabled[agent]) return;
+            // Show QA agent if model is configured (removed QA enabled check)
             if (agentModels[qaKey]) {
                 const provider = agentModels[`${qaKey}_provider`] || 'lmstudio';
                 modelsList.push(`${qaKey}: ${agentModels[qaKey]} (${provider})`);
@@ -7035,6 +7053,121 @@ function updateConfigDisplay() {
             ${modelsHtml}
         </div>
     `;
+}
+
+// Generate LMStudio context window commands
+function showGenerateCommandsModal() {
+    // Get all selected models
+    const uiModels = getAllSelectedModelsWithProviders();
+    
+    // Filter to only LMStudio models and exclude embedding models
+    const embeddingModels = ['text-embedding-e5-base-v2', 'ibm-research/CTI-BERT', 'text-embedding', 'embedding'];
+    const lmstudioModels = uiModels.filter(m => 
+        m.provider === 'lmstudio' && 
+        !embeddingModels.some(emb => m.model.toLowerCase().includes(emb.toLowerCase()))
+    );
+    
+    if (lmstudioModels.length === 0) {
+        alert('No LMStudio models found in current configuration.');
+        return;
+    }
+    
+    // Get context lengths from config or use defaults
+    const contextLength = prompt('Enter context length (tokens):', '16384');
+    if (!contextLength || isNaN(contextLength)) {
+        return;
+    }
+    
+    const ctxLen = parseInt(contextLength);
+    
+    // Generate commands
+    let commands = [];
+    commands.push('# LMStudio Context Window Commands');
+    commands.push('# Generated from workflow configuration');
+    commands.push('');
+    
+    // Group by model to avoid duplicates
+    const uniqueModels = new Map();
+    lmstudioModels.forEach(m => {
+        const modelName = m.model;
+        if (!uniqueModels.has(modelName)) {
+            uniqueModels.set(modelName, {
+                model: modelName,
+                agents: []
+            });
+        }
+        uniqueModels.get(modelName).agents.push(m.agent);
+    });
+    
+    // Generate command for each unique model
+    uniqueModels.forEach((info, modelName) => {
+        commands.push(`# ${info.agents.join(', ')}`);
+        commands.push(`./scripts/set_lmstudio_context.sh "${modelName}" ${ctxLen}`);
+        commands.push('');
+    });
+    
+    const commandsText = commands.join('\n');
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'generateCommandsModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Generate LMStudio Context Commands</h3>
+                <button onclick="closeGenerateCommandsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Copy these commands to set context windows for your LMStudio models:
+                </p>
+                <textarea id="generatedCommands" readonly class="w-full h-64 p-4 font-mono text-sm bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg border border-gray-300 dark:border-gray-600">${commandsText}</textarea>
+            </div>
+            <div class="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button onclick="copyGeneratedCommands()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                    📋 Copy Commands
+                </button>
+                <button onclick="closeGenerateCommandsModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeGenerateCommandsModal() {
+    const modal = document.getElementById('generateCommandsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function copyGeneratedCommands() {
+    const textarea = document.getElementById('generatedCommands');
+    if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+        
+        // Show feedback
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = '✓ Copied!';
+        button.classList.add('bg-green-600', 'hover:bg-green-700');
+        button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('bg-green-600', 'hover:bg-green-700');
+            button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }, 2000);
+    }
 }
 
 // Get only LMStudio models from selected models
