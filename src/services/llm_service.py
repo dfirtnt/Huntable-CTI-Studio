@@ -2744,238 +2744,243 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         seed=self.seed
                     )
                     
-                # Parse response
-                response_text = response['choices'][0]['message'].get('content', '')
-                # Handle Deepseek reasoning
-                if not response_text:
-                    response_text = response['choices'][0]['message'].get('reasoning_content', '')
-                
-                # Log the actual response for debugging
-                logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
-                logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
-                logger.debug(f"{agent_name} full response: {response_text}")
-                
-                # Log response metadata
-                if 'usage' in response:
-                    logger.info(f"{agent_name} token usage: {response['usage']}")
-                
-                # Note: We'll log completion to Langfuse AFTER parsing JSON
-                # so we can include the parsed result in the output field
-                
-                # Extract JSON with multiple strategies and escape sequence fixing
-                last_result = None
-                json_str = None
-                
-                def fix_json_escapes(text: str) -> str:
-                    """Fix common JSON escape sequence issues, especially Windows paths."""
-                    # Pre-process: Fix patterns where models over-escape quotes
-                    import re
-                    # Fix four backslashes + quote -> escaped quote (\\\\" -> \")
-                    # In the raw text, four backslashes means: backslash + backslash + backslash + backslash
-                    # We want to convert this to: backslash + quote (escaped quote)
-                    text = re.sub(r'\\\\\\\\"', r'\\"', text)
-                    # Fix triple backslash + quote -> escaped quote (\\\" -> \")
-                    text = re.sub(r'\\\\\\"', r'\\"', text)
-                    # Fix \\" patterns that are clearly wrong (two backslashes + quote -> escaped quote)
-                    # This handles cases like: /tn \\"Task-... which should be /tn \"Task-...
-                    # We match \\" (two backslashes + quote) and replace with \" (escaped quote)
-                    # But be careful: we don't want to break Windows paths like C:\\ProgramData
-                    # So we only fix \\" that appears in contexts suggesting quoted text
-                    # Pattern: \\" followed by alphanumeric (opening quote) OR preceded by alphanumeric (closing quote)
-                    # In regex: \\\\" means match two backslashes + quote
-                    text = re.sub(r'\\\\"(?=[A-Za-z0-9])', r'\\"', text)  # Opening quotes: \\"Task -> \"Task
-                    # For closing quotes, use a simpler pattern: match \\" that's not part of a path
-                    # Look for \\" preceded by alphanumeric/dash/underscore and not followed by backslash
-                    text = re.sub(r'([A-Za-z0-9_-])\\\\"(?!\\)', r'\1\\"', text)  # Closing quotes
+                    # Parse response (moved inside with block so generation is still active)
+                    response_text = response['choices'][0]['message'].get('content', '')
+                    # Handle Deepseek reasoning
+                    if not response_text:
+                        response_text = response['choices'][0]['message'].get('reasoning_content', '')
                     
-                    # Strategy: Find all backslashes and check if they're properly escaped
-                    # For Windows paths like C:\ProgramData, we need C:\\ProgramData in JSON
-                    result = []
-                    i = 0
-                    while i < len(text):
-                        if text[i] == '\\':
-                            # Check if this is already part of a valid escape sequence
-                            if i + 1 < len(text):
-                                next_char = text[i + 1]
-                                # Valid escape sequences: \\, \", \/, \b, \f, \n, \r, \t, \uXXXX
-                                if next_char == '\\':
-                                    # Already escaped backslash - keep both characters and skip the next one
-                                    result.append('\\\\')
-                                    i += 2
-                                    continue
-                                elif next_char in ['"', '/', 'b', 'f', 'n', 'r', 't']:
-                                    # Valid escape sequence - keep as is
-                                    result.append(text[i])
-                                    i += 1
-                                    continue
-                                elif next_char == 'u' and i + 5 < len(text):
-                                    # Check if it's a valid unicode escape \uXXXX
-                                    hex_chars = text[i+2:i+6]
-                                    if len(hex_chars) == 4 and all(c in '0123456789abcdefABCDEF' for c in hex_chars):
-                                        # Valid unicode escape - keep all 6 characters
-                                        result.append(text[i:i+6])
-                                        i += 6
+                    # Log the actual response for debugging
+                    logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
+                    logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
+                    logger.debug(f"{agent_name} full response: {response_text}")
+                    
+                    # Log response metadata
+                    if 'usage' in response:
+                        logger.info(f"{agent_name} token usage: {response['usage']}")
+                    
+                    # Extract JSON with multiple strategies and escape sequence fixing
+                    last_result = None
+                    json_str = None
+                    
+                    def fix_json_escapes(text: str) -> str:
+                        """Fix common JSON escape sequence issues, especially Windows paths."""
+                        # Pre-process: Fix patterns where models over-escape quotes
+                        import re
+                        # Fix four backslashes + quote -> escaped quote (\\\\" -> \")
+                        # In the raw text, four backslashes means: backslash + backslash + backslash + backslash
+                        # We want to convert this to: backslash + quote (escaped quote)
+                        text = re.sub(r'\\\\\\\\"', r'\\"', text)
+                        # Fix triple backslash + quote -> escaped quote (\\\" -> \")
+                        text = re.sub(r'\\\\\\"', r'\\"', text)
+                        # Fix \\" patterns that are clearly wrong (two backslashes + quote -> escaped quote)
+                        # This handles cases like: /tn \\"Task-... which should be /tn \"Task-...
+                        # We match \\" (two backslashes + quote) and replace with \" (escaped quote)
+                        # But be careful: we don't want to break Windows paths like C:\\ProgramData
+                        # So we only fix \\" that appears in contexts suggesting quoted text
+                        # Pattern: \\" followed by alphanumeric (opening quote) OR preceded by alphanumeric (closing quote)
+                        # In regex: \\\\" means match two backslashes + quote
+                        text = re.sub(r'\\\\"(?=[A-Za-z0-9])', r'\\"', text)  # Opening quotes: \\"Task -> \"Task
+                        # For closing quotes, use a simpler pattern: match \\" that's not part of a path
+                        # Look for \\" preceded by alphanumeric/dash/underscore and not followed by backslash
+                        text = re.sub(r'([A-Za-z0-9_-])\\\\"(?!\\)', r'\1\\"', text)  # Closing quotes
+                        
+                        # Strategy: Find all backslashes and check if they're properly escaped
+                        # For Windows paths like C:\ProgramData, we need C:\\ProgramData in JSON
+                        result = []
+                        i = 0
+                        while i < len(text):
+                            if text[i] == '\\':
+                                # Check if this is already part of a valid escape sequence
+                                if i + 1 < len(text):
+                                    next_char = text[i + 1]
+                                    # Valid escape sequences: \\, \", \/, \b, \f, \n, \r, \t, \uXXXX
+                                    if next_char == '\\':
+                                        # Already escaped backslash - keep both characters and skip the next one
+                                        result.append('\\\\')
+                                        i += 2
                                         continue
+                                    elif next_char in ['"', '/', 'b', 'f', 'n', 'r', 't']:
+                                        # Valid escape sequence - keep as is
+                                        result.append(text[i])
+                                        i += 1
+                                        continue
+                                    elif next_char == 'u' and i + 5 < len(text):
+                                        # Check if it's a valid unicode escape \uXXXX
+                                        hex_chars = text[i+2:i+6]
+                                        if len(hex_chars) == 4 and all(c in '0123456789abcdefABCDEF' for c in hex_chars):
+                                            # Valid unicode escape - keep all 6 characters
+                                            result.append(text[i:i+6])
+                                            i += 6
+                                            continue
+                                        else:
+                                            # Invalid - looks like \u but not valid, double the backslash
+                                            result.append('\\\\')
+                                            i += 1
+                                            continue
                                     else:
-                                        # Invalid - looks like \u but not valid, double the backslash
+                                        # Invalid escape - double the backslash
                                         result.append('\\\\')
                                         i += 1
                                         continue
                                 else:
-                                    # Invalid escape - double the backslash
+                                    # Backslash at end of string - invalid, double it
                                     result.append('\\\\')
                                     i += 1
                                     continue
                             else:
-                                # Backslash at end of string - invalid, double it
-                                result.append('\\\\')
+                                result.append(text[i])
                                 i += 1
-                                continue
-                        else:
-                            result.append(text[i])
-                            i += 1
-                    return ''.join(result)
-                
-                def try_parse_json(text: str) -> tuple[dict, bool]:
-                    """Try to parse JSON, return (result, success)."""
-                    try:
-                        return json.loads(text), True
-                    except json.JSONDecodeError as e:
-                        # Try fixing escape sequences
+                        return ''.join(result)
+                    
+                    def try_parse_json(text: str) -> tuple[dict, bool]:
+                        """Try to parse JSON, return (result, success)."""
                         try:
-                            fixed = fix_json_escapes(text)
-                            return json.loads(fixed), True
-                        except:
-                            return None, False
-                
-                try:
-                    # Strategy 1: Try to extract from markdown code fences first
-                    import re
-                    code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-                    if code_fence_match:
-                        json_str = code_fence_match.group(1).strip()
-                        logger.info(f"{agent_name}: Found JSON in markdown code fence")
-                        parsed, success = try_parse_json(json_str)
-                        if success:
-                            last_result = parsed
-                    else:
-                        # Strategy 2: Find JSON object (first { to last })
-                        start = response_text.find('{')
-                        end = response_text.rfind('}')
-                        if start != -1 and end != -1 and end > start:
-                            json_str = response_text[start:end+1]
+                            return json.loads(text), True
+                        except json.JSONDecodeError as e:
+                            # Try fixing escape sequences
+                            try:
+                                fixed = fix_json_escapes(text)
+                                return json.loads(fixed), True
+                            except:
+                                return None, False
+                    
+                    try:
+                        # Strategy 1: Try to extract from markdown code fences first
+                        import re
+                        code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+                        if code_fence_match:
+                            json_str = code_fence_match.group(1).strip()
+                            logger.info(f"{agent_name}: Found JSON in markdown code fence")
                             parsed, success = try_parse_json(json_str)
                             if success:
                                 last_result = parsed
-                                logger.info(f"{agent_name}: Found JSON object from {start} to {end}")
                         else:
-                            # Strategy 3: Try to find any valid JSON structure
-                            # Look for all potential JSON objects and try the largest one
-                            json_candidates = []
-                            search_pos = 0
-                            while True:
-                                open_pos = response_text.find('{', search_pos)
-                                if open_pos == -1:
-                                    break
+                            # Strategy 2: Find JSON object (first { to last })
+                            start = response_text.find('{')
+                            end = response_text.rfind('}')
+                            if start != -1 and end != -1 and end > start:
+                                json_str = response_text[start:end+1]
+                                parsed, success = try_parse_json(json_str)
+                                if success:
+                                    last_result = parsed
+                                    logger.info(f"{agent_name}: Found JSON object from {start} to {end}")
+                            else:
+                                # Strategy 3: Try to find any valid JSON structure
+                                # Look for all potential JSON objects and try the largest one
+                                json_candidates = []
+                                search_pos = 0
+                                while True:
+                                    open_pos = response_text.find('{', search_pos)
+                                    if open_pos == -1:
+                                        break
+                                    
+                                    brace_count = 0
+                                    json_end = -1
+                                    for i in range(open_pos, len(response_text)):
+                                        if response_text[i] == '{':
+                                            brace_count += 1
+                                        elif response_text[i] == '}':
+                                            brace_count -= 1
+                                            if brace_count == 0:
+                                                json_end = i + 1
+                                                break
+                                    
+                                    if json_end != -1:
+                                        candidate = response_text[open_pos:json_end]
+                                        parsed, success = try_parse_json(candidate)
+                                        if success and parsed:
+                                            # Prefer structures with expected keys (support all extract agent result formats)
+                                            if any(key in parsed for key in ["cmdline_items", "items", "process_lineage", "sigma_queries", "event_ids", "registry_keys", "count"]):
+                                                json_candidates.append((len(candidate), parsed))
+                                    
+                                    search_pos = open_pos + 1
                                 
-                                brace_count = 0
-                                json_end = -1
-                                for i in range(open_pos, len(response_text)):
-                                    if response_text[i] == '{':
-                                        brace_count += 1
-                                    elif response_text[i] == '}':
-                                        brace_count -= 1
-                                        if brace_count == 0:
-                                            json_end = i + 1
-                                            break
-                                
-                                if json_end != -1:
-                                    candidate = response_text[open_pos:json_end]
-                                    parsed, success = try_parse_json(candidate)
-                                    if success and parsed:
-                                        # Prefer structures with expected keys (support all extract agent result formats)
-                                        if any(key in parsed for key in ["cmdline_items", "items", "process_lineage", "sigma_queries", "event_ids", "registry_keys", "count"]):
-                                            json_candidates.append((len(candidate), parsed))
-                                
-                                search_pos = open_pos + 1
-                            
-                            if json_candidates:
-                                # Sort by length (largest first) and take the first valid one
-                                json_candidates.sort(key=lambda x: x[0], reverse=True)
-                                last_result = json_candidates[0][1]
-                                logger.info(f"{agent_name}: Found JSON from candidate search")
-                    
-                    if last_result:
-                        logger.info(f"{agent_name} parsed JSON keys: {list(last_result.keys())}")
-                        # Check for agent-specific result keys
-                        if "cmdline_items" in last_result:
-                            count = len(last_result.get("cmdline_items", []))
-                            logger.info(f"{agent_name} found {count} cmdline_items")
-                            if count == 0:
-                                logger.warning(f"{agent_name}: cmdline_items array is empty!")
-                        elif "process_lineage" in last_result:
-                            count = len(last_result.get("process_lineage", []))
-                            logger.info(f"{agent_name} found {count} process_lineage items")
-                            # Normalize to 'items' for consistency with frontend
-                            last_result["items"] = last_result.pop("process_lineage")
-                        elif "sigma_queries" in last_result:
-                            count = len(last_result.get("sigma_queries", []))
-                            logger.info(f"{agent_name} found {count} sigma_queries")
-                            last_result["items"] = last_result.pop("sigma_queries")
-                        elif "event_ids" in last_result:
-                            count = len(last_result.get("event_ids", []))
-                            logger.info(f"{agent_name} found {count} event_ids")
-                            last_result["items"] = last_result.pop("event_ids")
-                        elif "registry_keys" in last_result:
-                            count = len(last_result.get("registry_keys", []))
-                            logger.info(f"{agent_name} found {count} registry_keys")
-                            last_result["items"] = last_result.pop("registry_keys")
-                        elif "items" in last_result:
-                            count = len(last_result.get("items", []))
-                            logger.info(f"{agent_name} found {count} items")
-                        else:
-                            logger.warning(f"{agent_name}: No recognized items key found. Keys: {list(last_result.keys())}")
-                    else:
-                        # Fallback if no JSON found
-                        logger.warning(f"{agent_name}: No JSON found in response. Response length: {len(response_text)}")
-                        logger.warning(f"{agent_name}: Response preview: {response_text[:500]}")
-                        last_result = {"items": [], "count": 0, "error": "No JSON found"}
+                                if json_candidates:
+                                    # Sort by length (largest first) and take the first valid one
+                                    json_candidates.sort(key=lambda x: x[0], reverse=True)
+                                    last_result = json_candidates[0][1]
+                                    logger.info(f"{agent_name}: Found JSON from candidate search")
                         
-                except Exception as e:
-                    logger.warning(f"{agent_name}: Exception during JSON parsing: {e}")
-                    logger.warning(f"{agent_name}: JSON string attempted: {json_str[:200] if json_str else 'None'}")
-                    logger.warning(f"{agent_name}: Full response: {response_text[:1000]}")
-                    last_result = {"items": [], "count": 0, "error": f"JSON parse exception: {str(e)}"}
+                        if last_result:
+                            logger.info(f"{agent_name} parsed JSON keys: {list(last_result.keys())}")
+                            # Check for agent-specific result keys
+                            if "cmdline_items" in last_result:
+                                count = len(last_result.get("cmdline_items", []))
+                                logger.info(f"{agent_name} found {count} cmdline_items")
+                                if count == 0:
+                                    logger.warning(f"{agent_name}: cmdline_items array is empty!")
+                            elif "process_lineage" in last_result:
+                                count = len(last_result.get("process_lineage", []))
+                                logger.info(f"{agent_name} found {count} process_lineage items")
+                                # Normalize to 'items' for consistency with frontend
+                                last_result["items"] = last_result.pop("process_lineage")
+                            elif "sigma_queries" in last_result:
+                                count = len(last_result.get("sigma_queries", []))
+                                logger.info(f"{agent_name} found {count} sigma_queries")
+                                last_result["items"] = last_result.pop("sigma_queries")
+                            elif "event_ids" in last_result:
+                                count = len(last_result.get("event_ids", []))
+                                logger.info(f"{agent_name} found {count} event_ids")
+                                last_result["items"] = last_result.pop("event_ids")
+                            elif "registry_keys" in last_result:
+                                count = len(last_result.get("registry_keys", []))
+                                logger.info(f"{agent_name} found {count} registry_keys")
+                                last_result["items"] = last_result.pop("registry_keys")
+                            elif "items" in last_result:
+                                count = len(last_result.get("items", []))
+                                logger.info(f"{agent_name} found {count} items")
+                            else:
+                                logger.warning(f"{agent_name}: No recognized items key found. Keys: {list(last_result.keys())}")
+                        else:
+                            # Fallback if no JSON found
+                            logger.warning(f"{agent_name}: No JSON found in response. Response length: {len(response_text)}")
+                            logger.warning(f"{agent_name}: Response preview: {response_text[:500]}")
+                            last_result = {"items": [], "count": 0, "error": "No JSON found"}
+                            
+                    except Exception as e:
+                        logger.warning(f"{agent_name}: Exception during JSON parsing: {e}")
+                        logger.warning(f"{agent_name}: JSON string attempted: {json_str[:200] if json_str else 'None'}")
+                        logger.warning(f"{agent_name}: Full response: {response_text[:1000]}")
+                        last_result = {"items": [], "count": 0, "error": f"JSON parse exception: {str(e)}"}
                 
-                # Ensure we have a result
-                if not last_result:
-                    last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
+                    # Ensure we have a result
+                    if not last_result:
+                        last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
 
-                # Log completion to Langfuse with parsed result
-                if generation:
-                    # Create a summary of the parsed result for the output field
-                    output_summary = {
-                        "parsed_items_count": last_result.get("count", len(last_result.get("items", []))),
-                        "has_error": "error" in last_result,
-                    }
-                    # Include a preview of items if present
-                    if "items" in last_result and last_result["items"]:
-                        output_summary["items_preview"] = last_result["items"][:3]
-                    elif "cmdline_items" in last_result and last_result["cmdline_items"]:
-                        output_summary["cmdline_items_preview"] = last_result["cmdline_items"][:3]
-
-                    log_llm_completion(
-                        generation=generation,
-                        input_messages=messages,
-                        output=json.dumps(output_summary, indent=2),
-                        usage=response.get('usage', {}),
-                        metadata={
-                            "agent_name": agent_name,
-                            "attempt": current_try,
-                            "parsed_result_keys": list(last_result.keys()),
-                            "item_count": output_summary["parsed_items_count"]
+                    # Log completion to Langfuse with parsed result (inside with block so generation is still active)
+                    if generation:
+                        # Include full result for dataset/eval support - Langfuse needs complete output
+                        # Use the full last_result so datasets can access all extracted items
+                        output_for_langfuse = {
+                            "parsed_items_count": last_result.get("count", len(last_result.get("items", []))),
+                            "has_error": "error" in last_result,
                         }
-                    )
+                        # Include all items (not just preview) for dataset/eval support
+                        if "items" in last_result:
+                            output_for_langfuse["items"] = last_result["items"]
+                        if "cmdline_items" in last_result:
+                            output_for_langfuse["cmdline_items"] = last_result["cmdline_items"]
+                        # Include any other result fields that might be useful
+                        for key in ["process_lineage", "sigma_queries", "event_ids", "registry_keys"]:
+                            if key in last_result:
+                                output_for_langfuse[key] = last_result[key]
+                        # Include error if present
+                        if "error" in last_result:
+                            output_for_langfuse["error"] = last_result["error"]
+
+                        log_llm_completion(
+                            generation=generation,
+                            input_messages=messages,
+                            output=json.dumps(output_for_langfuse, indent=2),
+                            usage=response.get('usage', {}),
+                            metadata={
+                                "agent_name": agent_name,
+                                "attempt": current_try,
+                                "parsed_result_keys": list(last_result.keys()),
+                                "item_count": output_for_langfuse["parsed_items_count"]
+                            }
+                        )
 
                 # If no QA config, return immediately
                 if not qa_prompt_config:
