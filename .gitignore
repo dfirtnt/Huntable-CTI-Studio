@@ -60,6 +60,7 @@ Thumbs.db
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # pytest
 .pytest_cache/
