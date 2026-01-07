@@ -1041,19 +1041,32 @@ class AsyncDatabaseManager:
                     else 0
                 )
 
-                # Check if workflow should be triggered
-                # Hunt score threshold check is DISABLED - all articles can enter workflow
-                try:
-                    # Threshold check disabled - always trigger workflow regardless of score
-                    from src.worker.celery_app import trigger_agentic_workflow
+                # Get threshold from workflow config
+                from src.database.models import AgenticWorkflowConfigTable
+                config = session.query(AgenticWorkflowConfigTable).filter(
+                    AgenticWorkflowConfigTable.is_active == True
+                ).order_by(
+                    AgenticWorkflowConfigTable.version.desc()
+                ).first()
+                threshold = config.auto_trigger_hunt_score_threshold if config and hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
 
-                    trigger_agentic_workflow.delay(new_article.id)
-                    logger.info(
-                        f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score}, threshold check disabled)"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to trigger workflow for article {new_article.id}: {e}"
+                # Check if workflow should be triggered
+                # Only trigger if RegexHuntScore > threshold
+                if hunt_score > threshold:
+                    try:
+                        from src.worker.celery_app import trigger_agentic_workflow
+
+                        trigger_agentic_workflow.delay(new_article.id)
+                        logger.info(
+                            f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score} > {threshold})"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to trigger workflow for article {new_article.id}: {e}"
+                        )
+                else:
+                    logger.debug(
+                        f"Skipping workflow trigger for article {new_article.id} (hunt_score: {hunt_score} <= {threshold})"
                     )
 
                 # Automatically run chunk analysis for articles with hunt_score > 50
@@ -1723,6 +1736,7 @@ class AsyncDatabaseManager:
                     context_before=annotation_data.context_before,
                     context_after=annotation_data.context_after,
                     confidence_score=annotation_data.confidence_score,
+                    usage=annotation_data.usage,
                     used_for_training=annotation_data.used_for_training,
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
@@ -1796,11 +1810,28 @@ class AsyncDatabaseManager:
                 if not db_annotation:
                     return None
 
+                # Enforce usage immutability: usage cannot be changed after insert
+                if update_data.usage is not None and update_data.usage != db_annotation.usage:
+                    raise ValueError(
+                        f"Annotation usage cannot be modified once set. "
+                        f"Current usage: '{db_annotation.usage}', attempted: '{update_data.usage}'"
+                    )
+
                 # Update fields
                 if update_data.annotation_type is not None:
                     db_annotation.annotation_type = update_data.annotation_type
                 if update_data.confidence_score is not None:
                     db_annotation.confidence_score = update_data.confidence_score
+                if update_data.selected_text is not None:
+                    db_annotation.selected_text = update_data.selected_text
+                if update_data.start_position is not None:
+                    db_annotation.start_position = update_data.start_position
+                if update_data.end_position is not None:
+                    db_annotation.end_position = update_data.end_position
+                if update_data.context_before is not None:
+                    db_annotation.context_before = update_data.context_before
+                if update_data.context_after is not None:
+                    db_annotation.context_after = update_data.context_after
 
                 db_annotation.updated_at = datetime.now()
 
@@ -1844,21 +1875,19 @@ class AsyncDatabaseManager:
                 )
                 total_annotations = total_result.scalar() or 0
 
-                # Get huntable count
-                huntable_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        ArticleAnnotationTable.annotation_type == "huntable"
-                    )
+                # Counts by type
+                type_counts_result = await session.execute(
+                    select(
+                        ArticleAnnotationTable.annotation_type,
+                        func.count(ArticleAnnotationTable.id),
+                    ).group_by(ArticleAnnotationTable.annotation_type)
                 )
-                huntable_count = huntable_result.scalar() or 0
+                counts_by_type = {
+                    row[0]: row[1] for row in type_counts_result.all()
+                }
 
-                # Get not_huntable count
-                not_huntable_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        ArticleAnnotationTable.annotation_type == "not_huntable"
-                    )
-                )
-                not_huntable_count = not_huntable_result.scalar() or 0
+                huntable_count = counts_by_type.get("huntable", 0)
+                not_huntable_count = counts_by_type.get("not_huntable", 0)
 
                 # Get average confidence
                 avg_confidence_result = await session.execute(
@@ -1901,6 +1930,7 @@ class AsyncDatabaseManager:
                     not_huntable_percentage=round(not_huntable_percentage, 1),
                     average_confidence=round(average_confidence, 2),
                     most_annotated_article=most_annotated_article,
+                    counts_by_type=counts_by_type,
                 )
 
         except Exception as e:
@@ -1913,6 +1943,7 @@ class AsyncDatabaseManager:
                 not_huntable_percentage=0.0,
                 average_confidence=0.0,
                 most_annotated_article=None,
+                counts_by_type={},
             )
 
     def _db_annotation_to_model(
@@ -1933,6 +1964,7 @@ class AsyncDatabaseManager:
             used_for_training=db_annotation.used_for_training,
             created_at=db_annotation.created_at,
             updated_at=db_annotation.updated_at,
+            usage=db_annotation.usage,
         )
 
     async def get_annotation_with_article_info(

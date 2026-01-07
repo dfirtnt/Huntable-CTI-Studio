@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/huntable-icon.svg">
     
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,22 +31,134 @@
     
     <!-- Custom styles -->
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        /* Color Token System - Semantic Colors Only */
+        :root {
+            /* Brand Accent - Purple ONLY */
+            --color-brand: #8b5cf6;
+            --color-brand-hover: #7c3aed;
+            --color-brand-light: #a78bfa;
+            --color-brand-dark: #6d28d9;
+            
+            /* Status Colors */
+            --color-success: #10b981;
+            --color-success-bg: rgba(16, 185, 129, 0.1);
+            --color-warning: #f59e0b;
+            --color-warning-bg: rgba(245, 158, 11, 0.1);
+            --color-error: #ef4444;
+            --color-error-bg: rgba(239, 68, 68, 0.1);
+            
+            /* Informational - Blue ONLY for links/info */
+            --color-info: #3b82f6;
+            --color-info-bg: rgba(59, 130, 246, 0.1);
+            
+            /* Neutral Surfaces - Subtle Contrast */
+            --color-bg-app: #111827;
+            --color-bg-content: #0a0e1a;
+            --color-bg-card: #1f2937;
+            --color-bg-panel: #374151;
+            --color-border: #374151;
+            --color-border-subtle: #4b5563;
+            --color-text-primary: #f9fafb;
+            --color-text-secondary: #d1d5db;
+            --color-text-muted: #9ca3af;
         }
+        
+        .gradient-bg {
+            background: var(--color-bg-app);
+        }
+        
+        /* Navigation Styles */
+        .nav-item {
+            color: var(--color-text-secondary);
+            transition: color 0.2s ease;
+            position: relative;
+        }
+        
+        .nav-item img {
+            opacity: 0.55;
+            transition: opacity 0.2s ease, filter 0.2s ease;
+        }
+        
+        .nav-item:hover {
+            color: var(--color-brand);
+        }
+        
+        .nav-item:hover img {
+            opacity: 0.75;
+        }
+        
+        .nav-item.active {
+            color: var(--color-brand);
+            position: relative;
+            text-shadow: 0 0 6px rgba(139, 92, 246, 0.8);
+        }
+        
+        .nav-item.active img {
+            opacity: 0.7;
+        }
+        
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            left: -0.5rem;
+            right: -0.5rem;
+            bottom: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #9f7aea, #7c3aed, #a855f7);
+            border-radius: 1px;
+            box-shadow: 0 0 8px rgba(122, 79, 255, 0.9);
+        }
+        
+        .nav-brand-accent {
+            opacity: 0.85;
+        }
+        
         .card-hover {
             transition: all 0.3s ease;
         }
+        
         .card-hover:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
+        
         .card {
             position: relative;
             overflow: hidden;
             box-sizing: border-box;
         }
-        .quality-excellent { background-color: #10b981; }
+        
+        /* Quality - Use purple for hunt scores/quality (not status) */
+        .quality-excellent { 
+            background-color: var(--color-brand);
+            color: white;
+        }
+        .quality-good { 
+            background-color: var(--color-brand-light);
+            color: white;
+        }
+        .quality-fair { 
+            background-color: var(--color-warning);
+            color: white;
+        }
+        .quality-limited { 
+            background-color: var(--color-error);
+            color: white;
+        }
+        
+        /* Priority - Use semantic colors */
+        .priority-high { 
+            background-color: var(--color-error);
+            color: white;
+        }
+        .priority-medium { 
+            background-color: var(--color-warning);
+            color: white;
+        }
+        .priority-low { 
+            background-color: var(--color-text-muted);
+            color: var(--color-bg-app);
+        }
         
         /* Chat layout improvements */
         #rag-chat-container {
@@ -78,63 +190,69 @@
         }
         
         .article-collapsible:hover {
-            background-color: #374151;
+            background-color: var(--color-bg-panel);
         }
-        .quality-good { background-color: #3b82f6; }
-        .quality-fair { background-color: #f59e0b; }
-        .quality-limited { background-color: #ef4444; }
-        .priority-high { background-color: #ef4444; }
-        .priority-medium { background-color: #f59e0b; }
-        .priority-low { background-color: #10b981; }
-        
-
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--color-bg-app);">
 
     <!-- Navigation -->
-    <nav class="gradient-bg text-white shadow-lg">
+    <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50" style="border-color: var(--color-border);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center h-16 justify-center">
+            <div class="flex items-center h-[70px] justify-center">
                 <div class="flex-shrink-0 mr-6">
-                    <a href="/" class="block cursor-pointer hover:opacity-80 transition-opacity">
-                        <h1 class="text-xl font-bold leading-tight">🛡️ Huntable<br>Detection Studio</h1>
+                    <a href="/" class="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80">
+                        <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
+                        <h1 class="text-xl font-bold leading-tight" style="color: var(--color-text-primary);">Huntable<br>CTI Studio</h1>
                     </a>
                 </div>
                 <div class="hidden md:flex items-center justify-center gap-8 flex-1">
-                    <a href="/articles" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                    <a href="/articles" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[35px] h-[35px]" />
                         Articles
                     </a>
-                    <a href="/sources" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
+                    <a href="/sources" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/sources-icon.svg" alt="Sources" class="w-[35px] h-[35px]" />
                         Sources
                     </a>
-                    <a href="/analytics" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
-                        📊 Analytics
+                    <a href="/analytics" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/analytics-icon.svg" alt="Analytics" class="w-[35px] h-[35px]" />
+                        Analytics
                     </a>
-                    <a href="/diags" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
-                        🔧 Diags
+                    <a href="/mlops" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/mlops-icon.svg" alt="MLOps" class="w-[35px] h-[35px]" />
+                        MLOps
                     </a>
-                    <a href="/workflow" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
-                        🤖 Agents
+                    <a href="/workflow" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/agents-icon.svg" alt="Agents" class="w-[35px] h-[35px]" />
+                        Agents
                     </a>
-                    <a href="/settings" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-20 transition-colors">
-                        ⚙️ Settings
+                    <a href="/diags" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[35px] h-[35px]" />
+                        Diags
+                    </a>
+                    <a href="/settings" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative">
+                        <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[35px] h-[35px]" />
+                        Settings
                     </a>
                 </div>
                 <div class="flex-shrink-0 ml-6 invisible md:block" aria-hidden="true">
-                    <h1 class="text-xl font-bold leading-tight">🛡️ Huntable<br>Detection Studio</h1>
+                    <div class="flex items-center gap-2">
+                        <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
+                        <h1 class="text-xl font-bold leading-tight" style="color: var(--color-text-primary);">Huntable<br>CTI Studio</h1>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1">
+    <main class="flex-1" style="background-color: var(--color-bg-content);">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-800 text-white mt-auto">
+    <footer class="bg-gray-800 dark:bg-gray-800 text-white mt-auto">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="text-center text-sm text-gray-300">
                 <p>&copy; 2025 Huntable CTI Studio. Tactical Cyber Threat Intelligence aggregation and TTP-> SIGMA Workbench platform.</p>
@@ -191,7 +309,8 @@
             // Create completion banner
             const banner = document.createElement('div');
             banner.id = 'completionBanner';
-            banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white';
+            banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm text-white';
+            banner.style.backgroundColor = 'var(--color-success)';
             
             banner.innerHTML = `
                 <div class="flex items-center space-x-2">
@@ -235,6 +354,139 @@
         
         // Check for pending completions on page load
         document.addEventListener('DOMContentLoaded', checkPendingCompletions);
+        
+        // Set active navigation item based on current route
+        function setActiveNavItem() {
+            const path = window.location.pathname;
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            navItems.forEach(item => {
+                const href = item.getAttribute('href');
+                // Remove active class from all items
+                item.classList.remove('active');
+                
+                // Check if this item's href matches the current path
+                if (path === href) {
+                    // Exact match
+                    item.classList.add('active');
+                } else if (href !== '/' && path.startsWith(href)) {
+                    // Path starts with href (for sub-routes)
+                    item.classList.add('active');
+                }
+            });
+        }
+        
+        // Set active nav item on page load
+        document.addEventListener('DOMContentLoaded', setActiveNavItem);
+        
+        /**
+         * Global Collapsible Panel System
+         * Makes entire panel header clickable, with proper accessibility support.
+         * 
+         * Usage: Add data-collapsible-panel="panelId" to the header element.
+         *        The content element should have id="panelId-content".
+         *        The toggle icon should have id="panelId-toggle".
+         * 
+         * Call initCollapsiblePanels() after dynamically adding panels.
+         */
+        function initCollapsiblePanels(container = document) {
+            container.querySelectorAll('[data-collapsible-panel]:not([data-collapsible-initialized])').forEach(header => {
+                const panelId = header.dataset.collapsiblePanel;
+                const content = document.getElementById(`${panelId}-content`);
+                const toggle = document.getElementById(`${panelId}-toggle`);
+                
+                if (!content) return;
+                
+                // Mark as initialized to prevent duplicate handlers
+                header.setAttribute('data-collapsible-initialized', 'true');
+                
+                // Set up accessibility attributes
+                header.setAttribute('role', 'button');
+                header.setAttribute('tabindex', '0');
+                header.setAttribute('aria-controls', `${panelId}-content`);
+                header.style.cursor = 'pointer';
+                
+                // Mark toggle icon as decorative
+                if (toggle) {
+                    toggle.setAttribute('aria-hidden', 'true');
+                }
+                
+                const updateState = () => {
+                    const isExpanded = !content.classList.contains('hidden');
+                    header.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                };
+                
+                const togglePanel = (e) => {
+                    // Don't toggle if clicking on interactive elements inside header
+                    const target = e.target;
+                    if (target.closest('button:not([data-collapsible-panel])') ||
+                        target.closest('a') ||
+                        target.closest('input') ||
+                        target.closest('select') ||
+                        target.closest('textarea') ||
+                        target.closest('label')) {
+                        return;
+                    }
+                    
+                    const isHidden = content.classList.contains('hidden');
+                    content.classList.toggle('hidden', !isHidden);
+                    
+                    if (toggle) {
+                        // Handle SVG rotation or text-based toggles
+                        if (toggle.tagName === 'svg' || toggle.querySelector('svg')) {
+                            const svg = toggle.tagName === 'svg' ? toggle : toggle.querySelector('svg');
+                            svg.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                        } else {
+                            toggle.textContent = isHidden ? '▲' : '▼';
+                        }
+                    }
+                    
+                    updateState();
+                };
+                
+                // Click handler
+                header.addEventListener('click', togglePanel);
+                
+                // Keyboard handler (Enter and Space)
+                header.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        togglePanel(e);
+                    }
+                });
+                
+                // Set initial state
+                updateState();
+            });
+        }
+        
+        // Legacy support: toggleCollapsible function for onclick handlers
+        function toggleCollapsible(panelId) {
+            const content = document.getElementById(`${panelId}-content`);
+            const toggle = document.getElementById(`${panelId}-toggle`);
+            const header = document.querySelector(`[data-collapsible-panel="${panelId}"]`);
+            
+            if (content) {
+                const isHidden = content.classList.contains('hidden');
+                content.classList.toggle('hidden', !isHidden);
+                
+                if (toggle) {
+                    if (toggle.tagName === 'svg' || toggle.querySelector('svg')) {
+                        const svg = toggle.tagName === 'svg' ? toggle : toggle.querySelector('svg');
+                        svg.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                    } else {
+                        toggle.textContent = isHidden ? '▲' : '▼';
+                    }
+                }
+                
+                if (header) {
+                    header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+                }
+            }
+        }
+        
+        // Initialize collapsible panels on DOM ready
+        document.addEventListener('DOMContentLoaded', () => initCollapsiblePanels());
     </script>
 
     {% block scripts %}{% endblock %}

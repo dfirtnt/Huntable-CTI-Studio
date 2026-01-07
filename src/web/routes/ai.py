@@ -19,9 +19,11 @@ from fastapi import APIRouter, HTTPException, Request
 from src.database.async_manager import async_db_manager
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.provider_model_catalog import load_catalog, update_provider_models
+from src.services.cmdline_caliper import command_line_caliper_extractor
 from src.utils.llm_optimizer import (
     estimate_llm_cost,
     estimate_gpt4o_cost,
+    optimize_article_content,
 )  # Backward compatibility
 from src.utils.prompt_loader import format_prompt
 from src.utils.ioc_extractor import HybridIOCExtractor
@@ -415,7 +417,7 @@ async def _post_lmstudio_chat(
                     # Last URL, raise connection error
                     raise HTTPException(
                         status_code=503,
-                        detail=f"Cannot connect to LMStudio service. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
+                        detail=f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
                     )
                 # Try next URL
                 logger.warning(
@@ -465,6 +467,18 @@ async def _post_lmstudio_chat(
                     "Retrying with fallback URL."
                 )
                 continue
+
+            # Check for common errors that indicate LMStudio isn't ready
+            error_lower = error_message.lower()
+            if response.status_code == 400 and (
+                "context length" in error_lower
+                or "model" in error_lower and "not loaded" in error_lower
+                or "no model" in error_lower
+            ):
+                raise HTTPException(
+                    status_code=500,
+                    detail="LMStudio is not ready. Please ensure LMStudio is running and a model is loaded.",
+                )
 
             # Include the actual error message in the exception
             raise HTTPException(
@@ -639,6 +653,108 @@ async def api_test_gemini_key(request: Request):
     except Exception as exc:
         logger.error(f"Gemini API key test error: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+async def _get_hf_token() -> Optional[str]:
+    """Load Hugging Face token from AppSettings or environment."""
+    token = None
+    try:
+        from sqlalchemy import select
+        from src.database.models import AppSettingsTable
+
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(
+                select(AppSettingsTable).where(AppSettingsTable.key == "HUGGINGFACE_API_TOKEN")
+            )
+            setting = result.scalar_one_or_none()
+            if setting and setting.value:
+                token = setting.value.strip() or None
+    except Exception as exc:
+        logger.warning(f"Unable to load Hugging Face token from AppSettings: {exc}")
+
+    if token:
+        return token
+
+    for env_var in ("HUGGINGFACE_API_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"):
+        env_val = os.getenv(env_var)
+        if env_val:
+            return env_val
+    return None
+
+
+@test_router.post("/test-hf-key")
+async def api_test_hf_key(request: Request):
+    """Validate a Hugging Face access token (used for gated models like CMDCaliper)."""
+    try:
+        body = await request.json()
+        token_raw = body.get("api_key")
+        token = token_raw.strip() if token_raw else None
+
+        if not token:
+            raise HTTPException(status_code=400, detail="Hugging Face token is required")
+
+        if not token.startswith("hf_"):
+            raise HTTPException(
+                status_code=400,
+                detail="Hugging Face tokens typically start with 'hf_'",
+            )
+
+        masked = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else "***"
+        logger.info(f"🔑 Testing Hugging Face token (masked): {masked}")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://huggingface.co/api/whoami-v2",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10.0,
+            )
+
+        if response.status_code == 200:
+            data = response.json()
+            username = data.get("name") or data.get("email") or "Hugging Face user"
+            orgs = data.get("orgs") or []
+            gated_orgs = [
+                org.get("name") for org in orgs if isinstance(org, dict) and org.get("name")
+            ]
+            message_parts = [f"Token valid for {username}"]
+            if gated_orgs:
+                message_parts.append(f"Orgs: {', '.join(gated_orgs)}")
+            return {
+                "valid": True,
+                "message": "; ".join(message_parts),
+                "username": username,
+                "orgs": gated_orgs,
+            }
+
+        if response.status_code in {401, 403}:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Unauthorized: token rejected or missing access to the requested repository",
+            )
+
+        detail = response.text[:200] if response.text else "Unknown Hugging Face error"
+        logger.warning(
+            f"Hugging Face token validation failed: {response.status_code} - {detail}"
+        )
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Hugging Face API returned {response.status_code}: {detail}",
+        )
+
+    except HTTPException:
+        raise
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=408, detail="Request timeout when contacting Hugging Face API"
+        )
+    except httpx.HTTPError as exc:
+        logger.error(f"Hugging Face token validation HTTP error: {exc}")
+        raise HTTPException(
+            status_code=502, detail="Network error when contacting Hugging Face API"
+        )
+    except Exception as exc:
+        logger.error(f"Unexpected Hugging Face token validation error: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to validate Hugging Face token")
 
 
 async def _get_current_lmstudio_model() -> str:
@@ -1036,54 +1152,57 @@ async def api_test_langfuse_connection(request: Request):
             try:
                 from langfuse import Langfuse
                 from langfuse.types import TraceContext
+                from langfuse.api.client import AsyncFernLangfuse
+                from langfuse.api.core.api_error import ApiError
+                from langfuse.api.resources.commons.errors.unauthorized_error import (
+                    UnauthorizedError,
+                )
+                from langfuse.api.resources.commons.errors.access_denied_error import (
+                    AccessDeniedError,
+                )
 
-                # First, validate keys by making a direct API call to Langfuse
-                # This ensures we catch invalid keys immediately
                 base_url = host.rstrip("/")
-                # Use the traces endpoint which requires valid authentication
-                test_url = f"{base_url}/api/public/traces"
 
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    # Test authentication by calling a protected endpoint
-                    # Langfuse uses Basic Auth with public_key:secret_key
-                    import base64
-
-                    auth_string = f"{public_key}:{secret_key}"
-                    auth_bytes = auth_string.encode("ascii")
-                    auth_b64 = base64.b64encode(auth_bytes).decode("ascii")
-
-                    auth_response = await client.get(
-                        test_url,
-                        headers={
-                            "Authorization": f"Basic {auth_b64}",
-                            "Content-Type": "application/json",
-                        },
-                        params={"limit": 1},  # Just get one trace to test auth
+                # Validate the provided credentials against Langfuse's official API.
+                # Using the Fern client guarantees we hit the correct endpoint and
+                # get structured errors (401/403) instead of ambiguous responses.
+                async with httpx.AsyncClient(
+                    timeout=10.0, follow_redirects=True
+                ) as fern_http_client:
+                    fern_client = AsyncFernLangfuse(
+                        base_url=base_url,
+                        username=public_key,
+                        password=secret_key,
+                        x_langfuse_public_key=public_key,
+                        x_langfuse_sdk_name="cti-scraper",
+                        x_langfuse_sdk_version=os.getenv("APP_VERSION", "dev"),
+                        httpx_client=fern_http_client,
                     )
-
-                    # If auth fails, the keys are invalid
-                    if auth_response.status_code == 401:
+                    try:
+                        project_response = await fern_client.projects.get()
+                    except UnauthorizedError:
                         return {
                             "valid": False,
                             "message": "Invalid Langfuse API keys. Please check your Secret Key and Public Key.",
                         }
-                    elif auth_response.status_code == 403:
+                    except AccessDeniedError:
                         return {
                             "valid": False,
                             "message": "Langfuse API keys are not authorized. Please check your keys and permissions.",
                         }
-                    elif auth_response.status_code not in [200, 201]:
-                        # 200/201 means auth worked (even if no traces exist)
-                        try:
-                            error_detail = auth_response.json().get(
-                                "message", auth_response.text[:200]
-                            )
-                        except:
-                            error_detail = f"HTTP {auth_response.status_code}"
+                    except ApiError as api_error:
+                        error_detail = getattr(api_error, "body", None) or str(
+                            api_error
+                        )
                         return {
                             "valid": False,
                             "message": f"Langfuse API error: {error_detail}. Please check your Host URL and keys.",
                         }
+
+                resolved_project_id = (
+                    project_id
+                    or (project_response.data[0].id if project_response.data else None)
+                )
 
                 # If auth passed, also test the SDK client can create and flush data
                 langfuse_client = Langfuse(
@@ -1119,7 +1238,7 @@ async def api_test_langfuse_connection(request: Request):
 
                 return {
                     "valid": True,
-                    "message": f"Langfuse connection successful! Host: {host}, Project ID: {project_id or 'default'}",
+                    "message": f"Langfuse connection successful! Host: {host}, Project ID: {resolved_project_id or 'default'}",
                 }
 
             except ImportError as e:
@@ -1142,8 +1261,12 @@ async def api_test_langfuse_connection(request: Request):
 
 @router.post("/{article_id}/rank-with-gpt4o")
 async def api_rank_with_gpt4o(article_id: int, request: Request):
-    """API endpoint for GPT4o SIGMA huntability ranking (frontend-compatible endpoint)."""
+    """API endpoint for SIGMA huntability ranking using Workflow config (prompt and model)."""
     try:
+        from src.services.llm_service import LLMService
+        from src.services.workflow_trigger_service import WorkflowTriggerService
+        from src.database.manager import DatabaseManager
+
         # Get the article
         article = await async_db_manager.get_article(article_id)
         if not article:
@@ -1151,76 +1274,13 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
-        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
-        # Support both OpenAI and Anthropic headers
-        api_key_raw = (
-            request.headers.get("X-OpenAI-API-Key")
-            or request.headers.get("X-Anthropic-API-Key")
-            or body.get("api_key")
-        )
-
-        # DEBUG: Log raw key before any processing
-        if api_key_raw:
-            api_key_source = (
-                "header (OpenAI)"
-                if request.headers.get("X-OpenAI-API-Key")
-                else "header (Anthropic)"
-                if request.headers.get("X-Anthropic-API-Key")
-                else "body"
-            )
-            logger.info(
-                f"🔍 DEBUG Ranking: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}"
-            )
-
-        # Strip whitespace from API key (common issue when copying/pasting)
-        api_key = api_key_raw.strip() if api_key_raw else None
-
-        # DEBUG: Log after stripping
-        if api_key:
-            logger.info(
-                f"🔍 DEBUG Ranking: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
-            )
-
-        ai_model = body.get("ai_model", "chatgpt")  # Get AI model from request
         optimization_options = body.get("optimization_options", {})
         use_filtering = body.get("use_filtering", True)  # Enable filtering by default
         min_confidence = body.get("min_confidence", 0.7)  # Confidence threshold
         force_regenerate = body.get("force_regenerate", False)  # Force regeneration
 
         logger.info(
-            f"Ranking request for article {article_id}, ai_model: {ai_model}, api_key provided: {bool(api_key)}, force_regenerate: {force_regenerate}"
-        )
-
-        # Check if API key is provided (required for ChatGPT and Anthropic)
-        if ai_model == "chatgpt" and not api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.",
-            )
-        elif ai_model == "anthropic" and not api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="Anthropic API key is required for Claude. Please configure it in Settings.",
-            )
-
-        # Validate API key format before making request
-        if ai_model == "chatgpt" and api_key:
-            if not api_key.startswith("sk-"):
-                error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
-                logger.error(
-                    f"❌ Ranking API key validation failed: does not start with 'sk-' (length: {len(api_key)})"
-                )
-                raise HTTPException(status_code=400, detail=error_detail)
-            if len(api_key) < 20:
-                error_detail = "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
-                logger.error(
-                    f"❌ Ranking API key validation failed: too short (length: {len(api_key)})"
-                )
-                raise HTTPException(status_code=400, detail=error_detail)
-            # Log key info (masked)
-            logger.info(
-                f"🔑 Ranking with OpenAI: api_key length: {len(api_key)}, starts_with: {api_key[:8]}..., ends_with: ...{api_key[-4:]}"
+            f"Ranking request for article {article_id}, force_regenerate: {force_regenerate}"
             )
 
         # Check for existing ranking data (unless force regeneration is requested)
@@ -1255,6 +1315,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         content_filtering_enabled = (
             os.getenv("CONTENT_FILTERING_ENABLED", "true").lower() == "true"
         )
+        optimization_result = {}
 
         if content_filtering_enabled and use_filtering:
             from src.utils.llm_optimizer import optimize_article_content
@@ -1266,319 +1327,96 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     article_metadata=article.article_metadata,
                     content_hash=article.content_hash,
                 )
-                if optimization_result["success"]:
+                if optimization_result.get("success"):
                     content_to_analyze = optimization_result["filtered_content"]
                     logger.info(
-                        f"Content filtered for GPT-4o ranking: {optimization_result['tokens_saved']:,} tokens saved, "
-                        f"{optimization_result['cost_reduction_percent']:.1f}% cost reduction"
+                        f"Content filtered for ranking: {optimization_result.get('tokens_saved', 0):,} tokens saved, "
+                        f"{optimization_result.get('cost_reduction_percent', 0):.1f}% cost reduction"
                     )
                 else:
                     # Fallback to original content if filtering fails
                     content_to_analyze = article.content
                     logger.warning(
-                        "Content filtering failed for GPT-4o ranking, using original content"
+                        "Content filtering failed for ranking, using original content"
                     )
             except Exception as e:
                 logger.error(
-                    f"Content filtering error for GPT-4o ranking: {e}, using original content"
+                    f"Content filtering error for ranking: {e}, using original content"
                 )
                 content_to_analyze = article.content
         else:
             # Use original content if filtering is disabled
             content_to_analyze = article.content
 
-        # Use environment-configured content limits (no hardcoded truncation)
-        # Content filtering already optimizes content, so we trust the configured limits
-
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
 
-        # Choose prompt based on AI model
-        if ai_model in ["chatgpt", "anthropic"]:
-            # Use detailed prompt for cloud models
-            sigma_prompt = format_prompt(
-                "gpt4o_sigma_ranking",
-                title=article.title,
-                source=source_name,
-                url=article.canonical_url or "N/A",
-                content=content_to_analyze,
-            )
-        elif ai_model == "lmstudio":
-            # Use ultra-short prompt for LMStudio
-            sigma_prompt = format_prompt(
-                "lmstudio_sigma_ranking",
-                title=article.title,
-                source=source_name,
-                content=content_to_analyze[:2000],  # Limit content to 2000 chars
-            )
-        else:
-            # Use simplified prompt for other local LLMs
-            sigma_prompt = format_prompt(
-                "llm_sigma_ranking_simple",
-                title=article.title,
-                source=source_name,
-                url=article.canonical_url or "N/A",
-                content=content_to_analyze,
-            )
-
-        # Generate ranking based on AI model
-        if ai_model == "chatgpt":
-            # Use ChatGPT API
-            chatgpt_api_url = os.getenv(
-                "CHATGPT_API_URL", "https://api.openai.com/v1/chat/completions"
-            )
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    chatgpt_api_url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "gpt-4o",
-                        "messages": [{"role": "user", "content": sigma_prompt}],
-                        "max_tokens": 2000,
-                        "temperature": 0.3,
-                    },
-                    timeout=60.0,
-                )
-
-                if response.status_code == 401:
-                    # Try to extract more details from the error
-                    try:
-                        error_json = response.json()
-                        error_message = error_json.get("error", {}).get(
-                            "message", "Invalid API key"
-                        )
-                        logger.error(
-                            f"❌ Ranking OpenAI 401 error: {error_message}, api_key ends_with: ...{api_key[-4:] if api_key and len(api_key) >= 4 else 'N/A'}"
-                        )
-                        raise HTTPException(
-                            status_code=401,
-                            detail=f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings.",
-                        )
-                    except:
-                        logger.error(
-                            f"❌ Ranking OpenAI 401 error, response: {response.text}"
-                        )
-                        raise HTTPException(
-                            status_code=401,
-                            detail="OpenAI API key is invalid or expired. Please check your API key in Settings.",
-                        )
-                elif response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(
-                        f"❌ Ranking OpenAI API error {response.status_code}: {error_detail}"
-                    )
-                    raise HTTPException(
-                        status_code=500, detail=f"OpenAI API error: {error_detail}"
-                    )
-
-                result = response.json()
-                analysis = result["choices"][0]["message"]["content"]
-                model_used = "chatgpt"
-                model_name = "gpt-4o"
-        elif ai_model == "anthropic":
-            # Use Anthropic API with rate limit handling
-            anthropic_api_url = os.getenv(
-                "ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages"
-            )
-
-            payload = {
-                "model": "claude-sonnet-4-5",
-                "max_tokens": 2000,
-                "temperature": 0.3,
-                "messages": [{"role": "user", "content": sigma_prompt}],
-            }
-
-            response = await _call_anthropic_with_retry(
-                api_key=api_key,
-                payload=payload,
-                anthropic_api_url=anthropic_api_url,
-                timeout=60.0,
-            )
-
-            result = response.json()
-            analysis = result["content"][0]["text"]
-            model_used = "anthropic"
-            model_name = "claude-sonnet-4-5"
-        elif ai_model == "tinyllama":
-            # Use Ollama API with TinyLlama model
-            ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-
-            logger.info(f"Using Ollama at {ollama_url} with TinyLlama model")
-
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": "tinyllama",
-                            "prompt": sigma_prompt,
-                            "stream": True,  # Enable streaming for better responsiveness
-                            "options": {"temperature": 0.3, "num_predict": 2000},
-                        },
-                        timeout=300.0,
-                    )
-
-                    if response.status_code != 200:
-                        logger.error(
-                            f"Ollama API error: {response.status_code} - {response.text}"
-                        )
+        # Get workflow config for RankAgent prompt and model
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            trigger_service = WorkflowTriggerService(db_session)
+            config_obj = trigger_service.get_active_config()
+            
+            if not config_obj:
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Failed to get ranking from TinyLlama: {response.status_code}",
-                        )
-
-                    # Collect streaming response
-                    analysis = ""
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                if "response" in chunk:
-                                    analysis += chunk["response"]
-                                if chunk.get("done", False):
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-
-                    if not analysis:
-                        analysis = "No analysis available"
-
-                    model_used = "tinyllama"
-                    model_name = "tinyllama"
-                    logger.info(
-                        f"Successfully got ranking from TinyLlama: {len(analysis)} characters"
-                    )
-
-                except Exception as e:
-                    logger.error(f"TinyLlama API request failed: {e}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Failed to get ranking from TinyLlama: {str(e)}",
-                    )
-        elif ai_model == "lmstudio":
-            # Use LMStudio API with recommended settings
-            lmstudio_model = await _get_current_lmstudio_model()
-            lmstudio_settings = _get_lmstudio_settings()
-
-            payload = {
-                "model": lmstudio_model,
-                "messages": [{"role": "user", "content": sigma_prompt}],
-                "max_tokens": 2000,
-                "temperature": lmstudio_settings["temperature"],
-                "top_p": lmstudio_settings["top_p"],
-            }
-            if lmstudio_settings["seed"] is not None:
-                payload["seed"] = lmstudio_settings["seed"]
-
-            result = await _post_lmstudio_chat(
-                payload,
-                model_name=lmstudio_model,
-                timeout=300.0,
-                failure_context="Failed to get ranking from LMStudio",
-            )
-
-            analysis = result["choices"][0]["message"]["content"]
-
-            if not analysis:
-                analysis = "No analysis available"
-
-            model_used = "lmstudio"
-            model_name = lmstudio_model
-            logger.info(
-                f"Successfully got ranking from LMStudio: {len(analysis)} characters"
-            )
-        elif ai_model == "ollama":
-            # Use Ollama API with default model (Llama 3.2 1B)
-            ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-            ollama_model = os.getenv("LLM_MODEL", "llama3.2:1b")
-
-            logger.info(f"Using Ollama at {ollama_url} with model {ollama_model}")
-
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        f"{ollama_url}/api/generate",
-                        json={
-                            "model": ollama_model,
-                            "prompt": sigma_prompt,
-                            "stream": True,  # Enable streaming for better responsiveness
-                            "options": {"temperature": 0.3, "num_predict": 2000},
-                        },
-                        timeout=300.0,
-                    )
-
-                    if response.status_code != 200:
-                        logger.error(
-                            f"Ollama API error: {response.status_code} - {response.text}"
-                        )
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Failed to get ranking from Ollama: {response.status_code}",
-                        )
-
-                    # Collect streaming response
-                    analysis = ""
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                if "response" in chunk:
-                                    analysis += chunk["response"]
-                                if chunk.get("done", False):
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-
-                    if not analysis:
-                        analysis = "No analysis available"
-
-                    model_used = "ollama"
-                    model_name = ollama_model
-                    logger.info(
-                        f"Successfully got ranking from Ollama: {len(analysis)} characters"
-                    )
-
-                except Exception as e:
-                    logger.error(f"Ollama API request failed: {e}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Failed to get ranking from Ollama: {str(e)}",
-                    )
-        else:
-            # Default fallback - use OpenAI API
-            logger.warning(f"Unknown AI model '{ai_model}', falling back to OpenAI")
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "gpt-4o",
-                        "messages": [{"role": "user", "content": sigma_prompt}],
-                        "max_tokens": 2000,
-                        "temperature": 0.3,
-                    },
-                    timeout=60.0,
+                    detail="No active workflow configuration found. Please configure the workflow first."
                 )
-
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"OpenAI API error: {error_detail}")
+            
+            # Get RankAgent prompt from config
+            rank_prompt_template = None
+            if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
+                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
+                if isinstance(rank_prompt_data.get("prompt"), str):
+                    rank_prompt_template = rank_prompt_data["prompt"]
+                    logger.info(f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)")
+            
+            if not rank_prompt_template:
                     raise HTTPException(
-                        status_code=500, detail=f"OpenAI API error: {error_detail}"
-                    )
-
-                result = response.json()
-                analysis = result["choices"][0]["message"]["content"]
-                model_used = "openai"
-                model_name = "gpt-4o"
+                    status_code=400,
+                    detail="RankAgent prompt not configured in workflow. Please configure the RankAgent prompt in Workflow settings."
+                )
+            
+            # Get agent models from config
+            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
+            
+            # Initialize LLMService with config models
+            llm_service = LLMService(config_models=agent_models)
+            llm_service._current_article_id = article_id
+            
+            # Get ground truth details for logging
+            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
+            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
+            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
+            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
+            
+            # Call LLMService.rank_article() with workflow config prompt
+            ranking_result = await llm_service.rank_article(
+                title=article.title,
+                content=content_to_analyze,
+                source=source_name,
+                url=article.canonical_url or "",
+                prompt_template=rank_prompt_template,
+                article_id=article.id,
+                ground_truth_rank=ground_truth_rank,
+                ground_truth_details=ground_truth_details
+            )
+            
+            # Extract score and reasoning from ranking result
+            score = ranking_result.get("score")
+            reasoning = ranking_result.get("reasoning", "")
+            
+            # Format analysis similar to original endpoint format
+            analysis = f"Score: {score}/10\n\nReasoning:\n{reasoning}"
+            
+            # Get model name from LLMService
+            model_name = llm_service.model_rank or "unknown"
+            model_used = "workflow_config"
+            
+        finally:
+            db_session.close()
 
         # Save the analysis to the article's metadata
         if article.article_metadata is None:
@@ -1628,7 +1466,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"API GPT4o ranking error: {e}")
+        logger.error(f"API ranking error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2450,6 +2288,145 @@ async def api_extract_iocs(article_id: int, request: Request):
     except Exception as e:
         logger.error(f"IOCs extraction error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{article_id}/extract-command-lines")
+async def api_extract_command_lines(article_id: int, request: Request):
+    """Extract command lines using CMDCaliper embeddings with optional content filtering."""
+    try:
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        body = await request.json()
+        optimization_options = body.get("optimization_options") or {}
+        try:
+            use_filtering = bool(
+                body.get("use_filtering", optimization_options.get("useFiltering", True))
+            )
+            min_confidence = float(
+                body.get("min_confidence", optimization_options.get("minConfidence", 0.7))
+            )
+            similarity_threshold = float(body.get("similarity_threshold", 0.2))
+            max_results = int(body.get("max_results", 20))
+            max_candidates = int(body.get("max_candidates", 200))
+        except (ValueError, TypeError) as exc:
+            logger.warning("Invalid command extraction params: %s", exc)
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid extraction parameters (min_confidence, similarity_threshold, max_results, max_candidates)",
+            )
+
+        max_results = max(1, min(max_results, 40))
+        max_candidates = max(max_results, min(max_candidates, 320))
+
+        force_regenerate = bool(body.get("force_regenerate", False))
+        store_chunk_analysis = bool(body.get("store_chunk_analysis", False))
+
+        existing_metadata = (
+            article.article_metadata.get("extracted_command_lines")
+            if article.article_metadata
+            else None
+        )
+
+        if (
+            existing_metadata
+            and not force_regenerate
+            and existing_metadata.get("content_hash") == article.content_hash
+            and existing_metadata.get("similarity_threshold") == similarity_threshold
+            and existing_metadata.get("min_confidence") == min_confidence
+        ):
+            return {
+                "success": bool(existing_metadata.get("command_lines")),
+                "command_lines": existing_metadata.get("command_lines", []),
+                "count": len(existing_metadata.get("command_lines", [])),
+                "content_filtering": existing_metadata.get(
+                    "content_filtering", {"enabled": False}
+                ),
+                "similarity_threshold": similarity_threshold,
+                "min_confidence": min_confidence,
+                "cached": True,
+                "extracted_at": existing_metadata.get("extracted_at"),
+            }
+
+        content_to_use = article.content or ""
+        content_filter_metadata: Dict[str, Any] = {"enabled": False}
+        if use_filtering:
+            try:
+                optimization_result = await optimize_article_content(
+                    content=article.content,
+                    min_confidence=min_confidence,
+                    article_metadata=article.article_metadata,
+                    content_hash=article.content_hash,
+                    article_id=article.id,
+                    store_analysis=store_chunk_analysis,
+                )
+                if optimization_result.get("success") and optimization_result.get(
+                    "filtered_content"
+                ):
+                    content_to_use = optimization_result["filtered_content"]
+                content_filter_metadata = {
+                    "enabled": bool(optimization_result.get("success")),
+                    "min_confidence": min_confidence,
+                    "tokens_saved": optimization_result.get("tokens_saved"),
+                    "cost_savings": optimization_result.get("cost_savings"),
+                    "chunks_removed": optimization_result.get("chunks_removed"),
+                    "chunks_kept": optimization_result.get("chunks_kept"),
+                    "cached": optimization_result.get("cached", False),
+                }
+            except Exception as exc:
+                logger.warning("Command line content filtering failed: %s", exc)
+        hf_token = await _get_hf_token()
+        if not hf_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Hugging Face token not configured. Please add it in Settings.",
+            )
+        command_line_caliper_extractor.set_auth_token(hf_token)
+
+        command_lines = command_line_caliper_extractor.extract(
+            content_to_use,
+            similarity_threshold=similarity_threshold,
+            max_results=max_results,
+            max_candidates=max_candidates,
+        )
+
+        metadata_payload = {
+            "command_lines": command_lines,
+            "count": len(command_lines),
+            "extracted_at": datetime.now().isoformat(),
+            "content_filtering": content_filter_metadata,
+            "content_hash": article.content_hash,
+            "similarity_threshold": similarity_threshold,
+            "min_confidence": min_confidence,
+            "max_results": max_results,
+            "max_candidates": max_candidates,
+            "source": "cmdcaliper",
+        }
+        current_metadata = article.article_metadata or {}
+        current_metadata["extracted_command_lines"] = metadata_payload
+
+        from src.models.article import ArticleUpdate
+
+        update_data = ArticleUpdate(article_metadata=current_metadata)
+        await async_db_manager.update_article(article_id, update_data)
+
+        return {
+            "success": len(command_lines) > 0,
+            "command_lines": command_lines,
+            "count": len(command_lines),
+            "content_filtering": content_filter_metadata,
+            "similarity_threshold": similarity_threshold,
+            "min_confidence": min_confidence,
+            "cached": False,
+            "extracted_at": metadata_payload["extracted_at"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Command line extraction error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.post("/{article_id}/extract-iocs-ctibert")

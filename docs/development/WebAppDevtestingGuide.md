@@ -1,8 +1,6 @@
 # This file has been moved
 
-This documentation has been consolidated into: [tests/TESTING.md](tests/TESTING.md)
+This documentation has been consolidated into the testing guide in the tests directory.
 
 Moved on: January 2025
 Reason: Documentation restructure to eliminate duplication
-
-See [DOCUMENTATION.md](DOCUMENTATION.md) for the new documentation structure.

@@ -5,7 +5,10 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔧 System Diagnostics & Health</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+            <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[63px] h-[63px]" />
+            System Diagnostics & Health
+        </h1>
         <p class="text-gray-600 dark:text-gray-400">Monitor system health, background jobs, service status, and analytics</p>
     </div>
 
@@ -77,6 +80,7 @@
         <!-- Queue Status -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Queue Status</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Shows pending tasks per queue and which worker(s) consume each queue</p>
             <div id="queueStatus" class="space-y-3">
                 <div class="animate-pulse">
                     <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
@@ -88,6 +92,7 @@
         <!-- Active Tasks -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Active Tasks</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Currently running tasks across all workers</p>
             <div id="activeTasks" class="space-y-3">
                 <div class="animate-pulse">
                     <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
@@ -118,15 +123,16 @@
 
     <!-- Job History -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div class="flex items-center justify-between mb-4">
+        <div data-collapsible-panel="job-history" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📋 Recent Job History</h2>
-            <button id="jobHistoryToggle" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
-                <svg class="w-5 h-5 transform transition-transform duration-200 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Completed tasks with inferred worker/queue assignment</p>
+            <span id="job-history-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
-            </button>
+            </span>
         </div>
-        <div id="jobHistoryContent" class="space-y-3 hidden">
+        <div id="job-history-content" class="space-y-3 hidden">
             <div class="animate-pulse">
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
                 <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
@@ -170,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const workerStatus = document.getElementById('workerStatus');
     const queueStatus = document.getElementById('queueStatus');
     const activeTasks = document.getElementById('activeTasks');
-    const jobHistoryContent = document.getElementById('jobHistoryContent');
+    const jobHistoryContent = document.getElementById('job-history-content');
     
     console.log('Elements found:', {
         workerStatus: !!workerStatus,
@@ -183,7 +189,6 @@ document.addEventListener('DOMContentLoaded', function() {
         loadJobData();
         setupAutoRefresh();
         setupEventListeners();
-        setupJobHistoryToggle();
     } else {
         console.error('Required DOM elements not found');
         showError('Failed to initialize diagnostics - missing DOM elements');
@@ -223,25 +228,7 @@ function setupEventListeners() {
     }
 }
 
-function setupJobHistoryToggle() {
-    const toggleButton = document.getElementById('jobHistoryToggle');
-    const content = document.getElementById('jobHistoryContent');
-    const icon = toggleButton?.querySelector('svg');
-    
-    if (toggleButton && content && icon) {
-        toggleButton.addEventListener('click', function() {
-            const isHidden = content.classList.contains('hidden');
-            
-            if (isHidden) {
-                content.classList.remove('hidden');
-                icon.style.transform = 'rotate(0deg)';
-            } else {
-                content.classList.add('hidden');
-                icon.style.transform = 'rotate(180deg)';
-            }
-        });
-    }
-}
+// setupJobHistoryToggle removed - now handled by global initCollapsiblePanels()
 
 function setupAutoRefresh() {
     if (autoRefreshInterval) {
@@ -274,7 +261,8 @@ async function loadJobData() {
         console.log('History data:', historyData);
 
         updateWorkerStatus(statusData);
-        updateQueueStatus(queueData);
+        // Pass worker info to queue status for queue-to-worker mapping
+        updateQueueStatus({...queueData, worker_stats: statusData.worker_stats, active_queues: statusData.active_queues});
         updateActiveTasks(statusData);
         updateJobHistory(historyData);
         
@@ -303,10 +291,12 @@ function updateWorkerStatus(data) {
     }
 
     const workerStats = data.worker_stats || {};
+    const activeQueues = data.active_queues || {};
     const activeWorkers = Object.keys(workerStats);
     
     console.log('Active workers:', activeWorkers);
     console.log('Worker stats:', workerStats);
+    console.log('Active queues:', activeQueues);
     
     if (activeWorkers.length === 0) {
         container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ No active workers</div>';
@@ -319,12 +309,30 @@ function updateWorkerStatus(data) {
         const processCount = Array.isArray(stats.pool?.processes) ? stats.pool.processes.length : 'N/A';
         const totalTasks = stats.total ? Object.values(stats.total).reduce((a, b) => a + b, 0) : 0;
         
+        // Get queues this worker is consuming
+        const workerQueues = activeQueues[worker] || [];
+        let queueNames = 'all queues';
+        if (workerQueues.length > 0) {
+            queueNames = workerQueues.map(q => {
+                if (typeof q === 'string') return q;
+                if (typeof q === 'object' && q.name) return q.name;
+                return String(q);
+            }).join(', ');
+        }
+        
+        // Identify worker type based on name or queues
+        const isWorkflowWorker = worker.includes('workflow') || queueNames.includes('workflows');
+        const workerType = isWorkflowWorker ? '🔄 Workflow' : '⚙️ General';
+        
         html += `
             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                    <div class="font-medium text-gray-900 dark:text-white">${worker}</div>
+                    <div class="font-medium text-gray-900 dark:text-white">${workerType} Worker</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">
-                        Pool: ${processCount} processes
+                        ${worker}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        Queues: ${queueNames} | Pool: ${processCount} processes
                     </div>
                 </div>
                 <div class="text-right">
@@ -354,15 +362,38 @@ function updateQueueStatus(data) {
     
     let html = '';
     
+    // Map queues to workers (from worker status data if available)
+    const queueToWorkers = {};
+    if (data.worker_stats && data.active_queues) {
+        Object.entries(data.active_queues).forEach(([worker, queues]) => {
+            queues.forEach(queue => {
+                const queueName = typeof queue === 'string' ? queue : (queue.name || String(queue));
+                if (!queueToWorkers[queueName]) {
+                    queueToWorkers[queueName] = [];
+                }
+                const isWorkflowWorker = worker.includes('workflow') || queueName === 'workflows';
+                queueToWorkers[queueName].push({
+                    worker: worker,
+                    type: isWorkflowWorker ? '🔄 Workflow' : '⚙️ General'
+                });
+            });
+        });
+    }
+    
     Object.entries(queues).forEach(([queueName, length]) => {
         const statusColor = length > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400';
         const statusIcon = length > 0 ? '⏳' : '✅';
+        const workers = queueToWorkers[queueName] || [];
+        const workerInfo = workers.length > 0 
+            ? workers.map(w => w.type).join(', ')
+            : 'No active consumers';
         
         html += `
             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
                     <div class="font-medium text-gray-900 dark:text-white">${queueName}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Queue length</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">Consumed by: ${workerInfo}</div>
                 </div>
                 <div class="text-right">
                     <div class="text-lg font-bold ${statusColor}">${length}</div>
@@ -409,11 +440,24 @@ function updateActiveTasks(data) {
         return;
     }
 
+    // Get worker info for context
+    const workerStats = data.worker_stats || {};
+    const activeQueues = data.active_queues || {};
+    
     let html = '';
     allTasks.forEach(task => {
         const startTime = new Date(task.time_start * 1000).toLocaleTimeString();
         const taskName = task.name ? task.name.split('.').pop() : 'Unknown Task';
         const sourceId = task.args && task.args[0] ? `Source ${task.args[0]}` : 'Unknown Source';
+        
+        // Determine worker type
+        const worker = task.worker || '';
+        const isWorkflowWorker = worker.includes('workflow');
+        const workerType = isWorkflowWorker ? '🔄 Workflow' : '⚙️ General';
+        const workerQueues = activeQueues[worker] || [];
+        const queueNames = workerQueues.length > 0 
+            ? workerQueues.map(q => typeof q === 'string' ? q : (q.name || String(q))).join(', ')
+            : '';
         
         html += `
             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -421,6 +465,9 @@ function updateActiveTasks(data) {
                     <div class="font-medium text-gray-900 dark:text-white">${taskName}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">
                         ${sourceId} | Started: ${startTime}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        ${workerType} Worker${queueNames ? ` (${queueNames})` : ''}
                     </div>
                 </div>
                 <div class="text-right">
@@ -435,7 +482,7 @@ function updateActiveTasks(data) {
 }
 
 function updateJobHistory(data) {
-    const container = document.getElementById('jobHistoryContent');
+    const container = document.getElementById('job-history-content');
     console.log('Updating job history with data:', data);
     
     if (data.status === 'error') {
@@ -451,6 +498,29 @@ function updateJobHistory(data) {
         return;
     }
 
+    // Helper to determine likely queue/worker from task name
+    function getTaskQueueInfo(taskName) {
+        if (!taskName) return { queue: 'unknown', workerType: '⚙️ General' };
+        
+        const taskLower = taskName.toLowerCase();
+        if (taskLower.includes('trigger_agentic_workflow') || taskLower.includes('workflow')) {
+            return { queue: 'workflows', workerType: '🔄 Workflow' };
+        }
+        if (taskLower.includes('check_all_sources') || taskLower.includes('check_source')) {
+            return { queue: 'source_checks', workerType: '⚙️ General' };
+        }
+        if (taskLower.includes('collect_from_source')) {
+            return { queue: 'collection', workerType: '⚙️ General' };
+        }
+        if (taskLower.includes('cleanup') || taskLower.includes('maintenance')) {
+            return { queue: 'maintenance', workerType: '⚙️ General' };
+        }
+        if (taskLower.includes('report')) {
+            return { queue: 'reports', workerType: '⚙️ General' };
+        }
+        return { queue: 'default', workerType: '⚙️ General' };
+    }
+    
     let html = '';
     tasks.forEach(task => {
         const statusColor = getStatusColor(task.status);
@@ -458,12 +528,19 @@ function updateJobHistory(data) {
         const dateDone = task.date_done ? new Date(task.date_done).toLocaleString() : 'N/A';
         const resultText = task.result ? JSON.stringify(task.result).substring(0, 50) + '...' : 'No result';
         
+        // Extract task name from result or use task_id
+        const taskName = task.result?.task_name || task.task_id;
+        const queueInfo = getTaskQueueInfo(taskName);
+        
         html += `
             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
                     <div class="font-medium text-gray-900 dark:text-white">${task.task_id.substring(0, 8)}...</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">
                         Completed: ${dateDone}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        ${queueInfo.workerType} Worker (${queueInfo.queue} queue)
                     </div>
                 </div>
                 <div class="text-right">
@@ -734,9 +811,6 @@ async function updateServicesHealth() {
                                     ${serviceName === 'lmstudio' ? `
                                         <p class="font-medium">${serviceData.models_available} models available</p>
                                         <p class="text-xs text-gray-600">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
-                                    ` : serviceName === 'langgraph' ? `
-                                        <p class="font-medium">Server: ${serviceData.url || 'N/A'}</p>
-                                        ${serviceData.version ? `<p class="text-xs text-gray-600">Version: ${serviceData.version}</p>` : ''}
                                     ` : serviceName === 'langfuse' ? `
                                         <p class="font-medium">${serviceData.configured ? 'Configured' : 'Not configured'}</p>
                                         ${serviceData.message ? `<p class="text-xs text-gray-600">${serviceData.message}</p>` : ''}

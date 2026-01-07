@@ -1,0 +1,49 @@
+site_name: Huntable CTI Studio
+site_description: Modern docs for the Huntable CTI Studio (CTIScraper)
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Concepts:
+      - Huntables: concepts/huntables.md
+      - Agents: concepts/agents.md
+      - Pipelines: concepts/pipelines.md
+      - Observables: concepts/observables.md
+  - How-to:
+      - Run locally: howto/run_locally.md
+      - Add feed: howto/add_feed.md
+      - Extract observables: howto/extract_observables.md
+      - Generate Sigma: howto/generate_sigma.md
+      - Evaluate models: howto/evaluate_models.md
+  - Reference:
+      - Config: reference/config.md
+      - API: reference/api.md
+      - Schemas: reference/schemas.md
+      - Sigma: reference/sigma.md
+      - Versioning: reference/versioning.md
+  - Internals:
+      - Architecture: internals/architecture.md
+      - Scoring: internals/scoring.md
+      - Chunking: internals/chunking.md
+      - QA loops: internals/qa_loops.md
+  - Deployment:
+      - Getting Started: deployment/GETTING_STARTED.md
+      - Docker Architecture: deployment/DOCKER_ARCHITECTURE.md
+      - Technical Readout: deployment/TECHNICAL_READOUT.md
+  - Development:
+      - Setup: development/DEVELOPMENT_SETUP.md
+      - Port Configuration: development/PORT_CONFIGURATION.md
+      - Web App Testing: development/WEB_APP_TESTING.md
+      - Database Queries: development/DATABASE_QUERY_GUIDE.md
+      - Debugging Tools: DEBUGGING_TOOLS_GUIDE.md
+  - Features:
+      - Content Filtering: features/CONTENT_FILTERING.md
+      - OS Detection: features/OS_DETECTION.md
+      - Sigma Rules: features/SIGMA_DETECTION_RULES.md
+  - Operations:
+      - Backup & Restore: operations/BACKUP_AND_RESTORE.md
+      - Source Config: operations/SOURCE_CONFIG_PRECEDENCE.md
+  - Contributing: contributing.md
+plugins:
+  - search

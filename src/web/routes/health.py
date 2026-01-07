@@ -190,10 +190,6 @@ async def api_services_health() -> Dict[str, Any]:
                 "error": str(lmstudio_exc),
             }
 
-        # Note: LangGraph Server is optional - only used for debugging via Agent Chat UI
-        # Production workflows run via Celery and don't require LangGraph server
-        # Skipping health check as it's not required for normal operation
-
         # Check LangFuse
         try:
             from src.utils.langfuse_client import (

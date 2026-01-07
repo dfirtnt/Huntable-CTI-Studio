@@ -172,6 +172,67 @@ class TestCreateAnnotation:
         assert data["success"] is True
         assert data["annotation"]["annotation_type"] == "not_huntable"
 
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_create_cmd_annotation(self, async_client: httpx.AsyncClient):
+        """Test creating a CMD observable annotation."""
+        articles_response = await async_client.get("/api/articles?limit=1")
+        if articles_response.status_code != 200:
+            pytest.skip("No articles available for testing")
+        
+        articles_data = articles_response.json()
+        if not articles_data.get("articles"):
+            pytest.skip("No articles available for testing")
+        
+        article_id = articles_data["articles"][0]["id"]
+        command_text = "cmd.exe /c whoami"
+        annotation_data = {
+            "annotation_type": "CMD",
+            "selected_text": command_text,
+            "start_position": 0,
+            "end_position": len(command_text)
+        }
+        
+        response = await async_client.post(
+            f"/api/articles/{article_id}/annotations",
+            json=annotation_data,
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["annotation"]["annotation_type"] == "CMD"
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_create_annotation_invalid_type(self, async_client: httpx.AsyncClient):
+        """Test rejecting unsupported annotation types."""
+        articles_response = await async_client.get("/api/articles?limit=1")
+        if articles_response.status_code != 200:
+            pytest.skip("No articles available for testing")
+        
+        articles_data = articles_response.json()
+        if not articles_data.get("articles"):
+            pytest.skip("No articles available for testing")
+        
+        article_id = articles_data["articles"][0]["id"]
+        annotation_data = {
+            "annotation_type": "invalid_type",
+            "selected_text": "x" * 1000,
+            "start_position": 0,
+            "end_position": 1000
+        }
+        
+        response = await async_client.post(
+            f"/api/articles/{article_id}/annotations",
+            json=annotation_data,
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 400
+        assert "Unsupported annotation type" in response.json()["detail"]
+
 
 class TestGetArticleAnnotations:
     """Test getting annotations for an article."""
@@ -527,7 +588,24 @@ class TestAnnotationStats:
         assert stats["total_annotations"] >= 0
         assert stats["huntable_count"] >= 0
         assert stats["not_huntable_count"] >= 0
-        assert stats["total_annotations"] == stats["huntable_count"] + stats["not_huntable_count"]
+        assert stats["total_annotations"] >= stats["huntable_count"] + stats["not_huntable_count"]
+        assert "counts_by_type" in stats
+
+
+class TestAnnotationTypesEndpoint:
+    """Test annotation type registry endpoint."""
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_get_annotation_types(self, async_client: httpx.AsyncClient):
+        response = await async_client.get("/api/annotations/types")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "modes" in data
+        assert "huntability" in data["modes"]
+        assert "observables" in data["modes"]
+        assert "CMD" in data["modes"]["observables"]
 
 
 class TestAnnotationCRUDWorkflow:

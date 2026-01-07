@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}ML vs Hunt Scoring Comparison - Huntable Detection Studio{% endblock %}
+{% block title %}ML vs Hunt Scoring Comparison - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📊 ML vs Hunt Scoring Comparison</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+            <img src="/static/icons/analytics-icon.svg" alt="Analytics" class="w-[63px] h-[63px]" />
+            ML vs Hunt Scoring Comparison
+        </h1>
         <p class="text-gray-600 dark:text-gray-400">Compare ML model predictions with Hunt scoring system for articles with hunt_score > 50</p>
     </div>
     
@@ -209,6 +212,7 @@
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}
 
@@ -334,8 +338,6 @@
             if (timelineData.success) {
                 currentData.timeline = timelineData.timeline;
             }
-            
-            
             
             // Check feedback count and disable retrain button if no feedback available
             const feedbackResponse = await fetch('/api/model/feedback-count');

@@ -793,6 +793,35 @@ class TestWorkflowConfigurationExtractAgent:
     
     @pytest.mark.ui
     @pytest.mark.workflow
+    def test_sub_agent_top_p_input(self, page: Page):
+        """Test sub-agent Top_P input."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+        
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(500)
+        
+        # Expand panels
+        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle.click()
+        page.wait_for_timeout(500)
+        
+        cmdline_toggle = page.locator("button:has-text('CmdlineExtract')")
+        cmdline_toggle.click()
+        page.wait_for_timeout(300)
+        
+        # Find Top_P input
+        top_p_input = page.locator("#cmdlineextract-top-p")
+        expect(top_p_input).to_be_visible()
+        expect(top_p_input).to_have_attribute("type", "number")
+        expect(top_p_input).to_have_attribute("name", "agent_models[CmdlineExtract_top_p]")
+        expect(top_p_input).to_have_attribute("min", "0")
+        expect(top_p_input).to_have_attribute("max", "1")
+        expect(top_p_input).to_have_attribute("step", "0.01")
+    
+    @pytest.mark.ui
+    @pytest.mark.workflow
     def test_sub_agent_test_button(self, page: Page):
         """Test sub-agent test button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

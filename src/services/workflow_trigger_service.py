@@ -37,6 +37,7 @@ class WorkflowTriggerService:
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
+                    auto_trigger_hunt_score_threshold=60.0,
                     version=1,
                     is_active=True,
                     description="Default configuration",
@@ -70,11 +71,13 @@ class WorkflowTriggerService:
             # Get hunt score from article metadata
             hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
             
-            # Hunt score threshold check is DISABLED - all articles can enter workflow
-            # Log for visibility but don't block
-            if hunt_score < config.min_hunt_score:
-                logger.debug(f"Article {article.id} hunt score {hunt_score} below threshold {config.min_hunt_score} (threshold check disabled, allowing anyway)")
-            # Threshold check disabled - removed: if hunt_score < config.min_hunt_score: return False
+            # Get threshold from config
+            threshold = config.auto_trigger_hunt_score_threshold if hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
+            
+            # Only trigger if RegexHuntScore > threshold
+            if hunt_score <= threshold:
+                logger.debug(f"Article {article.id} hunt score {hunt_score} <= {threshold}, skipping workflow trigger")
+                return False
             
             # Check if workflow already running or completed for this article
             # Also check for stuck pending executions (older than 5 minutes)
@@ -145,6 +148,7 @@ class WorkflowTriggerService:
                     'junk_filter_threshold': config.junk_filter_threshold,
                     'agent_models': config.agent_models,
                     'qa_enabled': config.qa_enabled if config and config.qa_enabled is not None else {},
+                    'rank_agent_enabled': config.rank_agent_enabled if config and hasattr(config, 'rank_agent_enabled') else True,
                     'config_id': config.id,
                     'config_version': config.version
                 } if config else None

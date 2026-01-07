@@ -9,7 +9,13 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
-from src.models.annotation import ArticleAnnotationCreate, ArticleAnnotationUpdate
+from src.models.annotation import (
+    ArticleAnnotationCreate,
+    ArticleAnnotationUpdate,
+    ANNOTATION_MODE_TYPES,
+    ALL_ANNOTATION_TYPES,
+    ANNOTATION_USAGE_VALUES,
+)
 from src.models.article import ArticleUpdate
 from src.web.dependencies import logger
 
@@ -20,8 +26,20 @@ router = APIRouter(tags=["Annotations"])
 async def create_annotation(article_id: int, annotation_data: dict):
     """Create a new text annotation for an article."""
     try:
+        annotation_type = annotation_data.get("annotation_type")
+        if not annotation_type:
+            raise HTTPException(status_code=400, detail="annotation_type is required")
+
+        if annotation_type not in ALL_ANNOTATION_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported annotation type '{annotation_type}'",
+            )
+
         text_length = len(annotation_data.get("selected_text", ""))
-        if text_length < 950 or text_length > 1050:
+        if annotation_type in ANNOTATION_MODE_TYPES["huntability"] and (
+            text_length < 950 or text_length > 1050
+        ):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -29,6 +47,27 @@ async def create_annotation(article_id: int, annotation_data: dict):
                     f"(current: {text_length})"
                 ),
             )
+        if annotation_type in ANNOTATION_MODE_TYPES["observables"] and text_length == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Annotation text is required for observable annotations",
+            )
+
+        usage = annotation_data.get("usage")
+        if annotation_type in ANNOTATION_MODE_TYPES["observables"]:
+            if not usage:
+                raise HTTPException(
+                    status_code=400,
+                    detail="usage is required for observable annotations",
+                )
+            usage = usage.lower()
+            if usage not in ANNOTATION_USAGE_VALUES:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported annotation usage '{usage}'",
+                )
+        else:
+            usage = usage or "train"
 
         article = await async_db_manager.get_article(article_id)
         if not article:
@@ -36,13 +75,14 @@ async def create_annotation(article_id: int, annotation_data: dict):
 
         annotation_create = ArticleAnnotationCreate(
             article_id=article_id,
-            annotation_type=annotation_data.get("annotation_type"),
+            annotation_type=annotation_type,
             selected_text=annotation_data.get("selected_text"),
             start_position=annotation_data.get("start_position"),
             end_position=annotation_data.get("end_position"),
             context_before=annotation_data.get("context_before"),
             context_after=annotation_data.get("context_after"),
             confidence_score=annotation_data.get("confidence_score", 1.0),
+            usage=usage,
         )
 
         annotation = await async_db_manager.create_annotation(annotation_create)
@@ -143,6 +183,69 @@ async def get_annotation_stats():
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@router.get("/api/annotations/types")
+async def get_annotation_types():
+    """Return supported annotation modes and types."""
+    return {"success": True, "modes": ANNOTATION_MODE_TYPES}
+
+
+@router.get("/api/annotations")
+async def list_annotations(
+    annotation_type: str | None = None,
+    usage: str | None = None,
+    used_for_training: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """List annotations with optional filters."""
+    try:
+        from sqlalchemy import select, func
+        from src.database.models import ArticleAnnotationTable
+
+        async with async_db_manager.get_session() as session:
+            query = select(ArticleAnnotationTable)
+            
+            if annotation_type:
+                query = query.where(ArticleAnnotationTable.annotation_type == annotation_type)
+            if usage:
+                query = query.where(ArticleAnnotationTable.usage == usage)
+            if used_for_training is not None:
+                query = query.where(ArticleAnnotationTable.used_for_training == used_for_training)
+            
+            query = query.order_by(ArticleAnnotationTable.id.desc()).limit(limit).offset(offset)
+            
+            result = await session.execute(query)
+            db_annotations = result.scalars().all()
+            
+            annotations = [
+                async_db_manager._db_annotation_to_model(ann) for ann in db_annotations
+            ]
+            
+            # Get total count
+            count_query = select(func.count(ArticleAnnotationTable.id))
+            if annotation_type:
+                count_query = count_query.where(ArticleAnnotationTable.annotation_type == annotation_type)
+            if usage:
+                count_query = count_query.where(ArticleAnnotationTable.usage == usage)
+            if used_for_training is not None:
+                count_query = count_query.where(ArticleAnnotationTable.used_for_training == used_for_training)
+            
+            count_result = await session.execute(count_query)
+            total = count_result.scalar()
+            
+            return {
+                "success": True,
+                "annotations": annotations,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to list annotations: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.get("/api/annotations/{annotation_id}")
 async def get_annotation(annotation_id: int):
     """Get a specific annotation by ID."""
@@ -174,6 +277,9 @@ async def update_annotation(annotation_id: int, update_data: ArticleAnnotationUp
 
     except HTTPException:
         raise
+    except ValueError as exc:
+        # Catch ValueError from service layer (e.g., usage immutability)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to update annotation: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -218,4 +324,3 @@ async def delete_annotation(annotation_id: int):
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete annotation: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

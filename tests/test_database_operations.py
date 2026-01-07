@@ -75,6 +75,7 @@ class TestAsyncDatabaseManager:
             "context_after": "Following context text",
             "confidence_score": 0.95,
             "used_for_training": False,
+            "usage": "train",
             "user_id": 1,
             "created_at": datetime.now(),
             "updated_at": datetime.now()
@@ -349,6 +350,7 @@ class TestAsyncDatabaseManager:
             context_after="Following context",
             confidence_score=0.95,
             used_for_training=False,
+            usage="train",
             user_id=1,
             created_at=datetime.now(),
             updated_at=datetime.now()
@@ -411,6 +413,7 @@ class TestAsyncDatabaseManager:
                 context_after="Following context",
                 confidence_score=0.95,
                 used_for_training=False,
+                usage="train",
                 user_id=1,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
@@ -426,6 +429,7 @@ class TestAsyncDatabaseManager:
                 context_after="Following context",
                 confidence_score=0.80,
                 used_for_training=False,
+                usage="train",
                 user_id=1,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
@@ -502,6 +506,7 @@ class TestAsyncDatabaseManager:
                 context_after="Following context",
                 confidence_score=0.95,
                 used_for_training=False,
+                usage="train",
                 user_id=1,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
@@ -517,6 +522,7 @@ class TestAsyncDatabaseManager:
                 context_after="Following context",
                 confidence_score=0.80,
                 used_for_training=False,
+                usage="train",
                 user_id=1,
                 created_at=datetime.now(),
                 updated_at=datetime.now()

@@ -5,23 +5,137 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Test Failure Analysis](#test-failure-analysis)
-3. [Async Test Debugging](#async-test-debugging)
-4. [Test Isolation and Cleanup](#test-isolation-and-cleanup)
-5. [Performance Profiling](#performance-profiling)
-6. [Enhanced Output Formatting](#enhanced-output-formatting)
-7. [Best Practices](#best-practices)
-8. [Troubleshooting](#troubleshooting)
+2. [LangFuse Workflow Debugging](#langfuse-workflow-debugging)
+3. [Test Failure Analysis](#test-failure-analysis)
+4. [Async Test Debugging](#async-test-debugging)
+5. [Test Isolation and Cleanup](#test-isolation-and-cleanup)
+6. [Performance Profiling](#performance-profiling)
+7. [Enhanced Output Formatting](#enhanced-output-formatting)
+8. [Best Practices](#best-practices)
+9. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
 The CTI Scraper debugging tools provide:
 
+- **LangFuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to LangFuse UI
 - **Comprehensive Failure Analysis**: Automatic categorization and analysis of test failures with actionable suggestions
 - **Async Debugging**: Specialized tools for debugging async/await code and event loop issues
 - **Test Isolation**: Enhanced isolation mechanisms to prevent test interference
 - **Performance Profiling**: Detailed performance monitoring and bottleneck identification
 - **Rich Output Formatting**: Timestamped, colorized, and structured test output
+
+## LangFuse Workflow Debugging
+
+### Overview
+
+The agentic workflow integrates with LangFuse to provide comprehensive tracing and debugging capabilities. Each workflow execution creates a session in LangFuse that groups all traces, spans, and events for that execution.
+
+### Accessing Debug Links
+
+From the Workflow Executions page, each execution has a **Debug** button that takes you directly to the LangFuse session:
+
+```
+https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_{execution_id}
+```
+
+**Example**: For execution #86, the session URL is:
+```
+https://us.cloud.langfuse.com/project/cmhk4f8nr02m9ad07cq29m3be/sessions/workflow_exec_86
+```
+
+### Session Structure
+
+Each workflow execution creates:
+
+1. **Session ID**: Format `workflow_exec_{execution_id}` (e.g., `workflow_exec_86`)
+2. **Trace ID**: 32-character unique identifier for the execution trace
+3. **Spans**: Individual workflow steps (extraction, ranking, SIGMA generation, etc.)
+
+### Implementation Details
+
+The LangFuse integration is implemented in [src/utils/langfuse_client.py](../src/utils/langfuse_client.py):
+
+```python
+# Create trace with session context
+from langfuse.types import TraceContext
+trace_context = TraceContext(
+    session_id=f"workflow_exec_{execution_id}",
+    user_id=f"article_{article_id}",
+)
+
+# Start trace as current span
+span_cm = client.start_as_current_span(
+    trace_context=trace_context,
+    name=f"agentic_workflow_execution_{execution_id}",
+    input={"execution_id": execution_id, "article_id": article_id},
+    metadata={...}
+)
+span = span_cm.__enter__()
+
+# Explicitly associate trace with session (required in LangFuse 3.x)
+span.update_trace(session_id=session_id)
+
+# Store trace_id (32 chars) not span id (16 chars)
+trace_id = span.trace_id
+```
+
+### Key Implementation Points
+
+1. **Session Association**: In LangFuse 3.x with OpenTelemetry, passing `session_id` in `TraceContext` alone is insufficient. An explicit `span.update_trace(session_id=...)` call is required.
+
+2. **Trace ID vs Span ID**:
+   - **Trace ID**: 32-character identifier (e.g., `62ed1c144abee5401636ea6c5b9b4f7a`)
+   - **Span ID**: 16-character identifier (e.g., `9754b82b9794d922`)
+   - Store the **trace ID** for debug links, not the span ID.
+
+3. **Context Manager Handling**: The span context manager must be properly entered with `__enter__()` and exited with `__exit__()` to ensure traces are flushed.
+
+### Viewing Workflow Traces
+
+#### Session View (Recommended)
+
+The session view shows all traces for a workflow execution grouped together:
+
+1. Click **Debug** button on workflow execution
+2. View all workflow steps in chronological order
+3. See inputs, outputs, and metadata for each step
+4. Track token usage and latency per agent
+
+#### Trace View (Individual Steps)
+
+To view an individual trace:
+
+```
+https://us.cloud.langfuse.com/project/{project_id}/traces/{trace_id}
+```
+
+### Debugging Workflow Issues
+
+When debugging workflow failures:
+
+1. **Check Session View**: Start with the session view to see the full execution timeline
+2. **Identify Failed Step**: Look for spans with `ERROR` status
+3. **Review Inputs/Outputs**: Check the input and output data for each span
+4. **Check Metadata**: Review metadata for execution context (article ID, config version, etc.)
+5. **Monitor Token Usage**: Track token consumption across agents
+
+### Configuration
+
+LangFuse configuration is set via environment variables:
+
+```bash
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://us.cloud.langfuse.com
+LANGFUSE_PROJECT_ID=cmhk4f8nr02m9ad07cq29m3be
+```
+
+### Code References
+
+- **Trace creation**: [src/utils/langfuse_client.py:155-189](../src/utils/langfuse_client.py#L155-L189)
+- **Workflow execution**: [src/workflows/agentic_workflow.py:1662](../src/workflows/agentic_workflow.py#L1662)
+- **Debug link generation**: [src/web/routes/workflow_executions.py:805-814](../src/web/routes/workflow_executions.py#L805-L814)
 
 ## Test Failure Analysis
 

@@ -1,0 +1,31 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Shield outline -->
+    <path d="M 80 20 L 130 40 L 130 80 Q 130 120 80 140 Q 30 120 30 80 L 30 40 Z" 
+          fill="none" stroke="#8B5CF6" stroke-width="2.5" opacity="0.8"/>
+    
+    <!-- H letter -->
+    <!-- Left vertical -->
+    <rect x="50" y="50" width="10" height="60" fill="#A78BFA" rx="2"/>
+    
+    <!-- Right vertical -->
+    <rect x="100" y="50" width="10" height="60" fill="#A78BFA" rx="2"/>
+    
+    <!-- Horizontal bar -->
+    <rect x="50" y="77" width="60" height="10" fill="#C4B5FD" rx="2"/>
+    
+    <!-- Crosshair overlay -->
+    <line x1="80" y1="40" x2="80" y2="70" stroke="#8B5CF6" stroke-width="3" opacity="0.7" stroke-linecap="round"/>
+    <line x1="80" y1="90" x2="80" y2="120" stroke="#8B5CF6" stroke-width="3" opacity="0.7" stroke-linecap="round"/>
+    
+    <!-- Target center -->
+    <circle cx="80" cy="82" r="6" fill="#8B5CF6" opacity="0.9"/>
+    <circle cx="80" cy="82" r="3" fill="#C4B5FD"/>
+    
+    <!-- Data flow lines (radiating from shield) -->
+    <path d="M 115 50 Q 125 45 130 40" fill="none" stroke="#8B5CF6" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+    <path d="M 115 70 Q 125 70 130 65" fill="none" stroke="#8B5CF6" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+    <path d="M 115 90 Q 125 95 130 100" fill="none" stroke="#8B5CF6" stroke-width="2" opacity="0.5" stroke-linecap="round"/>
+</svg>

@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Articles - Huntable Detection Studio{% endblock %}
+{% block title %}Articles - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
         <div class="flex items-center justify-between mb-2">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📰 Threat Intelligence Articles</h1>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[63px] h-[63px]" />
+                Threat Intelligence Articles
+            </h1>
             <a href="/chat" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 font-medium shadow-lg" title="AI-powered semantic search across threat intelligence content">
                 <span>🔍</span>
                 <span>RAG Search</span>
@@ -16,16 +19,16 @@
     </div>
 
     <!-- Filters & Sorting -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div class="flex items-center justify-between mb-4">
+    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--color-bg-card);">
+        <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔍 Filters, Search & Sorting</h2>
-            <button id="filtersToggle" type="button" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200" aria-expanded="false" aria-controls="filtersContent">
-                <svg class="w-5 h-5 transform rotate-180 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span id="filters-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
-            </button>
+            </span>
         </div>
-        <div id="filtersContent" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
+        <div id="filters-content" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
         <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
@@ -36,7 +39,7 @@
                 <!-- Sort By -->
                 <div>
                     <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
-                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                         <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
                         <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
                         <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
@@ -51,7 +54,7 @@
                 <!-- Sort Order -->
                 <div>
                     <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
-                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                         <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
                         <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
                     </select>
@@ -70,7 +73,7 @@
                     <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
                            placeholder="Search titles, content, or use boolean logic..." 
                            title="{{ filters.search or '' }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                           class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);"
                            style="font-family: monospace;">
                     <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,11 +91,11 @@
                     <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
                         <input type="checkbox" name="title_only" id="title-only" value="1" 
                                {% if filters.title_only %}checked{% endif %}
-                               class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                               class="mr-2 h-4 w-4 border-gray-300 rounded" style="accent-color: var(--color-brand);">
                         Search titles only
                     </label>
                 </div>
-                <div id="search-help" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                <div id="search-help" class="hidden mt-2 p-3 rounded-md text-sm" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-secondary);">
                     <h4 class="font-medium mb-2">Search Syntax:</h4>
                     <ul class="space-y-1 text-xs">
                         <li>• <strong>Simple terms:</strong> malware, ransomware</li>
@@ -116,26 +119,26 @@
                         <h5 class="font-medium mb-2">🎯 Predefined Intelligence Search Patterns:</h5>
                         <div class="space-y-2 text-xs">
                             <div class="p-2 bg-white rounded border">
-                                <div class="font-medium text-blue-700">High-Value Detection Content:</div>
+                                <div class="font-medium" style="color: var(--color-text-primary);">High-Value Detection Content:</div>
                                 <code class="text-xs bg-gray-100 px-1 rounded">("sigma rule" OR "detection rule") AND ("parentimage" OR "commandline" OR "process chain")</code>
                                 <a href="/articles?search=%28%22sigma%20rule%22%20OR%20%22detection%20rule%22%29%20AND%20%28%22parentimage%22%20OR%20%22commandline%22%20OR%20%22process%20chain%22%29" 
-                                   class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors inline-block">
+                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--color-bg-panel); color: var(--color-info);">
                                     Use This Search
                                 </a>
                             </div>
                             <div class="p-2 bg-white rounded border">
-                                <div class="font-medium text-green-700">Technical Intelligence:</div>
+                                <div class="font-medium" style="color: var(--color-text-primary);">Technical Intelligence:</div>
                                 <code class="text-xs bg-gray-100 px-1 rounded">("mitre att&ck" OR "T[0-9]") AND ("registry run" OR "appdata" OR "suspicious path")</code>
                                 <a href="/articles?search=%28%22mitre%20att%26ck%22%20OR%20%22T%5B0-9%5D%22%29%20AND%20%28%22registry%20run%22%20OR%20%22appdata%22%20OR%20%22suspicious%20path%22%29" 
-                                   class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors inline-block">
+                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--color-bg-panel); color: var(--color-info);">
                                     Use This Search
                                 </a>
                             </div>
                             <div class="p-2 bg-white rounded border">
-                                <div class="font-medium text-purple-700">Actionable Intelligence Content:</div>
+                                <div class="font-medium" style="color: var(--color-brand);">Actionable Intelligence Content:</div>
                                 <code class="text-xs bg-gray-100 px-1 rounded">("hunting" OR "detection") AND ("powershell" OR "cmd.exe" OR "process spawning")</code>
                                 <a href="/articles?search=%28%22hunting%22%20OR%20%22detection%22%29%20AND%20%28%22powershell%22%20OR%20%22cmd.exe%22%20OR%20%22process%20spawning%22%29" 
-                                   class="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors inline-block">
+                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: rgba(139, 92, 246, 0.1); color: var(--color-brand);">
                                     Use This Search
                                 </a>
                             </div>
@@ -152,7 +155,7 @@
             <div>
                 <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
                 <select name="source" id="source" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="">All Sources</option>
                     {% for source in sources %}
                     <option value="{{ source.id }}" {% if filters.source|string == source.id|string or filters.source_id == source.id %}selected{% endif %}>
@@ -166,7 +169,7 @@
             <div>
                 <label for="per_page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
                 <select name="per_page" id="per_page" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="20" {% if pagination.per_page|string == "20" %}selected{% endif %}>20</option>
                     <option value="50" {% if pagination.per_page|string == "50" %}selected{% endif %}>50</option>
                     <option value="100" {% if pagination.per_page|string == "100" %}selected{% endif %}>100</option>
@@ -177,7 +180,7 @@
             <div>
                 <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RegexHuntScore</label>
                 <select name="threat_hunting_range" id="threat_hunting_range" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="">All Scores</option>
                     <option value="80-100" {% if filters.threat_hunting_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
                     <option value="60-79" {% if filters.threat_hunting_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
@@ -192,23 +195,23 @@
         </form>
 
         <!-- Save Default Filters Button -->
-        <div class="mt-4 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <div class="mt-4 flex items-center justify-between p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
             <div class="flex items-center space-x-2">
                 <button type="button" onclick="saveDefaultFilters()" 
-                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                     Set as Default Filters
                 </button>
                 <button type="button" onclick="clearDefaultFilters()" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-secondary);">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                     Clear Defaults
                 </button>
-                <span id="default-filters-indicator" class="hidden text-sm text-green-600 font-medium">
+                <span id="default-filters-indicator" class="hidden text-sm text-success font-medium" style="color: var(--color-success);">
                     ✓ Default filters active
                 </span>
             </div>
@@ -216,13 +219,13 @@
 
         <!-- Filter Summary -->
         {% if filters.search or filters.source or filters.threat_hunting_range %}
-        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p class="text-sm text-blue-800">
+        <div class="mt-4 p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
+            <p class="text-sm" style="color: var(--color-text-secondary);">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
                 {% if filters.threat_hunting_range %}RegexHuntScore: {{ filters.threat_hunting_range }}{% endif %}
-                <a href="/articles" class="ml-2 text-blue-600 hover:text-blue-800 underline">Clear all</a>
+                <a href="/articles" class="ml-2 underline" style="color: var(--color-info);">Clear all</a>
             </p>
         </div>
         {% endif %}
@@ -230,7 +233,7 @@
     </div>
 
     <!-- Articles List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div class="rounded-lg shadow p-6" style="background-color: var(--color-bg-card);">
         <div class="mb-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
@@ -254,20 +257,20 @@
         </div>
 
         <!-- Bulk Actions Toolbar -->
-        <div id="bulk-actions-toolbar" class="hidden px-6 py-3 bg-blue-50 border-b border-blue-200">
+        <div id="bulk-actions-toolbar" class="hidden px-6 py-3 border-b" style="background-color: var(--color-bg-panel); border-color: var(--color-border);">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm font-medium text-blue-900">
+                    <span class="text-sm font-medium" style="color: var(--color-text-primary);">
                         <span id="selected-count">0</span> articles selected
                     </span>
                     <div class="flex items-center space-x-2">
                         <button onclick="selectAllVisible()" 
-                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                                class="text-sm underline" style="color: var(--color-info);">
                             Select All Visible
                         </button>
-                        <span class="text-blue-400">|</span>
+                        <span style="color: var(--color-text-muted);">|</span>
                         <button onclick="clearSelection()" 
-                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                                class="text-sm underline" style="color: var(--color-info);">
                             Clear Selection
                         </button>
                     </div>
@@ -284,7 +287,7 @@
         {% if articles %}
         <div class="space-y-4">
             {% for article in articles %}
-            <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-200 relative">
+            <div class="p-6 rounded-lg hover:shadow-md transition-all duration-200 relative" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
                 <button onclick="copyArticleContent({{ article.id }})" 
                         class="absolute right-4 top-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 z-10"
                         title="Copy article content">
@@ -295,12 +298,12 @@
                 <div class="flex items-start justify-between">
                     <div class="flex items-start space-x-3">
                         <input type="checkbox" 
-                               class="bulk-select-checkbox mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                               class="bulk-select-checkbox mt-1 h-4 w-4 border-gray-300 rounded" style="accent-color: var(--color-brand);" 
                                data-article-id="{{ article.id }}"
                                onchange="updateBulkActions()">
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center space-x-2 mb-3">
-                            <a href="/articles/{{ article.id }}" class="text-lg font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            <a href="/articles/{{ article.id }}" class="text-lg font-semibold underline" style="color: var(--color-info);">
                                 {{ article.title }}
                             </a>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
@@ -312,7 +315,7 @@
                             <span>Source: 
                                 {% set source_name = source_lookup[article.source_id].name if article.source_id in source_lookup else article.source_id %}
                                 {% if article.canonical_url %}
-                                    <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                    <a href="{{ article.canonical_url }}" target="_blank" class="hover:underline" style="color: var(--color-info);">
                                         {{ source_name }}
                                     </a>
                                 {% else %}
@@ -327,19 +330,19 @@
                             <span>RegexHuntScore: 
                                 {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                                 {% if score >= 80 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
-                                        🎯 {{ "%.1f"|format(score) }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success);">
+                                        🟢 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% elif score >= 60 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
                                         🟡 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% elif score >= 40 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
                                         🟠 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error);">
                                         🔴 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% endif %}
@@ -349,19 +352,19 @@
                                 {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
                                     {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
                                     {% if ml_score >= 80 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
-                                            🤖 {{ "%.1f"|format(ml_score) }}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success);">
+                                            🟢 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% elif ml_score >= 60 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
                                             🟡 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% elif ml_score >= 40 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
                                             🟠 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% else %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error);">
                                             🔴 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% endif %}
@@ -376,7 +379,7 @@
                             <span>Annotations: 
                                 {% set annotation_count = article.article_metadata.get('annotation_count', 0) %}
                                 {% if annotation_count > 0 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);">
                                         📝 {{ annotation_count }}
                                     </span>
                                 {% else %}
@@ -394,12 +397,12 @@
                             <div class="flex flex-wrap gap-1">
                                 {% if article.article_metadata.get('perfect_keyword_matches') %}
                                     {% for keyword in article.article_metadata.get('perfect_keyword_matches', [])[:3] %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700" title="Perfect Discriminator">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);" title="Perfect Discriminator">
                                         ✅ {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.article_metadata.get('perfect_keyword_matches', [])|length > 3 %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);">
                                             +{{ article.article_metadata.get('perfect_keyword_matches', [])|length - 3 }}
                                     </span>
                                     {% endif %}
@@ -407,12 +410,12 @@
                                 
                                 {% if article.article_metadata.get('good_keyword_matches') %}
                                     {% for keyword in article.article_metadata.get('good_keyword_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-700" title="Good Discriminator">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);" title="Good Discriminator">
                                         🟡 {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.article_metadata.get('good_keyword_matches', [])|length > 2 %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);">
                                             +{{ article.article_metadata.get('good_keyword_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
@@ -420,12 +423,12 @@
                                 
                                 {% if article.article_metadata.get('lolbas_matches') %}
                                     {% for keyword in article.article_metadata.get('lolbas_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700" title="LOLBAS Executable">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);" title="LOLBAS Executable">
                                         🔧 {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.article_metadata.get('lolbas_matches', [])|length > 2 %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);">
                                             +{{ article.article_metadata.get('lolbas_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
@@ -483,7 +486,7 @@
 
                     {% for page_num in range(1, pagination.total_pages + 1) %}
                         {% if page_num == pagination.page %}
-                        <span class="px-3 py-2 border border-blue-500 rounded-md text-sm font-medium text-blue-700 bg-blue-50">
+                        <span class="px-3 py-2 border rounded-md text-sm font-medium" style="border-color: var(--color-brand); color: var(--color-brand); background-color: rgba(139, 92, 246, 0.1);">
                             {{ page_num }}
                         </span>
                         {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
@@ -539,7 +542,7 @@
                 <div id="modalContent" class="space-y-4">
                     <!-- Loading state -->
                     <div id="modalLoading" class="text-center py-8">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style="border-color: var(--color-brand);"></div>
                         <p class="mt-2 text-gray-600">Loading article...</p>
                     </div>
                     
@@ -575,39 +578,39 @@
             <div class="bg-white px-6 py-4 border-t border-gray-200 flex-shrink-0">
                 <div id="classificationControls" class="hidden">
                     <!-- Classification controls -->
-                    <div class="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                        <h5 class="text-sm font-medium text-gray-900">Classify this article as:</h5>
+                    <div class="space-y-4 p-4 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
+                        <h5 class="text-sm font-medium" style="color: var(--color-text-primary);">Classify this article as:</h5>
                         
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <button onclick="classifyArticle('chosen')" 
-                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors" style="background-color: var(--color-success);">
                                 <span class="mr-2">✅</span>
                                 Chosen
                             </button>
                             
                             <button onclick="classifyArticle('rejected')" 
-                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                    class="flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors" style="background-color: var(--color-error);">
                                 <span class="mr-2">❌</span>
                                 Rejected
                             </button>
                             
                             <button onclick="classifyArticle('unclassified')" 
-                                    class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    class="flex items-center justify-center px-4 py-3 border rounded-md shadow-sm text-sm font-medium transition-colors" style="border-color: var(--color-border); color: var(--color-text-secondary); background-color: var(--color-bg-card);">
                                 <span class="mr-2">⏳</span>
                                 Unclassified
                             </button>
                         </div>
                         
                         <!-- Navigation -->
-                        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                        <div class="flex items-center justify-between pt-4 border-t" style="border-color: var(--color-border);">
                             <button onclick="navigateToPrevious()" 
-                                    class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    class="inline-flex items-center px-3 py-2 border rounded-md shadow-sm text-sm font-medium transition-colors" style="border-color: var(--color-border); color: var(--color-text-secondary); background-color: var(--color-bg-card);">
                                 <span class="mr-1">←</span>
                                 Previous
                             </button>
                             
                             <button onclick="navigateToNextUnclassified()" 
-                                    class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors" style="background-color: var(--color-brand);">
                                 Next Unclassified
                                 <span class="ml-1">→</span>
                             </button>
@@ -867,11 +870,14 @@
     function showNotification(message, type = 'info') {
         // Create notification element
         const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 ${
-            type === 'success' ? 'bg-green-500 text-white' :
-            type === 'error' ? 'bg-red-500 text-white' :
-            'bg-blue-500 text-white'
-        }`;
+        notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 text-white';
+        if (type === 'success') {
+            notification.style.backgroundColor = 'var(--color-success)';
+        } else if (type === 'error') {
+            notification.style.backgroundColor = 'var(--color-error)';
+        } else {
+            notification.style.backgroundColor = 'var(--color-info)';
+        }
         notification.textContent = message;
         
         document.body.appendChild(notification);
@@ -1284,11 +1290,14 @@
     function showNotification(message, type = 'info') {
         // Create notification element
         const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg text-white ${
-            type === 'success' ? 'bg-green-500' : 
-            type === 'error' ? 'bg-red-500' : 
-            'bg-blue-500'
-        }`;
+        notification.className = 'fixed top-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg text-white';
+        if (type === 'success') {
+            notification.style.backgroundColor = 'var(--color-success)';
+        } else if (type === 'error') {
+            notification.style.backgroundColor = 'var(--color-error)';
+        } else {
+            notification.style.backgroundColor = 'var(--color-info)';
+        }
         notification.textContent = message;
         
         document.body.appendChild(notification);
@@ -1300,11 +1309,12 @@
     }
     
     document.addEventListener('DOMContentLoaded', function() {
-        const filtersToggle = document.getElementById('filtersToggle');
-        const filtersContent = document.getElementById('filtersContent');
+        const filtersHeader = document.getElementById('filtersHeader');
+        const filtersContent = document.getElementById('filters-content');
+        const filtersToggle = document.getElementById('filters-toggle');
         const filtersIcon = filtersToggle?.querySelector('svg');
 
-        if (filtersToggle && filtersContent && filtersIcon) {
+        if (filtersHeader && filtersContent) {
             const filtersPanelStateKey = 'cti_articles_filters_panel_open';
             const filtersActive = filtersContent.dataset.filtersActive === 'true';
             let shouldStartOpen = filtersActive;
@@ -1320,8 +1330,10 @@
 
             const setFiltersPanelState = (open) => {
                 filtersContent.classList.toggle('hidden', !open);
-                filtersIcon.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
-                filtersToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (filtersIcon) {
+                    filtersIcon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
+                filtersHeader.setAttribute('aria-expanded', open ? 'true' : 'false');
 
                 try {
                     sessionStorage.setItem(filtersPanelStateKey, open ? 'true' : 'false');
@@ -1330,12 +1342,18 @@
                 }
             };
 
-            // Keep the panel collapsed on first load
+            // Set initial state before global initCollapsiblePanels runs
             setFiltersPanelState(shouldStartOpen);
 
-            filtersToggle.addEventListener('click', function() {
-                const isHidden = filtersContent.classList.contains('hidden');
-                setFiltersPanelState(isHidden);
+            // Override the global handler to persist state
+            filtersHeader.addEventListener('click', function(e) {
+                // Let the global handler toggle, then persist state
+                setTimeout(() => {
+                    const isOpen = !filtersContent.classList.contains('hidden');
+                    try {
+                        sessionStorage.setItem(filtersPanelStateKey, isOpen ? 'true' : 'false');
+                    } catch (sessionError) {}
+                }, 0);
             });
         }
     });

@@ -3,6 +3,7 @@
 
 import subprocess
 import sys
+import os
 import logging
 
 # Configure logging
@@ -143,14 +144,17 @@ import os
 sys.path.append('/app')
 
 import psycopg2
+import os
 from simhash_func import compute_simhash
 
 # Connect to database
+# Use environment variable for password, fallback to default for development
+postgres_password = os.getenv("POSTGRES_PASSWORD", "cti_password")
 conn = psycopg2.connect(
     host="postgres",
     database="cti_scraper", 
     user="cti_user",
-    password="cti_password"
+    password=postgres_password
 )
 cur = conn.cursor()
 

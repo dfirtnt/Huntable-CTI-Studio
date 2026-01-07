@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Top_P Control for All Agents** (2026-01-07): Added per-agent Top_P (top-p sampling) parameter control
+  - Top_P input fields for all agents: RankAgent, ExtractAgent, SigmaAgent, all sub-agents (CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract), and all QA agents
+  - Top_P values are saved to workflow config and persist across saves
+  - Top_P values are read from config and passed to LMStudio API calls
+  - Test functions now use Top_P from saved config (requires save before testing)
+  - Added debug logging for Top_P values throughout the pipeline
+  - Type conversion handles JSONB string/number values correctly
+  - Active Workflow Config panel displays Top_P for selected agent
+- **Clickable Eval Results** (2026-01-02): Added clickable result cells in evaluation results table
+  - Click any completed result to view extracted commandlines in a modal
+  - Modal displays all commandlines with numbered list and article link
+  - API endpoint: `/api/evaluations/execution/{execution_id}/commandlines`
+- **Sticky Expected Column** (2026-01-02): Made "Expected" column sticky in pivot view for better visibility
+- **Auto-scroll to Latest** (2026-01-02): Results table now auto-scrolls to show latest config versions on load
+- **Aggregate Eval Scoring** (2025-12-27): Added comprehensive aggregate scoring per workflow config version
+  - Mean Score: Average deviation across all eval articles
+  - Mean Absolute Error (MAE): Average absolute deviation
+  - Mean Squared Error (MSE): Squared deviation metric
+  - Perfect Match Percentage: % of articles with exact match (score = 0)
+  - Score Distribution: Breakdown of scores by range (0, ±1-2, ±3+)
+  - API endpoint: `/api/evaluations/subagent-eval-aggregate` with config version grouping
+  - UI display: "Aggregate Scores by Config Version" section in agent evals page
+  - Color-coded MAE display (green/yellow/red based on threshold)
+- **Comprehensive Source Coverage** (2025-12-26): 11+ major security sources now operational for threat intelligence collection
+- **Subagent Evaluation System** (2025-12-26): Complete evaluation framework for testing extractor subagents
+  - Evaluation articles stored in `config/eval_articles.yaml` with expected observable counts
+  - `SubagentEvaluationTable` database table for tracking evaluation results
+  - UI at `/mlops/agent-evals` for running and viewing evaluations
+  - Scoring system: perfect score is 0 (exact match), shows deviation from expected count
+  - Color-coded results: green (0), yellow (±1-2), red (±3+)
+- **Eval Workflow Optimizations** (2025-12-26): 
+  - Skip OS Detection, Rank Agent, and SIGMA generation for eval runs to save time
+  - Filter out SigmaAgent models during eval runs to prevent loading unnecessary 30b model
+  - Eval runs terminate after extractor agent completes
+- **Clear Pending Records** (2025-12-26): Added button to delete pending evaluation records from UI
+- **OS Detection fallback LLM** (2025-12-18): Now supports cloud providers (OpenAI, Anthropic)
+- **Provider selector** (2025-12-18): Added for OS Detection fallback model configuration
+- **Fallback model** (2025-12-18): Respects provider selection and uses appropriate input type
+- **Current Configuration display** (2025-12-18): Now shows selected models with their providers (filtered by enabled status)
+
+### Changed
+- **Eval Articles Config** (2026-01-02): Updated `config/eval_articles.yaml` with 13 articles for cmdline extractor
+  - Added new articles: Trustwave/LevelBlue, Fortinet Darkcloud, Recorded Future, Elastic RONINGLOADER
+  - Updated expected counts based on actual extraction results
+  - Fixed Trustwave→LevelBlue URL redirect issue (article ID 1474)
+- **Expected Counts** (2026-01-02): Updated Recorded Future article expected count from 0 to 2 (actual: 6 found, but 2 expected after review)
+- **Test Architecture** (2026-01-02): All "Test with Custom ArticleID" buttons now dispatch to worker tasks
+  - Maintains separation: web server handles requests, worker handles LLM processing
+  - Test tasks load prompts from database (same source as UI)
+  - Consistent with production workflow architecture
+- **Prompt Loading** (2026-01-02): Test tasks now use active prompts from database instead of files
+  - Matches exactly what's shown in UI
+  - All test buttons use same prompt source as production
+- **Eval Articles** (2025-12-27): Removed BleepingComputer article from cmdline extractor eval set (reduced from 9 to 8 articles)
+- **Collapsible Panels Refactor** (2025-12-16): Refactored all collapsible panels to use global `initCollapsiblePanels()` system in base.html
+  - Entire panel header is now clickable (not just caret icon)
+  - Added keyboard support (Enter/Space) and proper ARIA attributes for accessibility
+  - Updated panels: articles.html (filters), workflow.html (12 panels), article_detail.html (keyword matches), diags.html (job history), scraper_metrics.html (source performance), hunt_metrics.html (keyword analysis)
+
+### Fixed
+- **Top_P Parameter Handling** (2026-01-07): Fixed Top_P values not being passed correctly to LMStudio
+  - Added explicit float conversion for Top_P values from JSONB config (handles string/number types)
+  - Fixed test functions to read and pass Top_P from config
+  - Fixed Rank Agent test to override top_p_rank after LLMService initialization
+  - Ensured Top_P is always sent as float to LMStudio API payload
+  - Fixed Top_P collection in collectAllAgentConfigs() and form submit handlers
+- **Test Endpoint Refactoring** (2026-01-02): Moved test agent endpoints to Celery worker tasks for proper separation of concerns
+  - Test tasks now run in `cti_workflow_worker` instead of `cti_web` container
+  - Added async task status polling endpoint `/api/workflow/config/test-status/{task_id}`
+  - UI now polls for test results instead of blocking
+- **Prompt Testing Script** (2026-01-02): Added flexible script for testing prompts against LMStudio models
+  - `scripts/test_prompt_with_models.py`: Test prompts with wildcard model selection
+  - Supports single/multiple articles, all eval articles, multiple models
+  - Tab-completable model selection with wildcard support
+  - Results saved to JSON file
+- **Shared Prompt Parsing** (2026-01-02): Added `parse_prompt_from_config()` helper with JSON repair logic
+  - Handles malformed JSON from UI edits
+  - Used by all test tasks for consistency
+- **JSON Parsing** (2026-01-02): Added repair logic for malformed JSON in database prompts
+  - Handles unquoted string values in `user_template` field
+  - Provides clear error messages when repair fails
+- **Eval Workflow Boolean Handling** (2025-12-27): Fixed skip flags (skip_os_detection, skip_rank_agent, skip_sigma_generation) to handle both boolean and string "true"/"false" values from JSONB config_snapshot
+- **Eval Workflow Execution** (2025-12-27): Fixed eval workflows not skipping OS detection due to string boolean values in config_snapshot
+- **Config Snapshot Parsing** (2025-12-27): Added JSONB parsing fallback for config_snapshot when it's not already a dict
+- **Source Configuration Fixes** (2025-12-26): Resolved RSS and web scraping issues for multiple CTI sources
+  - Sekoia.io: Switched to web scraping with proper article discovery
+  - VMRay Blog: RSS URL corrected, quality filters adjusted
+  - Splunk Security Blog: Web scraping configuration updated
+  - Assetnote Research: Switched from broken RSS to web scraping
+  - CrowdStrike Intelligence Blog: Web scraping selectors improved
+  - Corelight Bright Ideas Blog: Atlas framework selectors added
+  - Group-IB Threat Intelligence: RSS URL corrected
+  - Red Canary Blog: RSS quality filters optimized
+- **RSS Parser Enhancements** (2025-12-26): Improved quality filtering for RSS-only sources with configurable word/content limits
+- **Dashboard Metrics** (2025-12-26): Excluded manual source from failing sources metrics to show accurate CTI source health
+- **API Improvements** (2025-12-26): Failing sources API now filters out system-generated manual source
+- **Eval System Fixes** (2025-12-26): Fixed config merge to preserve nested dicts (agent_models, agent_prompts, qa_enabled) when merging config_snapshot
+- **Eval Record Updates** (2025-12-26): Fixed eval records not updating when workflow execution status is already 'completed'
+- **API Endpoint Bug** (2025-12-26): Fixed indentation bug in subagent-eval-results endpoint that caused incorrect result filtering
+- **Model provider dropdowns** (2025-12-18): In workflow configuration now respect Settings selection
+- **Deselected providers** (2025-12-18): In AL/ML Assistant Configuration no longer appear in agent workflow config page
+- **Provider options** (2025-12-18): Are dynamically filtered based on `WORKFLOW_*_ENABLED` settings from `/api/settings`
+- **LMStudio Context Window Commands panel** (2025-12-18): Now hidden when no LMStudio providers are selected in workflow config
+- **LMStudio Context Window Commands panel visibility** (2025-12-18): Now checks for actual model selection (not just provider)
+- **Model dropdowns** (2025-12-18): Now only show models from selected provider (LMStudio dropdowns only contain LMStudio models)
+- **Model fields** (2025-12-18): Are cleared when provider changes to prevent cross-provider model selection
+- **Sub-agent and QA agent model dropdowns** (2025-12-18): Check provider before populating
+- **OS Detection fallback** (2025-12-18): Now persists correctly (only saves when toggle is checked)
+- **LMStudio model selection** (2025-12-18): Fixed being cleared unnecessarily when provider dropdowns refresh
+- **Selected Models display** (2025-12-18): Now filters by QA enabled status (Rank/Extract/SIGMA only show if QA enabled)
+- **LangFuse Session Tracking**: Fixed workflow debug links to properly associate traces with sessions in LangFuse
+  - Corrected trace ID storage: now uses 32-character `trace_id` instead of 16-character span `id`
+  - Added explicit `span.update_trace(session_id=...)` call required for LangFuse 3.x OpenTelemetry integration
+  - Session pages now properly display all workflow traces grouped by execution
+  - Debug buttons now link directly to session view: `sessions/workflow_exec_{execution_id}`
+  - Added comprehensive LangFuse debugging documentation to `DEBUGGING_TOOLS_GUIDE.md` and `WORKFLOW_DATA_FLOW.md`
+- **Articles Page Dark Mode**: Darkened filter panel, dropdowns, article cards, and button bar using CSS variables (`--color-bg-card`, `--color-bg-panel`)
+
+### Changed
+- **Fixed Navigation Bar**: Top navigation bar is now fixed/sticky and remains visible when scrolling down pages.
+
+- **Complete Icon System Redesign**: Replaced all emoji icons with custom SVG icons matching a cohesive design system
+  - **Brand Logo**: H monogram with shield outline and crosshair elements (38px in nav, deep navy background #1a1a2e)
+  - **Navigation Icons**: Created 7 custom icons (Articles, Sources, Analytics, MLOps, Diags, Agents, Settings) at 23px
+  - **Page Title Icons**: All destination pages now use matching 63px icons in page headers
+  - **Design System**: Deep navy backgrounds with purple/white theme (#8B5CF6, #A78BFA, #C4B5FD) for consistent brand identity
+  - **Icon Concepts**: Articles (document with text lines), Sources (hub with connected nodes), Analytics (bar chart with trend), MLOps (neural network), Diags (hexagonal diagnostic frame), Agents (central hub with nodes), Settings (gear with 8 teeth)
+
+### Fixed
+- **Annotation Usage Immutability**: Enforced usage field immutability in `AsyncDatabaseManager.update_annotation()` to prevent modification of annotation usage (train/eval/gold) after creation. Service layer now raises `ValueError` if usage change is attempted, which is converted to 422 HTTP response at API layer.
+
 ### Changed
 - Smoke runner now excludes `ui`/`slow` markers by default and enforces subprocess timeouts without relying on pytest-timeout.
 - Pytest config registers all UI markers and uses function-scoped asyncio loops to prevent teardown loop reuse errors; warnings from pydantic v2 deprecations are silenced in tests.
@@ -589,6 +721,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Navigation UI**: Removed vertical divider borders between navigation items that were overlapping text
 - **SIGMA Generation Quality Restoration**: Fixed deteriorated SIGMA rule generation that was producing malformed rules
   - Reverted uncommitted prompt simplification in `src/prompts/sigma_generation.txt` that removed critical guidance
   - Restored detailed SIGMA Rule Requirements and Rule Guidelines explaining separation of detection vs tags

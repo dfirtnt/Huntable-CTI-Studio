@@ -1,0 +1,57 @@
+# Evaluation Articles for Extractor Subagents
+# Stores full URLs and expected observable counts for each subagent
+# URLs are used instead of article IDs to survive database rehydration
+
+subagents:
+  cmdline:
+    - url: "https://isc.sans.edu/diary/rss/32484"
+      expected_count: 1
+    - url: "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery"
+      expected_count: 2
+    - url: "https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign"
+      expected_count: 3
+    - url: "https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense"
+      expected_count: 5
+    - url: "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one"
+      expected_count: 35
+    - url: "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793"
+      expected_count: 15
+    - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
+      expected_count: 24
+    - url: "https://research.checkpoint.com/2025/under-the-pure-curtain-from-rat-to-builder-to-coder/"
+      expected_count: 5
+    - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
+      expected_count: 7
+    - url: "https://thedfirreport.com/2025/08/05/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira/"
+      expected_count: 8
+    - url: "https://www.recordedfuture.com/blog/september-2025-cve-landscape"
+      expected_count: 2
+    - url: "https://www.elastic.co/security-labs/roningloader"
+      expected_count: 3
+    - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
+      expected_count: 5
+
+  # Placeholder for other subagents (to be populated later)
+  sigextract: []
+  event_ids: []
+  process_lineage:
+    - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
+      expected_count: 2
+    - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
+      expected_count: 3
+    - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
+      expected_count: 7
+    - url: "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/"
+      expected_count: 3
+    - url: "https://thedfirreport.com/2021/05/12/conti-ransomware/"
+      expected_count: 1
+    - url: "https://thedfirreport.com/2021/05/02/trickbot-brief-creds-and-beacons/"
+      expected_count: 1
+    - url: "https://thedfirreport.com/2021/03/29/sodinokibi-aka-revil-ransomware/"
+      expected_count: 0
+    - url: "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/"
+      expected_count: 3
+    - url: "http://127.0.0.1:8001/articles/1523"
+      expected_count: 4
+  registry_keys: []
+

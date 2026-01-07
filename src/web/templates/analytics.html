@@ -1,38 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Analytics - Huntable Detection Studio{% endblock %}
+{% block title %}Analytics - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📊 Analytics Dashboard</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+            <img src="/static/icons/analytics-icon.svg" alt="Analytics" class="w-[63px] h-[63px]" />
+            Analytics Dashboard
+        </h1>
         <p class="text-gray-600 dark:text-gray-400">Comprehensive analytics and metrics for threat intelligence collection and analysis</p>
     </div>
 
     <!-- Analytics Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
-        <!-- ML vs Hunt Comparison -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
-            <div class="flex items-center mb-4">
-                <div class="bg-blue-100 dark:bg-blue-900 p-3 rounded-lg mr-4">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ML vs Hunt Comparison</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Model Performance</p>
-                </div>
-            </div>
-            <p class="text-gray-600 dark:text-gray-300 mb-4">Compare machine learning model performance against hunt scoring system for content classification accuracy and confidence metrics.</p>
-            <a href="/ml-hunt-comparison" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                View Analysis
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-            </a>
-        </div>
 
         <!-- Scraper Metrics -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
