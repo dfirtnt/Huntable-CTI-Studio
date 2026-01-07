@@ -131,6 +131,9 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
         global _active_trace_id
 
         if not is_langfuse_enabled():
+            logger.warning(
+                f"LangFuse not enabled for execution {self.execution_id} - skipping trace creation"
+            )
             return None
 
         try:
@@ -147,16 +150,18 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 session_id = session_id[:200]
             self.session_id = session_id
 
+            # Create a trace-level span with session_id
+            # This creates a top-level trace that shows up in the Sessions view in LangFuse
             from langfuse.types import TraceContext
-
             trace_context = TraceContext(
-                user_id=self.user_id or f"article_{self.article_id}",
                 session_id=session_id,
+                user_id=self.user_id or f"article_{self.article_id}",
             )
 
+            # Get the context manager and enter it
             self._span_cm = self._client.start_as_current_span(
-                name=f"agentic_workflow_execution_{self.execution_id}",
                 trace_context=trace_context,
+                name=f"agentic_workflow_execution_{self.execution_id}",
                 input={
                     "execution_id": self.execution_id,
                     "article_id": self.article_id,
@@ -166,26 +171,33 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                     "execution_id": self.execution_id,
                     "article_id": self.article_id,
                     "workflow_type": "agentic_workflow",
+                    "user_id": self.user_id or f"article_{self.article_id}",
                 },
-                end_on_exit=True,
             )
-
             self._span = self._span_cm.__enter__()
-            # Langfuse Span may expose id or trace_id; prefer id if present
-            span_trace_id = getattr(self._span, "id", None) or getattr(self._span, "trace_id", None)
-            self._trace_id_hash = span_trace_id
+
+            # Explicitly set session_id on the trace using update_trace()
+            # This is required in LangFuse 3.x to properly associate traces with sessions
+            try:
+                self._span.update_trace(session_id=session_id)
+            except Exception as update_error:
+                logger.warning(f"Could not update trace with session_id: {update_error}")
+
+            # Get trace ID (use trace_id, not span id)
+            trace_id_value = getattr(self._span, "trace_id", None) or getattr(self._span, "id", None)
+            self._trace_id_hash = trace_id_value
             _active_trace_id = self._trace_id_hash
             if self._trace_id_hash and self.session_id:
                 _session_trace_cache[self.session_id] = self._trace_id_hash
                 logger.info(
-                    "Langfuse span created: execution=%s trace_id=%s session_id=%s",
+                    "Langfuse trace created: execution=%s trace_id=%s session_id=%s",
                     self.execution_id,
                     self._trace_id_hash,
                     self.session_id,
                 )
             else:
                 logger.warning(
-                    "Langfuse span missing trace_id: execution=%s session_id=%s",
+                    "Langfuse trace missing id: execution=%s session_id=%s",
                     self.execution_id,
                     self.session_id,
                 )
@@ -203,15 +215,23 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
         suppress = False
         generator_error_occurred = False
 
+        # End the trace if it exists
         if self._span_cm is not None:
             try:
-                suppress = bool(self._span_cm.__exit__(exc_type, exc, tb))
+                # Update trace with final status before exiting
+                if exc_type is not None and self._span is not None:
+                    self._span.update(
+                        level="ERROR",
+                        status_message=str(exc) if exc else "Unknown error",
+                    )
+                # Exit the context manager (which will end the trace)
+                self._span_cm.__exit__(exc_type, exc, tb)
             except Exception as exit_error:
-                # Catch ALL exceptions from Langfuse span exit, especially generator errors
+                # Catch ALL exceptions from Langfuse trace exit, especially generator errors
                 message = str(exit_error).lower()
                 if "generator" in message or "didn't stop" in message or "throw" in message:
                     logger.warning(
-                        f"LangFuse span raised generator error on exit: {exit_error}. "
+                        f"LangFuse trace raised generator error on exit: {exit_error}. "
                         "This often occurs when Langfuse is busy or network issues occur. "
                         "Suppressing error to prevent workflow failure."
                     )
@@ -220,19 +240,21 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                     # Don't re-raise - we've handled the generator error
                 else:
                     # For other errors, log but don't suppress (let them propagate)
-                    logger.error(f"Unexpected error exiting LangFuse span: {exit_error}")
+                    logger.error(f"Unexpected error exiting LangFuse trace: {exit_error}")
                     suppress = False
                     # Re-raise non-generator errors
                     raise
 
         if self._client:
             try:
+                # Flush to send pending traces immediately
                 self._client.flush()
                 if self.session_id:
-                    logger.debug(
-                        "LangFuse trace flushed for workflow execution %s (session: %s)",
+                    logger.info(
+                        "LangFuse trace flushed for workflow execution %s (session: %s, trace_id: %s)",
                         self.execution_id,
                         self.session_id,
+                        self._trace_id_hash,
                     )
             except Exception as flush_error:
                 error_msg = str(flush_error).lower()
@@ -459,7 +481,8 @@ def log_llm_completion(
     output: str,
     usage: Optional[Dict[str, int]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    ground_truth: Optional[Any] = None
+    ground_truth: Optional[Any] = None,
+    input_object: Optional[Dict[str, Any]] = None
 ):
     """
     Log LLM completion to LangFuse generation.
@@ -471,6 +494,7 @@ def log_llm_completion(
         usage: Token usage dict with 'prompt_tokens', 'completion_tokens', 'total_tokens'
         metadata: Additional metadata
         ground_truth: Optional expected output value for evaluation
+        input_object: Optional dataset-compatible input object (overrides messages array for dataset creation)
     """
     if not generation:
         return
@@ -487,14 +511,17 @@ def log_llm_completion(
             else:
                 langfuse_messages.append({"role": "user", "content": str(msg)})
         
+        # Use input_object if provided (for dataset compatibility), otherwise use messages
+        langfuse_input = input_object if input_object is not None else langfuse_messages
+        
         # Update generation with completion data
         # Handle usage parameter - LangFuse expects usage_details or individual fields
-        # Set input with messages for proper display in Langfuse UI
+        # Set input with dataset-compatible format if provided, otherwise use messages for UI display
         update_kwargs = {
-            "input": langfuse_messages,  # Set input directly for Langfuse UI display
+            "input": langfuse_input,  # Use dataset-compatible format if provided
             "output": output,
             "model_parameters": {
-                "messages": langfuse_messages
+                "messages": langfuse_messages  # Always include messages in model_parameters for trace viewing
             },
             "metadata": metadata
         }

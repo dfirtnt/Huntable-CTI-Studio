@@ -448,31 +448,35 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Network detection and response (NDR) blog with threat hunting, detection engineering, and threat intelligence research"
 
-  # Sekoia.io Threat Research & Intelligence (RSS-Only)
-  - id: "sekoia_io_blog"
-    name: "Sekoia.io Threat Research & Intelligence"
-    url: "https://blog.sekoia.io/category/threat-research/"
-    rss_url: "https://blog.sekoia.io/category/threat-research/feed/"
-    check_frequency: 1800  # 30 minutes
-    active: true
-    config:
-      allow: ["blog.sekoia.io"]
-      post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
-      robots:
-        enabled: false  # Disable robots.txt checking for RSS-only
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        respect_delay: false
-        max_requests_per_minute: 0  # No web scraping
-        crawl_delay: 0.0
-      min_content_length: 1000  # Lower threshold for RSS content
-      title_filter_keywords: ["newsletter", "subscription", "contact"]
-      rss_only: true  # Force RSS-only collection to bypass anti-bot protection
-      extract:
-        prefer_jsonld: false  # Disable modern scraping
-        title_selectors: []  # No selectors needed for RSS-only
-        date_selectors: []  # No selectors needed for RSS-only
-        body_selectors: []  # No selectors needed for RSS-only
-        author_selectors: []  # No selectors needed for RSS-only
+   # Sekoia.io Threat Research & Intelligence (RSS-Only)
+   - id: "sekoia_io_blog"
+     name: "Sekoia.io Threat Research & Intelligence"
+     url: "https://blog.sekoia.io/category/threat-research/"
+     rss_url: null  # Disable RSS, use web scraping only
+     check_frequency: 1800  # 30 minutes
+     active: true
+     config:
+       allow: ["blog.sekoia.io"]
+       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
+       robots:
+         enabled: true  # Enable robots.txt checking for web scraping
+         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+         respect_delay: true
+         max_requests_per_minute: 10  # Respectful rate limiting
+         crawl_delay: 1.0
+       min_content_length: 100  # Very low threshold for RSS summaries
+       min_word_count: 1       # Very low word count for RSS summaries
+       title_filter_keywords: ["newsletter", "subscription", "contact"]
+       rss_only: true   # Use RSS parsing with lenient filters
+       extract:
+         prefer_jsonld: true  # Enable JSON-LD extraction for WordPress sites
+         title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".entry-title"]
+         date_selectors:
+           - "meta[property='article:published_time']::attr(content)"
+           - "time[datetime]::attr(datetime)"
+           - ".entry-date"
+         body_selectors: [".entry-content", "article", ".post-content", ".content"]
+         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".entry-author"]
     description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering (RSS-only to bypass anti-bot protection)"
 
   # Check Point Research
@@ -682,11 +686,20 @@ sources:
     name: "Red Canary Blog"
     url: "https://redcanary.com/blog/"
     rss_url: "https://redcanary.com/blog/feed/"
-    check_frequency: 1800  # 30 minutes - Tier 1 priority
-    active: false
+    check_frequency: 1800  # 30 minutes
+    active: true
     config:
-      content_selector: "div.blog-content, article"
-      min_content_length: 2000
+      allow: ["redcanary.com"]
+      post_url_regex: ["^https://redcanary\\\\.com/blog/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 2.0
+      min_content_length: 500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
+      rss_only: true
     description: "Detection-focused research with actionable hunting techniques and IOCs"
 
 
@@ -723,7 +736,7 @@ sources:
     url: "https://www.assetnote.io/resources/research/"
     rss_url: "https://www.assetnote.io/resources/research/rss.xml"  # Verified feed
     check_frequency: 1800  # 30 minutes
-    active: false
+    active: true
     config:
       allow: ["www.assetnote.io"]
       post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
@@ -756,8 +769,7 @@ sources:
           ".blog-post-content",
           "main article",
           ".research-content",
-          ".text-rich-text",
-          ".research-notes",
+          ".text-rich-text.research-notes",
           "article",
           "main",
           ".content"
@@ -771,23 +783,24 @@ sources:
     url: "https://www.ncsc.gov.uk/news"
     rss_url: null  # RSS feed not available - web scraping only
     check_frequency: 3600  # 1 hour
-    active: false
+    active: true
     config:
       allow: ["ncsc.gov.uk"]
-      post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|section)/.*"]
+      post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|blog-post|report)/.*"]
       robots:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
-      min_content_length: 2000
+      min_content_length: 500
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
       rss_only: false  # Force web scraping since no RSS
       discovery:
         strategies:
           - sitemap:
               urls: ["https://www.ncsc.gov.uk/sitemap.xml"]
+              url_patterns: ["https://www.ncsc.gov.uk/news/*", "https://www.ncsc.gov.uk/blog-post/*"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]

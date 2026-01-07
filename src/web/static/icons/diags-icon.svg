@@ -1,0 +1,23 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Hexagon frame -->
+    <polygon points="80,30 115,50 115,90 80,110 45,90 45,50" 
+             fill="none" stroke="#8B5CF6" stroke-width="3" opacity="0.6"/>
+    
+    <!-- Inner diagnostic grid -->
+    <rect x="55" y="55" width="50" height="50" fill="none" stroke="#A78BFA" stroke-width="2" opacity="0.4" rx="4"/>
+    
+    <!-- Status indicators -->
+    <circle cx="70" cy="70" r="4" fill="#10b981" opacity="0.9"/>
+    <circle cx="90" cy="70" r="4" fill="#10b981" opacity="0.9"/>
+    <circle cx="70" cy="90" r="4" fill="#f59e0b" opacity="0.9"/>
+    <circle cx="90" cy="90" r="4" fill="#10b981" opacity="0.9"/>
+    
+    <!-- Scan lines -->
+    <line x1="45" y1="70" x2="55" y2="70" stroke="#8B5CF6" stroke-width="2" opacity="0.5"/>
+    <line x1="105" y1="70" x2="115" y2="70" stroke="#8B5CF6" stroke-width="2" opacity="0.5"/>
+    <line x1="80" y1="30" x2="80" y2="55" stroke="#8B5CF6" stroke-width="2" opacity="0.5"/>
+    <line x1="80" y1="105" x2="80" y2="110" stroke="#8B5CF6" stroke-width="2" opacity="0.5"/>
+</svg>

@@ -6,6 +6,7 @@
 .env.development
 .env.test
 *.env
+!.env.example
 secrets/
 credentials/
 api_keys.txt
@@ -240,3 +241,6 @@ scripts/get_full_extract_results.py
 # Monitoring and profiling
 *.prof
 *.pstats
+
+# Workshop (ML training lab - optional feature)
+Workshop/

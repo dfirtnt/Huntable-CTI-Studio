@@ -106,7 +106,7 @@ async function showOptimizationDialog() {
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
         modal.innerHTML = `
             <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">${modelDisplayName} Content Optimization</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">${modelDisplayName} Content Filter</h3>
                 
                 <div class="space-y-4">
                     <div class="flex items-center">

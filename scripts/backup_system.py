@@ -215,18 +215,48 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
         source_path = Path(backup_result["backup_path"])
         dest_path = backup_dir / backup_filename
 
-        if source_path.exists():
-            shutil.move(str(source_path), str(dest_path))
-            backup_filepath = dest_path
+        # Validate backup file exists and is not empty before moving
+        if not source_path.exists():
+            raise RuntimeError(f"Database backup file not found at {source_path}")
+        
+        file_size = source_path.stat().st_size
+        if file_size == 0:
+            # Clean up empty backup file
+            if source_path.exists():
+                source_path.unlink()
+            raise RuntimeError(f"Database backup file is empty at {source_path}")
+        
+        # Verify backup contains valid SQL content
+        try:
+            with open(source_path, 'r') as f:
+                first_line = f.readline().strip()
+                content_sample = f.read(1000)
+            
+            if not (first_line.startswith("-- PostgreSQL database dump") or 
+                    first_line.startswith("--") or
+                    "CREATE" in content_sample or
+                    "COPY" in content_sample or
+                    "INSERT" in content_sample):
+                # Clean up invalid backup file
+                if source_path.exists():
+                    source_path.unlink()
+                raise RuntimeError(f"Database backup file does not contain valid SQL content")
+        except Exception as e:
+            # Clean up on validation error
+            if source_path.exists():
+                source_path.unlink()
+            raise RuntimeError(f"Error validating database backup content: {e}")
 
-            # Also move metadata file if it exists
-            source_metadata = Path(backup_result["metadata_path"])
-            if source_metadata.exists():
-                metadata_filename = backup_filename.replace(".sql", ".json")
-                dest_metadata = backup_dir / metadata_filename
-                shutil.move(str(source_metadata), str(dest_metadata))
-        else:
-            raise RuntimeError(f"Backup file not found at {source_path}")
+        # File has been validated, safe to move
+        shutil.move(str(source_path), str(dest_path))
+        backup_filepath = dest_path
+
+        # Also move metadata file if it exists
+        source_metadata = Path(backup_result["metadata_path"])
+        if source_metadata.exists():
+            metadata_filename = backup_filename.replace(".sql", ".json")
+            dest_metadata = backup_dir / metadata_filename
+            shutil.move(str(source_metadata), str(dest_metadata))
 
         # Get database size for metadata
         stats = get_database_stats()

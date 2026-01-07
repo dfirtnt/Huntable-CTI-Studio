@@ -1,0 +1,20 @@
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle -->
+    <circle cx="80" cy="80" r="70" fill="#1a1a2e" opacity="0.9"/>
+    
+    <!-- Document outline -->
+    <rect x="50" y="40" width="60" height="80" fill="none" stroke="#8B5CF6" stroke-width="3" opacity="0.6" rx="2"/>
+    
+    <!-- Folded corner -->
+    <path d="M 50 40 L 50 60 L 70 60 L 70 40 Z" fill="#A78BFA" opacity="0.3"/>
+    <line x1="50" y1="60" x2="70" y2="40" stroke="#8B5CF6" stroke-width="2" opacity="0.6"/>
+    
+    <!-- Text lines -->
+    <line x1="60" y1="75" x2="95" y2="75" stroke="#A78BFA" stroke-width="2.5" opacity="0.8"/>
+    <line x1="60" y1="85" x2="100" y2="85" stroke="#A78BFA" stroke-width="2.5" opacity="0.8"/>
+    <line x1="60" y1="95" x2="90" y2="95" stroke="#A78BFA" stroke-width="2.5" opacity="0.8"/>
+    <line x1="60" y1="105" x2="95" y2="105" stroke="#C4B5FD" stroke-width="2" opacity="0.6"/>
+    
+    <!-- Highlight/annotation mark -->
+    <rect x="55" y="70" width="3" height="12" fill="#8B5CF6" opacity="0.5" rx="1"/>
+</svg>

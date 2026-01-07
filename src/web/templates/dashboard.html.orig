@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Huntable Detection Studio{% endblock %}
+{% block title %}Dashboard - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="min-h-screen">
@@ -314,7 +314,26 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { enabled: false }
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        displayColors: false,
+                        titleFont: { size: 0 },
+                        callbacks: {
+                            title: function() {
+                                return '';
+                            },
+                            label: function(context) {
+                                return context.parsed.y;
+                            }
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1
+                    }
                 },
                 scales: {
                     x: { grid: { color: '#374151' } },
@@ -341,7 +360,26 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { enabled: false }
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        displayColors: false,
+                        titleFont: { size: 0 },
+                        callbacks: {
+                            title: function() {
+                                return '';
+                            },
+                            label: function(context) {
+                                return context.parsed.y;
+                            }
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1
+                    }
                 },
                 scales: {
                     x: { grid: { color: '#374151' } },

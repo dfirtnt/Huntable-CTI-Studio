@@ -26,7 +26,7 @@ CTI Scraper now supports 6 LLM providers with a performance-optimized fallback c
 
 **Requirements:**
 - macOS with Apple Silicon (M1/M2/M3)
-- Python 3.8+
+- Python 3.11+ (Docker uses 3.11; local MLX setup supports 3.8+)
 
 **Installation:**
 ```bash
@@ -60,7 +60,7 @@ snapshot_download(
 
 **Requirements:**
 - macOS with Apple Silicon
-- Python 3.8+
+- Python 3.11+ (Docker uses 3.11; local llama.cpp setup supports 3.8+)
 
 **Installation:**
 ```bash

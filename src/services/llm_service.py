@@ -160,7 +160,43 @@ class LLMService:
         # Recommended settings for reasoning models (temperature/top_p work well for structured output)
         # Temperature 0.0 for deterministic scoring
         self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        
+        # Per-agent temperature settings (from config, fallback to global)
+        self.temperature_rank = float(
+            config_models.get("RankAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        )
+        self.temperature_extract = float(
+            config_models.get("ExtractAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        )
+        self.temperature_sigma = float(
+            config_models.get("SigmaAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        )
+        
         self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        # Per-agent top_p settings (from config, fallback to global)
+        # Handle both string and numeric values from JSONB
+        rank_top_p_raw = config_models.get("RankAgent_top_p") if config_models else None
+        if rank_top_p_raw is not None:
+            self.top_p_rank = float(rank_top_p_raw)
+        else:
+            self.top_p_rank = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        extract_top_p_raw = config_models.get("ExtractAgent_top_p") if config_models else None
+        if extract_top_p_raw is not None:
+            self.top_p_extract = float(extract_top_p_raw)
+        else:
+            self.top_p_extract = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
+        if sigma_top_p_raw is not None:
+            self.top_p_sigma = float(sigma_top_p_raw)
+        else:
+            self.top_p_sigma = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        # Store config_models for per-subagent top_p lookup
+        self.config_models = config_models if config_models else {}
+        
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         
         model_source = "config" if config_models else "environment"
@@ -169,6 +205,35 @@ class LLMService:
             f"rank={self.provider_rank}, extract={self.provider_extract}, sigma={self.provider_sigma} "
             f"- Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}"
         )
+    
+    def get_top_p_for_agent(self, agent_name: str) -> float:
+        """
+        Get top_p value for a specific agent.
+        
+        Args:
+            agent_name: Agent name (e.g., "CmdlineExtract", "RankAgent", "ExtractAgent")
+            
+        Returns:
+            top_p value for the agent, or global default if not configured
+        """
+        # Check for agent-specific top_p in config
+        top_p_key = f"{agent_name}_top_p"
+        if self.config_models and top_p_key in self.config_models:
+            return float(self.config_models[top_p_key])
+        
+        # Fallback to main agent top_p values
+        if agent_name == "RankAgent":
+            return self.top_p_rank
+        elif agent_name == "ExtractAgent":
+            return self.top_p_extract
+        elif agent_name == "SigmaAgent":
+            return self.top_p_sigma
+        elif agent_name in ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract"]:
+            # Sub-agents fall back to ExtractAgent top_p
+            return self.top_p_extract
+        
+        # Default to global top_p
+        return self.top_p
 
     def _bool_from_setting(self, value: Optional[str], default: bool = False) -> bool:
         if value is None:
@@ -671,14 +736,27 @@ class LLMService:
         resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
 
         if provider == "lmstudio":
+            # Normalize model name for LMStudio
+            # Try to keep full name first (some models like google/gemma-3-12b need the prefix)
+            # If that fails, fall back to removing prefix and date suffix
+            normalized_model = resolved_model
+            if normalized_model:
+                # First, try the model name as-is (some models need the full path)
+                # Only normalize if we get an error (handled in _post_lmstudio_chat)
+                # For now, keep the full name - LMStudio will accept it if the model is loaded with that name
+                # Remove only date suffixes (e.g., "-2507", "-2024") but keep prefixes
+                import re
+                normalized_model = re.sub(r'-\d{4,8}$', '', normalized_model)
+            
             payload = {
-                "model": resolved_model,
+                "model": normalized_model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
             }
             if top_p is not None:
-                payload["top_p"] = top_p
+                payload["top_p"] = float(top_p)  # Ensure it's a float, not string
+                logger.debug(f"LMStudio payload top_p: {payload['top_p']} (type: {type(payload['top_p'])})")
             if seed is not None:
                 payload["seed"] = seed
             return await self._post_lmstudio_chat(
@@ -963,7 +1041,21 @@ class LLMService:
                     f"Attempting LMStudio at {lmstudio_url} with model {model_name} "
                     f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
                 )
-                logger.debug(f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}")
+                logger.debug(f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}, temperature={payload.get('temperature')}, top_p={payload.get('top_p')}")
+                
+                # Log full payload for debugging (truncate long content)
+                if logger.isEnabledFor(logging.DEBUG):
+                    payload_copy = payload.copy()
+                    if 'messages' in payload_copy:
+                        messages_copy = []
+                        for msg in payload_copy['messages']:
+                            msg_copy = msg.copy()
+                            if 'content' in msg_copy and len(msg_copy['content']) > 500:
+                                msg_copy['content'] = msg_copy['content'][:500] + f"... [truncated, total length: {len(msg['content'])}]"
+                            messages_copy.append(msg_copy)
+                        payload_copy['messages'] = messages_copy
+                    logger.debug(f"Full LMStudio request payload: {json.dumps(payload_copy, indent=2)}")
+                
                 try:
                     # Make request
                     request_task = asyncio.create_task(make_request(client, lmstudio_url))
@@ -1014,7 +1106,16 @@ class LLMService:
                         response = await request_task
                     
                     if response.status_code == 200:
-                        return response.json()
+                        result = response.json()
+                        # Log successful response for debugging
+                        logger.info(f"LMStudio response received: status=200, model={result.get('model', 'unknown')}")
+                        if 'choices' in result and len(result['choices']) > 0:
+                            content = result['choices'][0].get('message', {}).get('content', '')
+                            logger.debug(f"LMStudio response content length: {len(content)} chars")
+                            logger.debug(f"LMStudio response content preview: {content[:500]}")
+                        if 'usage' in result:
+                            logger.info(f"LMStudio token usage: {result['usage']}")
+                        return result
                     else:
                         # Extract error message from response
                         error_text = response.text
@@ -1027,13 +1128,46 @@ class LLMService:
                         last_error_detail = f"Status {response.status_code}: {error_message}"
                         logger.error(f"LMStudio at {lmstudio_url} returned {response.status_code}: {error_message}")
                         
-                        # For 400 errors, don't try other URLs - the request is invalid
+                        # For 400 errors, check if it's a model name issue and retry with different format
                         if response.status_code == 400:
+                            error_lower = error_message.lower()
+                            current_model_in_payload = payload.get("model", "")
+                            
+                            # Check if it's a model identifier error - try with/without prefix
+                            if "invalid model identifier" in error_lower or ("model" in error_lower and ("not found" in error_lower or "not loaded" in error_lower)):
+                                # If we have a prefix in model_name but not in payload, try with prefix
+                                if "/" in model_name and "/" not in current_model_in_payload:
+                                    logger.info(f"Retrying with full model name (with prefix): {model_name}")
+                                    payload_retry = payload.copy()
+                                    payload_retry["model"] = model_name
+                                    try:
+                                        response_retry = await make_request(client, lmstudio_url)
+                                        if response_retry.status_code == 200:
+                                            result = response_retry.json()
+                                            logger.info(f"LMStudio accepted model with full name: {model_name}")
+                                            return result
+                                        else:
+                                            logger.warning(f"Retry with full name also failed: {response_retry.status_code}")
+                                    except Exception as retry_exc:
+                                        logger.debug(f"Retry with full model name failed: {retry_exc}")
+                            
                             # Close client before raising
                             try:
                                 await client.aclose()
                             except:
                                 pass
+                            
+                            # Check for common errors that indicate LMStudio isn't ready
+                            if (
+                                "context length" in error_lower
+                                or ("model" in error_lower and "not loaded" in error_lower and "invalid model identifier" not in error_lower)
+                                or "no model" in error_lower
+                            ):
+                                raise RuntimeError(
+                                    f"{failure_context}: LMStudio is not ready. "
+                                    f"Please ensure LMStudio is running and a model is loaded."
+                                )
+                            
                             raise RuntimeError(
                                 f"{failure_context}: Invalid request to LMStudio. "
                                 f"Status {response.status_code}: {error_message}. "
@@ -1332,10 +1466,10 @@ class LLMService:
                     model_name=model_name,
                     messages=converted_messages,
                     max_tokens=max_output_tokens,
-                    temperature=self.temperature,
+                    temperature=self.temperature_rank,
                     timeout=ranking_timeout,
                     failure_context="Failed to rank article",
-                    top_p=self.top_p,
+                    top_p=self.top_p_rank,
                     seed=self.seed
                 )
                 
@@ -1662,10 +1796,10 @@ class LLMService:
                     model_name=model_name,
                     messages=converted_messages,
                     max_tokens=max_output_tokens,
-                    temperature=self.temperature,
+                    temperature=self.temperature_extract,
                     timeout=extraction_timeout,
                     failure_context="Failed to extract behaviors",
-                    top_p=self.top_p,
+                    top_p=self.top_p_extract,
                     seed=self.seed
                 )
                 
@@ -2077,7 +2211,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 model_name=model_name,
                 messages=converted_messages,
                 max_tokens=4000,
-                temperature=self.temperature,
+                temperature=self.temperature_extract,
                 timeout=180.0,
                 failure_context="Failed to extract observables",
                 seed=self.seed,
@@ -2473,7 +2607,10 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         execution_id: Optional[int] = None,
         model_name: Optional[str] = None,
         temperature: float = 0.0,
-        qa_model_override: Optional[str] = None
+        top_p: Optional[float] = None,
+        qa_model_override: Optional[str] = None,
+        use_hybrid_extractor: Optional[bool] = None,
+        provider: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -2486,13 +2623,36 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             prompt_config: Extraction prompt configuration
             qa_prompt_config: QA prompt configuration (optional)
             max_retries: Max QA retries
+            use_hybrid_extractor: If False, skip hybrid extractor and use LLM prompt. 
+                                 If None, use env var USE_HYBRID_CMDLINE_EXTRACTOR (default: True)
+            provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
+                     If None, uses self.provider_extract (from ExtractAgent_provider)
             
         Returns:
             Dict with extraction results
         """
-        logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)})")
+        logger.info(f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)}, provider={provider}, model_name={model_name})")
+        
+        # Validate content is not empty
+        if not content or len(content.strip()) == 0:
+            error_msg = f"Empty content provided to {agent_name}. Cannot run extraction."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        # Validate prompt_config
+        if not prompt_config:
+            error_msg = f"Empty prompt_config provided to {agent_name}. Cannot run extraction."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        logger.debug(f"{agent_name} prompt_config keys: {list(prompt_config.keys())}")
 
-        if agent_name == "CmdlineExtract" and os.getenv("USE_HYBRID_CMDLINE_EXTRACTOR", "true").lower() in {"1", "true", "yes"}:
+        # Determine if hybrid extractor should be used
+        should_use_hybrid = use_hybrid_extractor
+        if should_use_hybrid is None:
+            # Default to env var behavior for backward compatibility
+            should_use_hybrid = os.getenv("USE_HYBRID_CMDLINE_EXTRACTOR", "true").lower() in {"1", "true", "yes"}
+
+        if agent_name == "CmdlineExtract" and should_use_hybrid:
             logger.info("Using hybrid command-line extractor pipeline for CmdlineExtract")
             try:
                 from src.extractors.hybrid_cmdline_extractor import extract_commands
@@ -2511,30 +2671,78 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         last_result = {"items": [], "count": 0}
         
         # Determine model to use
-        # Use provided model_name, or fall back to ExtractAgent model, or default
+        # Priority: 1) provided model_name, 2) prompt_config.model, 3) ExtractAgent model, 4) error
+        if not model_name:
+            # Check if prompt_config has a model field (some prompts store model in config)
+            model_name = prompt_config.get("model")
         if not model_name:
             model_name = self.model_extract
+        if not model_name:
+            raise ValueError(f"No model configured for {agent_name}. Please set {agent_name}_model or ExtractAgent model in workflow config.")
+        
+        logger.info(f"{agent_name} resolved model: {model_name} (from: {'parameter' if model_name == prompt_config.get('model') else 'fallback'})")
         
         while current_try < max_retries:
             current_try += 1
             
             # 1. Run Extraction
             try:
-                # Build prompt
-                task = prompt_config.get("objective", "Extract information.")
-                instructions = prompt_config.get("instructions", "Output valid JSON.")
-                output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
-                json_example = prompt_config.get("json_example")
-                json_example_str = ""
-                if json_example:
-                    json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json.dumps(json_example, indent=2)}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                # Truncate content first
+                truncated_content = self._truncate_content(content, 4000, 1000)
+                logger.info(f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}")
                 
-                # Construct prompt similar to extract_observables
-                user_prompt = f"""Title: {title}
+                # Check if using new template-based format or legacy format
+                user_template = prompt_config.get("user_template")
+                user_prompt = None  # Initialize at the top to avoid UnboundLocalError
+                
+                if user_template:
+                    # New template-based format - use direct substitution
+                    task = prompt_config.get("task", prompt_config.get("objective", "Extract information."))
+                    instructions = prompt_config.get("instructions", "Output valid JSON.")
+                    json_example = prompt_config.get("json_example", "")
+                    
+                    # Format json_example if it's a dict (backward compat)
+                    if isinstance(json_example, dict):
+                        json_example = json.dumps(json_example, indent=2)
+                    elif not json_example:
+                        json_example = "{}"
+                    
+                    # Substitute template placeholders with error handling
+                    try:
+                        user_prompt = user_template.format(
+                            title=title,
+                            url=url,
+                            content=truncated_content,
+                            task=task,
+                            json_example=json_example,
+                            instructions=instructions
+                        )
+                    except KeyError as e:
+                        logger.error(f"{agent_name} template missing placeholder: {e}, falling back to legacy format")
+                        # Fall through to legacy format
+                        user_prompt = None
+                    except Exception as e:
+                        logger.error(f"{agent_name} template substitution error: {e}, falling back to legacy format")
+                        user_prompt = None
+                
+                if not user_prompt:
+                    # Legacy format - build prompt from individual fields (backward compatibility)
+                    task = prompt_config.get("objective", "Extract information.")
+                    instructions = prompt_config.get("instructions", "Output valid JSON.")
+                    output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
+                    json_example = prompt_config.get("json_example")
+                    json_example_str = ""
+                    if json_example:
+                        if isinstance(json_example, dict):
+                            json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json.dumps(json_example, indent=2)}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                        else:
+                            json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                    
+                    user_prompt = f"""Title: {title}
 URL: {url}
 
 Content:
-{self._truncate_content(content, 4000, 1000)}
+{truncated_content}
 
 Task: {task}
 
@@ -2545,6 +2753,8 @@ CRITICAL INSTRUCTIONS: {instructions}
 
 IMPORTANT: Your response must end with a valid JSON object matching the structure above. If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
+                
+                logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:
                     user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
 
@@ -2574,188 +2784,269 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         "messages": messages  # Include messages for input display
                     }
                 ) as generation:
+                    # Use provided provider or fall back to ExtractAgent provider
+                    effective_provider = provider or self.provider_extract
+                    effective_provider = self._canonicalize_provider(effective_provider)
+                    # Use provided top_p or get from agent config
+                    effective_top_p = top_p if top_p is not None else self.get_top_p_for_agent(agent_name)
+                    logger.info(f"{agent_name} extraction attempt {current_try}: using provider={effective_provider}, model={model_name}, temperature={temperature}, top_p={effective_top_p}")
                     response = await self.request_chat(
-                        provider=self.provider_extract,
+                        provider=effective_provider,
                         model_name=model_name,
                         messages=converted_messages,
                         max_tokens=2000,
                         temperature=temperature,
+                        top_p=effective_top_p,
                         timeout=extraction_timeout,
                         failure_context=f"{agent_name} extraction attempt {current_try}",
                         seed=self.seed
                     )
                     
-                # Parse response
-                response_text = response['choices'][0]['message'].get('content', '')
-                # Handle Deepseek reasoning
-                if not response_text:
-                    response_text = response['choices'][0]['message'].get('reasoning_content', '')
-                
-                # Log the actual response for debugging
-                logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
-                
-                # Log completion to Langfuse
-                if generation:
-                    response_text_preview = response_text[:500]
-                    log_llm_completion(
-                        generation=generation,
-                        input_messages=messages,
-                        output=response_text_preview,
-                        usage=response.get('usage', {}),
-                        metadata={"agent_name": agent_name, "attempt": current_try}
-                    )
-                
-                # Extract JSON with multiple strategies and escape sequence fixing
-                last_result = None
-                json_str = None
-                
-                def fix_json_escapes(text: str) -> str:
-                    """Fix common JSON escape sequence issues, especially Windows paths."""
-                    # Strategy: Find all backslashes and check if they're properly escaped
-                    # For Windows paths like C:\ProgramData, we need C:\\ProgramData in JSON
-                    result = []
-                    i = 0
-                    while i < len(text):
-                        if text[i] == '\\':
-                            # Check if this is already part of a valid escape sequence
-                            if i + 1 < len(text):
-                                next_char = text[i + 1]
-                                # Valid escape sequences: \\, \", \/, \b, \f, \n, \r, \t, \uXXXX
-                                if next_char == '\\':
-                                    # Already escaped backslash - keep both characters and skip the next one
-                                    result.append('\\\\')
-                                    i += 2
-                                    continue
-                                elif next_char in ['"', '/', 'b', 'f', 'n', 'r', 't']:
-                                    # Valid escape sequence - keep as is
-                                    result.append(text[i])
-                                    i += 1
-                                    continue
-                                elif next_char == 'u' and i + 5 < len(text):
-                                    # Check if it's a valid unicode escape \uXXXX
-                                    hex_chars = text[i+2:i+6]
-                                    if len(hex_chars) == 4 and all(c in '0123456789abcdefABCDEF' for c in hex_chars):
-                                        # Valid unicode escape - keep all 6 characters
-                                        result.append(text[i:i+6])
-                                        i += 6
+                    # Parse response (moved inside with block so generation is still active)
+                    response_text = response['choices'][0]['message'].get('content', '')
+                    # Handle Deepseek reasoning
+                    if not response_text:
+                        response_text = response['choices'][0]['message'].get('reasoning_content', '')
+                    
+                    # Log the actual response for debugging
+                    logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
+                    logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
+                    logger.debug(f"{agent_name} full response: {response_text}")
+                    
+                    # Log response metadata
+                    if 'usage' in response:
+                        logger.info(f"{agent_name} token usage: {response['usage']}")
+                    
+                    # Extract JSON with multiple strategies and escape sequence fixing
+                    last_result = None
+                    json_str = None
+                    
+                    def fix_json_escapes(text: str) -> str:
+                        """Fix common JSON escape sequence issues, especially Windows paths."""
+                        # Pre-process: Fix patterns where models over-escape quotes
+                        import re
+                        # Fix four backslashes + quote -> escaped quote (\\\\" -> \")
+                        # In the raw text, four backslashes means: backslash + backslash + backslash + backslash
+                        # We want to convert this to: backslash + quote (escaped quote)
+                        text = re.sub(r'\\\\\\\\"', r'\\"', text)
+                        # Fix triple backslash + quote -> escaped quote (\\\" -> \")
+                        text = re.sub(r'\\\\\\"', r'\\"', text)
+                        # Fix \\" patterns that are clearly wrong (two backslashes + quote -> escaped quote)
+                        # This handles cases like: /tn \\"Task-... which should be /tn \"Task-...
+                        # We match \\" (two backslashes + quote) and replace with \" (escaped quote)
+                        # But be careful: we don't want to break Windows paths like C:\\ProgramData
+                        # So we only fix \\" that appears in contexts suggesting quoted text
+                        # Pattern: \\" followed by alphanumeric (opening quote) OR preceded by alphanumeric (closing quote)
+                        # In regex: \\\\" means match two backslashes + quote
+                        text = re.sub(r'\\\\"(?=[A-Za-z0-9])', r'\\"', text)  # Opening quotes: \\"Task -> \"Task
+                        # For closing quotes, use a simpler pattern: match \\" that's not part of a path
+                        # Look for \\" preceded by alphanumeric/dash/underscore and not followed by backslash
+                        text = re.sub(r'([A-Za-z0-9_-])\\\\"(?!\\)', r'\1\\"', text)  # Closing quotes
+                        
+                        # Strategy: Find all backslashes and check if they're properly escaped
+                        # For Windows paths like C:\ProgramData, we need C:\\ProgramData in JSON
+                        result = []
+                        i = 0
+                        while i < len(text):
+                            if text[i] == '\\':
+                                # Check if this is already part of a valid escape sequence
+                                if i + 1 < len(text):
+                                    next_char = text[i + 1]
+                                    # Valid escape sequences: \\, \", \/, \b, \f, \n, \r, \t, \uXXXX
+                                    if next_char == '\\':
+                                        # Already escaped backslash - keep both characters and skip the next one
+                                        result.append('\\\\')
+                                        i += 2
                                         continue
+                                    elif next_char in ['"', '/', 'b', 'f', 'n', 'r', 't']:
+                                        # Valid escape sequence - keep as is
+                                        result.append(text[i])
+                                        i += 1
+                                        continue
+                                    elif next_char == 'u' and i + 5 < len(text):
+                                        # Check if it's a valid unicode escape \uXXXX
+                                        hex_chars = text[i+2:i+6]
+                                        if len(hex_chars) == 4 and all(c in '0123456789abcdefABCDEF' for c in hex_chars):
+                                            # Valid unicode escape - keep all 6 characters
+                                            result.append(text[i:i+6])
+                                            i += 6
+                                            continue
+                                        else:
+                                            # Invalid - looks like \u but not valid, double the backslash
+                                            result.append('\\\\')
+                                            i += 1
+                                            continue
                                     else:
-                                        # Invalid - looks like \u but not valid, double the backslash
+                                        # Invalid escape - double the backslash
                                         result.append('\\\\')
                                         i += 1
                                         continue
                                 else:
-                                    # Invalid escape - double the backslash
+                                    # Backslash at end of string - invalid, double it
                                     result.append('\\\\')
                                     i += 1
                                     continue
                             else:
-                                # Backslash at end of string - invalid, double it
-                                result.append('\\\\')
+                                result.append(text[i])
                                 i += 1
-                                continue
-                        else:
-                            result.append(text[i])
-                            i += 1
-                    return ''.join(result)
-                
-                def try_parse_json(text: str) -> tuple[dict, bool]:
-                    """Try to parse JSON, return (result, success)."""
-                    try:
-                        return json.loads(text), True
-                    except json.JSONDecodeError as e:
-                        # Try fixing escape sequences
+                        return ''.join(result)
+                    
+                    def try_parse_json(text: str) -> tuple[dict, bool]:
+                        """Try to parse JSON, return (result, success)."""
                         try:
-                            fixed = fix_json_escapes(text)
-                            return json.loads(fixed), True
-                        except:
-                            return None, False
-                
-                try:
-                    # Strategy 1: Try to extract from markdown code fences first
-                    import re
-                    code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
-                    if code_fence_match:
-                        json_str = code_fence_match.group(1).strip()
-                        logger.info(f"{agent_name}: Found JSON in markdown code fence")
-                        parsed, success = try_parse_json(json_str)
-                        if success:
-                            last_result = parsed
-                    else:
-                        # Strategy 2: Find JSON object (first { to last })
-                        start = response_text.find('{')
-                        end = response_text.rfind('}')
-                        if start != -1 and end != -1 and end > start:
-                            json_str = response_text[start:end+1]
+                            return json.loads(text), True
+                        except json.JSONDecodeError as e:
+                            # Try fixing escape sequences
+                            try:
+                                fixed = fix_json_escapes(text)
+                                return json.loads(fixed), True
+                            except:
+                                return None, False
+                    
+                    try:
+                        # Strategy 1: Try to extract from markdown code fences first
+                        import re
+                        code_fence_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+                        if code_fence_match:
+                            json_str = code_fence_match.group(1).strip()
+                            logger.info(f"{agent_name}: Found JSON in markdown code fence")
                             parsed, success = try_parse_json(json_str)
                             if success:
                                 last_result = parsed
-                                logger.info(f"{agent_name}: Found JSON object from {start} to {end}")
                         else:
-                            # Strategy 3: Try to find any valid JSON structure
-                            # Look for all potential JSON objects and try the largest one
-                            json_candidates = []
-                            search_pos = 0
-                            while True:
-                                open_pos = response_text.find('{', search_pos)
-                                if open_pos == -1:
-                                    break
+                            # Strategy 2: Find JSON object (first { to last })
+                            start = response_text.find('{')
+                            end = response_text.rfind('}')
+                            if start != -1 and end != -1 and end > start:
+                                json_str = response_text[start:end+1]
+                                parsed, success = try_parse_json(json_str)
+                                if success:
+                                    last_result = parsed
+                                    logger.info(f"{agent_name}: Found JSON object from {start} to {end}")
+                            else:
+                                # Strategy 3: Try to find any valid JSON structure
+                                # Look for all potential JSON objects and try the largest one
+                                json_candidates = []
+                                search_pos = 0
+                                while True:
+                                    open_pos = response_text.find('{', search_pos)
+                                    if open_pos == -1:
+                                        break
+                                    
+                                    brace_count = 0
+                                    json_end = -1
+                                    for i in range(open_pos, len(response_text)):
+                                        if response_text[i] == '{':
+                                            brace_count += 1
+                                        elif response_text[i] == '}':
+                                            brace_count -= 1
+                                            if brace_count == 0:
+                                                json_end = i + 1
+                                                break
+                                    
+                                    if json_end != -1:
+                                        candidate = response_text[open_pos:json_end]
+                                        parsed, success = try_parse_json(candidate)
+                                        if success and parsed:
+                                            # Prefer structures with expected keys (support all extract agent result formats)
+                                            if any(key in parsed for key in ["cmdline_items", "items", "process_lineage", "sigma_queries", "event_ids", "registry_keys", "count"]):
+                                                json_candidates.append((len(candidate), parsed))
+                                    
+                                    search_pos = open_pos + 1
                                 
-                                brace_count = 0
-                                json_end = -1
-                                for i in range(open_pos, len(response_text)):
-                                    if response_text[i] == '{':
-                                        brace_count += 1
-                                    elif response_text[i] == '}':
-                                        brace_count -= 1
-                                        if brace_count == 0:
-                                            json_end = i + 1
-                                            break
-                                
-                                if json_end != -1:
-                                    candidate = response_text[open_pos:json_end]
-                                    parsed, success = try_parse_json(candidate)
-                                    if success and parsed:
-                                        # Prefer structures with expected keys
-                                        if "cmdline_items" in parsed or "items" in parsed or "count" in parsed:
-                                            json_candidates.append((len(candidate), parsed))
-                                
-                                search_pos = open_pos + 1
-                            
-                            if json_candidates:
-                                # Sort by length (largest first) and take the first valid one
-                                json_candidates.sort(key=lambda x: x[0], reverse=True)
-                                last_result = json_candidates[0][1]
-                                logger.info(f"{agent_name}: Found JSON from candidate search")
-                    
-                    if last_result:
-                        logger.info(f"{agent_name} parsed JSON keys: {list(last_result.keys())}")
-                        if "cmdline_items" in last_result:
-                            count = len(last_result.get("cmdline_items", []))
-                            logger.info(f"{agent_name} found {count} cmdline_items")
-                            if count == 0:
-                                logger.warning(f"{agent_name}: cmdline_items array is empty!")
-                        elif "items" in last_result:
-                            count = len(last_result.get("items", []))
-                            logger.info(f"{agent_name} found {count} items (not cmdline_items)")
-                        else:
-                            logger.warning(f"{agent_name}: No cmdline_items or items key found. Keys: {list(last_result.keys())}")
-                    else:
-                        # Fallback if no JSON found
-                        logger.warning(f"{agent_name}: No JSON found in response. Response length: {len(response_text)}")
-                        logger.warning(f"{agent_name}: Response preview: {response_text[:500]}")
-                        last_result = {"items": [], "count": 0, "error": "No JSON found"}
+                                if json_candidates:
+                                    # Sort by length (largest first) and take the first valid one
+                                    json_candidates.sort(key=lambda x: x[0], reverse=True)
+                                    last_result = json_candidates[0][1]
+                                    logger.info(f"{agent_name}: Found JSON from candidate search")
                         
-                except Exception as e:
-                    logger.warning(f"{agent_name}: Exception during JSON parsing: {e}")
-                    logger.warning(f"{agent_name}: JSON string attempted: {json_str[:200] if json_str else 'None'}")
-                    logger.warning(f"{agent_name}: Full response: {response_text[:1000]}")
-                    last_result = {"items": [], "count": 0, "error": f"JSON parse exception: {str(e)}"}
+                        if last_result:
+                            logger.info(f"{agent_name} parsed JSON keys: {list(last_result.keys())}")
+                            # Check for agent-specific result keys
+                            if "cmdline_items" in last_result:
+                                count = len(last_result.get("cmdline_items", []))
+                                logger.info(f"{agent_name} found {count} cmdline_items")
+                                if count == 0:
+                                    logger.warning(f"{agent_name}: cmdline_items array is empty!")
+                            elif "process_lineage" in last_result:
+                                count = len(last_result.get("process_lineage", []))
+                                logger.info(f"{agent_name} found {count} process_lineage items")
+                                # Normalize to 'items' for consistency with frontend
+                                last_result["items"] = last_result.pop("process_lineage")
+                            elif "sigma_queries" in last_result:
+                                count = len(last_result.get("sigma_queries", []))
+                                logger.info(f"{agent_name} found {count} sigma_queries")
+                                last_result["items"] = last_result.pop("sigma_queries")
+                            elif "event_ids" in last_result:
+                                count = len(last_result.get("event_ids", []))
+                                logger.info(f"{agent_name} found {count} event_ids")
+                                last_result["items"] = last_result.pop("event_ids")
+                            elif "registry_keys" in last_result:
+                                count = len(last_result.get("registry_keys", []))
+                                logger.info(f"{agent_name} found {count} registry_keys")
+                                last_result["items"] = last_result.pop("registry_keys")
+                            elif "items" in last_result:
+                                count = len(last_result.get("items", []))
+                                logger.info(f"{agent_name} found {count} items")
+                            else:
+                                logger.warning(f"{agent_name}: No recognized items key found. Keys: {list(last_result.keys())}")
+                        else:
+                            # Fallback if no JSON found
+                            logger.warning(f"{agent_name}: No JSON found in response. Response length: {len(response_text)}")
+                            logger.warning(f"{agent_name}: Response preview: {response_text[:500]}")
+                            last_result = {"items": [], "count": 0, "error": "No JSON found"}
+                            
+                    except Exception as e:
+                        logger.warning(f"{agent_name}: Exception during JSON parsing: {e}")
+                        logger.warning(f"{agent_name}: JSON string attempted: {json_str[:200] if json_str else 'None'}")
+                        logger.warning(f"{agent_name}: Full response: {response_text[:1000]}")
+                        last_result = {"items": [], "count": 0, "error": f"JSON parse exception: {str(e)}"}
                 
-                # Ensure we have a result
-                if not last_result:
-                    last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
-                
+                    # Ensure we have a result
+                    if not last_result:
+                        last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
+
+                    # Log completion to Langfuse with parsed result (inside with block so generation is still active)
+                    if generation:
+                        # Include full result for dataset/eval support - Langfuse needs complete output
+                        # Use the full last_result so datasets can access all extracted items
+                        output_for_langfuse = {
+                            "parsed_items_count": last_result.get("count", len(last_result.get("items", []))),
+                            "has_error": "error" in last_result,
+                        }
+                        # Include all items (not just preview) for dataset/eval support
+                        if "items" in last_result:
+                            output_for_langfuse["items"] = last_result["items"]
+                        if "cmdline_items" in last_result:
+                            output_for_langfuse["cmdline_items"] = last_result["cmdline_items"]
+                        # Include any other result fields that might be useful
+                        for key in ["process_lineage", "sigma_queries", "event_ids", "registry_keys"]:
+                            if key in last_result:
+                                output_for_langfuse[key] = last_result[key]
+                        # Include error if present
+                        if "error" in last_result:
+                            output_for_langfuse["error"] = last_result["error"]
+
+                        # Create dataset-compatible input format
+                        # Schema only allows article_text (additionalProperties: false)
+                        dataset_input = {
+                            "article_text": content[:10000] if len(content) > 10000 else content,  # Truncate for dataset
+                        }
+                        
+                        log_llm_completion(
+                            generation=generation,
+                            input_messages=messages,
+                            output=json.dumps(output_for_langfuse, indent=2),
+                            usage=response.get('usage', {}),
+                            metadata={
+                                "agent_name": agent_name,
+                                "attempt": current_try,
+                                "parsed_result_keys": list(last_result.keys()),
+                                "item_count": output_for_langfuse["parsed_items_count"]
+                            },
+                            input_object=dataset_input  # Use dataset-compatible format
+                        )
+
                 # If no QA config, return immediately
                 if not qa_prompt_config:
                     return last_result
@@ -2777,7 +3068,6 @@ Evaluation Criteria:
 {qa_criteria}
 
 Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")}
-Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string explanation).
 """
                 
                 qa_messages = [
@@ -2825,25 +3115,197 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     )
                 
                 qa_result = {}
-                try:
-                    s = qa_text.find('{')
-                    e = qa_text.rfind('}')
-                    if s != -1 and e != -1:
-                        qa_result = json.loads(qa_text[s:e+1])
-                        logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
-                except Exception as e:
-                    logger.warning(f"{agent_name} QA parse error: {e}")
-                    pass
+                parse_error = None
+                parsing_failed = False
                 
-                status = qa_result.get("status", "pass").lower() # Default to pass if parse fail to avoid loops
+                # Try multiple parsing strategies in order
+                strategies_tried = []
+                
+                try:
+                    # Strategy 1: Find balanced braces (most reliable for nested JSON)
+                    # This handles nested objects correctly by counting braces
+                    start_idx = qa_text.find('{')
+                    if start_idx != -1:
+                        brace_count = 0
+                        end_idx = start_idx
+                        in_string = False
+                        escape_next = False
+                        
+                        for i in range(start_idx, len(qa_text)):
+                            char = qa_text[i]
+                            
+                            if escape_next:
+                                escape_next = False
+                                continue
+                            
+                            if char == '\\':
+                                escape_next = True
+                                continue
+                            
+                            if char == '"' and not escape_next:
+                                in_string = not in_string
+                                continue
+                            
+                            if not in_string:
+                                if char == '{':
+                                    brace_count += 1
+                                elif char == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        end_idx = i
+                                        break
+                        
+                        if brace_count == 0 and end_idx > start_idx:
+                            json_str = qa_text[start_idx:end_idx+1]
+                            qa_result = json.loads(json_str)
+                            logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
+                        else:
+                            strategies_tried.append(f"balanced_braces_unbalanced(count={brace_count})")
+                            raise ValueError(f"Unbalanced braces in JSON (count: {brace_count})")
+                    else:
+                        strategies_tried.append("no_opening_brace")
+                        raise ValueError("No opening brace found")
+                        
+                except (json.JSONDecodeError, ValueError) as e:
+                    # Strategy 2: Try parsing entire text if it looks like JSON
+                    try:
+                        qa_text_stripped = qa_text.strip()
+                        if qa_text_stripped.startswith('{') and qa_text_stripped.endswith('}'):
+                            qa_result = json.loads(qa_text_stripped)
+                            logger.info(f"{agent_name} QA parsed keys (full text): {list(qa_result.keys())}")
+                        else:
+                            strategies_tried.append("full_text_not_json")
+                            raise ValueError("Full text doesn't look like JSON")
+                    except (json.JSONDecodeError, ValueError) as e2:
+                        # Strategy 3: Try extracting JSON from markdown code blocks
+                        try:
+                            import re
+                            # Look for JSON in ```json ... ``` or ``` ... ``` blocks
+                            code_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+                            code_match = re.search(code_block_pattern, qa_text, re.DOTALL)
+                            if code_match:
+                                json_str = code_match.group(1)
+                                qa_result = json.loads(json_str)
+                                logger.info(f"{agent_name} QA parsed keys (code block): {list(qa_result.keys())}")
+                            else:
+                                strategies_tried.append("no_code_block")
+                                raise ValueError("No code block found")
+                        except (json.JSONDecodeError, ValueError) as e3:
+                            # Strategy 4: Try regex to find any JSON-like structure
+                            try:
+                                # More permissive regex that finds JSON objects
+                                json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+                                json_matches = re.findall(json_pattern, qa_text, re.DOTALL)
+                                for match in json_matches:
+                                    try:
+                                        qa_result = json.loads(match)
+                                        if "status" in qa_result or "verdict" in qa_result:
+                                            logger.info(f"{agent_name} QA parsed keys (regex match): {list(qa_result.keys())}")
+                                            break
+                                    except json.JSONDecodeError:
+                                        continue
+                                if not qa_result:
+                                    strategies_tried.append("regex_no_valid_json")
+                                    raise ValueError("No valid JSON found via regex")
+                            except (json.JSONDecodeError, ValueError) as e4:
+                                # Strategy 5: Try finding JSON after common prefixes
+                                try:
+                                    prefixes = ['```json', '```', 'JSON:', 'Response:', 'Output:']
+                                    for prefix in prefixes:
+                                        prefix_idx = qa_text.find(prefix)
+                                        if prefix_idx != -1:
+                                            # Look for JSON after prefix
+                                            after_prefix = qa_text[prefix_idx + len(prefix):].strip()
+                                            start_idx = after_prefix.find('{')
+                                            if start_idx != -1:
+                                                # Try balanced brace extraction on remaining text (simplified, no string handling)
+                                                brace_count = 0
+                                                end_idx = start_idx
+                                                for i in range(start_idx, len(after_prefix)):
+                                                    if after_prefix[i] == '{':
+                                                        brace_count += 1
+                                                    elif after_prefix[i] == '}':
+                                                        brace_count -= 1
+                                                        if brace_count == 0:
+                                                            end_idx = i
+                                                            break
+                                                if brace_count == 0:
+                                                    json_str = after_prefix[start_idx:end_idx+1]
+                                                    qa_result = json.loads(json_str)
+                                                    logger.info(f"{agent_name} QA parsed keys (after prefix '{prefix}'): {list(qa_result.keys())}")
+                                                    break
+                                    if not qa_result:
+                                        strategies_tried.append("prefix_extraction_failed")
+                                        raise ValueError("Could not extract JSON after common prefixes")
+                                except (json.JSONDecodeError, ValueError) as e5:
+                                    # Strategy 6: Last resort - try to find any substring that parses as JSON
+                                    try:
+                                        # Find all potential JSON start positions
+                                        for start_pos in range(len(qa_text)):
+                                            if qa_text[start_pos] == '{':
+                                                # Try to parse from this position with increasing lengths
+                                                for end_pos in range(start_pos + 1, min(start_pos + 5000, len(qa_text) + 1)):
+                                                    try:
+                                                        candidate = qa_text[start_pos:end_pos]
+                                                        test_result = json.loads(candidate)
+                                                        # Validate it has expected QA fields
+                                                        if isinstance(test_result, dict) and ("status" in test_result or "verdict" in test_result or "summary" in test_result):
+                                                            qa_result = test_result
+                                                            logger.info(f"{agent_name} QA parsed keys (brute force): {list(qa_result.keys())}")
+                                                            break
+                                                    except (json.JSONDecodeError, ValueError):
+                                                        continue
+                                                if qa_result:
+                                                    break
+                                        if not qa_result:
+                                            strategies_tried.append("brute_force_failed")
+                                            raise ValueError("Brute force extraction failed")
+                                    except (json.JSONDecodeError, ValueError) as e6:
+                                        # All strategies failed
+                                        parse_error = f"All parsing strategies failed. Tried: {', '.join(strategies_tried)}. Last error: {str(e6)}"
+                                        parsing_failed = True
+                                        logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:500]}. Treating as pass to avoid retry loop.")
+                except Exception as e:
+                    parse_error = f"Unexpected parse error: {e}"
+                    parsing_failed = True
+                    logger.error(f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:500]}. Treating as pass to avoid retry loop.")
+                
+                # Default to pass if parse fail to avoid retry loops, but log as error
+                status = qa_result.get("status", "pass").lower() if not parsing_failed else "pass"
                 # Handle "needs_revision" as fail for retry logic
                 if status == "needs_revision":
                     status = "fail"
                 
+                # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
+                extracted_feedback = ""
+                if qa_result and len(qa_result) > 0:
+                    # Try multiple possible feedback fields
+                    extracted_feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied") or qa_result.get("summary") or ""
+                else:
+                    # QA parsing failed - try to extract feedback from raw text
+                    # Look for common feedback patterns in the raw QA text
+                    if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
+                        # Try to extract a meaningful snippet from the QA text
+                        # Look for sentences that might contain feedback
+                        import re
+                        # Try to find feedback-like content (sentences with "missing", "incorrect", "should", etc.)
+                        feedback_patterns = re.findall(r'[^.!?]*(?:missing|incorrect|wrong|should|must|need|issue|problem)[^.!?]*[.!?]', qa_text, re.IGNORECASE)
+                        if feedback_patterns:
+                            extracted_feedback = " ".join(feedback_patterns[:3])  # Take first 3 feedback sentences
+                        else:
+                            # Fallback: use first 200 chars of QA text as feedback
+                            extracted_feedback = qa_text[:200] if qa_text else ""
+                    else:
+                        extracted_feedback = ""
+                
+                # If still no feedback, use default
+                if not extracted_feedback:
+                    extracted_feedback = "QA failed without feedback."
+                
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
                     # Convert QA result format to match UI expectations
-                    qa_status = qa_result.get("status", "pass").lower()
+                    qa_status = qa_result.get("status", "pass").lower() if qa_result else "fail"
                     # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
                     if qa_status == "needs_revision":
                         verdict = "needs_revision"
@@ -2852,12 +3314,9 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     else:
                         verdict = "needs_revision"
                     
-                    # Extract feedback/summary from various possible fields
-                    feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied") or qa_result.get("summary") or ""
-                    
                     # Build issues list from corrected_commands if available
                     issues = []
-                    if "corrected_commands" in qa_result:
+                    if qa_result and "corrected_commands" in qa_result:
                         corrected = qa_result["corrected_commands"]
                         for removed in corrected.get("removed", []):
                             issues.append({
@@ -2874,20 +3333,28 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     
                     # Always store QA result when QA runs, even if parsing failed
                     if not qa_result or len(qa_result) == 0:
-                        # QA parsing failed, store error result
+                        # QA parsing failed, store error result with diagnostic info
+                        error_description = "QA response parsing failed"
+                        if parse_error:
+                            error_description = f"QA response parsing failed: {parse_error}"
+                        
+                        # Include raw response snippet in feedback for debugging
+                        raw_snippet = qa_text[:500] if qa_text else "No response received"
+                        feedback_with_diagnostic = extracted_feedback or f"QA response could not be parsed. Raw response preview: {raw_snippet}"
+                        
                         last_result["_qa_result"] = {
                             "verdict": "needs_revision",
-                            "summary": "QA evaluation ran but response parsing failed",
+                            "summary": extracted_feedback or "QA evaluation ran but response parsing failed",
                             "status": "fail",
-                            "feedback": "QA response could not be parsed",
-                            "issues": [{"type": "compliance", "description": "QA response parsing failed", "severity": "medium"}]
+                            "feedback": feedback_with_diagnostic,
+                            "issues": [{"type": "compliance", "description": error_description, "severity": "medium"}]
                         }
                     else:
                         last_result["_qa_result"] = {
                             "verdict": verdict,
-                            "summary": feedback,
+                            "summary": extracted_feedback,
                             "status": qa_status,
-                            "feedback": feedback,
+                            "feedback": extracted_feedback,
                             "issues": issues
                         }
                 
@@ -2895,7 +3362,8 @@ Output valid JSON with keys: "status" ("pass" or "fail"), "feedback" (string exp
                     logger.info(f"{agent_name} QA Passed on attempt {current_try}. Returning {len(last_result.get('cmdline_items', last_result.get('items', [])))} items")
                     return last_result
                 else:
-                    feedback = qa_result.get("feedback", "QA failed without feedback.")
+                    # Use the extracted feedback (already extracted above)
+                    feedback = extracted_feedback
                     logger.info(f"{agent_name} QA Failed on attempt {current_try}: {feedback}. Current items: {len(last_result.get('cmdline_items', last_result.get('items', [])))}")
                     # Continue loop
             

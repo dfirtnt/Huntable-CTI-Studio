@@ -555,7 +555,7 @@ async def trigger_stuck_executions(request: Request):
             for execution in pending_executions:
                 try:
                     logger.info(f"Triggering stuck execution {execution.id} for article {execution.article_id}")
-                    result = await run_workflow(execution.article_id, db_session)
+                    result = await run_workflow(execution.article_id, db_session, execution_id=execution.id)
                     
                     results.append({
                         'execution_id': execution.id,
@@ -593,134 +593,10 @@ async def trigger_stuck_executions(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _trigger_via_langgraph_server(article_id: int, execution_id: int, langgraph_server_url: str, thread_id: str) -> bool:
-    """
-    Trigger workflow via LangGraph server API (creates traces).
-    
-    Returns True if successful, False otherwise.
-    """
-    import httpx
-    try:
-        # Get article and config
-        from src.services.workflow_trigger_service import WorkflowTriggerService
-        db_manager = get_db_manager()
-        db_session = db_manager.get_session()
-        
-        try:
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
-            if not article:
-                return False
-            
-            trigger_service = WorkflowTriggerService(db_session)
-            config_obj = trigger_service.get_active_config()
-            config = {
-                'min_hunt_score': config_obj.min_hunt_score if config_obj else 97.0,
-                'ranking_threshold': config_obj.ranking_threshold if config_obj else 6.0,
-                'similarity_threshold': config_obj.similarity_threshold if config_obj else 0.5
-            }
-            
-            # Prepare initial state for LangGraph server
-            # Format matches ExposableWorkflowState - direct input mode
-            initial_state = {
-                "article_id": article_id,
-                "execution_id": execution_id,
-                "input": {
-                    "article_id": article_id,
-                    "min_hunt_score": config['min_hunt_score'],
-                    "ranking_threshold": config['ranking_threshold'],
-                    "similarity_threshold": config['similarity_threshold']
-                },
-                "messages": None,  # Direct input mode, not chat mode
-                "current_step": "junk_filter",
-                "status": "running"
-            }
-            
-            # Call LangGraph server API
-            # LangGraph server requires thread IDs to be UUIDs, not strings
-            import uuid
-            langgraph_thread_id = str(uuid.uuid4())
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                # Format input according to ExposableWorkflowState - use direct input, not nested
-                # The workflow expects article_id, execution_id, etc. at top level
-                workflow_input = {
-                    "article_id": article_id,
-                    "execution_id": execution_id,
-                    "min_hunt_score": config['min_hunt_score'],
-                    "ranking_threshold": config['ranking_threshold'],
-                    "similarity_threshold": config['similarity_threshold'],
-                    "current_step": "junk_filter",
-                    "status": "running"
-                }
-                
-                # LangGraph dev server requires two-step process:
-                # Step 1: POST /threads to create thread
-                # Step 2: POST /threads/{thread_id}/runs to submit workflow run
-                try:
-                    # Step 1: Create thread
-                    create_thread_url = f"{langgraph_server_url}/threads"
-                    create_response = await client.post(
-                        create_thread_url,
-                        json={
-                            "assistant_id": "agentic_workflow"
-                        }
-                    )
-                    
-                    if create_response.status_code not in [200, 201]:
-                        logger.warning(f"Thread creation returned {create_response.status_code}: {create_response.text[:200]}")
-                        return False
-                    
-                    thread_data = create_response.json()
-                    # Extract thread_id from response
-                    if isinstance(thread_data, dict):
-                        langgraph_thread_id = thread_data.get('thread_id') or thread_data.get('id') or langgraph_thread_id
-                    logger.info(f"Created LangGraph thread: {langgraph_thread_id}")
-                    
-                    # Step 2: Submit run to thread
-                    url = f"{langgraph_server_url}/threads/{langgraph_thread_id}/runs"
-                    response = await client.post(
-                        url,
-                        json={
-                            "assistant_id": "agentic_workflow",  # Graph name
-                            "input": workflow_input,  # Direct state, not nested
-                            "stream": False
-                        }
-                    )
-                    
-                    if response.status_code in [200, 201]:
-                        run_data = response.json()
-                        run_id = run_data.get('run_id') if isinstance(run_data, dict) else None
-                        logger.info(f"Workflow triggered via LangGraph server for execution {execution_id}, thread {langgraph_thread_id}, run {run_id}")
-                        return True
-                    else:
-                        logger.warning(f"Run submission returned {response.status_code}: {response.text[:200]}")
-                        return False
-                    
-                except httpx.ConnectError:
-                    logger.warning(f"Cannot connect to LangGraph server at {langgraph_server_url}")
-                    return False
-                except httpx.TimeoutException:
-                    logger.warning(f"Timeout connecting to LangGraph server at {langgraph_server_url}")
-                    return False
-                except Exception as e:
-                    logger.error(f"Error triggering via LangGraph server: {e}")
-                    return False
-        finally:
-            db_session.close()
-            
-    except Exception as e:
-        logger.error(f"Error triggering via LangGraph server: {e}")
-        return False
-
-
 @router.post("/executions/{execution_id}/retry")
-async def retry_workflow_execution(request: Request, execution_id: int, use_langgraph_server: bool = Query(False)):
+async def retry_workflow_execution(request: Request, execution_id: int):
     """
     Retry a failed workflow execution.
-    
-    Args:
-        use_langgraph_server: If True, uses LangGraph server API (creates traces).
-                             If False, uses direct workflow execution with Langfuse tracing (if enabled).
     """
     try:
         import os
@@ -742,47 +618,51 @@ async def retry_workflow_execution(request: Request, execution_id: int, use_lang
             if execution.status not in ['failed', 'completed']:
                 raise HTTPException(status_code=400, detail="Can only retry failed or completed executions")
             
+            # Merge old config_snapshot with current active config to ensure rank_agent_enabled is up-to-date
+            from src.services.workflow_trigger_service import WorkflowTriggerService
+            trigger_service = WorkflowTriggerService(db_session)
+            current_config = trigger_service.get_active_config()
+            
+            # Start with old snapshot (preserves eval flags, thresholds, etc.)
+            new_config_snapshot = execution.config_snapshot.copy() if execution.config_snapshot else {}
+            
+            # Update rank_agent_enabled from current active config (if available)
+            # CRITICAL: Always use current active config value, not the old snapshot value
+            if current_config and hasattr(current_config, 'rank_agent_enabled'):
+                new_config_snapshot['rank_agent_enabled'] = bool(current_config.rank_agent_enabled)
+                logger.info(f"Retry execution {execution_id}: Updated rank_agent_enabled to {new_config_snapshot['rank_agent_enabled']} (was {execution.config_snapshot.get('rank_agent_enabled') if execution.config_snapshot else 'N/A'}) from current active config")
+            elif 'rank_agent_enabled' not in new_config_snapshot:
+                # Fallback: ensure it exists even if not in old snapshot
+                new_config_snapshot['rank_agent_enabled'] = True
+                logger.info(f"Retry execution {execution_id}: Added default rank_agent_enabled=True to config_snapshot (no current config available)")
+            else:
+                # Convert existing value to bool to ensure consistency
+                new_config_snapshot['rank_agent_enabled'] = bool(new_config_snapshot.get('rank_agent_enabled', True))
+                logger.info(f"Retry execution {execution_id}: Preserved rank_agent_enabled={new_config_snapshot['rank_agent_enabled']} from old snapshot (no current config to update from)")
+            
             # Create new execution record
             new_execution = AgenticWorkflowExecutionTable(
                 article_id=execution.article_id,
                 status='pending',
-                config_snapshot=execution.config_snapshot,
+                config_snapshot=new_config_snapshot,
                 retry_count=execution.retry_count + 1
             )
             db_session.add(new_execution)
             db_session.commit()
             db_session.refresh(new_execution)
             
-            # Trigger workflow
-            logger.info(f"Retry requested for execution {execution_id}, use_langgraph_server={use_langgraph_server}")
-            if use_langgraph_server:
-                # "Retry (Trace)" - Use direct execution with Langfuse tracing
-                # This ensures Langfuse traces are always created when using trace mode
-                logger.info(f"Running workflow directly with Langfuse tracing for execution {new_execution.id}")
-                # Don't set status to 'running' here - let run_workflow do it
-                # run_workflow expects to find a 'pending' execution and will set it to 'running'
-                
-                # Run workflow directly (this will create Langfuse traces if enabled)
-                result = await run_workflow(execution.article_id, db_session)
-                
-                return {
-                    "success": True,
-                    "message": f"Retry completed for execution {execution_id} (direct execution with Langfuse tracing)",
-                    "new_execution_id": new_execution.id,
-                    "via_langgraph_server": False,
-                    "via_direct_execution": True,
-                    "workflow_result": result
-                }
-            else:
-                # Regular "Retry" - Use Celery (uses Langfuse if enabled, but async)
-                trigger_agentic_workflow.delay(execution.article_id)
-                
-                return {
-                    "success": True,
-                    "message": f"Retry initiated for execution {execution_id} (via Celery, Langfuse tracing if enabled)",
-                    "new_execution_id": new_execution.id,
-                    "via_langgraph_server": False
-                }
+            # Verify the snapshot was saved correctly
+            logger.info(f"Retry execution {execution_id}: Created new execution {new_execution.id} with rank_agent_enabled={new_config_snapshot.get('rank_agent_enabled')} in snapshot")
+            
+            # Trigger workflow via Celery (uses Langfuse if enabled)
+            logger.info(f"Retry requested for execution {execution_id}")
+            trigger_agentic_workflow.delay(execution.article_id, new_execution.id)
+            
+            return {
+                "success": True,
+                "message": f"Retry initiated for execution {execution_id} (via Celery, Langfuse tracing if enabled)",
+                "new_execution_id": new_execution.id
+            }
         finally:
             db_session.close()
             
@@ -843,6 +723,56 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/executions/cancel-all-running")
+async def cancel_all_running_executions(request: Request):
+    """
+    Cancel all running or pending workflow executions.
+    
+    Marks all executions with status 'running' or 'pending' as failed with a cancellation message.
+    Note: This only marks the executions as cancelled in the database.
+    The actual Celery tasks may continue running until they complete or time out.
+    """
+    try:
+        db_manager = get_db_manager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Find all running or pending executions
+            running_executions = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.status.in_(['running', 'pending'])
+            ).all()
+            
+            if not running_executions:
+                return {
+                    "success": True,
+                    "message": "No running or pending executions found",
+                    "count": 0
+                }
+            
+            count = 0
+            for execution in running_executions:
+                original_status = execution.status
+                execution.status = 'failed'
+                execution.error_message = f"Execution cancelled by user (was {original_status})"
+                execution.completed_at = datetime.utcnow()
+                count += 1
+            
+            db_session.commit()
+            logger.info(f"Cancelled {count} running/pending execution(s) by user")
+            
+            return {
+                "success": True,
+                "message": f"Cancelled {count} execution(s) successfully",
+                "count": count
+            }
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        logger.error(f"Error cancelling all running executions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _get_langfuse_setting(db_session: Session, key: str, env_key: str, default: Optional[str] = None) -> Optional[str]:
     """Get Langfuse setting from database first, then fall back to environment variable.
     
@@ -892,9 +822,6 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             
             if not execution:
                 raise HTTPException(status_code=404, detail="Workflow execution not found")
-            
-            # Get LangGraph server URL from environment or config
-            langgraph_server_url = os.getenv("LANGGRAPH_SERVER_URL", "http://localhost:2024")
             
             # Check if Langfuse is configured (preferred for debugging)
             # Priority: database setting > environment variable > default
@@ -950,36 +877,18 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 session_id
             )
 
-            # Always generate Langfuse trace URL (traces may exist even if keys aren't currently configured)
+            # Always generate Langfuse session URL (sessions provide better workflow overview)
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Prefer direct trace URL when resolved; otherwise fall back to session filter search
-            if resolved_trace_id:
-                if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
-                else:
-                    agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
+            # Generate direct session URL using session_id
+            # Session URLs are more useful for workflows as they show all traces in the execution
+            if langfuse_project_id:
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/sessions/{session_id}"
             else:
-                import json, urllib.parse
-                filters_payload = {
-                    "filters": [
-                        {"key": "sessionId", "value": session_id}
-                    ],
-                    "searchQuery": session_id,
-                    "searchColumns": ["id", "name", "sessionId"],
-                    "orderBy": {
-                        "column": "timestamp",
-                        "order": "DESC"
-                    }
-                }
-                filters = urllib.parse.quote(json.dumps(filters_payload))
-                if langfuse_project_id:
-                    agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?filters={filters}"
-                else:
-                    agent_chat_url = f"{langfuse_host}/traces?filters={filters}"
+                agent_chat_url = f"{langfuse_host}/sessions/{session_id}"
 
-            logger.info(f"🔗 Generated Langfuse trace URL: {agent_chat_url}")
+            logger.info(f"🔗 Generated Langfuse session URL: {agent_chat_url}")
             logger.info(
                 "   Trace ID: %s (lookup=%s, hash=%s), Session ID: %s (execution #%s)",
                 resolved_trace_id,
@@ -991,30 +900,27 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
             if langfuse_public_key:
                 instructions = (
-                    "Opening Langfuse trace for execution #{}.\n"
-                    "Trace ID: {}\n"
+                    "Opening Langfuse session for execution #{}.\n"
                     "Session ID: {}\n"
-                    "Trace ID resolved by searching Langfuse for session_id '{}'."
-                ).format(execution_id, resolved_trace_id or "n/a", session_id, session_id)
+                    "This session contains all traces for this workflow execution."
+                ).format(execution_id, session_id)
             else:
-                # Warn user that Langfuse may not be configured, but still try to open trace
+                # Warn user that Langfuse may not be configured, but still try to open session
                 logger.warning(
                     f"⚠️ Langfuse keys not configured for execution {execution_id}. "
-                    f"Opening trace URL anyway - trace may exist if execution ran with Langfuse enabled. "
+                    f"Opening session URL anyway - session may exist if execution ran with Langfuse enabled. "
                     f"Configure Langfuse in Settings page or set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY in environment."
                 )
                 instructions = (
-                    "Opening Langfuse trace for execution #{}.\n"
-                    "Trace ID: {}\n"
+                    "Opening Langfuse session for execution #{}.\n"
                     "Session ID: {}\n"
-                    "Note: Langfuse keys not configured. Trace will only exist if execution ran with Langfuse tracing enabled. "
+                    "Note: Langfuse keys not configured. Session will only exist if execution ran with Langfuse tracing enabled. "
                     "If you get a 404, search for session_id '{}' in Langfuse UI."
-                ).format(execution_id, trace_id_hash, session_id, session_id)
+                ).format(execution_id, session_id, session_id)
 
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
-                "langgraph_server_url": langgraph_server_url,
                 "agent_chat_url": agent_chat_url,
                 "trace_id": resolved_trace_id,
                 "session_id": session_id,
@@ -1040,13 +946,9 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
 
 @router.post("/articles/{article_id}/trigger")
-async def trigger_workflow_for_article(request: Request, article_id: int, use_langgraph_server: bool = Query(False)):
+async def trigger_workflow_for_article(request: Request, article_id: int):
     """
-    Manually trigger agentic workflow for an article.
-    
-    Args:
-        use_langgraph_server: If True, uses LangGraph server API (creates traces).
-                             If False, uses direct Celery execution (no traces, faster).
+    Manually trigger agentic workflow for an article via Celery.
     """
     try:
         import os
@@ -1056,13 +958,19 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
         db_session = db_manager.get_session()
         
         try:
+            # Ensure we have a clean transaction state
+            try:
+                db_session.rollback()
+            except Exception:
+                pass
+
             trigger_service = WorkflowTriggerService(db_session)
-            
+
             # Check for existing active executions BEFORE triggering
             # Also check for stuck pending executions (older than 5 minutes)
             from datetime import timedelta
             cutoff_time = datetime.utcnow() - timedelta(minutes=5)
-            
+
             existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.article_id == article_id,
                 AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
@@ -1097,60 +1005,11 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
                     AgenticWorkflowExecutionTable.article_id == article_id
                 ).order_by(AgenticWorkflowExecutionTable.created_at.desc()).first()
                 
-                if use_langgraph_server and execution:
-                    langgraph_server_url = os.getenv("LANGGRAPH_SERVER_URL", "http://localhost:2024")
-                    thread_id = f"workflow_exec_{execution.id}"
-                    
-                    # Try LangGraph server API
-                    logger.info(f"Attempting to connect to LangGraph server at {langgraph_server_url}")
-                    success = await _trigger_via_langgraph_server(
-                        article_id,
-                        execution.id,
-                        langgraph_server_url,
-                        thread_id
-                    )
-                    
-                    # Fallback: try localhost if service name failed (for local dev)
-                    if not success and langgraph_server_url != "http://localhost:2024":
-                        logger.info(f"Service name connection failed, trying localhost fallback")
-                        success = await _trigger_via_langgraph_server(
-                            article_id,
-                            execution.id,
-                            "http://localhost:2024",
-                            thread_id
-                        )
-                    
-                    if success:
-                        # Update execution status
-                        execution.status = 'running'
-                        execution.started_at = datetime.utcnow()
-                        execution.current_step = 'junk_filter'
-                        db_session.commit()
-                        
-                        return {
-                            "success": True,
-                            "message": f"Workflow triggered via LangGraph server for article {article_id} (creates traces)",
-                            "execution_id": execution.id,
-                            "article_id": article_id,
-                            "via_langgraph_server": True
-                        }
-                    else:
-                        # Fail with error instead of falling back
-                        execution.status = 'failed'
-                        execution.error_message = f"LangGraph server unavailable at {langgraph_server_url}"
-                        db_session.commit()
-                        
-                        raise HTTPException(
-                            status_code=503,
-                            detail=f"LangGraph server unavailable at {langgraph_server_url}. Make sure the server is running on port 2024."
-                        )
-                
                 return {
                     "success": True,
                     "message": f"Workflow triggered for article {article_id}",
                     "execution_id": execution.id if execution else None,
-                    "article_id": article_id,
-                    "via_langgraph_server": False
+                    "article_id": article_id
                 }
             else:
                 # trigger_workflow returned False - this should not happen if we checked above
@@ -1171,5 +1030,10 @@ async def trigger_workflow_for_article(request: Request, article_id: int, use_la
     except HTTPException:
         raise
     except Exception as e:
+        # Rollback any failed transaction
+        try:
+            db_session.rollback()
+        except Exception:
+            pass
         logger.error(f"Error triggering workflow for article {article_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

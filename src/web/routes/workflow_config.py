@@ -2,6 +2,7 @@
 API routes for agentic workflow configuration management.
 """
 
+import json
 import logging
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request
@@ -25,6 +26,7 @@ class WorkflowConfigResponse(BaseModel):
     ranking_threshold: float
     similarity_threshold: float
     junk_filter_threshold: float
+    auto_trigger_hunt_score_threshold: float
     version: int
     is_active: bool
     description: Optional[str]
@@ -33,6 +35,7 @@ class WorkflowConfigResponse(BaseModel):
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: bool = False
     qa_max_retries: int = 5
+    rank_agent_enabled: bool = True
     created_at: str
     updated_at: str
 
@@ -43,11 +46,13 @@ class WorkflowConfigUpdate(BaseModel):
     ranking_threshold: Optional[float] = Field(None, ge=0.0, le=10.0, description="Must be between 0.0 and 10.0")
     similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
     junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
+    auto_trigger_hunt_score_threshold: Optional[float] = Field(None, ge=0.0, le=100.0, description="RegexHuntScore threshold for auto-triggering workflows (0-100)")
     description: Optional[str] = None
     agent_prompts: Optional[Dict[str, Any]] = None
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: Optional[Dict[str, bool]] = None
     sigma_fallback_enabled: Optional[bool] = False
+    rank_agent_enabled: Optional[bool] = True
     qa_max_retries: Optional[int] = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
 
 
@@ -85,6 +90,7 @@ async def get_workflow_config(request: Request):
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
+                    auto_trigger_hunt_score_threshold=60.0,
                     version=1,
                     is_active=True,
                     description="Default configuration",
@@ -102,12 +108,21 @@ async def get_workflow_config(request: Request):
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             qa_enabled = config.qa_enabled if config.qa_enabled is not None else {}
             
+            # Get auto_trigger_hunt_score_threshold, handling both attribute access and potential None
+            auto_trigger_threshold = 60.0  # default
+            try:
+                if hasattr(config, 'auto_trigger_hunt_score_threshold'):
+                    auto_trigger_threshold = config.auto_trigger_hunt_score_threshold if config.auto_trigger_hunt_score_threshold is not None else 60.0
+            except (AttributeError, TypeError):
+                pass
+            
             return WorkflowConfigResponse(
                 id=config.id,
                 min_hunt_score=config.min_hunt_score,
                 ranking_threshold=config.ranking_threshold,
                 similarity_threshold=config.similarity_threshold,
                 junk_filter_threshold=config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=auto_trigger_threshold,
                 version=config.version,
                 is_active=config.is_active,
                 description=config.description,
@@ -116,6 +131,7 @@ async def get_workflow_config(request: Request):
                 qa_enabled=qa_enabled,
                 sigma_fallback_enabled=config.sigma_fallback_enabled if hasattr(config, 'sigma_fallback_enabled') else False,
                 qa_max_retries=config.qa_max_retries if hasattr(config, 'qa_max_retries') else 5,
+                rank_agent_enabled=config.rank_agent_enabled if hasattr(config, 'rank_agent_enabled') else True,
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat()
             )
@@ -139,9 +155,10 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
             ).first()
-            
+
             if current_config:
                 current_config.is_active = False
+                db_session.flush()  # Ensure old config is deactivated before creating new one
                 new_version = current_config.version + 1
             else:
                 new_version = 1
@@ -150,6 +167,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             ranking_threshold = config_update.ranking_threshold if config_update.ranking_threshold is not None else (current_config.ranking_threshold if current_config else 6.0)
             similarity_threshold = config_update.similarity_threshold if config_update.similarity_threshold is not None else (current_config.similarity_threshold if current_config else 0.5)
             junk_filter_threshold = config_update.junk_filter_threshold if config_update.junk_filter_threshold is not None else (current_config.junk_filter_threshold if current_config else 0.8)
+            auto_trigger_hunt_score_threshold = config_update.auto_trigger_hunt_score_threshold if config_update.auto_trigger_hunt_score_threshold is not None else (current_config.auto_trigger_hunt_score_threshold if current_config and hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0)
             
             if not (0.0 <= ranking_threshold <= 10.0):
                 raise HTTPException(status_code=400, detail=f"Ranking threshold must be between 0.0 and 10.0, got {ranking_threshold}")
@@ -157,6 +175,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 raise HTTPException(status_code=400, detail=f"Similarity threshold must be between 0.0 and 1.0, got {similarity_threshold}")
             if not (0.0 <= junk_filter_threshold <= 1.0):
                 raise HTTPException(status_code=400, detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}")
+            if not (0.0 <= auto_trigger_hunt_score_threshold <= 100.0):
+                raise HTTPException(status_code=400, detail=f"Auto trigger hunt score threshold must be between 0.0 and 100.0, got {auto_trigger_hunt_score_threshold}")
             
             # Create new config version
             sigma_fallback = config_update.sigma_fallback_enabled if config_update.sigma_fallback_enabled is not None else (current_config.sigma_fallback_enabled if current_config and hasattr(current_config, 'sigma_fallback_enabled') else False)
@@ -174,25 +194,125 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     merged_agent_models = current_config.agent_models.copy()
                 else:
                     merged_agent_models = {}
-                # Update with new values from config_update
-                merged_agent_models.update(config_update.agent_models)
-                logger.info(f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None})")
+                # First, identify keys that should be removed (explicitly set to None in update)
+                keys_to_remove = set()
+                if config_update.agent_models:
+                    for key, value in config_update.agent_models.items():
+                        if value is None:
+                            keys_to_remove.add(key)
+                # Update with new values from config_update (excluding None values)
+                for key, value in config_update.agent_models.items():
+                    if value is not None:
+                        merged_agent_models[key] = value
+                # Remove keys that were explicitly set to None
+                for key in keys_to_remove:
+                    if key in merged_agent_models:
+                        del merged_agent_models[key]
+                logger.info(f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})")
             elif current_config:
                 merged_agent_models = current_config.agent_models
             
+            # Determine final values for new config
+            final_min_hunt_score = config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0)
+            final_description = config_update.description or (current_config.description if current_config else "Updated configuration")
+            final_agent_prompts = config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
+            final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
+            final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
+            
+            # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
+            if final_agent_prompts:
+                extraction_agents = ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract", "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA"]
+                for agent_name, prompt_data in final_agent_prompts.items():
+                    if agent_name in extraction_agents and isinstance(prompt_data, dict):
+                        prompt_str = prompt_data.get("prompt")
+                        if prompt_str and isinstance(prompt_str, str):
+                            try:
+                                json.loads(prompt_str)
+                            except json.JSONDecodeError as e:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}"
+                                )
+            
+            # Check if the new config would be identical to the current one
+            if current_config:
+                # Compare all fields
+                
+                configs_identical = (
+                    abs(current_config.min_hunt_score - final_min_hunt_score) < 0.0001 and
+                    abs(current_config.ranking_threshold - ranking_threshold) < 0.0001 and
+                    abs(current_config.similarity_threshold - similarity_threshold) < 0.0001 and
+                    abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001 and
+                    current_config.sigma_fallback_enabled == sigma_fallback and
+                    current_config.qa_max_retries == qa_max_retries and
+                    getattr(current_config, 'rank_agent_enabled', True) == final_rank_agent_enabled
+                )
+                
+                # Deep compare JSONB fields
+                if configs_identical:
+                    # Compare agent_models
+                    current_models = current_config.agent_models or {}
+                    new_models = merged_agent_models or {}
+                    if json.dumps(current_models, sort_keys=True) != json.dumps(new_models, sort_keys=True):
+                        configs_identical = False
+                
+                if configs_identical:
+                    # Compare qa_enabled
+                    current_qa = current_config.qa_enabled or {}
+                    new_qa = final_qa_enabled or {}
+                    if json.dumps(current_qa, sort_keys=True) != json.dumps(new_qa, sort_keys=True):
+                        configs_identical = False
+                
+                if configs_identical:
+                    # Compare agent_prompts
+                    current_prompts = current_config.agent_prompts or {}
+                    new_prompts = final_agent_prompts or {}
+                    if json.dumps(current_prompts, sort_keys=True) != json.dumps(new_prompts, sort_keys=True):
+                        configs_identical = False
+                
+                if configs_identical:
+                    # No changes detected - reactivate current config and return it
+                    current_config.is_active = True
+                    db_session.commit()
+                    db_session.refresh(current_config)
+                    logger.info(f"No changes detected - keeping current config version {current_config.version}")
+                    
+                    return WorkflowConfigResponse(
+                        id=current_config.id,
+                        min_hunt_score=current_config.min_hunt_score,
+                        ranking_threshold=current_config.ranking_threshold,
+                        similarity_threshold=current_config.similarity_threshold,
+                        junk_filter_threshold=current_config.junk_filter_threshold,
+                        auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
+                        version=current_config.version,
+                        is_active=current_config.is_active,
+                        description=current_config.description,
+                        agent_prompts=current_config.agent_prompts,
+                        agent_models=current_config.agent_models,
+                        qa_enabled=current_config.qa_enabled,
+                        sigma_fallback_enabled=current_config.sigma_fallback_enabled,
+                        qa_max_retries=current_config.qa_max_retries,
+                        rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
+                        created_at=current_config.created_at.isoformat(),
+                        updated_at=current_config.updated_at.isoformat()
+                    )
+            
+            # Create new config version (only if changes were detected)
             new_config = AgenticWorkflowConfigTable(
-                min_hunt_score=config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0),
+                min_hunt_score=final_min_hunt_score,
                 ranking_threshold=ranking_threshold,
                 similarity_threshold=similarity_threshold,
                 junk_filter_threshold=junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=auto_trigger_hunt_score_threshold,
                 version=new_version,
                 is_active=True,
-                description=config_update.description or (current_config.description if current_config else "Updated configuration"),
-                agent_prompts=config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None),
+                description=final_description,
+                agent_prompts=final_agent_prompts,
                 agent_models=merged_agent_models,
-                qa_enabled=config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {}),
+                qa_enabled=final_qa_enabled,
                 sigma_fallback_enabled=sigma_fallback,
-                qa_max_retries=qa_max_retries
+                qa_max_retries=qa_max_retries,
+                rank_agent_enabled=final_rank_agent_enabled
             )
             
             db_session.add(new_config)
@@ -207,6 +327,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 ranking_threshold=new_config.ranking_threshold,
                 similarity_threshold=new_config.similarity_threshold,
                 junk_filter_threshold=new_config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=new_config.auto_trigger_hunt_score_threshold if hasattr(new_config, 'auto_trigger_hunt_score_threshold') else 60.0,
                 version=new_config.version,
                 is_active=new_config.is_active,
                 description=new_config.description,
@@ -215,6 +336,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
                 qa_max_retries=new_config.qa_max_retries,
+                rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, 'rank_agent_enabled') else True,
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat()
             )
@@ -256,113 +378,39 @@ async def get_agent_prompts(request: Request):
             extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
             sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
             
-            # Load default prompts from files if not in database
-            from pathlib import Path
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-            
-            default_prompts = {}
-            
-            # ExtractAgent
-            extract_agent_path = prompts_dir / "ExtractAgent"
-            extract_instructions_path = prompts_dir / "ExtractAgentInstructions.txt"
-            if extract_agent_path.exists() and extract_instructions_path.exists():
-                with open(extract_agent_path, 'r') as f:
-                    extract_prompt = f.read()
-                with open(extract_instructions_path, 'r') as f:
-                    extract_instructions = f.read()
-                default_prompts["ExtractAgent"] = {
-                    "prompt": extract_prompt,
-                    "instructions": extract_instructions,
-                    "model": extract_model
-                }
-            
-            # RankAgent
-            rank_prompt_path = prompts_dir / "lmstudio_sigma_ranking.txt"
-            if rank_prompt_path.exists():
-                with open(rank_prompt_path, 'r') as f:
-                    rank_prompt = f.read()
-                default_prompts["RankAgent"] = {
-                    "prompt": rank_prompt,
-                    "instructions": "",
-                    "model": rank_model
-                }
-            
-            # SigmaAgent
-            sigma_prompt_path = prompts_dir / "sigma_generation.txt"
-            if sigma_prompt_path.exists():
-                with open(sigma_prompt_path, 'r') as f:
-                    sigma_prompt = f.read()
-                default_prompts["SigmaAgent"] = {
-                    "prompt": sigma_prompt,
-                    "instructions": "",
-                    "model": sigma_model
-                }
-            
-            # QAAgent
-            qa_agent_path = prompts_dir / "QAAgentCMD"
-            if qa_agent_path.exists():
-                with open(qa_agent_path, 'r') as f:
-                    qa_prompt = f.read()
-                default_prompts["QAAgent"] = {
-                    "prompt": qa_prompt,
-                    "instructions": "",
-                    "model": extract_model  # Use extract model for QA
-                }
+            # IMPORTANT: Only return prompts from database (what workflow actually uses)
+            # The workflow has NO file fallback - it requires prompts to be in the database
+            # Showing file-based prompts in UI would be misleading
 
-            # --- New Sub-Agents ---
+            prompts_dict = {}
+
+            # Sub-agents list for model assignment
             sub_agents = [
-                ("CmdlineExtract", "CmdLineQA"),
-                ("SigExtract", "SigQA"),
-                ("EventCodeExtract", "EventCodeQA"),
-                ("ProcTreeExtract", "ProcTreeQA"),
-                ("RegExtract", "RegQA")
+                "CmdlineExtract", "CmdLineQA",
+                "SigExtract", "SigQA",
+                "EventCodeExtract", "EventCodeQA",
+                "ProcTreeExtract", "ProcTreeQA",
+                "RegExtract", "RegQA"
             ]
-            
-            for agent_name, qa_name in sub_agents:
-                # Load Extraction Agent
-                agent_path = prompts_dir / agent_name
-                if agent_path.exists():
-                    with open(agent_path, 'r') as f:
-                        prompt_content = f.read()
-                    default_prompts[agent_name] = {
-                        "prompt": prompt_content,
-                        "instructions": "", # Instructions are inside the JSON prompt file
-                        "model": extract_model
-                    }
-                
-                # Load QA Agent
-                qa_path = prompts_dir / qa_name
-                if qa_path.exists():
-                     with open(qa_path, 'r') as f:
-                        qa_content = f.read()
-                     default_prompts[qa_name] = {
-                        "prompt": qa_content,
-                        "instructions": "",
-                        "model": extract_model
-                     }
 
-            # Merge database prompts with defaults (database takes precedence)
+            # Only use database prompts (what workflow actually uses)
             if config.agent_prompts:
                 for agent_name, prompt_data in config.agent_prompts.items():
-                    # Preserve model info if not in database prompt data
-                    if agent_name in default_prompts and "model" not in prompt_data:
-                        prompt_data["model"] = default_prompts[agent_name].get("model", default_model)
-                    elif agent_name not in default_prompts:
-                        # Add model info for agents not in defaults
+                    # Add model info if not in database prompt data
+                    if "model" not in prompt_data:
                         if agent_name == "ExtractAgent":
                             prompt_data["model"] = extract_model
                         elif agent_name == "RankAgent":
                             prompt_data["model"] = rank_model
                         elif agent_name == "SigmaAgent":
                             prompt_data["model"] = sigma_model
-                        # Use extract model for sub-agents
-                        elif agent_name in [a for pair in sub_agents for a in pair]:
-                             prompt_data["model"] = extract_model
+                        elif agent_name in sub_agents:
+                            prompt_data["model"] = extract_model
                         else:
                             prompt_data["model"] = default_model
-                    default_prompts[agent_name] = prompt_data
-            
-            return {"prompts": default_prompts}
+                    prompts_dict[agent_name] = prompt_data
+
+            return {"prompts": prompts_dict}
         finally:
             db_session.close()
             
@@ -390,20 +438,31 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             
             # Get existing prompts or create new dict
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
-            
+
             # Get current prompt values for version history
             old_prompt = agent_prompts.get(prompt_update.agent_name, {}).get("prompt", "")
             old_instructions = agent_prompts.get(prompt_update.agent_name, {}).get("instructions", "")
-            
+
             # Deactivate current config
             current_config.is_active = False
+            db_session.flush()  # Ensure old config is deactivated before creating new one
             new_version = current_config.version + 1
             
             # Update or create agent prompt
             if prompt_update.agent_name not in agent_prompts:
                 agent_prompts[prompt_update.agent_name] = {}
             
+            # Validate JSON format for extraction agents
             if prompt_update.prompt is not None:
+                extraction_agents = ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract", "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA"]
+                if prompt_update.agent_name in extraction_agents:
+                    try:
+                        json.loads(prompt_update.prompt)
+                    except json.JSONDecodeError as e:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}"
+                        )
                 agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
             if prompt_update.instructions is not None:
                 agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
@@ -432,10 +491,15 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 AgentPromptVersionTable.agent_name == prompt_update.agent_name
             ).scalar() or 0
             
+            # Always save version history for all agents (same behavior as CmdlineExtract)
+            # Use the new prompt/instructions if provided, otherwise use the old ones
+            version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
+            version_instructions = prompt_update.instructions if prompt_update.instructions is not None else old_instructions
+            
             prompt_version = AgentPromptVersionTable(
                 agent_name=prompt_update.agent_name,
-                prompt=prompt_update.prompt or old_prompt,
-                instructions=prompt_update.instructions if prompt_update.instructions is not None else old_instructions,
+                prompt=version_prompt,
+                instructions=version_instructions,
                 version=max_version + 1,
                 workflow_config_version=new_version,
                 change_description=prompt_update.change_description
@@ -443,6 +507,8 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             
             db_session.add(prompt_version)
             db_session.commit()
+            
+            logger.debug(f"Saved prompt version history for {prompt_update.agent_name}: version={max_version + 1}, workflow_config_version={new_version}")
             db_session.refresh(new_config)
             
             logger.info(f"Updated agent prompt for {prompt_update.agent_name} in config version {new_version}")
@@ -519,9 +585,10 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
+
             # Deactivate current config
             current_config.is_active = False
+            db_session.flush()  # Ensure old config is deactivated before creating new one
             new_version = current_config.version + 1
             
             # Get existing prompts
@@ -605,110 +672,24 @@ class TestSigmaAgentRequest(BaseModel):
 
 @router.post("/config/test-subagent")
 async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
-    """Test a sub-agent extraction on a specific article."""
+    """Test a sub-agent extraction on a specific article (dispatches to worker)."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
+        from src.worker.tasks.test_agents import test_sub_agent_task
         
-        try:
-            # Get article
-            from src.database.models import ArticleTable
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
-            
-            # Get active config
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
-            # Load prompt configs
-            from pathlib import Path
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-            
-            agent_name = test_request.agent_name
-            prompt_path = prompts_dir / agent_name
-            
-            if not prompt_path.exists():
-                raise HTTPException(status_code=404, detail=f"Prompt file not found for {agent_name}")
-            
-            # Load prompt config
-            import json
-            with open(prompt_path, 'r') as f:
-                prompt_config = json.load(f)
-            
-            # Load QA config if exists
-            qa_agent_map = {
-                "CmdlineExtract": "CmdLineQA",
-                "SigExtract": "SigQA",
-                "EventCodeExtract": "EventCodeQA",
-                "ProcTreeExtract": "ProcTreeQA",
-                "RegExtract": "RegQA"
-            }
-            qa_name = qa_agent_map.get(agent_name)
-            qa_prompt_config = None
-            if qa_name:
-                qa_path = prompts_dir / qa_name
-                if qa_path.exists():
-                    with open(qa_path, 'r') as f:
-                        qa_prompt_config = json.load(f)
-            
-            # Initialize LLM service
-            from src.services.llm_service import LLMService
-            agent_models = config.agent_models if config.agent_models else {}
-            llm_service = LLMService(config_models=agent_models)
-            
-            # Apply content filtering if enabled
-            content_to_use = article.content
-            if test_request.use_junk_filter:
-                from src.utils.content_filter import ContentFilter
-                content_filter = ContentFilter()
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=test_request.junk_filter_threshold,
-                    hunt_score=hunt_score,
-                    article_id=article.id
-                )
-                content_to_use = filter_result.filtered_content or article.content
-            
-            # Get model and temperature for this agent
-            model_key = f"{agent_name}_model"
-            temperature_key = f"{agent_name}_temperature"
-            agent_model = agent_models.get(model_key) or agent_models.get("ExtractAgent")
-            agent_temperature = agent_models.get(temperature_key, 0.0)
-            
-            # Run extraction agent
-            result = await llm_service.run_extraction_agent(
-                agent_name=agent_name,
-                content=content_to_use,
-                title=article.title,
-                url=article.canonical_url or "",
-                prompt_config=prompt_config,
-                qa_prompt_config=None,  # Ignore QA for test endpoint
-                max_retries=1,          # Single attempt for testing
-                execution_id=None,
-                model_name=agent_model,
-                temperature=float(agent_temperature),
-                qa_model_override=None
-            )
-            
-            return {
-                "success": True,
-                "agent_name": agent_name,
-                "article_id": test_request.article_id,
-                "article_title": article.title,
-                "qa_enabled": False,
-                "result": result
-            }
-            
-        finally:
-            db_session.close()
+        # Dispatch task to worker
+        task = test_sub_agent_task.delay(
+            agent_name=test_request.agent_name,
+            article_id=test_request.article_id,
+            use_junk_filter=test_request.use_junk_filter,
+            junk_filter_threshold=test_request.junk_filter_threshold
+        )
+        
+        return {
+            "success": True,
+            "task_id": task.id,
+            "status": "pending",
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+        }
             
     except HTTPException:
         raise
@@ -788,73 +769,199 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             raise HTTPException(status_code=500, detail=error_detail)
 
 
-@router.post("/config/test-sigmaagent")
-async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
-    """Test SIGMA generation agent on a specific article."""
+@router.post("/config/prompts/bootstrap")
+async def bootstrap_prompts_from_files(request: Request):
+    """Bootstrap agent prompts from flat files into database (one-time initialization)."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
         try:
-            from src.database.models import ArticleTable
-
-            # Get article
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
-
-            # Get active config
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
+            current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
             ).first()
 
-            if not config:
+            if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
 
-            # Apply content filtering if enabled
-            content_to_use = article.content
-            if test_request.use_junk_filter:
-                from src.utils.content_filter import ContentFilter
+            # Load prompts from files
+            from pathlib import Path
+            import os
+            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
-                content_filter = ContentFilter()
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=test_request.junk_filter_threshold,
-                    hunt_score=hunt_score,
-                    article_id=article.id
-                )
-                content_to_use = filter_result.filtered_content or article.content
+            default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+            rank_model_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+            extract_model_env = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
+            sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
 
-            agent_models = config.agent_models if config.agent_models else {}
-            sigma_service = SigmaGenerationService(config_models=agent_models)
+            agent_models = current_config.agent_models if current_config.agent_models is not None else {}
+            rank_model = agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
+            sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
 
-            source_name = article.source.name if article.source else "Unknown Source"
-            article_url = article.canonical_url or "N/A"
+            loaded_prompts = {}
 
-            sigma_result = await sigma_service.generate_sigma_rules(
-                article_title=article.title,
-                article_content=content_to_use,
-                source_name=source_name,
-                url=article_url,
-                ai_model="lmstudio",
-                article_id=article.id,
-                min_confidence=test_request.junk_filter_threshold,
-                max_attempts=test_request.max_attempts
+            # RankAgent
+            rank_prompt_path = prompts_dir / "lmstudio_sigma_ranking.txt"
+            if rank_prompt_path.exists():
+                with open(rank_prompt_path, 'r') as f:
+                    loaded_prompts["RankAgent"] = {
+                        "prompt": f.read(),
+                        "instructions": ""
+                    }
+
+            # SigmaAgent
+            sigma_prompt_path = prompts_dir / "sigma_generation.txt"
+            if sigma_prompt_path.exists():
+                with open(sigma_prompt_path, 'r') as f:
+                    loaded_prompts["SigmaAgent"] = {
+                        "prompt": f.read(),
+                        "instructions": ""
+                    }
+
+            # QAAgent
+            qa_agent_path = prompts_dir / "QAAgentCMD"
+            if qa_agent_path.exists():
+                with open(qa_agent_path, 'r') as f:
+                    loaded_prompts["QAAgent"] = {
+                        "prompt": f.read(),
+                        "instructions": ""
+                    }
+
+            # Sub-Agents
+            sub_agents = [
+                ("CmdlineExtract", "CmdLineQA"),
+                ("SigExtract", "SigQA"),
+                ("EventCodeExtract", "EventCodeQA"),
+                ("ProcTreeExtract", "ProcTreeQA"),
+                ("RegExtract", "RegQA")
+            ]
+
+            for agent_name, qa_name in sub_agents:
+                # Load Extraction Agent
+                agent_path = prompts_dir / agent_name
+                if agent_path.exists():
+                    with open(agent_path, 'r') as f:
+                        loaded_prompts[agent_name] = {
+                            "prompt": f.read(),
+                            "instructions": ""
+                        }
+
+                # Load QA Agent
+                qa_path = prompts_dir / qa_name
+                if qa_path.exists():
+                    with open(qa_path, 'r') as f:
+                        loaded_prompts[qa_name] = {
+                            "prompt": f.read(),
+                            "instructions": ""
+                        }
+
+            if not loaded_prompts:
+                raise HTTPException(status_code=404, detail="No prompt files found to bootstrap from")
+
+            # Deactivate current config
+            current_config.is_active = False
+            db_session.flush()
+            new_version = current_config.version + 1
+
+            # Create new config with bootstrapped prompts
+            new_config = AgenticWorkflowConfigTable(
+                min_hunt_score=current_config.min_hunt_score,
+                ranking_threshold=current_config.ranking_threshold,
+                similarity_threshold=current_config.similarity_threshold,
+                junk_filter_threshold=current_config.junk_filter_threshold,
+                version=new_version,
+                is_active=True,
+                description="Bootstrapped prompts from files",
+                agent_prompts=loaded_prompts,
+                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
+                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
+
+            db_session.add(new_config)
+            db_session.commit()
+            db_session.refresh(new_config)
+
+            logger.info(f"Bootstrapped {len(loaded_prompts)} prompts from files into config version {new_version}")
 
             return {
                 "success": True,
-                "agent_name": "SigmaAgent",
-                "article_id": test_request.article_id,
-                "article_title": article.title,
-                "qa_enabled": False,
-                "result": sigma_result
+                "message": f"Successfully bootstrapped {len(loaded_prompts)} agent prompts from files",
+                "version": new_version,
+                "prompts_loaded": list(loaded_prompts.keys())
             }
         finally:
             db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error bootstrapping prompts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/test-status/{task_id}")
+async def get_test_status(request: Request, task_id: str):
+    """Get the status and result of a test task."""
+    try:
+        from celery.result import AsyncResult
+        from src.worker.celery_app import celery_app
+        
+        task_result = AsyncResult(task_id, app=celery_app)
+        
+        if task_result.ready():
+            if task_result.successful():
+                result = task_result.result
+                return {
+                    "success": True,
+                    "task_id": task_id,
+                    "status": "completed",
+                    "result": result
+                }
+            else:
+                # Task failed
+                error = str(task_result.result) if task_result.result else "Unknown error"
+                return {
+                    "success": False,
+                    "task_id": task_id,
+                    "status": "failed",
+                    "error": error
+                }
+        else:
+            # Task still running
+            return {
+                "success": True,
+                "task_id": task_id,
+                "status": "pending",
+                "message": "Test is still running in worker"
+            }
+    except Exception as e:
+        logger.error(f"Error checking test status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/test-sigmaagent")
+async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
+    """Test SIGMA generation agent on a specific article (dispatches to worker)."""
+    try:
+        from src.worker.tasks.test_agents import test_sigma_agent_task
+        
+        # Dispatch task to worker
+        task = test_sigma_agent_task.delay(
+            article_id=test_request.article_id,
+            use_junk_filter=test_request.use_junk_filter,
+            junk_filter_threshold=test_request.junk_filter_threshold,
+            max_attempts=test_request.max_attempts
+        )
+        
+        return {
+            "success": True,
+            "task_id": task.id,
+            "status": "pending",
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+        }
 
     except HTTPException:
         raise
@@ -886,100 +993,23 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
 
 @router.post("/config/test-rankagent")
 async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
-    """Test Rank Agent on a specific article."""
+    """Test Rank Agent on a specific article (dispatches to worker)."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
+        from src.worker.tasks.test_agents import test_rank_agent_task
         
-        try:
-            # Get article
-            from src.database.models import ArticleTable
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == test_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail=f"Article {test_request.article_id} not found")
-            
-            # Get active config
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
-            # Initialize LLM service
-            from src.services.llm_service import LLMService
-            agent_models = config.agent_models if config.agent_models else {}
-            logger.info(f"Testing Rank Agent with config agent_models: {agent_models}")
-            rank_model = agent_models.get("RankAgent")
-            if not rank_model:
-                raise HTTPException(status_code=400, detail="RankAgent model not configured. Please set it in the workflow configuration.")
-            logger.info(f"Using RankAgent model: {rank_model}")
-            llm_service = LLMService(config_models=agent_models)
-            
-            # Apply content filtering if enabled
-            content_to_use = article.content
-            if test_request.use_junk_filter:
-                from src.utils.content_filter import ContentFilter
-                content_filter = ContentFilter()
-                hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-                filter_result = content_filter.filter_content(
-                    article.content,
-                    min_confidence=test_request.junk_filter_threshold,
-                    hunt_score=hunt_score,
-                    article_id=article.id
-                )
-                content_to_use = filter_result.filtered_content or article.content
-            
-            # Get source name
-            source_name = article.source.name if article.source else "Unknown"
-
-            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
-            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
-            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
-            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
-            
-            # Get prompt from config only (no file fallback)
-            if not config.agent_prompts or "RankAgent" not in config.agent_prompts:
-                raise HTTPException(
-                    status_code=400,
-                    detail="RankAgent prompt not found in workflow config. Please configure it in the workflow settings."
-                )
-            
-            rank_prompt_data = config.agent_prompts["RankAgent"]
-            if not isinstance(rank_prompt_data.get("prompt"), str):
-                raise HTTPException(
-                    status_code=400,
-                    detail="RankAgent prompt in config is not a string. Please check the workflow configuration."
-                )
-            
-            rank_prompt_template = rank_prompt_data["prompt"]
-            logger.info(f"Using RankAgent prompt from config (length: {len(rank_prompt_template)} chars)")
-            
-            # Run ranking
-            ranking_result = await llm_service.rank_article(
-                title=article.title,
-                content=content_to_use,
-                source=source_name,
-                url=article.canonical_url or "",
-                prompt_template=rank_prompt_template,
-                execution_id=None,
-                article_id=test_request.article_id,
-                ground_truth_rank=ground_truth_rank,
-                ground_truth_details=ground_truth_details
-            )
-            
-            return {
-                "success": True,
-                "agent_name": "RankAgent",
-                "article_id": test_request.article_id,
-                "article_title": article.title,
-                "result": ranking_result
-            }
-            
-        finally:
-            db_session.close()
+        # Dispatch task to worker
+        task = test_rank_agent_task.delay(
+            article_id=test_request.article_id,
+            use_junk_filter=test_request.use_junk_filter,
+            junk_filter_threshold=test_request.junk_filter_threshold
+        )
+        
+        return {
+            "success": True,
+            "task_id": task.id,
+            "status": "pending",
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+        }
             
     except HTTPException:
         raise

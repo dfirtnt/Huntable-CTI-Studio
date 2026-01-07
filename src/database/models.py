@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric, ARRAY
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, ForeignKey, JSON, Numeric, ARRAY, Enum, text, event, inspect
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
@@ -141,6 +141,13 @@ class ArticleAnnotationTable(Base):
     
     # Training tracking
     used_for_training = Column(Boolean, nullable=False, default=False)
+    usage = Column(
+        Enum("train", "eval", "gold", name="annotation_usage"),
+        nullable=False,
+        server_default=text("'train'"),
+        default="train",
+        index=True,
+    )
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
@@ -151,6 +158,16 @@ class ArticleAnnotationTable(Base):
     
     def __repr__(self):
         return f"<ArticleAnnotation(id={self.id}, type='{self.annotation_type}', text='{self.selected_text[:50]}...')>"
+
+
+@event.listens_for(ArticleAnnotationTable, "before_update", propagate=True)
+def _prevent_annotation_usage_change(mapper, connection, target):
+    hist = inspect(target).attrs.usage.history
+    if hist.has_changes():
+        added = hist.added[0] if hist.added else None
+        deleted = hist.deleted[0] if hist.deleted else None
+        if added is not None and deleted is not None and added != deleted:
+            raise ValueError("Annotation usage cannot be modified once set.")
 
 
 class ContentHashTable(Base):
@@ -446,6 +463,7 @@ class AgenticWorkflowConfigTable(Base):
     ranking_threshold = Column(Float, nullable=False, default=6.0)
     similarity_threshold = Column(Float, nullable=False, default=0.5)
     junk_filter_threshold = Column(Float, nullable=False, default=0.8)  # min_confidence for junk filter (0.0-1.0)
+    auto_trigger_hunt_score_threshold = Column(Float, nullable=False, default=60.0)  # RegexHuntScore threshold for auto-triggering workflows
     
     # Versioning and audit
     version = Column(Integer, nullable=False, default=1)
@@ -466,6 +484,10 @@ class AgenticWorkflowConfigTable(Base):
     # SIGMA Agent fallback: if True, use filtered_content when extraction_result has no huntables
     # Default False (no fallback - SIGMA only generates from extracted observables)
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
+    
+    # Rank Agent enabled: if False, skip ranking step and proceed directly to extraction
+    # Default True (rank agent is enabled by default)
+    rank_agent_enabled = Column(Boolean, nullable=False, default=True)
     
     # QA Agent max retries: Maximum number of times QA Agent will give feedback to counterpart agent
     qa_max_retries = Column(Integer, nullable=False, default=5)
@@ -612,3 +634,156 @@ class AgentEvaluationTable(Base):
     
     def __repr__(self):
         return f"<AgentEvaluation(id={self.id}, agent_name='{self.agent_name}', evaluation_type='{self.evaluation_type}')>"
+
+
+class ObservableModelMetricsTable(Base):
+    """Database table for observable extraction model metrics (eval and gold)."""
+    
+    __tablename__ = 'observable_model_metrics'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    model_name = Column(String(255), nullable=False, index=True)
+    model_version = Column(String(255), nullable=False, index=True)
+    observable_type = Column(String(50), nullable=False, index=True)
+    dataset_usage = Column(Enum("eval", "gold", name="dataset_usage"), nullable=False, index=True)
+    metric_name = Column(String(100), nullable=False, index=True)
+    metric_value = Column(Float, nullable=False)
+    sample_count = Column(Integer, nullable=False)
+    computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    # Composite index for efficient queries
+    __table_args__ = (
+        {'postgresql_partition_by': 'RANGE (computed_at)'} if False else None,  # Placeholder for future partitioning
+    )
+    
+    def __repr__(self):
+        return f"<ObservableModelMetrics(id={self.id}, model='{self.model_name}', version='{self.model_version}', type='{self.observable_type}', usage='{self.dataset_usage}', metric='{self.metric_name}')>"
+
+
+class ObservableEvaluationFailureTable(Base):
+    """Database table for storing failure taxonomy per article during gold evaluation."""
+    
+    __tablename__ = 'observable_evaluation_failures'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    model_name = Column(String(255), nullable=False, index=True)
+    model_version = Column(String(255), nullable=False, index=True)
+    observable_type = Column(String(50), nullable=False, index=True)
+    article_id = Column(Integer, ForeignKey('articles.id'), nullable=False, index=True)
+    
+    # Failure categories
+    failure_type = Column(String(50), nullable=False, index=True)  # merged_commands, truncated_span, argument_hallucination, context_bleed, etc.
+    failure_count = Column(Integer, nullable=False, default=0)
+    failure_details = Column(JSON, nullable=True)  # Store specific examples, spans, etc.
+    
+    # Article-level flags
+    zero_fp_pass = Column(Boolean, nullable=False, default=True)  # True if article passed zero-FP check
+    total_predictions = Column(Integer, nullable=False, default=0)
+    total_gold_spans = Column(Integer, nullable=False, default=0)
+    
+    computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="observable_evaluation_failures")
+    
+    def __repr__(self):
+        return f"<ObservableEvaluationFailure(id={self.id}, model='{self.model_name}', version='{self.model_version}', article_id={self.article_id}, failure_type='{self.failure_type}')>"
+
+
+class SubagentEvaluationTable(Base):
+    """Database table for storing subagent evaluation results."""
+    
+    __tablename__ = 'subagent_evaluations'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    subagent_name = Column(String(50), nullable=False, index=True)  # cmdline, sigextract, event_ids, etc.
+    article_url = Column(Text, nullable=False, index=True)  # Full URL (not just ID) to survive rehydration
+    article_id = Column(Integer, ForeignKey('articles.id'), nullable=True, index=True)  # Resolved article ID if found
+    
+    # Expected vs actual counts
+    expected_count = Column(Integer, nullable=False)
+    actual_count = Column(Integer, nullable=True)  # Extracted from workflow execution result
+    score = Column(Integer, nullable=True)  # actual_count - expected_count (0 = perfect, negative = under, positive = over)
+    
+    # Workflow execution and config tracking
+    workflow_execution_id = Column(Integer, ForeignKey('agentic_workflow_executions.id'), nullable=True, index=True)
+    workflow_config_id = Column(Integer, ForeignKey('agentic_workflow_config.id'), nullable=True, index=True)
+    workflow_config_version = Column(Integer, nullable=True)
+    
+    # Status tracking
+    status = Column(String(20), nullable=False, default='pending', index=True)  # pending, completed, failed
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    article = relationship("ArticleTable", backref="subagent_evaluations")
+    workflow_execution = relationship("AgenticWorkflowExecutionTable", backref="subagent_evaluations")
+    workflow_config = relationship("AgenticWorkflowConfigTable", backref="subagent_evaluations")
+    
+    def __repr__(self):
+        return f"<SubagentEvaluation(id={self.id}, subagent='{self.subagent_name}', url='{self.article_url[:50]}...', score={self.score})>"
+
+
+class EvalPresetSnapshotTable(Base):
+    """Database table for immutable preset snapshots used in evaluation."""
+    
+    __tablename__ = 'eval_preset_snapshots'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    original_preset_id = Column(Integer, ForeignKey('agentic_workflow_config.id'), nullable=False, index=True)
+    original_preset_version = Column(Integer, nullable=False)
+    
+    # Full snapshot (immutable)
+    snapshot_data = Column(JSONB, nullable=False)  # Complete config + resolved prompts
+    
+    # Snapshot hash for deduplication and auditability
+    # SHA-256 hash of canonicalized snapshot_data JSON
+    snapshot_hash = Column(Text, unique=True, nullable=False, index=True)
+    
+    # Metadata
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    created_by = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    
+    def __repr__(self):
+        return f"<EvalPresetSnapshot(id={self.id}, original_preset_id={self.original_preset_id}, version={self.original_preset_version})>"
+
+
+class EvalRunTable(Base):
+    """Database table for tracking evaluation runs."""
+    
+    __tablename__ = 'eval_runs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    preset_snapshot_id = Column(UUID(as_uuid=True), ForeignKey('eval_preset_snapshots.id'), nullable=False, index=True)
+    dataset_name = Column(String(255), nullable=False, index=True)
+    
+    # Progress tracking
+    status = Column(String(50), nullable=False, default='queued', index=True)  # queued → running → completed/failed
+    completed_items = Column(Integer, nullable=False, default=0)
+    total_items = Column(Integer, nullable=False, default=0)  # Set immediately after dataset load
+    
+    # Langfuse references
+    langfuse_experiment_id = Column(String(255), nullable=True)
+    langfuse_experiment_name = Column(String(500), nullable=True)
+    
+    # Results (aggregated)
+    accuracy = Column(Float, nullable=True)
+    mean_count_diff = Column(Float, nullable=True)
+    passed = Column(Boolean, nullable=True)  # accuracy == 1.0
+    
+    # Error handling
+    error_message = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    preset_snapshot = relationship("EvalPresetSnapshotTable", backref="eval_runs")
+    
+    def __repr__(self):
+        return f"<EvalRun(id={self.id}, status='{self.status}', completed_items={self.completed_items}/{self.total_items})>"

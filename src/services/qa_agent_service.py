@@ -126,6 +126,7 @@ Please provide your evaluation in the following JSON format:
             # Override model if QA-specific model configured
             qa_model_override = None
             qa_temperature = 0.1  # Default temperature
+            qa_top_p = 0.9  # Default top_p
             if config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
                 qa_model_override = config_obj.agent_models.get(agent_name)
                 if not qa_model_override:
@@ -138,6 +139,14 @@ Please provide your evaluation in the following JSON format:
                 elif agent_name == "RankAgent":
                     # Special case for RankAgent - check RankAgentQA_temperature
                     qa_temperature = float(config_obj.agent_models.get("RankAgentQA_temperature", 0.1))
+                
+                # Get QA top_p from config (e.g., RankAgentQA_top_p, CmdLineQA_top_p)
+                qa_top_p_key = f"{agent_name}QA_top_p"
+                if qa_top_p_key in config_obj.agent_models:
+                    qa_top_p = float(config_obj.agent_models[qa_top_p_key])
+                elif agent_name == "RankAgent":
+                    # Special case for RankAgent - check RankAgentQA_top_p
+                    qa_top_p = float(config_obj.agent_models.get("RankAgentQA_top_p", 0.9))
 
             target_model = qa_model_override or self.llm_service.model_extract
             
@@ -150,7 +159,7 @@ Please provide your evaluation in the following JSON format:
                 "messages": converted_messages,
                 "max_tokens": 2000,  # Enough for detailed QA evaluation
                 "temperature": qa_temperature,  # Use configured temperature
-                "top_p": 0.9
+                "top_p": qa_top_p  # Use configured top_p
             }
             
             generation = None

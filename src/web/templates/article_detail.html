@@ -1,9 +1,64 @@
 {% extends "base.html" %}
 
-{% block title %}{{ article.title[:50] }}... - Huntable Detection Studio{% endblock %}
+{% block title %}{{ article.title[:50] }}... - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+    <script>
+        // Pre-set annotation mode attribute before paint to avoid flashes of the rich container
+        (function() {
+            const mode = localStorage.getItem('annotationMode') || 'huntability';
+            document.documentElement.setAttribute('data-annotation-mode', mode);
+            document.body?.setAttribute('data-annotation-mode', mode);
+        })();
+    </script>
+    <style>
+        /* Hard switch between rich and plain surfaces to prevent legacy span bleed */
+        html[data-annotation-mode="observables"] #article-content,
+        body[data-annotation-mode="observables"] #article-content {
+            display: none !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            left: -99999px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+        }
+        html[data-annotation-mode="observables"] #article-content-plain,
+        body[data-annotation-mode="observables"] #article-content-plain {
+            display: block !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+            position: static !important;
+            left: auto !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+        }
+        html[data-annotation-mode="huntability"] #article-content-plain,
+        body[data-annotation-mode="huntability"] #article-content-plain {
+            display: none !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            left: -99999px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+        }
+        html[data-annotation-mode="huntability"] #article-content,
+        body[data-annotation-mode="huntability"] #article-content {
+            display: block !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+            position: static !important;
+            left: auto !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+        }
+    </style>
     <!-- Breadcrumb -->
     <nav class="flex mb-8" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
@@ -141,14 +196,14 @@
 
                     <button onclick="triggerWorkflowForArticle({{ article.id }})" 
                             id="triggerWorkflowBtn"
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] transition-colors">
                         <span class="mr-2">⚡</span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
 
                     <div class="relative inline-block" id="aiAssistantWrapper">
                         <button id="aiAssistantBtn" onclick="showAIAssistant()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">🤖</span>
                             AL/ML Assistant
                         </button>
@@ -180,23 +235,24 @@
     <!-- Keyword Matches Display -->
     {% if article.article_metadata %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <button 
-            onclick="toggleKeywordMatches()" 
-            class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
-            aria-expanded="false"
-            aria-controls="keyword-matches-content"
+        <div 
+            data-collapsible-panel="keyword-matches"
+            class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg cursor-pointer -m-6 p-6 pb-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
         >
             <h2 class="text-xl font-bold text-gray-900 dark:text-white">🎯 Keyword Matches</h2>
-            <svg 
-                id="keyword-matches-chevron" 
-                class="w-6 h-6 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-            >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-        </button>
+            <span id="keyword-matches-toggle">
+                <svg 
+                    id="keyword-matches-chevron" 
+                    class="w-6 h-6 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </span>
+        </div>
         
         <div id="keyword-matches-content" class="hidden mt-6">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -338,10 +394,48 @@
                             <span class="w-3 h-3 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></span>
                             <span class="text-xs text-gray-600 dark:text-gray-400">Not Huntable</span>
                         </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 mt-4">
+                        <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                            <button id="annotation-mode-huntability" onclick="setAnnotationMode('huntability')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                                Huntability Mode
+                            </button>
+                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600">
+                                Observables Mode
+                            </button>
+                        </div>
+                        <div id="observable-type-picker" class="hidden items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Observable Type:</span>
+                            <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
+                                <button data-observable-type="CMD" onclick="setObservableType('CMD')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                                    CMD
+                                </button>
+                                <button data-observable-type="PROC_LINEAGE" onclick="setObservableType('PROC_LINEAGE')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-purple-200 dark:border-purple-600">
+                                    PROC_LINEAGE
+                                </button>
+                            </div>
+                        </div>
+                        <div id="observable-usage-picker" class="hidden items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Dataset:</span>
+                            <div id="observableUsageButtons" class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
+                                <button data-dataset-usage="train" onclick="setObservableDatasetUsage('train')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                                    Training
+                                </button>
+                                <button data-dataset-usage="eval" onclick="setObservableDatasetUsage('eval')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-purple-200 dark:border-purple-600">
+                                    Evaluation
+                                </button>
+                                <button data-dataset-usage="gold" onclick="setObservableDatasetUsage('gold')" class="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-white border-l border-purple-200 dark:border-purple-600">
+                                    Gold <span class="text-[10px] text-gray-400">(locked)</span>
+                                </button>
+                            </div>
+                        </div>
+                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-[#4b4e77] text-white rounded-lg hover:bg-[#7C3AED] transition-colors" onclick="markObservablesReviewed({{ article.id }})">
+                            Reviewed (No Observables)
+                        </button>
                     </div>
                 </div>
-            </div>
-            <div class="prose max-w-none relative">
+                <div class="prose max-w-none relative">
                 <div class="absolute top-4 right-4 flex items-center space-x-2 z-50">
                     <button id="toggle-annotations-btn" onclick="toggleAnnotationSystem()" 
                             class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 bg-white dark:bg-gray-800 shadow-md border border-gray-200 dark:border-gray-700"
@@ -365,7 +459,8 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-black font-mono leading-relaxed select-text bg-gray-50 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner"><br>{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|e }}</div>
             </div>
         </div>
     </div>
@@ -940,21 +1035,62 @@ Please provide a detailed analysis based on the article content and the user's s
         });
         
         // Initialize current article classification in localStorage
-        const currentClassification = '{{ article.article_metadata.get("training_category", "") }}';
+        const currentClassification = {{ (article.article_metadata.get("training_category", "") if article.article_metadata else "")|tojson }};
         localStorage.setItem('currentArticleClassification', currentClassification);
         
         // Load existing annotations
     });
     
+    const HUNTABILITY_MODE = 'huntability';
+    const OBSERVABLE_MODE = 'observables';
+    const OBSERVABLE_TYPES = ['CMD', 'PROC_LINEAGE'];
+    const OBSERVABLE_DATASET_USAGES = ['train', 'eval', 'gold'];
+    const DATASET_USAGE_WARNING_KEY = 'observableDatasetUsageWarningShown';
+    const ANNOTATION_STYLE_MAP = {
+        huntable: {
+            label: 'Huntable',
+            highlightClass: 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200'
+        },
+        not_huntable: {
+            label: 'Not Huntable',
+            highlightClass: 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
+        },
+        CMD: {
+            label: 'CMD',
+            highlightClass: 'bg-purple-100 dark:bg-purple-900 border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200'
+        },
+        PROC_LINEAGE: {
+            label: 'Process Lineage',
+            highlightClass: 'bg-amber-100 dark:bg-amber-900 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200'
+        }
+    };
+
+    // Canonical article text (immutable, from database - before any DOM mutation)
+    const CANONICAL_ARTICLE_TEXT = {{ article.content|tojson }};
+
     // Simple Text Management System - Single Source of Truth
     class SimpleTextManager {
         constructor() {
-            this.contentElement = document.getElementById('article-content');
+            this.richContentElement = document.getElementById('article-content');
+            this.plainContentElement = document.getElementById('article-content-plain');
+            this.contentElement = this.richContentElement;
+            this.canonicalText = CANONICAL_ARTICLE_TEXT; // immutable buffer for offset calculations
+            this.pendingObservableSelection = null; // Stores validated selection when modal opens
             this.userClassifications = new Map();
             this.previousStates = []; // Store previous HTML states for undo
             this.maxUndoStates = 10;
             this.isSubmitting = false; // Prevent duplicate submissions
             this.selectionListenersAttached = false; // Track if selection listeners are attached
+            this.selectionTarget = null;
+            this.mouseDownHandler = null;
+            this.mouseMoveHandler = null;
+            this.mouseUpHandler = null;
+            this.annotationMode = localStorage.getItem('annotationMode') || HUNTABILITY_MODE;
+            this.observableType = localStorage.getItem('observableType') || 'CMD';
+            this.observableDatasetUsage = localStorage.getItem('observableDatasetUsage') || 'train';
+            this.articleId = {{ article.id|default(0)|int }};
+            this.lastObservableAnnotationKey = null;
+            this.lastObservableAnnotationAt = 0;
             
             // Check localStorage for annotation system state (default: enabled)
             const storedState = localStorage.getItem('annotationsEnabled');
@@ -966,6 +1102,10 @@ Please provide a detailed analysis based on the article content and the user's s
         init() {
             // Load existing user classifications
             this.loadExistingClassifications();
+            
+            // Set active content element based on initial mode
+            this.setActiveContentElement();
+            this.applyContentVisibility();
             
             // Enable user text selection (only if annotations are enabled)
             if (this.annotationsEnabled) {
@@ -980,6 +1120,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Update button state
             this.updateToggleButton();
+            this.updateModeUI();
         }
         
         updateToggleButton() {
@@ -995,6 +1136,182 @@ Please provide a detailed analysis based on the article content and the user's s
                 btn.title = 'Enable annotation system';
                 btn.classList.add('opacity-50');
                 icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>';
+            }
+        }
+        
+        updateModeUI() {
+            const huntabilityBtn = document.getElementById('annotation-mode-huntability');
+            const observablesBtn = document.getElementById('annotation-mode-observables');
+            const observablePicker = document.getElementById('observable-type-picker');
+            const reviewedButton = document.getElementById('mark-observable-reviewed');
+            const richContent = this.richContentElement;
+            const plainContent = this.plainContentElement;
+
+            if (huntabilityBtn) {
+                if (this.annotationMode === HUNTABILITY_MODE) {
+                    huntabilityBtn.classList.add('bg-blue-600', 'text-white');
+                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700');
+                } else {
+                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white');
+                    huntabilityBtn.classList.add('bg-white', 'text-gray-700');
+                }
+            }
+
+            if (observablesBtn) {
+                if (this.annotationMode === OBSERVABLE_MODE) {
+                    observablesBtn.classList.add('bg-blue-600', 'text-white');
+                    observablesBtn.classList.remove('bg-white', 'text-gray-700');
+                } else {
+                    observablesBtn.classList.remove('bg-blue-600', 'text-white');
+                    observablesBtn.classList.add('bg-white', 'text-gray-700');
+                }
+            }
+
+            if (observablePicker) {
+                observablePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
+            }
+
+            const usagePicker = document.getElementById('observable-usage-picker');
+            if (usagePicker) {
+                usagePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
+            }
+
+            if (reviewedButton) {
+                reviewedButton.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
+            }
+
+            this.updateObservableTypeButtons();
+
+            // Ensure only the correct surface is visible and interactive
+            this.applyContentVisibility();
+
+            // Toggle content containers
+            if (richContent && plainContent) {
+                if (this.annotationMode === OBSERVABLE_MODE) {
+                    richContent.classList.add('hidden');
+                    plainContent.classList.remove('hidden');
+                } else {
+                    richContent.classList.remove('hidden');
+                    plainContent.classList.add('hidden');
+                }
+            }
+        }
+
+        setActiveContentElement() {
+            if (this.annotationMode === OBSERVABLE_MODE && this.plainContentElement) {
+                this.contentElement = this.plainContentElement;
+            } else if (this.richContentElement) {
+                this.contentElement = this.richContentElement;
+            }
+        }
+
+        applyContentVisibility() {
+            const richContent = this.richContentElement;
+            const plainContent = this.plainContentElement;
+            if (!richContent || !plainContent) return;
+
+            // Mark mode on body for CSS-level enforcement
+            document.body.dataset.annotationMode = this.annotationMode;
+            document.documentElement.dataset.annotationMode = this.annotationMode;
+
+            if (this.annotationMode === OBSERVABLE_MODE) {
+                // Force-hide the rich container so legacy spans never bleed through
+                richContent.classList.add('hidden');
+                richContent.style.setProperty('display', 'none', 'important');
+                richContent.style.setProperty('pointer-events', 'none', 'important');
+                richContent.style.setProperty('visibility', 'hidden', 'important');
+                richContent.style.setProperty('position', 'absolute', 'important');
+                richContent.style.setProperty('left', '-99999px', 'important');
+                richContent.style.setProperty('height', '1px', 'important');
+                richContent.style.setProperty('overflow', 'hidden', 'important');
+                richContent.style.setProperty('opacity', '0', 'important');
+                richContent.setAttribute('aria-hidden', 'true');
+                // Show the plain surface only
+                plainContent.classList.remove('hidden');
+                plainContent.style.setProperty('display', 'block', 'important');
+                plainContent.style.setProperty('pointer-events', 'auto', 'important');
+                plainContent.style.setProperty('visibility', 'visible', 'important');
+                plainContent.style.removeProperty('position');
+                plainContent.style.removeProperty('left');
+                plainContent.style.removeProperty('height');
+                plainContent.style.removeProperty('overflow');
+                plainContent.style.removeProperty('opacity');
+                plainContent.removeAttribute('aria-hidden');
+                this.contentElement = plainContent;
+            } else {
+                plainContent.classList.add('hidden');
+                plainContent.style.setProperty('display', 'none', 'important');
+                plainContent.style.setProperty('pointer-events', 'none', 'important');
+                plainContent.style.setProperty('visibility', 'hidden', 'important');
+                plainContent.style.setProperty('position', 'absolute', 'important');
+                plainContent.style.setProperty('left', '-99999px', 'important');
+                plainContent.style.setProperty('height', '1px', 'important');
+                plainContent.style.setProperty('overflow', 'hidden', 'important');
+                plainContent.style.setProperty('opacity', '0', 'important');
+                plainContent.setAttribute('aria-hidden', 'true');
+                richContent.classList.remove('hidden');
+                richContent.style.setProperty('display', 'block', 'important');
+                richContent.style.setProperty('pointer-events', 'auto', 'important');
+                richContent.style.setProperty('visibility', 'visible', 'important');
+                richContent.style.removeProperty('position');
+                richContent.style.removeProperty('left');
+                richContent.style.removeProperty('height');
+                richContent.style.removeProperty('overflow');
+                richContent.style.removeProperty('opacity');
+                richContent.removeAttribute('aria-hidden');
+                this.contentElement = richContent;
+            }
+        }
+
+        updateObservableTypeButtons() {
+            OBSERVABLE_TYPES.forEach(type => {
+                const button = document.querySelector(`[data-observable-type="${type}"]`);
+                if (button) {
+                    if (this.observableType === type) {
+                        button.classList.add('bg-[#4b4e77]', 'text-white');
+                        button.classList.remove('bg-white', 'text-gray-700');
+                    } else {
+                        button.classList.remove('bg-[#4b4e77]', 'text-white');
+                        button.classList.add('bg-white', 'text-gray-700');
+                    }
+                }
+            });
+        }
+
+        setAnnotationMode(mode) {
+            if (![HUNTABILITY_MODE, OBSERVABLE_MODE].includes(mode)) {
+                return;
+            }
+            this.annotationMode = mode;
+            localStorage.setItem('annotationMode', mode);
+            this.updateModeUI();
+            this.setActiveContentElement();
+            this.applyContentVisibility();
+            this.detachSelectionListeners();
+            this.enableUserSelection();
+            showNotification(`Switched to ${mode === HUNTABILITY_MODE ? 'Huntability' : 'Observables'} mode`, 'info');
+        }
+
+        setObservableType(type) {
+            if (!OBSERVABLE_TYPES.includes(type)) {
+                return;
+            }
+            this.observableType = type;
+            localStorage.setItem('observableType', type);
+            this.updateObservableTypeButtons();
+            showNotification(`Observable type set to ${type}`, 'info');
+        }
+
+        setObservableDatasetUsage(usage) {
+            const normalized = (usage || '').toLowerCase();
+            if (!OBSERVABLE_DATASET_USAGES.includes(normalized)) {
+                return;
+            }
+            this.observableDatasetUsage = normalized;
+            localStorage.setItem('observableDatasetUsage', normalized);
+            updateDatasetUsageButtons();
+            if (normalized !== 'train') {
+                showDatasetUsageWarningOnce();
             }
         }
         
@@ -1057,15 +1374,14 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         addExistingClassification(start, end, classification, text) {
+            // Do not render existing highlights on the plain observables surface
+            if (this.annotationMode === OBSERVABLE_MODE) {
+                return;
+            }
             // Checking existing annotation: ${classification}
             
             // Check if this text is already highlighted by looking for spans with our classes
-            const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 dark:bg-blue-900' 
-                : 'bg-red-100 dark:bg-red-900';
-            
-            // Look for existing spans with our annotation classes
-            const existingSpans = this.contentElement.querySelectorAll(`span[class*="${cssClass.split(' ')[0]}"]`);
+            const existingSpans = this.contentElement.querySelectorAll(`span[data-annotation-type="${classification}"]`);
             let alreadyHighlighted = false;
             
             for (const span of existingSpans) {
@@ -1090,6 +1406,10 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         addUserClassification(start, end, classification, text) {
+            // Keep observables plain surface unmutated
+            if (this.annotationMode === OBSERVABLE_MODE && this.contentElement === this.plainContentElement) {
+                return;
+            }
             console.log(`Attempting to add ${classification} classification for: "${text.substring(0, 100)}..."`);
             console.log(`Text length: ${text.length}, Start: ${start}, End: ${end}`);
             
@@ -1142,13 +1462,11 @@ Please provide a detailed analysis based on the article content and the user's s
                     range.setEnd(endNode, endOffset);
                     
                     // Create highlight span
-                    const cssClass = classification === 'huntable' 
-                        ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
-                        : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
-                    
+                    const style = this.getTypeStyle(classification);
                     const highlightSpan = document.createElement('span');
-                    highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${cssClass}`;
-                    highlightSpan.title = `${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: ${text.substring(0, 50)}...`;
+                    highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}`;
+                    highlightSpan.title = `${style.label}: ${text.substring(0, 50)}...`;
+                    highlightSpan.dataset.annotationType = classification;
                     highlightSpan.textContent = text;
                     
                     // Replace the range content with our highlight span
@@ -1176,10 +1494,26 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Create a simple visual indicator at the top of the content
             const indicator = document.createElement('div');
-            indicator.className = `p-2 mb-2 rounded border-l-4 ${classification === 'huntable' ? 'bg-blue-50 border-blue-400' : 'bg-red-50 border-red-400'}`;
+            const style = this.getTypeStyle(classification);
+            let containerClass = 'bg-gray-50 border-gray-400';
+            let textClass = 'text-gray-800';
+            if (classification === 'huntable') {
+                containerClass = 'bg-blue-50 border-blue-400';
+                textClass = 'text-blue-800';
+            } else if (classification === 'not_huntable') {
+                containerClass = 'bg-red-50 border-red-400';
+                textClass = 'text-red-800';
+            } else if (classification === 'CMD') {
+                containerClass = 'bg-purple-50 border-purple-400';
+                textClass = 'text-purple-800';
+            } else if (classification === 'PROC_LINEAGE') {
+                containerClass = 'bg-amber-50 border-amber-400';
+                textClass = 'text-amber-800';
+            }
+            indicator.className = `p-2 mb-2 rounded border-l-4 ${containerClass}`;
             indicator.innerHTML = `
-                <div class="text-sm font-medium ${classification === 'huntable' ? 'text-blue-800' : 'text-red-800'}">
-                    ${classification === 'huntable' ? '✓ Huntable' : '✗ Not Huntable'} Text Annotated
+                <div class="text-sm font-medium ${textClass}">
+                    ${style.label} Text Annotated
                 </div>
                 <div class="text-xs text-gray-600 mt-1">
                     "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"
@@ -1195,16 +1529,14 @@ Please provide a detailed analysis based on the article content and the user's s
         
         addLongTextClassification(start, end, classification, text) {
             // For very long text, try to highlight multiple parts of it
-            const cssClass = classification === 'huntable' 
-                ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
-                : 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200';
+            const style = this.getTypeStyle(classification);
             
             // Get the current HTML content
             const content = this.contentElement.innerHTML;
             
             // Try to highlight the first 500 characters and add an indicator
             const shortText = text.substring(0, Math.min(500, text.length));
-            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${shortText}${text.length > 500 ? '...' : ''}</span>`;
+            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${classification}" title="${style.label}: Long selection (${text.length} chars)">${shortText}${text.length > 500 ? '...' : ''}</span>`;
             
             // Try to find and replace the text
             if (content.includes(shortText)) {
@@ -1213,7 +1545,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Also try to highlight the end of the selection if it's very long
                 if (text.length > 1000) {
                     const endText = text.substring(text.length - 100);
-                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="End of long ${classification} selection">...${endText}</span>`;
+                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${classification}" title="End of long ${style.label} selection">...${endText}</span>`;
                     
                     if (newContent.includes(endText) && !newContent.includes(endHighlightSpan)) {
                         newContent = newContent.replace(endText, endHighlightSpan);
@@ -1226,7 +1558,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Fallback to shorter text
                 const veryShortText = text.substring(0, Math.min(100, text.length));
                 if (content.includes(veryShortText)) {
-                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${cssClass}" title="${classification === 'huntable' ? 'Huntable' : 'Not Huntable'}: Long selection (${text.length} chars)">${veryShortText}...</span>`;
+                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${classification}" title="${style.label}: Long selection (${text.length} chars)">${veryShortText}...</span>`;
                     const newContent = content.replace(veryShortText, shortHighlightSpan);
                     this.contentElement.innerHTML = newContent;
                     console.log(`Added ${classification} highlight for part of long text selection`);
@@ -1300,65 +1632,145 @@ Please provide a detailed analysis based on the article content and the user's s
         
         enableAnnotationClicking() {
             // Use event delegation to handle clicks on annotation spans
-            this.contentElement.addEventListener('click', (e) => {
+            // Always bind to current contentElement; if switching surfaces, remove old listener first
+            if (this.annotationClickHandler && this.contentElement) {
+                this.contentElement.removeEventListener('click', this.annotationClickHandler);
+            }
+            this.annotationClickHandler = (e) => {
                 // Check if clicked element is an annotation span
                 const clickedSpan = e.target.closest('span.px-1.py-0\\.5.rounded.text-xs.font-medium.border');
                 
                 if (clickedSpan) {
-                    // Check if it's a user annotation (not a keyword discriminator)
-                    const isHuntableAnnotation = clickedSpan.classList.contains('bg-blue-100') || clickedSpan.classList.contains('dark:bg-blue-900');
-                    const isNotHuntableAnnotation = clickedSpan.classList.contains('bg-red-100') || clickedSpan.classList.contains('dark:bg-red-900');
-                    
-                    if (isHuntableAnnotation || isNotHuntableAnnotation) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const annotationType = isHuntableAnnotation ? 'huntable' : 'not_huntable';
-                        const annotationText = clickedSpan.textContent;
-                        
-                        this.showRemoveAnnotationModal(clickedSpan, annotationType, annotationText);
-                    }
+                    const annotationType = clickedSpan.dataset.annotationType;
+                    if (!annotationType) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const annotationText = clickedSpan.textContent;
+                    this.showRemoveAnnotationModal(clickedSpan, annotationType, annotationText);
                 }
-            });
+            };
+            this.contentElement.addEventListener('click', this.annotationClickHandler);
+        }
+
+        detachSelectionListeners() {
+            if (this.selectionTarget && this.mouseDownHandler) {
+                this.selectionTarget.removeEventListener('mousedown', this.mouseDownHandler);
+            }
+            if (this.selectionTarget && this.mouseMoveHandler) {
+                this.selectionTarget.removeEventListener('mousemove', this.mouseMoveHandler);
+            }
+            if (this.selectionTarget && this.mouseUpHandler) {
+                this.selectionTarget.removeEventListener('mouseup', this.mouseUpHandler);
+            }
+            if (this.nativeSelectionHandler) {
+                document.removeEventListener('mouseup', this.nativeSelectionHandler);
+                this.nativeSelectionHandler = null;
+            }
+            this.mouseDownHandler = null;
+            this.mouseMoveHandler = null;
+            this.mouseUpHandler = null;
+            this.selectionTarget = null;
+            this.selectionListenersAttached = false;
         }
         
         enableUserSelection() {
             if (!this.annotationsEnabled) return;
             
-            // Prevent duplicate listeners
-            if (this.selectionListenersAttached) return;
+            const target = this.annotationMode === OBSERVABLE_MODE ? this.plainContentElement : this.richContentElement;
+            if (!target) return;
+            // Disable selection entirely on the non-active surface to prevent ghost highlights
+            const inactive = this.annotationMode === OBSERVABLE_MODE ? this.richContentElement : this.plainContentElement;
+            if (inactive) {
+                inactive.style.setProperty('user-select', 'none', 'important');
+            }
+            target.style.removeProperty('user-select');
+
+            // Prevent duplicate listeners on the same target
+            if (this.selectionListenersAttached && this.selectionTarget === target) return;
+            // If switching targets, detach old listeners first
+            if (this.selectionTarget && this.selectionTarget !== target) {
+                this.detachSelectionListeners();
+            }
             this.selectionListenersAttached = true;
+            this.selectionTarget = target;
             
             let isSelecting = false;
             let startPos = null;
             let endPos = null;
             
-            this.contentElement.addEventListener('mousedown', (e) => {
+            this.mouseDownHandler = (e) => {
                 if (!this.annotationsEnabled) return;
                 isSelecting = true;
                 startPos = this.getTextPositionFromEvent(e);
-            });
+            };
             
-            this.contentElement.addEventListener('mousemove', (e) => {
+            this.mouseMoveHandler = (e) => {
                 if (!this.annotationsEnabled) return;
                 if (isSelecting) {
                     endPos = this.getTextPositionFromEvent(e);
                     this.showSelectionPreview(startPos, endPos);
                 }
-            });
+            };
             
-            this.contentElement.addEventListener('mouseup', (e) => {
+            this.mouseUpHandler = (e) => {
                 if (!this.annotationsEnabled) return;
                 if (isSelecting) {
                     isSelecting = false;
+                    
+                    // For observables: use strict validation only (no fallbacks)
+                    if (this.annotationMode === OBSERVABLE_MODE) {
+                        const validatedSelection = this.validateAndExtractObservableSelection();
+                        if (validatedSelection) {
+                            this.showObservableModal(
+                                validatedSelection.selectedText,
+                                validatedSelection.start,
+                                validatedSelection.end
+                            );
+                        }
+                        // If validation fails, error already shown
+                        return;
+                    }
+                    
+                    // For huntability: continue with existing logic (allows fallbacks)
+                    const selection = window.getSelection();
+                    const selectedText = selection ? selection.toString().trim() : '';
+                    if (selection && selectedText.length > 0) {
+                        try {
+                            const range = selection.getRangeAt(0);
+                            const withinContent = this.contentElement.contains(range.commonAncestorContainer);
+                            if (withinContent) {
+                                const selectionStart = this.getTextPositionFromRange(
+                                    range.startContainer,
+                                    range.startOffset
+                                );
+                                const selectionEnd = this.getTextPositionFromRange(
+                                    range.endContainer,
+                                    range.endOffset
+                                );
+                                this.showClassificationOptions(selectionStart, selectionEnd);
+                                return;
+                            }
+                        } catch (error) {
+                            console.error('Error processing selection range on mouseup:', error);
+                        }
+                    }
+
+                    // Fallback: use pointer-based offsets (huntability only, can be imprecise on touch/mobile).
                     endPos = this.getTextPositionFromEvent(e);
-                    this.showClassificationOptions(startPos, endPos);
+                    this.showClassificationOptions(startPos ?? 0, endPos ?? 0);
                 }
-            });
+            };
+
+            target.addEventListener('mousedown', this.mouseDownHandler);
+            target.addEventListener('mousemove', this.mouseMoveHandler);
+            target.addEventListener('mouseup', this.mouseUpHandler);
             
             // Also listen for native text selection events (as backup)
+            // For observables: use strict validation, no fallbacks
             this.nativeSelectionHandler = (e) => {
                 if (!this.annotationsEnabled) return;
+                // Observables rely solely on the content mouseup handler to avoid parallel selection handlers
+                if (this.annotationMode === OBSERVABLE_MODE) return;
                 // Only handle if the click was within our content area
                 if (this.contentElement.contains(e.target)) {
                     setTimeout(() => {
@@ -1368,8 +1780,23 @@ Please provide a detailed analysis based on the article content and the user's s
                             return;
                         }
                         
+                        // For observables: use strict validation (no fallbacks)
+                        if (this.annotationMode === OBSERVABLE_MODE) {
+                            const validatedSelection = this.validateAndExtractObservableSelection();
+                            if (validatedSelection) {
+                                this.showObservableModal(
+                                    validatedSelection.selectedText,
+                                    validatedSelection.start,
+                                    validatedSelection.end
+                                );
+                            }
+                            // If validation fails, error already shown, just return
+                            return;
+                        }
+                        
+                        // For huntability: continue with existing logic (allows fallbacks)
                         const selection = window.getSelection();
-                        const selectedText = selection.toString().trim();
+                        const selectedText = selection ? selection.toString().trim() : '';
                         
                         if (selectedText.length > 0) {
                             console.log('Native selection detected:', {
@@ -1392,7 +1819,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                     this.showClassificationOptions(startPos, endPos);
                                 } else {
                                     console.log('Position calculation mismatch, using fallback');
-                                    // Fallback: try to find the text in the content
+                                    // Fallback: try to find the text in the content (huntability only)
                                     const contentText = this.contentElement.textContent;
                                     const textIndex = contentText.indexOf(selectedText);
                                     if (textIndex !== -1) {
@@ -1401,7 +1828,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 }
                             } catch (error) {
                                 console.error('Error processing native selection:', error);
-                                // Fallback: try to find the text in the content
+                                // Fallback: try to find the text in the content (huntability only)
                                 const contentText = this.contentElement.textContent;
                                 const textIndex = contentText.indexOf(selectedText);
                                 if (textIndex !== -1) {
@@ -1429,12 +1856,55 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         getTextPositionFromRange(container, offset) {
-            // Create a range from the start of the content to the given position
+            // Handle element nodes by finding the actual text node
+            let textNode = container;
+            let textOffset = offset;
+            
+            if (container.nodeType !== Node.TEXT_NODE) {
+                // Create a collapsed range to find the text node
+                const tempRange = document.createRange();
+                tempRange.setStart(container, Math.min(offset, container.childNodes.length));
+                tempRange.collapse(true);
+                textNode = tempRange.startContainer;
+                textOffset = tempRange.startOffset;
+                
+                // If still not a text node, walk to find it
+                if (textNode.nodeType !== Node.TEXT_NODE) {
+                    const walker = document.createTreeWalker(
+                        textNode,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    const firstTextNode = walker.nextNode();
+                    if (firstTextNode) {
+                        textNode = firstTextNode;
+                        textOffset = 0;
+                    }
+                }
+            }
+            
+            // Walk text nodes from start of content to calculate position
+            const walker = document.createTreeWalker(
+                this.contentElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let position = 0;
+            let node;
+            while ((node = walker.nextNode())) {
+                if (node === textNode) {
+                    return position + Math.min(textOffset, node.textContent.length);
+                }
+                position += node.textContent.length;
+            }
+            
+            // Fallback: use range.toString() if walker didn't find it
             const range = document.createRange();
             range.setStart(this.contentElement, 0);
             range.setEnd(container, offset);
-            
-            // Return the length of text content up to this point
             return range.toString().length;
         }
         
@@ -1514,15 +1984,360 @@ Please provide a detailed analysis based on the article content and the user's s
             }
         }
         
+        /**
+         * Validate and extract observable selection with strict rules.
+         * Returns exact selection: no expansion, no trimming, no guessing.
+         * Returns null if validation fails.
+         */
+        validateAndExtractObservableSelection() {
+            const selection = window.getSelection();
+            
+            // Validation: Must exist and have exactly one contiguous range
+            if (!selection || selection.rangeCount === 0) {
+                showNotification('No selection found. Please highlight text.', 'error');
+                return null;
+            }
+            
+            if (selection.rangeCount !== 1) {
+                showNotification('Multiple selections detected. Please select a single contiguous range.', 'error');
+                return null;
+            }
+            
+            const originalRange = selection.getRangeAt(0);
+            const content = this.contentElement;
+            
+            // Validation: Must exist and be non-empty
+            if (!originalRange || originalRange.collapsed) {
+                showNotification('Selection is empty. Please highlight text.', 'error');
+                return null;
+            }
+            
+            // Clamp selection strictly inside the article content (no expansion beyond boundaries)
+            const contentRange = document.createRange();
+            contentRange.selectNodeContents(content);
+            const clampedRange = originalRange.cloneRange();
+            if (originalRange.compareBoundaryPoints(Range.START_TO_START, contentRange) < 0) {
+                clampedRange.setStart(contentRange.startContainer, contentRange.startOffset);
+            }
+            if (originalRange.compareBoundaryPoints(Range.END_TO_END, contentRange) > 0) {
+                clampedRange.setEnd(contentRange.endContainer, contentRange.endOffset);
+            }
+            if (clampedRange.collapsed) {
+                showNotification('Selection must be within the article content.', 'error');
+                return null;
+            }
+
+            // Exact selected text from clamped DOM range (no trimming)
+            const selectedText = clampedRange.toString();
+            if (!selectedText || selectedText.length === 0) {
+                showNotification('Selection is empty. Please highlight text.', 'error');
+                return null;
+            }
+            
+            const canonical = this.canonicalText || '';
+            
+            // Resolve boundaries to concrete text nodes inside the clamped range
+            const startBoundary = this.resolveBoundaryToText(clampedRange.startContainer, clampedRange.startOffset, true);
+            const endBoundary = this.resolveBoundaryToText(clampedRange.endContainer, clampedRange.endOffset, false);
+            
+            if (!startBoundary || !endBoundary) {
+                showNotification('Selection must be within the article content.', 'error');
+                return null;
+            }
+            
+            // Walk text nodes to compute absolute offsets against the canonical text
+            const computeOffsetFromBoundary = (boundary) => {
+                const walker = document.createTreeWalker(
+                    this.contentElement,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let pos = 0;
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node === boundary.node) {
+                        return pos + Math.min(boundary.offset, node.textContent.length);
+                    }
+                    pos += node.textContent.length;
+                }
+                return null;
+            };
+
+            const startOffset = computeOffsetFromBoundary(startBoundary);
+            const endOffset = computeOffsetFromBoundary(endBoundary);
+
+            if (startOffset === null || endOffset === null) {
+                showNotification('Selection must be within the article content.', 'error');
+                return null;
+            }
+
+            const orderedStart = Math.min(startOffset, endOffset);
+            const orderedEnd = Math.max(startOffset, endOffset);
+
+            if (orderedStart === orderedEnd) {
+                showNotification('Selection is empty. Please highlight text.', 'error');
+                return null;
+            }
+
+            if (orderedStart < 0 || orderedEnd > canonical.length) {
+                showNotification('Invalid selection range. Please try again.', 'error');
+                return null;
+            }
+
+            const canonicalSlice = canonical.substring(orderedStart, orderedEnd);
+            if (canonicalSlice !== selectedText) {
+                console.error('Canonical slice mismatch for selection', {
+                    selectedPreview: selectedText.substring(0, 100),
+                    canonicalPreview: canonicalSlice.substring(0, 100),
+                    start: orderedStart,
+                    end: orderedEnd
+                });
+                showNotification('Selection mismatch. Please re-select the exact text.', 'error');
+                return null;
+            }
+
+            return {
+                start: orderedStart,
+                end: orderedEnd,
+                selectedText: selectedText, // exact user-highlighted text
+                range: originalRange.cloneRange() // Clone for later use
+            };
+        }
+
+        /**
+         * Calculate absolute start/end offsets for a range using rendered DOM text.
+         * Walks text nodes from the start of the article content without mutating the DOM.
+         */
+        calculateOffsetsFromRange(range) {
+            try {
+                const walker = document.createTreeWalker(
+                    this.contentElement,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+
+                let currentPos = 0;
+                let startOffset = null;
+                let endOffset = null;
+                let node;
+
+                while ((node = walker.nextNode())) {
+                    const len = node.textContent.length;
+
+                    if (node === range.startContainer) {
+                        startOffset = currentPos + Math.min(range.startOffset, len);
+                    }
+                    if (node === range.endContainer) {
+                        endOffset = currentPos + Math.min(range.endOffset, len);
+                    }
+
+                    currentPos += len;
+                }
+
+                if (startOffset === null || endOffset === null) {
+                    return null;
+                }
+
+                return { startOffset, endOffset };
+            } catch (error) {
+                console.error('Failed to calculate offsets from range:', error);
+                return null;
+            }
+        }
+
+        resolveBoundaryToText(node, offset, preferStart) {
+            if (!node || !this.contentElement.contains(node)) return null;
+            
+            // Text node: clamp offset
+            if (node.nodeType === Node.TEXT_NODE) {
+                return { node, offset: Math.min(offset, node.textContent.length) };
+            }
+            
+            // Element boundary: offset refers to child index
+            const children = node.childNodes;
+            if (!children || children.length === 0) {
+                return null;
+            }
+            
+            if (preferStart) {
+                // Start boundary: find first text descendant at/after offset
+                for (let i = offset; i < children.length; i++) {
+                    const textNode = this.findFirstTextDescendant(children[i], true);
+                    if (textNode) return { node: textNode, offset: 0 };
+                }
+                // Fallback: search before offset
+                for (let i = offset - 1; i >= 0; i--) {
+                    const textNode = this.findFirstTextDescendant(children[i], true);
+                    if (textNode) return { node: textNode, offset: 0 };
+                }
+            } else {
+                // End boundary: find last text descendant before offset
+                for (let i = Math.min(offset - 1, children.length - 1); i >= 0; i--) {
+                    const textNode = this.findFirstTextDescendant(children[i], false);
+                    if (textNode) return { node: textNode, offset: textNode.textContent.length };
+                }
+                // Fallback: search after offset
+                for (let i = offset; i < children.length; i++) {
+                    const textNode = this.findFirstTextDescendant(children[i], false);
+                    if (textNode) return { node: textNode, offset: textNode.textContent.length };
+                }
+            }
+            
+            return null;
+        }
+
+        orderBoundaries(nodeA, offsetA, nodeB, offsetB) {
+            const position = nodeA.compareDocumentPosition(nodeB);
+            if (
+                position & Node.DOCUMENT_POSITION_FOLLOWING ||
+                (nodeA === nodeB && offsetA <= offsetB)
+            ) {
+                return {
+                    start: { node: nodeA, offset: Math.min(offsetA, nodeA.textContent.length) },
+                    end: { node: nodeB, offset: Math.min(offsetB, nodeB.textContent.length) }
+                };
+            }
+            return {
+                start: { node: nodeB, offset: Math.min(offsetB, nodeB.textContent.length) },
+                end: { node: nodeA, offset: Math.min(offsetA, nodeA.textContent.length) }
+            };
+        }
+        
+        getOffsetWithPrefix(container, offset) {
+            try {
+                const prefixRange = document.createRange();
+                prefixRange.setStart(this.contentElement, 0);
+                prefixRange.setEnd(container, offset);
+                return prefixRange.toString().length;
+            } catch (e) {
+                console.error('Prefix range offset failed:', e);
+                return null;
+            }
+        }
+
+        findFirstTextDescendant(node, forward = true) {
+            if (!node || !this.contentElement.contains(node)) return null;
+            
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.length > 0) {
+                return node;
+            }
+            
+            const children = node.childNodes;
+            if (!children || children.length === 0) return null;
+            
+            if (forward) {
+                for (let i = 0; i < children.length; i++) {
+                    const found = this.findFirstTextDescendant(children[i], true);
+                    if (found) return found;
+                }
+            } else {
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const found = this.findFirstTextDescendant(children[i], false);
+                    if (found) return found;
+                }
+            }
+            
+            return null;
+        }
+
+        normalizeSelectionToContent(startPos, endPos) {
+            // Try to get selection from DOM first
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                
+                // Ensure selection is within article content
+                if (this.contentElement.contains(range.startContainer) && 
+                    this.contentElement.contains(range.endContainer)) {
+                    
+                    const start = this.getTextPositionFromRange(range.startContainer, range.startOffset);
+                    const end = this.getTextPositionFromRange(range.endContainer, range.endOffset);
+                    
+                    if (start < end) {
+                        const fullText = this.contentElement.textContent;
+                        const selectedText = fullText.substring(start, end);
+                        
+                        if (selectedText.trim()) {
+                            return {
+                                min: start,
+                                max: end,
+                                selectedText: selectedText
+                            };
+                        }
+                    }
+                }
+            }
+            
+            // Fallback to provided positions if DOM selection unavailable
+            if (startPos !== undefined && endPos !== undefined && startPos < endPos) {
+                const fullText = this.contentElement.textContent;
+                if (endPos <= fullText.length) {
+                    const selectedText = fullText.substring(startPos, endPos);
+                    if (selectedText.trim()) {
+                        return {
+                            min: startPos,
+                            max: endPos,
+                            selectedText: selectedText
+                        };
+                    }
+                }
+            }
+            
+            return null;
+        }
+        
         showClassificationOptions(start, end) {
             this.clearSelectionPreview();
             
             if (start === end) return;
             
-            const min = Math.min(start, end);
-            const max = Math.max(start, end);
-            const selectedText = this.contentElement.textContent.substring(min, max);
+            // For observables: use strict validation and exact extraction
+            if (this.annotationMode === OBSERVABLE_MODE) {
+                const observableSelection = this.validateAndExtractObservableSelection();
+                if (!observableSelection) {
+                    // Validation failed, error already shown
+                    return;
+                }
+                
+                // Use exact selection - no modification
+                this.showObservableModal(
+                    observableSelection.selectedText,
+                    observableSelection.start,
+                    observableSelection.end
+                );
+                return;
+            }
             
+            // For huntability: continue using normalization (allows expansion)
+            const normalized = this.normalizeSelectionToContent(start, end);
+            if (!normalized) {
+                console.warn('Could not normalize selection to article content');
+                return;
+            }
+            let { min, max, selectedText } = normalized;
+
+            // Prefer the live DOM selection if present to avoid offset drift
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0 && selection.toString().trim().length > 0) {
+                try {
+                    const range = selection.getRangeAt(0);
+                    if (this.contentElement.contains(range.startContainer) && this.contentElement.contains(range.endContainer)) {
+                        const selStart = this.getTextPositionFromRange(range.startContainer, range.startOffset);
+                        const selEnd = this.getTextPositionFromRange(range.endContainer, range.endOffset);
+                        if (selEnd > selStart) {
+                            min = selStart;
+                            max = selEnd;
+                            selectedText = selection.toString();
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to normalize selection:', err);
+                }
+            }
+
             console.log('Showing classification options:', {
                 start: min,
                 end: max,
@@ -1532,6 +2347,150 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Show classification modal with enhanced features
             this.showClassificationModal(selectedText, min, max);
+        }
+        showObservableModal(text, start, end) {
+            if (this.isUpdatingModal) return;
+
+            // Store the validated selection - this becomes the source of truth
+            // Modal is a confirmation boundary; we save exactly these values
+            this.pendingObservableSelection = {
+                selectedText: text,
+                start: start,
+                end: end
+            };
+
+            const MAX_OBS_LENGTH = 4000;
+            const workingText = text;
+            const workingStart = start;
+            const workingEnd = end;
+
+            const charCount = workingText.length;
+            const targetLength = MAX_OBS_LENGTH;
+            let lengthStatus = 'good';
+            let lengthMessage = '';
+            if (charCount < 30) {
+                lengthStatus = 'short';
+                lengthMessage = 'Too short - highlight the full command line.';
+            } else if (charCount > targetLength) {
+                lengthStatus = 'long';
+                lengthMessage = `Long selection (${charCount}). Commands over ${targetLength} chars may be harder to review.`;
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    // Clear pending selection on click-away (user cancelled)
+                    this.pendingObservableSelection = null;
+                    this.closeModal();
+                }
+            }.bind(this));
+
+            const handleEsc = function(e) {
+                if (e.key === 'Escape') {
+                    // Clear pending selection on ESC (user cancelled)
+                    this.pendingObservableSelection = null;
+                    this.closeModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            }.bind(this);
+            document.addEventListener('keydown', handleEsc);
+
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">Save Observable</h3>
+                        <div class="char-counter ${lengthStatus}">
+                            ${charCount}/${targetLength} chars
+                        </div>
+                    </div>
+                    ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
+                    <p class="text-sm text-gray-700 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '…' : ''}"</p>
+                    <div class="flex space-x-3">
+                        <button id="observable-save-btn" 
+                                class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
+                            Save ${this.observableType}
+                        </button>
+                        <button id="observable-cancel-btn" 
+                                class="px-4 py-3 border border-gray-300 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            this.isUpdatingModal = true;
+
+            const saveBtn = modal.querySelector('#observable-save-btn');
+            const cancelBtn = modal.querySelector('#observable-cancel-btn');
+
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async () => {
+                    // Use stored validated selection - ignore current window.getSelection()
+                    // IMPORTANT: Submit BEFORE closeModal() because closeModal clears pendingObservableSelection
+                    await this.submitObservableAnnotation();
+                    this.closeModal();
+                });
+            }
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    // Clear pending selection on cancel
+                    this.pendingObservableSelection = null;
+                    this.closeModal();
+                });
+            }
+
+            if (!document.getElementById('observable-modal-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'observable-modal-styles';
+                styles.textContent = `
+                    .char-counter {
+                        font-size: 11px;
+                        font-weight: 600;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 8px;
+                    }
+                    .char-counter.good {
+                        background: #dcfce7;
+                        color: #15803d;
+                        border: 1px solid #16a34a;
+                    }
+                    .char-counter.short {
+                        background: #fef3c7;
+                        color: #92400e;
+                        border: 1px solid #f59e0b;
+                    }
+                    .char-counter.long {
+                        background: #fee2e2;
+                        color: #dc2626;
+                        border: 1px solid #ef4444;
+                    }
+                    .length-guidance {
+                        font-size: 12px;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        border-left: 4px solid;
+                    }
+                    .length-guidance.short {
+                        background: #fef3c7;
+                        color: #92400e;
+                        border-left-color: #f59e0b;
+                    }
+                    .length-guidance.long {
+                        background: #fee2e2;
+                        color: #dc2626;
+                        border-left-color: #ef4444;
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+
+            setTimeout(() => {
+                this.isUpdatingModal = false;
+            }, 100);
         }
         showClassificationModal(text, start, end) {
             // Prevent infinite loops when updating existing modal
@@ -1790,6 +2749,13 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Update the current modal with new selection data
             this.updateModalWithNewSelection(newText, newStart, newEnd);
+
+            // Return expanded selection so callers can use it without re-deriving
+            return {
+                text: newText,
+                start: newStart,
+                end: newEnd
+            };
         }
         updateLiveSelection(newStart, newEnd) {
             // Update the browser's text selection to show the expanded selection
@@ -2169,7 +3135,8 @@ Please provide a detailed analysis based on the article content and the user's s
                 await this.saveClassification(start, end, text, classification);
                 
                 // Show success message
-                this.showSuccessMessage('Text classified as ' + (classification === 'huntable' ? 'Huntable' : 'Not Huntable'));
+                const label = this.getAnnotationLabel(classification);
+                this.showSuccessMessage(`Text classified as ${label}`);
                 
             } finally {
                 // Reset submission state after a short delay to prevent rapid clicking
@@ -2207,7 +3174,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                     <h3 class="text-lg font-semibold mb-4">Remove Annotation</h3>
                     <p class="text-sm text-gray-600 mb-2">
-                        <strong>Type:</strong> ${annotationType === 'huntable' ? 'Huntable' : 'Not Huntable'}
+                        <strong>Type:</strong> ${this.getAnnotationLabel(annotationType)}
                     </p>
                     <p class="text-sm text-gray-600 mb-4">
                         <strong>Text:</strong> "${annotationText.substring(0, 100)}${annotationText.length > 100 ? '...' : ''}"
@@ -2293,6 +3260,11 @@ Please provide a detailed analysis based on the article content and the user's s
             if (modal) {
                 modal.remove();
             }
+            // Clear pending observable selection when modal closes (unless it was saved)
+            // This ensures cancel/ESC doesn't leave stale state
+            if (this.pendingObservableSelection) {
+                this.pendingObservableSelection = null;
+            }
         }
         
         showSuccessMessage(message) {
@@ -2310,7 +3282,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }, 2000);
         }
         
-        async saveClassification(start, end, text, classification) {
+        async saveClassification(start, end, text, classification, contextOverride = null, usage = null) {
             try {
                 console.log('Saving classification:', {
                     start: start,
@@ -2319,18 +3291,27 @@ Please provide a detailed analysis based on the article content and the user's s
                     textPreview: text.substring(0, 100),
                     classification: classification
                 });
-                
+                const context = contextOverride || this.getContextAroundSelection(start, end);
+
+                const payload = {
+                    selected_text: text,
+                    start_position: start,
+                    end_position: end,
+                    annotation_type: classification,
+                    context_before: context.before,
+                    context_after: context.after,
+                    confidence_score: 1.0
+                };
+                if (usage && OBSERVABLE_TYPES.includes(classification)) {
+                    payload.usage = usage;
+                }
+
                 const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        selected_text: text,
-                        start_position: start,
-                        end_position: end,
-                        annotation_type: classification
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 if (!response.ok) {
@@ -2350,12 +3331,110 @@ Please provide a detailed analysis based on the article content and the user's s
                 showNotification(`Failed to save annotation: ${error.message}`, 'error');
             }
         }
+
+        getTypeStyle(annotationType) {
+            return ANNOTATION_STYLE_MAP[annotationType] || {
+                label: annotationType,
+                highlightClass: 'bg-gray-100 border-gray-300 text-gray-800'
+            };
+        }
+
+        getAnnotationLabel(annotationType) {
+            const style = this.getTypeStyle(annotationType);
+            return style.label;
+        }
+
+        getContextAroundSelection(start, end) {
+            // Use canonical text to ensure context matches the offset calculation buffer
+            const fullText = this.canonicalText || this.contentElement.textContent;
+            const CONTEXT_RADIUS = 400; // capture broader context for observables training
+            const contextBefore = fullText.substring(Math.max(0, start - CONTEXT_RADIUS), start);
+            const contextAfter = fullText.substring(end, Math.min(fullText.length, end + CONTEXT_RADIUS));
+            return { before: contextBefore, after: contextAfter };
+        }
+
+        async submitObservableAnnotation() {
+            // Use stored validated selection from modal open - ignore window.getSelection()
+            // Modal is a confirmation boundary; we save exactly what was validated when modal opened
+            if (!this.pendingObservableSelection) {
+                showNotification('No selection to save. Please select text and try again.', 'error');
+                return;
+            }
+            
+            // Use stored exact values - no re-validation, no modification
+            const normalizedStart = this.pendingObservableSelection.start;
+            const normalizedEnd = this.pendingObservableSelection.end;
+            const selectedText = this.pendingObservableSelection.selectedText;
+            
+            // Clear any current selection (before DOM mutation)
+            const selection = window.getSelection();
+            if (selection) {
+                selection.removeAllRanges();
+            }
+            
+            // Clear pending selection after extracting values
+            this.pendingObservableSelection = null;
+            
+            // Deduplication check
+            const now = Date.now();
+            const dedupeKey = `${this.articleId}:${this.observableType}:${normalizedStart}:${normalizedEnd}`;
+            if (dedupeKey === this.lastObservableAnnotationKey && now - this.lastObservableAnnotationAt < 750) {
+                console.log('Skipping duplicate observable annotation submission');
+                return;
+            }
+            this.lastObservableAnnotationKey = dedupeKey;
+            this.lastObservableAnnotationAt = now;
+            
+            // Final validation: selected text must exist
+            if (!selectedText || selectedText.length === 0) {
+                showNotification('Selection is empty. Please highlight text.', 'error');
+                return;
+            }
+            
+            // Length warning (informational only, not a blocker)
+            const MAX_OBS_LENGTH = 4000;
+            if (selectedText.length > MAX_OBS_LENGTH) {
+                showNotification(`Long selection (${selectedText.length} chars). Saved, but please keep commands concise when possible.`, 'info');
+            }
+            
+            const label = this.getAnnotationLabel(this.observableType);
+            console.log('Creating observable annotation (exact selection):', {
+                start: normalizedStart,
+                end: normalizedEnd,
+                textLength: selectedText.length,
+                textPreview: selectedText.substring(0, 100),
+                type: this.observableType
+            });
+            
+            // Add highlight AFTER offset calculation (DOM mutation happens here)
+            this.addUserClassification(normalizedStart, normalizedEnd, this.observableType, selectedText);
+            
+            // Calculate context from canonical text
+            const context = this.getContextAroundSelection(normalizedStart, normalizedEnd);
+            await this.saveClassification(
+                normalizedStart,
+                normalizedEnd,
+                selectedText,
+                this.observableType,
+                context,
+                this.observableDatasetUsage
+            );
+            
+            this.showSuccessMessage(`Saved ${label} observable`);
+        }
     }
     
     // Initialize the simple text manager
     let simpleTextManager;
     document.addEventListener('DOMContentLoaded', function() {
         simpleTextManager = new SimpleTextManager();
+        // Expose for automation/tests and inline scripts
+        window.simpleTextManager = simpleTextManager;
+        window.SimpleTextManager = SimpleTextManager;
+        document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
+            button.addEventListener("click", () => setObservableDatasetUsage(button.dataset.datasetUsage));
+        });
+        simpleTextManager.setObservableDatasetUsage(simpleTextManager.observableDatasetUsage);
         
         // Add iPhone touch support
         addiPhoneTouchSupport();
@@ -2372,9 +3451,47 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
+    function setAnnotationMode(mode) {
+        if (!simpleTextManager) return;
+        simpleTextManager.setAnnotationMode(mode);
+    }
+    
+    function setObservableType(type) {
+        if (!simpleTextManager) return;
+        simpleTextManager.setObservableType(type);
+    }
+
+    function setObservableDatasetUsage(usage) {
+        if (!simpleTextManager) return;
+        simpleTextManager.setObservableDatasetUsage(usage);
+    }
+
+    function updateDatasetUsageButtons() {
+        if (!simpleTextManager) return;
+        const currentUsage = simpleTextManager.observableDatasetUsage || 'train';
+        document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
+            const btnUsage = (button.dataset.datasetUsage || 'train').toLowerCase();
+            if (btnUsage === currentUsage) {
+                button.classList.add('bg-[#4b4e77]', 'text-white');
+                button.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
+            } else {
+                button.classList.remove('bg-[#4b4e77]', 'text-white');
+                button.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
+            }
+        });
+    }
+
+    function showDatasetUsageWarningOnce() {
+        if (sessionStorage.getItem(DATASET_USAGE_WARNING_KEY)) return;
+        showNotification("Evaluation data is never used for training.", "info");
+        sessionStorage.setItem(DATASET_USAGE_WARNING_KEY, '1');
+    }
+    
     // iPhone Touch Support for Text Selection
     function addiPhoneTouchSupport() {
-        const contentElement = document.getElementById('article-content');
+        // Use the active surface so observables use the plain container
+        const managerRef = typeof simpleTextManager !== 'undefined' ? simpleTextManager : null;
+        const contentElement = managerRef?.contentElement || document.getElementById('article-content');
         if (!contentElement) return;
         
         let touchStartTime = 0;
@@ -2459,15 +3576,28 @@ Please provide a detailed analysis based on the article content and the user's s
                     selection.addRange(range);
                     
                     // Trigger annotation modal
-                    if (simpleTextManager && selection.toString().trim()) {
-                        const selectedText = selection.toString();
-                        const fullText = contentElement.textContent;
-                        const startPos = fullText.indexOf(selectedText);
-                        const endPos = startPos + selectedText.length;
-                        
-                        if (startPos !== -1) {
-                            console.log('📱 iPhone: Triggering annotation modal');
-                            simpleTextManager.showClassificationOptions(startPos, endPos);
+                    if (simpleTextManager && selection.toString().length > 0) {
+                        // For observables: use strict validation (no indexOf fallback)
+                        if (simpleTextManager.annotationMode === OBSERVABLE_MODE) {
+                            const validatedSelection = simpleTextManager.validateAndExtractObservableSelection();
+                            if (validatedSelection) {
+                                simpleTextManager.showObservableModal(
+                                    validatedSelection.selectedText,
+                                    validatedSelection.start,
+                                    validatedSelection.end
+                                );
+                            }
+                        } else {
+                            // For huntability: use indexOf fallback
+                            const selectedText = selection.toString();
+                            const fullText = contentElement.textContent;
+                            const startPos = fullText.indexOf(selectedText);
+                            const endPos = startPos + selectedText.length;
+                            
+                            if (startPos !== -1) {
+                                console.log('📱 iPhone: Triggering annotation modal');
+                                simpleTextManager.showClassificationOptions(startPos, endPos);
+                            }
                         }
                     }
                 }
@@ -2498,15 +3628,29 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 // Get current selection
                 const selection = window.getSelection();
-                if (selection.toString().trim()) {
-                    const selectedText = selection.toString();
-                    const fullText = contentElement.textContent;
-                    const startPos = fullText.indexOf(selectedText);
-                    const endPos = startPos + selectedText.length;
-                    
-                    if (startPos !== -1 && simpleTextManager) {
-                        console.log('📱 Double tap: Triggering annotation modal');
-                        simpleTextManager.showClassificationOptions(startPos, endPos);
+                if (selection.toString().length > 0) {
+                    // For observables: use strict validation (no indexOf fallback)
+                    if (simpleTextManager && simpleTextManager.annotationMode === OBSERVABLE_MODE) {
+                        const validatedSelection = simpleTextManager.validateAndExtractObservableSelection();
+                        if (validatedSelection) {
+                            console.log('📱 Double tap: Triggering observable modal');
+                            simpleTextManager.showObservableModal(
+                                validatedSelection.selectedText,
+                                validatedSelection.start,
+                                validatedSelection.end
+                            );
+                        }
+                    } else if (simpleTextManager) {
+                        // For huntability: use indexOf fallback
+                        const selectedText = selection.toString();
+                        const fullText = contentElement.textContent;
+                        const startPos = fullText.indexOf(selectedText);
+                        const endPos = startPos + selectedText.length;
+                        
+                        if (startPos !== -1) {
+                            console.log('📱 Double tap: Triggering annotation modal');
+                            simpleTextManager.showClassificationOptions(startPos, endPos);
+                        }
                     }
                 } else {
                     // If no text is selected, try to select word at tap location
@@ -2550,14 +3694,30 @@ Please provide a detailed analysis based on the article content and the user's s
                             selection.addRange(newRange);
                             
                             // Trigger annotation modal
-                            const selectedText = selection.toString();
-                            const fullText = contentElement.textContent;
-                            const startPos = fullText.indexOf(selectedText);
-                            const endPos = startPos + selectedText.length;
-                            
-                            if (startPos !== -1 && simpleTextManager) {
-                                console.log('📱 Double tap: Word selected, triggering modal');
-                                simpleTextManager.showClassificationOptions(startPos, endPos);
+                            if (simpleTextManager) {
+                                // For observables: use strict validation (no indexOf fallback)
+                                if (simpleTextManager.annotationMode === OBSERVABLE_MODE) {
+                                    const validatedSelection = simpleTextManager.validateAndExtractObservableSelection();
+                                    if (validatedSelection) {
+                                        console.log('📱 Double tap: Word selected, triggering observable modal');
+                                        simpleTextManager.showObservableModal(
+                                            validatedSelection.selectedText,
+                                            validatedSelection.start,
+                                            validatedSelection.end
+                                        );
+                                    }
+                                } else {
+                                    // For huntability: use indexOf fallback
+                                    const selectedText = selection.toString();
+                                    const fullText = contentElement.textContent;
+                                    const startPos = fullText.indexOf(selectedText);
+                                    const endPos = startPos + selectedText.length;
+                                    
+                                    if (startPos !== -1) {
+                                        console.log('📱 Double tap: Word selected, triggering modal');
+                                        simpleTextManager.showClassificationOptions(startPos, endPos);
+                                    }
+                                }
                             }
                         }
                     }
@@ -2569,6 +3729,24 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Add iPhone instructions
         addiPhoneInstructions();
+    }
+
+    async function markObservablesReviewed(articleId) {
+        try {
+            showNotification('Marking article as reviewed...', 'info');
+            const response = await fetch(`/api/articles/${articleId}/mark-reviewed`, {
+                method: 'POST'
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to update status: ${errorText}`);
+            }
+            const result = await response.json();
+            showNotification(`Article marked as ${result.processing_status}`, 'success');
+        } catch (error) {
+            console.error('Failed to mark article reviewed:', error);
+            showNotification(`Failed to mark reviewed: ${error.message}`, 'error');
+        }
     }
     // Add mobile-friendly touch handlers for modal buttons
     function addMobileModalHandlers(modal, start, end) {
@@ -3291,24 +4469,24 @@ Please provide a detailed analysis based on the article content and the user's s
                     
                     <div class="space-y-3">
                         <button onclick="generateAIAnalysis('sigma')"
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
                                 title="${hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article'}">
                             <span class="mr-2">🔍</span>
-                            ${hasSigmaRules ? 'Display SIGMA Rules' : 'Generate SIGMA Rules'}
+                            ${hasSigmaRules ? 'Display SIGMA Rules' : 'One Shot SIGMA'}
                             ${showSigmaWarning ? '<span class="ml-2 text-yellow-300">⚠️</span>' : ''}
                         </button>
                         ${showSigmaWarning ? '<div class="text-xs text-yellow-600 text-center mt-1">⚠️ Low threat hunting score (' + threatHuntingScore + '/100) - SIGMA rules may lack technical depth</div>' : ''}
                         
 
                         <button onclick="generateAIAnalysis('ranking')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">📊</span>
                             ${rankingButtonText}
                         </button>
                         
                         
                         <button onclick="showCustomPromptModal()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Custom Prompt
                         </button>
@@ -3319,17 +4497,23 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="space-y-3">
                             <button onclick="detectOS()" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">💻</span>
                                 Detect Operating System
                             </button>
 
                             <button onclick="showChunkDebugModal()" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">🔍</span>
-                                Chunk ML Feedback
+                                Junk Filter Tuning
                             </button>
                             
+                            <button onclick="generateAIAnalysis('cmdlines')" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                <span class="mr-2">🧾</span>
+                                Extract CMDlines with CTI-BERT
+                            </button>
+
                             <button onclick="closeAIAssistantModal()" 
                                     class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-400 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">
                                 Cancel
@@ -3390,7 +4574,17 @@ Please provide a detailed analysis based on the article content and the user's s
                 return;
             }
             
+            if (type === 'cmdlines' && (window.latestCommandLines || {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }})) {
+                const templateCmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
+                const cmdlineData = window.latestCommandLines || templateCmdlineData;
+                console.log('Using command line data:', window.latestCommandLines ? 'from window.latestCommandLines' : 'from page template');
+                if (cmdlineData) {
+                    showCommandLinesModal(cmdlineData.command_lines, cmdlineData);
+                    return;
+                }
+            }
 
+            
             
             if (type === 'ranking' && {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }}) {
                 const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
@@ -3498,8 +4692,24 @@ Please provide a detailed analysis based on the article content and the user's s
         const operationData = {
             id: operationId,
             type: type,
-            typeText: type === 'sigma' ? 'SIGMA Rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'GPT4o Ranking' : 'Local AI Ranking') : 'IOCs',
-            typeIcon: type === 'sigma' ? '🔍' : type === 'ranking' ? '📊' : '🔍',
+            typeText:
+                type === 'sigma'
+                    ? 'SIGMA Rules'
+                    : type === 'ranking'
+                        ? aiModel === 'chatgpt'
+                            ? 'GPT4o Ranking'
+                            : 'Local AI Ranking'
+                        : type === 'cmdlines'
+                            ? 'Command Lines'
+                            : 'IOCs',
+            typeIcon:
+                type === 'sigma'
+                    ? '🔍'
+                    : type === 'ranking'
+                        ? '📊'
+                        : type === 'cmdlines'
+                            ? '💻'
+                            : '🔍',
             articleId: articleId,
             articleTitle: {{ article.title | tojson }},
             startedAt: Date.now(),
@@ -3570,6 +4780,15 @@ Please provide a detailed analysis based on the article content and the user's s
         };
         document.addEventListener('keydown', handleEsc);
         
+        const loadingVerb = (type === 'sigma' || type === 'ranking') ? 'Generating' : 'Extracting';
+        const loadingDescription = type === 'sigma'
+            ? 'Creating detection rules'
+            : type === 'ranking'
+                ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI')
+                : type === 'cmdlines'
+                    ? 'Extracting command lines with CMDCaliper'
+                    : 'Extracting indicators of compromise';
+
         loadingModal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
@@ -3579,8 +4798,8 @@ Please provide a detailed analysis based on the article content and the user's s
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${type === 'sigma' ? 'Generating' : type === 'ranking' ? 'Generating' : 'Extracting'} ${typeText}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">${type === 'sigma' ? 'Creating detection rules' : type === 'ranking' ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI') : 'Extracting indicators of compromise'} - this may take a few moments.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">${typeIcon} ${loadingVerb} ${typeText}...</h3>
+                    <p class="text-sm text-gray-500 mt-2">${loadingDescription} - this may take a few moments.</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtn" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
                             Cancel Operation
@@ -3610,7 +4829,13 @@ Please provide a detailed analysis based on the article content and the user's s
             });
             
             // Create the fetch promise
-            const endpoint = type === 'sigma' ? 'generate-sigma' : type === 'ranking' ? 'rank-with-gpt4o' : 'extract-iocs';
+            const endpoint = type === 'sigma'
+                ? 'generate-sigma'
+                : type === 'ranking'
+                    ? 'rank-with-gpt4o'
+                    : type === 'cmdlines'
+                        ? 'extract-command-lines'
+                        : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
@@ -3640,13 +4865,13 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Add author name for SIGMA rules
             if (type === 'sigma') {
-                const sigmaAuthor = settings.sigmaAuthor || 'Huntable Detection Studio User';
+                const sigmaAuthor = settings.sigmaAuthor || 'Huntable CTI Studio User';
                 requestBody.author_name = sigmaAuthor;
             }
             
             // Add optimization options for ranking, sigma, observables, and IOC extraction with LLM validation
             // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
-            const shouldShowOptimization = (type === 'ranking' || type === 'sigma');
+            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || type === 'cmdlines');
             
             console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
             
@@ -3758,6 +4983,11 @@ Please provide a detailed analysis based on the article content and the user's s
 
                     // Automatically show the new rules
                     setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
+                }
+                else if (type === 'cmdlines' && data.command_lines) {
+                    window.latestCommandLines = data;
+                    console.log('✅ Updated window.latestCommandLines with new command-line results');
+                    setTimeout(() => showCommandLinesModal(data.command_lines, data), 500);
                 }
             } else {
                 const error = await response.json();
@@ -3941,7 +5171,7 @@ Please provide a detailed analysis based on the article content and the user's s
             modal.innerHTML = `
                 <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">${modelDisplayName} Content Optimization</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">${modelDisplayName} Content Filter</h3>
                     </div>
                     
                     <div class="space-y-4">
@@ -3975,7 +5205,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 </label>
                             </div>
                             <p class="text-xs text-gray-500 mt-1 ml-6">
-                                QA Agent will validate the extraction and retry up to 5 times if issues are found. This improves accuracy but increases processing time.
+                                QA Agent will validate the extraction and retry according to the configured QA retry limit (default 5, max 20). This improves accuracy but increases processing time.
                             </p>
                         </div>
                         ` : ''}
@@ -4209,7 +5439,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             Cancel
                         </button>
                         <button onclick="generateCustomPrompt()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">🤖</span>
                             Generate Response
                         </button>
@@ -4474,7 +5704,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="mt-4 flex justify-end space-x-3">
                     <button onclick="showCustomPromptModal()" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                         <span class="mr-2">💬</span>
                         Ask a new question
                     </button>
@@ -4569,7 +5799,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     <h3 class="text-xl font-bold text-gray-900">📚 Custom Prompt History</h3>
                     <div class="flex space-x-3">
                         <button onclick="showCustomPromptModal()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Ask New Question
                         </button>
@@ -4817,22 +6047,22 @@ Please provide a detailed analysis based on the article content and the user's s
                 <div class="mt-4 flex justify-between items-center">
                     <div class="flex space-x-2">
                         <button onclick="regenerateSigmaRules()" 
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
                             🔄 Regenerate
                         </button>
                         <button id="checkSimilarRulesBtn" onclick="checkSimilarSigmaRules(false)" 
-                                class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Search for similar rules in SigmaHQ repository"
                                 disabled>
                             🔍 Check Similar Rules
                         </button>
                         <button id="regenerateSimilarRulesBtn" onclick="checkSimilarSigmaRules(true)"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
                                 title="Re-run similar rules search (forces re-check)">
                             🔄 Regenerate Similar
                         </button>
                         <button id="embedArticleBtn" onclick="generateArticleEmbedding()" 
-                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Generate article embedding for semantic search"
                                 disabled>
                             🧬 Embed Article
@@ -5246,6 +6476,126 @@ Please provide a detailed analysis based on the article content and the user's s
             modal.remove();
         }
     }
+
+    let commandLinesEscHandler = null;
+
+    function escapeHtml(value) {
+        if (value === undefined || value === null) {
+            return '';
+        }
+        return value
+            .toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function showCommandLinesModal(commandLines = [], metadata = {}) {
+        closeCommandLinesModal();
+        const modal = document.createElement('div');
+        modal.id = 'commandLinesModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCommandLinesModal();
+            }
+        });
+
+        commandLinesEscHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeCommandLinesModal();
+            }
+        };
+        document.addEventListener('keydown', commandLinesEscHandler);
+
+        const extractedAt = metadata?.extracted_at
+            ? new Date(metadata.extracted_at).toLocaleString()
+            : 'Unknown';
+        const filterInfo = metadata?.content_filtering || { enabled: false };
+        const filterSummary = filterInfo.enabled
+            ? `${filterInfo.chunks_removed || 0} chunks removed, ${filterInfo.tokens_saved || 0} tokens saved${filterInfo.cost_savings ? `, ≈$${filterInfo.cost_savings.toFixed(4)} saved` : ''}`
+            : 'Content filtering disabled';
+        const entriesHtml = Array.isArray(commandLines) && commandLines.length > 0
+            ? commandLines.map((entry, index) => `
+                <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div class="flex items-center justify-between text-xs text-gray-500 uppercase">
+                        <span>Command ${index + 1}</span>
+                        <span>${((entry?.score || 0) * 100).toFixed(1)}%</span>
+                    </div>
+                    <pre class="text-sm font-mono text-gray-900 break-words bg-gray-50 px-2 py-1 rounded">${escapeHtml(entry?.text)}</pre>
+                    ${entry?.context ? `<div class="text-xs text-gray-600 italic">${escapeHtml(entry.context)}</div>` : ''}
+                </div>
+            `).join('')
+            : '<div class="text-sm text-gray-500 text-center py-8">No command lines detected.</div>';
+
+        const similarityPercent = ((metadata?.similarity_threshold || 0) * 100).toFixed(1);
+        const minConfidence = (metadata?.min_confidence ?? 0.7).toFixed(2);
+
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">🧾 Command Line Extraction</h3>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Extracted at ${extractedAt}
+                            ${metadata?.cached ? '<span class="text-blue-600"> (Cached)</span>' : ''}
+                        </p>
+                    </div>
+                    <button onclick="closeCommandLinesModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-600 mb-4">
+                    <div>
+                        <div class="text-[11px] uppercase text-gray-400">Similarity</div>
+                        <div class="font-semibold text-gray-900">${similarityPercent}%</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-gray-400">Filter confidence</div>
+                        <div class="font-semibold text-gray-900">${minConfidence}</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] uppercase text-gray-400">Filtering</div>
+                        <div class="font-semibold text-gray-900">${filterInfo.enabled ? 'Enabled' : 'Disabled'}</div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    ${entriesHtml}
+                </div>
+
+                <div class="mt-6 border-t border-gray-200 pt-4 text-xs text-gray-600">
+                    ${filterSummary}
+                </div>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button onclick="regenerateCommandLines()" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
+                        🔄 Regenerate
+                    </button>
+                    <button onclick="closeCommandLinesModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        window.latestCommandLines = { command_lines: commandLines, metadata };
+    }
+
+    function closeCommandLinesModal() {
+        const modal = document.getElementById('commandLinesModal');
+        if (modal) {
+            modal.remove();
+        }
+        if (commandLinesEscHandler) {
+            document.removeEventListener('keydown', commandLinesEscHandler);
+            commandLinesEscHandler = null;
+        }
+    }
     
     async function detectOS() {
         closeAIAssistantModal();
@@ -5487,7 +6837,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="mt-4 pt-4 border-t">
                             <button onclick="this.closest('.fixed').remove()" 
-                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 Close
                             </button>
                         </div>
@@ -6585,6 +7935,11 @@ ${JSON.stringify(rule.logsource, null, 2)}
         // Call generateAIAnalysis with force regeneration and LLM validation setting
         generateAIAnalysis('iocs', true, useLLMValidation);
     }
+
+    function regenerateCommandLines() {
+        closeCommandLinesModal();
+        generateAIAnalysis('cmdlines', true);
+    }
     
     function regenerateGPT4oRanking() {
         // Close current modal
@@ -6638,7 +7993,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         try {
             showNotification('Triggering workflow...', 'info');
             
-            const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
+            const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -6811,6 +8166,82 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     })
                     .catch(error => {
                         console.error('Error fetching article data for IOCs:', error);
+                    });
+            }
+        } else if (hash === 'cmdlines') {
+            console.log('Processing cmdlines hash...');
+
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+
+            if (currentArticleId == templateArticleId) {
+                const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
+                console.log('Has cmdlines (template):', hasCmdlines);
+
+                if (hasCmdlines) {
+                    const cmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
+                    console.log('Command lines data (template):', cmdlineData);
+
+                    if (cmdlineData) {
+                        console.log('Auto-opening Command Lines modal from URL fragment (template)');
+                        setTimeout(() => showCommandLinesModal(cmdlineData.command_lines, cmdlineData), 500);
+                    }
+                } else {
+                    console.log('No command lines found in template data');
+                }
+            } else {
+                console.log('Different article, fetching command line data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for command lines:', data);
+                        if (data.article_metadata && data.article_metadata.extracted_command_lines) {
+                            console.log('Auto-opening Command Lines modal from URL fragment (API)');
+                            setTimeout(() => showCommandLinesModal(data.article_metadata.extracted_command_lines.command_lines, data.article_metadata.extracted_command_lines), 500);
+                        } else {
+                            console.log('No command lines found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for command lines:', error);
+                    });
+            }
+        } else if (hash === 'cmdlines') {
+            console.log('Processing cmdlines hash...');
+
+            const currentArticleId = window.location.pathname.split('/').pop();
+            const templateArticleId = {{ article.id }};
+
+            if (currentArticleId == templateArticleId) {
+                const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
+                console.log('Has cmdlines (template):', hasCmdlines);
+
+                if (hasCmdlines) {
+                    const cmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
+                    console.log('Command lines data (template):', cmdlineData);
+
+                    if (cmdlineData) {
+                        console.log('Auto-opening Command Lines modal from URL fragment (template)');
+                        setTimeout(() => showCommandLinesModal(cmdlineData.command_lines, cmdlineData), 500);
+                    }
+                } else {
+                    console.log('No command lines found in template data');
+                }
+            } else {
+                console.log('Different article, fetching command line data via API...');
+                fetch(`/api/articles/${currentArticleId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Fetched article data for command lines:', data);
+                        if (data.article_metadata && data.article_metadata.extracted_command_lines) {
+                            console.log('Auto-opening Command Lines modal from URL fragment (API)');
+                            setTimeout(() => showCommandLinesModal(data.article_metadata.extracted_command_lines.command_lines, data.article_metadata.extracted_command_lines), 500);
+                        } else {
+                            console.log('No command lines found for this article');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching article data for command lines:', error);
                     });
             }
         } else if (hash === 'ranking') {
@@ -7328,7 +8759,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         modal.innerHTML = `
             <div class="relative top-4 mx-auto p-6 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold text-gray-900">🔍 Chunk ML Feedback</h3>
+                    <h3 class="text-2xl font-bold text-gray-900">🔍 Junk Filter Tuning</h3>
                     <button onclick="closeChunkDebugModal()" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -7472,10 +8903,10 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         <button onclick="filterChunks('threat')" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
                             Show Threat Keywords
                         </button>
-                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
                             Show Perfect Discriminators
                         </button>
-                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
                             Show ML Predictions
                         </button>
                         <button onclick="filterChunks('confidenceBand')" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors" title="Show chunks with confidence between 40% and 60%">
@@ -8161,7 +9592,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         if (contentLength > contentLimit) {
             // Disable button and add explanation
             button.disabled = true;
-            button.className = button.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
+            button.className = button.className.replace('bg-[#4b4e77] hover:bg-[#7C3AED]', 'bg-gray-400 cursor-not-allowed');
             button.removeAttribute('title'); // Remove tooltip to avoid grey box
             
             // Add warning icon
@@ -8334,7 +9765,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     
                     <!-- Actions -->
                     <div class="flex justify-end space-x-3">
-                        <button onclick="showFeedbackComparison()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        <button onclick="showFeedbackComparison()" class="px-4 py-2 bg-[#4b4e77] text-white rounded hover:bg-[#7C3AED] transition-colors">
                             View Feedback Impact
                         </button>
                         <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
@@ -8583,20 +10014,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
 
 
     // Toggle Keyword Matches panel
+    // toggleKeywordMatches - handled by global initCollapsiblePanels() in base.html
     function toggleKeywordMatches() {
-        const content = document.getElementById('keyword-matches-content');
-        const chevron = document.getElementById('keyword-matches-chevron');
-        const button = chevron.closest('button');
-        
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-            button.setAttribute('aria-expanded', 'true');
-        } else {
-            content.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-            button.setAttribute('aria-expanded', 'false');
-        }
+        toggleCollapsible('keyword-matches');
     }
 </script>
 {% endblock %}

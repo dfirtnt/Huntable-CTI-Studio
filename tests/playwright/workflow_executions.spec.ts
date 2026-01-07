@@ -210,17 +210,15 @@ test.describe.skip(
     expect(modalVisible === false || alertText?.includes('Workflow') || alertText?.includes('Execution ID') || alertText?.includes('triggered')).toBeTruthy();
   });
 
-  test.skip('should support LangGraph Server option', async ({ page }) => {
+  test.skip('should execute workflow via modal', async ({ page }) => {
     // DISABLED: May create workflow execution records in production database. No isolated test environment available.
     // This test only applies to the Execute Workflow modal (workflow_executions.html)
-    // The Trigger Workflow modal (workflow.html) doesn't have LangGraph option
     // Look for Execute Workflow button (only exists in workflow_executions.html, not workflow.html)
     const executeButton = page.locator('button:has-text("Execute Workflow"), button:has-text("▶️"), button[onclick*="openExecuteModal"]').first();
     const buttonExists = await executeButton.isVisible({ timeout: 2000 }).catch(() => false);
     
     if (!buttonExists) {
       // Execute Workflow modal not available (we're on unified workflow page)
-      // Skip this test - LangGraph option only exists in standalone executions page
       test.skip();
       return;
     }
@@ -232,32 +230,15 @@ test.describe.skip(
     const modal = page.locator('#executeModal');
     await expect(modal).toBeVisible();
     
-    // Check checkbox exists
-    const langGraphCheckbox = page.locator('#useLangGraphServer');
-    await expect(langGraphCheckbox).toBeVisible();
-    
-    // Check checkbox label
-    await expect(page.locator('label:has-text("Use LangGraph Server")')).toBeVisible();
-    
-    // Check checkbox is unchecked by default
-    await expect(langGraphCheckbox).not.toBeChecked();
-    
-    // Click checkbox
-    await langGraphCheckbox.click();
-    
-    // Check checkbox is now checked
-    await expect(langGraphCheckbox).toBeChecked();
-    
     // Fill article ID
     const articleIdInput = page.locator('#articleIdInput');
     await articleIdInput.fill(TEST_ARTICLE_ID);
     
-    // Set up API response interception with langgraph parameter
+    // Set up API response interception
     const responsePromise = page.waitForResponse(
       (resp) => {
         const url = resp.url();
-        return url.includes(`/api/workflow/articles/${TEST_ARTICLE_ID}/trigger`) && 
-               url.includes('use_langgraph_server=true') &&
+        return url.includes(`/api/workflow/articles/${TEST_ARTICLE_ID}/trigger`) &&
                resp.request().method() === 'POST';
       },
       { timeout: 10000 }
@@ -269,9 +250,7 @@ test.describe.skip(
     // Wait for response if API is available
     const response = await responsePromise;
     if (response) {
-      // Accept any response status - we're just testing that the checkbox works
-      // The API might return 400/404/500 for various reasons, but the important thing
-      // is that the request was made with use_langgraph_server=true
+      // Accept any response status - we're just testing that the request works
       expect(response.status()).toBeGreaterThanOrEqual(200);
     }
   });
@@ -688,6 +667,105 @@ test.describe.skip(
     
     // Verify modal is still visible (didn't crash)
     await expect(executionModal).toBeVisible();
+  });
+
+  test('should have white text for View summary elements in dark mode', async ({ page }) => {
+    // Enable dark mode
+    await page.emulateMedia({ colorScheme: 'dark' });
+    
+    // Wait for executions to load
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Look for View button in the executions table
+    const viewButton = page.locator('button:has-text("View")').first();
+    const viewButtonExists = await viewButton.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!viewButtonExists) {
+      test.skip('No View button found to test text colors');
+      return;
+    }
+    
+    // Click View button to open execution detail modal
+    await viewButton.click();
+    
+    // Wait for modal to be visible
+    const executionModal = page.locator('#executionModal');
+    await expect(executionModal).toBeVisible({ timeout: 5000 });
+    
+    // Wait for content to load
+    await page.waitForTimeout(2000);
+    
+    // Check that execution detail content exists
+    const contentDiv = page.locator('#executionDetailContent');
+    await expect(contentDiv).toBeVisible();
+    
+    // Find all "View" summary elements
+    const viewSummaries = contentDiv.locator('summary:has-text("View")');
+    const count = await viewSummaries.count();
+    
+    if (count === 0) {
+      test.skip('No View summary elements found in execution detail');
+      return;
+    }
+    
+    // Check each View summary element has white color
+    for (let i = 0; i < count; i++) {
+      const summary = viewSummaries.nth(i);
+      await expect(summary).toBeVisible();
+      
+      // Get computed color
+      const color = await summary.evaluate((el) => {
+        const computed = window.getComputedStyle(el);
+        return computed.color;
+      });
+      
+      // Check if color is white or very close to white (rgb(255, 255, 255) or rgba equivalent)
+      const isWhite = color.includes('255, 255, 255') || 
+                     color.includes('rgb(255, 255, 255)') ||
+                     color.includes('rgba(255, 255, 255') ||
+                     color === '#ffffff' ||
+                     color === 'white';
+      
+      if (!isWhite) {
+        const text = await summary.textContent();
+        console.log(`View summary "${text}" has color: ${color}`);
+        // Don't fail immediately, log all issues first
+      }
+    }
+    
+    // Also check specific View elements that should be white
+    const specificViews = [
+      'View Content Sent to OS Detection',
+      'View Original Article Content',
+      'View Ranking Reasoning',
+      'View Filtered Content Sent to Rank Agent',
+      'View Filtered Content Sent to Extract Agents',
+      'View Extracted Content Sent to SIGMA Agent',
+      'View Similarity Results',
+      'View SIGMA Rules Sent to Similarity Search',
+      'View Queued Rules',
+      'View Full Rule JSON'
+    ];
+    
+    for (const viewText of specificViews) {
+      const summary = contentDiv.locator(`summary:has-text("${viewText}")`).first();
+      const exists = await summary.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (exists) {
+        const color = await summary.evaluate((el) => {
+          return window.getComputedStyle(el).color;
+        });
+        
+        const isWhite = color.includes('255, 255, 255') || 
+                       color.includes('rgb(255, 255, 255)') ||
+                       color.includes('rgba(255, 255, 255') ||
+                       color === '#ffffff' ||
+                       color === 'white';
+        
+        expect(isWhite).toBe(true, `"${viewText}" should be white but got color: ${color}`);
+      }
+    }
   });
 });
 

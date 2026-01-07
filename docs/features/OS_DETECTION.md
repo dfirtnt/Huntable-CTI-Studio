@@ -181,7 +181,6 @@ If OS detection is incorrect:
 
 ## Related Documentation
 
-- **[Agentic Workflow](docs/LANGGRAPH_INTEGRATION.md)**: Workflow integration details
-- **[Workflow Configuration](src/web/routes/workflow_config.py)**: Configuration UI
-- **[OS Detection Service](src/services/os_detection_service.py)**: Implementation details
+- **Workflow Configuration**: See workflow_config.py in src/web/routes/
+- **OS Detection Service**: See os_detection_service.py in src/services/
 

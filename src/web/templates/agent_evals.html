@@ -1,0 +1,1535 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Evals - Huntable CTI Studio{% endblock %}
+
+{% block content %}
+<style>
+    .eval-page {
+        min-height: 100vh;
+    }
+    .eval-card {
+        background: rgba(255, 255, 255, 0.03) !important;
+    }
+    .eval-desc-text {
+        color: #B0B8C4;
+    }
+    .eval-subtitle {
+        color: #8B92A0;
+    }
+    .btn-green {
+        background-color: #10B981;
+        transition: all 0.2s ease;
+    }
+    .btn-green:hover {
+        background-color: #059669;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+    }
+    .comparison-table {
+        overflow-x: auto;
+    }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .status-exact {
+        background-color: #10B981;
+        color: white;
+    }
+    .status-mismatch {
+        background-color: #EF4444;
+        color: white;
+    }
+    .status-pending {
+        background-color: #F59E0B;
+        color: white;
+    }
+    .status-warning {
+        background-color: #F59E0B;
+        color: white;
+    }
+</style>
+
+<div class="eval-page">
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+            <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Agent Evaluations
+        </h1>
+        <p class="eval-desc-text">Run evaluation articles through workflows with different presets and compare results.</p>
+    </div>
+
+    <!-- Configuration Section -->
+    <div class="eval-card rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Configuration</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Subagent Selection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Extractor Subagent
+                </label>
+                <select id="subagentSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                    <option value="cmdline">CommandLine</option>
+                    <option value="sigextract">SigExtract</option>
+                    <option value="event_ids">Event IDs</option>
+                    <option value="process_lineage">Process Lineage</option>
+                    <option value="registry_keys">Registry Keys</option>
+                </select>
+                <button id="loadEvalArticlesBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Load Eval Articles
+                </button>
+            </div>
+
+            <!-- Active Config Display -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Active Workflow Config
+                </label>
+                <div id="activeConfigDisplay" class="p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading config...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Article Selection -->
+    <div class="eval-card rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Evaluation Articles</h2>
+            <div class="flex gap-2">
+                <button id="selectAllBtn" class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">
+                    Select All
+                </button>
+                <button id="deselectAllBtn" class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">
+                    Deselect All
+                </button>
+            </div>
+        </div>
+        <div id="articleList" class="space-y-2 max-h-64 overflow-y-auto">
+            <p class="text-sm text-gray-500 dark:text-gray-400">Load a dataset to see articles.</p>
+        </div>
+    </div>
+
+    <!-- Run Evaluation -->
+    <div class="eval-card rounded-lg shadow-lg p-6 mb-6">
+        <button id="runEvalBtn" class="w-full px-6 py-3 btn-green text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            Run Evaluation
+        </button>
+        <div id="evalStatus" class="mt-4 hidden">
+            <div class="flex items-center gap-2">
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                <span class="text-sm text-gray-600 dark:text-gray-400" id="evalStatusText"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Commandlines Modal -->
+    <div id="commandlinesModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="commandlinesModalTitle" class="text-xl font-semibold text-gray-900 dark:text-white">Extracted Commandlines</h3>
+                <button id="closeCommandlinesModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="commandlinesContent" class="p-6 overflow-y-auto flex-1">
+                <p class="text-gray-500 dark:text-gray-400">Loading commandlines...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Comparison -->
+    <div class="eval-card rounded-lg shadow-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Results Comparison</h2>
+            <div class="flex gap-2">
+                <button id="backfillEvalBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                    Update Pending Records
+                </button>
+                <button id="clearPendingBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                    Clear Pending Records
+                </button>
+                <button id="loadPreviousResultsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                    Load Previous Results
+                </button>
+            </div>
+        </div>
+        
+        <!-- Aggregate Scores Section -->
+        <div id="aggregateScores" class="mb-6 hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+            <div 
+                data-collapsible-panel="aggregate-scores-panel"
+                class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer"
+            >
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Aggregate Scores by Config Version</h3>
+                <span id="aggregate-scores-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
+            </div>
+            <div id="aggregate-scores-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
+                <div id="aggregateScoresContent" class="space-y-4"></div>
+            </div>
+        </div>
+        
+        <!-- MAE Chart -->
+        <div id="maeChartContainer" class="mb-6 hidden">
+            <div class="eval-card rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Mean Absolute Error by Config Version</h3>
+                <div class="h-64">
+                    <canvas id="maeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div id="resultsTable" class="comparison-table">
+            <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results, or click "Load Previous Results" to view past evaluations.</p>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+let evalArticles = [];
+let activeConfig = null;
+let selectedArticleUrls = new Set();
+let currentSubagent = 'cmdline';
+let executionResults = {};
+const excludedVersions = [594, 603, 606, 633, 665, 668];
+
+// Map dropdown values to agent names
+const SUBAGENT_MAP = {
+    'cmdline': 'CmdlineExtract',
+    'sigextract': 'SigExtract',
+    'event_ids': 'EventCodeExtract',
+    'process_lineage': 'ProcTreeExtract',
+    'registry_keys': 'RegExtract'
+};
+
+// Get latest prompt comment for an agent
+async function getLatestPromptComment(agentName) {
+    try {
+        const response = await fetch(`/api/workflow/config/prompts/${encodeURIComponent(agentName)}/versions`);
+        if (!response.ok) {
+            return null;
+        }
+        const data = await response.json();
+        if (data.versions && data.versions.length > 0) {
+            // Get the latest version (first in the list since it's ordered desc)
+            const latest = data.versions[0];
+            return latest.change_description || null;
+        }
+        return null;
+    } catch (error) {
+        console.error(`Error fetching prompt comment for ${agentName}:`, error);
+        return null;
+    }
+}
+
+// Load active workflow config
+async function loadActiveConfig() {
+    try {
+        const subagentValue = document.getElementById('subagentSelect').value;
+        const agentName = SUBAGENT_MAP[subagentValue] || 'CmdlineExtract';
+        
+        const response = await fetch('/api/workflow/config');
+        const data = await response.json();
+        activeConfig = data;
+        
+        const configDisplay = document.getElementById('activeConfigDisplay');
+        
+        const models = data.agent_models || {};
+        const qaEnabled = data.qa_enabled || {};
+        
+        // Get agent-specific parameters
+        const temperature = models[`${agentName}_temperature`] || models[`${agentName}_model_temperature`] || 'N/A';
+        const topP = models[`${agentName}_top_p`] || models[`${agentName}_model_top_p`] || 'N/A';
+        const contextWindow = models[`${agentName}_context_window`] || models[`${agentName}_model_context_window`] || 'N/A';
+        
+        // Get QA agent status - check both the agent name and QA variant
+        const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' : 
+                           agentName === 'SigExtract' ? 'SigQA' :
+                           agentName === 'EventCodeExtract' ? 'EventCodeQA' :
+                           agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
+                           agentName === 'RegExtract' ? 'RegQA' : null;
+        
+        const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
+        
+        // Get prompt save comment
+        const promptComment = await getLatestPromptComment(agentName);
+        
+        // Build selected models summary - only show enabled agents
+        const selectedModels = [];
+        
+        // Get disabled extract agents from config (same logic as workflow.html)
+        function getDisabledExtractAgentsFromConfig(config) {
+            if (!config) return [];
+            const prompts = config.agent_prompts || {};
+            const extractSettings = prompts.ExtractAgentSettings || prompts.ExtractAgent || {};
+            const disabledRaw = extractSettings.disabled_agents || extractSettings.disabled_sub_agents || [];
+            
+            if (Array.isArray(disabledRaw)) {
+                return disabledRaw;
+            }
+            
+            if (disabledRaw && typeof disabledRaw === 'object') {
+                return Object.entries(disabledRaw)
+                    .filter(([_, value]) => value === false || value === 0 || (typeof value === 'string' && value.toLowerCase() === 'false'))
+                    .map(([key]) => key);
+            }
+            
+            return [];
+        }
+        
+        const disabled = getDisabledExtractAgentsFromConfig(data);
+        const disabledSet = new Set(disabled);
+        
+        // Main agents (only if QA enabled)
+        if (models.SigmaAgent && qaEnabled.SigmaAgent) {
+            const provider = models.SigmaAgent_provider || 'lmstudio';
+            selectedModels.push(`SIGMA: ${models.SigmaAgent} (${provider})`);
+        }
+        // Note: Extract and Rank agents are not shown in Selected Models (only SIGMA and sub-agents)
+        
+        // Sub-agents (only if enabled and has model)
+        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+            const modelKey = `${agent}_model`;
+            // Only show if model exists and agent is not disabled
+            if (models[modelKey] && !disabledSet.has(agent)) {
+                const provider = models[`${agent}_provider`] || 'lmstudio';
+                selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
+            }
+        });
+        
+        const modelsHtml = selectedModels.length > 0 
+            ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
+            : '';
+        
+        const updatedDate = data.updated_at ? new Date(data.updated_at).toLocaleString() : 'N/A';
+        
+        configDisplay.innerHTML = `
+            <div class="space-y-1 text-sm text-gray-400 dark:text-gray-400">
+                <p><strong class="text-gray-300 dark:text-gray-300">Version:</strong> ${data.version || 'N/A'}</p>
+                <p><strong class="text-gray-300 dark:text-gray-300">Junk Filter Threshold:</strong> ${data.junk_filter_threshold || 'N/A'}</p>
+                <p><strong class="text-gray-300 dark:text-gray-300">Updated:</strong> ${updatedDate}</p>
+                <div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                    <p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Agent: ${agentName}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Temperature:</strong> ${temperature}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Context Window Size:</strong> ${contextWindow}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> ${topP}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> ${qaStatus}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Prompt Save Comments:</strong> ${promptComment || 'None'}</p>
+                </div>
+                ${modelsHtml}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading active config:', error);
+        const configDisplay = document.getElementById('activeConfigDisplay');
+        configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
+    }
+}
+
+// Load eval articles for selected subagent
+async function loadEvalArticles() {
+    const subagent = document.getElementById('subagentSelect').value;
+    currentSubagent = subagent;
+    const loadBtn = document.getElementById('loadEvalArticlesBtn');
+    const articleList = document.getElementById('articleList');
+    
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Loading...';
+    articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading articles...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${subagent}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data || !Array.isArray(data.articles)) {
+            throw new Error('Invalid response format: articles array not found');
+        }
+        
+        evalArticles = data.articles || [];
+        articleList.innerHTML = '';
+        selectedArticleUrls.clear();
+        
+        if (evalArticles.length === 0) {
+            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No eval articles found for this subagent.</p>';
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load Eval Articles';
+            return;
+        }
+        
+        evalArticles.forEach((article) => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = article.url;
+            checkbox.id = `article-${article.url}`;
+            checkbox.className = 'w-4 h-4 text-green-600 rounded';
+            checkbox.checked = true; // Auto-select all by default
+            selectedArticleUrls.add(article.url);
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    selectedArticleUrls.add(article.url);
+                } else {
+                    selectedArticleUrls.delete(article.url);
+                }
+                updateRunButton();
+            });
+            
+            const label = document.createElement('label');
+            label.htmlFor = `article-${article.url}`;
+            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
+            
+            const urlDisplay = article.url.length > 60 ? article.url.substring(0, 60) + '...' : article.url;
+            const foundBadge = article.found ? 
+                '<span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded ml-2">Found</span>' :
+                '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
+            
+            label.innerHTML = `
+                <span class="font-medium">${urlDisplay}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${article.expected_count}</span>
+                ${foundBadge}
+            `;
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            articleList.appendChild(div);
+        });
+        
+        // Show success message
+        const successMsg = document.createElement('p');
+        successMsg.className = 'text-sm text-green-600 dark:text-green-400 mt-2';
+        successMsg.textContent = `✅ Loaded ${evalArticles.length} article(s)`;
+        articleList.appendChild(successMsg);
+        
+        updateRunButton();
+        
+    } catch (error) {
+        console.error('Error loading eval articles:', error);
+        articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        alert('Failed to load eval articles: ' + error.message);
+    } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load Eval Articles';
+    }
+}
+
+// Legacy function - kept for compatibility but not used
+async function loadDataset() {
+    const datasetName = document.getElementById('datasetSelect').value;
+    const loadBtn = document.getElementById('loadDatasetBtn');
+    const articleList = document.getElementById('articleList');
+    
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Loading...';
+    articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading articles...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/dataset/${datasetName}/items`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data || !Array.isArray(data.items)) {
+            throw new Error('Invalid response format: items array not found');
+        }
+        
+        datasetItems = data.items || [];
+        articleList.innerHTML = '';
+        
+        console.log('Loaded dataset items:', datasetItems);
+        
+        if (datasetItems.length === 0) {
+            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No articles found in dataset.</p>';
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load Articles';
+            return;
+        }
+        
+        datasetItems.forEach((item, index) => {
+            // Try multiple ways to get article_id (must be numeric)
+            let articleId = item.article_id;
+            if (!articleId && item.metadata) {
+                articleId = item.metadata.article_id;
+            }
+            if (!articleId && item.input) {
+                articleId = item.input.article_id;
+            }
+            
+            // Convert to number if it's a string number
+            if (articleId && typeof articleId === 'string' && !isNaN(articleId)) {
+                articleId = parseInt(articleId);
+            }
+            
+            // Show items even if article_id lookup failed, but with manual input option
+            if (!articleId || typeof articleId !== 'number' || isNaN(articleId)) {
+                if (item.lookup_failed) {
+                    // Show item with manual article_id input
+                    const div = document.createElement('div');
+                    div.className = 'flex flex-col gap-2 p-3 border border-yellow-500 dark:border-yellow-600 rounded bg-yellow-50 dark:bg-yellow-900/20';
+                    div.id = `manual-article-${item.id}`;
+                    
+                    const warningDiv = document.createElement('div');
+                    warningDiv.className = 'flex-1';
+                    warningDiv.innerHTML = `
+                        <p class="text-sm text-yellow-700 dark:text-yellow-300 font-medium">⚠️ Article ID lookup failed</p>
+                        <p class="text-xs text-yellow-600 dark:text-yellow-400">Dataset item: ${item.id}</p>
+                        <p class="text-xs text-yellow-600 dark:text-yellow-400">Expected count: ${item.expected_count || 'N/A'}</p>
+                    `;
+                    
+                    const inputDiv = document.createElement('div');
+                    inputDiv.className = 'flex items-center gap-2 mt-2';
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.placeholder = 'Enter article ID manually';
+                    input.className = 'px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm';
+                    input.id = `manual-article-id-${item.id}`;
+                    
+                    const button = document.createElement('button');
+                    button.textContent = 'Use This ID';
+                    button.className = 'px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700';
+                    button.onclick = () => {
+                        const manualId = parseInt(input.value);
+                        if (manualId && !isNaN(manualId)) {
+                            // Add to selected articles
+                            selectedArticles.add(manualId);
+                            
+                            // Replace this div with a normal checkbox item
+                            const newDiv = document.createElement('div');
+                            newDiv.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
+                            
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.value = manualId;
+                            checkbox.id = `article-${manualId}`;
+                            checkbox.className = 'w-4 h-4 text-green-600 rounded';
+                            checkbox.checked = true;
+                            checkbox.addEventListener('change', (e) => {
+                                const aid = parseInt(e.target.value);
+                                if (e.target.checked) {
+                                    selectedArticles.add(aid);
+                                } else {
+                                    selectedArticles.delete(aid);
+                                }
+                                updateRunButton();
+                            });
+                            
+                            const label = document.createElement('label');
+                            label.htmlFor = `article-${manualId}`;
+                            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
+                            label.innerHTML = `
+                                <span class="font-medium">Article ${manualId}</span>
+                                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${item.expected_count || 'N/A'}</span>
+                                <span class="text-xs text-blue-600 dark:text-blue-400 ml-2">(manual)</span>
+                            `;
+                            
+                            newDiv.appendChild(checkbox);
+                            newDiv.appendChild(label);
+                            div.replaceWith(newDiv);
+                            updateRunButton();
+                        } else {
+                            alert('Please enter a valid article ID');
+                        }
+                    };
+                    
+                    inputDiv.appendChild(input);
+                    inputDiv.appendChild(button);
+                    div.appendChild(warningDiv);
+                    div.appendChild(inputDiv);
+                    articleList.appendChild(div);
+                } else {
+                    console.warn('Skipping item without valid numeric article_id:', item);
+                }
+                return;
+            }
+            
+            console.log(`Processing item ${index}: articleId=${articleId}`, item);
+            
+            const expectedCount = item.expected_count || (item.expected_output && item.expected_output.expected_count) || 'N/A';
+            
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = articleId;
+            checkbox.id = `article-${articleId}`;
+            checkbox.className = 'w-4 h-4 text-green-600 rounded';
+            checkbox.addEventListener('change', (e) => {
+                const articleId = parseInt(e.target.value);
+                if (e.target.checked) {
+                    selectedArticles.add(articleId);
+                } else {
+                    selectedArticles.delete(articleId);
+                }
+                updateRunButton();
+            });
+            
+            const label = document.createElement('label');
+            label.htmlFor = `article-${articleId}`;
+            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
+            label.innerHTML = `
+                <span class="font-medium">Article ${articleId}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${expectedCount}</span>
+            `;
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            articleList.appendChild(div);
+        });
+        
+        // Show success message
+        const successMsg = document.createElement('p');
+        successMsg.className = 'text-sm text-green-600 dark:text-green-400 mt-2';
+        successMsg.textContent = `✅ Loaded ${datasetItems.length} article(s)`;
+        articleList.appendChild(successMsg);
+        
+    } catch (error) {
+        console.error('Error loading dataset:', error);
+        articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        alert('Failed to load dataset: ' + error.message);
+    } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load Articles';
+    }
+}
+
+// Update run button state
+function updateRunButton() {
+    const runBtn = document.getElementById('runEvalBtn');
+    runBtn.disabled = selectedArticleUrls.size === 0;
+}
+
+// Run evaluation
+async function runEvaluation() {
+    if (selectedArticleUrls.size === 0) {
+        alert('Please select at least one article');
+        return;
+    }
+    
+    if (!activeConfig) {
+        alert('Active config not loaded. Please refresh the page.');
+        return;
+    }
+    
+    const runBtn = document.getElementById('runEvalBtn');
+    const statusDiv = document.getElementById('evalStatus');
+    const statusText = document.getElementById('evalStatusText');
+    
+    runBtn.disabled = true;
+    statusDiv.classList.remove('hidden');
+    statusText.textContent = `Triggering ${selectedArticleUrls.size} workflow executions...`;
+    
+    try {
+        const response = await fetch('/api/evaluations/run-subagent-eval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subagent_name: currentSubagent,
+                article_urls: Array.from(selectedArticleUrls),
+                use_active_config: true,
+            }),
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Evaluation run response:', data);
+        
+        if (data.success && data.executions && data.executions.length > 0) {
+            statusText.textContent = `✅ Triggered ${data.executions.length} executions. Polling for results...`;
+            statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
+            
+            // Store execution info for polling
+            executionResults = {};
+            for (const exec of data.executions) {
+                executionResults[exec.execution_id] = {
+                    execution_id: exec.execution_id,
+                    article_id: exec.article_id,
+                    url: exec.url,
+                    eval_record_id: exec.eval_record_id,
+                    status: 'pending'
+                };
+            }
+            
+            // Poll for results
+            await pollSubagentResults(data.executions);
+        } else {
+            throw new Error(data.message || 'No executions were created');
+        }
+    } catch (error) {
+        console.error('Error running evaluation:', error);
+        statusText.textContent = `❌ Error: ${error.message}`;
+        statusText.className = 'text-sm text-red-600 dark:text-red-400';
+    } finally {
+        runBtn.disabled = false;
+    }
+}
+
+// Poll for subagent eval results
+async function pollSubagentResults(executions) {
+    const statusText = document.getElementById('evalStatusText');
+    const maxAttempts = 60;
+    let attempts = 0;
+    let pollInterval = null;
+    let isPolling = true;
+    
+    executionResults = {};
+    
+    const pollOnce = async () => {
+        if (!isPolling) return;
+        
+        attempts++;
+        let completed = 0;
+        let pending = 0;
+        
+        try {
+            // Poll subagent eval results instead of individual executions
+            const subagent = currentSubagent;
+            const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
+            
+                        if (!response.ok) {
+                console.warn(`Failed to get eval results: ${response.status}`);
+                return;
+            }
+            
+            const data = await response.json();
+            const results = data.results || [];
+            
+            // Update executionResults with latest data
+            for (const result of results) {
+                if (result.execution_id && executionResults[result.execution_id]) {
+                    executionResults[result.execution_id] = {
+                        ...executionResults[result.execution_id],
+                        status: result.status,
+                        actual_count: result.actual_count,
+                        expected_count: result.expected_count,
+                        score: result.score
+                    };
+                }
+            }
+            
+            // Count completed vs pending
+            const completed = results.filter(r => r.status === 'completed').length;
+            const pending = results.filter(r => r.status === 'pending').length;
+            const failed = results.filter(r => r.status === 'failed').length;
+            
+            statusText.textContent = `⏳ Completed: ${completed}/${results.length}, Pending: ${pending}, Failed: ${failed}`;
+            
+            // Stop polling if all completed or max attempts reached
+            if (completed + failed === results.length || attempts >= maxAttempts) {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                isPolling = false;
+                
+                statusText.textContent = `✅ All executions completed. Rendering results...`;
+                statusText.className = 'text-sm text-green-600 dark:text-green-400';
+                
+                // Small delay to ensure UI updates
+                setTimeout(() => {
+                    renderSubagentResults(results);
+                }, 100);
+            } else if (isPolling) {
+                // Schedule next poll
+                pollInterval = setTimeout(pollOnce, 2000);
+            }
+        } catch (error) {
+            console.error('Error in polling:', error);
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            isPolling = false;
+            statusText.textContent = `❌ Error polling results: ${error.message}`;
+            statusText.className = 'text-sm text-red-600 dark:text-red-400';
+        }
+    };
+    
+    // Start polling
+    pollOnce();
+}
+
+// Render subagent eval results with color-coded scores (pivot format: one row per article, config versions as columns)
+function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion = {}) {
+    const resultsTable = document.getElementById('resultsTable');
+    
+    if (!articleRows || articleRows.length === 0) {
+        resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
+        return;
+    }
+    
+    // Build table with horizontal scrolling wrapper
+    let html = '<div id="resultsTableScrollContainer" class="overflow-x-auto">';
+    html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
+    html += '<thead class="bg-gray-50 dark:bg-gray-800">';
+    html += '<tr>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">Article ID</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 120px; width: 100px; min-width: 100px; max-width: 100px;">Expected</th>';
+    
+    // Add one column per config version with tooltip
+    configVersions.forEach(version => {
+        const modelInfo = modelsByVersion[version];
+        let tooltipText = 'Model info not available';
+        
+        if (modelInfo && modelInfo.display_text) {
+            tooltipText = modelInfo.display_text;
+        }
+        
+        // Escape HTML in tooltip text
+        const escapedTooltip = tooltipText.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap cursor-help" title="${escapedTooltip}">v${version}</th>`;
+    });
+    
+    html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
+    
+    articleRows.forEach(article => {
+        const expectedCount = article.expected_count || 0;
+        
+        // Get article_id from article object or first version result
+        const articleId = article.article_id || (Object.values(article.versions)[0]?.article_id);
+        
+        // Display Article ID, clickable if available
+        const articleIdCell = articleId 
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${article.url}">${articleId}</a>`
+            : `<span class="text-gray-400 dark:text-gray-600" title="${article.url}">-</span>`;
+        
+        html += '<tr>';
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">${articleIdCell}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-9" style="left: 120px; width: 100px; min-width: 100px; max-width: 100px;">${expectedCount}</td>`;
+        
+        // Add one cell per config version
+        configVersions.forEach(version => {
+            const result = article.versions[version];
+            
+            if (!result) {
+                // No result for this version
+                html += `<td class="px-4 py-3 text-sm text-gray-400 dark:text-gray-600 whitespace-nowrap text-center">-</td>`;
+            } else {
+                const actualCount = result.actual_count !== null ? result.actual_count : '-';
+                const score = result.score !== null ? result.score : '-';
+                
+                // Determine color coding based on score
+                let scoreClass = 'status-pending';
+                let scoreDisplay = '-';
+                let scoreBadge = '';
+                
+                if (result.status === 'completed' && result.score !== null) {
+                    const absScore = Math.abs(result.score);
+                    if (result.score === 0) {
+                        scoreClass = 'status-exact'; // Green
+                        scoreDisplay = '0';
+                        scoreBadge = '✓';
+                    } else if (absScore <= 2) {
+                        scoreClass = 'status-warning'; // Yellow
+                        scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                        scoreBadge = `±${absScore}`;
+                    } else {
+                        scoreClass = 'status-mismatch'; // Red
+                        scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                        scoreBadge = `±${absScore}`;
+                    }
+                } else if (result.status === 'failed') {
+                    scoreClass = 'status-mismatch';
+                    scoreDisplay = 'Failed';
+                }
+                
+                // Status badge
+                const statusClass = result.status === 'completed' 
+                    ? (result.score === 0 ? 'status-exact' : scoreClass)
+                    : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
+                
+                // Make cell clickable if completed and has execution_id
+                const isClickable = result.status === 'completed' && result.execution_id;
+                const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
+                const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
+                
+                html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" ${onClickAttr}>`;
+                html += `<div class="flex flex-col items-center gap-1.5">`;
+                if (actualCount !== '-') {
+                    // Main count: larger, prominent
+                    html += `<span class="text-lg font-semibold text-gray-700 dark:text-gray-200">${actualCount}</span>`;
+                    // Difference and error on same line for better readability
+                    if (scoreBadge) {
+                        html += `<div class="flex items-center gap-1.5 text-xs">`;
+                        html += `<span class="text-gray-500 dark:text-gray-400">${scoreDisplay}</span>`;
+                        html += `<span class="status-badge ${scoreClass} px-1.5 py-0.5">${scoreBadge}</span>`;
+                        html += `</div>`;
+                    }
+                } else {
+                    html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
+                }
+                if (result.status !== 'completed') {
+                    html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
+                }
+                html += `</div></td>`;
+            }
+        });
+        
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    html += '</div>';
+    resultsTable.innerHTML = html;
+    
+    // Scroll to the right to show latest config versions
+    setTimeout(() => {
+        const scrollContainer = document.getElementById('resultsTableScrollContainer');
+        if (scrollContainer) {
+            scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+        }
+    }, 0);
+}
+
+// Render subagent eval results with color-coded scores
+function renderSubagentResults(results) {
+    const resultsTable = document.getElementById('resultsTable');
+    
+    if (!results || results.length === 0) {
+        resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
+        return;
+    }
+    
+    // Build table
+    let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
+    html += '<thead class="bg-gray-50 dark:bg-gray-800">';
+    html += '<tr>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article ID</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>';
+    html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
+    
+    results.forEach(result => {
+        const expectedCount = result.expected_count || 0;
+        const actualCount = result.actual_count !== null ? result.actual_count : '-';
+        const score = result.score !== null ? result.score : '-';
+        
+        // Display Article ID, clickable if available
+        const articleId = result.article_id;
+        const articleIdCell = articleId 
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${result.url}">${articleId}</a>`
+            : `<span class="text-gray-400 dark:text-gray-600" title="${result.url}">-</span>`;
+        
+        // Determine color coding based on score
+        let scoreClass = 'status-pending';
+        let scoreDisplay = '-';
+        let scoreBadge = '';
+        
+        if (result.status === 'completed' && result.score !== null) {
+            const absScore = Math.abs(result.score);
+            if (result.score === 0) {
+                scoreClass = 'status-exact'; // Green
+                scoreDisplay = '0';
+                scoreBadge = '✓';
+            } else if (absScore <= 2) {
+                scoreClass = 'status-warning'; // Yellow
+                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                scoreBadge = `±${absScore}`;
+            } else {
+                scoreClass = 'status-mismatch'; // Red
+                scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                scoreBadge = `±${absScore}`;
+            }
+        } else if (result.status === 'failed') {
+            scoreClass = 'status-mismatch';
+            scoreDisplay = 'Failed';
+        }
+        
+        // Status badge
+        const statusClass = result.status === 'completed' 
+            ? (result.score === 0 ? 'status-exact' : scoreClass)
+            : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
+        
+        // Make result cell clickable if completed and has execution_id
+        const isClickable = result.status === 'completed' && result.execution_id;
+        const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
+        const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
+        
+        html += '<tr>';
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${articleIdCell}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
+        html += `<div class="flex items-center gap-2">`;
+        html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
+        if (scoreBadge) {
+            html += `<span class="status-badge ${scoreClass}">${scoreBadge}</span>`;
+        }
+        html += `</div></td>`;
+        html += `<td class="px-4 py-3 text-sm">`;
+        html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
+        html += `</td>`;
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    resultsTable.innerHTML = html;
+}
+
+// Event listeners
+document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
+document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        selectedArticleUrls.add(article.url);
+        const checkbox = document.getElementById(`article-${article.url}`);
+            if (checkbox) checkbox.checked = true;
+    });
+    updateRunButton();
+});
+document.getElementById('deselectAllBtn').addEventListener('click', () => {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        const checkbox = document.getElementById(`article-${article.url}`);
+        if (checkbox) checkbox.checked = false;
+    });
+    updateRunButton();
+});
+
+// Chart instance for MAE chart
+let maeChart = null;
+
+// Render MAE line chart
+function renderMAEChart(aggregates) {
+    if (!window.Chart) {
+        console.warn('Chart.js not loaded');
+        return;
+    }
+    
+    // Filter aggregates that have MAE data and exclude specified versions
+    const validAggregates = aggregates.filter(agg => 
+        agg.mean_absolute_error !== null && 
+        agg.config_version && 
+        !excludedVersions.includes(parseInt(agg.config_version))
+    );
+    
+    if (validAggregates.length === 0) {
+        document.getElementById('maeChartContainer').classList.add('hidden');
+        return;
+    }
+    
+    // Sort by config version
+    validAggregates.sort((a, b) => parseInt(a.config_version) - parseInt(b.config_version));
+    
+    const labels = validAggregates.map(agg => `v${agg.config_version}`);
+    const maeData = validAggregates.map(agg => agg.mean_absolute_error);
+    
+    const chartContainer = document.getElementById('maeChartContainer');
+    chartContainer.classList.remove('hidden');
+    
+    const canvas = document.getElementById('maeChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (maeChart) {
+        maeChart.destroy();
+    }
+    
+    // Determine color based on MAE values
+    const colors = maeData.map(mae => {
+        if (mae <= 2) return '#10B981'; // green
+        if (mae <= 5) return '#F59E0B'; // yellow
+        return '#EF4444'; // red
+    });
+    
+    maeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Mean Absolute Error',
+                data: maeData,
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointBackgroundColor: colors,
+                pointBorderColor: colors,
+                pointHoverRadius: 7,
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#9CA3AF'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    callbacks: {
+                        label: function(context) {
+                            const mae = context.parsed.y;
+                            let quality = '';
+                            if (mae <= 2) quality = ' (Excellent)';
+                            else if (mae <= 5) quality = ' (Good)';
+                            else quality = ' (Needs Improvement)';
+                            return `MAE: ${mae.toFixed(2)}${quality}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#9CA3AF'
+                    },
+                    grid: {
+                        color: 'rgba(156, 163, 175, 0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#9CA3AF'
+                    },
+                    grid: {
+                        color: 'rgba(156, 163, 175, 0.1)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Load aggregate scores for current subagent
+async function loadAggregateScores() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const aggregateScores = document.getElementById('aggregateScores');
+    const aggregateScoresContent = document.getElementById('aggregateScoresContent');
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-aggregate?subagent=${subagent}`);
+        
+        if (!response.ok) {
+            return; // Silently fail - aggregates are optional
+        }
+        
+        const data = await response.json();
+        const aggregates = data.aggregates || [];
+        
+        // Filter out excluded versions
+        const filteredAggregates = aggregates.filter(agg => 
+            agg.config_version && !excludedVersions.includes(parseInt(agg.config_version))
+        );
+        
+        if (filteredAggregates.length === 0) {
+            aggregateScores.classList.add('hidden');
+            document.getElementById('maeChartContainer').classList.add('hidden');
+            return;
+        }
+        
+        // Render MAE chart
+        renderMAEChart(filteredAggregates);
+        
+        aggregateScores.classList.remove('hidden');
+        aggregateScoresContent.innerHTML = '';
+        
+        // Initialize collapsible panel after showing
+        if (typeof initCollapsiblePanels === 'function') {
+            initCollapsiblePanels(aggregateScores);
+        }
+        
+        filteredAggregates.forEach(agg => {
+            const card = document.createElement('div');
+            card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800';
+            
+            let metricsHtml = '';
+            if (agg.mean_score !== null) {
+                const maeClass = agg.mean_absolute_error <= 2 ? 'text-green-600 dark:text-green-400' : 
+                                 agg.mean_absolute_error <= 5 ? 'text-yellow-600 dark:text-yellow-400' : 
+                                 'text-red-600 dark:text-red-400';
+                
+                metricsHtml = `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Mean Score</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.mean_score}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Mean Absolute Error</div>
+                            <div class="font-semibold ${maeClass}">${agg.mean_absolute_error}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.perfect_matches}/${agg.completed} (${agg.perfect_match_percentage}%)</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500 dark:text-gray-400">Score Distribution</div>
+                            <div class="font-semibold text-gray-900 dark:text-white text-xs">
+                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>, 
+                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>, 
+                                <span class="text-red-600 dark:text-red-400">${agg.score_distribution.over_2} ±3+</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                metricsHtml = `<p class="text-sm text-gray-500 dark:text-gray-400">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>`;
+            }
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed</span>
+                </div>
+                ${metricsHtml}
+            `;
+            
+            aggregateScoresContent.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error('Error loading aggregate scores:', error);
+        aggregateScores.classList.add('hidden');
+    }
+}
+
+// Load previous results for current subagent
+async function loadPreviousResults() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const resultsTable = document.getElementById('resultsTable');
+    
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
+    
+    // Load aggregate scores
+    await loadAggregateScores();
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const results = data.results || [];
+        
+        if (results.length === 0) {
+            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No previous results found for this subagent.</p>';
+            return;
+        }
+        
+        // Group by URL - one row per article, with config versions as columns
+        const byUrl = {};
+        results.forEach(result => {
+            const url = result.url;
+            if (!byUrl[url]) {
+                byUrl[url] = {
+                    url: url,
+                    expected_count: result.expected_count,
+                    article_id: result.article_id, // Store article_id at top level
+                    versions: {}
+                };
+            }
+            // Store result by config version
+            const version = result.config_version || 'unknown';
+            byUrl[url].versions[version] = result;
+        });
+        
+        // Get all unique config versions and sort them (ascending - oldest first)
+        // Filter out excluded versions
+        const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
+        
+        // Fetch model info for all config versions
+        let modelsByVersion = {};
+        if (allVersions.length > 0) {
+            try {
+                const versionsStr = allVersions.join(',');
+                const modelResponse = await fetch(`/api/evaluations/config-versions-models?config_versions=${versionsStr}`);
+                if (modelResponse.ok) {
+                    const modelData = await modelResponse.json();
+                    modelsByVersion = modelData.models_by_version || {};
+                }
+            } catch (error) {
+                console.warn('Failed to load model info for tooltips:', error);
+            }
+        }
+        
+        // Convert to array of article objects
+        const articleRows = Object.values(byUrl).sort((a, b) => a.url.localeCompare(b.url));
+        
+        renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
+        
+    } catch (error) {
+        console.error('Error loading previous results:', error);
+        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+    }
+}
+
+// Backfill pending evaluation records
+async function backfillEvalRecords() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const resultsTable = document.getElementById('resultsTable');
+    
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Updating pending records...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-backfill?subagent=${subagent}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Show success message
+        resultsTable.innerHTML = `<p class="text-sm text-green-600 dark:text-green-400">✅ ${data.message}</p>`;
+        
+        // Reload results to show updated list
+        setTimeout(() => {
+            loadPreviousResults();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error backfilling eval records:', error);
+        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+    }
+}
+
+// Clear pending evaluation records
+async function clearPendingRecords() {
+    const subagent = document.getElementById('subagentSelect').value;
+    const resultsTable = document.getElementById('resultsTable');
+    
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete all pending evaluation records for ${subagent}? This action cannot be undone.`)) {
+        return;
+    }
+    
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Clearing pending records...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/subagent-eval-clear-pending?subagent=${subagent}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Show success message
+        resultsTable.innerHTML = `<p class="text-sm text-green-600 dark:text-green-400">✅ ${data.message}</p>`;
+        
+        // Reload results to show updated list (without pending records)
+        setTimeout(() => {
+            loadPreviousResults();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error clearing pending records:', error);
+        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+    }
+}
+
+// Event listeners
+document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
+document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
+document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
+document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
+document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
+document.getElementById('selectAllBtn').addEventListener('click', () => {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        selectedArticleUrls.add(article.url);
+        const checkbox = document.getElementById(`article-${article.url}`);
+        if (checkbox) checkbox.checked = true;
+    });
+    updateRunButton();
+});
+document.getElementById('deselectAllBtn').addEventListener('click', () => {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(article => {
+        const checkbox = document.getElementById(`article-${article.url}`);
+            if (checkbox) checkbox.checked = false;
+    });
+    updateRunButton();
+});
+
+// Auto-load previous results when subagent changes
+document.getElementById('subagentSelect').addEventListener('change', () => {
+    // Clear current results
+    const resultsTable = document.getElementById('resultsTable');
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+    // Reload config to show agent-specific parameters
+    loadActiveConfig();
+});
+
+// Show commandlines modal
+async function showCommandlines(executionId, articleUrl, count) {
+    const modal = document.getElementById('commandlinesModal');
+    const content = document.getElementById('commandlinesContent');
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    content.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading commandlines...</p>';
+    
+    try {
+        const response = await fetch(`/api/evaluations/execution/${executionId}/commandlines`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const commandlines = data.commandlines || [];
+        const resultType = data.result_type || 'cmdline';
+        const subagentEval = data.subagent_eval || '';
+        
+        // Update modal title based on result type
+        const modalTitle = document.getElementById('commandlinesModalTitle');
+        if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
+            modalTitle.textContent = 'Extracted Process Lineage';
+        } else {
+            modalTitle.textContent = 'Extracted Commandlines';
+        }
+        
+        if (commandlines.length === 0) {
+            const emptyMessage = resultType === 'process_lineage' || subagentEval === 'process_lineage'
+                ? 'No process lineage relationships found for this execution.'
+                : 'No commandlines found for this execution.';
+            content.innerHTML = `
+                <div class="text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">${emptyMessage}</p>
+                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${articleUrl}</a></p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Display results
+        const itemLabel = resultType === 'process_lineage' || subagentEval === 'process_lineage'
+            ? 'process lineage relationship(s)'
+            : 'commandline(s)';
+        let html = `
+            <div class="mb-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${itemLabel} 
+                    from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
+                </p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${articleUrl}</a>
+                </p>
+            </div>
+            <div class="space-y-2">
+        `;
+        
+        commandlines.forEach((item, index) => {
+            let displayContent = '';
+            if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
+                // Process lineage items are objects with parent/child
+                if (typeof item === 'object' && item !== null) {
+                    const parent = item.parent || 'N/A';
+                    const child = item.child || 'N/A';
+                    const args = item.arguments ? ` (args: ${item.arguments})` : '';
+                    const context = item.context ? ` - ${item.context}` : '';
+                    displayContent = `<strong>${escapeHtml(parent)}</strong> → <strong>${escapeHtml(child)}</strong>${escapeHtml(args)}${escapeHtml(context)}`;
+                } else {
+                    displayContent = escapeHtml(String(item));
+                }
+            } else {
+                // Commandlines are strings
+                displayContent = escapeHtml(String(item));
+            }
+            
+            html += `
+                <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                    <div class="flex items-start gap-3">
+                        <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
+                        <div class="flex-1 text-sm ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        content.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading commandlines:', error);
+        content.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-red-600 dark:text-red-400">Error loading commandlines: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Close modal
+function closeCommandlinesModal() {
+    const modal = document.getElementById('commandlinesModal');
+    modal.classList.add('hidden');
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Event listeners for modal
+document.getElementById('closeCommandlinesModal').addEventListener('click', closeCommandlinesModal);
+document.getElementById('commandlinesModal').addEventListener('click', (e) => {
+    if (e.target.id === 'commandlinesModal') {
+        closeCommandlinesModal();
+    }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('commandlinesModal');
+        if (!modal.classList.contains('hidden')) {
+            closeCommandlinesModal();
+        }
+    }
+});
+
+// Initialize
+loadActiveConfig();
+</script>
+{% endblock %}
+

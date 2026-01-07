@@ -643,10 +643,7 @@ page.pause()  # Pause execution for manual inspection
 
 ## 📚 Next Steps
 
-- **Learn test categories** → [Test Categories](TEST_CATEGORIES.md)
-- **Test API endpoints** → [API Testing](API_TESTING.md)
-- **Set up CI/CD** → [CI/CD Integration](CICD_TESTING.md)
-- **Debug and maintain** → [Test Maintenance](TEST_MAINTENANCE.md)
+- **Learn test categories** → See the testing guide in the tests directory
 
 ## 🔍 Additional Resources
 

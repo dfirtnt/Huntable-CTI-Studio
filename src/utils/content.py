@@ -907,6 +907,11 @@ class ThreatHuntingScorer:
         elif keyword.startswith('-') or keyword.endswith('-'):
             # For keywords with leading/trailing hyphens, use letter boundaries instead of word boundaries
             return r"(?<![a-zA-Z])" + escaped_keyword + r"(?![a-zA-Z])"
+        elif keyword.startswith('.'):
+            # For extension-only keywords (like .exe, .dll, .bat, .ps1), only match when
+            # they appear as actual file extensions (preceded by alphanumeric characters)
+            # This prevents false positives when the extension doesn't appear in the content
+            return r'[a-zA-Z0-9_]' + escaped_keyword + r'\b'
         elif keyword.endswith('.exe'):
             # For .exe executables, always require .exe extension to avoid false positives
             # with common English words (e.g., "services", "system", "process")

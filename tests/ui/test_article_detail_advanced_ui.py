@@ -202,6 +202,66 @@ class TestArticleDetailEditing:
             # Content editing may or may not be available
 
 
+class TestArticleDetailObservables:
+    """Test observable annotation workflow."""
+
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_observable_annotation_creation_and_review(self, page: Page):
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        api_flags = {"annotation": False, "review": False}
+
+        def handle_article_routes(route):
+            url = route.request.url
+            method = route.request.method
+            if method == "POST" and url.endswith("/mark-reviewed"):
+                api_flags["review"] = True
+                route.fulfill(
+                    status=200,
+                    body='{"success": true, "article_id": 1, "processing_status": "completed"}',
+                    headers={"Content-Type": "application/json"},
+                )
+                return
+            if method == "POST" and "/annotations" in url:
+                api_flags["annotation"] = True
+                route.fulfill(
+                    status=200,
+                    body='{"success": true, "annotation": {"id": 999, "annotation_type": "CMD"}}',
+                    headers={"Content-Type": "application/json"},
+                )
+                return
+            route.continue_()
+
+        page.route("**/api/articles/**", handle_article_routes)
+
+        page.goto(f"{base_url}/articles")
+        page.wait_for_load_state("networkidle")
+
+        article_links = page.locator("a[href^='/articles/']")
+        if article_links.count() == 0:
+            pytest.skip("No articles available for testing")
+
+        article_links.first.click()
+        page.wait_for_load_state("networkidle")
+
+        page.click("#annotation-mode-observables")
+        observable_picker = page.locator("#observable-type-picker")
+        expect(observable_picker).not_to_have_class("hidden")
+        cmd_button = page.locator("[data-observable-type='CMD']")
+        expect(cmd_button).to_be_visible()
+        cmd_button.click()
+
+        page.wait_for_function("window.simpleTextManager !== undefined")
+        page.evaluate("() => window.simpleTextManager.submitObservableAnnotation(0, 10)")
+
+        assert api_flags["annotation"], "Observable annotation POST should be triggered"
+
+        review_button = page.locator("#mark-observable-reviewed")
+        expect(review_button).to_be_visible()
+        review_button.click()
+        assert api_flags["review"], "Review endpoint should be triggered"
+
+
 class TestArticleDetailDeletion:
     """Test article deletion features."""
     
@@ -503,4 +563,3 @@ class TestArticleDetailAdvancedFeatures:
             
             # Verify navigation occurred (may redirect after successful trigger)
             # This test verifies the redirect logic exists
-

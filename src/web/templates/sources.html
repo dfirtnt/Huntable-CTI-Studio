@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Sources - Huntable Detection Studio{% endblock %}
+{% block title %}Sources - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -8,7 +8,7 @@
         <nav class="flex mb-4" aria-label="Breadcrumb">
             <ol class="inline-flex items-center space-x-1 md:space-x-3">
                 <li class="inline-flex items-center">
-                    <a href="/" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Home</a>
+                    <a href="/" class="text-gray-700 dark:text-gray-300" style="color: var(--color-text-secondary);">Home</a>
                 </li>
                 <li>
                     <div class="flex items-center">
@@ -21,26 +21,29 @@
             </ol>
         </nav>
         
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔗 Threat Intelligence Sources</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+            <img src="/static/icons/sources-icon.svg" alt="Sources" class="w-[63px] h-[63px]" />
+            Threat Intelligence Sources
+        </h1>
         <p class="text-gray-600 dark:text-gray-400">Manage and monitor your threat intelligence collection sources</p>
     </div>
 
     <!-- Database Status Banner -->
-    <div id="dbStatusBanner" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+    <div id="dbStatusBanner" class="hidden rounded-lg p-4 mb-6" style="background-color: var(--color-warning-bg); border: 1px solid var(--color-warning);">
         <div class="flex items-center">
             <div class="flex-shrink-0">
-                <span class="text-yellow-400 text-lg">⚠️</span>
+                <span class="text-lg" style="color: var(--color-warning);">⚠️</span>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-yellow-800">Database Status</h3>
-                <p class="text-sm text-yellow-700">
+                <h3 class="text-sm font-medium" style="color: var(--color-warning-text);">Database Status</h3>
+                <p class="text-sm" style="color: var(--color-warning-text);">
                     The database is experiencing temporary locking issues. 
                     Source status changes may not persist until you refresh the page.
                 </p>
             </div>
             <div class="ml-auto pl-3">
                 <button onclick="window.location.reload()" 
-                        class="bg-yellow-100 text-yellow-800 rounded-md px-3 py-1 text-sm font-medium hover:bg-yellow-200">
+                        class="rounded-md px-3 py-1 text-sm font-medium" style="background-color: var(--color-warning); color: white;">
                     🔄 Refresh
                 </button>
             </div>
@@ -71,19 +74,21 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2 mb-2">
                             <!-- Article count indicator -->
-                            <div class="flex items-center justify-center w-6 h-6 bg-green-100 text-green-800 text-xs font-bold rounded-full" 
+                            <div class="flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full" 
+                                 style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);"
                                  aria-label="{{ source.total_articles or 0 }} articles collected">
                                 {{ source.total_articles or 0 }}
                             </div>
                             <h4 class="text-lg font-medium text-gray-900 dark:text-white">
                                 <a href="/articles?source_id={{ source.id }}" 
-                                   class="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                   class="hover:underline transition-colors"
+                                   style="color: var(--color-info);"
                                    aria-label="View articles from {{ source.name }}">
                                     {{ source.name }}
                                 </a>
                             </h4>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                         {% if source.active %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}"
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border"
+                                  style="{% if source.active %}background-color: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success);{% else %}background-color: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error);{% endif %}"
                                   aria-label="Source status: {% if source.active %}Active{% else %}Inactive{% endif %}">
                                 {% if source.active %}Active{% else %}Inactive{% endif %}
                             </span>
@@ -153,7 +158,8 @@
 
                         <div class="flex items-center space-x-2">
                             <button onclick="collectFromSource({{ source.id }})" 
-                                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                                    class="inline-flex items-center px-3 py-1.5 text-white rounded text-xs font-medium transition-colors"
+                                    style="background-color: var(--color-brand);"
                                     aria-label="Collect articles from {{ source.name }}"
                                     title="Collect articles from {{ source.name }}">
                                 <span class="mr-2" aria-hidden="true">🚀</span>
@@ -297,7 +303,7 @@
                 </p>
             </div>
             <div>
-                <a href="/pdf-upload" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <a href="/pdf-upload" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors" style="background-color: var(--color-brand);">
                     <span class="mr-2">📄</span>
                     Upload PDF
                 </a>
@@ -327,7 +333,7 @@
                 </div>
             </div>
             <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button type="button" onclick="closeModal()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                <button type="button" onclick="closeModal()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:ml-3 sm:w-auto sm:text-sm" style="background-color: var(--color-brand);">
                     Close
                 </button>
             </div>
@@ -396,14 +402,14 @@ async function toggleSourceStatus(sourceId) {
             content += `<p class="text-sm text-gray-500 dark:text-gray-400">${result.message}</p>`;
             
             if (result.success) {
-                content += `<div class="mt-3 p-3 bg-green-50 border border-green-200 rounded">`;
-                content += `<p class="text-sm text-green-800">✅ Status updated successfully!</p>`;
+                content += `<div class="mt-3 p-3 rounded" style="background-color: var(--color-success-bg); border: 1px solid var(--color-success);">`;
+                content += `<p class="text-sm" style="color: var(--color-success);">✅ Status updated successfully!</p>`;
                 content += `</div>`;
             }
             
             if (result.note) {
-                content += `<div class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">`;
-                content += `<p class="text-sm text-yellow-800"><strong>Note:</strong> ${result.note}</p>`;
+                content += `<div class="mt-3 p-3 rounded" style="background-color: var(--color-warning-bg); border: 1px solid var(--color-warning);">`;
+                content += `<p class="text-sm" style="color: var(--color-warning-text);"><strong>Note:</strong> ${result.note}</p>`;
                 content += `</div>`;
             }
             content += `</div>`;
@@ -421,13 +427,13 @@ async function toggleSourceStatus(sourceId) {
                     const modalContent = document.getElementById('modalContent');
                     if (modalContent) {
                         modalContent.innerHTML += `
-                            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                                <p class="text-sm text-blue-800">
+                            <div class="mt-4 p-3 rounded" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
+                                <p class="text-sm" style="color: var(--color-text-secondary);">
                                     <strong>Manual Refresh Required:</strong> 
                                     Click the refresh button below to see current status.
                                 </p>
                                 <button onclick="window.location.reload()" 
-                                        class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                        class="mt-2 px-4 py-2 text-white rounded" style="background-color: var(--color-brand);">
                                     🔄 Refresh Page
                                 </button>
                             </div>
@@ -658,11 +664,14 @@ function saveSourceConfig() {
 function showNotification(message, type = 'info') {
     // Create notification element
     const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
-        type === 'success' ? 'bg-green-500 text-white' : 
-        type === 'error' ? 'bg-red-500 text-white' : 
-        'bg-blue-500 text-white'
-    }`;
+    notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg text-white';
+    if (type === 'success') {
+        notification.style.backgroundColor = 'var(--color-success)';
+    } else if (type === 'error') {
+        notification.style.backgroundColor = 'var(--color-error)';
+    } else {
+        notification.style.backgroundColor = 'var(--color-info)';
+    }
     notification.textContent = message;
     
     document.body.appendChild(notification);
@@ -1091,7 +1100,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                 
                 <button type="submit" id="scrapeUrlBtn"
                         onclick="event.preventDefault(); event.stopPropagation(); handleAdhocUrlSubmit(event); return false;"
-                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--color-brand);">
                     <span class="mr-2">🔍</span>
                     Scrape URLs
                 </button>
