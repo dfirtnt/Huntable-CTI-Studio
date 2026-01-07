@@ -3,10 +3,11 @@
 # Last updated: 2025-01-29
 # Security audit: Updated all packages to latest versions
 # Phase 1 security updates: 2025-01-29 (certifi, charset-normalizer, cryptography)
+# Phase 2 security updates: 2026-01-07 (urllib3, aiohttp, starlette)
 
 # Core scraping and processing
 requests==2.32.5
-aiohttp==3.12.15
+aiohttp==3.13.3
 httpx==0.28.1
 brotli>=1.0.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.2
@@ -49,7 +50,7 @@ python-dateutil==2.9.0  # Date parsing utilities
 
 # Security
 certifi==2025.11.12
-urllib3==2.5.0
+urllib3==2.6.0
 charset-normalizer==3.4.4
 python-multipart==0.0.20
 cryptography==46.0.3  # Enhanced encryption

@@ -216,7 +216,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SECTIONS OUTSIDE AGENTS-PANEL (Presets, Context Window, Config Display, Overview)
+   SECTIONS OUTSIDE AGENTS-PANEL (Presets, Config Display, Overview)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Override bg-white dark:bg-gray-800 cards */
@@ -656,17 +656,20 @@
                                                        onchange="autoSaveModelChange()">
                                             </div>
                                         </div>
-                                        <!-- Temperature -->
+                                        <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                            <input type="number" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
-                                        </div>
-                                        <!-- Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                            <input type="number" id="cmdlineextract-top-p" name="agent_models[CmdlineExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                            <div class="flex gap-3">
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                                    <input type="number" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                                                    <input type="number" id="cmdlineextract-top-p" name="agent_models[CmdlineExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                </div>
+                                            </div>
                                         </div>
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -723,29 +726,31 @@
                                                        placeholder="claude-sonnet-4-5"
                                                        onchange="autoSaveModelChange()">
                                             </div>
-                                             <div class="mt-2">
-                                                 <label for="cmdlineqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                <input type="number" 
-                                                       id="cmdlineqa-temperature" 
-                                                       name="agent_models[CmdLineQA_temperature]"
-                                                       min="0" 
-                                                       max="2" 
-                                                       step="0.1"
-                                                       value="0.1"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            </div>
-                                            <div class="mt-2">
-                                                <label for="cmdlineqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                <input type="number" 
-                                                       id="cmdlineqa-top-p" 
-                                                       name="agent_models[CmdLineQA_top_p]"
-                                                       min="0" 
-                                                       max="1" 
-                                                       step="0.01"
-                                                       value="0.9"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                             <div class="mt-2 flex gap-3">
+                                                 <div class="flex-1">
+                                                     <label for="cmdlineqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                    <input type="number" 
+                                                           id="cmdlineqa-temperature" 
+                                                           name="agent_models[CmdLineQA_temperature]"
+                                                           min="0" 
+                                                           max="2" 
+                                                           step="0.1"
+                                                           value="0.1"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label for="cmdlineqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
+                                                    <input type="number" 
+                                                           id="cmdlineqa-top-p" 
+                                                           name="agent_models[CmdLineQA_top_p]"
+                                                           min="0" 
+                                                           max="1" 
+                                                           step="0.01"
+                                                           value="0.9"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                </div>
                                             </div>
                                         </div>
                                         <div id="cmdlineextract-agent-qa-prompt-container" class="hidden"></div>
@@ -828,17 +833,20 @@
                                                        onchange="autoSaveModelChange()">
                                             </div>
                                         </div>
-                                        <!-- Temperature -->
+                                        <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                            <input type="number" id="sigextract-temperature" name="agent_models[SigExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
-                                        </div>
-                                        <!-- Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                            <input type="number" id="sigextract-top-p" name="agent_models[SigExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                            <div class="flex gap-3">
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                                    <input type="number" id="sigextract-temperature" name="agent_models[SigExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                                                    <input type="number" id="sigextract-top-p" name="agent_models[SigExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                </div>
+                                            </div>
                                         </div>
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -895,29 +903,31 @@
                                                        placeholder="claude-sonnet-4-5"
                                                        onchange="autoSaveModelChange()">
                                             </div>
-                                             <div class="mt-2">
-                                                 <label for="sigqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                <input type="number" 
-                                                       id="sigqa-temperature" 
-                                                       name="agent_models[SigQA_temperature]"
-                                                       min="0" 
-                                                       max="2" 
-                                                       step="0.1"
-                                                       value="0.1"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            </div>
-                                            <div class="mt-2">
-                                                <label for="sigqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                <input type="number" 
-                                                       id="sigqa-top-p" 
-                                                       name="agent_models[SigQA_top_p]"
-                                                       min="0" 
-                                                       max="1" 
-                                                       step="0.01"
-                                                       value="0.9"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                             <div class="mt-2 flex gap-3">
+                                                 <div class="flex-1">
+                                                     <label for="sigqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                    <input type="number" 
+                                                           id="sigqa-temperature" 
+                                                           name="agent_models[SigQA_temperature]"
+                                                           min="0" 
+                                                           max="2" 
+                                                           step="0.1"
+                                                           value="0.1"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label for="sigqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
+                                                    <input type="number" 
+                                                           id="sigqa-top-p" 
+                                                           name="agent_models[SigQA_top_p]"
+                                                           min="0" 
+                                                           max="1" 
+                                                           step="0.01"
+                                                           value="0.9"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                </div>
                                             </div>
                                         </div>
                                         <div id="sigextract-agent-qa-prompt-container" class="hidden"></div>
@@ -1344,17 +1354,20 @@
                                                        onchange="autoSaveModelChange()">
                                             </div>
                                         </div>
-                                        <!-- Temperature -->
+                                        <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                            <input type="number" id="regextract-temperature" name="agent_models[RegExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
-                                        </div>
-                                        <!-- Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                            <input type="number" id="regextract-top-p" name="agent_models[RegExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                            <div class="flex gap-3">
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                                    <input type="number" id="regextract-temperature" name="agent_models[RegExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                                                    <input type="number" id="regextract-top-p" name="agent_models[RegExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                </div>
+                                            </div>
                                         </div>
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -1585,69 +1598,6 @@
                     </p>
                 </div>
 
-                <!-- Context Window Command Generator -->
-                <div id="lmstudio-context-panel" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important; display: none;">
-                    <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">🔧 LMStudio Context Window Commands</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generate commands to set context windows for all selected models in your terminal.</p>
-                    <div class="flex flex-wrap gap-3 items-end">
-                        <div class="flex-1 min-w-[200px]">
-                            <label for="context-window-length" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Context Length (tokens)
-                            </label>
-                            <input type="number" 
-                                   id="context-window-length" 
-                                   value="16384" 
-                                   min="1024" 
-                                   max="1000000" 
-                                   step="1024"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Default: 16384 (16k). Common: 10240 (10k), 32768 (32k)
-                            </p>
-                        </div>
-                        <button type="button" 
-                                onclick="generateContextWindowCommands()" 
-                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium">
-                            📋 Generate Commands
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Context Window Commands Modal -->
-                <div id="context-window-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeContextWindowModal(event)">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
-                        <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">LMStudio Context Window Commands</h3>
-                            <button onclick="closeContextWindowModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="p-6 overflow-y-auto flex-1">
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                Copy and run these commands in your terminal to set context windows for all selected models:
-                            </p>
-                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                <div class="flex justify-between items-center mb-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Commands:</label>
-                                    <button onclick="copyContextWindowCommands()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
-                                        📋 Copy All
-                                    </button>
-                                </div>
-                                <textarea id="context-window-commands" 
-                                          readonly
-                                          class="w-full h-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm"
-                                          style="font-family: 'Courier New', monospace;"></textarea>
-                            </div>
-                            <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                <p class="text-sm text-blue-800 dark:text-blue-200">
-                                    <strong>Note:</strong> These commands use the <code class="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded">scripts/set_lmstudio_context.sh</code> script and require the LMStudio CLI (<code>lms</code>) to be installed on your host machine.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Current Config Display -->
                 <div id="currentConfig" class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;" style="background: rgb(26, 34, 56) !important; border-color: rgba(99, 102, 241, 0.12) !important;">
@@ -2715,42 +2665,47 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     const openaiInput = buildCommercialProviderInput(agentPrefix, 'openai', currentProvider, currentModel);
     const anthropicInput = buildCommercialProviderInput(agentPrefix, 'anthropic', currentProvider, currentModel);
     
-    // Build temperature input if needed
-    const temperatureInput = showTemperature && config.temperatureKey ? `
-        <div class="mt-3">
-            <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-            <input type="number" 
-                   id="${agentPrefix}-temperature" 
-                   ${config.temperatureKey ? `name="agent_models[${config.temperatureKey}]"` : ''}
-                   min="0" max="2" step="0.1" 
-                   value="${temperatureDefault}" 
-                   onchange="autoSaveModelChange()" 
-                   class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
+    // Build temperature and top_p inputs on same row if needed
+    const topPDefault = options.topPDefault !== undefined ? options.topPDefault : 0.9;
+    const temperatureTopPRow = showTemperature && (config.temperatureKey || config.topPKey) ? `
+        <div class="mt-3 flex gap-3">
+            ${config.temperatureKey ? `
+            <div class="flex-1">
+                <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                <input type="number" 
+                       id="${agentPrefix}-temperature" 
+                       name="agent_models[${config.temperatureKey}]"
+                       min="0" max="2" step="0.1" 
+                       value="${temperatureDefault}" 
+                       onchange="autoSaveModelChange()" 
+                       class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
+            </div>
+            ` : ''}
+            ${config.topPKey ? `
+            <div class="flex-1">
+                <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                <input type="number" 
+                       id="${agentPrefix}-top-p" 
+                       name="agent_models[${config.topPKey}]"
+                       min="0" max="1" step="0.01" 
+                       value="${topPDefault}" 
+                       onchange="autoSaveModelChange()" 
+                       class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
+            </div>
+            ` : ''}
         </div>
     ` : '';
     
-    // Build top_p input if needed (always show if temperature is shown)
-    const topPDefault = options.topPDefault !== undefined ? options.topPDefault : 0.9;
-    const topPInput = showTemperature && config.topPKey ? `
-        <div class="mt-3">
-            <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-            <input type="number" 
-                   id="${agentPrefix}-top-p" 
-                   name="agent_models[${config.topPKey}]"
-                   min="0" max="1" step="0.01" 
-                   value="${topPDefault}" 
-                   onchange="autoSaveModelChange()" 
-                   class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
-        </div>
-    ` : '';
+    // Legacy separate inputs for backward compatibility (not used if temperatureTopPRow is set)
+    const temperatureInput = '';
+    const topPInput = '';
     
     return {
         providerSelect,
         lmstudioSelect,
         openaiInput,
         anthropicInput,
-        temperatureInput,
-        topPInput,
+        temperatureTopPRow,
         html: `
             <div class="space-y-3">
                 ${providerSelect}
@@ -2763,8 +2718,7 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
                 <div data-agent-prefix="${agentPrefix}" data-provider="anthropic" class="hidden">
                     ${anthropicInput}
                 </div>
-                ${temperatureInput}
-                ${topPInput}
+                ${temperatureTopPRow}
             </div>
         `
     };
@@ -3328,11 +3282,6 @@ function applyProviderSelections(models) {
         }
     });
     
-    // Update LMStudio context panel visibility after provider selections are applied
-    if (typeof updateLMStudioContextPanelVisibility === 'function') {
-        updateLMStudioContextPanelVisibility();
-    }
-    
     // Update config display to reflect current UI state
     if (typeof updateConfigDisplay === 'function') {
         updateConfigDisplay();
@@ -3510,7 +3459,6 @@ function onAgentProviderChange(agentPrefix) {
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
     }
-    updateLMStudioContextPanelVisibility();
     autoSaveModelChange();
 }
 // Keep a reference the stub can call even if overwritten order varies
@@ -4327,11 +4275,8 @@ async function loadConfig(skipPromptReload = false) {
             applyAgentConfigs(currentConfig.agent_models);
         }
         
-        // Update config display and LMStudio panel visibility after models are loaded
+        // Update config display after models are loaded
         updateConfigDisplay();
-        if (typeof updateLMStudioContextPanelVisibility === 'function') {
-            updateLMStudioContextPanelVisibility();
-        }
         
         // Load QA settings - ensure currentConfig.qa_enabled is properly set
         if (currentConfig && !currentConfig.qa_enabled) {
@@ -4459,10 +4404,6 @@ async function loadAgentModels() {
     // Prevent multiple simultaneous calls
     if (isLoadingAgentModels) {
         console.log('loadAgentModels already in progress, skipping duplicate call');
-        // Still update visibility in case models are already loaded
-        if (typeof updateLMStudioContextPanelVisibility === 'function') {
-            updateLMStudioContextPanelVisibility();
-        }
         return;
     }
     
@@ -4679,13 +4620,15 @@ function renderAgentModels(lmstudioModels) {
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Rank Agent scoring.</p>
                 ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
-                <div class="mt-3">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                    <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                </div>
-                <div class="mt-3">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                    <input type="number" id="rankagent-top-p" name="agent_models[RankAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                <div class="mt-3 flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                        <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                        <input type="number" id="rankagent-top-p" name="agent_models[RankAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                    </div>
                 </div>
             </div>
         `;
@@ -4946,13 +4889,15 @@ function renderAgentModels(lmstudioModels) {
                         </div>
                     </div>
                  </div>
-                 <div class="mt-3">
-                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                     <input type="number" id="sigmaagent-temperature" name="agent_models[SigmaAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                 </div>
-                 <div class="mt-3">
-                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                     <input type="number" id="sigmaagent-top-p" name="agent_models[SigmaAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                 <div class="mt-3 flex gap-3">
+                     <div class="flex-1">
+                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                         <input type="number" id="sigmaagent-temperature" name="agent_models[SigmaAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                     </div>
+                     <div class="flex-1">
+                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                         <input type="number" id="sigmaagent-top-p" name="agent_models[SigmaAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                     </div>
                  </div>
              </div>
         `;
@@ -5022,11 +4967,6 @@ function renderAgentModels(lmstudioModels) {
             select.setAttribute('onchange', 'autoSaveModelChange()');
         }
     });
-    
-    // Update LMStudio context panel visibility after models are rendered
-    if (typeof updateLMStudioContextPanelVisibility === 'function') {
-        updateLMStudioContextPanelVisibility();
-    }
 
     // Populate QA agent model dropdowns using unified system
     const qaConfigs = getAgentConfigs({ isQA: true });
@@ -5527,11 +5467,6 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             // Update config display to show current UI state
             if (typeof updateConfigDisplay === 'function') {
                 updateConfigDisplay();
-            }
-            
-            // Update LMStudio context panel visibility after model changes
-            if (typeof updateLMStudioContextPanelVisibility === 'function') {
-                updateLMStudioContextPanelVisibility();
             }
             
             // Verify the saved value matches what we sent
@@ -7103,36 +7038,6 @@ function updateConfigDisplay() {
 }
 
 // Get only LMStudio models from selected models
-// Check if any LMStudio providers are selected and update panel visibility
-function updateLMStudioContextPanelVisibility() {
-    const panel = document.getElementById('lmstudio-context-panel');
-    if (!panel) return;
-    
-    // Default to hidden
-    panel.style.display = 'none';
-    
-    // Check if LMStudio is enabled in settings (default to true if not loaded yet)
-    if (!enabledProviders) {
-        enabledProviders = { lmstudio: true, openai: true, anthropic: true };
-    }
-    if (!enabledProviders.lmstudio) {
-        return;
-    }
-    
-    // Use getLMStudioModelsOnly() to check if there are any LMStudio models selected
-    // This function already has the correct logic to check provider and model
-    if (typeof getLMStudioModelsOnly !== 'function') {
-        return;
-    }
-    
-    const lmstudioModels = getLMStudioModelsOnly();
-    const hasLMStudio = Array.isArray(lmstudioModels) && lmstudioModels.length > 0;
-    
-    // Show panel only if LMStudio models are found
-    if (hasLMStudio) {
-        panel.style.display = 'block';
-    }
-}
 
 function getLMStudioModelsOnly() {
     const models = new Set();
@@ -7267,84 +7172,6 @@ function getLMStudioModelsOnly() {
     return Array.from(models).sort();
 }
 
-// Generate context window commands for all selected models
-function generateContextWindowCommands() {
-    const models = getLMStudioModelsOnly();
-    const contextLength = document.getElementById('context-window-length')?.value || '16384';
-    
-    if (models.length === 0) {
-        alert('No LMStudio models selected. Please select at least one LMStudio model from the dropdowns above.');
-        return;
-    }
-    
-    // Generate commands with unload step
-    const commands = [
-        '# Unload all currently loaded models first',
-        'lms unload --all',
-        '',
-        '# Load each model with specified context length'
-    ].concat(
-        models.map(model => {
-            return `./scripts/set_lmstudio_context.sh "${model}" ${contextLength}`;
-        })
-    ).join('\n');
-    
-    // Show modal with commands
-    const modal = document.getElementById('context-window-modal');
-    const textarea = document.getElementById('context-window-commands');
-    if (modal && textarea) {
-        textarea.value = commands;
-        modal.classList.remove('hidden');
-    }
-}
-
-// Close context window modal
-function closeContextWindowModal(event) {
-    if (event && event.target !== event.currentTarget && event.type !== 'keydown') {
-        return; // Don't close if clicking inside modal (unless Escape key)
-    }
-    if (event && event.type === 'keydown' && event.key !== 'Escape') {
-        return; // Only close on Escape key
-    }
-    const modal = document.getElementById('context-window-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-    }
-}
-
-// Add Escape key listener for context window modal
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-        const modal = document.getElementById('context-window-modal');
-        if (modal && !modal.classList.contains('hidden')) {
-            closeContextWindowModal(event);
-        }
-    }
-});
-
-// Copy context window commands to clipboard
-function copyContextWindowCommands(event) {
-    const textarea = document.getElementById('context-window-commands');
-    if (textarea) {
-        textarea.select();
-        document.execCommand('copy');
-        
-        // Show feedback
-        const button = event ? event.target : document.querySelector('#context-window-modal button[onclick*="copyContextWindowCommands"]');
-        if (button) {
-            const originalText = button.textContent;
-            button.textContent = '✅ Copied!';
-            button.classList.add('bg-green-600', 'hover:bg-green-700');
-            button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-            
-            setTimeout(() => {
-                button.textContent = originalText;
-                button.classList.remove('bg-green-600', 'hover:bg-green-700');
-                button.classList.add('bg-blue-600', 'hover:bg-blue-700');
-            }, 2000);
-        }
-    }
-}
 
 // Function to get current form state
 function getCurrentFormState() {
@@ -10611,11 +10438,6 @@ if (document.readyState === 'loading') {
             refreshAllProviderBlocks();
         }
         
-        // Update LMStudio context panel visibility after config loads
-        if (typeof updateLMStudioContextPanelVisibility === 'function') {
-            updateLMStudioContextPanelVisibility();
-        }
-        
         // __dbgLog('H5', 'DOMContentLoaded fired', { ready: document.readyState });
     });
 } else {
@@ -10633,11 +10455,6 @@ if (document.readyState === 'loading') {
         }
         if (typeof refreshAllProviderBlocks === 'function') {
             refreshAllProviderBlocks();
-        }
-        
-        // Update LMStudio context panel visibility after config loads
-        if (typeof updateLMStudioContextPanelVisibility === 'function') {
-            updateLMStudioContextPanelVisibility();
         }
         
         // __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
