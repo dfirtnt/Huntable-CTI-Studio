@@ -173,6 +173,30 @@ class LLMService:
         )
         
         self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        # Per-agent top_p settings (from config, fallback to global)
+        # Handle both string and numeric values from JSONB
+        rank_top_p_raw = config_models.get("RankAgent_top_p") if config_models else None
+        if rank_top_p_raw is not None:
+            self.top_p_rank = float(rank_top_p_raw)
+        else:
+            self.top_p_rank = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        extract_top_p_raw = config_models.get("ExtractAgent_top_p") if config_models else None
+        if extract_top_p_raw is not None:
+            self.top_p_extract = float(extract_top_p_raw)
+        else:
+            self.top_p_extract = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
+        if sigma_top_p_raw is not None:
+            self.top_p_sigma = float(sigma_top_p_raw)
+        else:
+            self.top_p_sigma = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        
+        # Store config_models for per-subagent top_p lookup
+        self.config_models = config_models if config_models else {}
+        
         self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         
         model_source = "config" if config_models else "environment"
@@ -181,6 +205,35 @@ class LLMService:
             f"rank={self.provider_rank}, extract={self.provider_extract}, sigma={self.provider_sigma} "
             f"- Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}"
         )
+    
+    def get_top_p_for_agent(self, agent_name: str) -> float:
+        """
+        Get top_p value for a specific agent.
+        
+        Args:
+            agent_name: Agent name (e.g., "CmdlineExtract", "RankAgent", "ExtractAgent")
+            
+        Returns:
+            top_p value for the agent, or global default if not configured
+        """
+        # Check for agent-specific top_p in config
+        top_p_key = f"{agent_name}_top_p"
+        if self.config_models and top_p_key in self.config_models:
+            return float(self.config_models[top_p_key])
+        
+        # Fallback to main agent top_p values
+        if agent_name == "RankAgent":
+            return self.top_p_rank
+        elif agent_name == "ExtractAgent":
+            return self.top_p_extract
+        elif agent_name == "SigmaAgent":
+            return self.top_p_sigma
+        elif agent_name in ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract"]:
+            # Sub-agents fall back to ExtractAgent top_p
+            return self.top_p_extract
+        
+        # Default to global top_p
+        return self.top_p
 
     def _bool_from_setting(self, value: Optional[str], default: bool = False) -> bool:
         if value is None:
@@ -702,7 +755,8 @@ class LLMService:
                 "temperature": temperature,
             }
             if top_p is not None:
-                payload["top_p"] = top_p
+                payload["top_p"] = float(top_p)  # Ensure it's a float, not string
+                logger.debug(f"LMStudio payload top_p: {payload['top_p']} (type: {type(payload['top_p'])})")
             if seed is not None:
                 payload["seed"] = seed
             return await self._post_lmstudio_chat(
@@ -1415,7 +1469,7 @@ class LLMService:
                     temperature=self.temperature_rank,
                     timeout=ranking_timeout,
                     failure_context="Failed to rank article",
-                    top_p=self.top_p,
+                    top_p=self.top_p_rank,
                     seed=self.seed
                 )
                 
@@ -1745,7 +1799,7 @@ class LLMService:
                     temperature=self.temperature_extract,
                     timeout=extraction_timeout,
                     failure_context="Failed to extract behaviors",
-                    top_p=self.top_p,
+                    top_p=self.top_p_extract,
                     seed=self.seed
                 )
                 
@@ -2553,6 +2607,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         execution_id: Optional[int] = None,
         model_name: Optional[str] = None,
         temperature: float = 0.0,
+        top_p: Optional[float] = None,
         qa_model_override: Optional[str] = None,
         use_hybrid_extractor: Optional[bool] = None,
         provider: Optional[str] = None
@@ -2732,13 +2787,16 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     # Use provided provider or fall back to ExtractAgent provider
                     effective_provider = provider or self.provider_extract
                     effective_provider = self._canonicalize_provider(effective_provider)
-                    logger.info(f"{agent_name} extraction attempt {current_try}: using provider={effective_provider}, model={model_name}, temperature={temperature}")
+                    # Use provided top_p or get from agent config
+                    effective_top_p = top_p if top_p is not None else self.get_top_p_for_agent(agent_name)
+                    logger.info(f"{agent_name} extraction attempt {current_try}: using provider={effective_provider}, model={model_name}, temperature={temperature}, top_p={effective_top_p}")
                     response = await self.request_chat(
                         provider=effective_provider,
                         model_name=model_name,
                         messages=converted_messages,
                         max_tokens=2000,
                         temperature=temperature,
+                        top_p=effective_top_p,
                         timeout=extraction_timeout,
                         failure_context=f"{agent_name} extraction attempt {current_try}",
                         seed=self.seed
@@ -2969,6 +3027,12 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         if "error" in last_result:
                             output_for_langfuse["error"] = last_result["error"]
 
+                        # Create dataset-compatible input format
+                        # Schema only allows article_text (additionalProperties: false)
+                        dataset_input = {
+                            "article_text": content[:10000] if len(content) > 10000 else content,  # Truncate for dataset
+                        }
+                        
                         log_llm_completion(
                             generation=generation,
                             input_messages=messages,
@@ -2979,7 +3043,8 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                                 "attempt": current_try,
                                 "parsed_result_keys": list(last_result.keys()),
                                 "item_count": output_for_langfuse["parsed_items_count"]
-                            }
+                            },
+                            input_object=dataset_input  # Use dataset-compatible format
                         )
 
                 # If no QA config, return immediately
