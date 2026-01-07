@@ -3631,24 +3631,8 @@ async function bootstrapPromptsFromFiles() {
 
 let editingPrompts = {}; // Track which prompts are being edited
 
-function renderAgentPrompts() {
-    const container = document.getElementById('agentPromptsContainer');
-
-    if (!agentPrompts || Object.keys(agentPrompts).length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-8">
-                <p class="text-gray-500 dark:text-gray-400 mb-4">No agent prompts found in database</p>
-                <p class="text-sm text-gray-400 dark:text-gray-500 mb-4">Load default prompts from files to get started</p>
-                <button onclick="bootstrapPromptsFromFiles()"
-                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
-                    📥 Import Default Prompts
-                </button>
-            </div>
-        `;
-        return;
-    }
-
-    const parsePromptParts = (rawPrompt) => {
+// Global function to parse prompts into system/user parts
+function parsePromptParts(rawPrompt) {
         let system = '';
         let user = rawPrompt || '';
         let isTemplateFormat = false;
@@ -3682,7 +3666,24 @@ function renderAgentPrompts() {
             // fallback: treat entire prompt as user content
         }
         return { system, user, isTemplateFormat, templateData };
-    };
+}
+
+function renderAgentPrompts() {
+    const container = document.getElementById('agentPromptsContainer');
+
+    if (!agentPrompts || Object.keys(agentPrompts).length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-gray-500 dark:text-gray-400 mb-4">No agent prompts found in database</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mb-4">Load default prompts from files to get started</p>
+                <button onclick="bootstrapPromptsFromFiles()"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                    📥 Import Default Prompts
+                </button>
+            </div>
+        `;
+        return;
+    }
     
     // Display name mapping for agents
     const agentDisplayNames = {
@@ -3815,27 +3816,41 @@ function renderAgentPrompts() {
                                     `}
                                 </div>
                             ` : ''}
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
+                            <div class="space-y-6">
+                                <div class="border-l-4 border-blue-500 pl-4">
+                                    <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                        <span class="inline-flex items-center gap-2">
+                                            <span>🔧</span>
+                                            <span>System Prompt</span>
+                                        </span>
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
                                     ${isEditing ? `
                                         <textarea id="${agentId}-prompt-system" 
-                                                  rows="6"
-                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                                  rows="8"
+                                                  placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                                     ` : `
                                         <div id="${agentId}-prompt-system-display" 
-                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.system)}</div>
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                                     `}
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Prompt</label>
+                                <div class="border-l-4 border-green-500 pl-4">
+                                    <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                        <span class="inline-flex items-center gap-2">
+                                            <span>💬</span>
+                                            <span>User Prompt</span>
+                                        </span>
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
                                     ${isEditing ? `
                                         <textarea id="${agentId}-prompt-user" 
-                                                  rows="6"
-                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                                  rows="8"
+                                                  placeholder="Enter user prompt (task, query, or user message)..."
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                     ` : `
                                         <div id="${agentId}-prompt-user-display" 
-                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(promptParts.user)}</div>
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
                                     `}
                                 </div>
                             </div>
@@ -5554,10 +5569,10 @@ function renderAgentPrompts() {
     
     subAgents.forEach(subAgent => {
         const container = document.getElementById(subAgent.container);
-        // Always re-render if container exists and prompt data is available (even if hidden)
-        // This ensures fresh data is shown when the modal is expanded
-        if (container && agentPrompts[subAgent.name]) {
-            const promptData = agentPrompts[subAgent.name];
+        // Always re-render if container exists (even if prompt data is missing)
+        // This ensures the prompt editor is always available
+        if (container) {
+            const promptData = agentPrompts[subAgent.name] || { prompt: '', instructions: '', model: 'Not configured' };
             container.innerHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
             // Re-initialize collapsible panels after rendering
             setTimeout(() => {
@@ -5686,6 +5701,14 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     const isEditing = editingPrompts[agentName] || false;
     const panelId = `${prefix}-prompt-panel`;
     
+    // Parse prompt to extract system and user parts
+    const promptParts = parsePromptParts(prompt);
+    const isTemplateFormat = promptParts.isTemplateFormat;
+    const templateData = promptParts.templateData || {};
+    
+    // Check if this is an extraction agent that uses template format
+    const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName);
+    
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
@@ -5735,22 +5758,50 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                             `}
                         </div>
                     ` : ''}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
-                        ${isEditing ? `
-                            <textarea id="${agentId}-prompt-2" 
-                                      rows="8"
-                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
-                            <div class="mt-2">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                                <input type="text" id="${agentId}-change-description-2" 
-                                       placeholder="Describe what changed..."
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
-                            </div>
-                        ` : `
-                            <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
-                        `}
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-blue-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>🔧</span>
+                                    <span>System Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-prompt-system-2" 
+                                          rows="8"
+                                          placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                            `}
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>💬</span>
+                                    <span>User Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-prompt-user-2" 
+                                          rows="8"
+                                          placeholder="Enter user prompt (task, query, or user message)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                            `}
+                        </div>
                     </div>
+                    ${isEditing ? `
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                            <input type="text" id="${agentId}-change-description-2" 
+                                   placeholder="Describe what changed..."
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -5770,6 +5821,9 @@ function renderQAPrompt(agentName, containerId) {
     const isEditing = editingPrompts[agentName] || false;
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const panelId = `${agentId}-qa-prompt-panel`;
+    
+    // Parse prompt to extract system and user parts
+    const promptParts = parsePromptParts(prompt);
     
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -5820,22 +5874,50 @@ function renderQAPrompt(agentName, containerId) {
                             `}
                         </div>
                     ` : ''}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt</label>
-                        ${isEditing ? `
-                            <textarea id="${agentId}-prompt-2" 
-                                      rows="8"
-                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(prompt)}</textarea>
-                            <div class="mt-2">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                                <input type="text" id="${agentId}-change-description-2" 
-                                       placeholder="Describe what changed..."
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
-                            </div>
-                        ` : `
-                            <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(prompt)}</div>
-                        `}
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-blue-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>🔧</span>
+                                    <span>System Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-prompt-system-2" 
+                                          rows="8"
+                                          placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                            `}
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>💬</span>
+                                    <span>User Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-prompt-user-2" 
+                                          rows="8"
+                                          placeholder="Enter user prompt (task, query, or user message)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                            `}
+                        </div>
                     </div>
+                    ${isEditing ? `
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                            <input type="text" id="${agentId}-change-description-2" 
+                                   placeholder="Describe what changed..."
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -6588,18 +6670,70 @@ function cancelEditPrompt2(agentName) {
 
 async function saveAgentPrompt2(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
-    const promptElement = document.getElementById(`${agentId}-prompt-2`);
+    const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
+    const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
     const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
     const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
     
-    if (!promptElement) {
-        alert('Prompt element not found');
+    if (!promptSystemElement || !promptUserElement) {
+        alert('Prompt elements not found');
         return;
+    }
+    
+    // Check if this is an extraction agent that uses template format
+    const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName);
+    
+    let combinedPrompt;
+    if (isExtractionAgent) {
+        // For extraction agents, preserve template format structure
+        // Try to get existing template data to preserve task, json_example, etc.
+        const existingPrompt = agentPrompts[agentName]?.prompt || '';
+        let templateData = {};
+        
+        try {
+            const parsed = JSON.parse(existingPrompt);
+            if (parsed && typeof parsed === 'object' && parsed.user_template) {
+                // Preserve existing template fields
+                templateData = {
+                    role: promptSystemElement.value || parsed.role || "",
+                    user_template: promptUserElement.value || parsed.user_template || "",
+                    task: parsed.task || "",
+                    json_example: parsed.json_example || "",
+                    instructions: parsed.instructions || ""
+                };
+            } else {
+                // New template format
+                templateData = {
+                    role: promptSystemElement.value || "",
+                    user_template: promptUserElement.value || "",
+                    task: "",
+                    json_example: "",
+                    instructions: ""
+                };
+            }
+        } catch (e) {
+            // Fallback: create new template structure
+            templateData = {
+                role: promptSystemElement.value || "",
+                user_template: promptUserElement.value || "",
+                task: "",
+                json_example: "",
+                instructions: ""
+            };
+        }
+        
+        combinedPrompt = JSON.stringify(templateData);
+    } else {
+        // For non-extraction agents, use simple system/user format
+        combinedPrompt = JSON.stringify({
+            system: promptSystemElement.value || "",
+            user: promptUserElement.value || ""
+        });
     }
     
     const promptData = {
         agent_name: agentName,
-        prompt: promptElement.value,
+        prompt: combinedPrompt,
         instructions: instructionsElement ? instructionsElement.value : null,
         change_description: changeDescriptionElement ? changeDescriptionElement.value : null
     };
@@ -7623,12 +7757,12 @@ function initializeChangeTracking() {
     const agentPromptsContainer = document.getElementById('agentPromptsContainer');
     if (agentPromptsContainer) {
         agentPromptsContainer.addEventListener('input', (e) => {
-            if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"]')) {
+            if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"], [id$="-prompt-system-2"], [id$="-prompt-user-2"]')) {
                 updateSaveButtonState();
             }
         });
         agentPromptsContainer.addEventListener('change', (e) => {
-            if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"]')) {
+            if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"], [id$="-prompt-system-2"], [id$="-prompt-user-2"]')) {
                 updateSaveButtonState();
             }
         });
