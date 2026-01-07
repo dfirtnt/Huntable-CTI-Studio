@@ -1323,6 +1323,7 @@ async def get_config_versions_models(
                 
                 models_by_version[config.version] = {
                     "agent_models": agent_models,
+                    "qa_enabled": qa_enabled,
                     "display_text": "\n".join(model_list) if model_list else "No models configured"
                 }
             
