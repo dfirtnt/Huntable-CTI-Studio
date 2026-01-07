@@ -1265,10 +1265,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Get model and temperature for this agent
                     model_key = f"{agent_name}_model"
                     temperature_key = f"{agent_name}_temperature"
+                    top_p_key = f"{agent_name}_top_p"
                     agent_model = agent_models.get(model_key) if agent_models else None
                     if not agent_model:
                         agent_model = agent_models.get("ExtractAgent") if agent_models else None
                     agent_temperature = agent_models.get(temperature_key, 0.0) if agent_models else 0.0
+                    agent_top_p = agent_models.get(top_p_key) if agent_models else None
                     
                     # FINAL SAFETY CHECK: ALWAYS re-read subagent_eval from execution and block if doesn't match
                     # Map agent name to subagent name
@@ -1381,6 +1383,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         execution_id=state['execution_id'],
                         model_name=agent_model,
                         temperature=float(agent_temperature),
+                        top_p=float(agent_top_p) if agent_top_p is not None else None,
                         qa_model_override=qa_model_override,
                         use_hybrid_extractor=False  # UI-triggered workflows use prompt from config
                     )

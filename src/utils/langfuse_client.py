@@ -481,7 +481,8 @@ def log_llm_completion(
     output: str,
     usage: Optional[Dict[str, int]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    ground_truth: Optional[Any] = None
+    ground_truth: Optional[Any] = None,
+    input_object: Optional[Dict[str, Any]] = None
 ):
     """
     Log LLM completion to LangFuse generation.
@@ -493,6 +494,7 @@ def log_llm_completion(
         usage: Token usage dict with 'prompt_tokens', 'completion_tokens', 'total_tokens'
         metadata: Additional metadata
         ground_truth: Optional expected output value for evaluation
+        input_object: Optional dataset-compatible input object (overrides messages array for dataset creation)
     """
     if not generation:
         return
@@ -509,14 +511,17 @@ def log_llm_completion(
             else:
                 langfuse_messages.append({"role": "user", "content": str(msg)})
         
+        # Use input_object if provided (for dataset compatibility), otherwise use messages
+        langfuse_input = input_object if input_object is not None else langfuse_messages
+        
         # Update generation with completion data
         # Handle usage parameter - LangFuse expects usage_details or individual fields
-        # Set input with messages for proper display in Langfuse UI
+        # Set input with dataset-compatible format if provided, otherwise use messages for UI display
         update_kwargs = {
-            "input": langfuse_messages,  # Set input directly for Langfuse UI display
+            "input": langfuse_input,  # Use dataset-compatible format if provided
             "output": output,
             "model_parameters": {
-                "messages": langfuse_messages
+                "messages": langfuse_messages  # Always include messages in model_parameters for trace viewing
             },
             "metadata": metadata
         }
