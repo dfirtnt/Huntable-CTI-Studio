@@ -368,7 +368,7 @@ class SigmaGenerationService:
                     temperature=self.llm_service.temperature_sigma,
                     timeout=300.0,
                     failure_context=f"Failed to generate SIGMA rules via {provider}",
-                    top_p=self.llm_service.top_p,
+                    top_p=self.llm_service.top_p_sigma,
                     seed=self.llm_service.seed
                 )
 

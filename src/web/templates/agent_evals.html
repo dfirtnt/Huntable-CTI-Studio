@@ -201,18 +201,68 @@ let currentSubagent = 'cmdline';
 let executionResults = {};
 const excludedVersions = [594, 603, 606, 633, 665, 668];
 
+// Map dropdown values to agent names
+const SUBAGENT_MAP = {
+    'cmdline': 'CmdlineExtract',
+    'sigextract': 'SigExtract',
+    'event_ids': 'EventCodeExtract',
+    'process_lineage': 'ProcTreeExtract',
+    'registry_keys': 'RegExtract'
+};
+
+// Get latest prompt comment for an agent
+async function getLatestPromptComment(agentName) {
+    try {
+        const response = await fetch(`/api/workflow/config/prompts/${encodeURIComponent(agentName)}/versions`);
+        if (!response.ok) {
+            return null;
+        }
+        const data = await response.json();
+        if (data.versions && data.versions.length > 0) {
+            // Get the latest version (first in the list since it's ordered desc)
+            const latest = data.versions[0];
+            return latest.change_description || null;
+        }
+        return null;
+    } catch (error) {
+        console.error(`Error fetching prompt comment for ${agentName}:`, error);
+        return null;
+    }
+}
+
 // Load active workflow config
 async function loadActiveConfig() {
     try {
+        const subagentValue = document.getElementById('subagentSelect').value;
+        const agentName = SUBAGENT_MAP[subagentValue] || 'CmdlineExtract';
+        
         const response = await fetch('/api/workflow/config');
         const data = await response.json();
         activeConfig = data;
         
         const configDisplay = document.getElementById('activeConfigDisplay');
         
-        // Build selected models summary - only show enabled agents
         const models = data.agent_models || {};
         const qaEnabled = data.qa_enabled || {};
+        
+        // Get agent-specific parameters
+        const temperature = models[`${agentName}_temperature`] || models[`${agentName}_model_temperature`] || 'N/A';
+        const topP = models[`${agentName}_top_p`] || models[`${agentName}_model_top_p`] || 'N/A';
+        const contextWindow = models[`${agentName}_context_window`] || models[`${agentName}_model_context_window`] || 'N/A';
+        
+        // Get QA agent status - check both the agent name and QA variant
+        const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' : 
+                           agentName === 'SigExtract' ? 'SigQA' :
+                           agentName === 'EventCodeExtract' ? 'EventCodeQA' :
+                           agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
+                           agentName === 'RegExtract' ? 'RegQA' : null;
+        
+        const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
+        
+        // Get prompt save comment
+        const promptComment = await getLatestPromptComment(agentName);
+        
+        // Build selected models summary - only show enabled agents
         const selectedModels = [];
         
         // Get disabled extract agents from config (same logic as workflow.html)
@@ -266,6 +316,14 @@ async function loadActiveConfig() {
                 <p><strong class="text-gray-300 dark:text-gray-300">Version:</strong> ${data.version || 'N/A'}</p>
                 <p><strong class="text-gray-300 dark:text-gray-300">Junk Filter Threshold:</strong> ${data.junk_filter_threshold || 'N/A'}</p>
                 <p><strong class="text-gray-300 dark:text-gray-300">Updated:</strong> ${updatedDate}</p>
+                <div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                    <p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Agent: ${agentName}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Temperature:</strong> ${temperature}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Context Window Size:</strong> ${contextWindow}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> ${topP}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> ${qaStatus}</p>
+                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Prompt Save Comments:</strong> ${promptComment || 'None'}</p>
+                </div>
                 ${modelsHtml}
             </div>
         `;
@@ -1335,6 +1393,8 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+    // Reload config to show agent-specific parameters
+    loadActiveConfig();
 });
 
 // Show commandlines modal
