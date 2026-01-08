@@ -129,6 +129,7 @@ coverage/
 .pytest_cache/
 allure-results/
 allure-report/
+.playwright-mcp/
 
 # Root-level test pollution prevention
 test_*.py
