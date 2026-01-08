@@ -1278,9 +1278,16 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         use_filtering = body.get("use_filtering", True)  # Enable filtering by default
         min_confidence = body.get("min_confidence", 0.7)  # Confidence threshold
         force_regenerate = body.get("force_regenerate", False)  # Force regeneration
+        
+        # Extract API key from request (header preferred, fallback to body)
+        api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
+        api_key = api_key_raw.strip() if api_key_raw else None
+        
+        # Extract AI model from request
+        ai_model = body.get("ai_model", "chatgpt")
 
         logger.info(
-            f"Ranking request for article {article_id}, force_regenerate: {force_regenerate}"
+            f"Ranking request for article {article_id}, force_regenerate: {force_regenerate}, ai_model: {ai_model}"
             )
 
         # Check for existing ranking data (unless force regeneration is requested)
@@ -1385,6 +1392,41 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             # Initialize LLMService with config models
             llm_service = LLMService(config_models=agent_models)
             llm_service._current_article_id = article_id
+            
+            # Override API keys and provider from request if provided (client-side settings take precedence)
+            if api_key:
+                if ai_model == "chatgpt":
+                    llm_service.openai_api_key = api_key
+                    llm_service.workflow_openai_enabled = True
+                    # Override provider and model for ranking
+                    llm_service.provider_rank = "openai"
+                    llm_service.model_rank = llm_service.provider_defaults.get("openai", "gpt-4o-mini")
+                    logger.info(f"Using OpenAI API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}")
+                elif ai_model == "anthropic":
+                    # Extract Anthropic key if provided
+                    anthropic_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
+                    anthropic_key = anthropic_key_raw.strip() if anthropic_key_raw else None
+                    if anthropic_key:
+                        llm_service.anthropic_api_key = anthropic_key
+                        llm_service.workflow_anthropic_enabled = True
+                        # Override provider and model for ranking
+                        llm_service.provider_rank = "anthropic"
+                        llm_service.model_rank = llm_service.provider_defaults.get("anthropic", "claude-sonnet-4-5")
+                        logger.info(f"Using Anthropic API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}")
+            
+            # Validate provider is enabled and has API key
+            if llm_service.provider_rank == "openai":
+                if not llm_service.workflow_openai_enabled or not llm_service.openai_api_key:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="OpenAI provider is not enabled or API key is missing. Please configure it in Settings."
+                    )
+            elif llm_service.provider_rank == "anthropic":
+                if not llm_service.workflow_anthropic_enabled or not llm_service.anthropic_api_key:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Anthropic provider is not enabled or API key is missing. Please configure it in Settings."
+                    )
             
             # Get ground truth details for logging
             hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None

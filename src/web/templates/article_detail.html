@@ -4624,13 +4624,13 @@ Please provide a detailed analysis based on the article content and the user's s
         // Only set API key for cloud models that require it
         let apiKey = null;
         if (aiModel === 'anthropic') {
-            apiKey = settings.anthropicApiKey;
+            apiKey = settings.aiAnthropicApiKey;
         } else if (aiModel === 'chatgpt') {
-            apiKey = settings.openaiApiKey;
+            apiKey = settings.aiOpenaiApiKey;
         }
         
         // DEBUG: Log what we got from localStorage
-        console.log(`🔍 DEBUG: aiModel="${aiModel}", openaiApiKey exists=${!!settings.openaiApiKey}, anthropicApiKey exists=${!!settings.anthropicApiKey}`);
+        console.log(`🔍 DEBUG: aiModel="${aiModel}", aiOpenaiApiKey exists=${!!settings.aiOpenaiApiKey}, aiAnthropicApiKey exists=${!!settings.aiAnthropicApiKey}`);
         console.log(`🔍 DEBUG: apiKey after selection=${apiKey ? 'EXISTS' : 'NULL'}, type=${typeof apiKey}, length=${apiKey ? apiKey.length : 0}`);
         
         if (apiKey) {
@@ -4650,10 +4650,10 @@ Please provide a detailed analysis based on the article content and the user's s
         } else {
             // DEBUG: More detailed logging when apiKey is null
             console.warn(`⚠️ DEBUG: apiKey is NULL. aiModel="${aiModel}", settings keys:`, {
-                hasOpenaiKey: !!settings.openaiApiKey,
-                hasAnthropicKey: !!settings.anthropicApiKey,
-                openaiKeyLength: settings.openaiApiKey ? settings.openaiApiKey.length : 0,
-                anthropicKeyLength: settings.anthropicApiKey ? settings.anthropicApiKey.length : 0
+                hasOpenaiKey: !!settings.aiOpenaiApiKey,
+                hasAnthropicKey: !!settings.aiAnthropicApiKey,
+                openaiKeyLength: settings.aiOpenaiApiKey ? settings.aiOpenaiApiKey.length : 0,
+                anthropicKeyLength: settings.aiAnthropicApiKey ? settings.aiAnthropicApiKey.length : 0
             });
         }
         
@@ -4682,9 +4682,9 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Update localStorage with trimmed value to persist the fix
             if (aiModel === 'anthropic') {
-                settings.anthropicApiKey = apiKey;
+                settings.aiAnthropicApiKey = apiKey;
             } else if (aiModel === 'chatgpt') {
-                settings.openaiApiKey = apiKey;
+                settings.aiOpenaiApiKey = apiKey;
             }
             localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
         }
@@ -4695,10 +4695,10 @@ Please provide a detailed analysis based on the article content and the user's s
             console.error(`❌ ERROR: ${keyType} API key not found! aiModel="${aiModel}", apiKey is ${apiKey ? 'NOT NULL' : 'NULL'}`);
             console.error(`❌ DEBUG: Full settings from localStorage:`, {
                 aiModel: settings.aiModel,
-                hasOpenaiKey: !!settings.openaiApiKey,
-                hasAnthropicKey: !!settings.anthropicApiKey,
-                openaiKeyLength: settings.openaiApiKey ? settings.openaiApiKey.length : 0,
-                anthropicKeyLength: settings.anthropicApiKey ? settings.anthropicApiKey.length : 0,
+                hasOpenaiKey: !!settings.aiOpenaiApiKey,
+                hasAnthropicKey: !!settings.aiAnthropicApiKey,
+                openaiKeyLength: settings.aiOpenaiApiKey ? settings.aiOpenaiApiKey.length : 0,
+                anthropicKeyLength: settings.aiAnthropicApiKey ? settings.aiAnthropicApiKey.length : 0,
                 allSettingsKeys: Object.keys(settings)
             });
             showNotification(`Please configure your ${keyType} API key in Settings first. Make sure to click "Save Settings" after entering the key.`, 'error');
@@ -5051,9 +5051,9 @@ Please provide a detailed analysis based on the article content and the user's s
         // Only set API key for cloud models that require it
         let apiKey = null;
         if (aiModel === 'anthropic') {
-            apiKey = settings.anthropicApiKey;
+            apiKey = settings.aiAnthropicApiKey;
         } else if (aiModel === 'chatgpt') {
-            apiKey = settings.openaiApiKey;
+            apiKey = settings.aiOpenaiApiKey;
         }
         // For local models like lmstudio, apiKey remains null
         
@@ -5506,9 +5506,9 @@ Please provide a detailed analysis based on the article content and the user's s
         // Only set API key for cloud models that require it
         let apiKey = null;
         if (aiModel === 'anthropic') {
-            apiKey = settings.anthropicApiKey;
+            apiKey = settings.aiAnthropicApiKey;
         } else if (aiModel === 'chatgpt') {
-            apiKey = settings.openaiApiKey;
+            apiKey = settings.aiOpenaiApiKey;
         }
         // For local models like lmstudio, apiKey remains null
         
