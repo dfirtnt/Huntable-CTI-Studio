@@ -199,7 +199,7 @@ let activeConfig = null;
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
 let executionResults = {};
-const excludedVersions = [594, 603, 606, 633, 665, 668];
+const excludedVersions = [594, 603, 606, 633, 665, 668, 962];
 
 // Map dropdown values to agent names
 const SUBAGENT_MAP = {
@@ -1351,21 +1351,22 @@ async function loadPreviousResults() {
             return;
         }
         
-        // Group by URL - one row per article, with config versions as columns
-        const byUrl = {};
+        // Group by article_id - one row per article, with config versions as columns
+        // Use article_id instead of URL to handle cases where multiple articles share the same URL
+        const byArticleId = {};
         results.forEach(result => {
-            const url = result.url;
-            if (!byUrl[url]) {
-                byUrl[url] = {
-                    url: url,
+            const articleId = result.article_id;
+            if (!byArticleId[articleId]) {
+                byArticleId[articleId] = {
+                    url: result.url,
                     expected_count: result.expected_count,
-                    article_id: result.article_id, // Store article_id at top level
+                    article_id: articleId,
                     versions: {}
                 };
             }
             // Store result by config version
             const version = result.config_version || 'unknown';
-            byUrl[url].versions[version] = result;
+            byArticleId[articleId].versions[version] = result;
         });
         
         // Get all unique config versions and sort them (ascending - oldest first)
@@ -1387,8 +1388,8 @@ async function loadPreviousResults() {
             }
         }
         
-        // Convert to array of article objects
-        const articleRows = Object.values(byUrl).sort((a, b) => a.url.localeCompare(b.url));
+        // Convert to array of article objects, sorted by article_id
+        const articleRows = Object.values(byArticleId).sort((a, b) => a.article_id - b.article_id);
         
         renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
         

@@ -152,9 +152,12 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
         
         try:
             # Deactivate current active config
+            # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
-            ).first()
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).with_for_update().first()  # Lock the row to prevent concurrent updates
 
             if current_config:
                 current_config.is_active = False
@@ -356,11 +359,14 @@ async def get_agent_prompts(request: Request):
         db_session = db_manager.get_session()
         
         try:
+            # Use with_for_update(skip_locked=True) to ensure we get the latest committed data
+            # This prevents race conditions where a new config was just created but not yet visible
+            # skip_locked=True allows the query to proceed even if another transaction has a lock
             config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
             ).order_by(
                 AgenticWorkflowConfigTable.version.desc()
-            ).first()
+            ).with_for_update(skip_locked=True).first()
             
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -429,9 +435,14 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
         db_session = db_manager.get_session()
         
         try:
+            # CRITICAL: Use order_by to ensure we get the latest active config
+            # This prevents race conditions where another operation creates a new config
+            # between when we query and when we update
             current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
-            ).first()
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).with_for_update().first()  # Lock the row to prevent concurrent updates
             
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -579,9 +590,12 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 raise HTTPException(status_code=404, detail="Version not found")
             
             # Get current active config
+            # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
-            ).first()
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).with_for_update().first()  # Lock the row to prevent concurrent updates
             
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -777,9 +791,12 @@ async def bootstrap_prompts_from_files(request: Request):
         db_session = db_manager.get_session()
 
         try:
+            # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = db_session.query(AgenticWorkflowConfigTable).filter(
                 AgenticWorkflowConfigTable.is_active == True
-            ).first()
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).with_for_update().first()  # Lock the row to prevent concurrent updates
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
