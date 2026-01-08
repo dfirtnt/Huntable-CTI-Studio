@@ -224,7 +224,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
             if final_agent_prompts:
-                extraction_agents = ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract", "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA"]
+                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "CmdLineQA", "ProcTreeQA"]
                 for agent_name, prompt_data in final_agent_prompts.items():
                     if agent_name in extraction_agents and isinstance(prompt_data, dict):
                         prompt_str = prompt_data.get("prompt")
@@ -393,10 +393,7 @@ async def get_agent_prompts(request: Request):
             # Sub-agents list for model assignment
             sub_agents = [
                 "CmdlineExtract", "CmdLineQA",
-                "SigExtract", "SigQA",
-                "EventCodeExtract", "EventCodeQA",
-                "ProcTreeExtract", "ProcTreeQA",
-                "RegExtract", "RegQA"
+                "ProcTreeExtract", "ProcTreeQA"
             ]
 
             # Only use database prompts (what workflow actually uses)
@@ -424,6 +421,57 @@ async def get_agent_prompts(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error getting agent prompts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/prompts/{agent_name}")
+async def get_agent_prompt(request: Request, agent_name: str):
+    """Get prompt for a specific agent from active workflow configuration."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.is_active == True
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).first()
+            
+            if not config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+            
+            if not config.agent_prompts or agent_name not in config.agent_prompts:
+                raise HTTPException(status_code=404, detail=f"Prompt not found for agent {agent_name}")
+            
+            prompt_data = config.agent_prompts[agent_name]
+            
+            # Also get from AgentPromptVersionTable if available for metadata
+            prompt_version = db_session.query(AgentPromptVersionTable).filter(
+                AgentPromptVersionTable.agent_name == agent_name,
+                AgentPromptVersionTable.workflow_config_version == config.version
+            ).order_by(AgentPromptVersionTable.version.desc()).first()
+            
+            result = {
+                "agent_name": agent_name,
+                "workflow_config_version": config.version,
+                "prompt": prompt_data.get("prompt", ""),
+                "instructions": prompt_data.get("instructions", ""),
+            }
+            
+            if prompt_version:
+                result["prompt_version"] = prompt_version.version
+                result["created_at"] = prompt_version.created_at.isoformat() if prompt_version.created_at else None
+                result["change_description"] = prompt_version.change_description
+            
+            return result
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting agent prompt: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -465,7 +513,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             
             # Validate JSON format for extraction agents
             if prompt_update.prompt is not None:
-                extraction_agents = ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract", "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA"]
+                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "CmdLineQA", "ProcTreeQA"]
                 if prompt_update.agent_name in extraction_agents:
                     try:
                         json.loads(prompt_update.prompt)
@@ -572,6 +620,76 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/config/prompts/{agent_name}/by-config-version/{config_version}")
+async def get_prompt_by_config_version(request: Request, agent_name: str, config_version: int):
+    """Get prompt for a specific agent and workflow config version."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # First try agent_prompt_versions table
+            prompt_version = db_session.query(AgentPromptVersionTable).filter(
+                AgentPromptVersionTable.agent_name == agent_name,
+                AgentPromptVersionTable.workflow_config_version == config_version
+            ).order_by(AgentPromptVersionTable.version.desc()).first()
+            
+            if prompt_version:
+                return {
+                    "agent_name": agent_name,
+                    "workflow_config_version": config_version,
+                    "source": "agent_prompt_versions",
+                    "prompt": prompt_version.prompt,
+                    "instructions": prompt_version.instructions,
+                    "prompt_version": prompt_version.version,
+                    "created_at": prompt_version.created_at.isoformat() if prompt_version.created_at else None,
+                    "change_description": prompt_version.change_description
+                }
+            
+            # Fall back to workflow config's agent_prompts JSONB
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.version == config_version
+            ).first()
+            
+            if config and config.agent_prompts and agent_name in config.agent_prompts:
+                prompt_data = config.agent_prompts[agent_name]
+                return {
+                    "agent_name": agent_name,
+                    "workflow_config_version": config_version,
+                    "source": "agentic_workflow_config.agent_prompts",
+                    "prompt": prompt_data.get("prompt", ""),
+                    "instructions": prompt_data.get("instructions", ""),
+                }
+            
+            # If not found, find most recent version before this one
+            prev_version = db_session.query(AgentPromptVersionTable).filter(
+                AgentPromptVersionTable.agent_name == agent_name,
+                AgentPromptVersionTable.workflow_config_version < config_version
+            ).order_by(AgentPromptVersionTable.workflow_config_version.desc()).first()
+            
+            if prev_version:
+                return {
+                    "agent_name": agent_name,
+                    "workflow_config_version": config_version,
+                    "source": f"agent_prompt_versions (inherited from v{prev_version.workflow_config_version})",
+                    "prompt": prev_version.prompt,
+                    "instructions": prev_version.instructions,
+                    "prompt_version": prev_version.version,
+                    "inherited_from": prev_version.workflow_config_version,
+                    "note": f"Config v{config_version} inherits from v{prev_version.workflow_config_version}"
+                }
+            
+            raise HTTPException(status_code=404, detail=f"Prompt not found for {agent_name} at config version {config_version}")
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting prompt by config version: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/config/prompts/{agent_name}/rollback")
 async def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: RollbackRequest):
     """Rollback an agent prompt to a previous version."""
@@ -664,7 +782,7 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
 class TestSubAgentRequest(BaseModel):
     """Request model for testing a sub-agent."""
     article_id: int = Field(2155, description="Article ID to test with")
-    agent_name: str = Field(..., description="Name of the sub-agent (e.g., SigExtract, EventCodeExtract)")
+    agent_name: str = Field(..., description="Name of the sub-agent (e.g., CmdlineExtract, ProcTreeExtract)")
     use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
     junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
 
@@ -848,10 +966,7 @@ async def bootstrap_prompts_from_files(request: Request):
             # Sub-Agents
             sub_agents = [
                 ("CmdlineExtract", "CmdLineQA"),
-                ("SigExtract", "SigQA"),
-                ("EventCodeExtract", "EventCodeQA"),
-                ("ProcTreeExtract", "ProcTreeQA"),
-                ("RegExtract", "RegQA")
+                ("ProcTreeExtract", "ProcTreeQA")
             ]
 
             for agent_name, qa_name in sub_agents:

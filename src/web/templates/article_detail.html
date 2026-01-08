@@ -396,12 +396,12 @@
                         </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 mt-4">
+                    <div class="flex flex-wrap items-center gap-3 mt-4 relative z-10">
                         <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                            <button id="annotation-mode-huntability" onclick="setAnnotationMode('huntability')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+                            <button id="annotation-mode-huntability" onclick="setAnnotationMode('huntability')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto;">
                                 Huntability Mode
                             </button>
-                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600">
+                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto;">
                                 Observables Mode
                             </button>
                         </div>
@@ -1149,21 +1149,21 @@ Please provide a detailed analysis based on the article content and the user's s
 
             if (huntabilityBtn) {
                 if (this.annotationMode === HUNTABILITY_MODE) {
-                    huntabilityBtn.classList.add('bg-blue-600', 'text-white');
-                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700');
+                    huntabilityBtn.classList.add('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
+                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
                 } else {
-                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white');
-                    huntabilityBtn.classList.add('bg-white', 'text-gray-700');
+                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
+                    huntabilityBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
                 }
             }
 
             if (observablesBtn) {
                 if (this.annotationMode === OBSERVABLE_MODE) {
-                    observablesBtn.classList.add('bg-blue-600', 'text-white');
-                    observablesBtn.classList.remove('bg-white', 'text-gray-700');
+                    observablesBtn.classList.add('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
+                    observablesBtn.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
                 } else {
-                    observablesBtn.classList.remove('bg-blue-600', 'text-white');
-                    observablesBtn.classList.add('bg-white', 'text-gray-700');
+                    observablesBtn.classList.remove('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
+                    observablesBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
                 }
             }
 
@@ -3452,14 +3452,33 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     function setAnnotationMode(mode) {
-        if (!simpleTextManager) return;
-        simpleTextManager.setAnnotationMode(mode);
+        try {
+            if (!simpleTextManager) {
+                console.warn('setAnnotationMode called before simpleTextManager initialized, mode:', mode);
+                // Store mode in localStorage so it can be applied when manager initializes
+                localStorage.setItem('annotationMode', mode);
+                return;
+            }
+            simpleTextManager.setAnnotationMode(mode);
+        } catch (error) {
+            console.error('Error in setAnnotationMode:', error);
+        }
     }
     
+    // Explicitly attach to window for inline onclick handlers
+    window.setAnnotationMode = setAnnotationMode;
+    
     function setObservableType(type) {
-        if (!simpleTextManager) return;
-        simpleTextManager.setObservableType(type);
+        try {
+            if (!simpleTextManager) return;
+            simpleTextManager.setObservableType(type);
+        } catch (error) {
+            console.error('Error in setObservableType:', error);
+        }
     }
+    
+    // Explicitly attach to window for inline onclick handlers
+    window.setObservableType = setObservableType;
 
     function setObservableDatasetUsage(usage) {
         if (!simpleTextManager) return;

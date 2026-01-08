@@ -820,10 +820,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Map subagent names to agent names
                 subagent_to_agent = {
                     "cmdline": "CmdlineExtract",
-                    "sigma_queries": "SigExtract",
-                    "event_ids": "EventCodeExtract",
-                    "process_lineage": "ProcTreeExtract",
-                    "registry_keys": "RegExtract"
+                    "process_lineage": "ProcTreeExtract"
                 }
                 agent_name = subagent_to_agent.get(subagent_eval)
                 if agent_name:
@@ -843,10 +840,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Initialize sub-results accumulator
             subresults = {
                 "cmdline": {"items": [], "count": 0},
-                "sigma_queries": {"items": [], "count": 0},
-                "event_ids": {"items": [], "count": 0},
-                "process_lineage": {"items": [], "count": 0},
-                "registry_keys": {"items": [], "count": 0}
+                "process_lineage": {"items": [], "count": 0}
             }
             
             # Get config models for LLMService
@@ -886,10 +880,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Map subagent names to agent names
                     subagent_to_agent = {
                         "cmdline": "CmdlineExtract",
-                        "sigma_queries": "SigExtract",
-                        "event_ids": "EventCodeExtract",
-                        "process_lineage": "ProcTreeExtract",
-                        "registry_keys": "RegExtract"
+                        "process_lineage": "ProcTreeExtract"
                     }
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
@@ -903,10 +894,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         # Also include QA model prefix if present
                         qa_names = {
                             "CmdlineExtract": "CmdLineQA",
-                            "SigExtract": "SigQA",
-                            "EventCodeExtract": "EventCodeQA",
-                            "ProcTreeExtract": "ProcTreeQA",
-                            "RegExtract": "RegQA"
+                            "ProcTreeExtract": "ProcTreeQA"
                         }
                         qa_name = qa_names.get(agent_name)
                         if qa_name:
@@ -928,10 +916,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # --- Sub-Agents (including CmdlineExtract) ---
             sub_agents = [
                 ("CmdlineExtract", "cmdline", "CmdLineQA"),
-                ("SigExtract", "sigma_queries", "SigQA"),
-                ("EventCodeExtract", "event_ids", "EventCodeQA"),
-                ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
-                ("RegExtract", "registry_keys", "RegQA")
+                ("ProcTreeExtract", "process_lineage", "ProcTreeQA")
             ]
             
             # Initialize conversation log for extract_agent
@@ -1155,10 +1140,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Map agent names to their subagent names (hardcoded for reliability)
                 agent_to_subagent = {
                     "CmdlineExtract": "cmdline",
-                    "SigExtract": "sigma_queries",
-                    "EventCodeExtract": "event_ids",
-                    "ProcTreeExtract": "process_lineage",
-                    "RegExtract": "registry_keys"
+                    "ProcTreeExtract": "process_lineage"
                 }
                 
                 agent_subagent_name = agent_to_subagent.get(agent_name)
@@ -1276,10 +1258,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Map agent name to subagent name
                     agent_to_subagent = {
                         "CmdlineExtract": "cmdline",
-                        "SigExtract": "sigma_queries",
-                        "EventCodeExtract": "event_ids",
-                        "ProcTreeExtract": "process_lineage",
-                        "RegExtract": "registry_keys"
+                        "ProcTreeExtract": "process_lineage"
                     }
                     agent_subagent = agent_to_subagent.get(agent_name)
                     
@@ -1342,10 +1321,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if final_block_lookup:
                         agent_to_subagent_final = {
                             "CmdlineExtract": "cmdline",
-                            "SigExtract": "sigma_queries",
-                            "EventCodeExtract": "event_ids",
-                            "ProcTreeExtract": "process_lineage",
-                            "RegExtract": "registry_keys"
+                            "ProcTreeExtract": "process_lineage"
                         }
                         agent_subagent_final = agent_to_subagent_final.get(agent_name)
                         normalized_agent_subagent = str(agent_subagent_final).lower().strip() if agent_subagent_final else None
@@ -1418,11 +1394,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         state["count"] = len(items)
                     
                     # Store agent result in conversation log
-                    conversation_log.append({
+                    # Include messages and response if available (for eval bundle export)
+                    log_entry = {
                         'agent': agent_name,
                         'items_count': len(items),
                         'result': agent_result
-                    })
+                    }
+                    # Extract LLM call data from result if available
+                    if isinstance(agent_result, dict):
+                        if '_llm_messages' in agent_result:
+                            log_entry['messages'] = agent_result['_llm_messages']
+                        if '_llm_response' in agent_result:
+                            log_entry['llm_response'] = agent_result['_llm_response']
+                        if '_llm_attempt' in agent_result:
+                            log_entry['attempt'] = agent_result['_llm_attempt']
+                    conversation_log.append(log_entry)
                     
                     # Store QA result if available
                     if qa_enabled and '_qa_result' in agent_result:
