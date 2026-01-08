@@ -4,10 +4,7 @@ from typing import Any, Optional, Set, Tuple
 # Maps lower-cased agent names to their canonical subagent alias
 AGENT_TO_SUBAGENT = {
     "cmdlineextract": "cmdline",
-    "sigextract": "sigma_queries",
-    "eventcodeextract": "event_ids",
     "proctreeextract": "process_lineage",
-    "regextract": "registry_keys",
 }
 
 # Reverse map from canonical alias to agent name (CamelCase)
@@ -19,19 +16,10 @@ SUBAGENT_CANONICAL = {
     "cmdlineextract": "cmdline",
     "commandline": "cmdline",
     "cmdline_items": "cmdline",
-    "sigma_queries": "sigma_queries",
-    "sigmaqueries": "sigma_queries",
-    "sigextract": "sigma_queries",
-    "event_ids": "event_ids",
-    "eventids": "event_ids",
-    "eventcodeextract": "event_ids",
     "process_lineage": "process_lineage",
     "processlineage": "process_lineage",
     "process-lineage": "process_lineage",
     "proctreeextract": "process_lineage",
-    "registry_keys": "registry_keys",
-    "registrykeys": "registry_keys",
-    "regextract": "registry_keys",
 }
 
 __all__ = [

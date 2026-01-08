@@ -35,7 +35,8 @@ class QAAgentService:
         agent_output: Dict[str, Any],
         agent_name: str,
         config_obj: Optional[Any] = None,
-        execution_id: Optional[int] = None
+        execution_id: Optional[int] = None,
+        provider: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Evaluate agent output for compliance, accuracy, and fidelity.
@@ -150,31 +151,43 @@ Please provide your evaluation in the following JSON format:
 
             target_model = qa_model_override or self.llm_service.model_extract
             
+            # Determine provider for QA - use provided provider or fallback to ExtractAgent provider
+            qa_provider = provider
+            if not qa_provider and config_obj and hasattr(config_obj, 'agent_models') and config_obj.agent_models:
+                # Try to get QA-specific provider (e.g., RankAgentQA_provider)
+                qa_provider_key = f"{agent_name}QA_provider"
+                qa_provider = config_obj.agent_models.get(qa_provider_key)
+                # Fallback to agent provider (e.g., RankAgent_provider)
+                if not qa_provider:
+                    agent_provider_key = f"{agent_name}_provider"
+                    qa_provider = config_obj.agent_models.get(agent_provider_key)
+                # Fallback to ExtractAgent provider
+                if not qa_provider:
+                    qa_provider = config_obj.agent_models.get("ExtractAgent_provider")
+            # Final fallback to ExtractAgent provider from llm_service
+            if not qa_provider:
+                qa_provider = self.llm_service.provider_extract
+            
             # Convert messages for model compatibility
             converted_messages = self.llm_service._convert_messages_for_model(messages, target_model)
             
-            # Create payload for LMStudio API
-            payload = {
-                "model": target_model,
-                "messages": converted_messages,
-                "max_tokens": 2000,  # Enough for detailed QA evaluation
-                "temperature": qa_temperature,  # Use configured temperature
-                "top_p": qa_top_p  # Use configured top_p
-            }
-            
             generation = None
-            # Call LMStudio API with Langfuse tracing
+            # Call LLM API with provider-aware method and Langfuse tracing
             with trace_llm_call(
                 name=f"qa_{agent_name.lower()}",
                 model=target_model,
                 execution_id=execution_id,
                 article_id=article.id if article else None,
-                metadata={"messages": converted_messages, "agent_name": agent_name}
+                metadata={"messages": converted_messages, "agent_name": agent_name, "provider": qa_provider}
             ) as generation:
 
-                response = await self.llm_service._post_lmstudio_chat(
-                    payload=payload,
+                response = await self.llm_service.request_chat(
+                    provider=qa_provider,
                     model_name=target_model,
+                    messages=converted_messages,
+                    max_tokens=2000,
+                    temperature=qa_temperature,
+                    top_p=qa_top_p,
                     timeout=300.0,
                     failure_context=f"QA evaluation for {agent_name}"
                 )

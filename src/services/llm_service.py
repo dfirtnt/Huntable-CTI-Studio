@@ -72,6 +72,8 @@ class LLMService:
             or os.getenv("WORKFLOW_OPENAI_API_KEY")
             or os.getenv("OPENAI_API_KEY")
         )
+        if isinstance(self.openai_api_key, str):
+            self.openai_api_key = self.openai_api_key.strip()
         self.anthropic_api_key = (
             workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"])
             or os.getenv("WORKFLOW_ANTHROPIC_API_KEY")
@@ -731,11 +733,20 @@ class LLMService:
         cancellation_event: Optional[asyncio.Event] = None
     ) -> Dict[str, Any]:
         provider = self._canonicalize_provider(provider)
+        logger.debug(f"request_chat called with provider={provider}, model_name={model_name}")
         self._validate_provider(provider)
 
         resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
 
+        # Safety check: Log if we're routing to LMStudio when OpenAI might be expected
         if provider == "lmstudio":
+            # Check if this might be a misconfiguration
+            if self.openai_api_key and self.workflow_openai_enabled:
+                logger.warning(
+                    f"Routing to LMStudio but OpenAI is available and enabled. "
+                    f"This may indicate provider wasn't set correctly in config. "
+                    f"failure_context={failure_context}, model={resolved_model}"
+                )
             # Normalize model name for LMStudio
             # Try to keep full name first (some models like google/gemma-3-12b need the prefix)
             # If that fails, fall back to removing prefix and date suffix
@@ -767,6 +778,7 @@ class LLMService:
                 cancellation_event=cancellation_event
             )
         if provider == "openai":
+            logger.info(f"Routing to OpenAI: model={resolved_model}, failure_context={failure_context}")
             return await self._call_openai_chat(
                 messages=messages,
                 model_name=resolved_model,
@@ -1260,6 +1272,27 @@ class LLMService:
             raise ValueError("RankAgent prompt_template must be provided from workflow config. No file fallback available.")
         
         prompt_template_str = prompt_template
+        system_override = None
+        try:
+            parsed_prompt = json.loads(prompt_template_str)
+            if isinstance(parsed_prompt, dict):
+                user_template = (
+                    parsed_prompt.get("user")
+                    or parsed_prompt.get("user_template")
+                    or parsed_prompt.get("prompt")
+                    or ""
+                )
+                system_override = (
+                    parsed_prompt.get("system")
+                    or parsed_prompt.get("role")
+                    or None
+                )
+                if user_template:
+                    prompt_template_str = user_template
+                elif system_override:
+                    prompt_template_str = system_override
+        except json.JSONDecodeError:
+            pass
         logger.info(f"Using RankAgent prompt from workflow config (length: {len(prompt_template_str)} chars)")
         
         # Get actual model context length to use for truncation
@@ -1413,19 +1446,25 @@ class LLMService:
         model_name = self.model_rank
         
         # For Mistral, use direct instruction format without separate system message
+        system_message = system_override or (
+            "You are a cybersecurity detection engineer. "
+            "Score threat intelligence articles 1-10 for SIGMA huntability. "
+            "Output only a score and brief reasoning."
+        )
         if self._model_needs_system_conversion(model_name):
             # Single user message with integrated instructions
+            combined_prompt = f"{system_message}\n\n{prompt_text}" if system_message else prompt_text
             messages = [
                 {
                     "role": "user",
-                    "content": prompt_text
+                    "content": combined_prompt
                 }
             ]
         else:
             messages = [
                 {
                     "role": "system",
-                    "content": "You are a cybersecurity detection engineer. Score threat intelligence articles 1-10 for SIGMA huntability. Output only a score and brief reasoning."
+                    "content": system_message
                 },
                 {
                     "role": "user",
@@ -2785,8 +2824,17 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     }
                 ) as generation:
                     # Use provided provider or fall back to ExtractAgent provider
-                    effective_provider = provider or self.provider_extract
+                    # If provider is None or empty string, use fallback
+                    if provider and isinstance(provider, str) and provider.strip():
+                        effective_provider = provider
+                    else:
+                        effective_provider = self.provider_extract
+                        logger.warning(
+                            f"{agent_name} provider was None/empty, falling back to ExtractAgent provider: {effective_provider}. "
+                            f"This may indicate the provider wasn't set in workflow config."
+                        )
                     effective_provider = self._canonicalize_provider(effective_provider)
+                    logger.info(f"{agent_name} provider resolution: provider={provider}, effective_provider={effective_provider}, self.provider_extract={self.provider_extract}")
                     # Use provided top_p or get from agent config
                     effective_top_p = top_p if top_p is not None else self.get_top_p_for_agent(agent_name)
                     logger.info(f"{agent_name} extraction attempt {current_try}: using provider={effective_provider}, model={model_name}, temperature={temperature}, top_p={effective_top_p}")

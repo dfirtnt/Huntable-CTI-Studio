@@ -218,28 +218,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             # Determine final values for new config
             final_min_hunt_score = config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0)
             final_description = config_update.description or (current_config.description if current_config else "Updated configuration")
-            # Preserve existing prompt content on config updates (prompt edits use /config/prompts).
-            if config_update.agent_prompts is not None:
-                base_prompts = current_config.agent_prompts.copy() if current_config and current_config.agent_prompts else {}
-                incoming_prompts = config_update.agent_prompts or {}
-                for agent_name, prompt_data in incoming_prompts.items():
-                    if agent_name == "ExtractAgentSettings" and isinstance(prompt_data, dict):
-                        existing_settings = base_prompts.get(agent_name, {}) if isinstance(base_prompts.get(agent_name), dict) else {}
-                        base_prompts[agent_name] = {**existing_settings, **prompt_data}
-                        continue
-                    # Merge non-prompt metadata only; never overwrite prompt/instructions/model here.
-                    if isinstance(prompt_data, dict) and isinstance(base_prompts.get(agent_name), dict):
-                        merged_prompt = base_prompts[agent_name].copy()
-                        for key, value in prompt_data.items():
-                            if key in {"prompt", "instructions", "model"}:
-                                continue
-                            merged_prompt[key] = value
-                        base_prompts[agent_name] = merged_prompt
-                    elif agent_name not in base_prompts:
-                        base_prompts[agent_name] = prompt_data
-                final_agent_prompts = base_prompts
-            else:
-                final_agent_prompts = current_config.agent_prompts if current_config else None
+            final_agent_prompts = config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
             final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
             final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
             

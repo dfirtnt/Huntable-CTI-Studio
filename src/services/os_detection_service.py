@@ -361,10 +361,10 @@ class OSDetectionService:
             "confidence": "high" if max_similarity > 0.7 else "medium" if max_similarity > 0.6 else "low"
         }
     
-    async def _detect_with_llm_fallback(self, content: str, fallback_model: Optional[str] = None, qa_feedback: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Detect OS using LLM via LMStudio (fallback)."""
-        lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1")
+    async def _detect_with_llm_fallback(self, content: str, fallback_model: Optional[str] = None, qa_feedback: Optional[str] = None, provider: Optional[str] = None, llm_service: Optional[Any] = None) -> Optional[Dict[str, Any]]:
+        """Detect OS using LLM (fallback). Supports multiple providers via LLMService."""
         model_name = fallback_model or "mistralai/mistral-7b-instruct-v0.3"
+        effective_provider = provider or "lmstudio"
         
         prompt = f"""Determine which operating system the described behaviors target (Windows, Linux, MacOS, or multiple). Output one label only.
 
@@ -388,46 +388,59 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
             is_reasoning_model = 'deepseek-r1' in model_name.lower() or 'r1' in model_name.lower()
             max_tokens = 500 if is_reasoning_model else 50
             
-            # For LM Studio, read timeout must be long enough to allow prompt processing
-            # before any response data is sent.
-            read_timeout = 600.0
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0, read=read_timeout)) as client:
-                response = await client.post(
-                    f"{lmstudio_url}/chat/completions",
-                    headers={"Content-Type": "application/json"},
-                    json={
-                        "model": model_name,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": combined_prompt
-                            }
-                        ],
-                        "temperature": 0,
-                        "max_tokens": max_tokens
-                    }
+            # Use LLMService if provided (supports multiple providers), otherwise fall back to direct LMStudio call
+            if llm_service:
+                messages = [{"role": "user", "content": combined_prompt}]
+                result = await llm_service.request_chat(
+                    provider=effective_provider,
+                    model_name=model_name,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=0.0,
+                    timeout=60.0,
+                    failure_context="OS detection LLM fallback"
                 )
-                
-                if response.status_code != 200:
-                    error_text = response.text[:500] if hasattr(response, 'text') else 'No error text'
-                    logger.warning(f"LLM fallback failed: HTTP {response.status_code} - {error_text}")
-                    return None
-                
-                result = response.json()
-                if 'choices' not in result or len(result['choices']) == 0:
-                    logger.warning(f"LLM fallback failed: No choices in response. Response keys: {list(result.keys())}")
-                    return None
-                
-                # Handle reasoning models (DeepSeek R1) that return answer in reasoning_content
-                message = result['choices'][0]['message']
-                content_text = message.get('content', '')
-                reasoning_text = message.get('reasoning_content', '')
-                
-                # For reasoning models, check reasoning_content first, then content
-                if is_reasoning_model and reasoning_text:
-                    response_text = reasoning_text.strip()
-                else:
-                    response_text = content_text.strip()
+            else:
+                # Fallback to direct LMStudio call (backward compatibility)
+                lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1")
+                read_timeout = 600.0
+                async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0, read=read_timeout)) as client:
+                    response = await client.post(
+                        f"{lmstudio_url}/chat/completions",
+                        headers={"Content-Type": "application/json"},
+                        json={
+                            "model": model_name,
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": combined_prompt
+                                }
+                            ],
+                            "temperature": 0,
+                            "max_tokens": max_tokens
+                        }
+                    )
+                    
+                    if response.status_code != 200:
+                        error_text = response.text[:500] if hasattr(response, 'text') else 'No error text'
+                        logger.warning(f"LLM fallback failed: HTTP {response.status_code} - {error_text}")
+                        return None
+                    
+                    result = response.json()
+                    if 'choices' not in result or len(result['choices']) == 0:
+                        logger.warning(f"LLM fallback failed: No choices in response. Response keys: {list(result.keys())}")
+                        return None
+            
+            # Handle reasoning models (DeepSeek R1) that return answer in reasoning_content
+            message = result['choices'][0]['message']
+            content_text = message.get('content', '')
+            reasoning_text = message.get('reasoning_content', '')
+            
+            # For reasoning models, check reasoning_content first, then content
+            if is_reasoning_model and reasoning_text:
+                response_text = reasoning_text.strip()
+            else:
+                response_text = content_text.strip()
                 
                 # Parse response - look for OS label
                 response_lower = response_text.lower()
@@ -459,7 +472,9 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         fallback_model: Optional[str] = None,
         force_fallback: bool = False,
         qa_feedback: Optional[str] = None,
-        min_windows_keywords: int = 3
+        min_windows_keywords: int = 3,
+        provider: Optional[str] = None,
+        llm_service: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
         Detect OS from content.
@@ -498,14 +513,14 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         
         # If force_fallback is enabled, always use LLM fallback
         if force_fallback and use_fallback:
-            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback)
+            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback, provider=provider, llm_service=llm_service)
             if llm_result:
                 return llm_result
         
         # Step 4: If similarity confidence is low and fallback is enabled, try LLM fallback
         if use_fallback and result.get("confidence") == "low":
             logger.info(f"Similarity confidence is low ({result.get('max_similarity', 'unknown')}), attempting LLM fallback...")
-            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback)
+            llm_result = await self._detect_with_llm_fallback(content, fallback_model=fallback_model, qa_feedback=qa_feedback, provider=provider, llm_service=llm_service)
             if llm_result:
                 logger.info(f"LLM fallback succeeded: {llm_result.get('operating_system')} (method: {llm_result.get('method')})")
                 return llm_result
