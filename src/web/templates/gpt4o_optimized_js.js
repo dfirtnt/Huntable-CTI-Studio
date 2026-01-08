@@ -4,7 +4,7 @@ async function rankWithGPT4oOptimized() {
     
     // Get API key from settings
     const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-    const apiKey = settings.openaiApiKey;
+    const apiKey = settings.aiOpenaiApiKey;
     
     if (!apiKey) {
         showNotification('Please configure your OpenAI API key in Settings first', 'error');
