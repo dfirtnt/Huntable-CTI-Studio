@@ -42,28 +42,10 @@
                 <strong>Purpose:</strong> Extracts command-line patterns and executed command strings with flags and parameters.
             </p>
         </div>
-        {% elif subagent_name == 'SigExtract' %}
-        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
-                <strong>Purpose:</strong> Extracts SIGMA query patterns and detection rule fragments from articles.
-            </p>
-        </div>
-        {% elif subagent_name == 'EventCodeExtract' %}
-        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
-                <strong>Purpose:</strong> Extracts Windows Event IDs and event log triggers from articles.
-            </p>
-        </div>
         {% elif subagent_name == 'ProcTreeExtract' %}
         <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
             <p class="text-sm text-gray-700 dark:text-gray-300">
                 <strong>Purpose:</strong> Extracts process lineage patterns and parent-child process relationships.
-            </p>
-        </div>
-        {% elif subagent_name == 'RegExtract' %}
-        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
-            <p class="text-sm text-gray-700 dark:text-gray-300">
-                <strong>Purpose:</strong> Extracts registry key and value patterns used for persistence and configuration.
             </p>
         </div>
         {% endif %}

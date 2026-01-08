@@ -228,7 +228,7 @@ class LLMService:
             return self.top_p_extract
         elif agent_name == "SigmaAgent":
             return self.top_p_sigma
-        elif agent_name in ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract"]:
+        elif agent_name in ["CmdlineExtract", "ProcTreeExtract"]:
             # Sub-agents fall back to ExtractAgent top_p
             return self.top_p_extract
         
@@ -2616,7 +2616,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         Run a generic extraction agent with optional QA loop.
         
         Args:
-            agent_name: Name of the sub-agent (e.g. "SigExtract")
+            agent_name: Name of the sub-agent (e.g. "CmdlineExtract")
             content: Article content
             title: Article title
             url: Article URL
@@ -3046,6 +3046,12 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                             },
                             input_object=dataset_input  # Use dataset-compatible format
                         )
+                    
+                    # Store messages and response in result for eval bundle export
+                    # These are needed when Langfuse is disabled
+                    last_result["_llm_messages"] = messages
+                    last_result["_llm_response"] = response_text
+                    last_result["_llm_attempt"] = current_try
 
                 # If no QA config, return immediately
                 if not qa_prompt_config:

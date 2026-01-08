@@ -75,10 +75,7 @@
                 </label>
                 <select id="subagentSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
                     <option value="cmdline">CommandLine</option>
-                    <option value="sigextract">SigExtract</option>
-                    <option value="event_ids">Event IDs</option>
                     <option value="process_lineage">Process Lineage</option>
-                    <option value="registry_keys">Registry Keys</option>
                 </select>
                 <button id="loadEvalArticlesBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Load Eval Articles
@@ -133,11 +130,16 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 id="commandlinesModalTitle" class="text-xl font-semibold text-gray-900 dark:text-white">Extracted Commandlines</h3>
-                <button id="closeCommandlinesModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="exportEvalBundleBtn" class="hidden px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-md transition-colors" title="Export evaluation bundle (JSON)">
+                        📦 Export Bundle
+                    </button>
+                    <button id="closeCommandlinesModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div id="commandlinesContent" class="p-6 overflow-y-auto flex-1">
                 <p class="text-gray-500 dark:text-gray-400">Loading commandlines...</p>
@@ -199,15 +201,12 @@ let activeConfig = null;
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
 let executionResults = {};
-const excludedVersions = [594, 603, 606, 633, 665, 668, 962];
+const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037];
 
 // Map dropdown values to agent names
 const SUBAGENT_MAP = {
     'cmdline': 'CmdlineExtract',
-    'sigextract': 'SigExtract',
-    'event_ids': 'EventCodeExtract',
-    'process_lineage': 'ProcTreeExtract',
-    'registry_keys': 'RegExtract'
+    'process_lineage': 'ProcTreeExtract'
 };
 
 // Get latest prompt comment for an agent
@@ -256,11 +255,8 @@ async function loadActiveConfig() {
         const agentModel = models[agentModelKey] || 'N/A';
         
         // Get QA agent status - check both the agent name and QA variant
-        const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' : 
-                           agentName === 'SigExtract' ? 'SigQA' :
-                           agentName === 'EventCodeExtract' ? 'EventCodeQA' :
-                           agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
-                           agentName === 'RegExtract' ? 'RegQA' : null;
+        const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
+                           agentName === 'ProcTreeExtract' ? 'ProcTreeQA' : null;
         
         const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
         
@@ -301,7 +297,7 @@ async function loadActiveConfig() {
         // Note: Extract and Rank agents are not shown in Selected Models (only SIGMA and sub-agents)
         
         // Sub-agents (only if enabled and has model)
-        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+        ['CmdlineExtract', 'ProcTreeExtract'].forEach(agent => {
             const modelKey = `${agent}_model`;
             // Only show if model exists and agent is not disabled
             if (models[modelKey] && !disabledSet.has(agent)) {
@@ -317,10 +313,7 @@ async function loadActiveConfig() {
         }
         const qaAgentMap = {
             'CmdlineExtract': 'CmdLineQA',
-            'SigExtract': 'SigQA',
-            'EventCodeExtract': 'EventCodeQA',
-            'ProcTreeExtract': 'ProcTreeQA',
-            'RegExtract': 'RegQA'
+            'ProcTreeExtract': 'ProcTreeQA'
         };
         Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
             if (disabledSet.has(agent)) return;
@@ -1222,11 +1215,8 @@ async function loadAggregateScores() {
                             const agentModel = models[agentModelKey] || 'N/A';
                             
                             // Get QA agent status
-                            const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' : 
-                                               agentName === 'SigExtract' ? 'SigQA' :
-                                               agentName === 'EventCodeExtract' ? 'EventCodeQA' :
-                                               agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
-                                               agentName === 'RegExtract' ? 'RegQA' : null;
+                            const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
+                                               agentName === 'ProcTreeExtract' ? 'ProcTreeQA' : null;
                             const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
                             
                             configParamsByVersion[version] = {
@@ -1538,10 +1528,15 @@ async function showCommandlines(executionId, articleUrl, count) {
         
         // Update modal title based on result type
         const modalTitle = document.getElementById('commandlinesModalTitle');
+        const exportBtn = document.getElementById('exportEvalBundleBtn');
         if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
             modalTitle.textContent = 'Extracted Process Lineage';
+            exportBtn.classList.add('hidden'); // Hide export for process_lineage
         } else {
             modalTitle.textContent = 'Extracted Commandlines';
+            exportBtn.classList.remove('hidden'); // Show export for cmdline
+            // Store executionId for export
+            exportBtn.dataset.executionId = executionId;
         }
         
         if (commandlines.length === 0) {
@@ -1615,6 +1610,60 @@ async function showCommandlines(executionId, articleUrl, count) {
     }
 }
 
+// Export eval bundle for CmdlineExtract
+async function exportCmdlineEvalBundle(executionId) {
+    const button = document.getElementById('exportEvalBundleBtn');
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = '⏳ Exporting...';
+    
+    try {
+        const response = await fetch(`/api/evaluations/evals/${executionId}/export-bundle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                agent_name: 'CmdlineExtract',
+                attempt: null, // Auto-select last attempt
+                inline_large_text: false,
+                max_inline_chars: 200000
+            })
+        });
+        
+        if (response.ok) {
+            const bundle = await response.json();
+            
+            // Create download
+            const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `eval_bundle_exec${executionId}_CmdlineExtract_${bundle.bundle_id.substring(0, 8)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Show success message
+            if (bundle.integrity?.warnings?.length > 0) {
+                alert(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+            } else {
+                alert(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+            }
+        } else {
+            const error = await response.json();
+            alert('❌ Error exporting bundle:\n\n' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error exporting eval bundle:', error);
+        alert('Error exporting eval bundle: ' + error.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
 // Close modal
 function closeCommandlinesModal() {
     const modal = document.getElementById('commandlinesModal');
@@ -1630,6 +1679,12 @@ function escapeHtml(text) {
 
 // Event listeners for modal
 document.getElementById('closeCommandlinesModal').addEventListener('click', closeCommandlinesModal);
+document.getElementById('exportEvalBundleBtn').addEventListener('click', (e) => {
+    const executionId = e.target.dataset.executionId;
+    if (executionId) {
+        exportCmdlineEvalBundle(parseInt(executionId));
+    }
+});
 document.getElementById('commandlinesModal').addEventListener('click', (e) => {
     if (e.target.id === 'commandlinesModal') {
         closeCommandlinesModal();

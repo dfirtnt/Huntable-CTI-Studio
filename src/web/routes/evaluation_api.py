@@ -6,7 +6,7 @@ import logging
 import os
 from typing import List, Dict, Any, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from langfuse import Langfuse
@@ -20,6 +20,7 @@ from src.database.models import (
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
+from src.services.eval_bundle_service import EvalBundleService
 import yaml
 from pathlib import Path
 import yaml
@@ -1321,7 +1322,7 @@ async def get_config_versions_models(
                     model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider})")
                 
                 # Sub-agents (only if enabled and has model)
-                for agent in ["CmdlineExtract", "SigExtract", "EventCodeExtract", "ProcTreeExtract", "RegExtract"]:
+                for agent in ["CmdlineExtract", "ProcTreeExtract"]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
                         provider = agent_models.get(f"{agent}_provider") or "lmstudio"
@@ -1338,4 +1339,149 @@ async def get_config_versions_models(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting config versions models: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ExportBundleRequest(BaseModel):
+    """Request model for eval bundle export."""
+    agent_name: str = Field(..., description="Agent name (e.g., 'CmdlineExtract', 'rank_article')")
+    attempt: Optional[int] = Field(None, description="Attempt number (1-indexed). If None, uses last attempt.")
+    inline_large_text: bool = Field(False, description="Whether to inline large text fields")
+    max_inline_chars: int = Field(200000, description="Maximum characters to inline before truncation")
+
+
+@router.post("/evals/{execution_id}/export-bundle")
+async def export_eval_bundle(
+    request: Request,
+    execution_id: int,
+    export_request: ExportBundleRequest
+):
+    """
+    Export evaluation bundle for a specific LLM call within a workflow execution.
+    
+    Returns eval_bundle_v1 JSON with all inputs, outputs, and provenance data.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            bundle_service = EvalBundleService(db_session)
+            try:
+                bundle = bundle_service.generate_bundle(
+                    execution_id=execution_id,
+                    agent_name=export_request.agent_name,
+                    attempt=export_request.attempt,
+                    inline_large_text=export_request.inline_large_text,
+                    max_inline_chars=export_request.max_inline_chars
+                )
+            except AttributeError as e:
+                logger.error(f"AttributeError in bundle generation: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error accessing data structure: {str(e)}. This may indicate a data format issue in the execution record."
+                )
+            
+            # Workflow metadata already set by service (includes actual attempt used)
+            
+            # Recompute bundle_sha256 with updated workflow metadata
+            bundle_for_hash = bundle.copy()
+            bundle_for_hash["integrity"] = {
+                "bundle_sha256": "",
+                "warnings": bundle["integrity"]["warnings"]
+            }
+            from src.services.eval_bundle_service import compute_sha256_json
+            bundle_sha256 = compute_sha256_json(bundle_for_hash)
+            bundle["integrity"]["bundle_sha256"] = bundle_sha256
+            
+            return bundle
+        finally:
+            db_session.close()
+            
+    except ValueError as e:
+        logger.error(f"Execution not found: {execution_id} - {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error exporting eval bundle for execution {execution_id}: {e}", exc_info=True)
+        error_detail = str(e)
+        # Add more context if it's a missing data error
+        if "not found" in error_detail.lower() or "missing" in error_detail.lower():
+            error_detail = f"{error_detail}. Check that the execution has error_log data for the specified agent."
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.get("/evals/{execution_id}/export-bundle")
+async def get_eval_bundle_metadata(
+    request: Request,
+    execution_id: int,
+    agent_name: Optional[str] = Query(None, description="Agent name (optional, defaults to first available)"),
+    attempt: int = Query(1, description="Attempt number (defaults to 1)")
+):
+    """
+    Get metadata for the most recent eval bundle or regenerate on demand.
+    
+    Query params:
+    - agent_name: Agent name (optional, defaults to first available)
+    - attempt: Attempt number (defaults to 1)
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            execution = db_session.query(AgenticWorkflowExecutionTable).filter(
+                AgenticWorkflowExecutionTable.id == execution_id
+            ).first()
+            
+            if not execution:
+                raise HTTPException(status_code=404, detail="Workflow execution not found")
+            
+            # If agent_name not provided, try to detect from error_log
+            if not agent_name:
+                error_log = execution.error_log or {}
+                # Filter out non-agent keys
+                agent_keys = ['rank_article', 'extract_agent', 'generate_sigma', 'os_detection']
+                available_agents = [k for k in error_log.keys() if k in agent_keys]
+                if available_agents:
+                    agent_name = available_agents[0]
+                else:
+                    agent_name = "extract_agent"  # Default
+            
+            bundle_service = EvalBundleService(db_session)
+            bundle = bundle_service.generate_bundle(
+                execution_id=execution_id,
+                agent_name=agent_name,
+                attempt=attempt,
+                inline_large_text=False,
+                max_inline_chars=200000
+            )
+            
+            # Update workflow metadata
+            bundle["workflow"]["agent_name"] = agent_name
+            bundle["workflow"]["attempt"] = attempt
+            
+            # Recompute bundle_sha256
+            bundle_for_hash = bundle.copy()
+            bundle_for_hash["integrity"] = {
+                "bundle_sha256": "",
+                "warnings": bundle["integrity"]["warnings"]
+            }
+            from src.services.eval_bundle_service import compute_sha256_json
+            bundle_sha256 = compute_sha256_json(bundle_for_hash)
+            bundle["integrity"]["bundle_sha256"] = bundle_sha256
+            
+            return {
+                "bundle_id": bundle["bundle_id"],
+                "bundle_sha256": bundle_sha256,
+                "collected_at": bundle["collected_at"],
+                "warnings": bundle["integrity"]["warnings"],
+                "bundle": bundle  # Include full bundle
+            }
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting eval bundle metadata for execution {execution_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
