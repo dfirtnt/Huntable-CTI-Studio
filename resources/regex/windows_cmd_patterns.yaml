@@ -1,5 +1,30 @@
+# Windows Command-Line Pattern Overrides
+#
+# This file provides optional regex pattern overrides for Windows command-line extraction.
+# Patterns defined here are loaded by src/extractors/regex_windows.py and merged with
+# the DEFAULT_PATTERNS dictionary to customize command-line candidate extraction.
+#
+# Usage: These patterns are used by the regex-based Windows command-line extractor
+# to identify potential command-line strings in CTI articles. They help extract
+# actionable Windows commands for threat hunting and analysis.
+#
+# The patterns are processed in order and used to find matches in article text.
+# Each pattern should be a valid Python regex string.
+#
+# Referenced in:
+# - src/extractors/regex_windows.py (_load_external_patterns)
+# - workflows/nodes/hybrid_extractor_node.py
+# - src/extractors/hybrid_cmdline_extractor.py
+
 patterns:
- exe_with_args: '"?[A-Za-z]:\\\\[^"\r\n]+\.\w{2,5}"?\s+[^\r\n]+'
- bare_exe_with_args: '(?i)(?:^|\s)([A-Za-z0-9_\-]+\.exe)\s+[^\r\n]+'
- powershell: '(?i)(?:"?[A-Za-z]:\\\\[^"\r\n]*\\(?:powershell|pwsh)(?:\.exe)?"?)\s+[^\r\n]+'
- system32_utils: '(?i)"?C:\\\\Windows\\\\System32\\\\(?:net|ipconfig|setspn|quser)\.exe"?\s+[^\r\n]+'
+  # Executable files with arguments (quoted paths supported)
+  exe_with_args: '"?[A-Za-z]:\\\\[^"\r\n]+\.\w{2,5}"?\s+[^\r\n]+'
+
+  # Bare executable names with arguments (no path, .exe extension required)
+  bare_exe_with_args: '(?i)(?:^|\s)([A-Za-z0-9_\-]+\.exe)\s+[^\r\n]+'
+
+  # PowerShell commands with arguments (supports both powershell.exe and pwsh.exe)
+  powershell: '(?i)(?:"?[A-Za-z]:\\\\[^"\r\n]*\\(?:powershell|pwsh)(?:\.exe)?"?)\s+[^\r\n]+'
+
+  # Common Windows System32 utilities (net, ipconfig, setspn, quser)
+  system32_utils: '(?i)"?C:\\\\Windows\\\\System32\\\\(?:net|ipconfig|setspn|quser)\.exe"?\s+[^\r\n]+'

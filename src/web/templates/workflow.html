@@ -3587,20 +3587,7 @@ async function loadLMStudioEmbeddingModels() {
     }
 }
 
-async function loadAgentPrompts() {
-    try {
-        const response = await fetch('/api/workflow/config/prompts');
-        if (response.ok) {
-            const data = await response.json();
-            agentPrompts = data.prompts || {};
-            renderAgentPrompts();
-        }
-    } catch (error) {
-        console.error('Error loading agent prompts:', error);
-        document.getElementById('agentPromptsContainer').innerHTML =
-            '<div class="text-center text-red-500 py-4">Error loading agent prompts</div>';
-    }
-}
+// REMOVED: Duplicate loadAgentPrompts function - using the one at line 5599 instead
 
 async function bootstrapPromptsFromFiles() {
     if (!confirm('Import default prompts from files into database?\n\nThis will create a new config version with all default prompts loaded.')) {
@@ -3952,6 +3939,7 @@ async function saveAgentPrompt(agentName) {
     };
     
     try {
+        console.log('Saving prompt for', agentName, ':', promptData);
         const response = await fetch('/api/workflow/config/prompts', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -3960,8 +3948,9 @@ async function saveAgentPrompt(agentName) {
         
         if (response.ok) {
             const result = await response.json();
+            console.log('Save successful:', result);
             editingPrompts[agentName] = false;
-            alert(`Agent prompt updated successfully for ${agentName}`);
+            console.log(`✅ Agent prompt updated successfully for ${agentName}`);
             await loadAgentPrompts();
             await loadConfig(true); // Reload config to get updated version (skip prompt reload since we just did it)
         } else {
@@ -4027,10 +4016,42 @@ function showPromptHistoryModal(agentName, versions) {
                                     <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.instructions)}</div>
                                 </div>
                             ` : ''}
+                            ${(() => {
+                                // Parse prompt to show system/user separately
+                                const promptParts = parsePromptParts(v.prompt || '');
+                                if (promptParts.system || promptParts.user) {
+                                    return `
+                                        <div class="space-y-3">
+                                            ${promptParts.system ? `
+                                                <div>
+                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: #cbd5e1 !important;">
+                                                        <span>🔧</span>
+                                                        <span>System Prompt:</span>
+                                                    </div>
+                                                    <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(promptParts.system)}</div>
+                                                </div>
+                                            ` : ''}
+                                            ${promptParts.user ? `
+                                                <div>
+                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: #cbd5e1 !important;">
+                                                        <span>💬</span>
+                                                        <span>User Prompt:</span>
+                                                    </div>
+                                                    <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-green-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(promptParts.user)}</div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `;
+                                } else {
+                                    // Fallback: show raw prompt if parsing fails
+                                    return `
                             <div>
                                 <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Prompt:</div>
                                 <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.prompt)}</div>
                             </div>
+                                    `;
+                                }
+                            })()}
                         </div>
                     `).join('')
                 }
@@ -5423,12 +5444,29 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
         const cleanedAgentModels = {};
         const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
+        // Get RankAgent value from collected configs, with fallback to direct form read
+        let rankModelValue = collectedAgentConfigs.RankAgent;
+        if (rankModelValue === undefined || rankModelValue === null) {
+            // Fallback: read directly from form element
+            const rankProvider = getAgentProvider('rankagent') || 'lmstudio';
+            rankModelValue = getAgentModel('rankagent', rankProvider);
+        }
+        
         for (const [key, value] of Object.entries(agentModelsData)) {
             // Always include RankAgent if it has a value (non-null, even if empty string)
             if (key === 'RankAgent') {
-                // Include if value exists (not null) - empty string is valid to clear it
-                if (rankModelValue !== null && rankModelValue !== undefined) {
-                    cleanedAgentModels[key] = rankModelValue;
+                // Prefer rankModelValue if it's a valid string, otherwise use value from agentModelsData
+                // Empty string is valid (means clear/use fallback), but null/undefined means not set
+                const finalRankValue = (rankModelValue !== null && rankModelValue !== undefined) 
+                    ? rankModelValue 
+                    : (value !== null && value !== undefined ? value : null);
+                // Include RankAgent if we have a value (including empty string to clear it)
+                if (finalRankValue !== null && finalRankValue !== undefined) {
+                    cleanedAgentModels[key] = finalRankValue;
+                } else if (currentConfig?.agent_models?.RankAgent) {
+                    // Preserve existing value if form field is empty but config has a value
+                    // This prevents accidentally clearing the model when form hasn't loaded yet
+                    cleanedAgentModels[key] = currentConfig.agent_models.RankAgent;
                 }
             } else if (keysToPreserveNull.includes(key)) {
                 // Preserve null values for keys that need explicit removal
@@ -5506,11 +5544,14 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             
             // Verify the saved value matches what we sent
             const savedRankModel = updatedConfig.agent_models?.RankAgent;
-            if (savedRankModel !== rankModelValue) {
-                console.warn(`⚠️ Model mismatch! Sent: "${rankModelValue}", Saved: "${savedRankModel}"`);
-            } else {
+            // Use the value that was actually sent (from cleanedAgentModels), not rankModelValue
+            const sentRankModel = cleanedAgentModels.RankAgent;
+            if (sentRankModel !== undefined && savedRankModel !== sentRankModel) {
+                console.warn(`⚠️ Model mismatch! Sent: "${sentRankModel}", Saved: "${savedRankModel}"`);
+            } else if (sentRankModel !== undefined) {
                 console.log(`✅ RankAgent model verified: "${savedRankModel}"`);
             }
+            // If sentRankModel is undefined, RankAgent wasn't included in the update (preserved existing value)
         } else {
             const error = await response.json();
             console.error('❌ Failed to auto-save model change:', error.detail || 'Unknown error');
@@ -5524,14 +5565,52 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
 
 async function loadAgentPrompts() {
     try {
-        const response = await fetch('/api/workflow/config/prompts');
+        console.log('🔄 Loading agent prompts from API...');
+        // Add cache-busting to ensure fresh data
+        const response = await fetch('/api/workflow/config/prompts?' + new Date().getTime(), {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         if (response.ok) {
             const data = await response.json();
+            const oldPrompts = JSON.stringify(agentPrompts);
             agentPrompts = data.prompts || {};
+            const newPrompts = JSON.stringify(agentPrompts);
+            console.log('📥 Loaded prompts:', {
+                agent_count: Object.keys(agentPrompts).length,
+                has_cmdline: !!agentPrompts['CmdlineExtract'],
+                cmdline_prompt_length: agentPrompts['CmdlineExtract']?.prompt?.length || 0,
+                data_changed: oldPrompts !== newPrompts
+            });
+            if (agentPrompts['CmdlineExtract']) {
+                const prompt = agentPrompts['CmdlineExtract'].prompt || '';
+                console.log('📝 CmdlineExtract prompt preview:', prompt.substring(0, 150));
+                try {
+                    const parsed = JSON.parse(prompt);
+                    console.log('📝 CmdlineExtract System (role):', parsed.role?.substring(0, 50) || 'empty');
+                    console.log('📝 CmdlineExtract User (user_template):', parsed.user_template?.substring(0, 50) || 'empty');
+                } catch (e) {
+                    console.log('📝 CmdlineExtract prompt (not JSON):', prompt.substring(0, 100));
+                }
+            }
+            // Wait for containers to exist before rendering
+            const waitForContainers = (retries = 10) => {
+                const container = document.getElementById('cmdlineextract-agent-prompt-container');
+                if (container || retries === 0) {
             renderAgentPrompts();
+                    console.log('✅ Prompts rendered to UI');
+                } else {
+                    setTimeout(() => waitForContainers(retries - 1), 100);
+                }
+            };
+            waitForContainers();
+        } else {
+            console.error('❌ Failed to load prompts:', response.status, response.statusText);
         }
     } catch (error) {
-        console.error('Error loading agent prompts2:', error);
+        console.error('❌ Error loading agent prompts:', error);
     }
 }
 
@@ -5573,13 +5652,75 @@ function renderAgentPrompts() {
         // This ensures the prompt editor is always available
         if (container) {
             const promptData = agentPrompts[subAgent.name] || { prompt: '', instructions: '', model: 'Not configured' };
-            container.innerHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
+            if (subAgent.name === 'CmdlineExtract') {
+                console.log(`🎨 Rendering ${subAgent.name} with prompt data:`, {
+                    prompt_length: promptData.prompt?.length || 0,
+                    prompt_preview: promptData.prompt?.substring(0, 100) || 'empty',
+                    is_editing: editingPrompts[subAgent.name] || false,
+                    container_exists: !!container,
+                    container_id: subAgent.container
+                });
+                // Parse and log the actual values being rendered
+                if (promptData.prompt) {
+                    try {
+                        const parsed = JSON.parse(promptData.prompt);
+                        console.log(`🎨 ${subAgent.name} parsed System (role):`, parsed.role?.substring(0, 50) || 'empty');
+                        console.log(`🎨 ${subAgent.name} parsed User (user_template):`, parsed.user_template?.substring(0, 50) || 'empty');
+                    } catch (e) {
+                        console.log(`🎨 ${subAgent.name} prompt (not JSON):`, promptData.prompt.substring(0, 100));
+                    }
+                }
+            }
+            const renderedHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
+            container.innerHTML = renderedHTML;
+            if (subAgent.name === 'CmdlineExtract') {
+                console.log(`✅ ${subAgent.name} container updated, HTML length:`, renderedHTML.length);
+                // Verify the display elements were created with correct content
+                setTimeout(() => {
+                    const agentId = subAgent.name.toLowerCase().replace(/\s+/g, '-');
+                    const systemDisplay = document.getElementById(`${agentId}-prompt-system-display-2`);
+                    const userDisplay = document.getElementById(`${agentId}-prompt-user-display-2`);
+                    if (systemDisplay && userDisplay) {
+                        try {
+                            const parsed = JSON.parse(promptData.prompt);
+                            const expectedSystem = parsed.role || '';
+                            const expectedUser = parsed.user_template || '';
+                            const actualSystem = systemDisplay.textContent?.trim() || '';
+                            const actualUser = userDisplay.textContent?.trim() || '';
+                            console.log(`🔍 Verification for ${subAgent.name}:`, {
+                                system_match: actualSystem === expectedSystem,
+                                system_expected: expectedSystem.substring(0, 30),
+                                system_actual: actualSystem.substring(0, 30),
+                                user_match: actualUser === expectedUser,
+                                user_expected: expectedUser.substring(0, 30),
+                                user_actual: actualUser.substring(0, 30)
+                            });
+                            if (actualSystem !== expectedSystem || actualUser !== expectedUser) {
+                                console.error(`❌ MISMATCH: ${subAgent.name} display does not match data!`);
+                            } else {
+                                console.log(`✅ VERIFIED: ${subAgent.name} display matches data`);
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ Could not verify ${subAgent.name}:`, e);
+                        }
+                    } else {
+                        console.warn(`⚠️ Display elements not found for ${subAgent.name} after render:`, {
+                            system: !!systemDisplay,
+                            user: !!userDisplay,
+                            system_id: `${agentId}-prompt-system-display-2`,
+                            user_id: `${agentId}-prompt-user-display-2`
+                        });
+                    }
+                }, 100);
+            }
             // Re-initialize collapsible panels after rendering
             setTimeout(() => {
                 if (typeof initCollapsiblePanels === 'function') {
                     initCollapsiblePanels(container);
                 }
             }, 0);
+        } else {
+            console.warn(`⚠️ Container not found for ${subAgent.name}:`, subAgent.container);
         }
     });
     
@@ -5706,6 +5847,22 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     const isTemplateFormat = promptParts.isTemplateFormat;
     const templateData = promptParts.templateData || {};
     
+    // Debug logging for prompt parsing
+    if (agentName === 'CmdlineExtract') {
+        console.log(`🔍 [renderSinglePrompt] ${agentName}:`, {
+            prompt_length: prompt.length,
+            prompt_preview: prompt.substring(0, 100),
+            parsed_system: promptParts.system?.substring(0, 50) || 'empty',
+            parsed_system_length: promptParts.system?.length || 0,
+            parsed_user: promptParts.user?.substring(0, 50) || 'empty',
+            parsed_user_length: promptParts.user?.length || 0,
+            is_template: isTemplateFormat,
+            is_editing: isEditing,
+            will_display_system: !isEditing ? (promptParts.system || '(empty)') : 'N/A (editing)',
+            will_display_user: !isEditing ? (promptParts.user || '(empty)') : 'N/A (editing)'
+        });
+    }
+    
     // Check if this is an extraction agent that uses template format
     const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName);
     
@@ -5767,13 +5924,13 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                 </span>
                             </label>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
-                            ${isEditing ? `
+                        ${isEditing ? `
                                 <textarea id="${agentId}-prompt-system-2" 
-                                          rows="8"
+                                      rows="8"
                                           placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                             ` : `
-                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                             `}
                         </div>
                         <div class="border-l-4 border-green-500 pl-4">
@@ -5790,17 +5947,17 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                           placeholder="Enter user prompt (task, query, or user message)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                             ` : `
-                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
                             `}
                         </div>
                     </div>
                     ${isEditing ? `
                         <div class="mt-4">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                            <input type="text" id="${agentId}-change-description-2" 
-                                   placeholder="Describe what changed..."
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
-                        </div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description-2" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
                     ` : ''}
                 </div>
             </div>
@@ -5883,13 +6040,13 @@ function renderQAPrompt(agentName, containerId) {
                                 </span>
                             </label>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
-                            ${isEditing ? `
+                        ${isEditing ? `
                                 <textarea id="${agentId}-prompt-system-2" 
-                                          rows="8"
+                                      rows="8"
                                           placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                             ` : `
-                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                             `}
                         </div>
                         <div class="border-l-4 border-green-500 pl-4">
@@ -5906,17 +6063,17 @@ function renderQAPrompt(agentName, containerId) {
                                           placeholder="Enter user prompt (task, query, or user message)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                             ` : `
-                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
                             `}
                         </div>
                     </div>
                     ${isEditing ? `
                         <div class="mt-4">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
-                            <input type="text" id="${agentId}-change-description-2" 
-                                   placeholder="Describe what changed..."
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
-                        </div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description-2" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
                     ` : ''}
                 </div>
             </div>
@@ -6669,40 +6826,73 @@ function cancelEditPrompt2(agentName) {
 }
 
 async function saveAgentPrompt2(agentName) {
+    console.log('saveAgentPrompt2 called for:', agentName);
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    console.log('Looking for elements with agentId:', agentId);
     const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
     const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
     const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
     const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
     
+    console.log('Elements found:', {
+        system: !!promptSystemElement,
+        user: !!promptUserElement,
+        instructions: !!instructionsElement,
+        changeDescription: !!changeDescriptionElement
+    });
+    
     if (!promptSystemElement || !promptUserElement) {
-        alert('Prompt elements not found');
+        console.error('Prompt elements not found!', {
+            agentId,
+            systemId: `${agentId}-prompt-system-2`,
+            userId: `${agentId}-prompt-user-2`,
+            systemElement: promptSystemElement,
+            userElement: promptUserElement
+        });
+        alert(`Prompt elements not found for ${agentName}. Check console for details.`);
         return;
     }
     
     // Check if this is an extraction agent that uses template format
     const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName);
     
+    console.log('Is extraction agent:', isExtractionAgent);
+    console.log('System element value length:', promptSystemElement.value?.length || 0);
+    console.log('User element value length:', promptUserElement.value?.length || 0);
+    
     let combinedPrompt;
     if (isExtractionAgent) {
         // For extraction agents, preserve template format structure
         // Try to get existing template data to preserve task, json_example, etc.
         const existingPrompt = agentPrompts[agentName]?.prompt || '';
+        console.log('Existing prompt length:', existingPrompt.length);
         let templateData = {};
         
         try {
-            const parsed = JSON.parse(existingPrompt);
-            if (parsed && typeof parsed === 'object' && parsed.user_template) {
-                // Preserve existing template fields
-                templateData = {
-                    role: promptSystemElement.value || parsed.role || "",
-                    user_template: promptUserElement.value || parsed.user_template || "",
-                    task: parsed.task || "",
-                    json_example: parsed.json_example || "",
-                    instructions: parsed.instructions || ""
-                };
+            if (existingPrompt) {
+                const parsed = JSON.parse(existingPrompt);
+                console.log('Parsed existing prompt:', parsed);
+                if (parsed && typeof parsed === 'object' && parsed.user_template) {
+                    // Preserve existing template fields
+                    templateData = {
+                        role: promptSystemElement.value || parsed.role || "",
+                        user_template: promptUserElement.value || parsed.user_template || "",
+                        task: parsed.task || "",
+                        json_example: parsed.json_example || "",
+                        instructions: parsed.instructions || ""
+                    };
+                } else {
+                    // New template format
+                    templateData = {
+                        role: promptSystemElement.value || "",
+                        user_template: promptUserElement.value || "",
+                        task: "",
+                        json_example: "",
+                        instructions: ""
+                    };
+                }
             } else {
-                // New template format
+                // No existing prompt - create new template
                 templateData = {
                     role: promptSystemElement.value || "",
                     user_template: promptUserElement.value || "",
@@ -6712,6 +6902,7 @@ async function saveAgentPrompt2(agentName) {
                 };
             }
         } catch (e) {
+            console.error('Error parsing existing prompt:', e);
             // Fallback: create new template structure
             templateData = {
                 role: promptSystemElement.value || "",
@@ -6722,7 +6913,9 @@ async function saveAgentPrompt2(agentName) {
             };
         }
         
+        console.log('Template data before stringify:', templateData);
         combinedPrompt = JSON.stringify(templateData);
+        console.log('Combined prompt JSON string:', combinedPrompt);
     } else {
         // For non-extraction agents, use simple system/user format
         combinedPrompt = JSON.stringify({
@@ -6731,6 +6924,10 @@ async function saveAgentPrompt2(agentName) {
         });
     }
     
+    console.log('System prompt value:', promptSystemElement.value);
+    console.log('User prompt value:', promptUserElement.value);
+    console.log('Combined prompt JSON:', combinedPrompt);
+    
     const promptData = {
         agent_name: agentName,
         prompt: combinedPrompt,
@@ -6738,7 +6935,17 @@ async function saveAgentPrompt2(agentName) {
         change_description: changeDescriptionElement ? changeDescriptionElement.value : null
     };
     
+    console.log('Prompt data to save:', {
+        agent_name: promptData.agent_name,
+        prompt_length: promptData.prompt.length,
+        prompt_preview: promptData.prompt.substring(0, 200),
+        prompt_full: promptData.prompt,
+        instructions: promptData.instructions,
+        change_description: promptData.change_description
+    });
+    
     try {
+        console.log('Saving prompt for', agentName, ':', promptData);
         const response = await fetch('/api/workflow/config/prompts', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -6747,6 +6954,9 @@ async function saveAgentPrompt2(agentName) {
         
         if (response.ok) {
             const result = await response.json();
+            console.log('✅ Save successful:', result);
+            
+            // CRITICAL: Exit edit mode FIRST so display mode is shown
             editingPrompts[agentName] = false;
             
             // Update agentPrompts immediately with the saved data
@@ -6762,10 +6972,82 @@ async function saveAgentPrompt2(agentName) {
             // This ensures renderAgentPrompts() uses the correct data
             agentPrompts[agentName] = savedPromptData;
             
-            alert(`Agent prompt updated successfully for ${agentName}`);
+            console.log('Updated agentPrompts for', agentName, ':', savedPromptData);
             
-            // Re-render all prompts - this will use the updated agentPrompts[agentName]
+            // Re-render all prompts immediately with saved data (before reload)
+            // This shows the saved data immediately in display mode
             renderAgentPrompts();
+            
+            // Use console.log instead of alert to avoid blocking browser automation
+            console.log(`✅ Agent prompt updated successfully for ${agentName}`);
+            
+            // Reload prompts from server after a delay to ensure server has processed
+            // Use longer delay and retry logic to ensure database commit is complete
+            const savedVersion = result.version;
+            let retries = 0;
+            const maxRetries = 5;
+            const checkVersion = async () => {
+                console.log(`🔄 Reloading prompts from server after save (attempt ${retries + 1}/${maxRetries})...`);
+                const oldPrompt = agentPrompts[agentName]?.prompt || '';
+                await loadAgentPrompts();
+                const newPrompt = agentPrompts[agentName]?.prompt || '';
+                console.log('📊 Prompt before reload (length):', oldPrompt.length);
+                console.log('📊 Prompt after reload (length):', newPrompt.length);
+                console.log('📊 Prompt changed:', oldPrompt !== newPrompt);
+                
+                // Check if we got the correct version by comparing prompt content
+                // If the prompt matches what we saved, we're good
+                const promptMatches = newPrompt === promptData.prompt;
+                
+                if (promptMatches) {
+                    console.log('✅ Prompt matches saved version - reload successful');
+                    if (newPrompt) {
+                        console.log('📊 New prompt preview:', newPrompt.substring(0, 150));
+                        // Parse to verify it's correct
+                        try {
+                            const parsed = JSON.parse(newPrompt);
+                            console.log('📊 Parsed role:', parsed.role?.substring(0, 50) || 'empty');
+                            console.log('📊 Parsed user_template:', parsed.user_template?.substring(0, 50) || 'empty');
+                        } catch (e) {
+                            console.error('❌ Failed to parse prompt:', e);
+                        }
+                    }
+                    // Force re-render after reload to ensure UI updates
+                    // renderAgentPrompts() is already called in loadAgentPrompts(), but call again to be safe
+                    renderAgentPrompts();
+                    
+                    // Verify the display elements were updated
+                    setTimeout(() => {
+                        const systemDisplay = document.getElementById('cmdlineextract-prompt-system-display-2');
+                        const userDisplay = document.getElementById('cmdlineextract-prompt-user-display-2');
+                        if (systemDisplay && userDisplay) {
+                            console.log('✅ Display elements found after render');
+                            console.log('📊 System display text:', systemDisplay.textContent?.substring(0, 50) || 'empty');
+                            console.log('📊 User display text:', userDisplay.textContent?.substring(0, 50) || 'empty');
+                        } else {
+                            console.warn('⚠️ Display elements not found:', {
+                                system: !!systemDisplay,
+                                user: !!userDisplay,
+                                system_id: 'cmdlineextract-prompt-system-display-2',
+                                user_id: 'cmdlineextract-prompt-user-display-2'
+                            });
+                        }
+                    }, 100);
+                    
+                    console.log('✅ Prompts reloaded and UI updated');
+                } else if (retries < maxRetries) {
+                    retries++;
+                    console.log(`⚠️ Prompt doesn't match saved version, retrying in 500ms... (attempt ${retries}/${maxRetries})`);
+                    setTimeout(checkVersion, 500);
+                } else {
+                    console.error('❌ Failed to get updated prompt after', maxRetries, 'retries');
+                    // Still render what we have
+                    renderAgentPrompts();
+                }
+            };
+            
+            // Start checking after initial delay
+            setTimeout(checkVersion, 2000);
             
             // Force explicit re-render of the saved agent's container as a safety measure
             // Use setTimeout to ensure DOM updates are complete
@@ -6851,12 +7133,23 @@ async function saveAgentPrompt2(agentName) {
                 }
             }
         } else {
+            let errorMessage = 'Unknown error';
+            try {
             const error = await response.json();
-            alert('Error updating agent prompt: ' + (error.detail || 'Unknown error'));
+                errorMessage = error.detail || error.message || JSON.stringify(error);
+                console.error('API error response:', error);
+            } catch (e) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                console.error('Failed to parse error response:', e);
+            }
+            alert(`Error updating agent prompt: ${errorMessage}\n\nCheck console (F12) for full details.`);
+            console.error('Full response status:', response.status);
+            console.error('Full response headers:', Object.fromEntries(response.headers.entries()));
+            console.error('Full response URL:', response.url);
         }
     } catch (error) {
         console.error('Error saving agent prompt:', error);
-        alert('Error saving agent prompt');
+        alert(`Error saving agent prompt: ${error.message || error}`);
     }
 }
 

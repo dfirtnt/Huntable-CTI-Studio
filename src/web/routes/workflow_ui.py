@@ -4,7 +4,7 @@ UI routes for agentic workflow pages.
 
 import logging
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from src.web.dependencies import templates
 from src.services.provider_model_catalog import load_catalog
@@ -17,13 +17,18 @@ router = APIRouter(tags=["workflow-ui"])
 @router.get("/workflow", response_class=HTMLResponse)
 async def workflow_page(request: Request):
     """Unified workflow management page with tabs."""
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "workflow.html",
         {
             "request": request,
             "provider_model_catalog": load_catalog(),
         }
     )
+    # Add cache-busting headers to prevent browser from caching HTML
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @router.get("/workflow/config", response_class=HTMLResponse)
