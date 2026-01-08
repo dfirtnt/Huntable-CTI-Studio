@@ -51,8 +51,8 @@ class WorkflowConfigUpdate(BaseModel):
     agent_prompts: Optional[Dict[str, Any]] = None
     agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: Optional[Dict[str, bool]] = None
-    sigma_fallback_enabled: Optional[bool] = False
-    rank_agent_enabled: Optional[bool] = True
+    sigma_fallback_enabled: Optional[bool] = None
+    rank_agent_enabled: Optional[bool] = None
     qa_max_retries: Optional[int] = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
 
 
@@ -218,7 +218,28 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             # Determine final values for new config
             final_min_hunt_score = config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0)
             final_description = config_update.description or (current_config.description if current_config else "Updated configuration")
-            final_agent_prompts = config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
+            # Preserve existing prompt content on config updates (prompt edits use /config/prompts).
+            if config_update.agent_prompts is not None:
+                base_prompts = current_config.agent_prompts.copy() if current_config and current_config.agent_prompts else {}
+                incoming_prompts = config_update.agent_prompts or {}
+                for agent_name, prompt_data in incoming_prompts.items():
+                    if agent_name == "ExtractAgentSettings" and isinstance(prompt_data, dict):
+                        existing_settings = base_prompts.get(agent_name, {}) if isinstance(base_prompts.get(agent_name), dict) else {}
+                        base_prompts[agent_name] = {**existing_settings, **prompt_data}
+                        continue
+                    # Merge non-prompt metadata only; never overwrite prompt/instructions/model here.
+                    if isinstance(prompt_data, dict) and isinstance(base_prompts.get(agent_name), dict):
+                        merged_prompt = base_prompts[agent_name].copy()
+                        for key, value in prompt_data.items():
+                            if key in {"prompt", "instructions", "model"}:
+                                continue
+                            merged_prompt[key] = value
+                        base_prompts[agent_name] = merged_prompt
+                    elif agent_name not in base_prompts:
+                        base_prompts[agent_name] = prompt_data
+                final_agent_prompts = base_prompts
+            else:
+                final_agent_prompts = current_config.agent_prompts if current_config else None
             final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
             final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
             
@@ -532,12 +553,15 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Updated configuration",
                 agent_prompts=agent_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
+                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
             
@@ -738,10 +762,15 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Rolled back configuration",
                 agent_prompts=agent_prompts,
+                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
+                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
+                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
             
@@ -1002,6 +1031,7 @@ async def bootstrap_prompts_from_files(request: Request):
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
                 version=new_version,
                 is_active=True,
                 description="Bootstrapped prompts from files",
@@ -1009,6 +1039,7 @@ async def bootstrap_prompts_from_files(request: Request):
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
+                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
             )
 
