@@ -207,6 +207,13 @@ async def get_raw_llm_response(
                 "model": llm_service.model_extract or "qwen/qwen2.5-coder-14b"
             }
         
+        # Get provider from config if available
+        provider = None
+        if active_config and active_config.agent_models:
+            provider = active_config.agent_models.get("CmdlineExtract_provider")
+            if not provider:
+                provider = active_config.agent_models.get("ExtractAgent_provider")
+        
         # Run extraction
         extraction_result = await llm_service.run_extraction_agent(
             agent_name="CmdlineExtract",
@@ -220,6 +227,7 @@ async def get_raw_llm_response(
             model_name=prompt_config.get("model"),
             temperature=0.0,
             use_hybrid_extractor=False,  # Force LLM usage to get raw response
+            provider=provider  # Pass provider from config
         )
         
         # Extract raw response

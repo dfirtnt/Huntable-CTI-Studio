@@ -39,7 +39,7 @@ def calculate_extraction_counts(extraction_result: Optional[Dict[str, Any]]) -> 
     Derive observable counts from extract agent results.
     Prefers explicit subresult counts; falls back to counting observables by type.
     """
-    keys = ["cmdline", "process_lineage", "registry_keys", "sigma_queries", "event_ids"]
+    keys = ["cmdline", "process_lineage"]
     counts = {key: 0 for key in keys}
     
     if not extraction_result or not isinstance(extraction_result, dict):
@@ -456,6 +456,12 @@ async def stream_execution_updates(execution_id: int):
                                         if is_new and isinstance(entry, dict):
                                             # For extract_agent sub-agents, use the sub-agent name
                                             display_agent = entry.get('agent', agent_name) if agent_name == 'extract_agent' else agent_name
+                                            
+                                            # Filter out removed subagents (SigExtract, EventCodeExtract, RegExtract)
+                                            removed_agents = {'SigExtract', 'EventCodeExtract', 'RegExtract', 'SigQA', 'EventCodeQA', 'RegQA'}
+                                            if display_agent in removed_agents:
+                                                continue  # Skip displaying removed agents
+                                            
                                             yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
                         
                         # Check for QA results (moved outside agent loop for efficiency)
@@ -465,7 +471,14 @@ async def stream_execution_updates(execution_id: int):
                             
                             # Ensure qa_results is a dict before iterating
                             if isinstance(qa_results, dict) and isinstance(last_qa_results, dict):
+                                # Filter out removed agents from QA results
+                                removed_agents = {'SigExtract', 'EventCodeExtract', 'RegExtract', 'SigQA', 'EventCodeQA', 'RegQA'}
+                                
                                 for qa_agent_name, qa_result in qa_results.items():
+                                    # Skip removed agents
+                                    if qa_agent_name in removed_agents:
+                                        continue
+                                    
                                     # Ensure qa_result is a dict
                                     if not isinstance(qa_result, dict):
                                         continue

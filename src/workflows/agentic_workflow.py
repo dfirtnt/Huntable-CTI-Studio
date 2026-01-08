@@ -474,6 +474,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     break
                 
                 # Run QA check
+                # Get provider for RankAgent QA (fallback to RankAgent provider, then ExtractAgent provider)
+                rank_qa_provider = None
+                if agent_models:
+                    rank_qa_provider = agent_models.get("RankAgentQA_provider")
+                    if not rank_qa_provider:
+                        rank_qa_provider = agent_models.get("RankAgent_provider")
+                    if not rank_qa_provider:
+                        rank_qa_provider = agent_models.get("ExtractAgent_provider")
+                
                 qa_service = QAAgentService(llm_service=llm_service)
                 qa_result = await qa_service.evaluate_agent_output(
                     article=article,
@@ -481,7 +490,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     agent_output=ranking_result,
                     agent_name="RankAgent",
                     config_obj=config_obj,
-                    execution_id=state['execution_id']
+                    execution_id=state['execution_id'],
+                    provider=rank_qa_provider
                 )
                 
                 # Store QA result in error_log
@@ -665,16 +675,24 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 agent_models = config.get('agent_models', {}) if config and isinstance(config, dict) else {}
                 embedding_model = agent_models.get('OSDetectionAgent_embedding', 'ibm-research/CTI-BERT')
                 fallback_model = agent_models.get('OSDetectionAgent_fallback')
+                fallback_provider = agent_models.get('OSDetectionAgent_fallback_provider')
                 
                 # Initialize service with configured embedding model
                 service = OSDetectionService(model_name=embedding_model)
                 
-                # Detect OS with configured fallback model
+                # Get LLMService for provider-aware fallback (if fallback is enabled)
+                llm_service_for_os = None
+                if fallback_model or fallback_provider:
+                    llm_service_for_os = LLMService(config_models=agent_models)
+                
+                # Detect OS with configured fallback model and provider
                 os_result = await service.detect_os(
                     content=content,
                     use_classifier=True,
                     use_fallback=True,
-                    fallback_model=fallback_model
+                    fallback_model=fallback_model,
+                    provider=fallback_provider,
+                    llm_service=llm_service_for_os
                 )
                 
                 detected_os = os_result.get('operating_system', 'Unknown') if os_result else 'Unknown'
@@ -1244,13 +1262,34 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     
                     # QA enabled flag is set above when loading QA config
                     
-                    # Get model and temperature for this agent
+                    # Get model, provider, temperature, and top_p for this agent
                     model_key = f"{agent_name}_model"
+                    provider_key = f"{agent_name}_provider"
                     temperature_key = f"{agent_name}_temperature"
                     top_p_key = f"{agent_name}_top_p"
                     agent_model = agent_models.get(model_key) if agent_models else None
                     if not agent_model:
                         agent_model = agent_models.get("ExtractAgent") if agent_models else None
+                    # Get provider for this agent, fallback to ExtractAgent provider
+                    agent_provider = agent_models.get(provider_key) if agent_models else None
+                    if not agent_provider or (isinstance(agent_provider, str) and not agent_provider.strip()):
+                        agent_provider = agent_models.get("ExtractAgent_provider") if agent_models else None
+                    # Normalize empty strings to None (will use fallback in llm_service)
+                    if agent_provider and isinstance(agent_provider, str) and not agent_provider.strip():
+                        agent_provider = None
+                    # Log provider resolution for debugging
+                    logger.info(
+                        f"[Workflow {state['execution_id']}] Provider resolution for {agent_name}: "
+                        f"provider_key={provider_key}, agent_provider={agent_provider}, "
+                        f"agent_models keys={list(agent_models.keys()) if agent_models else []}, "
+                        f"agent_models values={list(agent_models.values())[:10] if agent_models else []}"
+                    )
+                    # Safety check: Warn if provider is None when we have agent_models
+                    if agent_provider is None and agent_models:
+                        logger.warning(
+                            f"[Workflow {state['execution_id']}] ⚠️ {agent_name} provider is None but agent_models exists. "
+                            f"provider_key={provider_key} not found in config. Will fallback to ExtractAgent provider."
+                        )
                     agent_temperature = agent_models.get(temperature_key, 0.0) if agent_models else 0.0
                     agent_top_p = agent_models.get(top_p_key) if agent_models else None
                     
@@ -1347,7 +1386,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     
                     # Run Agent
                     qa_model_override = agent_models.get(qa_name) if agent_models else None
-                    logger.info(f"[Workflow {state['execution_id']}] 🚀 About to call LLM for {agent_name}")
+                    logger.info(f"[Workflow {state['execution_id']}] 🚀 About to call LLM for {agent_name} (provider={agent_provider}, model={agent_model})")
                     agent_result = await llm_service.run_extraction_agent(
                         agent_name=agent_name,
                         content=filtered_content,
@@ -1361,7 +1400,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         temperature=float(agent_temperature),
                         top_p=float(agent_top_p) if agent_top_p is not None else None,
                         qa_model_override=qa_model_override,
-                        use_hybrid_extractor=False  # UI-triggered workflows use prompt from config
+                        use_hybrid_extractor=False,  # UI-triggered workflows use prompt from config
+                        provider=agent_provider  # Pass provider from config
                     )
                     
                     # Store Result

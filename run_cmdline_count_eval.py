@@ -85,13 +85,26 @@ def _run_async_in_thread(coro):
         return future.result()
 
 
-def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version: str, llm_service: LLMService, prompt_config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version: str, llm_service: LLMService, prompt_config: Dict[str, Any], config_models: Dict[str, str] = None, **kwargs) -> Dict[str, Any]:
     """Task function: runs LLM-based command-line extractor on dataset item."""
     article_text = item.input.get("article_text", "")
     article_title = item.input.get("article_title", "")
     article_url = item.input.get("article_url", "")
     
     # Create the async coroutine
+    # Get provider from config_models if provided, otherwise infer from model name
+    provider = None
+    if config_models:
+        provider = config_models.get("CmdlineExtract_provider") or config_models.get("ExtractAgent_provider")
+    if not provider:
+        # Infer provider from model name
+        if model.startswith("gpt-") or model.startswith("o1") or model.startswith("o3") or model.startswith("o4"):
+            provider = "openai"
+        elif model.startswith("claude-"):
+            provider = "anthropic"
+        else:
+            provider = "lmstudio"
+    
     coro = llm_service.run_extraction_agent(
         agent_name="CmdlineExtract",
         content=article_text,
@@ -104,6 +117,7 @@ def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version:
         model_name=model,
         temperature=0.0,
         use_hybrid_extractor=False,  # Force LLM usage
+        provider=provider  # Pass provider from config or inferred
     )
     
     # Run async code - handle event loop gracefully
@@ -203,10 +217,20 @@ def run_evaluation(model: str, prompt_version: str) -> None:
 
     # Initialize LLM service with minimal config (only ExtractAgent needed, but RankAgent required for init)
     # Use the provided model for both agents (RankAgent won't be used)
+    # Infer provider from model name (gpt-* = openai, claude-* = anthropic, else = lmstudio)
+    provider = "lmstudio"  # Default
+    if model.startswith("gpt-") or model.startswith("o1") or model.startswith("o3") or model.startswith("o4"):
+        provider = "openai"
+    elif model.startswith("claude-"):
+        provider = "anthropic"
+    
     config_models = {
         "ExtractAgent": model,
+        "ExtractAgent_provider": provider,
         "RankAgent": model,  # Required for initialization, but won't be used
+        "RankAgent_provider": provider,
         "SigmaAgent": model,  # Required for initialization, but won't be used
+        "SigmaAgent_provider": provider,
     }
     llm_service = LLMService(config_models=config_models)
     

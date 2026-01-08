@@ -336,12 +336,25 @@ class EvalRunner:
         
         # Initialize LLM service with snapshot models
         # Normalize model names for LMStudio compatibility (remove prefixes/suffixes)
+        # BUT: Don't normalize provider keys or non-model values
         agent_models = snapshot_data.get("agent_models", {})
-        normalized_agent_models = {
-            key: self._normalize_lmstudio_model_name(value) if isinstance(value, str) else value
-            for key, value in agent_models.items()
-        }
+        normalized_agent_models = {}
+        for key, value in agent_models.items():
+            # Only normalize model names, not provider keys or other config values
+            if key.endswith("_provider") or key.endswith("_temperature") or key.endswith("_top_p"):
+                normalized_agent_models[key] = value  # Keep provider/config values as-is
+            elif isinstance(value, str):
+                normalized_agent_models[key] = self._normalize_lmstudio_model_name(value)
+            else:
+                normalized_agent_models[key] = value
         llm_service = LLMService(config_models=normalized_agent_models)
+        
+        # Get provider for CmdlineExtract (fallback to ExtractAgent provider)
+        # Use original agent_models (not normalized) for provider lookup
+        cmdline_provider = agent_models.get("CmdlineExtract_provider")
+        if not cmdline_provider or (isinstance(cmdline_provider, str) and not cmdline_provider.strip()):
+            cmdline_provider = agent_models.get("ExtractAgent_provider")
+        logger.info(f"Eval runner using provider for CmdlineExtract: {cmdline_provider} (from agent_models keys: {list(agent_models.keys())})")
         
         # Normalize model name for LMStudio (remove prefixes/suffixes that LMStudio doesn't recognize)
         raw_model = cmdline_prompt_config.get("model", normalized_agent_models.get("ExtractAgent", ""))
@@ -389,6 +402,7 @@ class EvalRunner:
             model_name=prompt_config.get("model"),
             temperature=0.0,
             use_hybrid_extractor=False,  # Force LLM usage for consistency
+            provider=cmdline_provider  # Pass provider from snapshot config
         )
         
         # Run async code - handle event loop gracefully
