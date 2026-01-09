@@ -55,6 +55,8 @@ class LLMService:
                           If provided, these override environment variables.
         """
         self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        self.assumed_lmstudio_context_tokens = int(os.getenv("WORKFLOW_LMSTUDIO_CONTEXT_TOKENS", "16384"))
+        self.assumed_cloud_context_tokens = int(os.getenv("WORKFLOW_CLOUD_CONTEXT_TOKENS", "80000"))
         
         # Default model (fallback for backward compatibility)
         default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
@@ -357,6 +359,13 @@ class LLMService:
     def _estimate_tokens(text: str) -> int:
         """Rough estimate: ~4 characters per token."""
         return len(text) // 4
+
+    def _get_context_limit_for_provider(self, provider: Optional[str]) -> int:
+        """Return assumed context limit depending on provider type."""
+        canonical = self._canonicalize_provider(provider or "")
+        if canonical == "lmstudio":
+            return self.assumed_lmstudio_context_tokens
+        return self.assumed_cloud_context_tokens
 
     @staticmethod
     def _truncate_content(content: str, max_context_tokens: int, max_output_tokens: int, prompt_overhead: int = PROMPT_OVERHEAD_TOKENS) -> str:
@@ -1397,6 +1406,7 @@ class LLMService:
             available_tokens = 1000  # Minimum fallback
         
         content_tokens = self._estimate_tokens(content)
+        truncation_warning = None
         if content_tokens <= available_tokens:
             truncated_content = content
         else:
@@ -1414,6 +1424,10 @@ class LLMService:
             
             truncated_content = truncated + "\n\n[Content truncated to fit context window]"
             
+            truncation_warning = (
+                f"Content truncated: {content_tokens} → {self._estimate_tokens(truncated_content)} tokens "
+                f"(available: {available_tokens}, context: {actual_context_length})"
+            )
             logger.warning(
                 f"Truncated article content from {content_tokens} to "
                 f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
@@ -1518,7 +1532,12 @@ class LLMService:
             
                 # Check if response was truncated due to token limit
                 finish_reason = result['choices'][0].get('finish_reason', '')
+                response_truncation_warning = None
                 if finish_reason == 'length':
+                    response_truncation_warning = (
+                        f"Response truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. "
+                        f"max_tokens={max_output_tokens} may need to be increased."
+                    )
                     logger.warning(f"Ranking response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_output_tokens} may need to be increased.")
                 
                 # Fail if response is empty
@@ -1588,10 +1607,17 @@ class LLMService:
                     ground_truth=ground_truth_rank
                 )
                 
+                warnings = []
+                if truncation_warning:
+                    warnings.append(truncation_warning)
+                if response_truncation_warning:
+                    warnings.append(response_truncation_warning)
+                
                 return {
                     'score': score,
                     'reasoning': response_text.strip(),
-                    'raw_response': response_text
+                    'raw_response': response_text,
+                    'warnings': warnings if warnings else None
                 }
                 
             except Exception as e:
@@ -1730,6 +1756,7 @@ class LLMService:
             available_tokens = 1000  # Minimum fallback
         
         content_tokens = self._estimate_tokens(content)
+        truncation_warning = None
         if content_tokens <= available_tokens:
             truncated_content = content
         else:
@@ -1747,6 +1774,10 @@ class LLMService:
             
             truncated_content = truncated + "\n\n[Content truncated to fit context window]"
             
+            truncation_warning = (
+                f"Content truncated: {content_tokens} → {self._estimate_tokens(truncated_content)} tokens "
+                f"(available: {available_tokens}, context: {actual_context_length})"
+            )
             logger.warning(
                 f"Truncated article content from {content_tokens} to "
                 f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
@@ -2171,6 +2202,7 @@ class LLMService:
             available_tokens = 1000  # Minimum fallback
         
         content_tokens = self._estimate_tokens(content)
+        truncation_warning = None
         if content_tokens <= available_tokens:
             truncated_content = content
         else:
@@ -2188,6 +2220,10 @@ class LLMService:
             
             truncated_content = truncated + "\n\n[Content truncated to fit context window]"
             
+            truncation_warning = (
+                f"Content truncated: {content_tokens} → {self._estimate_tokens(truncated_content)} tokens "
+                f"(available: {available_tokens}, context: {actual_context_length})"
+            )
             logger.warning(
                 f"Truncated article content from {content_tokens} to "
                 f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
@@ -2287,7 +2323,14 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 logger.error("LLM returned empty response for observable extraction")
                 raise ValueError("LLM returned empty response. Check LMStudio is responding correctly.")
             
-            if finish_reason == 'length':
+            # Check if response was truncated
+            finish_reason = result["choices"][0].get("finish_reason", "")
+            response_truncation_warning = None
+            if finish_reason == "length":
+                response_truncation_warning = (
+                    f"Response truncated (finish_reason=length). Attempting to parse partial JSON. "
+                    f"Used {result.get('usage', {}).get('completion_tokens', 0)} tokens."
+                )
                 logger.warning(f"Observable extraction response was truncated (finish_reason=length). Attempting to parse partial JSON.")
             
             logger.info(f"Observable extraction response received: {len(response_text)} chars (finish_reason={finish_reason})")
@@ -2556,6 +2599,15 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 if 'raw_response' not in extracted:
                     extracted['raw_response'] = response_text
                 
+                # Add truncation warnings if any
+                warnings = []
+                if truncation_warning:
+                    warnings.append(truncation_warning)
+                if response_truncation_warning:
+                    warnings.append(response_truncation_warning)
+                if warnings:
+                    extracted['warnings'] = warnings
+                
                 # Handle new format (observables array + summary) or old format (atomic_iocs + behavioral_observables + metadata)
                 if 'observables' in extracted and 'summary' in extracted:
                     # New format: observables array with type/value/platform/source_context
@@ -2726,9 +2778,19 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             
             # 1. Run Extraction
             try:
-                # Truncate content first
-                truncated_content = self._truncate_content(content, 4000, 1000)
-                logger.info(f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}")
+                resolved_provider = provider if provider and isinstance(provider, str) and provider.strip() else self.provider_extract
+                if not (provider and isinstance(provider, str) and provider.strip()):
+                    logger.warning(
+                        f"{agent_name} provider was None/empty, falling back to ExtractAgent provider: {resolved_provider}. "
+                        f"This may indicate the provider wasn't set in workflow config."
+                    )
+                effective_provider = self._canonicalize_provider(resolved_provider)
+                if not effective_provider:
+                    effective_provider = self._canonicalize_provider(self.provider_extract) or resolved_provider
+
+                context_limit_tokens = self._get_context_limit_for_provider(effective_provider)
+                truncated_content = self._truncate_content(content, context_limit_tokens, 1000)
+                logger.info(f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}, context_limit={context_limit_tokens}")
                 
                 # Check if using new template-based format or legacy format
                 user_template = prompt_config.get("user_template")
@@ -2823,17 +2885,6 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         "messages": messages  # Include messages for input display
                     }
                 ) as generation:
-                    # Use provided provider or fall back to ExtractAgent provider
-                    # If provider is None or empty string, use fallback
-                    if provider and isinstance(provider, str) and provider.strip():
-                        effective_provider = provider
-                    else:
-                        effective_provider = self.provider_extract
-                        logger.warning(
-                            f"{agent_name} provider was None/empty, falling back to ExtractAgent provider: {effective_provider}. "
-                            f"This may indicate the provider wasn't set in workflow config."
-                        )
-                    effective_provider = self._canonicalize_provider(effective_provider)
                     logger.info(f"{agent_name} provider resolution: provider={provider}, effective_provider={effective_provider}, self.provider_extract={self.provider_extract}")
                     # Use provided top_p or get from agent config
                     effective_top_p = top_p if top_p is not None else self.get_top_p_for_agent(agent_name)
@@ -3113,7 +3164,7 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 qa_prompt = f"""Task: {qa_task}
 
 Source Text:
-{self._truncate_content(content, 4000, 1000)}
+{truncated_content}
 
 Extracted Data:
 {json.dumps(last_result, indent=2)}

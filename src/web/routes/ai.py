@@ -1449,6 +1449,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             # Extract score and reasoning from ranking result
             score = ranking_result.get("score")
             reasoning = ranking_result.get("reasoning", "")
+            warnings = ranking_result.get("warnings")
             
             # Format analysis similar to original endpoint format
             analysis = f"Score: {score}/10\n\nReasoning:\n{reasoning}"
@@ -1503,6 +1504,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             "content_filtering": article.article_metadata["gpt4o_ranking"][
                 "content_filtering"
             ],
+            "warnings": warnings if warnings else None,
         }
 
     except HTTPException:
@@ -2086,6 +2088,9 @@ async def api_extract_observables(article_id: int, request: Request):
                         f"QA critical failure after {max_qa_retries} attempts for observables extraction: {qa_result.get('summary', 'Unknown error')}"
                     )
 
+            # Extract warnings from extraction result
+            extraction_warnings = extraction_result.get("warnings")
+            
             return {
                 "success": True,
                 "article_id": article_id,
@@ -2102,6 +2107,7 @@ async def api_extract_observables(article_id: int, request: Request):
                     ),
                 },
                 "qa_results": qa_results if qa_results else None,
+                "warnings": extraction_warnings if extraction_warnings else None,
             }
 
         except asyncio.CancelledError:
@@ -2956,7 +2962,12 @@ async def api_generate_sigma(article_id: int, request: Request):
                 # Default to conservative limit for unknown models (assume 4k context)
                 max_content_chars = 6000
 
+            sigma_content_truncation_warning = None
             if len(content_to_analyze) > max_content_chars:
+                sigma_content_truncation_warning = (
+                    f"Content truncated: {len(content_to_analyze)} → {max_content_chars} chars "
+                    f"(model: {lmstudio_model_name})"
+                )
                 logger.warning(
                     f"LMStudio ({lmstudio_model_name}): Truncating content from {len(content_to_analyze)} to {max_content_chars} chars"
                 )
@@ -3005,7 +3016,11 @@ async def api_generate_sigma(article_id: int, request: Request):
                 max_prompt_chars = 9000
             else:
                 max_prompt_chars = 8000
+            sigma_prompt_truncation_warning = None
             if len(sigma_prompt) > max_prompt_chars:
+                sigma_prompt_truncation_warning = (
+                    f"Prompt truncated: {len(sigma_prompt)} → {max_prompt_chars} chars to fit context"
+                )
                 logger.warning(
                     f"LMStudio: Truncating final prompt from {len(sigma_prompt)} to {max_prompt_chars} chars to fit context"
                 )
@@ -3020,9 +3035,13 @@ async def api_generate_sigma(article_id: int, request: Request):
             f"SIGMA generation prompt size: {len(sigma_prompt)} chars (~{prompt_tokens_estimate} tokens) for {ai_model}"
         )
 
+        # Track truncation warnings for SIGMA generation
+        sigma_response_truncation_warning = None
+        
         # Define helper function for API calls based on ai_model
         async def call_llm_api(prompt_text: str) -> str:
             """Call the appropriate LLM API based on ai_model setting."""
+            nonlocal sigma_response_truncation_warning
             logger.info(
                 f"🔧 call_llm_api: ai_model='{ai_model}', will use {'LMStudio' if ai_model == 'lmstudio' else 'OpenAI (GPT-4o-mini)'}"
             )
@@ -3103,6 +3122,10 @@ async def api_generate_sigma(article_id: int, request: Request):
                 # Check if response was truncated
                 finish_reason = result["choices"][0].get("finish_reason", "")
                 if finish_reason == "length":
+                    sigma_response_truncation_warning = (
+                        f"Response truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. "
+                        f"max_tokens={max_tokens} may need to be increased."
+                    )
                     logger.warning(
                         f"SIGMA generation response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_tokens} may need to be increased."
                     )
@@ -3298,6 +3321,9 @@ Output ONLY valid YAML starting with "title:"."""
 
             # Call LLM API for SIGMA rule generation
             sigma_response = await call_llm_api(current_prompt)
+            
+            # Track response truncation warning if applicable
+            # (sigma_truncation_warning is set in call_llm_api for LMStudio)
 
             # Clean the response and extract YAML rules
             cleaned_response = clean_sigma_rule(sigma_response)
@@ -3506,6 +3532,15 @@ Output ONLY valid YAML starting with "title:"."""
         except Exception as e:
             logger.warning(f"Failed to compare generated rules to SigmaHQ: {e}")
 
+        # Collect all truncation warnings
+        sigma_warnings = []
+        if sigma_content_truncation_warning:
+            sigma_warnings.append(sigma_content_truncation_warning)
+        if sigma_prompt_truncation_warning:
+            sigma_warnings.append(sigma_prompt_truncation_warning)
+        if sigma_response_truncation_warning:
+            sigma_warnings.append(sigma_response_truncation_warning)
+        
         return {
             "success": len(rules) > 0,
             "rules": rules,
@@ -3517,6 +3552,7 @@ Output ONLY valid YAML starting with "title:"."""
             "error": None
             if len(rules) > 0
             else "No valid SIGMA rules could be generated",
+            "warnings": sigma_warnings if sigma_warnings else None,
         }
 
     except HTTPException:

@@ -30,14 +30,34 @@ subagents:
       expected_count: 3
     - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
       expected_count: 5
-    - url: "http://127.0.0.1:8001/articles/1484"
-      expected_count: 2
-    - url: "http://127.0.0.1:8001/articles/1292"
-      expected_count: 13
     - url: "http://127.0.0.1:8001/articles/62"
-      expected_count: 8
+      expected_count: 7
+    - url: "http://127.0.0.1:8001/articles/68"
+      expected_count: 5
+    - url: "http://127.0.0.1:8001/articles/200"
+      expected_count: 3
+    - url: "http://127.0.0.1:8001/articles/277"
+      expected_count: 1
     - url: "http://127.0.0.1:8001/articles/602"
       expected_count: 6
+    - url: "http://127.0.0.1:8001/articles/603"
+      expected_count: 9
+    - url: "http://127.0.0.1:8001/articles/632"
+      expected_count: 5
+    - url: "http://127.0.0.1:8001/articles/762"
+      expected_count: 24
+    - url: "http://127.0.0.1:8001/articles/1292"
+      expected_count: 13
+    - url: "http://127.0.0.1:8001/articles/1294"
+      expected_count: 14
+    - url: "http://127.0.0.1:8001/articles/1295"
+      expected_count: 5
+    - url: "http://127.0.0.1:8001/articles/1296"
+      expected_count: 1
+    - url: "http://127.0.0.1:8001/articles/1474"
+      expected_count: 2
+    - url: "http://127.0.0.1:8001/articles/1484"
+      expected_count: 2
 
   # Placeholder for other subagents (to be populated later)
   sigextract: []

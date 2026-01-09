@@ -4978,6 +4978,13 @@ Please provide a detailed analysis based on the article content and the user's s
 
                 console.log('AI generation completed successfully:', data);
 
+                // Show truncation warnings if any
+                if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
+                    data.warnings.forEach(warning => {
+                        showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                    });
+                }
+
                 // Mark operation as complete and show banner
                 markOperationComplete(operationId);
                 showCompletionBanner(type, typeText, typeIcon);
@@ -5144,6 +5151,14 @@ Please provide a detailed analysis based on the article content and the user's s
             
             if (response.ok) {
                 const data = await response.json();
+                
+                // Show truncation warnings if any
+                if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
+                    data.warnings.forEach(warning => {
+                        showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                    });
+                }
+                
                 showGPT4oRankingModal(data.analysis, data);
                 
                 // Show optimization results if available
@@ -6179,20 +6194,24 @@ Please provide a detailed analysis based on the article content and the user's s
                             const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             const roleIcon = role === 'system' ? '⚙️' : '👤';
                             const roleColor = role === 'system' ? 'text-purple-700' : 'text-blue-700';
-                            const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
+                            // COMMENTED OUT: Truncation control
+                            // const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
                             const collapsibleId = 'msg-' + idx + '-' + msgIdx;
                             
                             return '<div class="mb-2">' +
                                 '<div class="flex items-center mb-1">' +
                                     '<span class="mr-2">' + roleIcon + '</span>' +
                                     '<span class="font-semibold ' + roleColor + ' text-sm uppercase">' + role + '</span>' +
-                                    '<button onclick="toggleCollapse(\'' + collapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
-                                        '[toggle full content]' +
-                                    '</button>' +
+                                    // COMMENTED OUT: Truncation control button
+                                    // '<button onclick="toggleCollapse(\'' + collapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
+                                    //     '[toggle full content]' +
+                                    // '</button>' +
                                 '</div>' +
                                 '<div class="bg-gray-100 p-2 rounded border border-gray-300">' +
-                                    '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700">' + preview + '</div>' +
-                                    '<pre id="' + collapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + content + '</pre>' +
+                                    '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700">' + content + '</div>' +
+                                    // COMMENTED OUT: Truncation control - showing full content directly
+                                    // '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700">' + preview + '</div>' +
+                                    // '<pre id="' + collapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + content + '</pre>' +
                                 '</div>' +
                             '</div>';
                         }).join('');
@@ -6200,7 +6219,8 @@ Please provide a detailed analysis based on the article content and the user's s
                         // Format LLM response
                         const llmResponse = entry.llm_response || '';
                         const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
+                        // COMMENTED OUT: Truncation control
+                        // const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
                         const llmCollapsibleId = 'llm-' + idx;
                         
                         // Format validation results
@@ -6243,13 +6263,16 @@ Please provide a detailed analysis based on the article content and the user's s
                                     '<div class="flex items-center mb-2">' +
                                         '<span class="mr-2">🤖</span>' +
                                         '<span class="font-semibold text-sm text-gray-700">LLM Response</span>' +
-                                        '<button onclick="toggleCollapse(\'' + llmCollapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
-                                            '[toggle full response]' +
-                                        '</button>' +
+                                        // COMMENTED OUT: Truncation control button
+                                        // '<button onclick="toggleCollapse(\'' + llmCollapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
+                                        //     '[toggle full response]' +
+                                        // '</button>' +
                                     '</div>' +
                                     '<div class="bg-purple-50 p-3 rounded border border-purple-200">' +
-                                        '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmPreview + '</div>' +
-                                        '<pre id="' + llmCollapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + llmContent + '</pre>' +
+                                        '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmContent + '</div>' +
+                                        // COMMENTED OUT: Truncation control - showing full content directly
+                                        // '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmPreview + '</div>' +
+                                        // '<pre id="' + llmCollapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + llmContent + '</pre>' +
                                     '</div>' +
                                 '</div>' +
                                 '<div class="border-l-4 ' + (hasErrors ? 'border-red-500' : 'border-green-500') + ' pl-3">' +
@@ -6275,15 +6298,15 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    // Helper function to toggle collapsible sections
-    function toggleCollapse(id) {
-        const preview = document.getElementById(id + '-preview');
-        const full = document.getElementById(id + '-full');
-        if (preview && full) {
-            preview.classList.toggle('hidden');
-            full.classList.toggle('hidden');
-        }
-    }
+    // COMMENTED OUT: Helper function to toggle collapsible sections
+    // function toggleCollapse(id) {
+    //     const preview = document.getElementById(id + '-preview');
+    //     const full = document.getElementById(id + '-full');
+    //     if (preview && full) {
+    //         preview.classList.toggle('hidden');
+    //         full.classList.toggle('hidden');
+    //     }
+    // }
     
     function closeSigmaRulesModal() {
         const modal = document.getElementById('sigmaRulesModal');
@@ -8611,6 +8634,13 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
             document.removeEventListener('keydown', handleChunkEsc);
             
+            // Show truncation warnings if any
+            if (debugData.warnings && Array.isArray(debugData.warnings) && debugData.warnings.length > 0) {
+                debugData.warnings.forEach(warning => {
+                    showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                });
+            }
+            
             // Show chunk debug modal
             showChunkDebugResults(debugData);
             
@@ -8730,6 +8760,14 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
             
             const debugData = await response.json();
+            
+            // Show truncation warnings if any
+            if (debugData.warnings && Array.isArray(debugData.warnings) && debugData.warnings.length > 0) {
+                debugData.warnings.forEach(warning => {
+                    showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                });
+            }
+            
             updateChunkDebugResults(debugData);
             
             showNotification('Full chunk analysis completed successfully.', 'success');
@@ -9134,10 +9172,11 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 
                 <!-- Feature Details -->
                 <div class="mb-3">
-                    <button onclick="toggleFeatureDetails(${index})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    <!-- COMMENTED OUT: Truncation control button -->
+                    <!-- <button onclick="toggleFeatureDetails(${index})" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
                         📊 Show Feature Details
-                    </button>
-                    <div id="featureDetails${index}" class="hidden mt-2 bg-gray-50 rounded p-3 text-xs">
+                    </button> -->
+                    <div id="featureDetails${index}" class="mt-2 bg-gray-50 rounded p-3 text-xs">
                         <div class="grid grid-cols-2 gap-2">
                             ${Object.entries(chunk.features).map(([key, value]) => `
                                 <div class="flex justify-between">
@@ -9152,16 +9191,21 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 <div class="text-sm text-gray-600 bg-white rounded p-2 border">
                     <div class="flex justify-between items-center mb-2">
                         <span class="text-xs text-gray-500">Chunk Content (${chunk.length} chars)</span>
-                        <button onclick="toggleChunkContent(${index})" class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                        <!-- COMMENTED OUT: Truncation control button -->
+                        <!-- <button onclick="toggleChunkContent(${index})" class="text-xs text-blue-600 hover:text-blue-800 font-medium">
                             📄 ${chunk.text.length > 200 ? 'Show Full Text' : 'View Text'}
-                        </button>
+                        </button> -->
                     </div>
-                    <div id="chunkContent${index}" class="max-h-32 overflow-y-auto">
+                    <!-- COMMENTED OUT: Truncation control - showing full content directly -->
+                    <div id="chunkContent${index}" class="max-h-96 overflow-y-auto text-xs font-mono whitespace-pre-wrap">
+                        ${chunk.text}
+                    </div>
+                    <!-- <div id="chunkContent${index}" class="max-h-32 overflow-y-auto">
                         ${chunk.text.substring(0, 200)}${chunk.text.length > 200 ? '...' : ''}
                     </div>
                     <div id="chunkContentFull${index}" class="hidden max-h-96 overflow-y-auto text-xs font-mono whitespace-pre-wrap">
                         ${chunk.text}
-                    </div>
+                    </div> -->
                 </div>
             </div>
         `).join('');
@@ -9325,6 +9369,13 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
             
             const debugData = await response.json();
+            
+            // Show truncation warnings if any
+            if (debugData.warnings && Array.isArray(debugData.warnings) && debugData.warnings.length > 0) {
+                debugData.warnings.forEach(warning => {
+                    showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                });
+            }
             
             // Update the modal with new data
             updateChunkDebugResults(debugData);
@@ -9561,34 +9612,36 @@ ${JSON.stringify(rule.logsource, null, 2)}
         }
     }
     
-    function toggleFeatureDetails(chunkIndex) {
-        const featureDetails = document.getElementById(`featureDetails${chunkIndex}`);
-        if (featureDetails) {
-            featureDetails.classList.toggle('hidden');
-        }
-    }
+    // COMMENTED OUT: Truncation control function
+    // function toggleFeatureDetails(chunkIndex) {
+    //     const featureDetails = document.getElementById(`featureDetails${chunkIndex}`);
+    //     if (featureDetails) {
+    //         featureDetails.classList.toggle('hidden');
+    //     }
+    // }
     
-    function toggleChunkContent(chunkIndex) {
-        const preview = document.getElementById(`chunkContent${chunkIndex}`);
-        const full = document.getElementById(`chunkContentFull${chunkIndex}`);
-        const button = preview.parentElement.querySelector('button');
-        
-        if (preview && full && button) {
-            const isHidden = full.classList.contains('hidden');
-            
-            if (isHidden) {
-                // Show full content
-                preview.classList.add('hidden');
-                full.classList.remove('hidden');
-                button.textContent = '📄 Hide Text';
-            } else {
-                // Show preview
-                preview.classList.remove('hidden');
-                full.classList.add('hidden');
-                button.textContent = '📄 Show Full Text';
-            }
-        }
-    }
+    // COMMENTED OUT: Truncation control function
+    // function toggleChunkContent(chunkIndex) {
+    //     const preview = document.getElementById(`chunkContent${chunkIndex}`);
+    //     const full = document.getElementById(`chunkContentFull${chunkIndex}`);
+    //     const button = preview.parentElement.querySelector('button');
+    //     
+    //     if (preview && full && button) {
+    //         const isHidden = full.classList.contains('hidden');
+    //         
+    //         if (isHidden) {
+    //             // Show full content
+    //             preview.classList.add('hidden');
+    //             full.classList.remove('hidden');
+    //             button.textContent = '📄 Hide Text';
+    //         } else {
+    //             // Show preview
+    //             preview.classList.remove('hidden');
+    //             full.classList.add('hidden');
+    //             button.textContent = '📄 Show Full Text';
+    //         }
+    //     }
+    // }
 
     // Check AL/ML Assistant button state on page load
     document.addEventListener('DOMContentLoaded', function() {
