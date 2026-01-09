@@ -471,25 +471,33 @@ class EvalBundleService:
             model_config = {}
         
         # Safely extract values from model_config
-        if not isinstance(model_config, dict):
-            provider = "lmstudio"
-            model = "unknown"
+        # If model_config is empty or invalid, use defaults but mark as missing
+        if not isinstance(model_config, dict) or not model_config:
+            provider = None
+            model = None
             temperature = 0.0
             top_p = None
             max_tokens = None
+            warnings.append(f"MODEL_CONFIG_MISSING_FOR_AGENT_{agent_name}")
         else:
-            provider = model_config.get("provider", "lmstudio")
-            model = model_config.get("model", "unknown")
+            provider = model_config.get("provider")
+            model = model_config.get("model")
             temperature = model_config.get("temperature", 0.0)
             top_p = model_config.get("top_p")
             max_tokens = model_config.get("max_tokens")
+            
+            # Warn if essential fields are missing
+            if not provider or not model:
+                warnings.append(f"MODEL_CONFIG_INCOMPLETE_FOR_AGENT_{agent_name}")
         
         # Build request payload (reconstructed from messages)
+        # Only include model if it's not None/empty
         request_payload = {
-            "model": model,
             "messages": messages,
             "temperature": temperature
         }
+        if model:
+            request_payload["model"] = model
         if top_p is not None:
             request_payload["top_p"] = top_p
         if max_tokens is not None:
@@ -501,27 +509,27 @@ class EvalBundleService:
         has_actual_messages = bool(messages and len(messages) > 0)
         has_actual_response = bool(llm_response_text and len(llm_response_text.strip()) > 0)
         
+        # Build parameters dict, only including non-None values
+        parameters = {
+            "temperature": temperature
+        }
+        if top_p is not None:
+            parameters["top_p"] = top_p
+        if max_tokens is not None:
+            parameters["max_tokens"] = max_tokens
+        
+        # Only include provider/model if they have values
         llm_request = {
-            "provider": provider,
-            "model": model,
-            "parameters": {
-                "temperature": temperature,
-                "top_p": top_p,
-                "top_k": None,
-                "max_tokens": max_tokens,
-                "stop": None,
-                "seed": None,
-                "presence_penalty": None,
-                "frequency_penalty": None,
-                "repetition_penalty": None,
-                "response_format": None,
-                "other": None
-            },
+            "parameters": parameters,
             "raw_payload": request_payload,
             "messages": messages,
             "payload_sha256": payload_sha256,
             "reconstructed": not has_actual_messages  # Only mark as reconstructed if we don't have actual messages
         }
+        if provider:
+            llm_request["provider"] = provider
+        if model:
+            llm_request["model"] = model
         
         # Build response
         response_payload = {
