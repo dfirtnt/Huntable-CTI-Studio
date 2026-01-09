@@ -745,8 +745,19 @@ async function pollSubagentResults(executions) {
                         status: result.status,
                         actual_count: result.actual_count,
                         expected_count: result.expected_count,
-                        score: result.score
+                        score: result.score,
+                        warnings: result.warnings
                     };
+                }
+                
+                // Show warnings for newly completed results
+                if (result.status === 'completed' && result.warnings && Array.isArray(result.warnings) && result.warnings.length > 0) {
+                    const wasPending = executionResults[result.execution_id]?.status === 'pending';
+                    if (wasPending) {
+                        result.warnings.forEach(warning => {
+                            showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                        });
+                    }
                 }
             }
             
@@ -914,6 +925,23 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
+}
+
+// Show notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        type === 'info' ? 'bg-blue-500 text-white' : 'bg-yellow-500 text-white'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
     
     // Scroll to the right to show latest config versions
     setTimeout(() => {
@@ -1009,6 +1037,23 @@ function renderSubagentResults(results) {
     
     html += '</tbody></table>';
     resultsTable.innerHTML = html;
+}
+
+// Show notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        type === 'info' ? 'bg-blue-500 text-white' : 'bg-yellow-500 text-white'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
 }
 
 // Event listeners
@@ -1525,6 +1570,13 @@ async function showCommandlines(executionId, articleUrl, count) {
         const commandlines = data.commandlines || [];
         const resultType = data.result_type || 'cmdline';
         const subagentEval = data.subagent_eval || '';
+        
+        // Show truncation warnings if any
+        if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
+            data.warnings.forEach(warning => {
+                showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+            });
+        }
         
         // Update modal title based on result type
         const modalTitle = document.getElementById('commandlinesModalTitle');
