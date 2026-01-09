@@ -332,7 +332,8 @@
                                                         </div>
                                                         {article.summary && (
                                                             <div className="text-gray-300 text-xs">
-                                                                {article.summary.substring(0, 150)}...
+                                                                {/* COMMENTED OUT: Truncation control - showing full summary */}
+                                                                {article.summary}
                                                             </div>
                                                         )}
                                                     </div>
@@ -385,7 +386,8 @@
                                                         </div>
                                                         {rule.description && (
                                                             <div className="text-gray-300 text-xs mb-1">
-                                                                {rule.description.substring(0, 150)}...
+                                                                {/* COMMENTED OUT: Truncation control - showing full description */}
+                                                                {rule.description}
                                                             </div>
                                                         )}
                                                         {mitreTags.length > 0 && (

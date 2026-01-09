@@ -269,10 +269,11 @@
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
         }
 
-        function truncateText(text, maxLength = 100) {
-            if (text.length <= maxLength) return text;
-            return text.substring(0, maxLength) + '...';
-        }
+        // COMMENTED OUT: Truncation control
+        // function truncateText(text, maxLength = 100) {
+        //     if (text.length <= maxLength) return text;
+        //     return text.substring(0, maxLength) + '...';
+        // }
 
         function getQualityColor(score) {
             if (score >= 60) return 'quality-excellent';
