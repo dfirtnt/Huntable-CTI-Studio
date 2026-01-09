@@ -1073,7 +1073,7 @@
                                onchange="loadPreset(event)">
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                        Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, and sigma fallback settings.
+                        Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, sigma fallback settings, and agent prompts.
                     </p>
                 </div>
 
@@ -4611,7 +4611,21 @@ async function pollTestStatus(taskId, agentName, articleId) {
                 const resultsContent = document.getElementById('test-modal-results-content');
                 
                 if (data.result && data.result.success) {
-                    resultsContent.textContent = JSON.stringify(data.result.result || data.result, null, 2);
+                    const payload = data.result.result || data.result;
+                    let displayText = '';
+                    if (payload && typeof payload === 'object') {
+                        if (payload.llm_response) {
+                            displayText = payload.llm_response.trim();
+                        } else if (typeof payload._llm_response === 'string') {
+                            displayText = payload._llm_response.trim();
+                        } else if (payload.raw_response) {
+                            displayText = payload.raw_response.trim();
+                        }
+                    }
+                    if (!displayText) {
+                        displayText = JSON.stringify(payload, null, 2);
+                    }
+                    resultsContent.textContent = displayText;
                     resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
                 } else {
                     const errorMsg = data.result?.error || data.error || 'Unknown error';
@@ -5903,7 +5917,8 @@ function getFullPresetState() {
         qa_max_retries: qa_max_retries,
         extract_agent_settings: {
             disabled_agents: disabled_agents
-        }
+        },
+        agent_prompts: agentPrompts || {}
     };
     
     return preset;
@@ -5966,7 +5981,8 @@ async function loadPreset(event) {
             `- Temperature settings\n` +
             `- Extract agent toggles\n` +
             `- Sigma fallback setting\n` +
-            `- QA max retries\n\n` +
+            `- QA max retries\n` +
+            `- Agent prompts\n\n` +
             `Click OK to proceed or Cancel to abort.`
         );
         
@@ -6154,6 +6170,50 @@ async function applyPreset(preset) {
                     updateExtractAgentStatusBadge(agentName, enabled);
                 }
             });
+        }
+        
+        // Apply agent prompts
+        if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
+            console.log('🔄 Restoring agent prompts from preset...');
+            const promptPromises = [];
+            
+            for (const [agentName, promptData] of Object.entries(preset.agent_prompts)) {
+                if (promptData && promptData.prompt) {
+                    const promptPayload = {
+                        agent_name: agentName,
+                        prompt: promptData.prompt,
+                        instructions: promptData.instructions || null
+                    };
+                    
+                    const promise = fetch('/api/workflow/config/prompts', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(promptPayload)
+                    }).then(response => {
+                        if (!response.ok) {
+                            console.error(`❌ Failed to restore prompt for ${agentName}:`, response.status);
+                            return response.json().then(err => {
+                                throw new Error(`Failed to restore prompt for ${agentName}: ${err.detail || 'Unknown error'}`);
+                            });
+                        }
+                        console.log(`✅ Restored prompt for ${agentName}`);
+                        return response.json();
+                    }).catch(error => {
+                        console.error(`❌ Error restoring prompt for ${agentName}:`, error);
+                        throw error;
+                    });
+                    
+                    promptPromises.push(promise);
+                }
+            }
+            
+            // Wait for all prompts to be restored
+            if (promptPromises.length > 0) {
+                await Promise.all(promptPromises);
+                // Reload prompts to update UI
+                await loadAgentPrompts();
+                console.log('✅ All agent prompts restored from preset');
+            }
         }
         
         // Trigger auto-save handlers to update UI state
@@ -8187,7 +8247,9 @@ async function viewExecution(executionId) {
                 const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
                     <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Ranking Reasoning (Full LLM Output)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
-                        ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''}
+                        <!-- COMMENTED OUT: Truncation control -->
+                        ${exec.ranking_reasoning}
+                        <!-- ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''} -->
                     </div>
                 </details>` : '';
                 
@@ -8283,7 +8345,9 @@ async function viewExecution(executionId) {
                 // Raw LLM Response (if available)
                 if (exec.extraction_result.raw_response) {
                     const rawResponse = String(exec.extraction_result.raw_response);
-                    const truncatedResponse = rawResponse.length > 1000 ? rawResponse.substring(0, 1000) + '...' : rawResponse;
+                    // COMMENTED OUT: Truncation control
+                    // const truncatedResponse = rawResponse.length > 1000 ? rawResponse.substring(0, 1000) + '...' : rawResponse;
+                    const truncatedResponse = rawResponse;
                     detailsSections.push(`<details class="mt-2 w-full">
                             <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Raw LLM Response</summary>
                             <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
@@ -8553,18 +8617,22 @@ async function viewExecution(executionId) {
                                     const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                     const roleIcon = role === 'system' ? '⚙️' : '👤';
                                     const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
-                                    const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
+                                    // COMMENTED OUT: Truncation control
+                                    // const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
                                     const collapsibleId = `msg-${exec.id}-${idx}-${msgIdx}`;
                                     
                                     return `<div class="mb-2">
                                         <div class="flex items-center mb-1">
                                             <span class="mr-2">${roleIcon}</span>
                                             <span class="font-semibold ${roleColor} text-xs uppercase">${role}</span>
-                                            ${content.length > 200 ? `<button onclick="toggleCollapse('${collapsibleId}')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-gray-300 underline">[toggle full]</button>` : ''}
+                                            <!-- COMMENTED OUT: Truncation control button -->
+                                            <!-- ${content.length > 200 ? `<button onclick="toggleCollapse('${collapsibleId}')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-gray-300 underline">[toggle full]</button>` : ''} -->
                                         </div>
                                         <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded border border-gray-300 dark:border-gray-600">
-                                            <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${preview}</div>
-                                            ${content.length > 200 ? `<pre id="${collapsibleId}-full" class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white hidden">${content}</pre>` : ''}
+                                            <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${content}</div>
+                                            <!-- COMMENTED OUT: Truncation control - showing full content directly -->
+                                            <!-- <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${preview}</div> -->
+                                            <!-- ${content.length > 200 ? `<pre id="${collapsibleId}-full" class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white hidden">${content}</pre>` : ''} -->
                                         </div>
                                     </div>`;
                                 }).join('');
@@ -8572,7 +8640,8 @@ async function viewExecution(executionId) {
                                 // Format LLM response
                                 const llmResponse = entry.llm_response || '';
                                 const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
+                                // COMMENTED OUT: Truncation control
+                                // const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
                                 const llmCollapsibleId = `llm-${exec.id}-${idx}`;
                                 
                                 // Format validation results
@@ -8606,11 +8675,13 @@ async function viewExecution(executionId) {
                                     <div class="mb-3">
                                         <div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">LLM Response:</div>
                                         <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">
-                                            ${llmContent.length > 200 ? `
+                                            <!-- COMMENTED OUT: Truncation control - showing full content directly -->
+                                            <pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>
+                                            <!-- ${llmContent.length > 200 ? `
                                                 <div id="${llmCollapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${llmPreview}</div>
                                                 <pre id="${llmCollapsibleId}-full" class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white hidden">${llmContent}</pre>
                                                 <button onclick="toggleCollapse('${llmCollapsibleId}')" class="mt-1 text-xs text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-gray-300 underline">[toggle full response]</button>
-                                            ` : `<pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>`}
+                                            ` : `<pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>`} -->
                                         </div>
                                     </div>
                                     <div>
@@ -9108,20 +9179,20 @@ function toggleModalFullscreen() {
     }
 }
 
-// Toggle collapsible content (for long prompts/responses)
-function toggleCollapse(elementId) {
-    const preview = document.getElementById(elementId + '-preview');
-    const full = document.getElementById(elementId + '-full');
-    if (preview && full) {
-        if (full.classList.contains('hidden')) {
-            preview.classList.add('hidden');
-            full.classList.remove('hidden');
-        } else {
-            preview.classList.remove('hidden');
-            full.classList.add('hidden');
-        }
-    }
-}
+// COMMENTED OUT: Toggle collapsible content (for long prompts/responses)
+// function toggleCollapse(elementId) {
+//     const preview = document.getElementById(elementId + '-preview');
+//     const full = document.getElementById(elementId + '-full');
+//     if (preview && full) {
+//         if (full.classList.contains('hidden')) {
+//             preview.classList.add('hidden');
+//             full.classList.remove('hidden');
+//         } else {
+//             preview.classList.remove('hidden');
+//             full.classList.add('hidden');
+//         }
+//     }
+// }
 
 function toggleLogFullscreen(elementId, buttonId) {
     const logElement = document.getElementById(elementId);
@@ -10209,13 +10280,15 @@ function startLiveExecutionStream(executionId) {
                         data.messages.forEach((msg, idx) => {
                             const role = msg.role || 'user';
                             const content = msg.content || '';
-                            const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
-                            appendOutput(`  ${role.toUpperCase()}: ${preview}`, 'text-gray-400');
+                            // COMMENTED OUT: Truncation control
+                            // const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${content}`, 'text-gray-400');
                         });
                     }
                     if (data.response) {
-                        const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
-                        appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
+                        // COMMENTED OUT: Truncation control
+                        // const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${data.response}`, 'text-green-300');
                     }
                     if (data.score !== undefined) {
                         appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');
