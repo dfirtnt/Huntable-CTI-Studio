@@ -147,7 +147,7 @@ def _export_observable_dataset(
                 "usage": usage,
             }
 
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         prefix = observable_type.lower() if usage == "train" else usage
         dataset_path = dataset_dir / f"{prefix}_{timestamp}.jsonl"
         _write_dataset(dataset_path, annotations, observable_type)
@@ -164,7 +164,7 @@ def _export_observable_dataset(
             artifact_path = artifact_dir / f"{observable_type.lower()}_{timestamp}.json"
             artifact_payload = {
                 "version": timestamp,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now().isoformat(),
                 "annotation_type": observable_type,
                 "annotation_count": len(annotations),
                 "dataset_path": str(dataset_path),

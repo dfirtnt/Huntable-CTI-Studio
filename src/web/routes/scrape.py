@@ -127,7 +127,7 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
         with sync_db_manager.get_session() as session:
             try:
                 # Use PostgreSQL INSERT ... ON CONFLICT DO NOTHING for atomic upsert
-                now = datetime.utcnow()
+                now = datetime.now()
                 stmt = pg_insert(SourceTable).values(
                     identifier='manual',
                     name='Manual',
@@ -223,14 +223,14 @@ async def _scrape_single_url(url: str, title: Optional[str], force_scrape: bool)
         source_id=manual_source_id,
         canonical_url=url,
         title=extracted_title,
-        published_at=datetime.utcnow(),
+        published_at=datetime.now(),
         content=sanitized_content,
         summary=sanitized_content[:500],
         authors=[],
         tags=[],
         article_metadata={
             "scraped_manually": True,
-            "manual_scrape_timestamp": datetime.utcnow().isoformat(),
+            "manual_scrape_timestamp": datetime.now().isoformat(),
             "source_url": url,
             "title": extracted_title,
             "word_count": len(sanitized_content.split()),

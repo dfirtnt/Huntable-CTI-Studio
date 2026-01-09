@@ -263,7 +263,7 @@ class TestDeduplicationService:
             source_id=1,
             canonical_url="https://example.com/article1",
             title="Test Article",
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(),
             content="This is a test article about threat hunting.",
             summary="Test summary",
             authors=["Test Author"],
@@ -423,7 +423,7 @@ class TestAsyncDeduplicationService:
             source_id=1,
             canonical_url="https://example.com/article1",
             title="Test Article",
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(),
             content="This is a test article about threat hunting.",
             summary="Test summary",
             authors=["Test Author"],
@@ -569,7 +569,7 @@ class TestAsyncDeduplicationService:
         """Test article creation with timezone-aware datetime."""
         from datetime import datetime, timezone
         
-        # Create article with timezone-aware datetime
+        # Create article with timezone-aware datetime (to test conversion to naive)
         article_with_tz = ArticleCreate(
             source_id=1,
             canonical_url="https://example.com/article1",

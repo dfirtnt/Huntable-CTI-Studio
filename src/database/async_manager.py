@@ -612,11 +612,11 @@ class AsyncDatabaseManager:
                 # Update metrics
                 if success:
                     db_source.consecutive_failures = 0
-                    db_source.last_success = datetime.utcnow()
+                    db_source.last_success = datetime.now()
                 else:
                     db_source.consecutive_failures += 1
 
-                db_source.last_check = datetime.utcnow()
+                db_source.last_check = datetime.now()
 
                 # Update average response time
                 if db_source.average_response_time == 0.0:
@@ -679,7 +679,7 @@ class AsyncDatabaseManager:
             async with self.get_session() as session:
                 check_record = SourceCheckTable(
                     source_id=source_id,
-                    check_time=datetime.utcnow(),
+                    check_time=datetime.now(),
                     success=success,
                     method=method,
                     articles_found=articles_found,
@@ -1116,7 +1116,7 @@ class AsyncDatabaseManager:
                         setattr(db_article, field, value)
 
                 # Update timestamp
-                db_article.updated_at = datetime.utcnow()
+                db_article.updated_at = datetime.now()
 
                 await session.commit()
                 await session.refresh(db_article)

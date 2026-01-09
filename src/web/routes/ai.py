@@ -1600,7 +1600,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
         article.article_metadata["gpt4o_ranking"] = {
             "analysis": analysis,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "model": "gpt-4o",
         }
 
@@ -1614,7 +1614,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
         }
 
     except HTTPException:
@@ -1758,7 +1758,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
         article.article_metadata["gpt4o_ranking"] = {
             "analysis": analysis,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "model": "gpt-4o",
             "optimization_enabled": use_filtering,
             "cost_savings": cost_savings,
@@ -1777,7 +1777,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "optimization": {
                 "enabled": use_filtering,
                 "cost_savings": cost_savings,

@@ -105,7 +105,7 @@ def train_cmd_extractor_model(
     from datetime import datetime
     
     if version is None:
-        version = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        version = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     if output_root is None:
         output_root = Path("Workshop/models")

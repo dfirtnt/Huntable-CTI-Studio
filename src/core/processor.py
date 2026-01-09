@@ -193,7 +193,7 @@ class ContentProcessor:
                 'content_type': content_type,
                 'word_count': word_count,
                 'content_length': len(normalized_content),
-                'processing_timestamp': datetime.utcnow().isoformat()
+                'processing_timestamp': datetime.now().isoformat()
             })
             
             if self.enable_content_enhancement:
@@ -272,7 +272,7 @@ class ContentProcessor:
                         current_time = datetime.now(article.published_at.tzinfo)
                     else:
                         # If published_at is naive, use naive current time
-                        current_time = datetime.utcnow()
+                        current_time = datetime.now()
                     
                     age_days = (current_time - article.published_at).days
                     enhanced['age_days'] = age_days
@@ -301,7 +301,7 @@ class ContentProcessor:
             enhanced.update(threat_hunting_result)
             
             # Processing timestamp
-            enhanced['processed_at'] = datetime.utcnow().isoformat()
+            enhanced['processed_at'] = datetime.now().isoformat()
             
         except Exception as e:
             logger.warning(f"Error enhancing metadata: {e}")
@@ -466,7 +466,7 @@ class ContentProcessor:
                     current_time = datetime.now(article.published_at.tzinfo)
                 else:
                     # If published_at is naive, use naive current time
-                    current_time = datetime.utcnow()
+                    current_time = datetime.now()
                 
                 age_days = (current_time - article.published_at).days
                 if age_days > self.max_age_days:

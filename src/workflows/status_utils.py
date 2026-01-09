@@ -7,7 +7,7 @@ terminations) and to extract termination metadata for presentation layers.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 
@@ -29,7 +29,7 @@ def _prepare_termination_payload(
     payload: Dict[str, Any] = {
         "reason": reason,
         "step": step,
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "recorded_at": datetime.now().isoformat(),
     }
     if details:
         payload["details"] = details
@@ -61,7 +61,7 @@ def mark_execution_completed(
 
     execution.status = "completed"
     execution.current_step = step
-    execution.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    execution.completed_at = datetime.now()
     execution.error_message = None
 
     payload = _prepare_termination_payload(reason, step, details)

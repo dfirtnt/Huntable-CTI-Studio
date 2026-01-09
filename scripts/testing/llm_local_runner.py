@@ -125,7 +125,7 @@ def main(argv: List[str] | None = None) -> int:
         return 1
 
     results = []
-    start_ts = datetime.utcnow().isoformat()
+    start_ts = datetime.now().isoformat()
     print(f"✅ Article {args.article_id} fetched; running {len(models)} models × {len(prompts)} prompts...")
 
     for model in models:

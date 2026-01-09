@@ -213,7 +213,7 @@ def create_async_mock_article(
     article.canonical_url = canonical_url
     article.title = title
     article.content = content
-    article.published_at = published_at or datetime.utcnow()
+    article.published_at = published_at or datetime.now()
     article.summary = "Test summary"
     article.authors = ["Test Author"]
     article.tags = ["security"]

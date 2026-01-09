@@ -121,8 +121,8 @@ class DeduplicationService:
             simhash_bucket=bucket,
             article_metadata=article.article_metadata,
             quality_score=article.quality_score,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         self.session.add(db_article)
@@ -247,8 +247,8 @@ class AsyncDeduplicationService:
             simhash=simhash,
             simhash_bucket=bucket,
             article_metadata=article.article_metadata,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         self.session.add(db_article)

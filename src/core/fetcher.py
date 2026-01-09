@@ -32,7 +32,7 @@ class FetchResult:
         self.success = success
         self.error = error
         self.response_time = response_time
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now()
     
     def __str__(self):
         status = "SUCCESS" if self.success else "FAILED"
@@ -110,7 +110,7 @@ class ContentFetcher:
             FetchResult with articles and metadata
         """
         logger.info(f"Starting fetch for source: {source.name}")
-        start_time = datetime.utcnow()
+        start_time = datetime.now()
         
         try:
             # Tier 1: Try RSS first if available
@@ -120,7 +120,7 @@ class ContentFetcher:
                     articles = await self.rss_parser.parse_feed(source)
                     
                     if articles:
-                        response_time = (datetime.utcnow() - start_time).total_seconds()
+                        response_time = (datetime.now() - start_time).total_seconds()
                         self._update_stats('rss_successes', len(articles), response_time, True)
                         
                         logger.info(f"RSS fetch successful for {source.name}: {len(articles)} articles")
@@ -144,7 +144,7 @@ class ContentFetcher:
                     articles = await self.modern_scraper.scrape_source(source)
                     
                     if articles:
-                        response_time = (datetime.utcnow() - start_time).total_seconds()
+                        response_time = (datetime.now() - start_time).total_seconds()
                         self._update_stats('modern_scraping_successes', len(articles), response_time, True)
                         
                         logger.info(f"Basic scraping successful for {source.name}: {len(articles)} articles")
@@ -166,7 +166,7 @@ class ContentFetcher:
                 logger.debug(f"Attempting simple HTML scraping for {source.name}")
                 articles = await self.legacy_scraper.scrape_source(source)
                 
-                response_time = (datetime.utcnow() - start_time).total_seconds()
+                response_time = (datetime.now() - start_time).total_seconds()
                 
                 if articles:
                     self._update_stats('legacy_scraping_successes', len(articles), response_time, True)
@@ -194,7 +194,7 @@ class ContentFetcher:
                     )
                     
             except Exception as e:
-                response_time = (datetime.utcnow() - start_time).total_seconds()
+                response_time = (datetime.now() - start_time).total_seconds()
                 self._update_stats('legacy_scraping_successes', 0, response_time, False)
                 error_msg = f"Legacy scraping failed: {e}"
                 
@@ -209,7 +209,7 @@ class ContentFetcher:
                 )
         
         except Exception as e:
-            response_time = (datetime.utcnow() - start_time).total_seconds()
+            response_time = (datetime.now() - start_time).total_seconds()
             self._update_stats('failed_fetches', 0, response_time, False)
             error_msg = f"Unexpected error during fetch: {e}"
             
@@ -416,7 +416,7 @@ class ScheduledFetcher:
                 
                 # Find sources due for checking
                 due_sources = []
-                current_time = datetime.utcnow()
+                current_time = datetime.now()
                 
                 for source in sources:
                     if not source.active:

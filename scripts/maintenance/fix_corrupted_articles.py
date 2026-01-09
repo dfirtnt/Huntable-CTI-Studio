@@ -168,7 +168,7 @@ async def fix_article(article_id: int) -> bool:
             db_article.simhash = simhash
             db_article.simhash_bucket = simhash_bucket
             db_article.word_count = len(sanitized_content.split())
-            db_article.updated_at = datetime.utcnow()
+            db_article.updated_at = datetime.now()
             
             # Update summary if it's too short
             if len(article.summary or '') < 100:
@@ -250,7 +250,7 @@ async def main():
     elif sys.argv[1] == '--recent':
         # Find corrupted articles from last 2 days
         from datetime import timedelta
-        cutoff_date = datetime.utcnow() - timedelta(days=2)
+        cutoff_date = datetime.now() - timedelta(days=2)
         with db.get_session() as session:
             corrupted = session.query(ArticleTable.id).filter(
                 ArticleTable.archived == False,

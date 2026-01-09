@@ -1404,18 +1404,18 @@
 </div>
 
 <script>
-// Helper function to parse UTC timestamp and convert to local time
+// Helper function to parse local timestamp
 function parseUTCDate(timestamp) {
-    // If timestamp ends with 'Z', it's already UTC
+    // If timestamp ends with 'Z', convert from UTC to local
     if (timestamp.endsWith('Z')) {
         return new Date(timestamp);
     }
-    // If timestamp has timezone offset (like +00:00 or -05:00), use as-is
+    // If timestamp has timezone offset, use as-is
     if (timestamp.match(/[+-]\d{2}:\d{2}$/)) {
         return new Date(timestamp);
     }
-    // Otherwise, treat as UTC by appending 'Z'
-    return new Date(timestamp + 'Z');
+    // Otherwise, treat as local time (no timezone conversion)
+    return new Date(timestamp);
 }
 
 // Tab Management

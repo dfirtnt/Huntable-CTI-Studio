@@ -188,7 +188,7 @@ class EvalBundleService:
         # Build bundle (without bundle_sha256 for now)
         bundle = {
             "schema_version": "eval_bundle_v1",
-            "collected_at": datetime.utcnow().isoformat() + "Z",
+            "collected_at": datetime.now().isoformat(),
             "bundle_id": str(uuid4()),
             "workflow": workflow_meta,
             "llm_request": llm_request,
@@ -837,8 +837,8 @@ class EvalBundleService:
             "workflow_type": "agentic_workflow",
             "agent_name": "unknown",  # Will be set by caller
             "attempt": None,  # Will be set after extracting LLM data
-            "run_started_at": execution.started_at.isoformat() + "Z" if execution.started_at else None,
-            "run_finished_at": execution.completed_at.isoformat() + "Z" if execution.completed_at else None,
+            "run_started_at": execution.started_at.isoformat() if execution.started_at else None,
+            "run_finished_at": execution.completed_at.isoformat() if execution.completed_at else None,
             "versions": {
                 "app_version": None,  # Not tracked
                 "workflow_version": None,  # Not tracked

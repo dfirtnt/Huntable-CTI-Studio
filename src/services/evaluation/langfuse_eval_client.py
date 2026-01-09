@@ -52,7 +52,7 @@ class LangfuseEvalClient:
             return None
         
         try:
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             experiment_name = f"cmdline_eval__preset_{snapshot_id}__{timestamp}"
             
             # Create a parent trace that represents the experiment

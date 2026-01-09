@@ -276,7 +276,7 @@ Please analyze the following blog content:
         
         article.metadata['gpt4o_ranking'] = {
             'analysis': analysis,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now().isoformat(),
             'model': 'gpt-4o',
             'optimization_enabled': use_filtering,
             'cost_savings': cost_savings,
@@ -294,7 +294,7 @@ Please analyze the following blog content:
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "optimization": {
                 "enabled": use_filtering,
                 "cost_savings": cost_savings,

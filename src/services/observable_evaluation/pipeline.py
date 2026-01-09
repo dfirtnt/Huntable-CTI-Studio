@@ -122,7 +122,7 @@ class ObservableEvaluationPipeline:
         """
         metric_ids = []
         sample_count = metrics.get("sample_count", 0)
-        computed_at = datetime.utcnow()
+        computed_at = datetime.now()
         
         if usage == "eval":
             # Eval metrics

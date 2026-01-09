@@ -578,7 +578,7 @@ class ModernScraper:
             from src.utils.content import ContentCleaner
             content_hash = ContentCleaner.calculate_content_hash(article_data['title'], article_data['content'])
             word_count = len(article_data['content'].split()) if article_data['content'] else 0
-            collected_at = datetime.utcnow()
+            collected_at = datetime.now()
             
             # Build article
             article = ArticleCreate(
@@ -586,7 +586,7 @@ class ModernScraper:
                 url=url,
                 canonical_url=article_data.get('canonical_url', url),
                 title=article_data['title'],
-                published_at=article_data.get('published_at') or datetime.utcnow(),
+                published_at=article_data.get('published_at') or datetime.now(),
                 content=article_data['content'],
                 content_hash=content_hash,
                 word_count=word_count,
@@ -811,7 +811,7 @@ class LegacyScraper:
                 url=source.url,
                 canonical_url=source.url,
                 title=title,
-                published_at=datetime.utcnow(),  # No date available
+                published_at=datetime.now(),  # No date available
                 content=content
             )
             

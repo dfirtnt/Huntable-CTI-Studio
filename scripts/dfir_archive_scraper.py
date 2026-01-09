@@ -137,7 +137,7 @@ class DFIRArchiveScraper:
             
             # Extract date
             date_elem = soup.select_one('time.entry-date, time[datetime], .post-date')
-            published_at = datetime.utcnow()
+            published_at = datetime.now()
             
             if date_elem:
                 if date_elem.get('datetime'):

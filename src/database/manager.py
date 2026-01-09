@@ -224,11 +224,11 @@ class DatabaseManager:
                 # Update metrics
                 if success:
                     db_source.consecutive_failures = 0
-                    db_source.last_success = datetime.utcnow()
+                    db_source.last_success = datetime.now()
                 else:
                     db_source.consecutive_failures += 1
                 
-                db_source.last_check = datetime.utcnow()
+                db_source.last_check = datetime.now()
                 
                 # Update average response time
                 if db_source.average_response_time == 0.0:
@@ -374,7 +374,7 @@ class DatabaseManager:
                 db_article.summary = article.summary
                 db_article.article_metadata = article.article_metadata
                 db_article.word_count = article.word_count
-                db_article.updated_at = datetime.utcnow()
+                db_article.updated_at = datetime.now()
                 
                 session.commit()
                 return self._db_article_to_model(db_article)
@@ -401,7 +401,7 @@ class DatabaseManager:
                 db_article.summary = article.summary
                 db_article.article_metadata = article.article_metadata
                 db_article.word_count = article.word_count
-                db_article.updated_at = datetime.utcnow()
+                db_article.updated_at = datetime.now()
                 
                 session.commit()
                 return self._db_article_to_model(db_article)
@@ -586,7 +586,7 @@ class DatabaseManager:
             stats['total_articles'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.archived == False).count()
             
             # Articles by date range
-            now = datetime.utcnow()
+            now = datetime.now()
             day_ago = now - timedelta(days=1)
             week_ago = now - timedelta(days=7)
             month_ago = now - timedelta(days=30)
@@ -695,7 +695,7 @@ class DatabaseManager:
     
     def cleanup_old_data(self, days_to_keep: int = 90) -> Dict[str, int]:
         """Clean up old data to manage database size."""
-        cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
+        cutoff_date = datetime.now() - timedelta(days=days_to_keep)
         
         with self.get_session() as session:
             try:

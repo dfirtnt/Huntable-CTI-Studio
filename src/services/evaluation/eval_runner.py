@@ -87,7 +87,7 @@ class EvalRunner:
             # Update eval_run: Set total_items and status
             eval_run.total_items = len(dataset.items) if hasattr(dataset, "items") and dataset.items else 0
             eval_run.status = 'running'
-            eval_run.started_at = datetime.utcnow()
+            eval_run.started_at = datetime.now()
             self.db.commit()
             
             logger.info(f"Starting evaluation run {eval_run_id} with {eval_run.total_items} items")
@@ -245,7 +245,7 @@ class EvalRunner:
             eval_run.mean_count_diff = mean_count_diff
             eval_run.passed = passed
             eval_run.status = 'completed'
-            eval_run.completed_at = datetime.utcnow()
+            eval_run.completed_at = datetime.now()
             self.db.commit()
             
             logger.info(f"Evaluation run {eval_run_id} completed: accuracy={accuracy:.3f}, mean_count_diff={mean_count_diff:.2f}")
@@ -264,7 +264,7 @@ class EvalRunner:
             logger.error(f"Evaluation run {eval_run_id} failed: {e}", exc_info=True)
             eval_run.status = 'failed'
             eval_run.error_message = str(e)
-            eval_run.completed_at = datetime.utcnow()
+            eval_run.completed_at = datetime.now()
             self.db.commit()
             raise
     
