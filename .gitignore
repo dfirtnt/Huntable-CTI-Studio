@@ -164,6 +164,7 @@ data/
 datasets/
 *.csv
 *.json
+!workflows/presets/*.json
 *.parquet
 
 # Documentation builds
