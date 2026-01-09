@@ -97,7 +97,7 @@ def backfill_eval_records():
             eval_record.actual_count = actual_count
             eval_record.score = score
             eval_record.status = 'completed'
-            eval_record.completed_at = datetime.utcnow()
+            eval_record.completed_at = datetime.now()
             
             updated_count += 1
             logger.info(

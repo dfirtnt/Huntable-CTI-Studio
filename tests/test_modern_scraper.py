@@ -448,7 +448,7 @@ class TestModernScraper:
                 with patch.object(modern_scraper, '_extract_with_selectors', return_value={
                     'title': 'Test Article',
                     'content': 'This is test content.',
-                    'published_at': datetime.utcnow()
+                    'published_at': datetime.now()
                 }):
                     with patch('src.utils.content.validate_content', return_value=[]):
                         article = await modern_scraper._extract_article('https://example.com/article', sample_source)
@@ -531,7 +531,7 @@ class TestModernScraper:
 
         soup = BeautifulSoup(html, 'html.parser')
 
-        with patch('src.utils.content.DateExtractor.parse_date', return_value=datetime.utcnow()):
+        with patch('src.utils.content.DateExtractor.parse_date', return_value=datetime.now()):
             with patch('src.utils.content.MetadataExtractor.extract_authors', return_value=['Test Author']):
                 with patch('src.utils.content.MetadataExtractor.extract_tags', return_value=['test']):
                     with patch('src.utils.content.MetadataExtractor.extract_canonical_url', return_value='https://example.com/article'):

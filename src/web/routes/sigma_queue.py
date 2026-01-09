@@ -104,7 +104,7 @@ async def approve_queued_rule(request: Request, queue_id: int, update: QueueUpda
                 raise HTTPException(status_code=404, detail="Queued rule not found")
             
             rule.status = update.status or "approved"
-            rule.reviewed_at = datetime.utcnow()
+            rule.reviewed_at = datetime.now()
             rule.review_notes = update.review_notes
             rule.reviewed_by = "system"  # TODO: Get from auth context
             
@@ -112,7 +112,7 @@ async def approve_queued_rule(request: Request, queue_id: int, update: QueueUpda
                 rule.pr_url = update.pr_url
                 rule.pr_repository = update.pr_repository
                 rule.pr_submitted = True
-                rule.submitted_at = datetime.utcnow()
+                rule.submitted_at = datetime.now()
             
             db_session.commit()
             
@@ -140,7 +140,7 @@ async def reject_queued_rule(request: Request, queue_id: int, review_notes: Opti
                 raise HTTPException(status_code=404, detail="Queued rule not found")
             
             rule.status = "rejected"
-            rule.reviewed_at = datetime.utcnow()
+            rule.reviewed_at = datetime.now()
             rule.review_notes = review_notes
             rule.reviewed_by = "system"  # TODO: Get from auth context
             

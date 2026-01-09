@@ -160,7 +160,7 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
         eval_record.actual_count = actual_count
         eval_record.score = score
         eval_record.status = 'completed'
-        eval_record.completed_at = datetime.utcnow()
+        eval_record.completed_at = datetime.now()
         
         # Commit the update
         db_session.commit()
@@ -2185,7 +2185,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Mark execution as completed after extraction
                 execution.status = 'completed'
                 execution.current_step = 'extract_agent'
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = datetime.now()
                 db_session.commit()
                 return "end"
         
@@ -2373,7 +2373,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: Optio
         
         # Initialize state
         execution.status = 'running'
-        execution.started_at = datetime.utcnow()
+        execution.started_at = datetime.now()
         execution.current_step = 'os_detection'
         db_session.commit()
         
@@ -2580,7 +2580,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: Optio
             elif execution.status == 'running':
                 # No error - mark as completed (even if stopped by thresholds)
                 execution.status = 'completed'
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = datetime.now()
                 execution.current_step = final_state.get('current_step', 'rank_article')
                 
                 db_session.commit()
@@ -2672,7 +2672,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: Optio
                 )
                 # Update status to completed instead
                 execution.status = 'completed'
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = datetime.now()
                 execution.error_message = None
                 db_session.commit()
                 # Don't re-raise - workflow succeeded
@@ -2691,7 +2691,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: Optio
                         f"Generator error for execution {execution.id}; treating as completed/no-rules. Error: {e}"
                     )
                     execution.status = 'completed'
-                    execution.completed_at = datetime.utcnow()
+                    execution.completed_at = datetime.now()
                     execution.error_message = None
                     if not execution.current_step:
                         execution.current_step = 'generate_sigma'

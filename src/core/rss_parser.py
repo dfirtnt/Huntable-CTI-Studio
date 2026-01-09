@@ -138,7 +138,7 @@ class RSSParser:
             # Generate required fields
             content_hash = ContentCleaner.calculate_content_hash(title, content)
             word_count = len(content.split()) if content else 0
-            collected_at = datetime.utcnow()
+            collected_at = datetime.now()
 
             # Build article
             article = ArticleCreate(
@@ -146,7 +146,7 @@ class RSSParser:
                 url=url,
                 canonical_url=url,
                 title=title,
-                published_at=published_at or datetime.utcnow(),
+                published_at=published_at or datetime.now(),
                 content=content,
                 summary=summary,
                 authors=authors,

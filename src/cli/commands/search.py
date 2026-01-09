@@ -31,7 +31,7 @@ def search(ctx: CLIContext, query: Optional[str], source: Optional[str], days: i
             # Build filter
             filter_params = ArticleFilter(
                 search_query=query,
-                published_after=datetime.utcnow() - timedelta(days=days),
+                published_after=datetime.now() - timedelta(days=days),
                 limit=limit
             )
             

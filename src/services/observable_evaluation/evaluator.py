@@ -558,7 +558,7 @@ class ObservableModelEvaluator:
                     zero_fp_pass=article_result["zero_fp_pass"] if article_result else True,
                     total_predictions=article_result["pred_count"] if article_result else 0,
                     total_gold_spans=article_result["gold_count"] if article_result else 0,
-                    computed_at=datetime.utcnow(),
+                    computed_at=datetime.now(),
                 )
                 session.add(failure_record)
         

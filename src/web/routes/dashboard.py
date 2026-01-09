@@ -22,7 +22,12 @@ def _format_time_ago(timestamp):
 
     now = datetime.now()
     if isinstance(timestamp, str):
-        timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        # Parse timestamp - if it has timezone info, convert to local time
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            # Convert to local time and remove timezone info
+            parsed = parsed.astimezone().replace(tzinfo=None)
+        timestamp = parsed
 
     diff = now - timestamp
     minutes = int(diff.total_seconds() / 60)
@@ -69,9 +74,14 @@ async def api_dashboard_data():
 
             if created_at_str:
                 try:
-                    created_at = datetime.fromisoformat(
+                    # Parse timestamp - if it has timezone info, convert to local time
+                    parsed = datetime.fromisoformat(
                         str(created_at_str).replace("Z", "+00:00")
                     )
+                    if parsed.tzinfo is not None:
+                        # Convert to local time and remove timezone info
+                        parsed = parsed.astimezone().replace(tzinfo=None)
+                    created_at = parsed
                     date_key = created_at.strftime("%Y-%m-%d")
                     hour_key = created_at.strftime("%H")
 

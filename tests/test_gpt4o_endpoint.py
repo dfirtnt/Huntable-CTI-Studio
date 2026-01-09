@@ -39,15 +39,15 @@ class TestGPT4oOptimizedEndpoint:
             source_id=1,
             canonical_url="https://example.com/article",
             title="Test Threat Intelligence Article",
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(),
             content="This is a test article about PowerShell malware techniques.",
             summary="Test summary",
             authors=["Test Author"],
             tags=["malware", "powershell"],
             article_metadata={},
             content_hash="test_hash",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
 
     @pytest.fixture

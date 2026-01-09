@@ -86,7 +86,7 @@ async def fix_article(article_id: int):
             db_article.simhash = simhash
             db_article.simhash_bucket = simhash_bucket
             db_article.word_count = len(sanitized_content.split())
-            db_article.updated_at = datetime.utcnow()
+            db_article.updated_at = datetime.now()
             
             # Update summary if it's corrupted too
             if len(article.summary or '') < 50:

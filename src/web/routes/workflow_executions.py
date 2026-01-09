@@ -290,7 +290,7 @@ async def cleanup_stale_executions(
         
         try:
             # Calculate cutoff time (convert hours to timedelta)
-            cutoff_time = datetime.utcnow() - timedelta(hours=float(max_age_hours))
+            cutoff_time = datetime.now() - timedelta(hours=float(max_age_hours))
             
             # Find stale running or pending executions
             # Use started_at if available, otherwise fall back to created_at
@@ -317,7 +317,7 @@ async def cleanup_stale_executions(
                     execution.error_message or 
                     f"Execution marked as failed due to timeout ({original_status} for more than {max_age_hours} hour(s))"
                 )
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = datetime.now()
                 count += 1
             
             if count > 0:
@@ -382,21 +382,21 @@ async def stream_execution_updates(execution_id: int):
                     # Send step update
                     if current_step != last_step:
                         last_step = current_step
-                        yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.now().isoformat()})}\n\n"
                         
                         # Include ranking score with step update if available and not yet sent
                         if current_ranking_score is not None and last_ranking_score is None:
-                            yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                            yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
                             last_ranking_score = current_ranking_score
                     
                     # Send status update
                     if current_status != last_status:
                         last_status = current_status
-                        yield f"data: {json.dumps({'type': 'status', 'status': current_status, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        yield f"data: {json.dumps({'type': 'status', 'status': current_status, 'timestamp': datetime.now().isoformat()})}\n\n"
                         
                         # If completed or failed, send final update and close
                         if current_status in ['completed', 'failed']:
-                            yield f"data: {json.dumps({'type': 'complete', 'status': current_status, 'error_message': execution.error_message, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                            yield f"data: {json.dumps({'type': 'complete', 'status': current_status, 'error_message': execution.error_message, 'timestamp': datetime.now().isoformat()})}\n\n"
                             break
                     
                     # Send LLM interaction updates from error_log
@@ -462,7 +462,7 @@ async def stream_execution_updates(execution_id: int):
                                             if display_agent in removed_agents:
                                                 continue  # Skip displaying removed agents
                                             
-                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.now().isoformat()})}\n\n"
                         
                         # Check for QA results (moved outside agent loop for efficiency)
                         if 'qa_results' in current_error_log:
@@ -500,14 +500,14 @@ async def stream_execution_updates(execution_id: int):
                                     # Only send if this QA result is new or updated
                                     last_qa_result = last_qa_results.get(qa_agent_name)
                                     if not isinstance(last_qa_result, dict) or last_qa_result.get('verdict') != qa_result.get('verdict'):
-                                        yield f"data: {json.dumps({'type': 'qa_result', 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                                        yield f"data: {json.dumps({'type': 'qa_result', 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.now().isoformat()})}\n\n"
                         
                         # Update last_error_log after processing
                         last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}
                     
                     # Send ranking score only once when it first becomes available
                     if current_ranking_score is not None and last_ranking_score is None:
-                        yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
                         last_ranking_score = current_ranking_score
                     
                 finally:
@@ -711,7 +711,7 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
             # Mark as failed with cancellation message
             execution.status = 'failed'
             execution.error_message = f"Execution cancelled by user (was {execution.status})"
-            execution.completed_at = datetime.utcnow()
+            execution.completed_at = datetime.now()
             db_session.commit()
             
             logger.info(f"Execution {execution_id} cancelled by user")
@@ -762,7 +762,7 @@ async def cancel_all_running_executions(request: Request):
                 original_status = execution.status
                 execution.status = 'failed'
                 execution.error_message = f"Execution cancelled by user (was {original_status})"
-                execution.completed_at = datetime.utcnow()
+                execution.completed_at = datetime.now()
                 count += 1
             
             db_session.commit()
@@ -977,7 +977,7 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
             # Check for existing active executions BEFORE triggering
             # Also check for stuck pending executions (older than 5 minutes)
             from datetime import timedelta
-            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            cutoff_time = datetime.now() - timedelta(minutes=5)
 
             existing_execution = db_session.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.article_id == article_id,
@@ -998,7 +998,7 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
                         existing_execution.error_message or 
                         f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
                     )
-                    existing_execution.completed_at = datetime.utcnow()
+                    existing_execution.completed_at = datetime.now()
                     db_session.commit()
                     # Continue to create new execution
                 else:

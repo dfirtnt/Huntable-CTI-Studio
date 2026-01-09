@@ -82,7 +82,7 @@ class WorkflowTriggerService:
             # Check if workflow already running or completed for this article
             # Also check for stuck pending executions (older than 5 minutes)
             from datetime import datetime, timedelta
-            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            cutoff_time = datetime.now() - timedelta(minutes=5)
             
             existing_execution = self.db.query(AgenticWorkflowExecutionTable).filter(
                 AgenticWorkflowExecutionTable.article_id == article.id,
@@ -103,7 +103,7 @@ class WorkflowTriggerService:
                         existing_execution.error_message or 
                         f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
                     )
-                    existing_execution.completed_at = datetime.utcnow()
+                    existing_execution.completed_at = datetime.now()
                     self.db.commit()
                     # Allow new execution to be created
                     return True

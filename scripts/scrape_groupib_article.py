@@ -110,8 +110,8 @@ async def scrape_article():
                 simhash=simhash,
                 simhash_bucket=simhash_bucket,
                 source_id=source.id,
-                published_at=datetime.utcnow(),
-                created_at=datetime.utcnow()
+                published_at=datetime.now(),
+                created_at=datetime.now()
             )
             
             session.add(article)

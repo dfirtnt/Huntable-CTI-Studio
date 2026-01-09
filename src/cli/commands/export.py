@@ -27,7 +27,7 @@ def export(ctx: CLIContext, output_format: str, days: int, output: Optional[str]
         try:
             # Build filter
             filter_params = ArticleFilter(
-                published_after=datetime.utcnow() - timedelta(days=days),
+                published_after=datetime.now() - timedelta(days=days),
                 limit=10000
             )
             

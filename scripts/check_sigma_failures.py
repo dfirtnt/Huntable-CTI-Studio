@@ -26,7 +26,7 @@ def check_sigma_failures(days: int = 7):
     db_session = db_manager.get_session()
     
     try:
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now() - timedelta(days=days)
         
         # Get recent executions
         executions = db_session.query(AgenticWorkflowExecutionTable).filter(

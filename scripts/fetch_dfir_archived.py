@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # 3 months threshold
-THREE_MONTHS_AGO = datetime.utcnow() - timedelta(days=90)
+THREE_MONTHS_AGO = datetime.now() - timedelta(days=90)
 
 class DFIRArchiveFetcher:
     def __init__(self):
@@ -517,7 +517,7 @@ class DFIRArchiveFetcher:
             # Default to current date if still not found (but log warning)
             if not published_at:
                 logger.warning(f"Could not extract date from {url}, using current date")
-                published_at = datetime.utcnow()
+                published_at = datetime.now()
             
             # Check if article is older than 3 months
             if published_at > THREE_MONTHS_AGO:
@@ -572,7 +572,7 @@ class DFIRArchiveFetcher:
                     content_hash=content_hash,
                     article_metadata={
                         "archived_on_import": True,
-                        "import_date": datetime.utcnow().isoformat(),
+                        "import_date": datetime.now().isoformat(),
                     },
                     word_count=len(content.split()),
                     processing_status="pending"
@@ -600,14 +600,14 @@ class DFIRArchiveFetcher:
                     simhash_bucket=bucket,
                     article_metadata={
                         "archived_on_import": True,
-                        "import_date": datetime.utcnow().isoformat(),
+                        "import_date": datetime.now().isoformat(),
                     },
                     word_count=len(content.split()),
                     processing_status="pending",
                     archived=True,  # Mark as archived
-                    discovered_at=datetime.utcnow(),
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
+                    discovered_at=datetime.now(),
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
                 )
                 
                 session.add(db_article)

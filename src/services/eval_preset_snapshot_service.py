@@ -73,7 +73,7 @@ class EvalPresetSnapshotService:
             "qa_max_retries": config.qa_max_retries,
             "extractor_version": "v1",
             "evaluation_scope": "cmdline_only",  # Explicit scope prevents accidental reuse
-            "snapshot_timestamp": datetime.utcnow().isoformat() + "Z"
+            "snapshot_timestamp": datetime.now().isoformat()
         }
         
         # Resolve prompts from database

@@ -360,7 +360,12 @@ async function loadActiveConfig() {
             ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
             : '';
         
-        const updatedDate = data.updated_at ? new Date(data.updated_at).toLocaleString() : 'N/A';
+        // Parse local timestamp
+        let updatedDate = 'N/A';
+        if (data.updated_at) {
+            // If timestamp has 'Z' (UTC), convert to local; otherwise treat as local
+            updatedDate = new Date(data.updated_at).toLocaleString();
+        }
         
         configDisplay.innerHTML = `
             <div class="space-y-1 text-sm text-gray-400 dark:text-gray-400">
