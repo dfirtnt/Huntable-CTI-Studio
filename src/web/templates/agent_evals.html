@@ -254,11 +254,36 @@ async function loadActiveConfig() {
         const agentModelKey = `${agentName}_model`;
         const agentModel = models[agentModelKey] || 'N/A';
         
-        // Get QA agent status - check both the agent name and QA variant
+        // Get QA agent status - qa_enabled uses agent name (CmdlineExtract), not QA name (CmdLineQA)
         const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
                            agentName === 'ProcTreeExtract' ? 'ProcTreeQA' : null;
         
-        const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
+        // Check qa_enabled using the agent name, not the QA agent name
+        const qaStatus = qaAgentName ? (qaEnabled[agentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
+        
+        // Get QA agent model info if enabled
+        // QA models can fallback to ExtractAgent model if not explicitly set
+        let qaModelInfo = '';
+        if (qaAgentName && qaEnabled[agentName] === true) {
+            let qaModel = models[qaAgentName];
+            let qaProvider = models[`${qaAgentName}_provider`];
+            
+            // If QA model not set, check for fallback to ExtractAgent
+            if (!qaModel || qaModel === '' || qaModel === null) {
+                qaModel = models['ExtractAgent'];
+                if (!qaProvider || qaProvider === '' || qaProvider === null) {
+                    qaProvider = models['ExtractAgent_provider'] || 'lmstudio';
+                }
+            } else {
+                qaProvider = qaProvider || 'lmstudio';
+            }
+            
+            if (qaModel) {
+                qaModelInfo = `<p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Model:</strong> ${qaModel} (${qaProvider})</p>`;
+            } else {
+                qaModelInfo = `<p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Model:</strong> Not configured</p>`;
+            }
+        }
         
         // Get prompt save comment
         const promptComment = await getLatestPromptComment(agentName);
@@ -302,7 +327,7 @@ async function loadActiveConfig() {
             }
         });
         
-        // QA agents - show if model is configured (regardless of QA enabled status)
+        // QA agents - show if QA is enabled (model may fallback to ExtractAgent)
         // Note: RankAgentQA is excluded since rank agent is always disabled for extractor evals
         const qaAgentMap = {
             'CmdlineExtract': 'CmdLineQA',
@@ -310,10 +335,24 @@ async function loadActiveConfig() {
         };
         Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
             if (disabledSet.has(agent)) return;
-            // Show QA agent if model is configured (removed QA enabled check)
-            if (models[qaKey]) {
-                const provider = models[`${qaKey}_provider`] || 'lmstudio';
-                selectedModels.push(`${qaKey}: ${models[qaKey]} (${provider})`);
+            // Show QA agent if QA is enabled for the agent
+            if (qaEnabled[agent] === true) {
+                // Check for explicit QA model, fallback to ExtractAgent if not set
+                let qaModel = models[qaKey];
+                let qaProvider = models[`${qaKey}_provider`];
+                
+                if (!qaModel || qaModel === '' || qaModel === null) {
+                    qaModel = models['ExtractAgent'];
+                    if (!qaProvider || qaProvider === '' || qaProvider === null) {
+                        qaProvider = models['ExtractAgent_provider'] || 'lmstudio';
+                    }
+                } else {
+                    qaProvider = qaProvider || 'lmstudio';
+                }
+                
+                if (qaModel) {
+                    selectedModels.push(`${qaKey}: ${qaModel} (${qaProvider})`);
+                }
             }
         });
         
@@ -335,6 +374,7 @@ async function loadActiveConfig() {
                     <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> ${temperature}</p>
                     <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> ${topP}</p>
                     <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> ${qaStatus}</p>
+                    ${qaModelInfo}
                     <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Prompt Save Comments:</strong> ${promptComment || 'None'}</p>
                 </div>
                 ${modelsHtml}
