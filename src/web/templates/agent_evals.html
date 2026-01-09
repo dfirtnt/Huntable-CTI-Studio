@@ -289,12 +289,8 @@ async function loadActiveConfig() {
         const disabled = getDisabledExtractAgentsFromConfig(data);
         const disabledSet = new Set(disabled);
         
-        // Main agents - SIGMA always shown if model is configured
-        if (models.SigmaAgent) {
-            const provider = models.SigmaAgent_provider || 'lmstudio';
-            selectedModels.push(`SIGMA: ${models.SigmaAgent} (${provider})`);
-        }
-        // Note: Extract and Rank agents are not shown in Selected Models (only SIGMA and sub-agents)
+        // Note: SIGMA, Rank, and Extract agents are not shown in Selected Models
+        // SIGMA is skipped for extractor evals, Rank is always disabled for evals
         
         // Sub-agents (only if enabled and has model)
         ['CmdlineExtract', 'ProcTreeExtract'].forEach(agent => {
@@ -307,10 +303,7 @@ async function loadActiveConfig() {
         });
         
         // QA agents - show if model is configured (regardless of QA enabled status)
-        if (models.RankAgentQA) {
-            const provider = models.RankAgentQA_provider || 'lmstudio';
-            selectedModels.push(`RankAgentQA: ${models.RankAgentQA} (${provider})`);
-        }
+        // Note: RankAgentQA is excluded since rank agent is always disabled for extractor evals
         const qaAgentMap = {
             'CmdlineExtract': 'CmdLineQA',
             'ProcTreeExtract': 'ProcTreeQA'

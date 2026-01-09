@@ -6026,69 +6026,19 @@ async function applyPreset(preset) {
             }
         }
         
-        // Apply agent models
+        // Apply agent models using unified system
         if (preset.agent_models) {
-            // Rank Agent
-            const rankModelSelect = document.getElementById('rankagent-model-2');
-            if (rankModelSelect && preset.agent_models.RankAgent) {
-                rankModelSelect.value = preset.agent_models.RankAgent;
-            }
-            const rankTempInput = document.getElementById('rankagent-temperature');
-            if (rankTempInput && preset.agent_models.RankAgent_temperature !== undefined) {
-                rankTempInput.value = preset.agent_models.RankAgent_temperature;
-            }
+            // Use the unified applyAgentConfigs function which handles providers correctly
+            // This ensures providers are set first, then models on the correct provider-specific selects
+            applyAgentConfigs(preset.agent_models);
             
-            // Extract Agents
-            const extractModelSelect = document.getElementById('extractagent-model-2');
-            if (extractModelSelect && preset.agent_models.ExtractAgent) {
-                extractModelSelect.value = preset.agent_models.ExtractAgent;
-            }
-            const extractTempInput = document.getElementById('extractagent-temperature');
-            if (extractTempInput && preset.agent_models.ExtractAgent_temperature !== undefined) {
-                extractTempInput.value = preset.agent_models.ExtractAgent_temperature;
-            }
-            
-            // Sigma Agent
-            const sigmaModelSelect = document.getElementById('sigmaagent-model-2');
-            if (sigmaModelSelect && preset.agent_models.SigmaAgent) {
-                sigmaModelSelect.value = preset.agent_models.SigmaAgent;
-            }
-            
-            // OS Detection
+            // Special handling for OS Detection embedding (not in AGENT_CONFIG)
             const osEmbeddingSelect = document.getElementById('osdetectionagent-embedding-model-2');
             if (osEmbeddingSelect && preset.agent_models.OSDetectionAgent_embedding) {
                 osEmbeddingSelect.value = preset.agent_models.OSDetectionAgent_embedding;
             }
-            const osFallbackSelect = document.getElementById('osdetectionagent-fallback-model-2');
-            if (osFallbackSelect && preset.agent_models.OSDetectionAgent_fallback) {
-                osFallbackSelect.value = preset.agent_models.OSDetectionAgent_fallback;
-            }
             
-            // Sub-agents
-            const subAgents = [
-                { name: 'CmdlineExtract', id: 'cmdlineextract-model', tempId: 'cmdlineextract-temperature' },
-                { name: 'SigExtract', id: 'sigextract-model', tempId: 'sigextract-temperature' },
-                { name: 'EventCodeExtract', id: 'eventcodeextract-model', tempId: 'eventcodeextract-temperature' },
-                { name: 'ProcTreeExtract', id: 'proctreeextract-model', tempId: 'proctreeextract-temperature' },
-                { name: 'RegExtract', id: 'regextract-model', tempId: 'regextract-temperature' }
-            ];
-            
-            subAgents.forEach(subAgent => {
-                const modelKey = `${subAgent.name}_model`;
-                const tempKey = `${subAgent.name}_temperature`;
-                
-                const modelSelect = document.getElementById(subAgent.id);
-                if (modelSelect && preset.agent_models[modelKey]) {
-                    modelSelect.value = preset.agent_models[modelKey];
-                }
-                
-                const tempInput = document.getElementById(subAgent.tempId);
-                if (tempInput && preset.agent_models[tempKey] !== undefined) {
-                    tempInput.value = preset.agent_models[tempKey];
-                }
-            });
-            
-            // QA Models
+            // QA Models (not in AGENT_CONFIG, handled separately)
             const qaModelFields = [
                 { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature' },
                 { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature' },
@@ -7220,71 +7170,14 @@ function getCurrentFormState() {
         qaEnabled[agentName] = checkbox ? checkbox.checked : false;
     });
     
-    // Get agent models from form
-    const agent_models = {};
-    const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
-    if (rankModel) agent_models.RankAgent = rankModel;
+    // Get agent models from form using unified system (includes providers)
+    const agent_models = collectAllAgentConfigs();
     
-    const rankTemp = document.getElementById('rankagent-temperature')?.value;
-    if (rankTemp !== undefined) agent_models.RankAgent_temperature = parseFloat(rankTemp) || 0.0;
-    
-    const rankTopP = document.getElementById('rankagent-top-p')?.value;
-    if (rankTopP !== undefined) agent_models.RankAgent_top_p = parseFloat(rankTopP) || 0.9;
-    
-    const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
-    if (extractModel) agent_models.ExtractAgent = extractModel;
-    
-    const extractTemp = document.getElementById('extractagent-temperature')?.value;
-    if (extractTemp !== undefined) agent_models.ExtractAgent_temperature = parseFloat(extractTemp) || 0.0;
-    
-    const extractTopP = document.getElementById('extractagent-top-p')?.value;
-    if (extractTopP !== undefined) agent_models.ExtractAgent_top_p = parseFloat(extractTopP) || 0.9;
-    
-    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
-    if (sigmaModel) agent_models.SigmaAgent = sigmaModel;
-    
-    const sigmaTemp = document.getElementById('sigmaagent-temperature')?.value;
-    if (sigmaTemp !== undefined) agent_models.SigmaAgent_temperature = parseFloat(sigmaTemp) || 0.0;
-    
-    const sigmaTopP = document.getElementById('sigmaagent-top-p')?.value;
-    if (sigmaTopP !== undefined) agent_models.SigmaAgent_top_p = parseFloat(sigmaTopP) || 0.9;
-    
+    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
     const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
     if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
     
-    const fallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-    if (fallbackToggle && fallbackToggle.checked) {
-        const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
-        const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
-        if (osFallback) {
-            agent_models.OSDetectionAgent_fallback = osFallback;
-            agent_models.OSDetectionAgent_fallback_provider = osFallbackProvider;
-        }
-    }
-    
-    // Get sub-agent models
-    const subAgents = [
-        { name: 'CmdlineExtract', id: 'cmdlineextract-model', tempId: 'cmdlineextract-temperature', topPId: 'cmdlineextract-top-p' },
-        { name: 'SigExtract', id: 'sigextract-model', tempId: 'sigextract-temperature', topPId: 'sigextract-top-p' },
-        { name: 'EventCodeExtract', id: 'eventcodeextract-model', tempId: 'eventcodeextract-temperature', topPId: 'eventcodeextract-top-p' },
-        { name: 'ProcTreeExtract', id: 'proctreeextract-model', tempId: 'proctreeextract-temperature', topPId: 'proctreeextract-top-p' },
-        { name: 'RegExtract', id: 'regextract-model', tempId: 'regextract-temperature', topPId: 'regextract-top-p' }
-    ];
-    
-    subAgents.forEach(subAgent => {
-        const modelValue = document.getElementById(subAgent.id)?.value.trim();
-        if (modelValue) {
-            agent_models[`${subAgent.name}_model`] = modelValue;
-        }
-        const tempValue = document.getElementById(subAgent.tempId)?.value;
-        if (tempValue !== undefined && tempValue !== '') {
-            agent_models[`${subAgent.name}_temperature`] = parseFloat(tempValue) || 0.0;
-        }
-        const topPValue = document.getElementById(subAgent.topPId)?.value;
-        if (topPValue !== undefined && topPValue !== '') {
-            agent_models[`${subAgent.name}_top_p`] = parseFloat(topPValue) || 0.9;
-        }
-    });
+    // OS Detection fallback is already handled by collectAllAgentConfigs via AGENT_CONFIG
 
     const qaModelFields = [
         { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature', topPId: 'rankqa-top-p' },
