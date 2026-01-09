@@ -468,6 +468,7 @@ async def get_execution_results(request: Request, execution_id: int):
 
             # Extract cmdline count from extraction result
             cmdline_count = 0
+            warnings = []
             extraction_result = execution.extraction_result
             if extraction_result and isinstance(extraction_result, dict):
                 subresults = extraction_result.get("subresults", {})
@@ -475,6 +476,12 @@ async def get_execution_results(request: Request, execution_id: int):
                     cmdline = subresults.get("cmdline", {})
                     if isinstance(cmdline, dict):
                         cmdline_count = cmdline.get("count", 0)
+                
+                # Extract truncation warnings if any
+                if "warnings" in extraction_result:
+                    extraction_warnings = extraction_result.get("warnings")
+                    if isinstance(extraction_warnings, list):
+                        warnings.extend(extraction_warnings)
 
             return {
                 "execution_id": execution.id,
@@ -484,6 +491,7 @@ async def get_execution_results(request: Request, execution_id: int):
                 "config_version": execution.config_snapshot.get("config_version")
                 if execution.config_snapshot
                 else None,
+                "warnings": warnings if warnings else None,
             }
         finally:
             db_session.close()
@@ -560,13 +568,22 @@ async def get_execution_commandlines(
                                 if items:
                                     commandlines = items if isinstance(items, list) else [items]
 
+            # Extract truncation warnings if any
+            warnings = []
+            if extraction_result and isinstance(extraction_result, dict):
+                if "warnings" in extraction_result:
+                    extraction_warnings = extraction_result.get("warnings")
+                    if isinstance(extraction_warnings, list):
+                        warnings.extend(extraction_warnings)
+
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
                 "commandlines": commandlines,
                 "count": len(commandlines),
                 "subagent_eval": normalized_subagent_eval or (raw_subagent_eval or ""),
-                "result_type": result_key
+                "result_type": result_key,
+                "warnings": warnings if warnings else None,
             }
         finally:
             db_session.close()
@@ -912,6 +929,20 @@ async def get_subagent_eval_results(
                 if record.actual_count is not None:
                     score = record.actual_count - record.expected_count
 
+                # Extract warnings from execution if available
+                warnings = []
+                if record.workflow_execution_id:
+                    execution = (
+                        db_session.query(AgenticWorkflowExecutionTable)
+                        .filter(AgenticWorkflowExecutionTable.id == record.workflow_execution_id)
+                        .first()
+                    )
+                    if execution and execution.extraction_result and isinstance(execution.extraction_result, dict):
+                        if "warnings" in execution.extraction_result:
+                            extraction_warnings = execution.extraction_result.get("warnings")
+                            if isinstance(extraction_warnings, list):
+                                warnings.extend(extraction_warnings)
+
                 results.append(
                     {
                         "id": record.id,
@@ -930,6 +961,7 @@ async def get_subagent_eval_results(
                         if record.completed_at
                         else None,
                         "workflow_config_id": record.workflow_config_id,
+                        "warnings": warnings if warnings else None,
                     }
                 )
 
