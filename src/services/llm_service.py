@@ -3158,10 +3158,63 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 
                 # 2. Run QA
                 qa_task = qa_prompt_config.get("objective", "Verify extraction.")
-                qa_criteria = json.dumps(qa_prompt_config.get("evaluation_criteria", []), indent=2)
+                qa_criteria = qa_prompt_config.get("evaluation_criteria", [])
+                qa_criteria_json = json.dumps(qa_criteria, indent=2)
+                qa_criteria_text = "\n".join([f"- {criterion}" for criterion in qa_criteria]) if isinstance(qa_criteria, list) else qa_criteria_json
                 
                 qa_model_to_use = qa_model_override or model_name
-                qa_prompt = f"""Task: {qa_task}
+                
+                # Check for user_template (new template-based format)
+                qa_user_template = qa_prompt_config.get("user_template")
+                qa_prompt = None
+                
+                if qa_user_template:
+                    # Template-based format - use direct substitution
+                    # Prepare extracted commands as formatted text
+                    extracted_commands_text = ""
+                    total_count = 0
+                    
+                    # Handle different extraction result formats
+                    if "cmdline_items" in last_result:
+                        cmdline_items = last_result.get("cmdline_items", [])
+                        total_count = len(cmdline_items)
+                        if cmdline_items:
+                            extracted_commands_text = "\n".join([f"{i+1}. {cmd}" for i, cmd in enumerate(cmdline_items)])
+                        else:
+                            extracted_commands_text = "No commands extracted."
+                    elif "items" in last_result:
+                        items = last_result.get("items", [])
+                        total_count = len(items)
+                        if items:
+                            extracted_commands_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(items)])
+                        else:
+                            extracted_commands_text = "No items extracted."
+                    else:
+                        # Fallback: format entire result as JSON
+                        extracted_commands_text = json.dumps(last_result, indent=2)
+                        total_count = len(last_result) if isinstance(last_result, (list, dict)) else 0
+                    
+                    # Substitute template placeholders with error handling
+                    try:
+                        qa_prompt = qa_user_template.format(
+                            article_content=truncated_content,
+                            extracted_commands=extracted_commands_text,
+                            total_count=str(total_count),
+                            instructions=qa_prompt_config.get("instructions", "Evaluate and return JSON."),
+                            evaluation_criteria=qa_criteria_text,
+                            objective=qa_task
+                        )
+                        logger.debug(f"{agent_name} QA using user_template format (len={len(qa_prompt)} chars)")
+                    except KeyError as e:
+                        logger.error(f"{agent_name} QA template missing placeholder: {e}, falling back to legacy format")
+                        qa_prompt = None
+                    except Exception as e:
+                        logger.error(f"{agent_name} QA template substitution error: {e}, falling back to legacy format")
+                        qa_prompt = None
+                
+                # Fallback to legacy programmatic format
+                if not qa_prompt:
+                    qa_prompt = f"""Task: {qa_task}
 
 Source Text:
 {truncated_content}
@@ -3170,10 +3223,11 @@ Extracted Data:
 {json.dumps(last_result, indent=2)}
 
 Evaluation Criteria:
-{qa_criteria}
+{qa_criteria_json}
 
 Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")}
 """
+                    logger.debug(f"{agent_name} QA using legacy programmatic format (len={len(qa_prompt)} chars)")
                 
                 qa_messages = [
                     {"role": "system", "content": qa_prompt_config.get("role", "You are a QA agent.")},

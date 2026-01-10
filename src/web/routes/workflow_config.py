@@ -395,10 +395,17 @@ async def get_agent_prompts(request: Request):
                 "CmdlineExtract", "CmdLineQA",
                 "ProcTreeExtract", "ProcTreeQA"
             ]
+            
+            # Deleted subagents that should be filtered out
+            deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract", "SigQA", "RegQA", "EventCodeQA"}
 
             # Only use database prompts (what workflow actually uses)
             if config.agent_prompts:
                 for agent_name, prompt_data in config.agent_prompts.items():
+                    # Skip deleted agents
+                    if agent_name in deleted_agents:
+                        continue
+                    
                     # Add model info if not in database prompt data
                     if "model" not in prompt_data:
                         if agent_name == "ExtractAgent":

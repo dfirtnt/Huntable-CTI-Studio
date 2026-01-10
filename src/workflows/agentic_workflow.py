@@ -975,15 +975,34 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 or []
             )
             
+            # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
+            # Only CmdlineExtract and ProcTreeExtract are valid
+            valid_subagents = {"CmdlineExtract", "ProcTreeExtract"}
+            deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
+            
             logger.info(f"[Workflow {state['execution_id']}] disabled_agents_value: {disabled_agents_value} (type: {type(disabled_agents_value)})")
             
             if isinstance(disabled_agents_value, dict):
+                # Filter out deleted agents from dict
+                filtered_dict = {
+                    name: enabled for name, enabled in disabled_agents_value.items()
+                    if name not in deleted_agents
+                }
                 disabled_agents_cfg = {
-                    name for name, enabled in disabled_agents_value.items()
+                    name for name, enabled in filtered_dict.items()
                     if enabled is False or (isinstance(enabled, str) and enabled.lower() == "false")
                 }
             elif isinstance(disabled_agents_value, list):
-                disabled_agents_cfg = set(disabled_agents_value)
+                # Filter out deleted agents from list
+                filtered_list = [name for name in disabled_agents_value if name not in deleted_agents]
+                disabled_agents_cfg = set(filtered_list)
+                
+                # Log if deleted agents were found and filtered
+                found_deleted = [name for name in disabled_agents_value if name in deleted_agents]
+                if found_deleted:
+                    logger.warning(
+                        f"[Workflow {state['execution_id']}] Filtered out deleted subagents from disabled_agents: {found_deleted}"
+                    )
             
             logger.info(f"[Workflow {state['execution_id']}] Final disabled_agents_cfg: {disabled_agents_cfg}")
             
@@ -1640,12 +1659,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get source name
             source_name = article.source.name if article.source else "Unknown"
             
-            # Get agent prompt for QA
+            # Get agent prompt from database for SIGMA generation
+            sigma_prompt_template = None
             agent_prompt = "Generate SIGMA detection rules from the article content following SIGMA rule format and validation requirements."
             if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
                 sigma_prompt_data = config_obj.agent_prompts["SigmaAgent"]
                 if isinstance(sigma_prompt_data.get("prompt"), str):
-                    agent_prompt = sigma_prompt_data["prompt"][:5000]  # Truncate for QA context
+                    sigma_prompt_template = sigma_prompt_data["prompt"]  # Use full prompt for generation
+                    agent_prompt = sigma_prompt_template[:5000]  # Truncate for QA context
+                    logger.info(f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (len={len(sigma_prompt_template)} chars)")
+                else:
+                    logger.warning(f"[Workflow {state['execution_id']}] SigmaAgent prompt in database is not a string, falling back to file")
+            else:
+                logger.info(f"[Workflow {state['execution_id']}] No SigmaAgent prompt in database, using file-based prompt")
             
             # Determine content to use for SIGMA generation
             extraction_result = state.get('extraction_result', {})
@@ -1693,7 +1719,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 min_confidence=0.9,
                 execution_id=state['execution_id'],
                 article_id=state['article_id'],
-                qa_feedback=qa_feedback
+                qa_feedback=qa_feedback,
+                sigma_prompt_template=sigma_prompt_template  # Pass database prompt if available
             )
             
             sigma_rules = generation_result.get('rules', []) if generation_result else []

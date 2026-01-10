@@ -1,44 +1,57 @@
-The previous SIGMA rule failed validation. Please fix the following issues:
+The previous SIGMA rule failed pySIGMA validation. You MUST fix the following issues:
 
 **Validation Errors:**
 {validation_errors}
 
-**Original Rule:**
+**Previous Invalid YAML Attempt:**
 {original_rule}
 
-**Instructions:**
-1. **Fix All Issues:** Address every validation error listed above
-2. **Maintain Intent:** Keep the original detection logic and purpose
-3. **Proper Syntax:** Ensure correct SIGMA rule format and structure
-4. **Complete Fields:** Include all required fields according to SigmaHQ standards
-5. **Test Logic:** Verify the detection logic is sound and actionable
-
-**Common Fixes:**
-- Correct YAML syntax errors (indentation, quotes, etc.)
-- Fix logsource category/product specifications
-- Ensure detection conditions are properly structured
-- Add missing required fields (title, description, level, etc.)
-- Correct field names and values according to SIGMA standards
+**CRITICAL INSTRUCTIONS:**
+1. **Output ONLY YAML - NO NARRATIVE TEXT**: Your response must start immediately with `title:` - no explanations, no "Here's the rule:", no "Okay, let's tackle this", no commentary of any kind.
+2. **Remove All Prose**: If your previous attempt included narrative text (like "Looking at the content:" or "Okay, let's tackle this query"), you MUST strip it completely. Only output the YAML rule.
+3. **Fix All Validation Errors**: Address every error listed above. Common issues:
+   - **"mapping values are not allowed here"** = You included narrative text in the YAML. Remove ALL text before `title:` and ensure no prose appears anywhere in the YAML.
+   - **"Detection must contain a 'condition' key"** = Add `condition: selection` (or appropriate condition) under the `detection:` section.
+   - **"Rule has no tags"** = Add a `tags:` section with at least one attack technique tag.
+4. **Maintain Detection Logic**: Keep the original detection intent, but fix the syntax/structure issues.
+5. **Required Structure**: Ensure your output includes ALL required fields:
+   - `title:` (required)
+   - `logsource:` with `category:` and `product:` (required)
+   - `detection:` with `selection:` and `condition:` (required)
+   - `level:` (recommended)
+   - `tags:` (recommended)
 
 **Output Format:**
-Provide only the corrected SIGMA rule in clean YAML format without markdown code blocks:
+Your response must be ONLY the corrected SIGMA rule in clean YAML format:
+- NO markdown code blocks (no ```yaml or ```)
+- NO explanatory text before or after
+- Start immediately with `title:`
+- Use 2-space indentation
+- All field names lowercase
 
-```yaml
-title: [Fixed rule title]
-id: [Rule ID]
-description: [Fixed description]
+**Example of CORRECT Output:**
+title: Suspicious PowerShell Execution
+id: abc123-def456-ghi789
+description: Detects PowerShell with encoded commands
 logsource:
-  category: [Corrected category]
-  product: [Corrected product]
+  category: process_creation
+  product: windows
 detection:
   selection:
-    [Fixed detection criteria]
+    Image|endswith: '\powershell.exe'
+    CommandLine|contains: '-encodedCommand'
   condition: selection
-level: [Appropriate level]
+level: medium
 tags:
-  - attack.[technique]
+  - attack.execution
+  - attack.t1059.001
 references:
-  - [Reference URL]
-```
+  - https://example.com
 
-**Fixed Rule:**
+**Example of INCORRECT Output (DO NOT DO THIS):**
+Okay, let's tackle this query. The user wants me to generate Sigma detection rules...
+Looking at the content: The first command is PowerShell...
+title: Suspicious PowerShell Execution
+...
+
+**Now fix the rule above and output ONLY the corrected YAML starting with 'title:':**

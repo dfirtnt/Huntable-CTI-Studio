@@ -162,6 +162,16 @@ async def list_workflow_executions(
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
                 term_reason, term_details = extract_termination_info(execution.error_log)
                 
+                # Convert timestamps to local time if they're timezone-aware
+                def to_local_iso(dt):
+                    if dt is None:
+                        return None
+                    if dt.tzinfo is not None:
+                        # Convert to local time and remove timezone info
+                        return dt.astimezone().replace(tzinfo=None).isoformat()
+                    # Already naive, assume it's in local time
+                    return dt.isoformat()
+                
                 result.append(ExecutionResponse(
                     id=execution.id,
                     article_id=execution.article_id,
@@ -173,10 +183,10 @@ async def list_workflow_executions(
                     config_snapshot=execution.config_snapshot,
                     error_message=execution.error_message,
                     retry_count=execution.retry_count,
-                    started_at=execution.started_at.isoformat() if execution.started_at else None,
-                    completed_at=execution.completed_at.isoformat() if execution.completed_at else None,
-                    created_at=execution.created_at.isoformat(),
-                    updated_at=execution.updated_at.isoformat(),
+                    started_at=to_local_iso(execution.started_at),
+                    completed_at=to_local_iso(execution.completed_at),
+                    created_at=to_local_iso(execution.created_at),
+                    updated_at=to_local_iso(execution.updated_at),
                     termination_reason=term_reason,
                     termination_details=term_details,
                     extraction_counts=calculate_extraction_counts(execution.extraction_result)
@@ -234,6 +244,16 @@ async def get_workflow_execution(request: Request, execution_id: int):
             article_content_preview = article_content[:500] + '...' if article_content and len(article_content) > 500 else article_content
             term_reason, term_details = extract_termination_info(execution.error_log)
             
+            # Convert timestamps to local time if they're timezone-aware
+            def to_local_iso(dt):
+                if dt is None:
+                    return None
+                if dt.tzinfo is not None:
+                    # Convert to local time and remove timezone info
+                    return dt.astimezone().replace(tzinfo=None).isoformat()
+                # Already naive, assume it's in local time
+                return dt.isoformat()
+            
             return ExecutionDetailResponse(
                 id=execution.id,
                 article_id=execution.article_id,
@@ -246,10 +266,10 @@ async def get_workflow_execution(request: Request, execution_id: int):
                 config_snapshot=execution.config_snapshot,
                 error_message=execution.error_message,
                 retry_count=execution.retry_count,
-                started_at=execution.started_at.isoformat() if execution.started_at else None,
-                completed_at=execution.completed_at.isoformat() if execution.completed_at else None,
-                created_at=execution.created_at.isoformat(),
-                updated_at=execution.updated_at.isoformat(),
+                started_at=to_local_iso(execution.started_at),
+                completed_at=to_local_iso(execution.completed_at),
+                created_at=to_local_iso(execution.created_at),
+                updated_at=to_local_iso(execution.updated_at),
                 junk_filter_result=execution.junk_filter_result,
                 extraction_result=execution.extraction_result,
                 sigma_rules=execution.sigma_rules,
