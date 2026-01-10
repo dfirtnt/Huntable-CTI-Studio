@@ -1770,7 +1770,7 @@ const AGENT_CONFIG = {
         prefix: 'sigmaagent',
         providerKey: 'SigmaAgent_provider',
         modelKey: 'SigmaAgent',
-        temperatureKey: null,
+        temperatureKey: 'SigmaAgent_temperature',
         topPKey: 'SigmaAgent_top_p',
         name: 'SigmaAgent',
         isSubAgent: false,
@@ -4613,7 +4613,20 @@ async function pollTestStatus(taskId, agentName, articleId) {
                 if (data.result && data.result.success) {
                     const payload = data.result.result || data.result;
                     let displayText = '';
-                    if (payload && typeof payload === 'object') {
+                    
+                    // Special handling for SigmaAgent - extract LLM response from conversation log
+                    if (agentName === 'SigmaAgent' && payload && typeof payload === 'object') {
+                        if (payload.metadata && payload.metadata.conversation_log && Array.isArray(payload.metadata.conversation_log)) {
+                            // Get the last conversation log entry (most recent attempt)
+                            const lastEntry = payload.metadata.conversation_log[payload.metadata.conversation_log.length - 1];
+                            if (lastEntry && lastEntry.llm_response) {
+                                displayText = lastEntry.llm_response.trim();
+                            }
+                        }
+                    }
+                    
+                    // Fallback to standard extraction for other agents or if SigmaAgent extraction failed
+                    if (!displayText && payload && typeof payload === 'object') {
                         if (payload.llm_response) {
                             displayText = payload.llm_response.trim();
                         } else if (typeof payload._llm_response === 'string') {
@@ -4622,9 +4635,12 @@ async function pollTestStatus(taskId, agentName, articleId) {
                             displayText = payload.raw_response.trim();
                         }
                     }
+                    
+                    // Last resort: show full JSON only if no LLM response found
                     if (!displayText) {
                         displayText = JSON.stringify(payload, null, 2);
                     }
+                    
                     resultsContent.textContent = displayText;
                     resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
                 } else {
@@ -4794,6 +4810,96 @@ async function testSigmaAgent(articleId) {
     const filterSettings = getContentFilterSettings();
 
     try {
+        // Get SigmaAgent model from config
+        const configAgentModels = currentConfig?.agent_models || agentModels || {};
+        const sigmaModel = configAgentModels['SigmaAgent'];
+        const sigmaProvider = configAgentModels['SigmaAgent_provider'] || 'lmstudio';
+        
+        // If using LMStudio, check if model is loaded and load it if needed
+        if (sigmaProvider === 'lmstudio' && sigmaModel) {
+            try {
+                // Try a quick test request to check if model is loaded
+                const testResponse = await fetch('http://localhost:1234/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: sigmaModel,
+                        messages: [{ role: 'user', content: 'test' }],
+                        max_tokens: 5,
+                        temperature: 0
+                    }),
+                    signal: AbortSignal.timeout(5000) // 5 second timeout
+                });
+                
+                if (testResponse.status !== 200) {
+                    const errorData = await testResponse.json().catch(() => ({}));
+                    const errorMsg = errorData?.error?.message || '';
+                    
+                    // Check if error indicates model not loaded
+                    if (errorMsg.toLowerCase().includes('no models loaded') || 
+                        errorMsg.toLowerCase().includes('model') && errorMsg.toLowerCase().includes('not loaded')) {
+                        console.log(`Model ${sigmaModel} not loaded, loading now...`);
+                        
+                        // Update modal to show loading status
+                        const progressDiv = document.getElementById('test-modal-progress');
+                        if (progressDiv) {
+                            progressDiv.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Loading model... This may take a moment.</p>';
+                        }
+                        
+                        // Load the model
+                        const loadResponse = await fetch('/api/load-lmstudio-model', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model_name: sigmaModel,
+                                context_length: 16384 // Default context length for SIGMA
+                            })
+                        });
+                        
+                        if (!loadResponse.ok) {
+                            const loadError = await loadResponse.json();
+                            throw new Error(`Failed to load model: ${loadError.detail || 'Unknown error'}`);
+                        }
+                        
+                        const loadData = await loadResponse.json();
+                        console.log(`Model loaded: ${loadData.message}`);
+                        
+                        // Wait a moment for model to be ready
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+            } catch (testError) {
+                // If test request fails (timeout, connection error, etc.), try loading anyway
+                if (testError.name === 'TimeoutError' || testError.name === 'TypeError') {
+                    console.log(`Could not verify model status, attempting to load ${sigmaModel}...`);
+                    
+                    const progressDiv = document.getElementById('test-modal-progress');
+                    if (progressDiv) {
+                        progressDiv.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Loading model... This may take a moment.</p>';
+                    }
+                    
+                    const loadResponse = await fetch('/api/load-lmstudio-model', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model_name: sigmaModel,
+                            context_length: 16384
+                        })
+                    });
+                    
+                    if (!loadResponse.ok) {
+                        const loadError = await loadResponse.json();
+                        throw new Error(`Failed to load model: ${loadError.detail || 'Unknown error'}`);
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } else {
+                    // Other errors (like network issues) - log but continue
+                    console.warn('Could not check model status:', testError);
+                }
+            }
+        }
+        
         // Dispatch test task to worker
         const response = await fetch('/api/workflow/config/test-sigmaagent', {
             method: 'POST',

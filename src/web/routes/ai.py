@@ -1091,6 +1091,78 @@ async def api_test_lmstudio_connection(request: Request):
         )
 
 
+@test_router.post("/load-lmstudio-model")
+async def api_load_lmstudio_model(request: Request):
+    """Load a model in LMStudio using the CLI."""
+    try:
+        import subprocess
+        import shutil
+        
+        body = await request.json()
+        model_name = body.get("model_name")
+        context_length = body.get("context_length", 16384)
+        
+        if not model_name:
+            raise HTTPException(status_code=400, detail="model_name is required")
+        
+        # Find lms CLI
+        lms_cmd = shutil.which("lms")
+        if not lms_cmd:
+            lms_path = os.path.expanduser("~/.cache/lm-studio/bin/lms")
+            if os.path.exists(lms_path):
+                lms_cmd = lms_path
+            else:
+                raise HTTPException(
+                    status_code=503,
+                    detail="LMStudio CLI not found. Install from https://lmstudio.ai/ or ensure it's in PATH: ~/.cache/lm-studio/bin/lms"
+                )
+        
+        logger.info(f"Loading model {model_name} with context length {context_length}...")
+        
+        # Load model
+        try:
+            result = subprocess.run(
+                [lms_cmd, "load", model_name, "--context-length", str(context_length), "--yes"],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode == 0:
+                # Wait a moment for model to be ready
+                await asyncio.sleep(2)
+                return {
+                    "success": True,
+                    "message": f"Model {model_name} loaded successfully",
+                    "model_name": model_name,
+                    "context_length": context_length
+                }
+            else:
+                error_output = result.stderr or result.stdout
+                logger.error(f"Failed to load model: {error_output}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to load model: {error_output[:500]}"
+                )
+        except subprocess.TimeoutExpired:
+            raise HTTPException(
+                status_code=504,
+                detail="Timeout loading model (60s). Model may be too large or LMStudio may be unresponsive."
+            )
+        except Exception as e:
+            logger.error(f"Error loading model: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error loading model: {str(e)}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Load model endpoint error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
 @test_router.post("/test-langfuse-connection")
 async def api_test_langfuse_connection(request: Request):
     """Test Langfuse connection and configuration."""
