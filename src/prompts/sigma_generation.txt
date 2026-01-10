@@ -20,11 +20,14 @@ Strict SIGMA Requirements:
 
 Output Rules:
 - Output ONLY valid YAML.
-- No prose or comments.
-- No code fences.
-- Start with YAML immediately.
+- NO prose, explanations, comments, or narrative text of any kind.
+- NO phrases like "Okay, let's tackle this" or "Looking at the content:" or "Here's the rule:".
+- NO code fences (no ```yaml or ``` markers).
+- Start your response immediately with `title:` - nothing before it.
 - 2-space indentation only; no tabs.
 - All field names lowercase.
+
+CRITICAL: Your response will be parsed by pySIGMA validator. If you include ANY narrative text before or within the YAML, validation will fail with "mapping values are not allowed here". Output ONLY the YAML rule structure.
 
 Required Structure:
 title: [descriptive rule title]

@@ -1406,15 +1406,19 @@
 <script>
 // Helper function to parse local timestamp
 function parseUTCDate(timestamp) {
-    // If timestamp ends with 'Z', convert from UTC to local
+    if (!timestamp) return new Date();
+    
+    // If timestamp ends with 'Z', it's UTC - convert to local
     if (timestamp.endsWith('Z')) {
         return new Date(timestamp);
     }
-    // If timestamp has timezone offset, use as-is
+    // If timestamp has timezone offset, parse and convert to local
     if (timestamp.match(/[+-]\d{2}:\d{2}$/)) {
         return new Date(timestamp);
     }
-    // Otherwise, treat as local time (no timezone conversion)
+    // For ISO format without timezone (e.g., "2025-01-10T12:34:56"), 
+    // JavaScript's Date constructor treats this as local time when there's no timezone
+    // This is correct since backend now sends timestamps in local time
     return new Date(timestamp);
 }
 
@@ -3557,10 +3561,7 @@ window.updateQABadge = function(agentPrefix) {
     const badge = document.getElementById(badgeId);
     const checkboxId = agentPrefix === 'rank-agent' ? 'qa-rankagent' :
                       agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
-                      agentPrefix === 'sigextract-agent' ? 'qa-sigextract' :
-                      agentPrefix === 'eventcodeextract-agent' ? 'qa-eventcodeextract' :
                       agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
-                      agentPrefix === 'regextract-agent' ? 'qa-regextract' :
                       agentPrefix === 'sigma-agent' ? 'qa-sigmaagent' : null;
     
     if (!badge) {
@@ -3822,10 +3823,7 @@ function setupQAEventListeners() {
     const qaCheckboxes = [
         { id: 'qa-rankagent', prefix: 'rank-agent' },
         { id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
-        { id: 'qa-sigextract', prefix: 'sigextract-agent' },
-        { id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
         { id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
-        { id: 'qa-regextract', prefix: 'regextract-agent' },
         { id: 'qa-sigmaagent', prefix: 'sigma-agent' }
     ];
     
@@ -5401,7 +5399,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     }
     
     // Check if this is an extraction agent that uses template format
-    const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName);
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract'].includes(agentName);
     
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -5642,10 +5640,7 @@ function loadQASettings2() {
     // Set checkboxes (skip RankAgent - it's handled by updateRankQAState)
     const agents = [
         { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
-        { name: 'SigExtract', id: 'qa-sigextract', prefix: 'sigextract-agent' },
-        { name: 'EventCodeExtract', id: 'qa-eventcodeextract', prefix: 'eventcodeextract-agent' },
         { name: 'ProcTreeExtract', id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
-        { name: 'RegExtract', id: 'qa-regextract', prefix: 'regextract-agent' },
         { name: 'SigmaAgent', id: 'qa-sigmaagent', prefix: 'sigma-agent' }
     ];
     
@@ -5908,10 +5903,7 @@ function updateQAStateForSubagent(agentName) {
     // Map subagent names to their QA checkbox IDs
     const qaCheckboxMap = {
         'CmdlineExtract': 'qa-cmdlineextract',
-        'SigExtract': 'qa-sigextract',
-        'EventCodeExtract': 'qa-eventcodeextract',
-        'ProcTreeExtract': 'qa-proctreeextract',
-        'RegExtract': 'qa-regextract'
+        'ProcTreeExtract': 'qa-proctreeextract'
     };
     
     const qaCheckboxId = qaCheckboxMap[agentName];
@@ -6148,10 +6140,7 @@ async function applyPreset(preset) {
             const qaModelFields = [
                 { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature' },
                 { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature' },
-                { name: 'SigQA', id: 'sigqa-model', tempId: 'sigqa-temperature' },
-                { name: 'EventCodeQA', id: 'eventcodeqa-model', tempId: 'eventcodeqa-temperature' },
-                { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature' },
-                { name: 'RegQA', id: 'regqa-model', tempId: 'regqa-temperature' }
+                { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature' }
             ];
             
             qaModelFields.forEach(field => {
@@ -6323,10 +6312,7 @@ function cancelEditPrompt2(agentName) {
     const qaAgentMap = {
         'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
         'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
-        'SigQA': { prefix: 'sigextract-agent', container: 'sigextract-agent-qa-prompt-container' },
-        'EventCodeQA': { prefix: 'eventcodeextract-agent', container: 'eventcodeextract-agent-qa-prompt-container' },
-        'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
-        'RegQA': { prefix: 'regextract-agent', container: 'regextract-agent-qa-prompt-container' }
+        'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' }
     };
     
     // Check if this is a QA agent or if the corresponding extract agent has QA enabled
@@ -6343,10 +6329,7 @@ function cancelEditPrompt2(agentName) {
     } else {
         // Check if this extract agent has QA enabled
         const extractToQA = {
-            'SigExtract': { qaName: 'SigQA', prefix: 'sigextract-agent' },
-            'EventCodeExtract': { qaName: 'EventCodeQA', prefix: 'eventcodeextract-agent' },
-            'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' },
-            'RegExtract': { qaName: 'RegQA', prefix: 'regextract-agent' }
+            'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' }
         };
         const qaMapping = extractToQA[agentName];
         if (qaMapping && qaEnabled[agentName]) {
@@ -6386,17 +6369,21 @@ async function saveAgentPrompt2(agentName) {
         return;
     }
     
-    // Check if this is an extraction agent that uses template format
-    const isExtractionAgent = ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].includes(agentName);
+    // Check if this is an extraction agent or QA agent that uses template format
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract'].includes(agentName);
+    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'QAAgent'].includes(agentName);
+    const usesTemplateFormat = isExtractionAgent || isQAAgent;
     
     console.log('Is extraction agent:', isExtractionAgent);
+    console.log('Is QA agent:', isQAAgent);
+    console.log('Uses template format:', usesTemplateFormat);
     console.log('System element value length:', promptSystemElement.value?.length || 0);
     console.log('User element value length:', promptUserElement.value?.length || 0);
     
     let combinedPrompt;
-    if (isExtractionAgent) {
-        // For extraction agents, preserve template format structure
-        // Try to get existing template data to preserve task, json_example, etc.
+    if (usesTemplateFormat) {
+        // For extraction/QA agents, preserve template format structure
+        // Try to get existing template data to preserve task, json_example, objective, evaluation_criteria, etc.
         const existingPrompt = agentPrompts[agentName]?.prompt || '';
         console.log('Existing prompt length:', existingPrompt.length);
         let templateData = {};
@@ -6407,15 +6394,51 @@ async function saveAgentPrompt2(agentName) {
                 console.log('Parsed existing prompt:', parsed);
                 if (parsed && typeof parsed === 'object' && parsed.user_template) {
                     // Preserve existing template fields
-                    templateData = {
-                        role: promptSystemElement.value || parsed.role || "",
-                        user_template: promptUserElement.value || parsed.user_template || "",
-                        task: parsed.task || "",
-                        json_example: parsed.json_example || "",
-                        instructions: parsed.instructions || ""
-                    };
+                    if (isExtractionAgent) {
+                        templateData = {
+                            role: promptSystemElement.value || parsed.role || "",
+                            user_template: promptUserElement.value || parsed.user_template || "",
+                            task: parsed.task || "",
+                            json_example: parsed.json_example || "",
+                            instructions: parsed.instructions || ""
+                        };
+                    } else if (isQAAgent) {
+                        // QA agents may have objective, evaluation_criteria, etc.
+                        templateData = {
+                            role: promptSystemElement.value || parsed.role || "",
+                            user_template: promptUserElement.value || parsed.user_template || "",
+                            objective: parsed.objective || "",
+                            evaluation_criteria: parsed.evaluation_criteria || [],
+                            instructions: parsed.instructions || "",
+                            // Preserve other QA-specific fields if they exist
+                            input_format: parsed.input_format || {},
+                            qa_process: parsed.qa_process || {},
+                            output_format: parsed.output_format || {}
+                        };
+                    }
                 } else {
                     // New template format
+                    if (isExtractionAgent) {
+                        templateData = {
+                            role: promptSystemElement.value || "",
+                            user_template: promptUserElement.value || "",
+                            task: "",
+                            json_example: "",
+                            instructions: ""
+                        };
+                    } else if (isQAAgent) {
+                        templateData = {
+                            role: promptSystemElement.value || "",
+                            user_template: promptUserElement.value || "",
+                            objective: "",
+                            evaluation_criteria: [],
+                            instructions: ""
+                        };
+                    }
+                }
+            } else {
+                // No existing prompt - create new template
+                if (isExtractionAgent) {
                     templateData = {
                         role: promptSystemElement.value || "",
                         user_template: promptUserElement.value || "",
@@ -6423,9 +6446,20 @@ async function saveAgentPrompt2(agentName) {
                         json_example: "",
                         instructions: ""
                     };
+                } else if (isQAAgent) {
+                    templateData = {
+                        role: promptSystemElement.value || "",
+                        user_template: promptUserElement.value || "",
+                        objective: "",
+                        evaluation_criteria: [],
+                        instructions: ""
+                    };
                 }
-            } else {
-                // No existing prompt - create new template
+            }
+        } catch (e) {
+            console.error('Error parsing existing prompt:', e);
+            // Fallback: create new template structure
+            if (isExtractionAgent) {
                 templateData = {
                     role: promptSystemElement.value || "",
                     user_template: promptUserElement.value || "",
@@ -6433,24 +6467,22 @@ async function saveAgentPrompt2(agentName) {
                     json_example: "",
                     instructions: ""
                 };
+            } else if (isQAAgent) {
+                templateData = {
+                    role: promptSystemElement.value || "",
+                    user_template: promptUserElement.value || "",
+                    objective: "",
+                    evaluation_criteria: [],
+                    instructions: ""
+                };
             }
-        } catch (e) {
-            console.error('Error parsing existing prompt:', e);
-            // Fallback: create new template structure
-            templateData = {
-                role: promptSystemElement.value || "",
-                user_template: promptUserElement.value || "",
-                task: "",
-                json_example: "",
-                instructions: ""
-            };
         }
         
         console.log('Template data before stringify:', templateData);
         combinedPrompt = JSON.stringify(templateData);
         console.log('Combined prompt JSON string:', combinedPrompt);
     } else {
-        // For non-extraction agents, use simple system/user format
+        // For non-extraction/QA agents, use simple system/user format
         combinedPrompt = JSON.stringify({
             system: promptSystemElement.value || "",
             user: promptUserElement.value || ""
@@ -6590,16 +6622,10 @@ async function saveAgentPrompt2(agentName) {
                     'RankAgent': { container: 'rank-agent-prompt-container', prefix: 'rank-agent' },
                     'SigmaAgent': { container: 'sigma-agent-prompt-container', prefix: 'sigma-agent' },
                     'CmdlineExtract': { container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
-                    'SigExtract': { container: 'sigextract-agent-prompt-container', prefix: 'sigextract-agent' },
-                    'EventCodeExtract': { container: 'eventcodeextract-agent-prompt-container', prefix: 'eventcodeextract-agent' },
                     'ProcTreeExtract': { container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
-                    'RegExtract': { container: 'regextract-agent-prompt-container', prefix: 'regextract-agent' },
                     // QA Agents
                     'CmdLineQA': { container: 'cmdlineextract-agent-qa-prompt-container', prefix: 'cmdlineextract-agent' },
-                    'SigQA': { container: 'sigextract-agent-qa-prompt-container', prefix: 'sigextract-agent' },
-                    'EventCodeQA': { container: 'eventcodeextract-agent-qa-prompt-container', prefix: 'eventcodeextract-agent' },
-                    'ProcTreeQA': { container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' },
-                    'RegQA': { container: 'regextract-agent-qa-prompt-container', prefix: 'regextract-agent' }
+                    'ProcTreeQA': { container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' }
                 };
 
                 const agentInfo = agentMap[agentName];
@@ -6630,10 +6656,7 @@ async function saveAgentPrompt2(agentName) {
             const qaAgentMap = {
                 'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
                 'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
-                'SigQA': { prefix: 'sigextract-agent', container: 'sigextract-agent-qa-prompt-container' },
-                'EventCodeQA': { prefix: 'eventcodeextract-agent', container: 'eventcodeextract-agent-qa-prompt-container' },
-                'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
-                'RegQA': { prefix: 'regextract-agent', container: 'regextract-agent-qa-prompt-container' }
+                'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' }
             };
             
             const qaInfo = qaAgentMap[agentName];
@@ -6651,10 +6674,7 @@ async function saveAgentPrompt2(agentName) {
                 // For sub-agents, renderAgentPrompts() already handled them above
                 // But ensure QA prompts are also updated if this is an extract agent
                 const extractToQA = {
-                    'SigExtract': { qaName: 'SigQA', prefix: 'sigextract-agent' },
-                    'EventCodeExtract': { qaName: 'EventCodeQA', prefix: 'eventcodeextract-agent' },
-                    'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' },
-                    'RegExtract': { qaName: 'RegQA', prefix: 'regextract-agent' }
+                    'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' }
                 };
                 const qaMapping = extractToQA[agentName];
                 if (qaMapping && qaEnabled[agentName]) {
@@ -6747,10 +6767,7 @@ function getAllSelectedModels() {
     // Sub-agent models (only if explicitly set, not using ExtractAgent model)
     const subAgents = [
         { name: 'CmdlineExtract', id: 'cmdlineextract-model' },
-        { name: 'SigExtract', id: 'sigextract-model' },
-        { name: 'EventCodeExtract', id: 'eventcodeextract-model' },
-        { name: 'ProcTreeExtract', id: 'proctreeextract-model' },
-        { name: 'RegExtract', id: 'regextract-model' }
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model' }
     ];
     
     subAgents.forEach(subAgent => {
@@ -6771,10 +6788,7 @@ function getAllSelectedModels() {
     const qaAgents = [
         { name: 'RankAgentQA', id: 'rankqa-model' },
         { name: 'CmdLineQA', id: 'cmdlineqa-model' },
-        { name: 'SigQA', id: 'sigqa-model' },
-        { name: 'EventCodeQA', id: 'eventcodeqa-model' },
-        { name: 'ProcTreeQA', id: 'proctreeqa-model' },
-        { name: 'RegQA', id: 'regqa-model' }
+        { name: 'ProcTreeQA', id: 'proctreeqa-model' }
     ];
     
     qaAgents.forEach(qaAgent => {
@@ -6804,10 +6818,7 @@ function getAllSelectedModelsWithProviders() {
     const qaCheckboxes = {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
-        'SigExtract': document.getElementById('qa-sigextract'),
-        'EventCodeExtract': document.getElementById('qa-eventcodeextract'),
         'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
-        'RegExtract': document.getElementById('qa-regextract'),
         'SigmaAgent': document.getElementById('qa-sigmaagent')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
@@ -6857,10 +6868,7 @@ function getAllSelectedModelsWithProviders() {
     // Sub-agents - only show if not disabled
     const subAgents = [
         { name: 'CmdlineExtract', prefix: 'cmdlineextract', providerId: 'cmdlineextract-provider' },
-        { name: 'SigExtract', prefix: 'sigextract', providerId: 'sigextract-provider' },
-        { name: 'EventCodeExtract', prefix: 'eventcodeextract', providerId: 'eventcodeextract-provider' },
-        { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' },
-        { name: 'RegExtract', prefix: 'regextract', providerId: 'regextract-provider' }
+        { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' }
     ];
     
     subAgents.forEach(subAgent => {
@@ -6876,10 +6884,7 @@ function getAllSelectedModelsWithProviders() {
     // QA agents - only show if corresponding agent is enabled AND QA is enabled
     const qaAgents = [
         { name: 'CmdLineQA', prefix: 'cmdlineqa', providerId: 'cmdlineqa-provider', subAgent: 'CmdlineExtract' },
-        { name: 'SigQA', prefix: 'sigqa', providerId: 'sigqa-provider', subAgent: 'SigExtract' },
-        { name: 'EventCodeQA', prefix: 'eventcodeqa', providerId: 'eventcodeqa-provider', subAgent: 'EventCodeExtract' },
         { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' },
-        { name: 'RegQA', prefix: 'regqa', providerId: 'regqa-provider', subAgent: 'RegExtract' },
         { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null } // RankAgentQA doesn't have a sub-agent
     ];
     
@@ -6935,16 +6940,10 @@ function updateConfigDisplay() {
             'ExtractAgent': 'Extract',
             'SigmaAgent': 'SIGMA',
             'CmdlineExtract_model': 'CmdlineExtract',
-            'SigExtract_model': 'SigExtract',
-            'EventCodeExtract_model': 'EventCodeExtract',
             'ProcTreeExtract_model': 'ProcTreeExtract',
-            'RegExtract_model': 'RegExtract',
             'RankAgentQA': 'RankAgentQA',
             'CmdlineExtractQA': 'CmdLineQA',
-            'SigExtractQA': 'SigQA',
-            'EventCodeExtractQA': 'EventCodeQA',
-            'ProcTreeExtractQA': 'ProcTreeQA',
-            'RegExtractQA': 'RegQA'
+            'ProcTreeExtractQA': 'ProcTreeQA'
         };
         
         // Get disabled extract agents
@@ -6966,7 +6965,7 @@ function updateConfigDisplay() {
         }
         
         // Sub-agents
-        ['CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract'].forEach(agent => {
+        ['CmdlineExtract', 'ProcTreeExtract'].forEach(agent => {
             if (disabled.has(agent)) return;
             const modelKey = `${agent}_model`;
             if (agentModels[modelKey]) {
@@ -6982,10 +6981,7 @@ function updateConfigDisplay() {
         }
         const qaAgentMap = {
             'CmdlineExtract': 'CmdLineQA',
-            'SigExtract': 'SigQA',
-            'EventCodeExtract': 'EventCodeQA',
-            'ProcTreeExtract': 'ProcTreeQA',
-            'RegExtract': 'RegQA'
+            'ProcTreeExtract': 'ProcTreeQA'
         };
         Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
             if (disabled.has(agent)) return;
@@ -7143,10 +7139,7 @@ function getLMStudioModelsOnly() {
     const qaCheckboxes = {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
-        'SigExtract': document.getElementById('qa-sigextract'),
-        'EventCodeExtract': document.getElementById('qa-eventcodeextract'),
         'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
-        'RegExtract': document.getElementById('qa-regextract'),
         'SigmaAgent': document.getElementById('qa-sigmaagent')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
@@ -7193,10 +7186,7 @@ function getLMStudioModelsOnly() {
     // Sub-agents have their own provider selectors
     const subAgents = [
         { name: 'CmdlineExtract', prefix: 'cmdlineextract', providerId: 'cmdlineextract-provider' },
-        { name: 'SigExtract', prefix: 'sigextract', providerId: 'sigextract-provider' },
-        { name: 'EventCodeExtract', prefix: 'eventcodeextract', providerId: 'eventcodeextract-provider' },
-        { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' },
-        { name: 'RegExtract', prefix: 'regextract', providerId: 'regextract-provider' }
+        { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' }
     ];
     
     subAgents.forEach(subAgent => {
@@ -7230,10 +7220,7 @@ function getLMStudioModelsOnly() {
     const qaAgents = [
         { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null },
         { name: 'CmdLineQA', prefix: 'cmdlineqa', providerId: 'cmdlineqa-provider', subAgent: 'CmdlineExtract' },
-        { name: 'SigQA', prefix: 'sigqa', providerId: 'sigqa-provider', subAgent: 'SigExtract' },
-        { name: 'EventCodeQA', prefix: 'eventcodeqa', providerId: 'eventcodeqa-provider', subAgent: 'EventCodeExtract' },
-        { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' },
-        { name: 'RegQA', prefix: 'regqa', providerId: 'regqa-provider', subAgent: 'RegExtract' }
+        { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' }
     ];
     
     qaAgents.forEach(qaAgent => {
@@ -7269,7 +7256,7 @@ function getLMStudioModelsOnly() {
 // Function to get current form state
 function getCurrentFormState() {
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -7288,10 +7275,7 @@ function getCurrentFormState() {
     const qaModelFields = [
         { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature', topPId: 'rankqa-top-p' },
         { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature', topPId: 'cmdlineqa-top-p' },
-        { name: 'SigQA', id: 'sigqa-model', tempId: 'sigqa-temperature', topPId: 'sigqa-top-p' },
-        { name: 'EventCodeQA', id: 'eventcodeqa-model', tempId: 'eventcodeqa-temperature', topPId: 'eventcodeqa-top-p' },
-        { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature', topPId: 'proctreeqa-top-p' },
-        { name: 'RegQA', id: 'regqa-model', tempId: 'regqa-temperature', topPId: 'regqa-top-p' }
+        { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature', topPId: 'proctreeqa-top-p' }
     ];
     
     qaModelFields.forEach(field => {
@@ -7486,7 +7470,7 @@ function initializeChangeTracking() {
     });
     
     // Add change listeners to QA checkboxes
-    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'SigExtract', 'EventCodeExtract', 'ProcTreeExtract', 'RegExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -7643,18 +7627,9 @@ if (workflowConfigForm) {
             CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
             CmdLineQA_temperature: parseFloat(document.getElementById('cmdlineqa-temperature')?.value) || 0.1,
             CmdLineQA_top_p: parseFloat(document.getElementById('cmdlineqa-top-p')?.value) || 0.9,
-            SigQA: document.getElementById('sigqa-model')?.value.trim() || null,
-            SigQA_temperature: parseFloat(document.getElementById('sigqa-temperature')?.value) || 0.1,
-            SigQA_top_p: parseFloat(document.getElementById('sigqa-top-p')?.value) || 0.9,
-            EventCodeQA: document.getElementById('eventcodeqa-model')?.value.trim() || null,
-            EventCodeQA_temperature: parseFloat(document.getElementById('eventcodeqa-temperature')?.value) || 0.1,
-            EventCodeQA_top_p: parseFloat(document.getElementById('eventcodeqa-top-p')?.value) || 0.9,
             ProcTreeQA: document.getElementById('proctreeqa-model')?.value.trim() || null,
             ProcTreeQA_temperature: parseFloat(document.getElementById('proctreeqa-temperature')?.value) || 0.1,
             ProcTreeQA_top_p: parseFloat(document.getElementById('proctreeqa-top-p')?.value) || 0.9,
-            RegQA: document.getElementById('regqa-model')?.value.trim() || null,
-            RegQA_temperature: parseFloat(document.getElementById('regqa-temperature')?.value) || 0.1,
-            RegQA_top_p: parseFloat(document.getElementById('regqa-top-p')?.value) || 0.9,
             RankAgentQA_temperature: parseFloat(document.getElementById('rankqa-temperature')?.value) || 0.1,
             RankAgentQA_top_p: parseFloat(document.getElementById('rankqa-top-p')?.value) || 0.9
         },
@@ -8629,9 +8604,7 @@ async function viewExecution(executionId) {
                                         </div>
                                         <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded border border-gray-300 dark:border-gray-600">
                                             <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${content}</div>
-                                            <!-- COMMENTED OUT: Truncation control - showing full content directly -->
-                                            <!-- <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${preview}</div> -->
-                                            <!-- ${content.length > 200 ? `<pre id="${collapsibleId}-full" class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white hidden">${content}</pre>` : ''} -->
+                                            <!-- Truncation control code removed - preview variable was undefined -->
                                         </div>
                                     </div>`;
                                 }).join('');
@@ -8676,11 +8649,7 @@ async function viewExecution(executionId) {
                                         <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">
                                             <!-- COMMENTED OUT: Truncation control - showing full content directly -->
                                             <pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>
-                                            <!-- ${llmContent.length > 200 ? `
-                                                <div id="${llmCollapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${llmPreview}</div>
-                                                <pre id="${llmCollapsibleId}-full" class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white hidden">${llmContent}</pre>
-                                                <button onclick="toggleCollapse('${llmCollapsibleId}')" class="mt-1 text-xs text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-gray-300 underline">[toggle full response]</button>
-                                            ` : `<pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>`} -->
+                                            <!-- Truncation control code removed - llmPreview variable was undefined -->
                                         </div>
                                     </div>
                                     <div>
@@ -9818,10 +9787,7 @@ function showHelp(fieldName) {
                       <p class="mb-2"><strong>Sub-Agents:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li><strong>CmdlineExtract:</strong> Command line arguments and executions</li>
-                          <li><strong>SigExtract:</strong> Query/SIGMA rule patterns</li>
-                          <li><strong>EventCodeExtract:</strong> Windows Event IDs</li>
                           <li><strong>ProcTreeExtract:</strong> Process lineage and relationships</li>
-                          <li><strong>RegExtract:</strong> Registry keys and values</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong instruction-following and structured output capabilities.</p>`
         },
@@ -9866,46 +9832,6 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model optimized for command-line extraction if needed.</p>`
         },
-        'sigExtract': {
-            title: 'SigExtract Model',
-            content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Specialized sub-agent for extracting query patterns and SIGMA-like detection logic from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>What it extracts:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Query patterns and search logic</li>
-                          <li>SIGMA rule-like detection patterns</li>
-                          <li>Event log query structures</li>
-                          <li>Detection conditions and filters</li>
-                      </ul>
-                      <p class="mb-2"><strong>How it works:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agents supervisor</li>
-                          <li>Identifies detection patterns in threat intelligence</li>
-                          <li>Extracts query logic that can be converted to SIGMA rules</li>
-                          <li>Can use Extract Agents model or override with dedicated model</li>
-                      </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong pattern recognition capabilities.</p>`
-        },
-        'eventCodeExtract': {
-            title: 'EventCodeExtract Model',
-            content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Specialized sub-agent for extracting Windows Event IDs and event log references from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>What it extracts:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Windows Event IDs (e.g., 4688, 4697, 4698)</li>
-                          <li>Sysmon Event IDs</li>
-                          <li>Event log references and descriptions</li>
-                          <li>Event-based detection patterns</li>
-                      </ul>
-                      <p class="mb-2"><strong>How it works:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agents supervisor</li>
-                          <li>Identifies Windows Event Log indicators</li>
-                          <li>Extracts event codes used in SIGMA detection rules</li>
-                          <li>Can use Extract Agents model or override with dedicated model</li>
-                      </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model familiar with Windows Event Log structures.</p>`
-        },
         'procTreeExtract': {
             title: 'ProcTreeExtract Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
@@ -9926,25 +9852,6 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong understanding of process relationships.</p>`
         },
-        'regExtract': {
-            title: 'RegExtract Model',
-            content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Specialized sub-agent for extracting Windows Registry keys, values, and registry manipulation patterns from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>What it extracts:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Registry key paths (HKCU, HKLM, HKEY_*)</li>
-                          <li>Registry value names and data</li>
-                          <li>Registry manipulation patterns</li>
-                          <li>Persistence and configuration registry entries</li>
-                      </ul>
-                      <p class="mb-2"><strong>How it works:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Orchestrated by the Extract Agents supervisor</li>
-                          <li>Identifies Windows Registry indicators</li>
-                          <li>Extracts registry data for SIGMA rule generation</li>
-                          <li>Can use Extract Agents model or override with dedicated model</li>
-                      </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model familiar with Windows Registry structures.</p>`
         }
     };
     
@@ -10418,16 +10325,10 @@ function initializeSaveButton() {
 // --- Global fallback definitions to ensure sub-agent provider inputs always render ---
 const subAgentModelKeysGlobal = {
     cmdlineextract: 'CmdlineExtract_model',
-    sigextract: 'SigExtract_model',
-    eventcodeextract: 'EventCodeExtract_model',
     proctreeextract: 'ProcTreeExtract_model',
-    regextract: 'RegExtract_model',
     rankqa: 'RankAgentQA',
     cmdlineqa: 'CmdLineQA',
-    sigqa: 'SigQA',
-    eventcodeqa: 'EventCodeQA',
-    proctreeqa: 'ProcTreeQA',
-    regqa: 'RegQA'
+    proctreeqa: 'ProcTreeQA'
 };
 
 function renderSubAgentCommercialInputsGlobal(agentPrefix) {

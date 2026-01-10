@@ -44,7 +44,8 @@ class SigmaGenerationService:
         min_confidence: float = 0.7,
         execution_id: Optional[int] = None,
         article_id: Optional[int] = None,
-        qa_feedback: Optional[str] = None
+        qa_feedback: Optional[str] = None,
+        sigma_prompt_template: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generate SIGMA rules from article content.
@@ -77,19 +78,45 @@ class SigmaGenerationService:
                 logger.warning("Content optimization failed, using original content")
             
             # Load SIGMA generation prompt (async to avoid blocking)
-            from src.utils.prompt_loader import format_prompt_async
-            sigma_prompt = await format_prompt_async(
-                "sigma_generation",
-                title=article_title,
-                source=source_name,
-                url=url or 'N/A',
-                content=content_to_analyze
-            )
+            # Use provided template from database if available, otherwise load from file
+            sigma_prompt = None
+            if sigma_prompt_template:
+                # Format the database prompt template with article data
+                try:
+                    sigma_prompt = sigma_prompt_template.format(
+                        title=article_title,
+                        source=source_name,
+                        url=url or 'N/A',
+                        content=content_to_analyze
+                    )
+                    logger.info(f"Using database prompt template for SIGMA generation (len={len(sigma_prompt)} chars)")
+                except (KeyError, AttributeError, ValueError) as e:
+                    logger.warning(f"Database prompt template formatting failed ({e}), falling back to file")
+                    sigma_prompt = None  # Ensure it's None so we fall through to file loading
+            
+            if not sigma_prompt:
+                # Fallback to file-based prompt
+                from src.utils.prompt_loader import format_prompt_async
+                sigma_prompt = await format_prompt_async(
+                    "sigma_generation",
+                    title=article_title,
+                    source=source_name,
+                    url=url or 'N/A',
+                    content=content_to_analyze
+                )
+                logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
+            
+            # Ensure we have a valid prompt
+            if not sigma_prompt or not isinstance(sigma_prompt, str):
+                raise ValueError("Failed to load SIGMA generation prompt from both database and file")
             
             # Handle context window limits for LMStudio
             if ai_model == 'lmstudio':
                 lmstudio_model_name = self.llm_service.lmstudio_model
-                if '8b' in lmstudio_model_name.lower() or '7b' in lmstudio_model_name.lower():
+                if not lmstudio_model_name or not isinstance(lmstudio_model_name, str):
+                    logger.warning(f"lmstudio_model is None or not a string: {lmstudio_model_name}, using default context window")
+                    max_prompt_chars = 8000
+                elif '8b' in lmstudio_model_name.lower() or '7b' in lmstudio_model_name.lower():
                     max_prompt_chars = 12000
                 elif '3b' in lmstudio_model_name.lower():
                     max_prompt_chars = 9000
@@ -110,19 +137,35 @@ class SigmaGenerationService:
             for attempt in range(max_attempts):
                 logger.info(f"SIGMA generation attempt {attempt + 1}/{max_attempts}")
                 
+                # Initialize attempt-specific variables
+                attempt_rules = []
+                attempt_validation_results = []
+                all_valid = True
+                
                 feedback_prefix = ""
                 if attempt > 0:
-                    feedback_parts = []
-                    if previous_errors_text:
-                        feedback_parts.append(f"Previous validation errors:\n{previous_errors_text}")
-                    else:
-                        feedback_parts.append(
-                            "Previous attempt failed validation or produced no YAML. "
-                            "Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
+                    # Use the sigma_feedback template for structured feedback
+                    try:
+                        feedback_template = await format_prompt_async(
+                            "sigma_feedback",
+                            validation_errors=previous_errors_text or "No valid SIGMA YAML detected. Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation.",
+                            original_rule=previous_yaml_preview or "No YAML was detected in the previous attempt."
                         )
-                    if previous_yaml_preview:
-                        feedback_parts.append(f"Previous YAML attempt:\n{previous_yaml_preview}")
-                    feedback_prefix = "\n\n".join(feedback_parts)
+                        feedback_prefix = feedback_template
+                    except Exception as e:
+                        # Fallback to simple feedback if template loading fails
+                        logger.warning(f"Failed to load sigma_feedback template, using simple feedback: {e}")
+                        feedback_parts = []
+                        if previous_errors_text:
+                            feedback_parts.append(f"Previous validation errors:\n{previous_errors_text}")
+                        else:
+                            feedback_parts.append(
+                                "Previous attempt failed validation or produced no YAML. "
+                                "Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
+                            )
+                        if previous_yaml_preview:
+                            feedback_parts.append(f"Previous YAML attempt:\n{previous_yaml_preview}")
+                        feedback_prefix = "\n\n".join(feedback_parts)
                 
                 # Prepare prompt for this attempt
                 if feedback_prefix:
@@ -181,9 +224,7 @@ class SigmaGenerationService:
                 
                 # Split into individual rules
                 rule_blocks = cleaned_response.split('---')
-                attempt_rules = []
-                attempt_validation_results = []
-                all_valid = True
+                # Note: attempt_rules, attempt_validation_results, and all_valid are already initialized above
                 
                 for i, block in enumerate(rule_blocks):
                     block = block.strip()
@@ -268,6 +309,10 @@ class SigmaGenerationService:
                 # Prepare validation feedback for next attempt
                 previous_errors = []
                 previous_yaml_preview = ""
+                # Safety check: ensure attempt_validation_results is a list
+                if attempt_validation_results is None:
+                    logger.warning(f"SIGMA generation attempt {attempt + 1}: attempt_validation_results is None, initializing as empty list")
+                    attempt_validation_results = []
                 for result in attempt_validation_results:
                     if not result.is_valid and result.errors:
                         previous_errors.extend(result.errors)
