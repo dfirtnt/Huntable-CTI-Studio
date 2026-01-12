@@ -246,7 +246,8 @@ class EvalBundleService:
             "generate_sigma": "generate_sigma",
             "os_detection": "os_detection",
             "CmdlineExtract": "extract_agent",
-            "ProcTreeExtract": "extract_agent"
+            "ProcTreeExtract": "extract_agent",
+            "HuntQueriesExtract": "extract_agent"
         }
         
         log_key = agent_key_map.get(agent_name, agent_name)
@@ -341,6 +342,14 @@ class EvalBundleService:
                                 if isinstance(last_entry, dict):
                                     messages = last_entry.get("messages", [])
         
+        # Diagnostic logging for missing messages
+        if not messages or (isinstance(messages, list) and len(messages) == 0):
+            logger.warning(
+                f"Execution {execution.id}, agent {agent_name}: No messages found. "
+                f"attempt_entry keys: {list(attempt_entry.keys()) if isinstance(attempt_entry, dict) else 'N/A'}, "
+                f"result keys: {list(attempt_entry.get('result', {}).keys()) if isinstance(attempt_entry.get('result'), dict) else 'N/A'}"
+            )
+        
         # Extract response
         # Priority: 1) direct in attempt_entry, 2) in result._llm_response (new storage), 3) in result.raw
         llm_response_text = attempt_entry.get("llm_response", "")
@@ -365,6 +374,14 @@ class EvalBundleService:
                                 last_entry = conv_log[-1]
                                 if isinstance(last_entry, dict):
                                     llm_response_text = last_entry.get("llm_response", "")
+        
+        # Diagnostic logging for missing response
+        if not llm_response_text or (isinstance(llm_response_text, str) and len(llm_response_text.strip()) == 0):
+            logger.warning(
+                f"Execution {execution.id}, agent {agent_name}: No response text found. "
+                f"attempt_entry keys: {list(attempt_entry.keys()) if isinstance(attempt_entry, dict) else 'N/A'}, "
+                f"result keys: {list(attempt_entry.get('result', {}).keys()) if isinstance(attempt_entry.get('result'), dict) else 'N/A'}"
+            )
         
         # Always try to fetch from Langfuse if enabled (prefer Langfuse as source of truth)
         langfuse_messages = None
@@ -438,7 +455,8 @@ class EvalBundleService:
             "generate_sigma": "SigmaAgent",
             "os_detection": "OSDetectionAgent",
             "CmdlineExtract": "ExtractAgent",
-            "ProcTreeExtract": "ExtractAgent"
+            "ProcTreeExtract": "ExtractAgent",
+            "HuntQueriesExtract": "ExtractAgent"
         }
         
         model_config_key = model_key_map.get(agent_name, agent_name)
