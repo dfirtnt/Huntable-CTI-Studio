@@ -139,6 +139,85 @@
             }
         };
 
+        const showEmbeddingTerminal = () => {
+            // Create terminal output area if it doesn't exist
+            let terminalDiv = document.getElementById('embeddingTerminalOutput');
+            if (!terminalDiv) {
+                terminalDiv = document.createElement('div');
+                terminalDiv.id = 'embeddingTerminalOutput';
+                terminalDiv.className = 'fixed z-50 bg-black text-green-400 font-mono text-sm rounded-lg border border-gray-600 overflow-hidden shadow-2xl';
+                terminalDiv.style.width = '500px';
+                terminalDiv.style.maxWidth = '90vw';
+                terminalDiv.style.maxHeight = '400px';
+                terminalDiv.style.top = '50%';
+                terminalDiv.style.left = '50%';
+                terminalDiv.style.transform = 'translate(-50%, -50%)';
+                terminalDiv.innerHTML = `
+                    <div class="flex justify-between items-center p-2 bg-gray-800 text-gray-100 text-xs border-b border-gray-600">
+                        <span>📟 Embedding Processing. Please standby. Close the window to update status.</span>
+                        <button id="closeEmbeddingTerminal" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <div class="p-4 overflow-y-auto" style="height: 350px;">
+                        <div id="embeddingTerminalContent">🔄 Fetching logs...</div>
+                    </div>
+                `;
+                
+                document.body.appendChild(terminalDiv);
+                
+                // Add close button functionality
+                document.getElementById('closeEmbeddingTerminal').addEventListener('click', () => {
+                    terminalDiv.remove();
+                    loadEmbeddingStats(); // Refresh stats when closed
+                });
+            }
+        };
+
+        const pollEmbeddingLogs = async () => {
+            try {
+                const timestamp = new Date().getTime();
+                const response = await fetch(`/api/embeddings/logs?t=${timestamp}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.logs) {
+                    const logPayload = data.logs;
+                    const terminalContent = document.getElementById('embeddingTerminalContent');
+                    if (terminalContent) {
+                        terminalContent.textContent = logPayload;
+                        terminalContent.scrollTop = terminalContent.scrollHeight;
+                    }
+                    
+                    // Stop polling if processing is complete
+                    if (logPayload.includes('✅ Embedding Generation Complete!') || 
+                        logPayload.includes('❌ Batch embedding generation failed')) {
+                        clearInterval(window.embeddingLogPollInterval);
+                        setTimeout(() => {
+                            loadEmbeddingStats(); // Refresh stats after completion
+                        }, 1000);
+                    }
+                }
+            } catch (error) {
+                console.error('Error polling embedding logs:', error);
+            }
+        };
+
+        const startEmbeddingLogPolling = () => {
+            // Clear any existing interval
+            if (window.embeddingLogPollInterval) {
+                clearInterval(window.embeddingLogPollInterval);
+            }
+            
+            // Start polling every 1 second
+            window.embeddingLogPollInterval = setInterval(pollEmbeddingLogs, 1000);
+            
+            // Initial poll
+            pollEmbeddingLogs();
+        };
+
         const handleUpdateEmbeddings = async () => {
             if (isUpdatingEmbeddings) return;
 
@@ -161,18 +240,19 @@
 
                 const data = await response.json();
                 
+                // Show terminal output and start polling
+                showEmbeddingTerminal();
+                startEmbeddingLogPolling();
+                
                 // Add success message to chat
                 const successMessage = {
                     role: 'assistant',
-                    content: `✅ Embedding update started successfully!\n\nTask ID: ${data.task_id}\nBatch Size: ${data.batch_size}\nEstimated Articles: ${data.estimated_articles}\n\nThis process will run in the background. You can continue using the chat while embeddings are being generated.`,
+                    content: `✅ Embedding update started successfully!\n\nTask ID: ${data.task_id}\nBatch Size: ${data.batch_size}\nEstimated Articles: ${data.estimated_articles}\n\nCheck the popup window for real-time progress.`,
                     timestamp: new Date().toISOString(),
                     isSystemMessage: true
                 };
                 
                 setMessages(prev => [...prev, successMessage]);
-                
-                // Refresh embedding stats
-                await loadEmbeddingStats();
                 
             } catch (error) {
                 console.error('Error updating embeddings:', error);

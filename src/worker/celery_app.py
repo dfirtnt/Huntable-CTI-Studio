@@ -793,20 +793,42 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
     """Generate embeddings for multiple articles in batches."""
     try:
         import asyncio
+        import time
         from src.database.async_manager import AsyncDatabaseManager
         from src.services.embedding_service import get_embedding_service
+
+        log_file = "/tmp/embedding_logs.txt"
+
+        def write_log(message: str):
+            """Write log message to file and logger."""
+            try:
+                with open(log_file, "a") as f:
+                    timestamp = time.strftime("%H:%M:%S")
+                    f.write(f"[{timestamp}] {message}\n")
+            except Exception:
+                pass  # Continue if log file write fails
+            logger.info(message)
 
         async def run_batch_embedding():
             """Run batch embedding generation."""
             db = AsyncDatabaseManager()
             try:
+                total_articles = len(article_ids)
                 total_processed = 0
                 total_skipped = 0
                 total_errors = 0
 
+                write_log(f"🚀 Starting embedding generation for {total_articles} articles")
+                write_log(f"📦 Batch size: {batch_size}")
+                write_log(f"⏳ Processing in batches...\n")
+
                 # Process in batches
                 for i in range(0, len(article_ids), batch_size):
+                    batch_num = (i // batch_size) + 1
+                    total_batches = (len(article_ids) + batch_size - 1) // batch_size
                     batch_ids = article_ids[i : i + batch_size]
+
+                    write_log(f"📊 Processing batch {batch_num}/{total_batches} ({len(batch_ids)} articles)")
 
                     # Get articles for this batch
                     articles = await db.get_articles_with_source_info(batch_ids)
@@ -817,8 +839,12 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                     ]
 
                     if not articles_to_process:
-                        total_skipped += len(batch_ids)
+                        skipped_count = len(batch_ids)
+                        total_skipped += skipped_count
+                        write_log(f"⏭️  Batch {batch_num}: All articles already have embeddings (skipped {skipped_count})")
                         continue
+
+                    write_log(f"🔄 Batch {batch_num}: Processing {len(articles_to_process)} articles...")
 
                     # Prepare texts for batch embedding
                     texts_to_embed = []
@@ -840,11 +866,13 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                         article_mapping.append(article.id)
 
                     # Generate embeddings in batch
+                    write_log(f"🧬 Generating embeddings for batch {batch_num}...")
                     embeddings = embedding_service.generate_embeddings_batch(
                         texts_to_embed, batch_size
                     )
 
                     # Store embeddings
+                    write_log(f"💾 Storing embeddings for batch {batch_num}...")
                     for article_id, embedding in zip(article_mapping, embeddings):
                         try:
                             await db.update_article_embedding(
@@ -857,9 +885,22 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                             logger.error(
                                 f"Failed to store embedding for article {article_id}: {e}"
                             )
+                            write_log(f"❌ Failed to store embedding for article {article_id}: {e}")
                             total_errors += 1
 
                     total_skipped += len(batch_ids) - len(articles_to_process)
+                    progress_pct = ((i + len(batch_ids)) / total_articles) * 100
+                    write_log(f"✅ Batch {batch_num} complete: {len(articles_to_process)} processed")
+                    write_log(f"📈 Overall progress: {total_processed}/{total_articles} ({progress_pct:.1f}%)\n")
+
+                write_log("\n" + "="*50)
+                write_log("✅ Embedding Generation Complete!")
+                write_log(f"📊 Results:")
+                write_log(f"   • Processed: {total_processed} articles")
+                write_log(f"   • Skipped: {total_skipped} articles (already embedded)")
+                write_log(f"   • Errors: {total_errors} articles")
+                write_log(f"⏱️  Finished at {time.strftime('%H:%M:%S')}")
+                write_log("="*50)
 
                 logger.info(
                     f"Batch embedding complete: {total_processed} processed, {total_skipped} skipped, {total_errors} errors"
@@ -873,14 +914,15 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                 }
 
             except Exception as e:
+                error_msg = f"❌ Batch embedding generation failed: {e}"
+                write_log(error_msg)
                 logger.error(f"Batch embedding generation failed: {e}")
                 raise e
             finally:
                 await db.close()
 
         # Run the async function
-        result = asyncio.run(run_batch_embedding())
-        return result
+        return asyncio.run(run_batch_embedding())
 
     except Exception as exc:
         logger.error(f"Batch embedding task failed: {exc}")
@@ -892,7 +934,21 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
     """Generate embeddings for all existing articles without embeddings."""
     try:
         import asyncio
+        import time
         from src.database.async_manager import AsyncDatabaseManager
+
+        # Initialize log file in worker container
+        log_file = "/tmp/embedding_logs.txt"
+        try:
+            with open(log_file, "w") as file:
+                file.write("🚀 Starting embedding generation...\n")
+                file.write(f"📅 Started at {time.strftime('%H:%M:%S')}\n")
+                file.write(f"📦 Batch size: {batch_size}\n")
+                file.write("⏳ This may take several minutes...\n\n")
+            logger.info(f"Initialized embedding log file at {log_file}")
+        except Exception as log_init_error:
+            logger.error(f"Failed to initialize log file at {log_file}: {log_init_error}")
+            # Continue anyway - logging will fall back to logger
 
         async def run_retroactive_embedding():
             """Run retroactive embedding for all articles."""
@@ -902,6 +958,11 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
                 articles_without_embeddings = await db.get_articles_without_embeddings()
 
                 if not articles_without_embeddings:
+                    try:
+                        with open(log_file, "a") as file:
+                            file.write("✅ No articles found without embeddings\n")
+                    except Exception:
+                        pass
                     return {
                         "status": "success",
                         "message": "No articles found without embeddings",
@@ -926,6 +987,11 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
                 }
 
             except Exception as e:
+                try:
+                    with open(log_file, "a") as file:
+                        file.write(f"\n❌ Retroactive embedding failed: {e}\n")
+                except Exception:
+                    pass
                 logger.error(f"Retroactive embedding failed: {e}")
                 raise e
             finally:
