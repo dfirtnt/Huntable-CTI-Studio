@@ -109,7 +109,23 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
             # Not an eval run
             return
         
-        # Find the eval record for this execution
+        # For hunt_queries, find both EDR and SIGMA eval records
+        if subagent_name == "hunt_queries":
+            eval_records = db_session.query(SubagentEvaluationTable).filter(
+                SubagentEvaluationTable.workflow_execution_id == execution.id,
+                SubagentEvaluationTable.subagent_name.in_(["hunt_queries_edr", "hunt_queries_sigma"])
+            ).all()
+            
+            if not eval_records:
+                logger.warning(f"No SubagentEvaluation records found for execution {execution.id} (hunt_queries)")
+                return
+            
+            # Update both records
+            for eval_record in eval_records:
+                _update_single_eval_record(eval_record, execution, db_session)
+            return
+        
+        # Standard single eval record
         eval_record = db_session.query(SubagentEvaluationTable).filter(
             SubagentEvaluationTable.workflow_execution_id == execution.id
         ).first()
@@ -118,6 +134,58 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
             logger.warning(f"No SubagentEvaluation record found for execution {execution.id}")
             return
         
+        _update_single_eval_record(eval_record, execution, db_session)
+        
+    except Exception as e:
+        logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
+        # Don't fail the workflow if eval update fails
+        pass
+
+
+def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: int) -> Optional[int]:
+    """Extract actual count from subresults based on subagent name."""
+    # Special handling for hunt_queries dual counts
+    if subagent_name in ("hunt_queries_edr", "hunt_queries_sigma"):
+        # Get the base hunt_queries result
+        hunt_queries_result = subresults.get("hunt_queries", {})
+        if not isinstance(hunt_queries_result, dict):
+            logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
+            return None
+        
+        # Extract the appropriate count
+        if subagent_name == "hunt_queries_edr":
+            actual_count = hunt_queries_result.get('query_count')
+            if actual_count is None:
+                queries = hunt_queries_result.get('queries', [])
+                actual_count = len(queries) if isinstance(queries, list) else 0
+        else:  # hunt_queries_sigma
+            actual_count = hunt_queries_result.get('sigma_count')
+            if actual_count is None:
+                sigma_rules = hunt_queries_result.get('sigma_rules', [])
+                actual_count = len(sigma_rules) if isinstance(sigma_rules, list) else 0
+        return actual_count
+    
+    # Standard subagent handling
+    subagent_result = subresults.get(subagent_name, {})
+    if not isinstance(subagent_result, dict):
+        logger.warning(f"No {subagent_name} result in subresults for execution {execution_id}")
+        return None
+    
+    # Extract count (prefer count field, fallback to items array length)
+    actual_count = subagent_result.get('count')
+    if actual_count is None:
+        items = subagent_result.get('items', [])
+        if isinstance(items, list):
+            actual_count = len(items)
+        else:
+            actual_count = 0
+    
+    return actual_count
+
+
+def _update_single_eval_record(eval_record: SubagentEvaluationTable, execution: AgenticWorkflowExecutionTable, db_session: Session) -> None:
+    """Update a single eval record with actual count from execution."""
+    try:
         # Extract count from extraction_result
         extraction_result = execution.extraction_result
         if not extraction_result or not isinstance(extraction_result, dict):
@@ -133,22 +201,13 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
             db_session.commit()
             return
         
-        # Get count for the specific subagent
-        subagent_result = subresults.get(subagent_name, {})
-        if not isinstance(subagent_result, dict):
-            logger.warning(f"No {subagent_name} result in subresults for execution {execution.id}")
+        # Extract count based on subagent type
+        actual_count = _extract_actual_count(eval_record.subagent_name, subresults, execution.id)
+        
+        if actual_count is None:
             eval_record.status = 'failed'
             db_session.commit()
             return
-        
-        # Extract count (prefer count field, fallback to items array length)
-        actual_count = subagent_result.get('count')
-        if actual_count is None:
-            items = subagent_result.get('items', [])
-            if isinstance(items, list):
-                actual_count = len(items)
-            else:
-                actual_count = 0
         
         if not isinstance(actual_count, int):
             actual_count = int(actual_count) if actual_count else 0
@@ -167,10 +226,9 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
         
         logger.info(
             f"Updated SubagentEvaluation {eval_record.id}: "
-            f"subagent={subagent_name}, expected={eval_record.expected_count}, "
+            f"subagent={eval_record.subagent_name}, expected={eval_record.expected_count}, "
             f"actual={actual_count}, score={score}"
         )
-        
     except Exception as e:
         logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
         # Don't fail the workflow if eval update fails
@@ -838,7 +896,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Map subagent names to agent names
                 subagent_to_agent = {
                     "cmdline": "CmdlineExtract",
-                    "process_lineage": "ProcTreeExtract"
+                    "process_lineage": "ProcTreeExtract",
+                    "hunt_queries": "HuntQueriesExtract"
                 }
                 agent_name = subagent_to_agent.get(subagent_eval)
                 if agent_name:
@@ -858,7 +917,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Initialize sub-results accumulator
             subresults = {
                 "cmdline": {"items": [], "count": 0},
-                "process_lineage": {"items": [], "count": 0}
+                "process_lineage": {"items": [], "count": 0},
+                "hunt_queries": {"items": [], "count": 0}
             }
             
             # Get config models for LLMService
@@ -934,7 +994,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # --- Sub-Agents (including CmdlineExtract) ---
             sub_agents = [
                 ("CmdlineExtract", "cmdline", "CmdLineQA"),
-                ("ProcTreeExtract", "process_lineage", "ProcTreeQA")
+                ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
+                ("HuntQueriesExtract", "hunt_queries", "HuntQueriesQA")
             ]
             
             # Initialize conversation log for extract_agent
@@ -976,8 +1037,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
             
             # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
-            # Only CmdlineExtract and ProcTreeExtract are valid
-            valid_subagents = {"CmdlineExtract", "ProcTreeExtract"}
+            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract
+            valid_subagents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"}
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
             
             logger.info(f"[Workflow {state['execution_id']}] disabled_agents_value: {disabled_agents_value} (type: {type(disabled_agents_value)})")
@@ -1177,7 +1238,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Map agent names to their subagent names (hardcoded for reliability)
                 agent_to_subagent = {
                     "CmdlineExtract": "cmdline",
-                    "ProcTreeExtract": "process_lineage"
+                    "ProcTreeExtract": "process_lineage",
+                    "HuntQueriesExtract": "hunt_queries"
                 }
                 
                 agent_subagent_name = agent_to_subagent.get(agent_name)
@@ -1316,7 +1378,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Map agent name to subagent name
                     agent_to_subagent = {
                         "CmdlineExtract": "cmdline",
-                        "ProcTreeExtract": "process_lineage"
+                        "ProcTreeExtract": "process_lineage",
+                        "HuntQueriesExtract": "hunt_queries"
                     }
                     agent_subagent = agent_to_subagent.get(agent_name)
                     
@@ -1379,7 +1442,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if final_block_lookup:
                         agent_to_subagent_final = {
                             "CmdlineExtract": "cmdline",
-                            "ProcTreeExtract": "process_lineage"
+                            "ProcTreeExtract": "process_lineage",
+                            "HuntQueriesExtract": "hunt_queries"
                         }
                         agent_subagent_final = agent_to_subagent_final.get(agent_name)
                         normalized_agent_subagent = str(agent_subagent_final).lower().strip() if agent_subagent_final else None
@@ -1425,27 +1489,82 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     
                     # Store Result
                     items = []
-                    # Try to find the specific list for this agent
-                    if result_key in agent_result:
-                        items = agent_result[result_key]
-                    elif agent_name == "CmdlineExtract" and "cmdline_items" in agent_result:
-                        # CmdlineExtract uses cmdline_items field
-                        items = agent_result["cmdline_items"]
-                    elif "items" in agent_result:
-                         items = agent_result["items"]
+                    # HuntQueriesExtract has special dual structure (EDR queries + SIGMA rules)
+                    if agent_name == "HuntQueriesExtract":
+                        # Extract both EDR queries and SIGMA rules
+                        edr_queries = agent_result.get("queries", [])
+                        sigma_rules = agent_result.get("sigma_rules", [])
+                        query_count = agent_result.get("query_count", len(edr_queries))
+                        sigma_count = agent_result.get("sigma_count", len(sigma_rules))
+                        
+                        # Normalize field names for UI compatibility
+                        # LLM may return: platform, query_text, source_context
+                        # UI expects: type, query, context
+                        normalized_edr_queries = []
+                        for q in edr_queries:
+                            if isinstance(q, dict):
+                                normalized_q = {
+                                    "query": q.get("query") or q.get("query_text", ""),
+                                    "type": q.get("type") or q.get("platform", "unknown"),
+                                    "context": q.get("context") or q.get("source_context", "")
+                                }
+                                normalized_edr_queries.append(normalized_q)
+                            else:
+                                normalized_edr_queries.append(q)
+                        
+                        normalized_sigma_rules = []
+                        for r in sigma_rules:
+                            if isinstance(r, dict):
+                                normalized_r = {
+                                    "title": r.get("title", ""),
+                                    "id": r.get("id", ""),
+                                    "yaml": r.get("yaml", ""),
+                                    "context": r.get("context") or r.get("source_context", "")
+                                }
+                                normalized_sigma_rules.append(normalized_r)
+                            else:
+                                normalized_sigma_rules.append(r)
+                        
+                        # Use normalized versions
+                        edr_queries = normalized_edr_queries
+                        sigma_rules = normalized_sigma_rules
+                        
+                        # Combine all items for observables aggregation
+                        all_items = edr_queries + sigma_rules
+                        
+                        subresults[result_key] = {
+                            "items": all_items,
+                            "count": len(all_items),
+                            "query_count": query_count,
+                            "queries": edr_queries,
+                            "sigma_count": sigma_count,
+                            "sigma_rules": sigma_rules,
+                            "raw": agent_result
+                        }
+                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} EDR queries, {sigma_count} SIGMA rules")
                     else:
-                        # Fallback: find first list
-                        for v in agent_result.values():
-                            if isinstance(v, list):
-                                items = v
-                                break
-                    
-                    subresults[result_key] = {
-                        "items": items,
-                        "count": len(items),
-                        "raw": agent_result
-                    }
-                    logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
+                        # Standard extraction agents
+                        # Try to find the specific list for this agent
+                        if result_key in agent_result:
+                            items = agent_result[result_key]
+                        elif agent_name == "CmdlineExtract" and "cmdline_items" in agent_result:
+                            # CmdlineExtract uses cmdline_items field
+                            items = agent_result["cmdline_items"]
+                        elif "items" in agent_result:
+                             items = agent_result["items"]
+                        else:
+                            # Fallback: find first list
+                            for v in agent_result.values():
+                                if isinstance(v, list):
+                                    items = v
+                                    break
+                        
+                        subresults[result_key] = {
+                            "items": items,
+                            "count": len(items),
+                            "raw": agent_result
+                        }
+                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
 
                     # Make cmdline items available on state for downstream consumers (e.g., SIGMA)
                     if agent_name == "CmdlineExtract":

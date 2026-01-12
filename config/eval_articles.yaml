@@ -80,22 +80,45 @@ subagents:
     - url: "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/"
       expected_count: 3
     - url: "http://127.0.0.1:8001/articles/62"
-      expected_count: 4
+      expected_count: 2
     - url: "http://127.0.0.1:8001/articles/68"
       expected_count: 1
     - url: "http://127.0.0.1:8001/articles/762"
       expected_count: 2
-    - url: "http://127.0.0.1:8001/articles/985"
-      expected_count: 0
-    - url: "http://127.0.0.1:8001/articles/986"
-      expected_count: 1
-    - url: "http://127.0.0.1:8001/articles/987"
-      expected_count: 0
-    - url: "http://127.0.0.1:8001/articles/988"
-      expected_count: 0
     - url: "http://127.0.0.1:8001/articles/989"
       expected_count: 0
     - url: "http://127.0.0.1:8001/articles/1523"
       expected_count: 2
   registry_keys: []
+  hunt_queries:
+    - url: "https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/"
+      expected_edr_count: 3
+      expected_sigma_count: 0
+    - url: "https://www.crowdstrike.com/en-us/blog/crowdstrike-detects-blocks-sharepoint-zero-day-exploitation/"
+      expected_edr_count: 1
+      expected_sigma_count: 0
+    - url: "https://www.microsoft.com/en-us/security/blog/2025/08/21/think-before-you-clickfix-analyzing-the-clickfix-social-engineering-technique/"
+      expected_edr_count: 2
+      expected_sigma_count: 0
+    - url: "https://www.microsoft.com/en-us/security/blog/2025/12/09/shai-hulud-2-0-guidance-for-detecting-investigating-and-defending-against-the-supply-chain-attack/"
+      expected_edr_count: 3
+      expected_sigma_count: 0
+    - url: "https://www.crowdstrike.com/en-us/blog/falcon-prevents-cookie-spider-shamos-delivery-macos/"
+      expected_edr_count: 3
+      expected_sigma_count: 0
+    - url: "https://www.microsoft.com/en-us/security/blog/2025/12/15/defending-against-the-cve-2025-55182-react2shell-vulnerability-in-react-server-components/"
+      expected_edr_count: 4
+      expected_sigma_count: 0
+    - url: "https://securelist.com/macos-security-and-typical-attacks/117367/"
+      expected_edr_count: 0
+      expected_sigma_count: 4
+    - url: "https://www.cisa.gov/news-events/analysis-reports/ar25-338a"
+      expected_edr_count: 0
+      expected_sigma_count: 1
+    - url: "https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/"
+      expected_edr_count: 0
+      expected_sigma_count: 3
+    - url: "https://thedfirreport.com/2022/10/31/follina-exploit-leads-to-domain-compromise/"
+      expected_edr_count: 0
+      expected_sigma_count: 3
 

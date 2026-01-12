@@ -662,7 +662,109 @@ def _has_compression_failure_indicators(content: str) -> bool:
 
 # Hunt Scoring keyword sets (formerly WINDOWS_MALWARE_KEYWORDS)
 HUNT_SCORING_KEYWORDS = {
-    "perfect_discriminators": [],
+    "perfect_discriminators": [
+        # Original perfect discriminators (Windows malware/threat hunting)
+        "rundll32.exe",
+        "comspec",
+        "msiexec.exe",
+        "wmic.exe",
+        "iex",
+        "findstr.exe",
+        "hklm",
+        "appdata",
+        "programdata",
+        "powershell.exe",
+        "wbem",
+        ".lnk",
+        "D:\\",
+        "C:\\",
+        ".iso",
+        "<Command>",
+        "MZ",
+        "svchost.exe",
+        "-accepteula",
+        "lsass.exe",
+        "WINDIR",
+        "wintmp",
+        "\\temp\\",
+        "\\pipe\\",
+        "%WINDIR%",
+        "%wintmp%",
+        "FromBase64String",
+        "MemoryStream",
+        "New-Object",
+        "DownloadString",
+        "Defender query",
+        "sptth",
+        # Promoted from LOLBAS (100% avg scores in high-scoring articles)
+        "reg.exe",
+        "winlogon.exe",
+        "conhost.exe",
+        "wscript.exe",
+        "services.exe",
+        "fodhelper",
+        # Promoted from Good discriminators (100% avg scores)
+        "EventCode",
+        "parent-child",
+        "KQL",
+        "2>&1",
+        # PowerShell attack techniques (100% chosen rate)
+        "invoke-mimikatz",
+        "hashdump",
+        "invoke-shellcode",
+        "invoke-eternalblue",
+        # KQL Advanced Hunting perfect discriminators (100% precision)
+        "DeviceNetworkEvents",
+        "DeviceProcessEvents",
+        "DeviceEvents",
+        "EmailEvents",
+        "EmailUrlInfo",
+        "EmailAttachmentInfo",
+        "UrlClickEvents",
+        "AlertInfo",
+        "InitiatingProcessCommandLine",
+        "ParentProcessName",
+        "ProcessCommandLine",
+        # Falcon EDR (CrowdStrike FQL) perfect discriminators (100% precision)
+        "ProcessRollup2",
+        "ProcessCreate",
+        "event_simpleName",
+        "ImageFileName",
+        "ParentBaseFileName",
+        "RemoteAddressIP4",
+        "SHA256HashData",
+        "ScriptContent",
+        "FileWritten",
+        "FileWrite",
+        "FileCreate",
+        "FileDelete",
+        "ScriptControlScanTelemetry",
+        "CommandHistory",
+        "RegistryOperation",
+        "NetworkConnectIP4",
+        "NetworkConnectIP6",
+        "groupBy",
+        # SentinelOne Deep Visibility perfect discriminators
+        "EventType = Process",
+        "EventType = File",
+        "EventType = Registry",
+        "EventType = Network",
+        "EventType = Module",
+        "EventType = Driver",
+        "EventType = PowerShell",
+        "EventType = WMI",
+        "EventType = ScheduledTask",
+        # Splunk ES / CIM perfect discriminators
+        "Endpoint.Processes",
+        "Endpoint.Registry",
+        "Endpoint.Filesystem",
+        # Elastic Security / Elastic Defend perfect discriminators
+        "logs-endpoint.events.process",
+        "logs-endpoint.events.file",
+        "logs-endpoint.events.registry",
+        "logs-endpoint.events.library",
+        "logs-endpoint.events.api",
+    ],
     "good_discriminators": [
         "temp",
         "==",
@@ -755,12 +857,14 @@ HUNT_SCORING_KEYWORDS = {
         "logsource:",
         "get-",
         "selection:",
-        "DeviceProcessEvents",
         "hxxps",
         "taskkill.exe",
         "detection:",
         "DeviceFileEvents",
         "child",
+        # EDR query indicators (good discriminators)
+        "Network_Traffic",
+        "ParentCommandLine",
     ],
     "intelligence_indicators": [
         # Real threat activity - specific indicators
@@ -1186,25 +1290,27 @@ class ThreatHuntingScorer:
         # Good Discriminators: 5 points max (supporting technical content)
         good_score = geometric_score(len(good_matches), 5.0)
 
-        # Negative Penalties: More aggressive penalty for educational/marketing content
+        # Negative Penalties: Reduced penalty for educational/marketing content
         # Use linear penalty that scales with number of matches
-        # Formula: penalty = min(25.0, matches * 12.0) for balanced impact
-        # This ensures articles with marketing/educational content are properly penalized
+        # Formula: penalty = min(12.5, matches * 6.0) for balanced impact
+        # This ensures articles with marketing/educational content are penalized
         # without completely wiping out articles with good technical content
-        negative_penalty = min(25.0, len(negative_matches) * 12.0) if negative_matches else 0.0
+        # Reduced by 50% from original (was 12.0 per match, cap 25.0)
+        negative_penalty = min(12.5, len(negative_matches) * 6.0) if negative_matches else 0.0
 
         # Calculate base score (positive contributions)
         base_score = perfect_score + good_score + lolbas_score + intelligence_score
 
-        # Apply negative penalty more aggressively
+        # Apply negative penalty proportionally
         # If there are negative indicators, reduce score proportionally
         # This ensures high-scoring articles with marketing content get penalized appropriately
         if negative_matches:
             # Apply percentage reduction for stronger impact on high-scoring articles
-            # Percentage reduction: reduce by 12% per negative match (capped at 40% reduction)
+            # Percentage reduction: reduce by 6% per negative match (capped at 20% reduction)
+            # Reduced by 50% from original (was 12% per match, cap 40%)
             # This prevents articles with good technical content but some marketing language
-            # from being completely wiped out, while still penalizing heavily
-            percentage_reduction = min(0.4, len(negative_matches) * 0.12)
+            # from being completely wiped out, while still penalizing appropriately
+            percentage_reduction = min(0.2, len(negative_matches) * 0.06)
             base_score = base_score * (1.0 - percentage_reduction)
         
         # Subtract flat penalty

@@ -224,7 +224,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
             if final_agent_prompts:
-                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "CmdLineQA", "ProcTreeQA"]
+                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA"]
                 for agent_name, prompt_data in final_agent_prompts.items():
                     if agent_name in extraction_agents and isinstance(prompt_data, dict):
                         prompt_str = prompt_data.get("prompt")
@@ -393,7 +393,8 @@ async def get_agent_prompts(request: Request):
             # Sub-agents list for model assignment
             sub_agents = [
                 "CmdlineExtract", "CmdLineQA",
-                "ProcTreeExtract", "ProcTreeQA"
+                "ProcTreeExtract", "ProcTreeQA",
+                "HuntQueriesExtract", "HuntQueriesQA"
             ]
             
             # Deleted subagents that should be filtered out
@@ -520,7 +521,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             
             # Validate JSON format for extraction agents
             if prompt_update.prompt is not None:
-                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "CmdLineQA", "ProcTreeQA"]
+                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA"]
                 if prompt_update.agent_name in extraction_agents:
                     try:
                         json.loads(prompt_update.prompt)
