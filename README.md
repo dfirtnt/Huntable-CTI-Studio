@@ -9,19 +9,11 @@ This app is a suite of utilities for processing open source intel. It is for rea
 
 # Huntable CTI Studio
 
-**CTIScraper v4.0.0 "Kepler"** — Enterprise threat intelligence platform that automates collection, analysis, and detection rule generation from 33+ security sources.
+**CTIScraper v5.0.0 "Ganymede"** -  A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 33+ OSINT sources.
 
 ## Purpose
 
-Aggregates cybersecurity threat intelligence from RSS feeds and web scraping, uses AI to score relevance and extract observables, generates SIGMA detection rules, and prevents duplicates through semantic similarity matching against 3,000+ community rules.
-
-## Intent
-
-Transform raw threat intelligence into actionable detection rules through an automated pipeline that:
-- **Collects** threat intelligence from multiple sources
-- **Analyzes** content with LLM-powered scoring and extraction
-- **Generates** validated SIGMA detection rules
-- **Matches** against existing rules to prevent duplicates and classify coverage
+Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; uses regex and AI to score relevance and extract observables; generates SIGMA detection rules, and prevents duplicates through semantic cosign similarity matching against 3,000+ community rules.
 
 ## Approach
 
