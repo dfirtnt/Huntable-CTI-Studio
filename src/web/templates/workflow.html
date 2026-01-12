@@ -1014,15 +1014,15 @@
                         <!-- SIGMA QA Agent Prompt -->
                         <div id="sigma-agent-qa-prompt-container" class="hidden"></div>
                         
-                        <!-- SIGMA Fallback Toggle -->
+                        <!-- SIGMA Use Full Article Content Toggle -->
                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        SIGMA Fallback to Article Content
+                                        Use Full Article Content (Minus Junk)
                                     </label>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        If enabled, SIGMA generation will use filtered article content when extraction agents find no observables. If disabled, SIGMA only generates from extracted observables.
+                                        If enabled, SIGMA generation will use filtered article content (junk-filtered) instead of extracted observables summary. If disabled, SIGMA generates from extracted observables only.
                                     </p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1073,7 +1073,7 @@
                                onchange="loadPreset(event)">
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                        Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, sigma fallback settings, and agent prompts.
+                        Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, sigma content source settings, and agent prompts.
                     </p>
                 </div>
 
@@ -3052,6 +3052,17 @@ function parsePromptParts(rawPrompt) {
                     // Legacy simple format
                     system = parsed.system || '';
                     user = parsed.user || parsed.prompt || '';
+                } else if (parsed.role || parsed.objective) {
+                    // JSON without user_template/system keys – treat role as system and show entire JSON as user
+                    system = parsed.role || '';
+                    user = parsed.user_template || parsed.prompt || rawPrompt;
+                    templateData = {
+                        role: parsed.role || '',
+                        user_template: parsed.user_template || parsed.prompt || '',
+                        task: parsed.task || parsed.objective || '',
+                        json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
+                        instructions: parsed.instructions || ''
+                    };
                 } else {
                     // Fallback: treat as user content
                     user = rawPrompt;
@@ -5057,6 +5068,12 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         
         // Build update payload with only fields that can be updated
         // CRITICAL: Always send agent_models if RankAgent is set, even if it's the only field
+        // Always include the latest prompts so config auto-saves don't revert freshly saved prompt versions
+        const promptsSource = {
+            ...(currentConfig?.agent_prompts || {}),
+            ...(agentPrompts || {})
+        };
+        
         const updateData = {
             min_hunt_score: currentConfig.min_hunt_score,
             ranking_threshold: currentConfig.ranking_threshold,
@@ -5064,7 +5081,8 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             junk_filter_threshold: currentConfig.junk_filter_threshold,
             description: currentConfig.description || null,
             agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
-            qa_enabled: currentConfig.qa_enabled || null
+            qa_enabled: currentConfig.qa_enabled || null,
+            agent_prompts: promptsSource
         };
         
         console.log('Sending update payload:', JSON.stringify(updateData, null, 2));
@@ -9851,7 +9869,6 @@ function showHelp(fieldName) {
                           <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong understanding of process relationships.</p>`
-        },
         }
     };
     

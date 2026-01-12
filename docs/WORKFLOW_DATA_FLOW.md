@@ -134,32 +134,31 @@ db_session.commit()
 
 ### Step 4: SIGMA Agent Consumption
 
-The SIGMA generation agent reads from memory (not database), with fallback logic:
+The SIGMA generation agent reads from memory (not database), with content selection logic:
 
 ```python
-# Lines 836-856 in agentic_workflow.py
+# Lines 1676-1708 in agentic_workflow.py
 extraction_result = state.get('extraction_result', {})  # From memory
 content_to_use = None
 
-if extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
-    # Prefer extracted content if we have meaningful huntables
+# If enabled, use filtered article content (minus junk) regardless of extraction results
+if sigma_fallback_enabled:
+    content_to_use = filtered_content
+elif extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
+    # Use extracted content if we have meaningful huntables and toggle is disabled
     extracted_content = extraction_result.get('content', '')
     if extracted_content and len(extracted_content) > 100:
         content_to_use = extracted_content
 
-# Fallback logic
+# If no content available, skip SIGMA generation
 if content_to_use is None:
-    if sigma_fallback_enabled:
-        content_to_use = filtered_content  # Use original filtered content
-    else:
-        # Skip SIGMA generation if fallback disabled and no extraction results
-        return {'sigma_rules': [], 'termination_reason': 'no_sigma_rules'}
+    return {'sigma_rules': [], 'termination_reason': 'no_sigma_rules'}
 ```
 
 **Content Selection Priority:**
-1. **Extracted content** (if `discrete_huntables_count > 0` and content length > 100)
-2. **Filtered content** (if `sigma_fallback_enabled = True`)
-3. **Skip SIGMA generation** (if fallback disabled and no extraction results)
+1. **Filtered article content** (if `sigma_fallback_enabled = True`) - always used when enabled
+2. **Extracted content** (if `discrete_huntables_count > 0` and content length > 100, and toggle is disabled)
+3. **Skip SIGMA generation** (if toggle disabled and no extraction results)
 
 **Why memory?**
 - Faster access (no database query)

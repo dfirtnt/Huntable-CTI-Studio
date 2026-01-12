@@ -366,16 +366,9 @@ class SigmaGenerationService:
     ) -> str:
         raw_model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider, self.llm_service.lmstudio_model)
         
-        # Normalize model name for LMStudio (remove prefix and date suffix)
-        # e.g., "qwen/qwen3-4b-2507" -> "qwen3-4b"
+        # Don't normalize here - let request_chat handle normalization and retry logic
+        # This allows the retry logic to try with the full model name (with prefix) if needed
         model_name = raw_model_name
-        if provider == "lmstudio" and model_name:
-            # Remove common prefixes (e.g., "qwen/", "mistralai/")
-            if "/" in model_name:
-                model_name = model_name.split("/")[-1]
-            # Remove date suffixes (e.g., "-2507", "-2024")
-            import re
-            model_name = re.sub(r'-\d{4,8}$', '', model_name)
 
         messages = [
             {
