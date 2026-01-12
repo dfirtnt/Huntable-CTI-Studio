@@ -367,7 +367,7 @@ async def api_hunt_keyword_performance():
                     keyword,
                     COUNT(*) as match_count
                 FROM articles,
-                     jsonb_array_elements(article_metadata::jsonb->'perfect_keyword_matches') as keyword
+                     jsonb_array_elements_text(article_metadata::jsonb->'perfect_keyword_matches') as keyword
                 WHERE article_metadata->'perfect_keyword_matches' IS NOT NULL
                 GROUP BY keyword
                 ORDER BY match_count DESC
@@ -397,7 +397,7 @@ async def api_hunt_keyword_analysis():
             analysis_query = text("""
                 SELECT 
                     'perfect' as category,
-                    keyword::text,
+                    keyword,
                     COUNT(*) as match_count,
                     ROUND(AVG((article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score_impact,
                     CASE 
@@ -407,9 +407,9 @@ async def api_hunt_keyword_analysis():
                         ELSE 65
                     END as success_rate
                 FROM articles,
-                     jsonb_array_elements(article_metadata::jsonb->'perfect_keyword_matches') as keyword
+                     jsonb_array_elements_text(article_metadata::jsonb->'perfect_keyword_matches') as keyword
                 WHERE article_metadata::jsonb->'perfect_keyword_matches' IS NOT NULL
-                GROUP BY keyword::text
+                GROUP BY keyword
                 ORDER BY match_count DESC
                 LIMIT 20
             """)
@@ -504,33 +504,49 @@ async def api_hunt_quality_distribution():
         from sqlalchemy import text
 
         async with async_db_manager.get_session() as session:
-            # Get quality distribution
+            # Get quality distribution - always show all ranges even if empty
             quality_query = text("""
+                WITH all_ranges AS (
+                    SELECT 'Unscored' as quality_level, 1 as sort_order
+                    UNION ALL SELECT 'Score 0', 2
+                    UNION ALL SELECT 'Score 1-25', 3
+                    UNION ALL SELECT 'Score 26-50', 4
+                    UNION ALL SELECT 'Score 51-75', 5
+                    UNION ALL SELECT 'Score 76-99', 6
+                    UNION ALL SELECT 'Score 99-100', 7
+                ),
+                article_counts AS (
+                    SELECT 
+                        CASE 
+                            WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
+                            WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN 'Score 26-50'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN 'Score 51-75'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'Score 76-99'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Score 99-100'
+                            ELSE 'Unknown'
+                        END as quality_level,
+                        COUNT(*) as count
+                    FROM articles 
+                    GROUP BY 
+                        CASE 
+                            WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
+                            WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN 'Score 26-50'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN 'Score 51-75'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'Score 76-99'
+                            WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Score 99-100'
+                            ELSE 'Unknown'
+                        END
+                )
                 SELECT 
-                    CASE 
-                        WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
-                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN 'Score 26-50'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN 'Score 51-75'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'Score 76-99'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Score 99-100'
-                        ELSE 'Unknown'
-                    END as quality_level,
-                    COUNT(*) as count
-                FROM articles 
-                GROUP BY 
-                    CASE 
-                        WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
-                        WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 25.1 AND 50 THEN 'Score 26-50'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 50.1 AND 75 THEN 'Score 51-75'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 75.1 AND 99 THEN 'Score 76-99'
-                        WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 99.1 AND 100 THEN 'Score 99-100'
-                        ELSE 'Unknown'
-                    END
-                ORDER BY quality_level
+                    ar.quality_level,
+                    COALESCE(ac.count, 0) as count
+                FROM all_ranges ar
+                LEFT JOIN article_counts ac ON ar.quality_level = ac.quality_level
+                ORDER BY ar.sort_order
             """)
 
             result = await session.execute(quality_query)

@@ -232,7 +232,7 @@ class LLMService:
             return self.top_p_extract
         elif agent_name == "SigmaAgent":
             return self.top_p_sigma
-        elif agent_name in ["CmdlineExtract", "ProcTreeExtract"]:
+        elif agent_name in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]:
             # Sub-agents fall back to ExtractAgent top_p
             return self.top_p_extract
         

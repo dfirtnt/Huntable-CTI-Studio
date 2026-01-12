@@ -57,7 +57,9 @@ def resolve_article_id_from_url(url: str, db_session) -> int:
 
 
 def update_proctree_expected_counts():
-    """Update all process_lineage expected counts from YAML config."""
+    """Update all process_lineage expected counts from YAML config.
+    Also deletes eval records for articles no longer in the config.
+    """
     config_path = project_root / "config" / "eval_articles.yaml"
     
     if not config_path.exists():
@@ -69,16 +71,29 @@ def update_proctree_expected_counts():
     
     process_lineage_articles = config.get("subagents", {}).get("process_lineage", [])
     
-    if not process_lineage_articles:
-        logger.warning("No process_lineage articles found in config")
-        return 0
-    
     db_manager = DatabaseManager()
     db_session = db_manager.get_session()
     
     total_updated = 0
+    total_deleted = 0
     
     try:
+        # Build set of URLs from config
+        config_urls = set()
+        for article_def in process_lineage_articles:
+            url = article_def.get("url")
+            if url:
+                config_urls.add(url)
+        
+        # Get all existing eval records for process_lineage
+        all_eval_records = db_session.query(SubagentEvaluationTable).filter(
+            SubagentEvaluationTable.subagent_name == "process_lineage"
+        ).all()
+        
+        # Track which records we've updated
+        updated_record_ids = set()
+        
+        # Update records that are in config
         for article_def in process_lineage_articles:
             url = article_def.get("url")
             expected_count = article_def.get("expected_count")
@@ -132,11 +147,21 @@ def update_proctree_expected_counts():
                         f"(actual_count not set yet)"
                     )
                 
+                updated_record_ids.add(record.id)
                 total_updated += 1
+        
+        # Delete records that are no longer in config
+        for record in all_eval_records:
+            if record.id not in updated_record_ids and record.article_url not in config_urls:
+                logger.info(f"Deleting eval record {record.id} for article {record.article_id} (URL: {record.article_url}) - no longer in config")
+                db_session.delete(record)
+                total_deleted += 1
         
         db_session.commit()
         logger.info(f"✅ Updated {total_updated} SubagentEvaluation record(s) for process_lineage")
-        return total_updated
+        if total_deleted > 0:
+            logger.info(f"✅ Deleted {total_deleted} SubagentEvaluation record(s) no longer in config")
+        return total_updated + total_deleted
         
     except Exception as e:
         logger.error(f"Error updating expected counts: {e}", exc_info=True)

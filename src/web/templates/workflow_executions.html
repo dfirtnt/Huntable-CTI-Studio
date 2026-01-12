@@ -395,7 +395,8 @@ async function viewExecution(executionId) {
                                 // Sub-agents in workflow execution order
                                 const subAgents = [
                                     { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
-                                    { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 2 }
+                                    { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 2 },
+                                    { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 }
                                 ];
                                 
                                 // Get QA results from error_log if available

@@ -5,6 +5,7 @@ from typing import Any, Optional, Set, Tuple
 AGENT_TO_SUBAGENT = {
     "cmdlineextract": "cmdline",
     "proctreeextract": "process_lineage",
+    "huntqueriesextract": "hunt_queries",
 }
 
 # Reverse map from canonical alias to agent name (CamelCase)
@@ -20,6 +21,16 @@ SUBAGENT_CANONICAL = {
     "processlineage": "process_lineage",
     "process-lineage": "process_lineage",
     "proctreeextract": "process_lineage",
+    "hunt_queries": "hunt_queries",
+    "huntqueries": "hunt_queries",
+    "hunt-queries": "hunt_queries",
+    "huntqueriesextract": "hunt_queries",
+    "hunt_queries_edr": "hunt_queries_edr",
+    "huntqueriesedr": "hunt_queries_edr",
+    "hunt-queries-edr": "hunt_queries_edr",
+    "hunt_queries_sigma": "hunt_queries_sigma",
+    "huntqueriessigma": "hunt_queries_sigma",
+    "hunt-queries-sigma": "hunt_queries_sigma",
 }
 
 __all__ = [
