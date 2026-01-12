@@ -806,13 +806,21 @@ class LegacyScraper:
                 logger.warning(f"Missing title or content for {source.name}")
                 return []
             
+            # Generate required fields
+            content_hash = ContentCleaner.calculate_content_hash(title, content)
+            word_count = len(content.split()) if content else 0
+            collected_at = datetime.now()
+            
             article = ArticleCreate(
                 source_id=source.id,
                 url=source.url,
                 canonical_url=source.url,
                 title=title,
                 published_at=datetime.now(),  # No date available
-                content=content
+                content=content,
+                content_hash=content_hash,
+                word_count=word_count,
+                collected_at=collected_at
             )
             
             return [article]

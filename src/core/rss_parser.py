@@ -323,14 +323,22 @@ class RSSParser:
         """
         # Check if RSS-only mode is enabled
         rss_only = False
-        if hasattr(source, "config"):
-            # Try to get from Pydantic model first
-            rss_only = getattr(source.config, "rss_only", False)
-            # If not found, try to get from raw dict
-            if not rss_only and hasattr(source.config, "model_dump"):
+        if hasattr(source, "config") and source.config:
+            if isinstance(source.config, dict):
+                # Config is a dict (from database)
+                rss_only = source.config.get("rss_only", False)
+                # Handle string "true" from JSON
+                if isinstance(rss_only, str):
+                    rss_only = rss_only.lower() == "true"
+            elif hasattr(source.config, "rss_only"):
+                # Config is a Pydantic model with attribute
+                rss_only = getattr(source.config, "rss_only", False)
+            elif hasattr(source.config, "model_dump"):
+                # Config is a Pydantic model with model_dump method
                 config_dict = source.config.model_dump()
                 rss_only = config_dict.get("rss_only", False)
-            elif not rss_only and hasattr(source.config, "dict"):
+            elif hasattr(source.config, "dict"):
+                # Config is a Pydantic model with dict method
                 config_dict = source.config.dict()
                 rss_only = config_dict.get("rss_only", False)
 
@@ -385,25 +393,24 @@ class RSSParser:
         # Get source-specific minimum content length
         source_min_length = 2000  # Default
         if hasattr(source, "config") and source.config:
-            if hasattr(source.config, "min_content_length"):
+            if isinstance(source.config, dict):
+                # Config is a dict (from database)
+                source_min_length = source.config.get("min_content_length", 2000) or 2000
+            elif hasattr(source.config, "min_content_length"):
+                # Config is a Pydantic model with attribute
                 source_min_length = source.config.min_content_length or 2000
             elif hasattr(source.config, "model_dump"):
+                # Config is a Pydantic model with model_dump method
                 config_dict = source.config.model_dump()
-                source_min_length = config_dict.get("min_content_length") or 2000
+                source_min_length = config_dict.get("min_content_length", 2000) or 2000
             elif hasattr(source.config, "dict"):
+                # Config is a Pydantic model with dict method
                 config_dict = source.config.dict()
-                source_min_length = config_dict.get("min_content_length") or 2000
+                source_min_length = config_dict.get("min_content_length", 2000) or 2000
 
         # Ensure source_min_length is never None
         if source_min_length is None:
             source_min_length = 2000
-
-        if (
-            content
-            and len(ContentCleaner.html_to_text(content).strip()) >= source_min_length
-        ):
-            # We have substantial content from the feed (meets source requirements)
-            return ContentCleaner.clean_html(content)
 
         # If RSS-only mode is enabled, use RSS content regardless of length
         if rss_only:
@@ -418,7 +425,44 @@ class RSSParser:
                 )
                 return None
 
-        # Check if RSS content is too short (< 1000 chars) and try basic scraping
+        # If no RSS content at all, try modern scraping directly
+        if not content or len(ContentCleaner.html_to_text(content).strip() if content else "") == 0:
+            logger.info(
+                f"No RSS content found for {url}, trying modern scraping"
+            )
+            try:
+                modern_content = await self._extract_with_modern_scraping(url, source)
+                if modern_content:
+                    modern_text_length = len(
+                        ContentCleaner.html_to_text(modern_content).strip()
+                    )
+                    if modern_text_length >= source_min_length:
+                        logger.info(
+                            f"Modern scraping successful for empty RSS: {modern_text_length} chars"
+                        )
+                        entry._used_modern_fallback = True
+                        return modern_content
+                    else:
+                        logger.info(
+                            f"Modern scraping didn't meet minimum length: {modern_text_length} chars (need >= {source_min_length})"
+                        )
+                else:
+                    logger.info(f"Modern scraping failed for {url}")
+            except Exception as e:
+                logger.warning(f"Modern scraping failed for {url}: {e}")
+            
+            # If scraping failed and no RSS content, reject
+            return None
+
+        # Check if we have substantial content from RSS
+        if (
+            content
+            and len(ContentCleaner.html_to_text(content).strip()) >= source_min_length
+        ):
+            # We have substantial content from the feed (meets source requirements)
+            return ContentCleaner.clean_html(content)
+
+        # Check if RSS content is too short (< source_min_length) and try basic scraping
         if content:
             cleaned_rss_content = ContentCleaner.clean_html(content)
             rss_text_length = len(
@@ -466,14 +510,6 @@ class RSSParser:
                     f"Rejecting article with insufficient content: {rss_text_length} chars for {url}"
                 )
                 return None
-
-        # Special handling for Red Canary - avoid compressed content issues
-        if "redcanary.com" in url.lower():
-            logger.info(
-                f"Red Canary URL detected, skipping due to compression issues: {url}"
-            )
-            # Return None to indicate extraction failure - this article will be rejected
-            return None
 
         # Special handling for The Hacker News - try basic scraping first, fallback to RSS
         if "thehackernews.com" in url.lower():
@@ -663,6 +699,12 @@ class RSSParser:
 
             # Try comprehensive content selectors (prioritized by likelihood)
             content_selectors = [
+                # CrowdStrike specific (prioritized)
+                '[class*="blog"]',
+                '[class*="post-content"]',
+                '[class*="article-content"]',
+                '[class*="blog-post"]',
+                '[class*="post-body"]',
                 # The Hacker News specific (prioritized)
                 ".post-body",
                 ".entry-content",
@@ -709,7 +751,16 @@ class RSSParser:
                         logger.info(
                             f"Successful modern content extraction using selector '{selector}' for {url}"
                         )
-                        return ContentCleaner.clean_html(extracted_content)
+                        # Use basic_html_clean to preserve HTML structure instead of enhanced_html_clean which returns text
+                        cleaned_content = ContentCleaner.basic_html_clean(extracted_content)
+                        
+                        # Special cleaning for CrowdStrike articles
+                        if "crowdstrike.com" in url.lower():
+                            cleaned_content = self._clean_crowdstrike_content(
+                                cleaned_content
+                            )
+                        
+                        return cleaned_content
 
             # Fallback: get body content
             body = soup.find("body")

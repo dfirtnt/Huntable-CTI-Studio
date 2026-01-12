@@ -3087,7 +3087,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         
         # Track truncation warnings
         sigma_content_truncation_warning = None
-            sigma_prompt_truncation_warning = None
+        sigma_prompt_truncation_warning = None
         sigma_response_truncation_warning = None
         
         # Close DB session
