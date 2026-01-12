@@ -129,6 +129,13 @@ def setup_periodic_tasks(sender, **kwargs):
         name="embed-new-articles-daily",
     )
 
+    # Sync SigmaHQ repository and update embeddings weekly on Sundays at 4 AM
+    sender.add_periodic_task(
+        crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
+        sync_sigma_rules.s(),
+        name="sync-sigma-rules-weekly",
+    )
+
     # Generate annotation embeddings weekly on Sundays at 4 AM
     # sender.add_periodic_task(
     #     crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
@@ -1136,6 +1143,63 @@ def collect_from_source(self, source_id: int):
         logger.error(f"Source collection task failed: {exc}")
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+
+
+@celery_app.task(bind=True, max_retries=2)
+def sync_sigma_rules(self, force_reindex=False):
+    """Sync SigmaHQ repository and update embeddings for all rules."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.sigma_sync_service import SigmaSyncService
+
+        logger.info("Starting SigmaHQ repository sync and embedding update...")
+
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        try:
+            sync_service = SigmaSyncService()
+
+            # Sync repository (clone or pull)
+            sync_result = sync_service.clone_or_pull_repository()
+
+            if not sync_result.get("success"):
+                error_msg = sync_result.get("error", "Unknown error")
+                logger.error(f"Sigma repository sync failed: {error_msg}")
+                return {
+                    "status": "error",
+                    "message": f"Repository sync failed: {error_msg}",
+                }
+
+            logger.info(f"Repository {sync_result.get('action', 'synced')} successfully")
+
+            # Index rules (this also generates embeddings)
+            indexed_count = sync_service.index_rules(session, force_reindex=force_reindex)
+
+            logger.info(
+                f"Sigma sync complete: {indexed_count} rules indexed with embeddings"
+            )
+
+            return {
+                "status": "success",
+                "action": sync_result.get("action"),
+                "rules_indexed": indexed_count,
+                "message": f"Successfully synced and indexed {indexed_count} Sigma rules with embeddings",
+            }
+
+        except Exception as e:
+            logger.error(f"Sigma sync task failed: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+            raise e
+        finally:
+            session.close()
+
+    except Exception as exc:
+        logger.error(f"Sigma sync task failed: {exc}")
+        # Retry with exponential backoff (longer delay for this resource-intensive task)
+        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries))
 
 
 if __name__ == "__main__":
