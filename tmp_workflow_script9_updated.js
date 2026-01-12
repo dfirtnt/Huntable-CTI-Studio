@@ -1,0 +1,9015 @@
+
+// Helper function to parse local timestamp
+function parseUTCDate(timestamp) {
+    if (!timestamp) return new Date();
+    
+    // If timestamp ends with 'Z', it's UTC - convert to local
+    if (timestamp.endsWith('Z')) {
+        return new Date(timestamp);
+    }
+    // If timestamp has timezone offset, parse and convert to local
+    if (timestamp.match(/[+-]\d{2}:\d{2}$/)) {
+        return new Date(timestamp);
+    }
+    // For ISO format without timezone (e.g., "2025-01-10T12:34:56"), 
+    // JavaScript's Date constructor treats this as local time when there's no timezone
+    // This is correct since backend now sends timestamps in local time
+    return new Date(timestamp);
+}
+
+// Tab Management
+let currentTab = 'config';
+
+// Executions data - declared early to avoid "before initialization" errors
+let executions = [];
+let totalExecutions = 0;
+let showObservableCounts = false;
+let debugMode = false;
+const observableCountColumns = [
+    { key: 'cmdline', label: 'CmdLine#' },
+    { key: 'process_lineage', label: 'ProcTree#' }
+];
+
+// Queue data - declared early to avoid "before initialization" errors
+let queue = [];
+
+// Hash normalization will happen in initializeTabs
+
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // Update URL hash
+    window.location.hash = tab;
+    
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Remove active state from all tabs
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('border-purple-500', 'text-purple-600', 'dark:text-purple-400');
+        btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-300');
+    });
+    
+    // Show selected tab content
+    const tabContent = document.getElementById(`tab-content-${tab}`);
+    if (!tabContent) {
+        console.error(`Tab content not found: tab-content-${tab}`);
+        return;
+    }
+    // Force remove hidden class and ensure visibility
+    tabContent.classList.remove('hidden');
+    tabContent.style.display = '';
+    // Double-check it's visible
+    if (tabContent.classList.contains('hidden')) {
+        tabContent.classList.remove('hidden');
+    }
+    
+    // Activate selected tab button
+    const activeBtn = document.getElementById(`tab-${tab}`);
+    if (!activeBtn) {
+        console.error(`Tab button not found: tab-${tab}`);
+        return;
+    }
+        activeBtn.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-300');
+    activeBtn.classList.add('border-purple-500', 'text-purple-600', 'dark:text-purple-400');
+    
+    // Load data for active tab (don't block tab display on errors)
+    try {
+    if (tab === 'config') {
+            loadConfig().catch(err => console.error('Error loading config:', err));
+    } else if (tab === 'executions') {
+            loadExecutions().catch(err => console.error('Error loading executions:', err));
+    } else if (tab === 'queue') {
+            loadQueue().catch(err => console.error('Error loading queue:', err));
+        }
+    } catch (error) {
+        console.error(`Error loading tab ${tab}:`, error);
+    }
+}
+
+// Configuration Functions
+let currentConfig = null;
+let agentPrompts = {};
+let agentModels = {};
+const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract'];
+let disabledExtractAgents = new Set();
+
+// Early global stub to avoid inline-handler errors before full script loads
+if (typeof window !== 'undefined' && typeof window.onAgentProviderChange !== 'function') {
+    window.onAgentProviderChange = function stubAgentProviderChange(agentPrefix) {
+        if (typeof window._onAgentProviderChangeImpl === 'function') {
+            return window._onAgentProviderChangeImpl(agentPrefix);
+        }
+        // no-op until main script finishes loading
+    };
+}
+
+// Early stub for global provider refresh to prevent ReferenceError before definition
+if (typeof window !== 'undefined' && typeof window.refreshAllProviderBlocks !== 'function') {
+    window.refreshAllProviderBlocks = function stubRefreshAllProviderBlocks() {
+        // no-op until main script defines real function
+    };
+}
+
+// #region agent log helper (disabled)
+function __dbgLog(hypothesisId, message, data) {
+    // Debug logging disabled - no-op to prevent network errors
+    // Original implementation attempted to send logs to http://127.0.0.1:7242/ingest
+}
+// #endregion
+
+// All available providers - will be filtered based on Settings
+const allProviderOptions = [
+    { value: 'lmstudio', label: 'LMStudio (Local)' },
+    { value: 'openai', label: 'OpenAI (Cloud)' },
+    { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
+];
+
+// Current enabled providers - updated from Settings
+let providerOptions = [...allProviderOptions];
+
+// Track enabled provider settings
+let enabledProviders = {
+    lmstudio: true,  // LMStudio always available (local)
+    openai: true,
+    anthropic: true
+};
+
+const providerDefaults = {
+    openai: 'gpt-4o-mini',
+    anthropic: 'claude-sonnet-4-5'
+};
+
+// Fetch enabled providers from Settings
+async function loadEnabledProviders() {
+    try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) {
+            console.warn('Failed to fetch settings, using all providers');
+            return;
+        }
+        const data = await response.json();
+        const settings = data.settings || {};
+        
+        // Map settings keys to provider names (API returns uppercase keys)
+        enabledProviders = {
+            lmstudio: settings.WORKFLOW_LMSTUDIO_ENABLED !== 'false',  // default to true
+            openai: settings.WORKFLOW_OPENAI_ENABLED === 'true',
+            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true'
+        };
+        
+        // Filter providerOptions based on enabled settings
+        providerOptions = allProviderOptions.filter(opt => enabledProviders[opt.value]);
+        
+        console.log('Enabled providers:', enabledProviders);
+        console.log('Filtered provider options:', providerOptions);
+        
+        // Refresh all provider dropdowns
+        refreshProviderDropdowns();
+    } catch (error) {
+        console.error('Error loading enabled providers:', error);
+    }
+}
+
+// Refresh all provider dropdowns with current enabled providers
+function refreshProviderDropdowns() {
+    // Update all hardcoded provider selects
+    const providerSelects = document.querySelectorAll('select[id$="-provider"]');
+    providerSelects.forEach(select => {
+        const currentValue = select.value;
+        const currentOptions = Array.from(select.options).map(opt => ({
+            value: opt.value,
+            selected: opt.selected
+        }));
+        
+        // Clear and repopulate options
+        select.innerHTML = '';
+        providerOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            // Preserve selection if still available
+            if (opt.value === currentValue) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        
+        // If current value is no longer available, select first option
+        if (currentValue && !providerOptions.find(opt => opt.value === currentValue)) {
+            if (select.options.length > 0) {
+                const newValue = select.options[0].value;
+                select.selectedIndex = 0;
+                // Only trigger change event if value actually changed
+                if (newValue !== currentValue) {
+                    select.dispatchEvent(new Event('change'));
+                }
+            }
+        } else if (currentValue && select.value !== currentValue) {
+            // Restore selection if it was preserved but not set correctly
+            select.value = currentValue;
+        }
+    });
+}
+
+// Allow-list style checks to keep provider dropdowns focused on valid models
+const providerModelGuards = {
+    openai: /^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo)/i,
+    anthropic: /^claude/i
+};
+
+function inferProviderFromModel(modelId) {
+    if (!modelId || typeof modelId !== 'string') return null;
+    const trimmed = modelId.trim();
+    if (!trimmed) return null;
+    if (providerModelGuards.openai && providerModelGuards.openai.test(trimmed)) return 'openai';
+    if (providerModelGuards.anthropic && providerModelGuards.anthropic.test(trimmed)) return 'anthropic';
+    return null;
+}
+
+function isModelAllowedForProvider(provider, modelId) {
+    if (!modelId) return false;
+    const guard = providerModelGuards[provider];
+    if (!guard) return true;
+    return guard.test(modelId.trim());
+}
+
+// Curated model catalogs for commercial providers - kept client-side for quick selection
+const defaultCommercialModelCatalog = {
+    openai: [
+        'gpt-4.1',
+        'gpt-4.1-mini',
+        'gpt-4.1-nano',
+        'gpt-4.1-turbo',
+        'gpt-4.1-realtime-preview',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'gpt-4o-realtime-preview-2024-12-17',
+        'gpt-4o-mini-tts',
+        'gpt-4o-mini-transcribe',
+        'o4',
+        'o4-mini',
+        'o3-mini',
+        'o3-mini-high',
+        'o3-mini-low',
+        'o1',
+        'o1-mini',
+        'o1-preview',
+        'o1-lite'
+    ],
+    anthropic: [
+        'claude-3.7-sonnet-latest',
+        'claude-3.7-sonnet-20250219',
+        'claude-3.7-haiku-latest',
+        'claude-3.7-haiku-20250219',
+        'claude-3.6-sonnet-20250108',
+        'claude-3.6-haiku-20250108',
+        'claude-3.5-sonnet-20241022',
+        'claude-3.5-haiku-20241022',
+        'claude-3.5-sonnet-latest',
+        'claude-3.5-haiku-latest',
+        'claude-3-opus-20240229',
+        'claude-3-sonnet-20240229',
+        'claude-3-haiku-20240307',
+        'claude-2.1',
+        'claude-2.0',
+        'claude-instant-1.2'
+    ]
+};
+function getCachedProviderCatalog() {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+        const cached = localStorage.getItem('providerModelCatalog');
+        if (!cached) return null;
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.data === 'object') {
+            return parsed.data;
+        }
+    } catch (error) {
+        console.warn('Failed to parse cached provider catalog', error);
+    }
+    return null;
+}
+
+function cacheProviderCatalog(catalog) {
+    if (!catalog || typeof localStorage === 'undefined') return;
+    try {
+        localStorage.setItem('providerModelCatalog', JSON.stringify({
+            data: catalog,
+            updatedAt: Date.now()
+        }));
+    } catch (error) {
+        console.warn('Failed to store provider catalog', error);
+    }
+}
+
+async function refreshCommercialModelCatalog() {
+    try {
+        const response = await fetch('/api/provider-model-catalog');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.catalog) {
+                commercialModelCatalog = data.catalog;
+                cacheProviderCatalog(data.catalog);
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to refresh provider model catalog', error);
+    }
+}
+
+const cachedProviderCatalog = getCachedProviderCatalog();
+let commercialModelCatalog = cachedProviderCatalog || window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+// If cached catalog is present but empty, fall back to server/default catalogs
+if (
+    !commercialModelCatalog ||
+    (Array.isArray(commercialModelCatalog.openai) && commercialModelCatalog.openai.length === 0 &&
+     Array.isArray(commercialModelCatalog.anthropic) && commercialModelCatalog.anthropic.length === 0)
+) {
+    commercialModelCatalog = window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+}
+
+// ============================================================================
+// UNIFIED AGENT CONFIGURATION SYSTEM
+// ============================================================================
+// Single source of truth for all agent provider/model configuration
+// Eliminates code duplication across main agents, sub-agents, and QA agents
+
+/**
+ * Agent configuration registry
+ * Defines all agents with their properties for unified handling
+ */
+const AGENT_CONFIG = {
+    // Main agents
+    rankagent: {
+        prefix: 'rankagent',
+        providerKey: 'RankAgent_provider',
+        modelKey: 'RankAgent',
+        temperatureKey: 'RankAgent_temperature',
+        topPKey: 'RankAgent_top_p',
+        name: 'RankAgent',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: false
+    },
+    extractagent: {
+        prefix: 'extractagent',
+        providerKey: 'ExtractAgent_provider',
+        modelKey: 'ExtractAgent',
+        temperatureKey: 'ExtractAgent_temperature',
+        topPKey: 'ExtractAgent_top_p',
+        name: 'ExtractAgent',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: true  // Used as fallback for sub-agents
+    },
+    sigmaagent: {
+        prefix: 'sigmaagent',
+        providerKey: 'SigmaAgent_provider',
+        modelKey: 'SigmaAgent',
+        temperatureKey: 'SigmaAgent_temperature',
+        topPKey: 'SigmaAgent_top_p',
+        name: 'SigmaAgent',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: false
+    },
+    'osdetectionagent-fallback': {
+        prefix: 'osdetectionagent-fallback',
+        providerKey: 'OSDetectionAgent_fallback_provider',
+        modelKey: 'OSDetectionAgent_fallback',
+        temperatureKey: null,
+        name: 'OSDetectionAgent_fallback',
+        isSubAgent: false,
+        isQA: false,
+        hasFallback: false
+    },
+    // Extract sub-agents
+    cmdlineextract: {
+        prefix: 'cmdlineextract',
+        providerKey: 'CmdlineExtract_provider',
+        modelKey: 'CmdlineExtract_model',
+        temperatureKey: 'CmdlineExtract_temperature',
+        topPKey: 'CmdlineExtract_top_p',
+        name: 'CmdlineExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    proctreeextract: {
+        prefix: 'proctreeextract',
+        providerKey: 'ProcTreeExtract_provider',
+        modelKey: 'ProcTreeExtract_model',
+        temperatureKey: 'ProcTreeExtract_temperature',
+        topPKey: 'ProcTreeExtract_top_p',
+        name: 'ProcTreeExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
+    // QA agents
+    rankqa: {
+        prefix: 'rankqa',
+        providerKey: 'RankAgentQA_provider',
+        modelKey: 'RankAgentQA',
+        temperatureKey: 'RankAgentQA_temperature',
+        topPKey: 'RankAgentQA_top_p',
+        name: 'RankAgentQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    cmdlineqa: {
+        prefix: 'cmdlineqa',
+        providerKey: 'CmdLineQA_provider',
+        modelKey: 'CmdLineQA',
+        temperatureKey: 'CmdLineQA_temperature',
+        topPKey: 'CmdLineQA_top_p',
+        name: 'CmdLineQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+    proctreeqa: {
+        prefix: 'proctreeqa',
+        providerKey: 'ProcTreeQA_provider',
+        modelKey: 'ProcTreeQA',
+        temperatureKey: 'ProcTreeQA_temperature',
+        topPKey: 'ProcTreeQA_top_p',
+        name: 'ProcTreeQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
+};
+
+/**
+ * Get agent configuration by prefix
+ */
+function getAgentConfig(agentPrefix) {
+    return AGENT_CONFIG[agentPrefix] || null;
+}
+
+/**
+ * Get all agent configs matching criteria
+ */
+function getAgentConfigs(filter = {}) {
+    return Object.values(AGENT_CONFIG).filter(config => {
+        if (filter.isSubAgent !== undefined && config.isSubAgent !== filter.isSubAgent) return false;
+        if (filter.isQA !== undefined && config.isQA !== filter.isQA) return false;
+        if (filter.hasFallback !== undefined && config.hasFallback !== filter.hasFallback) return false;
+        return true;
+    });
+}
+
+/**
+ * Unified function to get agent provider value from DOM
+ */
+function getAgentProvider(agentPrefix) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return 'lmstudio';
+    
+    const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+    return (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+}
+
+/**
+ * Unified function to get agent model value from DOM (respects provider)
+ */
+function getAgentModel(agentPrefix, provider = null) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return null;
+    
+    const actualProvider = provider || getAgentProvider(agentPrefix);
+    return getActiveAgentModelValue(agentPrefix, actualProvider);
+}
+
+/**
+ * Unified function to set agent provider value in DOM
+ */
+function setAgentProvider(agentPrefix, provider) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return false;
+    
+    const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+    if (providerSelect) {
+        providerSelect.value = provider;
+        // Trigger change event to update visibility
+        providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Unified function to set agent model value in DOM (respects provider)
+ */
+function setAgentModel(agentPrefix, model, provider = null) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return false;
+    
+    const actualProvider = provider || getAgentProvider(agentPrefix);
+    
+    if (actualProvider === 'lmstudio') {
+        const select = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+        if (select) {
+            select.value = model || '';
+            return true;
+        }
+    } else {
+        const input = document.getElementById(`${agentPrefix}-model-${actualProvider}`);
+        if (input) {
+            input.value = model || '';
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Unified function to collect all agent provider/model values for saving
+ */
+function collectAllAgentConfigs(models = null) {
+    const agentModelsData = models || agentModels || {};
+    const collected = {};
+    
+    Object.values(AGENT_CONFIG).forEach(config => {
+        // Get provider
+        const provider = getAgentProvider(config.prefix);
+        collected[config.providerKey] = provider;
+        
+        // Get model (respects provider)
+        const model = getAgentModel(config.prefix, provider);
+        // Always include model key, even if empty string (to clear fallback settings)
+        // Empty string means "use fallback", null/undefined means "not set" (skip it)
+        if (model !== null && model !== undefined) {
+            collected[config.modelKey] = model;
+        } else {
+            // Log if model couldn't be read (for debugging)
+            console.warn(`collectAllAgentConfigs: Could not read model for ${config.prefix} (provider: ${provider})`);
+        }
+        
+        // Get temperature if applicable
+        if (config.temperatureKey) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput) {
+                const tempValue = parseFloat(tempInput.value);
+                if (!isNaN(tempValue)) {
+                    collected[config.temperatureKey] = tempValue;
+                }
+            }
+        }
+        
+        // Get top_p if applicable
+        if (config.topPKey) {
+            const topPInput = document.getElementById(`${config.prefix}-top-p`);
+            if (topPInput) {
+                const topPValue = parseFloat(topPInput.value);
+                if (!isNaN(topPValue)) {
+                    collected[config.topPKey] = topPValue;
+                }
+            }
+        }
+    });
+    
+    return collected;
+}
+
+/**
+ * Unified function to apply agent provider/model values from config
+ */
+function applyAgentConfigs(models = null) {
+    const agentModelsData = models || agentModels || {};
+    
+    Object.values(AGENT_CONFIG).forEach(config => {
+        // Get provider from config
+        const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
+        
+        // Set provider in DOM
+        setAgentProvider(config.prefix, provider);
+        
+        // Get model from config
+        const model = agentModelsData[config.modelKey] || '';
+        
+        // Set model in DOM (respects provider)
+        if (model) {
+            setAgentModel(config.prefix, model, provider);
+        }
+        
+        // Set temperature if applicable
+        if (config.temperatureKey && agentModelsData[config.temperatureKey] !== undefined) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput) {
+                tempInput.value = agentModelsData[config.temperatureKey];
+            }
+        }
+        
+        // Set top_p if applicable
+        if (config.topPKey && agentModelsData[config.topPKey] !== undefined) {
+            const topPInput = document.getElementById(`${config.prefix}-top-p`);
+            if (topPInput) {
+                topPInput.value = agentModelsData[config.topPKey];
+            }
+        }
+    });
+    
+    // Update provider visibility for all agents
+    refreshAllProviderBlocks();
+}
+
+/**
+ * Unified function to build provider/model selector UI for any agent
+ */
+function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', currentModel = '', lmstudioModels = [], options = {}) {
+    const config = getAgentConfig(agentPrefix);
+    if (!config) {
+        console.warn(`buildAgentProviderModelUI: Unknown agent prefix: ${agentPrefix}`);
+        return '';
+    }
+    
+    const {
+        showTemperature = false,
+        temperatureDefault = 0.0,
+        lmstudioPlaceholder = config.isSubAgent ? 'Use Extract Agents Fallback Model' : 'Select a model',
+        sizeClass = config.isSubAgent ? 'text-xs' : 'text-sm',
+        paddingClass = config.isSubAgent ? 'px-2 py-1.5' : 'px-3 py-2'
+    } = options;
+    
+    // Build LMStudio model options
+    const lmstudioOptions = lmstudioModels.map(modelId => {
+        const isSelected = currentProvider === 'lmstudio' && currentModel === modelId ? 'selected' : '';
+        return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}</option>`;
+    }).join('');
+    
+    // Determine name attribute
+    const nameAttr = `name="agent_models[${config.modelKey}]"`;
+    
+    // Build provider select
+    const providerSelect = buildProviderSelect(agentPrefix, currentProvider);
+    
+    // Build LMStudio model select
+    const lmstudioSelect = `
+        <select id="${agentPrefix}-model${config.isSubAgent ? '' : '-2'}"
+                ${nameAttr}
+                onchange="autoSaveModelChange()"
+                class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono ${sizeClass}">
+            <option value="">${lmstudioPlaceholder}</option>
+            ${lmstudioOptions}
+        </select>
+    `;
+    
+    // Build commercial provider inputs
+    const openaiInput = buildCommercialProviderInput(agentPrefix, 'openai', currentProvider, currentModel);
+    const anthropicInput = buildCommercialProviderInput(agentPrefix, 'anthropic', currentProvider, currentModel);
+    
+    // Build temperature and top_p inputs on same row if needed
+    const topPDefault = options.topPDefault !== undefined ? options.topPDefault : 0.9;
+    const temperatureTopPRow = showTemperature && (config.temperatureKey || config.topPKey) ? `
+        <div class="mt-3 flex gap-3">
+            ${config.temperatureKey ? `
+            <div class="flex-1">
+                <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                <input type="number" 
+                       id="${agentPrefix}-temperature" 
+                       name="agent_models[${config.temperatureKey}]"
+                       min="0" max="2" step="0.1" 
+                       value="${temperatureDefault}" 
+                       onchange="autoSaveModelChange()" 
+                       class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
+            </div>
+            ` : ''}
+            ${config.topPKey ? `
+            <div class="flex-1">
+                <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                <input type="number" 
+                       id="${agentPrefix}-top-p" 
+                       name="agent_models[${config.topPKey}]"
+                       min="0" max="1" step="0.01" 
+                       value="${topPDefault}" 
+                       onchange="autoSaveModelChange()" 
+                       class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
+            </div>
+            ` : ''}
+        </div>
+    ` : '';
+    
+    // Legacy separate inputs for backward compatibility (not used if temperatureTopPRow is set)
+    const temperatureInput = '';
+    const topPInput = '';
+    
+    return {
+        providerSelect,
+        lmstudioSelect,
+        openaiInput,
+        anthropicInput,
+        temperatureTopPRow,
+        html: `
+            <div class="space-y-3">
+                ${providerSelect}
+                <div data-agent-prefix="${agentPrefix}" data-provider="lmstudio">
+                    ${lmstudioSelect}
+                </div>
+                <div data-agent-prefix="${agentPrefix}" data-provider="openai" class="hidden">
+                    ${openaiInput}
+                </div>
+                <div data-agent-prefix="${agentPrefix}" data-provider="anthropic" class="hidden">
+                    ${anthropicInput}
+                </div>
+                ${temperatureTopPRow}
+            </div>
+        `
+    };
+}
+
+function getCommercialProviderModels(provider) {
+    const catalog = commercialModelCatalog[provider];
+    if (!Array.isArray(catalog)) {
+        return null;
+    }
+    const uniqueModels = [...new Set(catalog.map(model => model.trim()).filter(Boolean))];
+    return uniqueModels.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+function buildCommercialProviderInput(agentPrefix, provider, currentProvider, currentModel) {
+    const placeholder = provider === 'openai' ? 'Select an OpenAI model' : 'Select a Claude model';
+    const baseClass = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm';
+    const fallbackValue = providerDefaults[provider] || '';
+    const eligibleCurrentModel = (currentProvider === provider && currentModel && isModelAllowedForProvider(provider, currentModel)) ? currentModel : '';
+    const selectedModel = eligibleCurrentModel || fallbackValue || '';
+    const elementId = `${agentPrefix}-model-${provider}`;
+    const catalog = getCommercialProviderModels(provider);
+
+    // Determine the name attribute for form submission using unified AGENT_CONFIG
+    const config = getAgentConfig(agentPrefix);
+    const nameAttr = config ? `name="agent_models[${config.modelKey}]"` : '';
+
+    if (!catalog || catalog.length === 0) {
+        return `
+            <input type="text"
+                   id="${elementId}"
+                   ${nameAttr}
+                   class="${baseClass}"
+                   value="${escapeHtml(eligibleCurrentModel || '')}"
+                   placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
+                   oninput="autoSaveModelChange()">
+        `;
+    }
+
+    const curatedSet = new Set(catalog);
+    const extraModels = new Set();
+    if (eligibleCurrentModel && !curatedSet.has(eligibleCurrentModel)) {
+        curatedSet.add(eligibleCurrentModel);
+        extraModels.add(eligibleCurrentModel);
+    }
+    if (fallbackValue && !curatedSet.has(fallbackValue)) {
+        curatedSet.add(fallbackValue);
+    }
+    const sortedOptions = Array.from(curatedSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    const options = sortedOptions.map(modelId => {
+        const isSelected = selectedModel === modelId ? 'selected' : '';
+        const isCurated = catalog.includes(modelId);
+        const label = (isCurated || !extraModels.has(modelId)) ? modelId : `${modelId} (saved)`;
+        return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(label)}</option>`;
+    }).join('');
+    const placeholderSelected = selectedModel ? '' : 'selected';
+
+    return `
+        <select id="${elementId}"
+                ${nameAttr}
+                onchange="autoSaveModelChange()"
+                class="${baseClass}">
+            <option value="" ${placeholderSelected}>${placeholder}</option>
+            ${options}
+        </select>
+    `;
+}
+
+function buildProviderSelect(agentId, currentProvider) {
+    const options = providerOptions.map(opt => {
+        const selected = opt.value === (currentProvider || 'lmstudio') ? 'selected' : '';
+        return `<option value="${escapeHtml(opt.value)}" ${selected}>${escapeHtml(opt.label)}</option>`;
+    }).join('');
+
+    return `
+        <select id="${agentId}-provider"
+                onchange="onAgentProviderChange('${agentId}')"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+            ${options}
+        </select>
+    `;
+}
+
+function updateAgentProviderVisibility(agentPrefix, provider) {
+    const normalized = (provider || 'lmstudio').toString().trim().toLowerCase();
+    const groups = document.querySelectorAll(`[data-agent-prefix="${agentPrefix}"]`);
+    groups.forEach(group => {
+        if (!group.dataset.provider) return;
+        const groupProvider = group.dataset.provider.toString().trim().toLowerCase();
+        if (groupProvider === normalized) {
+            group.classList.remove('hidden');
+            group.style.display = '';
+        } else {
+            group.classList.add('hidden');
+            group.style.display = 'none';
+        }
+    });
+}
+
+function getActiveAgentModelValue(agentPrefix, provider) {
+    // Handle LMStudio select variants (-model-2 is the current ID, plain -model is legacy)
+    if (provider === 'lmstudio') {
+        const lmstudioSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+        if (!lmstudioSelect) {
+            console.warn(`getActiveAgentModelValue: LMStudio select not found for ${agentPrefix}`);
+            return null;
+        }
+        const value = lmstudioSelect.value?.trim() || '';
+        // Return empty string if no value (to allow clearing fallback), null only if element doesn't exist
+        return value;
+    }
+    const input = document.getElementById(`${agentPrefix}-model-${provider}`);
+    if (!input) {
+        console.warn(`getActiveAgentModelValue: Input not found for ${agentPrefix} provider ${provider}`);
+        return null;
+    }
+    const value = input.value?.trim() || '';
+    // Return empty string if no value, null only if element doesn't exist
+    return value;
+}
+
+function renderAgentModels() {
+    const container = document.getElementById('agentModelsContainer');
+    if (!container) {
+        console.error('agentModelsContainer not found');
+        return;
+    }
+    
+    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+    const agentLabels = {
+        'RankAgent': 'Rank Agent',
+        'OSDetectionAgent': 'OS Detection',
+        'ExtractAgent': 'Extract Agents',
+        'CmdlineExtract': 'CmdlineExtract (Command Line Extraction)',
+        'ProcTreeExtract': 'ProcTreeExtract (Process Lineage)',
+        'SigmaAgent': 'Sigma Agent'
+    };
+    
+    container.innerHTML = agents.map(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        
+        // Special handling for OSDetectionAgent
+        if (agentName === 'OSDetectionAgent') {
+            const currentEmbeddingModel = (agentModels && agentModels['OSDetectionAgent_embedding']) || 'ibm-research/CTI-BERT';
+            const currentFallbackModel = (agentModels && agentModels['OSDetectionAgent_fallback']) || '';
+            const currentSelectedOS = (agentModels && agentModels['OSDetectionAgent_selected_os']) || ['Windows'];
+            const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
+            
+            const osOptions = ['Windows', 'Linux', 'MacOS', 'Network', 'Other', 'All'];
+            const isWindowsChecked = selectedOSArray.includes('Windows') || selectedOSArray.includes('All');
+            const isLinuxChecked = selectedOSArray.includes('Linux') || selectedOSArray.includes('All');
+            const isMacOSChecked = selectedOSArray.includes('MacOS') || selectedOSArray.includes('All');
+            const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
+            const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
+            const isAllChecked = selectedOSArray.includes('All');
+            
+            return `
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            ${agentLabels[agentName] || agentName}
+                        </label>
+                    </div>
+                    
+                    <!-- Embedding Model Selection -->
+                    <div class="mb-3">
+                        <label for="${agentId}-embedding-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Embedding Model
+                        </label>
+                        <select id="${agentId}-embedding-model" 
+                                name="agent_models[OSDetectionAgent_embedding]"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                            <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
+                            <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Pre-trained embedding model for OS detection
+                        </p>
+                    </div>
+                    
+                    <!-- Fallback LLM Model Selection -->
+                    <div class="mb-3">
+                        <label for="${agentId}-fallback-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Fallback LLM Model
+                        </label>
+                        <select id="${agentId}-fallback-model" 
+                                name="agent_models[OSDetectionAgent_fallback]"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                            <option value="">-- Select model --</option>
+                            <!-- Options will be populated by loadLMStudioModels() -->
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Optional - LLM fallback when embedding confidence is low (defaults to mistralai/mistral-7b-instruct-v0.3)
+                        </p>
+                    </div>
+                    
+                    <!-- OS Selection -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                            Target Operating Systems
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-windows" 
+                                       name="os_selection[]" 
+                                       value="Windows"
+                                       ${isWindowsChecked ? 'checked' : ''}
+                                       onchange="updateOSSelection()"
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Windows</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-linux" 
+                                       name="os_selection[]" 
+                                       value="Linux"
+                                       ${isLinuxChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Linux</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-macos" 
+                                       name="os_selection[]" 
+                                       value="MacOS"
+                                       ${isMacOSChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">MacOS</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-network" 
+                                       name="os_selection[]" 
+                                       value="Network"
+                                       ${isNetworkChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Network</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-other" 
+                                       name="os_selection[]" 
+                                       value="Other"
+                                       ${isOtherChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Other</span>
+                            </label>
+                            <label class="flex items-center opacity-50 cursor-not-allowed">
+                                <input type="checkbox" 
+                                       id="${agentId}-os-all" 
+                                       name="os_selection[]" 
+                                       value="All"
+                                       ${isAllChecked ? 'checked' : ''}
+                                       disabled
+                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">All</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Select target operating systems for detection (stub - only Windows enabled)
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Regular agents (RankAgent, ExtractAgent, SigmaAgent)
+        const currentProvider = (agentModels && agentModels[`${agentName}_provider`]) || 'lmstudio';
+        const currentModel = (agentModels && agentModels[agentName]) || '';
+        
+        return `
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        ${agentLabels[agentName] || agentName}
+                    </label>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect(agentId, currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            ${agentName} can run on LMStudio locally or via OpenAI/Anthropic APIs configured in Settings.
+                        </p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="${agentId}" data-provider="lmstudio">
+                            <select id="${agentId}-model" 
+                                    name="agent_models[${agentName}]"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">-- Select model --</option>
+                                <!-- Options will be populated by loadLMStudioModels() -->
+                            </select>
+                        </div>
+                        <div data-agent-prefix="${agentId}" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput(agentId, 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="${agentId}" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput(agentId, 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        ${agentName === 'RankAgent' ? 'Required' : 'Optional'} (provider selection overrides environment defaults).
+                    </p>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    const providerAgentMap = {
+        rankagent: 'RankAgent',
+        extractagent: 'ExtractAgent',
+        sigmaagent: 'SigmaAgent'
+    };
+
+    Object.entries(providerAgentMap).forEach(([prefix, name]) => {
+        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || 'lmstudio';
+        const providerSelect = document.getElementById(`${prefix}-provider`);
+        if (providerSelect) {
+            providerSelect.value = storedProvider;
+        }
+        updateAgentProviderVisibility(prefix, storedProvider);
+    });
+    
+    // Load and populate models only if any agent uses LMStudio
+    const hasLMStudioProvider = Object.entries(providerAgentMap).some(([prefix, name]) => {
+        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || 'lmstudio';
+        return storedProvider === 'lmstudio';
+    });
+    if (hasLMStudioProvider) {
+    loadLMStudioModels();
+    }
+}
+
+let isLoadingLMStudioModels = false; // Guard to prevent multiple simultaneous loads
+
+async function loadLMStudioModels() {
+    // Prevent multiple simultaneous calls
+    if (isLoadingLMStudioModels) {
+        console.log('loadLMStudioModels already in progress, skipping duplicate call');
+        return;
+    }
+    
+    isLoadingLMStudioModels = true;
+    try {
+        const response = await fetch('/api/lmstudio-models');
+        const data = await response.json();
+        
+        if (data.success && data.models && data.models.length > 0) {
+            const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'SigmaAgent'];
+            
+            agents.forEach(agentName => {
+                const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+                
+                // Handle OSDetectionAgent fallback model separately
+                if (agentName === 'OSDetectionAgent') {
+                    const fallbackSelect = document.getElementById(`${agentId}-fallback-model`);
+                    if (fallbackSelect) {
+                        const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
+                        fallbackSelect.innerHTML = '<option value="">-- Select model --</option>';
+                        
+                        // Sort models alphabetically
+                        const sortedModels = [...data.models].sort();
+                        
+                        sortedModels.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            if (model === currentFallbackModel) {
+                                option.selected = true;
+                            }
+                            fallbackSelect.appendChild(option);
+                        });
+                        
+                        if (currentFallbackModel && !data.models.includes(currentFallbackModel)) {
+                            const option = document.createElement('option');
+                            option.value = currentFallbackModel;
+                            option.textContent = `${currentFallbackModel} (not available)`;
+                            option.selected = true;
+                            option.style.color = 'orange';
+                            fallbackSelect.appendChild(option);
+                        }
+                    }
+                    return; // Skip regular model select for OSDetectionAgent
+                }
+                
+                // Check for both -model-2 (current) and -model (legacy) variants
+                const select = document.getElementById(`${agentId}-model-2`) || document.getElementById(`${agentId}-model`);
+                if (!select) return;
+                
+                // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+                const currentModelFromDOM = select.value || '';
+                const currentModelFromConfig = agentModels[agentName] || '';
+                const currentModel = currentModelFromDOM || currentModelFromConfig;
+                
+                // Clear existing options except the placeholder
+                const placeholderText = select.querySelector('option[value=""]')?.textContent || '-- Select model --';
+                select.innerHTML = `<option value="">${placeholderText}</option>`;
+                
+                // Sort models alphabetically
+                const sortedModels = [...data.models].sort();
+                
+                // Add all available models
+                sortedModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    if (model === currentModel) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // If current model is not in the list, add it as an option
+                if (currentModel && !data.models.includes(currentModel)) {
+                    const option = document.createElement('option');
+                    option.value = currentModel;
+                    option.textContent = `${currentModel} (not available)`;
+                    option.selected = true;
+                    option.style.color = 'orange';
+                    select.appendChild(option);
+                }
+            });
+        } else {
+            // Show error message
+            const container = document.getElementById('agentModelsContainer');
+            container.innerHTML = `
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
+                    <p class="text-sm text-yellow-800 dark:text-yellow-300">
+                        ⚠️ Could not load LMStudio models: ${data.message || 'Unknown error'}
+                    </p>
+                    <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                        Make sure LMStudio is running and accessible at the configured URL.
+                    </p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading LMStudio models:', error);
+        const container = document.getElementById('agentModelsContainer');
+        container.innerHTML = `
+            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
+                <p class="text-sm text-red-800 dark:text-red-300">
+                    ❌ Error loading LMStudio models: ${error.message}
+                </p>
+            </div>
+        `;
+    } finally {
+        isLoadingLMStudioModels = false;
+    }
+
+}
+
+// Generate providerSelections from unified AGENT_CONFIG
+const providerSelections = Object.values(AGENT_CONFIG).map(config => ({
+    prefix: config.prefix,
+    key: config.providerKey,
+    modelKey: config.modelKey
+}));
+
+function applyProviderSelections(models) {
+    const activeModels = models || agentModels || {};
+    // Update global agentModels to ensure renderSubAgentCommercialInputs has access to latest values
+    agentModels = activeModels;
+    let providerAdjusted = false;
+
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const storedProvider = (activeModels && activeModels[config.providerKey]) || '';
+        const storedModel = config.modelKey ? activeModels?.[config.modelKey] : null;
+        const inferredProvider = inferProviderFromModel(storedModel);
+
+        let provider = storedProvider || inferredProvider || 'lmstudio';
+        if (storedProvider === 'lmstudio' && inferredProvider && inferredProvider !== 'lmstudio') {
+            provider = inferredProvider;
+        }
+        if (!storedProvider && inferredProvider && inferredProvider !== 'lmstudio') {
+            providerAdjusted = true;
+        }
+
+        const select = document.getElementById(`${config.prefix}-provider`);
+        const prevProvider = select?.value?.toString().trim().toLowerCase() || 'lmstudio';
+        
+        if (select) {
+            select.value = provider;
+        }
+        
+        // If provider changed, clear model fields that don't match new provider
+        if (prevProvider !== provider) {
+            const modelSelect = document.getElementById(`${config.prefix}-model-2`) || document.getElementById(`${config.prefix}-model`);
+            const modelInputs = [
+                document.getElementById(`${config.prefix}-model-openai`),
+                document.getElementById(`${config.prefix}-model-anthropic`)
+            ].filter(Boolean);
+            
+            if (provider === 'lmstudio') {
+                // Clear commercial provider inputs
+                modelInputs.forEach(input => input.value = '');
+            } else {
+                // Clear LMStudio model dropdown if switching away from LMStudio
+                if (modelSelect) {
+                    const currentValue = modelSelect.value;
+                    // Only clear if value looks like LMStudio model
+                    if (currentValue && !currentValue.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i)) {
+                        modelSelect.value = '';
+                    }
+                }
+            }
+        }
+        
+        updateAgentProviderVisibility(config.prefix, provider);
+        if (typeof window.renderSubAgentCommercialInputs === 'function') {
+            window.renderSubAgentCommercialInputs(config.prefix);
+        }
+        
+        // Ensure model value is set for the selected provider
+        if (storedModel) {
+            if (provider === 'lmstudio') {
+                // For LMStudio, set the model dropdown value
+                const modelSelect = document.getElementById(`${config.prefix}-model-2`) || document.getElementById(`${config.prefix}-model`);
+                if (modelSelect && modelSelect.value !== storedModel) {
+                    modelSelect.value = storedModel;
+                }
+            } else {
+                // For commercial providers, set the model input value
+                const modelInput = document.getElementById(`${config.prefix}-model-${provider}`);
+                if (modelInput && modelInput.value !== storedModel) {
+                    modelInput.value = storedModel;
+                }
+            }
+        }
+        
+        // Set temperature if applicable
+        if (config.temperatureKey && activeModels[config.temperatureKey] !== undefined) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput) {
+                tempInput.value = activeModels[config.temperatureKey];
+            }
+        }
+    });
+
+    if (providerAdjusted && typeof window.autoSaveModelChange === 'function') {
+        setTimeout(() => window.autoSaveModelChange(), 0);
+    }
+    
+    // Populate sub-agent LMStudio model dropdowns after provider selections are applied
+    // This ensures dropdowns are populated even when provider is already set to LMStudio
+    const subAgentMap = {
+        'cmdlineextract': 'CmdlineExtract',
+        'proctreeextract': 'ProcTreeExtract'
+    };
+    
+    Object.entries(subAgentMap).forEach(([prefix, agentName]) => {
+        const providerSelect = document.getElementById(`${prefix}-provider`);
+        if (providerSelect) {
+            const provider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+            if (provider === 'lmstudio' && typeof repopulateSubAgentModelDropdown === 'function') {
+                repopulateSubAgentModelDropdown(prefix, agentName);
+            }
+        }
+    });
+    
+    // Update config display to reflect current UI state
+    if (typeof updateConfigDisplay === 'function') {
+        updateConfigDisplay();
+    }
+}
+
+function syncProviderVisibilityAndInputs() {
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const select = document.getElementById(`${config.prefix}-provider`);
+        if (!select) return;
+        const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+        updateAgentProviderVisibility(config.prefix, provider);
+        if (typeof window.renderSubAgentCommercialInputs === 'function') {
+            window.renderSubAgentCommercialInputs(config.prefix);
+        }
+    });
+}
+
+// Generate subAgentCommercialMap from unified AGENT_CONFIG
+const subAgentCommercialMap = {};
+Object.values(AGENT_CONFIG).forEach(config => {
+    if (config.isSubAgent || config.isQA) {
+        subAgentCommercialMap[config.prefix] = { modelKey: config.modelKey };
+    }
+});
+
+// Define and export globally so inline handlers can always reach it
+if (typeof window !== 'undefined') {
+    window.renderSubAgentCommercialInputs = function(agentPrefix) {
+        const mapEntry = subAgentCommercialMap[agentPrefix];
+        if (!mapEntry) return;
+        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+
+        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
+
+        ['openai', 'anthropic'].forEach(p => {
+            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+            if (!container) return;
+
+            // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+            const existingInput = document.getElementById(`${agentPrefix}-model-${p}`);
+            const currentModelFromDOM = existingInput?.value || '';
+            const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
+            const currentModel = currentModelFromDOM || currentModelFromConfig;
+
+            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
+            if (catalog.length > 0) {
+                const options = catalog.map(modelId => {
+                    const selected = modelId === currentModel ? 'selected' : '';
+                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
+                }).join('');
+                container.innerHTML = `
+                    <select id="${agentPrefix}-model-${p}"
+                            name="agent_models[${mapEntry.modelKey}]"
+                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                        ${options}
+                    </select>
+                `;
+                return;
+            }
+
+            if (typeof buildCommercialProviderInput === 'function') {
+                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+                return;
+            }
+
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            container.innerHTML = `
+                <input type="text"
+                       id="${agentPrefix}-model-${p}"
+                       name="agent_models[${mapEntry.modelKey}]"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
+                       placeholder="${placeholder}"
+                       value="${escapeHtml(currentModel || '')}"
+                       onchange="autoSaveModelChange()">
+            `;
+        });
+    };
+}
+
+// Safety net: if not defined (e.g., scoping quirks), define it globally now
+if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInputs !== 'function') {
+    window.renderSubAgentCommercialInputs = function(agentPrefix) {
+        const mapEntry = subAgentCommercialMap[agentPrefix];
+        if (!mapEntry) return;
+        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+
+        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
+
+        ['openai', 'anthropic'].forEach(p => {
+            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+            if (!container) return;
+
+            // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+            const existingInput = document.getElementById(`${agentPrefix}-model-${p}`);
+            const currentModelFromDOM = existingInput?.value || '';
+            const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
+            const currentModel = currentModelFromDOM || currentModelFromConfig;
+
+            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
+            // __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
+            if (catalog.length > 0) {
+                const options = catalog.map(modelId => {
+                    const selected = modelId === currentModel ? 'selected' : '';
+                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
+                }).join('');
+                container.innerHTML = `
+                    <select id="${agentPrefix}-model-${p}"
+                            name="agent_models[${mapEntry.modelKey}]"
+                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                        ${options}
+                    </select>
+                `;
+                return;
+            }
+
+            if (typeof buildCommercialProviderInput === 'function') {
+                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+                return;
+            }
+
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            container.innerHTML = `
+                <input type="text"
+                       id="${agentPrefix}-model-${p}"
+                       name="agent_models[${mapEntry.modelKey}]"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
+                       placeholder="${placeholder}"
+                       value="${escapeHtml(currentModel || '')}"
+                       onchange="autoSaveModelChange()">
+            `;
+        });
+    };
+}
+
+function onAgentProviderChange(agentPrefix) {
+    const select = document.getElementById(`${agentPrefix}-provider`);
+    if (!select) return;
+    const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+    // __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
+    updateAgentProviderVisibility(agentPrefix, provider);
+    
+    // Clear model dropdowns/inputs when provider changes to ensure alignment
+    const modelSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+    const modelInputs = [
+        document.getElementById(`${agentPrefix}-model-openai`),
+        document.getElementById(`${agentPrefix}-model-anthropic`)
+    ].filter(Boolean);
+    
+    if (provider === 'lmstudio') {
+        // Clear commercial provider inputs
+        modelInputs.forEach(input => input.value = '');
+        
+        // Repopulate LMStudio model dropdown for main agents (RankAgent, ExtractAgent, SigmaAgent)
+        const mainAgentMap = {
+            'rankagent': 'RankAgent',
+            'extractagent': 'ExtractAgent',
+            'sigmaagent': 'SigmaAgent'
+        };
+        const mainAgentName = mainAgentMap[agentPrefix];
+        if (mainAgentName && typeof loadLMStudioModels === 'function') {
+            // Repopulate main agent dropdown by reloading all LMStudio models
+            loadLMStudioModels();
+        }
+        
+        // Repopulate LMStudio model dropdown for sub-agents
+        const subAgentMap = {
+            'cmdlineextract': 'CmdlineExtract',
+            'proctreeextract': 'ProcTreeExtract'
+        };
+        const agentName = subAgentMap[agentPrefix];
+        if (agentName && typeof repopulateSubAgentModelDropdown === 'function') {
+            repopulateSubAgentModelDropdown(agentPrefix, agentName);
+        }
+    } else {
+        // Clear LMStudio model dropdown only if switching away from LMStudio
+        if (modelSelect) {
+            // Only clear if current value might be from wrong provider
+            // Check if value looks like LMStudio model (not common OpenAI/Anthropic patterns)
+            const currentValue = modelSelect.value;
+            if (currentValue && !currentValue.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i)) {
+                modelSelect.value = '';
+            }
+        }
+        // Clear commercial inputs when switching away from them
+        modelInputs.forEach(input => {
+            if (provider !== input.id.split('-').pop()) {
+                input.value = '';
+            }
+        });
+    }
+    
+    if (typeof window.renderSubAgentCommercialInputs === 'function') {
+        window.renderSubAgentCommercialInputs(agentPrefix);
+    }
+    autoSaveModelChange();
+}
+// Keep a reference the stub can call even if overwritten order varies
+window._onAgentProviderChangeImpl = onAgentProviderChange;
+window.onAgentProviderChange = onAgentProviderChange;
+
+// Global refresh to enforce correct provider visibility/inputs across all provider selects
+function refreshAllProviderBlocks() {
+    const selects = document.querySelectorAll('select[id$="-provider"]');
+    selects.forEach(select => {
+        const prefix = select.id.replace(/-provider$/, '');
+        const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+        // __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
+        updateAgentProviderVisibility(prefix, provider);
+        if (typeof window.renderSubAgentCommercialInputs === 'function') {
+            window.renderSubAgentCommercialInputs(prefix);
+        } else {
+            // Last-resort visibility only
+            const lm = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="lmstudio"]`);
+            const openai = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="openai"]`);
+            const anthropic = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="anthropic"]`);
+            [lm, openai, anthropic].forEach(el => {
+                if (!el || !el.dataset.provider) return;
+                const gp = el.dataset.provider.toString().trim().toLowerCase();
+                if (gp === provider) {
+                    el.classList.remove('hidden');
+                    el.style.display = '';
+                } else {
+                    el.classList.add('hidden');
+                    el.style.display = 'none';
+                }
+            });
+        }
+    });
+}
+if (typeof window !== 'undefined') {
+    window.refreshAllProviderBlocks = refreshAllProviderBlocks;
+}
+
+// Safety net: if renderSubAgentCommercialInputs isn't exposed (e.g., scope quirks), re-expose it
+if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInputs !== 'function') {
+    window.renderSubAgentCommercialInputs = function(agentPrefix) {
+        const mapEntry = subAgentCommercialMap[agentPrefix];
+        if (!mapEntry) return;
+        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels?.[mapEntry.modelKey] || '';
+
+        ['openai', 'anthropic'].forEach(p => {
+            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+            if (container) {
+                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+            }
+        });
+    };
+}
+// Ensure current dropdown selections drive visibility/inputs even if agentModels default to LMStudio
+syncProviderVisibilityAndInputs();
+
+// Load LMStudio embedding models for SIGMA similarity search
+async function loadLMStudioEmbeddingModels() {
+    try {
+        const response = await fetch('/api/lmstudio-embedding-models');
+        const data = await response.json();
+        
+        const embeddingSelect = document.getElementById('sigma-embedding-model');
+        if (!embeddingSelect) return;
+        
+        if (data.success && data.models && data.models.length > 0) {
+            embeddingSelect.innerHTML = ''; // Clear loading option
+            
+            // Get current embedding model from config
+            const currentEmbeddingModel = agentModels['SigmaEmbeddingModel'] || '';
+            
+            // Sort models alphabetically
+            const sortedModels = [...data.models].sort();
+            
+            sortedModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === currentEmbeddingModel) {
+                    option.selected = true;
+                }
+                embeddingSelect.appendChild(option);
+            });
+            
+            // If current model is not in the list, add it as an option
+            if (currentEmbeddingModel && !data.models.includes(currentEmbeddingModel)) {
+                const option = document.createElement('option');
+                option.value = currentEmbeddingModel;
+                option.textContent = `${currentEmbeddingModel} (not available)`;
+                option.selected = true;
+                option.style.color = 'orange';
+                embeddingSelect.appendChild(option);
+            }
+        } else {
+            embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
+        }
+    } catch (error) {
+        console.error('Error loading LMStudio embedding models:', error);
+        const embeddingSelect = document.getElementById('sigma-embedding-model');
+        if (embeddingSelect) {
+            embeddingSelect.innerHTML = '<option value="">Error loading embedding models</option>';
+        }
+    }
+}
+
+// REMOVED: Duplicate loadAgentPrompts function - using the one at line 5599 instead
+
+async function bootstrapPromptsFromFiles() {
+    if (!confirm('Import default prompts from files into database?\n\nThis will create a new config version with all default prompts loaded.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/workflow/config/prompts/bootstrap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            alert(`Successfully imported ${result.prompts_loaded.length} prompts:\n\n${result.prompts_loaded.join(', ')}`);
+            // Reload prompts and config
+            await loadAgentPrompts();
+            await loadConfig();
+        } else {
+            const error = await response.json();
+            alert('Error importing prompts: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error bootstrapping prompts:', error);
+        alert('Error importing prompts from files');
+    }
+}
+
+let editingPrompts = {}; // Track which prompts are being edited
+
+// Global function to parse prompts into system/user parts
+function parsePromptParts(rawPrompt) {
+        let system = '';
+        let user = rawPrompt || '';
+        let isTemplateFormat = false;
+        let templateData = {};
+        
+        try {
+            const parsed = JSON.parse(rawPrompt);
+            if (parsed && typeof parsed === 'object') {
+                // Check if it's the new template format (extraction agents)
+                if (parsed.user_template) {
+                    isTemplateFormat = true;
+                    system = parsed.role || '';
+                    user = parsed.user_template || '';
+                    templateData = {
+                        role: parsed.role || '',
+                        user_template: parsed.user_template || '',
+                        task: parsed.task || parsed.objective || '',
+                        json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
+                        instructions: parsed.instructions || ''
+                    };
+                } else if (parsed.system || parsed.user) {
+                    // Legacy simple format
+                    system = parsed.system || '';
+                    user = parsed.user || parsed.prompt || '';
+                } else if (parsed.role || parsed.objective) {
+                    // JSON without user_template/system keys – treat role as system and show entire JSON as user
+                    system = parsed.role || '';
+                    user = parsed.user_template || parsed.prompt || rawPrompt;
+                    templateData = {
+                        role: parsed.role || '',
+                        user_template: parsed.user_template || parsed.prompt || '',
+                        task: parsed.task || parsed.objective || '',
+                        json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
+                        instructions: parsed.instructions || ''
+                    };
+                } else {
+                    // Fallback: treat as user content
+                    user = rawPrompt;
+                }
+            }
+        } catch (e) {
+            // fallback: treat entire prompt as user content
+        }
+        return { system, user, isTemplateFormat, templateData };
+}
+
+function renderAgentPrompts() {
+    const container = document.getElementById('agentPromptsContainer');
+
+    if (!agentPrompts || Object.keys(agentPrompts).length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-gray-500 dark:text-gray-400 mb-4">No agent prompts found in database</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mb-4">Load default prompts from files to get started</p>
+                <button onclick="bootstrapPromptsFromFiles()"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                    📥 Import Default Prompts
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Display name mapping for agents
+    const agentDisplayNames = {
+        'QAAgent': 'QA Agent (CMD)',
+        'ExtractAgent': 'Extract Agents',
+        'RankAgent': 'Rank Agent',
+        'SigmaAgent': 'SIGMA Generator Agent',
+        'OSDetectionAgent': 'OS Detection'
+    };
+    
+    container.innerHTML = Object.keys(agentPrompts).map(agentName => {
+        const promptData = agentPrompts[agentName];
+        const promptParts = parsePromptParts(promptData.prompt || '');
+        const instructions = promptData.instructions || '';
+        const model = promptData.model || 'Not configured';
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const isEditing = editingPrompts[agentName] || false;
+        const displayName = agentDisplayNames[agentName] || agentName;
+        const panelId = `${agentId}-prompt-panel`;
+        const isTemplateFormat = promptParts.isTemplateFormat;
+        const templateData = promptParts.templateData || {};
+        
+        // Check if this is an extraction agent (has template format)
+        const isExtractionAgent = isTemplateFormat || ['CmdlineExtract', 'ProcTreeExtract', 'CmdLineQA', 'ProcTreeQA'].includes(agentName);
+        
+        return `
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
+                    <div class="flex items-center gap-3">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white">Prompt</h4>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
+                    </div>
+                    <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
+                </div>
+                <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                ${isEditing ? `
+                                    <button onclick="cancelEditPrompt('${agentName}')" 
+                                            class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button onclick="saveAgentPrompt('${agentName}')" 
+                                            class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                                        💾 Save
+                                    </button>
+                                ` : `
+                                    <button onclick="showPromptHistory('${agentName}')" 
+                                            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                        📜 History
+                                    </button>
+                                    <button onclick="editPrompt('${agentName}')" 
+                                            class="px-3 py-1 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
+                                        ✏️ Edit
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                        ${isTemplateFormat || isExtractionAgent ? `
+                            <!-- Template-based format for extraction agents -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Role (Role)</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-role" 
+                                                  rows="2"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.role || promptParts.system)}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(templateData.role || promptParts.system)}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Template (with placeholders: {title}, {url}, {content}, {task}, {json_example}, {instructions})</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-user-template" 
+                                                  rows="10"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.user_template || promptParts.user)}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(templateData.user_template || promptParts.user)}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-task" 
+                                                  rows="2"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.task || '')}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(templateData.task || '')}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">JSON Example</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-json-example" 
+                                                  rows="8"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.json_example || '')}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(templateData.json_example || '')}</div>
+                                    `}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-instructions" 
+                                                  rows="8"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.instructions || instructions)}</textarea>
+                                    ` : `
+                                        <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(templateData.instructions || instructions)}</div>
+                                    `}
+                                </div>
+                            </div>
+                        ` : `
+                            <!-- Legacy simple format -->
+                            ${instructions ? `
+                                <div class="mb-3">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-instructions" 
+                                                  rows="4"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                                    ` : `
+                                        <div id="${agentId}-instructions-display" 
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(instructions)}</div>
+                                    `}
+                                </div>
+                            ` : ''}
+                            <div class="space-y-6">
+                                <div class="border-l-4 border-blue-500 pl-4">
+                                    <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                        <span class="inline-flex items-center gap-2">
+                                            <span>🔧</span>
+                                            <span>System Prompt</span>
+                                        </span>
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-system" 
+                                                  rows="8"
+                                                  placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                    ` : `
+                                        <div id="${agentId}-prompt-system-display" 
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                    `}
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4">
+                                    <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                        <span class="inline-flex items-center gap-2">
+                                            <span>💬</span>
+                                            <span>User Prompt</span>
+                                        </span>
+                                    </label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                                    ${isEditing ? `
+                                        <textarea id="${agentId}-prompt-user" 
+                                                  rows="8"
+                                                  placeholder="Enter user prompt (task, query, or user message)..."
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                    ` : `
+                                        <div id="${agentId}-prompt-user-display" 
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                    `}
+                                </div>
+                            </div>
+                        `}
+                        ${isEditing ? `
+                            <div class="mt-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Re-initialize collapsible panels for dynamically added content
+    if (typeof initCollapsiblePanels === 'function') {
+        initCollapsiblePanels(container);
+    }
+}
+
+function editPrompt(agentName) {
+    editingPrompts[agentName] = true;
+    renderAgentPrompts();
+}
+
+function cancelEditPrompt(agentName) {
+    editingPrompts[agentName] = false;
+    renderAgentPrompts();
+    // Reload prompts to restore original values
+    loadAgentPrompts();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function saveAgentPrompt(agentName) {
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const changeDescriptionElement = document.getElementById(`${agentId}-change-description`);
+    
+    // Check if this is a template-format agent (extraction agents)
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'CmdLineQA', 'ProcTreeQA'].includes(agentName);
+    
+    let combinedPrompt;
+    let instructions = null;
+    
+    if (isExtractionAgent) {
+        // Template format - collect all fields
+        const roleElement = document.getElementById(`${agentId}-prompt-role`);
+        const userTemplateElement = document.getElementById(`${agentId}-prompt-user-template`);
+        const taskElement = document.getElementById(`${agentId}-prompt-task`);
+        const jsonExampleElement = document.getElementById(`${agentId}-prompt-json-example`);
+        const instructionsElement = document.getElementById(`${agentId}-prompt-instructions`);
+        
+        if (!roleElement || !userTemplateElement) {
+            alert('Template prompt elements not found');
+            return;
+        }
+        
+        combinedPrompt = JSON.stringify({
+            role: roleElement.value || "",
+            user_template: userTemplateElement.value || "",
+            task: taskElement ? taskElement.value : "",
+            json_example: jsonExampleElement ? jsonExampleElement.value : "",
+            instructions: instructionsElement ? instructionsElement.value : ""
+        });
+        
+        instructions = instructionsElement ? instructionsElement.value : null;
+    } else {
+        // Legacy format
+        const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
+        const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
+        const instructionsElement = document.getElementById(`${agentId}-instructions`);
+        
+        if (!promptSystemElement || !promptUserElement) {
+            alert('Prompt elements not found');
+            return;
+        }
+        
+        combinedPrompt = JSON.stringify({
+            system: promptSystemElement.value || "",
+            user: promptUserElement.value || ""
+        });
+        
+        instructions = instructionsElement ? instructionsElement.value : null;
+    }
+
+    const promptData = {
+        agent_name: agentName,
+        prompt: combinedPrompt,
+        instructions: instructions,
+        change_description: changeDescriptionElement ? changeDescriptionElement.value : null
+    };
+    
+    try {
+        console.log('Saving prompt for', agentName, ':', promptData);
+        const response = await fetch('/api/workflow/config/prompts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(promptData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Save successful:', result);
+            editingPrompts[agentName] = false;
+            console.log(`✅ Agent prompt updated successfully for ${agentName}`);
+            await loadAgentPrompts();
+            await loadConfig(true); // Reload config to get updated version (skip prompt reload since we just did it)
+        } else {
+            const error = await response.json();
+            alert('Error updating agent prompt: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving agent prompt:', error);
+        alert('Error saving agent prompt');
+    }
+}
+
+async function showPromptHistory(agentName) {
+    try {
+        const response = await fetch(`/api/workflow/config/prompts/${encodeURIComponent(agentName)}/versions`);
+        if (!response.ok) {
+            alert('Error loading prompt history');
+            return;
+        }
+        
+        const data = await response.json();
+        showPromptHistoryModal(agentName, data.versions);
+    } catch (error) {
+        console.error('Error loading prompt history:', error);
+        alert('Error loading prompt history');
+    }
+}
+
+function showPromptHistoryModal(agentName, versions) {
+    const modal = document.createElement('div');
+    modal.id = 'promptHistoryModal';
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+    modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white">📜 Version History: ${agentName}</h3>
+                <button onclick="closePromptHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+            </div>
+            <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                ${versions.length === 0 ? 
+                    '<div class="text-center text-gray-500 dark:text-gray-400 py-4">No version history available</div>' :
+                    versions.map(v => `
+                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                                        (Workflow Config v${v.workflow_config_version})
+                                    </span>
+                                </div>
+                                <button onclick="rollbackPrompt('${agentName}', ${v.id})" 
+                                        class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-md transition-colors">
+                                    🔄 Rollback
+                                </button>
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                ${new Date(v.created_at).toLocaleString()}
+                                ${v.change_description ? ` | ${v.change_description}` : ''}
+                            </div>
+                            ${v.instructions ? `
+                                <div class="mb-4">
+                                    <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Instructions:</div>
+                                    <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.instructions)}</div>
+                                </div>
+                            ` : ''}
+                            ${(() => {
+                                // Parse prompt to show system/user separately
+                                const promptParts = parsePromptParts(v.prompt || '');
+                                if (promptParts.system || promptParts.user) {
+                                    return `
+                                        <div class="space-y-3">
+                                            ${promptParts.system ? `
+                                                <div>
+                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: #cbd5e1 !important;">
+                                                        <span>🔧</span>
+                                                        <span>System Prompt:</span>
+                                                    </div>
+                                                    <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(promptParts.system)}</div>
+                                                </div>
+                                            ` : ''}
+                                            ${promptParts.user ? `
+                                                <div>
+                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: #cbd5e1 !important;">
+                                                        <span>💬</span>
+                                                        <span>User Prompt:</span>
+                                                    </div>
+                                                    <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-green-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(promptParts.user)}</div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `;
+                                } else {
+                                    // Fallback: show raw prompt if parsing fails
+                                    return `
+                            <div>
+                                <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Prompt:</div>
+                                <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.prompt)}</div>
+                            </div>
+                                    `;
+                                }
+                            })()}
+                        </div>
+                    `).join('')
+                }
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Add click outside to close
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closePromptHistoryModal();
+        }
+    });
+    
+    // Add ESC key to close
+    const handleEsc = function(e) {
+        if (e.key === 'Escape') {
+            closePromptHistoryModal();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
+}
+
+function closePromptHistoryModal() {
+    const modal = document.getElementById('promptHistoryModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function rollbackPrompt(agentName, versionId) {
+    if (!confirm(`Are you sure you want to rollback ${agentName} to this version?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/workflow/config/prompts/${encodeURIComponent(agentName)}/rollback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version_id: versionId })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alert(`Rolled back ${agentName} successfully`);
+            closePromptHistoryModal();
+            await loadAgentPrompts();
+            await loadConfig(true); // Skip prompt reload since we just did it
+        } else {
+            const error = await response.json();
+            alert('Error rolling back: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error rolling back prompt:', error);
+        alert('Error rolling back prompt');
+    }
+}
+
+// Validation function for thresholds
+function validateThreshold(input, min, max) {
+    const value = parseFloat(input.value);
+    const errorElement = document.getElementById(input.id + '-error');
+    
+    // Clear previous error
+    if (errorElement) {
+        errorElement.classList.add('hidden');
+        input.classList.remove('border-red-500', 'dark:border-red-500');
+    }
+    
+    // Validate
+    if (isNaN(value)) {
+        if (errorElement) {
+            errorElement.textContent = 'Please enter a valid number';
+            errorElement.classList.remove('hidden');
+            input.classList.add('border-red-500', 'dark:border-red-500');
+        }
+        return false;
+    }
+    
+    if (value < min || value > max) {
+        if (errorElement) {
+            errorElement.textContent = `Value must be between ${min} and ${max}`;
+            errorElement.classList.remove('hidden');
+            input.classList.add('border-red-500', 'dark:border-red-500');
+        }
+        return false;
+    }
+    
+    return true;
+}
+
+// Configuration Functions (variables declared above)
+
+// Make updateQABadge globally accessible
+window.updateQABadge = function(agentPrefix) {
+    const badgeId = `${agentPrefix}-qa-badge`;
+    const badge = document.getElementById(badgeId);
+    const checkboxId = agentPrefix === 'rank-agent' ? 'qa-rankagent' :
+                      agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
+                      agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
+                      agentPrefix === 'sigma-agent' ? 'qa-sigmaagent' : null;
+    
+    if (!badge) {
+        console.error(`updateQABadge: Badge not found for prefix: ${agentPrefix}, badgeId: ${badgeId}`);
+        return;
+    }
+    
+    if (!checkboxId) {
+        console.error(`updateQABadge: Checkbox ID not found for prefix: ${agentPrefix}`);
+        return;
+    }
+    
+    const checkbox = document.getElementById(checkboxId);
+    if (!checkbox) {
+        console.error(`updateQABadge: Checkbox not found: ${checkboxId}`);
+        return;
+    }
+    
+    // Update badge based on checkbox state
+    const qaConfigs = document.getElementById(`${agentPrefix}-qa-configs`);
+    
+    // Update config display when QA state changes
+    if (typeof updateConfigDisplay === 'function') {
+        updateConfigDisplay();
+    }
+    if (checkbox.checked) {
+        badge.textContent = 'QA: ON';
+        badge.className = 'px-2 py-1 text-xs rounded-full bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300';
+        // Show QA prompt container
+        const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        if (qaPromptContainer) {
+            qaPromptContainer.classList.remove('hidden');
+            if (agentPrefix === 'rank-agent') {
+                renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+            } else if (agentPrefix === 'cmdlineextract-agent') {
+                renderQAPrompt('CmdLineQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'proctreeextract-agent') {
+                renderQAPrompt('ProcTreeQA', `${agentPrefix}-qa-prompt-container`);
+            } else {
+                renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
+            }
+        }
+        if (qaConfigs) {
+            qaConfigs.classList.remove('hidden');
+        }
+    } else {
+        badge.textContent = 'QA: OFF';
+        badge.className = 'px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+        // Hide QA prompt container
+        const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        if (qaPromptContainer) {
+            qaPromptContainer.classList.add('hidden');
+        }
+        if (qaConfigs) {
+            qaConfigs.classList.add('hidden');
+        }
+    }
+};
+
+// Also make it available as a non-window function for event listeners
+const updateQABadge = window.updateQABadge;
+
+// Toggle fallback model enable/disable
+window.toggleFallbackModel = function() {
+    const toggle = document.getElementById('osdetectionagent-fallback-enabled');
+    const container = document.getElementById('osdetectionagent-fallback-container');
+    
+    if (!toggle || !container) {
+        console.error('toggleFallbackModel: Toggle or container element not found');
+        return;
+    }
+    
+    if (toggle.checked) {
+        // Show the fallback model selection container
+        container.classList.remove('hidden');
+        container.style.display = 'block';
+    } else {
+        // Hide and clear the fallback model selection
+        container.classList.add('hidden');
+        container.style.display = 'none';
+        
+        // Clear all model inputs
+        const lmstudioSelect = document.getElementById('osdetectionagent-fallback-model-2');
+        const openaiInput = document.getElementById('osdetectionagent-fallback-model-openai');
+        const anthropicInput = document.getElementById('osdetectionagent-fallback-model-anthropic');
+        
+        if (lmstudioSelect) lmstudioSelect.value = '';
+        if (openaiInput) openaiInput.value = '';
+        if (anthropicInput) anthropicInput.value = '';
+        
+        // Trigger auto-save to persist the cleared value
+        if (typeof autoSaveModelChange === 'function') {
+            autoSaveModelChange();
+        }
+    }
+};
+
+function toggleCollapsible(panelId) {
+    const content = document.getElementById(`${panelId}-content`);
+    const toggle = document.getElementById(`${panelId}-toggle`);
+    
+    if (content && toggle) {
+        const isHidden = content.classList.contains('hidden');
+        if (isHidden) {
+            content.classList.remove('hidden');
+            toggle.textContent = '▲';
+            toggle.style.transform = 'rotate(0deg)';
+        } else {
+            content.classList.add('hidden');
+            toggle.textContent = '▼';
+            toggle.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+
+async function loadConfig(skipPromptReload = false) {
+    try {
+        const response = await fetch('/api/workflow/config');
+        if (response.ok) {
+            const fetchedConfig = await response.json();
+
+            // Always use fetched config from database (source of truth)
+            // Ensure qa_enabled is at least an empty object if not present
+            if (!fetchedConfig.qa_enabled) {
+                fetchedConfig.qa_enabled = {};
+            }
+
+            currentConfig = fetchedConfig;
+
+            // Populate form fields
+            if (currentConfig.ranking_threshold !== undefined) {
+                document.getElementById('rankingThreshold').value = currentConfig.ranking_threshold;
+            }
+            if (currentConfig.junk_filter_threshold !== undefined) {
+                document.getElementById('junkFilterThreshold').value = currentConfig.junk_filter_threshold;
+            }
+            if (currentConfig.similarity_threshold !== undefined) {
+                document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
+            }
+            if (currentConfig.qa_max_retries !== undefined) {
+                const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+                if (qaMaxRetriesInput) {
+                    qaMaxRetriesInput.value = currentConfig.qa_max_retries;
+                }
+            }
+
+            // Don't update config display here - wait until models are loaded
+        } else {
+            // Config API failed - still try to render agent models with empty config
+            console.warn('Config API failed, using empty config');
+            currentConfig = { agent_models: {} };
+        }
+
+        // Always load agent models and prompts, even if config API failed
+        await refreshCommercialModelCatalog();
+        await loadAgentModels();
+        if (!skipPromptReload) {
+            await loadAgentPrompts();
+        }
+        refreshAllProviderBlocks();
+        
+        // CRITICAL: Apply agent configs (models, providers, temperatures) from saved config
+        // This ensures extractor LLM settings survive refresh after save
+        if (currentConfig && currentConfig.agent_models) {
+            applyAgentConfigs(currentConfig.agent_models);
+        }
+        
+        // Update config display after models are loaded
+        updateConfigDisplay();
+        
+        // Load QA settings - ensure currentConfig.qa_enabled is properly set
+        if (currentConfig && !currentConfig.qa_enabled) {
+            currentConfig.qa_enabled = {};
+        }
+        
+        // Sync extract agent toggles first, then load QA settings
+        // This ensures extract agent state is correct before QA settings are applied
+        syncExtractAgentTogglesFromConfig();
+        loadQASettings2();
+        
+        // Load SIGMA fallback setting
+        const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
+        if (sigmaFallbackCheckbox && currentConfig.sigma_fallback_enabled !== undefined) {
+            sigmaFallbackCheckbox.checked = currentConfig.sigma_fallback_enabled;
+        }
+        
+        const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
+        if (rankAgentEnabledCheckbox && currentConfig.rank_agent_enabled !== undefined) {
+            rankAgentEnabledCheckbox.checked = currentConfig.rank_agent_enabled;
+        } else if (rankAgentEnabledCheckbox) {
+            // Default to true if not specified
+            rankAgentEnabledCheckbox.checked = true;
+        }
+        // Update badge to reflect initial state
+        if (typeof updateRankEnabledBadge === 'function') {
+            updateRankEnabledBadge();
+        }
+        
+        // Update Rank QA state based on Rank Agent enabled state (restore from config on initial load)
+        updateRankQAState(true);
+        
+        // Add event listener to Rank Agent toggle to update Rank QA state (don't restore on toggle)
+        if (rankAgentEnabledCheckbox) {
+            rankAgentEnabledCheckbox.addEventListener('change', () => {
+                updateRankQAState(false); // Don't restore from config when toggling
+                updateSaveButtonState();
+            });
+        }
+        
+        // Initialize change tracking after config is loaded
+        initializeChangeTracking();
+        
+        // Load sub-agent temperature values
+        const agentModels = currentConfig?.agent_models || {};
+        const subAgents = [
+            { name: 'RankAgent', id: 'rankagent-temperature' },
+            { name: 'CmdlineExtract', id: 'cmdlineextract-temperature' },
+            { name: 'ProcTreeExtract', id: 'proctreeextract-temperature' }
+        ];
+        subAgents.forEach(subAgent => {
+            const tempInput = document.getElementById(subAgent.id);
+            if (tempInput) {
+                const tempKey = `${subAgent.name}_temperature`;
+                const tempValue = agentModels[tempKey];
+                if (tempValue !== undefined) {
+                    tempInput.value = tempValue;
+                }
+                // Ensure onChange handler is set
+                if (!tempInput.getAttribute('onchange')) {
+                    tempInput.setAttribute('onchange', 'autoSaveModelChange()');
+                }
+            }
+        });
+        
+        // Load embedding model selection
+        const embeddingModelSelect = document.getElementById('sigma-embedding-model');
+        if (embeddingModelSelect) {
+            const currentEmbeddingModel = agentModels['SigmaEmbeddingModel'] || '';
+            if (currentEmbeddingModel) {
+                embeddingModelSelect.value = currentEmbeddingModel;
+            }
+        }
+        
+        // Setup event listeners for QA toggles after content is loaded
+        setupQAEventListeners();
+        
+        // Load embedding models for SIGMA similarity search
+        await loadLMStudioEmbeddingModels();
+    } catch (error) {
+        console.error('Error loading config:', error);
+        // Even on error, try to render agent models with empty config
+        currentConfig = { agent_models: {} };
+        await loadAgentModels().catch(err => console.error('Error loading agent models:', err));
+    }
+}
+
+function setupQAEventListeners() {
+    const qaCheckboxes = [
+        { id: 'qa-rankagent', prefix: 'rank-agent' },
+        { id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
+        { id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
+        { id: 'qa-sigmaagent', prefix: 'sigma-agent' }
+    ];
+    
+    qaCheckboxes.forEach(function(item) {
+        const checkbox = document.getElementById(item.id);
+        if (checkbox) {
+            // Ensure onchange attribute is set (in case it was lost)
+            if (!checkbox.getAttribute('onchange')) {
+                checkbox.setAttribute('onchange', `updateQABadge('${item.prefix}')`);
+            }
+            
+            // Remove existing event listener if any (by cloning without listeners)
+            const hasListener = checkbox.onchange !== null;
+            
+            // Add event listener as backup (works alongside inline onchange)
+            checkbox.addEventListener('change', function(e) {
+                console.log(`QA toggle changed for ${item.prefix}, checked: ${e.target.checked}`);
+                updateQABadge(item.prefix);
+            }, { once: false });
+        } else {
+            console.warn(`setupQAEventListeners: Checkbox not found: ${item.id}`);
+        }
+    });
+}
+
+async function loadAgentModels() {
+    // Prevent multiple simultaneous calls
+    if (isLoadingAgentModels) {
+        console.log('loadAgentModels already in progress, skipping duplicate call');
+        return;
+    }
+    
+    isLoadingAgentModels = true;
+    try {
+        // Check if any agent uses LMStudio before calling the API
+        const agentModelsToCheck = currentConfig?.agent_models || agentModels || {};
+        const providerAgentMap = {
+            rankagent: 'RankAgent',
+            extractagent: 'ExtractAgent',
+            sigmaagent: 'SigmaAgent',
+            cmdlineextract: 'CmdlineExtract',
+            proctreeextract: 'ProcTreeExtract'
+        };
+        
+        const hasLMStudioProvider = Object.entries(providerAgentMap).some(([prefix, name]) => {
+            const storedProvider = agentModelsToCheck[`${name}_provider`] || 'lmstudio';
+            return storedProvider === 'lmstudio';
+        });
+        
+        // Only call LMStudio API if at least one agent uses LMStudio
+        if (hasLMStudioProvider) {
+        const response = await fetch('/api/lmstudio-models');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.models) {
+                agentModels = currentConfig?.agent_models || {};
+                renderAgentModels(data.models);
+                applyProviderSelections(agentModels);
+            } else {
+                // API succeeded but returned no models - still render containers with empty model list
+                agentModels = currentConfig?.agent_models || {};
+                renderAgentModels([]);
+                applyProviderSelections(agentModels);
+            }
+        } else {
+            // API call failed - still render containers with empty model list
+                agentModels = currentConfig?.agent_models || {};
+                renderAgentModels([]);
+                applyProviderSelections(agentModels);
+            }
+        } else {
+            // No LMStudio providers - render UI with empty model list
+            agentModels = currentConfig?.agent_models || {};
+            renderAgentModels([]);
+            applyProviderSelections(agentModels);
+        }
+    } catch (error) {
+        console.error('Error loading agent models:', error);
+        // Even on error, render containers with empty model list so UI structure is visible
+        agentModels = currentConfig?.agent_models || {};
+        renderAgentModels([]);
+        applyProviderSelections(agentModels);
+    } finally {
+        isLoadingAgentModels = false;
+    }
+}
+
+// Cache model lists for repopulating dropdowns when provider changes
+let cachedSortedModelIds = [];
+let cachedAvailableModelIds = [];
+let isLoadingAgentModels = false; // Guard to prevent multiple simultaneous loads
+
+function repopulateSubAgentModelDropdown(agentPrefix, agentName) {
+    /**Repopulate a single sub-agent's model dropdown when provider changes to LMStudio.*/
+    const select = document.getElementById(`${agentPrefix}-model`);
+    if (!select) {
+        console.warn(`Model select not found for ${agentPrefix}`);
+        return;
+    }
+    
+    // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+    const currentModelFromDOM = select.value || '';
+    const agentModels = currentConfig?.agent_models || {};
+    const currentModelFromConfig = agentModels[`${agentName}_model`] || '';
+    const currentModel = currentModelFromDOM || currentModelFromConfig;
+    
+    if (cachedSortedModelIds.length === 0) {
+        // No cached models - try to reload, but only if not already loading
+        if (!isLoadingAgentModels) {
+            isLoadingAgentModels = true;
+            loadAgentModels()
+                .catch(err => console.error('Error reloading models:', err))
+                .finally(() => {
+                    isLoadingAgentModels = false;
+                });
+        }
+        return;
+    }
+    
+    // Normalize model IDs
+    const normalizeModelId = (modelId) => {
+        if (typeof modelId !== 'string') return modelId;
+        return modelId.replace(/:\d+$/, '');
+    };
+    
+    const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+    const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+    const allModelIds = [...new Set([
+        ...cachedSortedModelIds, 
+        ...(currentModel && isLMStudioModel && !cachedSortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+    ])].sort();
+    
+    const modelOptions = allModelIds.map(modelId => {
+        const isSelected = currentModel === modelId ? 'selected' : '';
+        const isUnavailable = !cachedAvailableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+        return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+    }).join('');
+    select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+}
+
+function renderAgentModels(lmstudioModels) {
+    const agentMappings = {
+        'os-detection': {
+            container: 'os-detection-model-container',
+            agentName: 'OSDetectionAgent',
+            labels: { main: 'OS Detection' }
+        },
+        'extract-agent': {
+            container: 'extract-agent-model-container',
+            agentName: 'ExtractAgent',
+            labels: { main: 'Extract Agents' }
+        },
+        'sigma-agent': {
+            container: 'sigma-agent-model-container',
+            agentName: 'SigmaAgent',
+            labels: { main: 'SIGMA Generator Agent' }
+        }
+    };
+    
+    // Normalize model IDs by removing numbered suffixes (:2, :3, etc.) for deduplication
+    // LMStudio may return the same model multiple times with different instance numbers
+    const normalizeModelId = (modelId) => {
+        if (typeof modelId !== 'string') return modelId;
+        // Remove :2, :3, etc. suffixes that indicate multiple instances of the same model
+        return modelId.replace(/:\d+$/, '');
+    };
+    
+    const availableModelIds = lmstudioModels.map(m => typeof m === 'string' ? m : m.id);
+    
+    // Cache model lists for repopulating dropdowns
+    cachedAvailableModelIds = availableModelIds;
+    
+    // Create a map of normalized -> original (prefer base model without suffix)
+    const modelMap = new Map();
+    for (const modelId of availableModelIds) {
+        const normalized = normalizeModelId(modelId);
+        // Prefer base model (without suffix) over numbered instances
+        if (!modelMap.has(normalized) || !modelId.includes(':')) {
+            modelMap.set(normalized, modelId);
+        }
+    }
+    
+    // Get unique models (using normalized deduplication)
+    const uniqueModelIds = Array.from(modelMap.values()).sort();
+    const sortedModelIds = uniqueModelIds;
+    
+    // Cache sorted model IDs for repopulating dropdowns
+    cachedSortedModelIds = sortedModelIds;
+
+    const buildOptions = (currentModel, placeholder) => {
+        // Normalize current model for comparison
+        const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+        const allModelIds = [...new Set([...sortedModelIds, ...(currentModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])])];
+        
+        // If no models available and no current model, show a helpful message
+        if (allModelIds.length === 0 && !currentModel) {
+            return `<option value="">${placeholder}</option><option value="" disabled>⚠️ LM Studio not available - no models loaded</option>`;
+        }
+        
+        return [
+            `<option value="">${placeholder}</option>`,
+            ...allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+            })
+        ].join('');
+    };
+
+    // Helper function to safely get container even if parent is hidden
+    // Containers are always in the DOM, but parent panels may be collapsed (hidden)
+    // We need to ensure we can render to them regardless of visibility state
+    const getContainer = (containerId) => {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.warn(`Container ${containerId} not found`);
+            return null;
+        }
+        // Containers exist in DOM even when parent is hidden, so we can always render
+        // The issue was that innerHTML was being set but content wasn't visible when panel expanded
+        // This is now fixed by ensuring we always render content regardless of parent visibility
+        return container;
+    };
+
+    // Render Rank Agent Model
+    const rankContainer = getContainer('rank-agent-model-container');
+    if (rankContainer) {
+        // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+        const rankSelect = document.getElementById('rankagent-model-2');
+        const currentModelFromDOM = rankSelect?.value || '';
+        const currentModelFromConfig = agentModels['RankAgent'] || '';
+        const currentModel = currentModelFromDOM || currentModelFromConfig;
+        const currentTemperature = agentModels['RankAgent_temperature'] !== undefined ? agentModels['RankAgent_temperature'] : 0.0;
+        const currentTopP = agentModels['RankAgent_top_p'] !== undefined ? agentModels['RankAgent_top_p'] : 0.9;
+        const currentProvider = (agentModels && agentModels['RankAgent_provider']) || 'lmstudio';
+        // Only use currentModel for LMStudio dropdown if provider is lmstudio
+        const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
+        const modelOptions = buildOptions(lmstudioModel, 'Select a model (required)');
+        rankContainer.innerHTML = `
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span>Rank Agent Model</span>
+                    <button type="button" 
+                            onclick="showHelp('rankAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect('rankagent', currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">LMStudio runs locally; OpenAI/Anthropic require keys configured on Settings.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="rankagent" data-provider="lmstudio">
+                            <select id="rankagent-model-2" 
+                                    name="agent_models[RankAgent]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                ${modelOptions}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="rankagent" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('rankagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="rankagent" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('rankagent', 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Rank Agent scoring.</p>
+                ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
+                <div class="mt-3 flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                        <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                        <input type="number" id="rankagent-top-p" name="agent_models[RankAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Render OS Detection Model
+    const osContainer = getContainer('os-detection-model-container');
+    if (osContainer) {
+        const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
+        const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
+        const currentFallbackProvider = agentModels['OSDetectionAgent_fallback_provider'] || 'lmstudio';
+        const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
+        const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
+        
+        const isWindowsChecked = selectedOSArray.includes('Windows') || selectedOSArray.includes('All');
+        const isLinuxChecked = selectedOSArray.includes('Linux') || selectedOSArray.includes('All');
+        const isMacOSChecked = selectedOSArray.includes('MacOS') || selectedOSArray.includes('All');
+        const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
+        const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
+        const isAllChecked = selectedOSArray.includes('All');
+        
+        // Only use currentFallbackModel for LMStudio dropdown if provider is lmstudio
+        const lmstudioFallbackModel = currentFallbackProvider === 'lmstudio' ? currentFallbackModel : '';
+        
+        osContainer.innerHTML = `
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    OS Detection Model
+                    <button type="button" 
+                            onclick="showHelp('osDetectionAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </label>
+                <div class="mb-3">
+                    <label for="osdetectionagent-embedding-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
+                    <select id="osdetectionagent-embedding-model-2" 
+                            name="agent_models[OSDetectionAgent_embedding]"
+                            onchange="autoSaveModelChange()"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                        <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
+                        <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback LLM (Optional)</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-fallback-enabled" 
+                                   class="sr-only peer" 
+                                   onchange="toggleFallbackModel()"
+                                   ${currentFallbackModel ? 'checked' : ''}>
+                            <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                        </label>
+                    </div>
+                    <div id="osdetectionagent-fallback-container" class="${currentFallbackModel ? '' : 'hidden'}" style="display: ${currentFallbackModel ? 'block' : 'none'};">
+                        ${buildProviderSelect('osdetectionagent-fallback', currentFallbackProvider)}
+                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1 mb-2">LLM fallback when embedding confidence is low</p>
+                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="lmstudio">
+                            <select id="osdetectionagent-fallback-model-2" 
+                                    name="agent_models[OSDetectionAgent_fallback]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use default</option>
+                                ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${lmstudioFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('osdetectionagent-fallback', 'openai', currentFallbackProvider, currentFallbackModel)}
+                        </div>
+                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('osdetectionagent-fallback', 'anthropic', currentFallbackProvider, currentFallbackModel)}
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Target Operating Systems
+                    </label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-windows" 
+                                   name="os_selection[]" 
+                                   value="Windows"
+                                   ${isWindowsChecked ? 'checked' : ''}
+                                   onchange="updateOSSelection()"
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Windows</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-linux" 
+                                   name="os_selection[]" 
+                                   value="Linux"
+                                   ${isLinuxChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Linux</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-macos" 
+                                   name="os_selection[]" 
+                                   value="MacOS"
+                                   ${isMacOSChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">MacOS</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-network" 
+                                   name="os_selection[]" 
+                                   value="Network"
+                                   ${isNetworkChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Network</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-other" 
+                                   name="os_selection[]" 
+                                   value="Other"
+                                   ${isOtherChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Other</span>
+                        </label>
+                        <label class="flex items-center opacity-50 cursor-not-allowed">
+                            <input type="checkbox" 
+                                   id="osdetectionagent-os-all" 
+                                   name="os_selection[]" 
+                                   value="All"
+                                   ${isAllChecked ? 'checked' : ''}
+                                   disabled
+                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">All</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Select target operating systems for detection (stub - only Windows enabled)
+                    </p>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Render Extract Agents Fallback Model
+    const extractContainer = getContainer('extract-agent-model-container');
+    if (extractContainer) {
+        // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+        const extractSelect = document.getElementById('extractagent-model-2');
+        const currentModelFromDOM = extractSelect?.value || '';
+        const currentModelFromConfig = agentModels['ExtractAgent'] || '';
+        const currentModel = currentModelFromDOM || currentModelFromConfig;
+        const currentTemperature = agentModels['ExtractAgent_temperature'] !== undefined ? agentModels['ExtractAgent_temperature'] : 0.0;
+        const currentProvider = (agentModels && agentModels['ExtractAgent_provider']) || 'lmstudio';
+        // Only use currentModel for LMStudio dropdown if provider is lmstudio
+        const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
+        // Use deduplicated sorted models
+        const modelOptions = sortedModelIds.map(modelId => {
+            return `<option value="${escapeHtml(modelId)}" ${lmstudioModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+        }).join('');
+        extractContainer.innerHTML = `
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span>Extract Agents Fallback Model</span>
+                    <button type="button" 
+                            onclick="showHelp('extractAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect('extractagent', currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Select LMStudio for now or use OpenAI/Anthropic keys from Settings.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="extractagent" data-provider="lmstudio">
+                            <select id="extractagent-model-2" 
+                                    name="agent_models[ExtractAgent]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use default from Settings</option>
+                                ${modelOptions}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="extractagent" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('extractagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="extractagent" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('extractagent', 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                 </div>
+                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Extract Agent operations.</p>
+                 ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
+                 <div class="mt-3">
+                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                     <input type="number" id="extractagent-temperature" name="agent_models[ExtractAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                 </div>
+             </div>
+        `;
+    }
+    
+    // Render SIGMA Agent Model
+    const sigmaContainer = getContainer('sigma-agent-model-container');
+    if (sigmaContainer) {
+        const currentModel = agentModels['SigmaAgent'] || '';
+        const currentTemperature = agentModels['SigmaAgent_temperature'] !== undefined ? agentModels['SigmaAgent_temperature'] : 0.0;
+        const currentTopP = agentModels['SigmaAgent_top_p'] !== undefined ? agentModels['SigmaAgent_top_p'] : 0.9;
+        const currentProvider = (agentModels && agentModels['SigmaAgent_provider']) || 'lmstudio';
+        // Only use currentModel for LMStudio dropdown if provider is lmstudio
+        const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
+        // Use deduplicated sorted models
+        const modelOptions = sortedModelIds.map(modelId => {
+            return `<option value="${escapeHtml(modelId)}" ${lmstudioModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
+        }).join('');
+        sigmaContainer.innerHTML = `
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <span>SIGMA Generator Agent Model</span>
+                    <button type="button" 
+                            onclick="showHelp('sigmaAgent')"
+                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                            title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        ${buildProviderSelect('sigmaagent', currentProvider)}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Choose LMStudio for local generation or use API keys in Settings.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div data-agent-prefix="sigmaagent" data-provider="lmstudio">
+                            <select id="sigmaagent-model-2" 
+                                    name="agent_models[SigmaAgent]"
+                                    onchange="autoSaveModelChange()"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                <option value="">Use default from Settings</option>
+                                ${modelOptions}
+                            </select>
+                        </div>
+                        <div data-agent-prefix="sigmaagent" data-provider="openai" class="hidden">
+                            ${buildCommercialProviderInput('sigmaagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="sigmaagent" data-provider="anthropic" class="hidden">
+                            ${buildCommercialProviderInput('sigmaagent', 'anthropic', currentProvider, currentModel)}
+                        </div>
+                    </div>
+                 </div>
+                 <div class="mt-3 flex gap-3">
+                     <div class="flex-1">
+                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                         <input type="number" id="sigmaagent-temperature" name="agent_models[SigmaAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                     </div>
+                     <div class="flex-1">
+                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                         <input type="number" id="sigmaagent-top-p" name="agent_models[SigmaAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                     </div>
+                 </div>
+             </div>
+        `;
+    }
+    
+    // Populate sub-agent model dropdowns using unified system
+    const subAgentConfigs = getAgentConfigs({ isSubAgent: true, hasFallback: true });
+    
+    subAgentConfigs.forEach(config => {
+        const select = document.getElementById(`${config.prefix}-model`);
+        const providerSelect = document.getElementById(`${config.prefix}-provider`);
+        
+        if (!select) {
+            console.warn(`Model select element not found for ${config.name}: ${config.prefix}-model`);
+            return;
+        }
+        
+        if (!providerSelect) {
+            console.warn(`Provider select element not found for ${config.name}: ${config.prefix}-provider`);
+            // Still try to populate with default provider (lmstudio)
+            // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+            const currentModelFromDOM = select.value || '';
+            const currentModelFromConfig = agentModels[config.modelKey] || '';
+            const currentModel = currentModelFromDOM || currentModelFromConfig;
+            const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+            const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+            const allModelIds = [...new Set([
+                ...sortedModelIds, 
+                ...(currentModel && isLMStudioModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+            ])].sort();
+            
+            const modelOptions = allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+            }).join('');
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+            if (!select.getAttribute('onchange')) {
+                select.setAttribute('onchange', 'autoSaveModelChange()');
+            }
+            return;
+        }
+        
+        const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+        // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+        const currentModelFromDOM = select.value || '';
+        const currentModelFromConfig = agentModels[config.modelKey] || '';
+        const currentModel = currentModelFromDOM || currentModelFromConfig;
+        
+        // Only populate LMStudio models if provider is LMStudio
+        if (currentProvider === 'lmstudio') {
+            // Use deduplicated sorted models, ensure current model is in the list (if it's an LMStudio model)
+            const normalizedCurrent = currentModel ? normalizeModelId(currentModel) : null;
+            // Only include currentModel if it looks like an LMStudio model
+            const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+            const allModelIds = [...new Set([
+                ...sortedModelIds, 
+                ...(currentModel && isLMStudioModel && !sortedModelIds.some(m => normalizeModelId(m) === normalizedCurrent) ? [currentModel] : [])
+            ])].sort();
+            
+            const modelOptions = allModelIds.map(modelId => {
+                const isSelected = currentModel === modelId ? 'selected' : '';
+                const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
+                return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
+            }).join('');
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+        } else {
+            // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
+            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>';
+        }
+        // Add onChange handler if not already present
+        if (!select.getAttribute('onchange')) {
+            select.setAttribute('onchange', 'autoSaveModelChange()');
+        }
+    });
+
+    // Populate QA agent model dropdowns using unified system
+    const qaConfigs = getAgentConfigs({ isQA: true });
+    
+    qaConfigs.forEach(config => {
+        const selectEl = document.getElementById(`${config.prefix}-model`);
+        const providerSelect = document.getElementById(`${config.prefix}-provider`);
+        
+        if (!selectEl) {
+            console.warn(`QA model select element not found for ${config.name}: ${config.prefix}-model`);
+            return;
+        }
+        
+        if (!providerSelect) {
+            console.warn(`QA provider select element not found for ${config.name}: ${config.prefix}-provider`);
+            return;
+        }
+        
+        const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentModel = agentModels[config.modelKey] || '';
+        
+        // Determine placeholder based on QA agent type
+        const placeholder = config.name === 'RankAgentQA' 
+            ? 'Use Rank Agent model' 
+            : 'Use Extract Agents model';
+        
+        // Only populate LMStudio models if provider is LMStudio
+        if (currentProvider === 'lmstudio') {
+            // Only include currentModel if it looks like an LMStudio model
+            const isLMStudioModel = !currentModel || !currentModel.match(/^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|claude)/i);
+            const modelToUse = isLMStudioModel ? currentModel : '';
+            selectEl.innerHTML = buildOptions(modelToUse, placeholder);
+        } else {
+            // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
+            selectEl.innerHTML = buildOptions('', placeholder);
+        }
+        
+        // Load QA temperature
+        if (config.temperatureKey) {
+            const tempInput = document.getElementById(`${config.prefix}-temperature`);
+            if (tempInput && agentModels[config.temperatureKey] !== undefined) {
+                tempInput.value = agentModels[config.temperatureKey];
+            }
+        }
+    });
+
+    // Update provider visibility for dynamically-rendered main agents
+    // Use setTimeout to ensure DOM is fully updated after innerHTML changes
+    setTimeout(() => {
+        const mainAgents = [
+            { prefix: 'rankagent', key: 'RankAgent_provider' },
+            { prefix: 'extractagent', key: 'ExtractAgent_provider' },
+            { prefix: 'sigmaagent', key: 'SigmaAgent_provider' }
+        ];
+
+        mainAgents.forEach(agent => {
+            const provider = (agentModels && agentModels[agent.key]) || 'lmstudio';
+            // Set the provider dropdown value
+            const providerSelect = document.getElementById(`${agent.prefix}-provider`);
+            if (providerSelect) {
+                providerSelect.value = provider;
+            }
+            // Update visibility of provider sections
+            updateAgentProviderVisibility(agent.prefix, provider);
+        });
+    }, 0);
+}
+
+// Test Sub-Agent Modal
+let testModal = null;
+
+function showTestModal(agentName, articleId) {
+    if (!testModal) {
+        testModal = document.createElement('div');
+        testModal.id = 'test-subagent-modal';
+        testModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden';
+        testModal.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-500 dark:text-gray-400" id="test-modal-title">Testing Agent</h3>
+                    <button onclick="closeTestModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div id="test-modal-progress" class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">Dispatching to worker...</span>
+                        </div>
+                    </div>
+                    <div id="test-modal-results" class="hidden">
+                        <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Results:</h4>
+                        <pre id="test-modal-results-content" class="bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs overflow-x-auto text-gray-500 dark:text-gray-400"></pre>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    <div id="test-modal-actions" class="flex gap-2">
+                        <button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(testModal);
+        
+        // Close on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !testModal.classList.contains('hidden')) {
+                closeTestModal();
+            }
+        });
+        
+        // Close on backdrop click
+        testModal.addEventListener('click', (e) => {
+            if (e.target === testModal) {
+                closeTestModal();
+            }
+        });
+    }
+    
+    document.getElementById('test-modal-title').textContent = `Testing ${agentName} on Article ${articleId}`;
+    document.getElementById('test-modal-progress').classList.remove('hidden');
+    document.getElementById('test-modal-results').classList.add('hidden');
+    testModal.classList.remove('hidden');
+}
+
+function closeTestModal() {
+    if (testModal) {
+        testModal.classList.add('hidden');
+    }
+}
+
+// Poll test status until complete
+async function pollTestStatus(taskId, agentName, articleId) {
+    const maxAttempts = 120; // 10 minutes max (5s intervals)
+    let attempts = 0;
+    
+    const pollInterval = setInterval(async () => {
+        attempts++;
+        
+        try {
+            const response = await fetch(`/api/workflow/config/test-status/${taskId}`);
+            const data = await response.json();
+            
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                
+                // Hide progress, show results
+                document.getElementById('test-modal-progress').classList.add('hidden');
+                const resultsDiv = document.getElementById('test-modal-results');
+                resultsDiv.classList.remove('hidden');
+                
+                const resultsContent = document.getElementById('test-modal-results-content');
+                
+                if (data.result && data.result.success) {
+                    const payload = data.result.result || data.result;
+                    let displayText = '';
+                    
+                    // Special handling for SigmaAgent - extract LLM response from conversation log
+                    if (agentName === 'SigmaAgent' && payload && typeof payload === 'object') {
+                        if (payload.metadata && payload.metadata.conversation_log && Array.isArray(payload.metadata.conversation_log)) {
+                            // Get the last conversation log entry (most recent attempt)
+                            const lastEntry = payload.metadata.conversation_log[payload.metadata.conversation_log.length - 1];
+                            if (lastEntry && lastEntry.llm_response) {
+                                displayText = lastEntry.llm_response.trim();
+                            }
+                        }
+                    }
+                    
+                    // Fallback to standard extraction for other agents or if SigmaAgent extraction failed
+                    if (!displayText && payload && typeof payload === 'object') {
+                        if (payload.llm_response) {
+                            displayText = payload.llm_response.trim();
+                        } else if (typeof payload._llm_response === 'string') {
+                            displayText = payload._llm_response.trim();
+                        } else if (payload.raw_response) {
+                            displayText = payload.raw_response.trim();
+                        }
+                    }
+                    
+                    // Last resort: show full JSON only if no LLM response found
+                    if (!displayText) {
+                        displayText = JSON.stringify(payload, null, 2);
+                    }
+                    
+                    resultsContent.textContent = displayText;
+                    resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                } else {
+                    const errorMsg = data.result?.error || data.error || 'Unknown error';
+                    resultsContent.textContent = `Error: ${errorMsg}`;
+                    resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                }
+                
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+                
+            } else if (data.status === 'failed') {
+                clearInterval(pollInterval);
+                
+                document.getElementById('test-modal-progress').classList.add('hidden');
+                const resultsDiv = document.getElementById('test-modal-results');
+                resultsDiv.classList.remove('hidden');
+                const resultsContent = document.getElementById('test-modal-results-content');
+                resultsContent.textContent = `Error: ${data.error || 'Test failed'}`;
+                resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+                
+            } else if (data.status === 'pending') {
+                // Still running, update progress message
+                const progressDiv = document.getElementById('test-modal-progress');
+                const progressText = progressDiv.querySelector('span');
+                if (progressText) {
+                    progressText.textContent = `Test is running in worker... (${attempts * 5}s)`;
+                }
+            }
+            
+            // Timeout after max attempts
+            if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                document.getElementById('test-modal-progress').classList.add('hidden');
+                const resultsDiv = document.getElementById('test-modal-results');
+                resultsDiv.classList.remove('hidden');
+                const resultsContent = document.getElementById('test-modal-results-content');
+                resultsContent.textContent = `Error: Test timed out after ${maxAttempts * 5} seconds. The task may still be running in the worker.`;
+                resultsContent.className = 'bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded border border-yellow-200 dark:border-yellow-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+                document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+            }
+            
+        } catch (error) {
+            clearInterval(pollInterval);
+            document.getElementById('test-modal-progress').classList.add('hidden');
+            const resultsDiv = document.getElementById('test-modal-results');
+            resultsDiv.classList.remove('hidden');
+            const resultsContent = document.getElementById('test-modal-results-content');
+            resultsContent.textContent = `Error polling status: ${error.message}`;
+            resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+            document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+        }
+    }, 5000); // Poll every 5 seconds
+}
+
+function promptForArticleId(defaultId = 2155) {
+    const articleId = prompt(`Enter article ID to test with:`, defaultId.toString());
+    if (articleId === null) return null; // User cancelled
+    const parsedId = parseInt(articleId, 10);
+    if (isNaN(parsedId) || parsedId <= 0) {
+        alert('Please enter a valid article ID (positive number)');
+        return null;
+    }
+    return parsedId;
+}
+
+function getContentFilterSettings() {
+    const junkFilterThreshold = parseFloat(document.getElementById('junkFilterThreshold')?.value || '0.8');
+    // Content filter is enabled by default, check if there's a toggle (if not, assume enabled)
+    const useJunkFilter = true; // Always use content filter based on user's request
+    return {
+        use_junk_filter: useJunkFilter,
+        junk_filter_threshold: junkFilterThreshold
+    };
+}
+
+async function testSubAgent(agentName, articleId) {
+    showTestModal(agentName, articleId);
+    
+    const filterSettings = getContentFilterSettings();
+    
+    try {
+        // Dispatch test task to worker
+        const response = await fetch('/api/workflow/config/test-subagent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                agent_name: agentName,
+                article_id: articleId,
+                use_junk_filter: filterSettings.use_junk_filter,
+                junk_filter_threshold: filterSettings.junk_filter_threshold
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to start test');
+        }
+        
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        if (!taskId) {
+            throw new Error('No task ID returned from server');
+        }
+        
+        // Poll for results
+        await pollTestStatus(taskId, agentName, articleId);
+        
+    } catch (error) {
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        const resultsContent = document.getElementById('test-modal-results-content');
+        resultsContent.textContent = `Error: ${error.message}`;
+        resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+    }
+}
+
+async function testRankAgent(articleId) {
+    showTestModal('RankAgent', articleId);
+    
+    const filterSettings = getContentFilterSettings();
+    
+    try {
+        // Dispatch test task to worker
+        const response = await fetch('/api/workflow/config/test-rankagent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                article_id: articleId,
+                use_junk_filter: filterSettings.use_junk_filter,
+                junk_filter_threshold: filterSettings.junk_filter_threshold
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to start test');
+        }
+        
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        if (!taskId) {
+            throw new Error('No task ID returned from server');
+        }
+        
+        // Poll for results
+        await pollTestStatus(taskId, 'RankAgent', articleId);
+        
+    } catch (error) {
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        const resultsContent = document.getElementById('test-modal-results-content');
+        resultsContent.textContent = `Error: ${error.message}`;
+        resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+    }
+}
+
+async function testSigmaAgent(articleId) {
+    showTestModal('SigmaAgent', articleId);
+
+    const filterSettings = getContentFilterSettings();
+
+    try {
+        // Get SigmaAgent model from config
+        const configAgentModels = currentConfig?.agent_models || agentModels || {};
+        const sigmaModel = configAgentModels['SigmaAgent'];
+        const sigmaProvider = configAgentModels['SigmaAgent_provider'] || 'lmstudio';
+        
+        // If using LMStudio, check if model is loaded and load it if needed
+        if (sigmaProvider === 'lmstudio' && sigmaModel) {
+            try {
+                // Try a quick test request to check if model is loaded
+                const testResponse = await fetch('http://localhost:1234/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: sigmaModel,
+                        messages: [{ role: 'user', content: 'test' }],
+                        max_tokens: 5,
+                        temperature: 0
+                    }),
+                    signal: AbortSignal.timeout(5000) // 5 second timeout
+                });
+                
+                if (testResponse.status !== 200) {
+                    const errorData = await testResponse.json().catch(() => ({}));
+                    const errorMsg = errorData?.error?.message || '';
+                    
+                    // Check if error indicates model not loaded
+                    if (errorMsg.toLowerCase().includes('no models loaded') || 
+                        errorMsg.toLowerCase().includes('model') && errorMsg.toLowerCase().includes('not loaded')) {
+                        console.log(`Model ${sigmaModel} not loaded, loading now...`);
+                        
+                        // Update modal to show loading status
+                        const progressDiv = document.getElementById('test-modal-progress');
+                        if (progressDiv) {
+                            progressDiv.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Loading model... This may take a moment.</p>';
+                        }
+                        
+                        // Load the model
+                        const loadResponse = await fetch('/api/load-lmstudio-model', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model_name: sigmaModel,
+                                context_length: 16384 // Default context length for SIGMA
+                            })
+                        });
+                        
+                        if (!loadResponse.ok) {
+                            const loadError = await loadResponse.json();
+                            throw new Error(`Failed to load model: ${loadError.detail || 'Unknown error'}`);
+                        }
+                        
+                        const loadData = await loadResponse.json();
+                        console.log(`Model loaded: ${loadData.message}`);
+                        
+                        // Wait a moment for model to be ready
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+            } catch (testError) {
+                // If test request fails (timeout, connection error, etc.), try loading anyway
+                if (testError.name === 'TimeoutError' || testError.name === 'TypeError') {
+                    console.log(`Could not verify model status, attempting to load ${sigmaModel}...`);
+                    
+                    const progressDiv = document.getElementById('test-modal-progress');
+                    if (progressDiv) {
+                        progressDiv.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Loading model... This may take a moment.</p>';
+                    }
+                    
+                    const loadResponse = await fetch('/api/load-lmstudio-model', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model_name: sigmaModel,
+                            context_length: 16384
+                        })
+                    });
+                    
+                    if (!loadResponse.ok) {
+                        const loadError = await loadResponse.json();
+                        throw new Error(`Failed to load model: ${loadError.detail || 'Unknown error'}`);
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } else {
+                    // Other errors (like network issues) - log but continue
+                    console.warn('Could not check model status:', testError);
+                }
+            }
+        }
+        
+        // Dispatch test task to worker
+        const response = await fetch('/api/workflow/config/test-sigmaagent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                article_id: articleId,
+                use_junk_filter: filterSettings.use_junk_filter,
+                junk_filter_threshold: filterSettings.junk_filter_threshold
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to start test');
+        }
+
+        const data = await response.json();
+        const taskId = data.task_id;
+        
+        if (!taskId) {
+            throw new Error('No task ID returned from server');
+        }
+        
+        // Poll for results
+        await pollTestStatus(taskId, 'SigmaAgent', articleId);
+        
+    } catch (error) {
+        document.getElementById('test-modal-progress').classList.add('hidden');
+        const resultsDiv = document.getElementById('test-modal-results');
+        resultsDiv.classList.remove('hidden');
+        const resultsContent = document.getElementById('test-modal-results-content');
+        resultsContent.textContent = `Error: ${error.message}`;
+        resultsContent.className = 'bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
+        document.getElementById('test-modal-actions').innerHTML = '<button onclick="closeTestModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">Close</button>';
+    }
+}
+
+// Auto-save model changes immediately
+window.updateOSSelection = async function updateOSSelection() {
+    // Trigger auto-save when OS selection changes
+    await autoSaveModelChange();
+}
+
+window.autoSaveModelChange = async function autoSaveModelChange() {
+    try {
+        // Collect all agent configs using unified system
+        const collectedAgentConfigs = collectAllAgentConfigs();
+        
+        // Collect OS selections (special case, not in AGENT_CONFIG)
+        const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
+        const selectedOS = Array.from(osCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+        const osSelection = selectedOS.length > 0 ? selectedOS : ['Windows'];
+        
+        // Special handling for OS Detection embedding (not in AGENT_CONFIG)
+        const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
+        
+        // Special handling for OS Detection fallback (conditional)
+        const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+        const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
+        if (!osFallbackEnabled) {
+            // Explicitly remove fallback when toggle is disabled
+            collectedAgentConfigs.OSDetectionAgent_fallback = null;
+            collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
+        } else {
+            // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
+            const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+            const model = getAgentModel('osdetectionagent-fallback', provider);
+            collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
+            // Only set model if a value is selected (not empty string)
+            if (model) {
+                collectedAgentConfigs.OSDetectionAgent_fallback = model;
+            } else {
+                // If no model selected but toggle is enabled, keep existing value (don't set to null)
+                // This allows the toggle to be enabled without requiring immediate model selection
+            }
+        }
+        
+        // Special handling for Sigma embedding model (not in AGENT_CONFIG)
+        const sigmaEmbedding = document.getElementById('sigma-embedding-model')?.value.trim() || null;
+        
+        const agentModelsData = {
+            ...collectedAgentConfigs,
+            OSDetectionAgent_embedding: osEmbedding,
+            OSDetectionAgent_selected_os: osSelection,
+            SigmaEmbeddingModel: sigmaEmbedding
+        };
+        
+        console.log('Rank Agent model change:', {
+            provider: collectedAgentConfigs.RankAgent_provider,
+            model: collectedAgentConfigs.RankAgent
+        });
+        
+        // Remove null/empty string values (but keep 0.0 for temperature)
+        // CRITICAL: RankAgent must be included if it has a value (even if empty string, to override env var)
+        // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
+        const cleanedAgentModels = {};
+        const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
+        // Get RankAgent value from collected configs, with fallback to direct form read
+        let rankModelValue = collectedAgentConfigs.RankAgent;
+        if (rankModelValue === undefined || rankModelValue === null) {
+            // Fallback: read directly from form element
+            const rankProvider = getAgentProvider('rankagent') || 'lmstudio';
+            rankModelValue = getAgentModel('rankagent', rankProvider);
+        }
+        
+        for (const [key, value] of Object.entries(agentModelsData)) {
+            // Always include RankAgent if it has a value (non-null, even if empty string)
+            if (key === 'RankAgent') {
+                // Prefer rankModelValue if it's a valid string, otherwise use value from agentModelsData
+                // Empty string is valid (means clear/use fallback), but null/undefined means not set
+                const finalRankValue = (rankModelValue !== null && rankModelValue !== undefined) 
+                    ? rankModelValue 
+                    : (value !== null && value !== undefined ? value : null);
+                // Include RankAgent if we have a value (including empty string to clear it)
+                if (finalRankValue !== null && finalRankValue !== undefined) {
+                    cleanedAgentModels[key] = finalRankValue;
+                } else if (currentConfig?.agent_models?.RankAgent) {
+                    // Preserve existing value if form field is empty but config has a value
+                    // This prevents accidentally clearing the model when form hasn't loaded yet
+                    cleanedAgentModels[key] = currentConfig.agent_models.RankAgent;
+                }
+            } else if (keysToPreserveNull.includes(key)) {
+                // Preserve null values for keys that need explicit removal
+                // Also include non-empty values (when toggle is enabled with a model selected)
+                if (value === null || value !== '') {
+                    cleanedAgentModels[key] = value;
+                }
+            } else if (value !== null && value !== '') {
+                cleanedAgentModels[key] = value;
+            }
+        }
+        
+        console.log('Auto-saving agent models:', cleanedAgentModels);
+        console.log('RankAgent value from select:', rankModelValue, 'Type:', typeof rankModelValue);
+        
+        // Update save button state when models change (even though we auto-save, button should reflect changes)
+        updateSaveButtonState();
+        
+        // Refresh prompt displays immediately to show updated model values from dropdown
+        if (agentPrompts && Object.keys(agentPrompts).length > 0) {
+            renderAgentPrompts();
+        }
+        
+        // Get current config to preserve other settings
+        if (!currentConfig) {
+            // Load config first if not available
+            const configResponse = await fetch('/api/workflow/config');
+            if (configResponse.ok) {
+                currentConfig = await configResponse.json();
+            } else {
+                console.error('Failed to load current config for auto-save');
+                return;
+            }
+        }
+        
+        // Build update payload with only fields that can be updated
+        // CRITICAL: Always send agent_models if RankAgent is set, even if it's the only field
+        const updateData = {
+            min_hunt_score: currentConfig.min_hunt_score,
+            ranking_threshold: currentConfig.ranking_threshold,
+            similarity_threshold: currentConfig.similarity_threshold,
+            junk_filter_threshold: currentConfig.junk_filter_threshold,
+            description: currentConfig.description || null,
+            agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
+            qa_enabled: currentConfig.qa_enabled || null
+        };
+        
+        console.log('Sending update payload:', JSON.stringify(updateData, null, 2));
+        
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            const updatedConfig = await response.json();
+            currentConfig = updatedConfig;
+            agentModels = updatedConfig.agent_models || {};
+            console.log('✅ Model change auto-saved successfully');
+            console.log('Updated config agent_models:', updatedConfig.agent_models);
+            // Sync dirty-tracking baseline to the new config so the save button disables again
+            resetOriginalConfigStateFromCurrent();
+            updateSaveButtonState();
+            
+            // Refresh prompt displays to show updated model values
+            if (agentPrompts && Object.keys(agentPrompts).length > 0) {
+                renderAgentPrompts();
+            }
+            
+            // Update config display to show current UI state
+            if (typeof updateConfigDisplay === 'function') {
+                updateConfigDisplay();
+            }
+            
+            // Verify the saved value matches what we sent
+            const savedRankModel = updatedConfig.agent_models?.RankAgent;
+            // Use the value that was actually sent (from cleanedAgentModels), not rankModelValue
+            const sentRankModel = cleanedAgentModels.RankAgent;
+            if (sentRankModel !== undefined && savedRankModel !== sentRankModel) {
+                console.warn(`⚠️ Model mismatch! Sent: "${sentRankModel}", Saved: "${savedRankModel}"`);
+            } else if (sentRankModel !== undefined) {
+                console.log(`✅ RankAgent model verified: "${savedRankModel}"`);
+            }
+            // If sentRankModel is undefined, RankAgent wasn't included in the update (preserved existing value)
+        } else {
+            const error = await response.json();
+            console.error('❌ Failed to auto-save model change:', error.detail || 'Unknown error');
+            console.error('Response status:', response.status);
+            console.error('Response body:', error);
+        }
+    } catch (error) {
+        console.error('Error auto-saving model change:', error);
+    }
+}
+
+async function loadAgentPrompts() {
+    try {
+        console.log('🔄 Loading agent prompts from API...');
+        // Add cache-busting to ensure fresh data
+        const response = await fetch('/api/workflow/config/prompts?' + new Date().getTime(), {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            const oldPrompts = JSON.stringify(agentPrompts);
+            agentPrompts = data.prompts || {};
+            const newPrompts = JSON.stringify(agentPrompts);
+            console.log('📥 Loaded prompts:', {
+                agent_count: Object.keys(agentPrompts).length,
+                has_cmdline: !!agentPrompts['CmdlineExtract'],
+                cmdline_prompt_length: agentPrompts['CmdlineExtract']?.prompt?.length || 0,
+                data_changed: oldPrompts !== newPrompts
+            });
+            if (agentPrompts['CmdlineExtract']) {
+                const prompt = agentPrompts['CmdlineExtract'].prompt || '';
+                console.log('📝 CmdlineExtract prompt preview:', prompt.substring(0, 150));
+                try {
+                    const parsed = JSON.parse(prompt);
+                    console.log('📝 CmdlineExtract System (role):', parsed.role?.substring(0, 50) || 'empty');
+                    console.log('📝 CmdlineExtract User (user_template):', parsed.user_template?.substring(0, 50) || 'empty');
+                } catch (e) {
+                    console.log('📝 CmdlineExtract prompt (not JSON):', prompt.substring(0, 100));
+                }
+            }
+            // Wait for containers to exist before rendering
+            const waitForContainers = (retries = 10) => {
+                const container = document.getElementById('cmdlineextract-agent-prompt-container');
+                if (container || retries === 0) {
+            renderAgentPrompts();
+                    console.log('✅ Prompts rendered to UI');
+                } else {
+                    setTimeout(() => waitForContainers(retries - 1), 100);
+                }
+            };
+            waitForContainers();
+        } else {
+            console.error('❌ Failed to load prompts:', response.status, response.statusText);
+        }
+    } catch (error) {
+        console.error('❌ Error loading agent prompts:', error);
+    }
+}
+
+function renderAgentPrompts() {
+    const agentDisplayNames = {
+        'QAAgent': 'QA Agent (CMD)',
+        'ExtractAgent': 'Extract Agents',
+        'RankAgent': 'Rank Agent',
+        'SigmaAgent': 'SIGMA Generator Agent',
+        'OSDetectionAgent': 'OS Detection'
+    };
+    
+    // Render OS Detection Prompt
+    const osPromptContainer = document.getElementById('os-detection-prompt-container');
+    if (osPromptContainer && agentPrompts['OSDetectionAgent']) {
+        const promptData = agentPrompts['OSDetectionAgent'];
+        osPromptContainer.innerHTML = renderSinglePrompt('OSDetectionAgent', promptData, 'os-detection');
+    }
+    
+    // Render Rank Agent Prompt
+    const rankPromptContainer = document.getElementById('rank-agent-prompt-container');
+    if (rankPromptContainer && agentPrompts['RankAgent']) {
+        const promptData = agentPrompts['RankAgent'];
+        rankPromptContainer.innerHTML = renderSinglePrompt('RankAgent', promptData, 'rank-agent');
+    }
+    
+    // Render Sub-Agent Prompts
+    const subAgents = [
+        { name: 'CmdlineExtract', container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
+        { name: 'ProcTreeExtract', container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const container = document.getElementById(subAgent.container);
+        // Always re-render if container exists (even if prompt data is missing)
+        // This ensures the prompt editor is always available
+        if (container) {
+            const promptData = agentPrompts[subAgent.name] || { prompt: '', instructions: '', model: 'Not configured' };
+            if (subAgent.name === 'CmdlineExtract') {
+                console.log(`🎨 Rendering ${subAgent.name} with prompt data:`, {
+                    prompt_length: promptData.prompt?.length || 0,
+                    prompt_preview: promptData.prompt?.substring(0, 100) || 'empty',
+                    is_editing: editingPrompts[subAgent.name] || false,
+                    container_exists: !!container,
+                    container_id: subAgent.container
+                });
+                // Parse and log the actual values being rendered
+                if (promptData.prompt) {
+                    try {
+                        const parsed = JSON.parse(promptData.prompt);
+                        console.log(`🎨 ${subAgent.name} parsed System (role):`, parsed.role?.substring(0, 50) || 'empty');
+                        console.log(`🎨 ${subAgent.name} parsed User (user_template):`, parsed.user_template?.substring(0, 50) || 'empty');
+                    } catch (e) {
+                        console.log(`🎨 ${subAgent.name} prompt (not JSON):`, promptData.prompt.substring(0, 100));
+                    }
+                }
+            }
+            const renderedHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
+            container.innerHTML = renderedHTML;
+            if (subAgent.name === 'CmdlineExtract') {
+                console.log(`✅ ${subAgent.name} container updated, HTML length:`, renderedHTML.length);
+                // Verify the display elements were created with correct content
+                setTimeout(() => {
+                    const agentId = subAgent.name.toLowerCase().replace(/\s+/g, '-');
+                    const systemDisplay = document.getElementById(`${agentId}-prompt-system-display-2`);
+                    const userDisplay = document.getElementById(`${agentId}-prompt-user-display-2`);
+                    if (systemDisplay && userDisplay) {
+                        try {
+                            const parsed = JSON.parse(promptData.prompt);
+                            const expectedSystem = parsed.role || '';
+                            const expectedUser = parsed.user_template || '';
+                            const actualSystem = systemDisplay.textContent?.trim() || '';
+                            const actualUser = userDisplay.textContent?.trim() || '';
+                            console.log(`🔍 Verification for ${subAgent.name}:`, {
+                                system_match: actualSystem === expectedSystem,
+                                system_expected: expectedSystem.substring(0, 30),
+                                system_actual: actualSystem.substring(0, 30),
+                                user_match: actualUser === expectedUser,
+                                user_expected: expectedUser.substring(0, 30),
+                                user_actual: actualUser.substring(0, 30)
+                            });
+                            if (actualSystem !== expectedSystem || actualUser !== expectedUser) {
+                                console.error(`❌ MISMATCH: ${subAgent.name} display does not match data!`);
+                            } else {
+                                console.log(`✅ VERIFIED: ${subAgent.name} display matches data`);
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ Could not verify ${subAgent.name}:`, e);
+                        }
+                    } else {
+                        console.warn(`⚠️ Display elements not found for ${subAgent.name} after render:`, {
+                            system: !!systemDisplay,
+                            user: !!userDisplay,
+                            system_id: `${agentId}-prompt-system-display-2`,
+                            user_id: `${agentId}-prompt-user-display-2`
+                        });
+                    }
+                }, 100);
+            }
+            // Re-initialize collapsible panels after rendering
+            setTimeout(() => {
+                if (typeof initCollapsiblePanels === 'function') {
+                    initCollapsiblePanels(container);
+                }
+            }, 0);
+        } else {
+            console.warn(`⚠️ Container not found for ${subAgent.name}:`, subAgent.container);
+        }
+    });
+    
+    // Render Sub-Agent QA Prompts
+    const qaAgents = [
+        { name: 'ProcTreeQA', container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' }
+    ];
+    
+    qaAgents.forEach(qaAgent => {
+        const container = document.getElementById(qaAgent.container);
+        // Always re-render if container exists and prompt data is available (even if hidden)
+        // This ensures fresh data is shown when the modal is expanded
+        if (container && agentPrompts[qaAgent.name]) {
+            const promptData = agentPrompts[qaAgent.name];
+            container.innerHTML = renderSinglePrompt(qaAgent.name, promptData, qaAgent.prefix);
+            // Re-initialize collapsible panels after rendering
+            setTimeout(() => {
+                if (typeof initCollapsiblePanels === 'function') {
+                    initCollapsiblePanels(container);
+                }
+            }, 0);
+        }
+    });
+    
+    // Render SIGMA Agent Prompt
+    const sigmaPromptContainer = document.getElementById('sigma-agent-prompt-container');
+    if (sigmaPromptContainer && agentPrompts['SigmaAgent']) {
+        const promptData = agentPrompts['SigmaAgent'];
+        sigmaPromptContainer.innerHTML = renderSinglePrompt('SigmaAgent', promptData, 'sigma-agent');
+    }
+    
+    // Re-initialize collapsible panels for dynamically added prompt panels
+    if (typeof initCollapsiblePanels === 'function') {
+        initCollapsiblePanels();
+    }
+}
+
+function getCurrentModelForAgent(agentName) {
+    // Map agent names to ID prefixes used for model inputs
+    const agentPrefixMap = {
+        'RankAgent': 'rankagent',
+        'ExtractAgent': 'extractagent',
+        'SigmaAgent': 'sigmaagent',
+        'CmdlineExtract': 'cmdlineextract',
+        'ProcTreeExtract': 'proctreeextract',
+        'OSDetectionAgent': 'osdetectionagent',
+        'CmdLineQA': 'cmdlineqa',
+        'ProcTreeQA': 'proctreeqa',
+        'RankAgentQA': 'rankqa'
+    };
+    
+    const providerSelectMap = {
+        'RankAgent': 'rankagent-provider',
+        'ExtractAgent': 'extractagent-provider',
+        'SigmaAgent': 'sigmaagent-provider',
+        'CmdlineExtract': 'cmdlineextract-provider',
+        'ProcTreeExtract': 'proctreeextract-provider',
+        'CmdLineQA': 'cmdlineqa-provider',
+        'ProcTreeQA': 'proctreeqa-provider',
+        'RankAgentQA': 'rankqa-provider'
+    };
+    
+    // QA Agent (CMD) follows ExtractAgent model and does not have its own provider select
+    if (agentName === 'QAAgent') {
+        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        return getActiveAgentModelValue('extractagent', extractProvider);
+    }
+    
+    const agentPrefix = agentPrefixMap[agentName];
+    if (!agentPrefix) return null;
+    
+    const providerSelectId = providerSelectMap[agentName];
+    const provider = providerSelectId ? (document.getElementById(providerSelectId)?.value || 'lmstudio') : 'lmstudio';
+    
+    // Primary: read from the active input for the selected provider
+    const activeModel = getActiveAgentModelValue(agentPrefix, provider);
+    if (activeModel) return activeModel;
+    
+    // Sub-agent fallback: inherit ExtractAgent model when empty
+    const subAgentNames = ['CmdlineExtract', 'ProcTreeExtract', 'CmdLineQA', 'ProcTreeQA'];
+    if (subAgentNames.includes(agentName)) {
+        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        const extractModel = getActiveAgentModelValue('extractagent', extractProvider);
+        if (extractModel) return extractModel;
+    }
+    
+    // OS Detection uses embedding selector, no provider toggle
+    if (agentName === 'OSDetectionAgent') {
+        return document.getElementById('osdetectionagent-embedding-model-2')?.value?.trim() ||
+               document.getElementById('osdetectionagent-embedding-model')?.value?.trim() ||
+               null;
+    }
+    
+    return null;
+}
+
+function renderSinglePrompt(agentName, promptData, prefix) {
+    const prompt = promptData.prompt || '';
+    const instructions = promptData.instructions || '';
+    // Get current model from dropdown first, fall back to promptData.model
+    const currentModelFromDropdown = getCurrentModelForAgent(agentName);
+    const model = currentModelFromDropdown || promptData.model || 'Not configured';
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const isEditing = editingPrompts[agentName] || false;
+    const panelId = `${prefix}-prompt-panel`;
+    
+    // Parse prompt to extract system and user parts
+    const promptParts = parsePromptParts(prompt);
+    const isTemplateFormat = promptParts.isTemplateFormat;
+    const templateData = promptParts.templateData || {};
+    
+    // Debug logging for prompt parsing
+    if (agentName === 'CmdlineExtract') {
+        console.log(`🔍 [renderSinglePrompt] ${agentName}:`, {
+            prompt_length: prompt.length,
+            prompt_preview: prompt.substring(0, 100),
+            parsed_system: promptParts.system?.substring(0, 50) || 'empty',
+            parsed_system_length: promptParts.system?.length || 0,
+            parsed_user: promptParts.user?.substring(0, 50) || 'empty',
+            parsed_user_length: promptParts.user?.length || 0,
+            is_template: isTemplateFormat,
+            is_editing: isEditing,
+            will_display_system: !isEditing ? (promptParts.system || '(empty)') : 'N/A (editing)',
+            will_display_user: !isEditing ? (promptParts.user || '(empty)') : 'N/A (editing)'
+        });
+    }
+    
+    // Check if this is an extraction agent that uses template format
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract'].includes(agentName);
+    
+    return `
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
+                <div class="flex items-center gap-3">
+                    <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} Prompt</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
+                </div>
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
+            </div>
+            <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${isEditing ? `
+                                <button onclick="cancelEditPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                    Cancel
+                                </button>
+                                <button onclick="saveAgentPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                                    💾 Save
+                                </button>
+                            ` : `
+                                <button onclick="showPromptHistory('${agentName}')" 
+                                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                    📜 History
+                                </button>
+                                <button onclick="editPrompt('${agentName}')" 
+                                        class="px-3 py-1 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
+                                    ✏️ Edit
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                    ${instructions ? `
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-instructions-2" 
+                                          rows="4"
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                            `}
+                        </div>
+                    ` : ''}
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-blue-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>🔧</span>
+                                    <span>System Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
+                        ${isEditing ? `
+                                <textarea id="${agentId}-prompt-system-2" 
+                                      rows="8"
+                                          placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                            ` : `
+                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                            `}
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>💬</span>
+                                    <span>User Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-prompt-user-2" 
+                                          rows="8"
+                                          placeholder="Enter user prompt (task, query, or user message)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                            ` : `
+                                <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                            `}
+                        </div>
+                    </div>
+                    ${isEditing ? `
+                        <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description-2" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderQAPrompt(agentName, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container || !agentPrompts[agentName]) return;
+    
+    const promptData = agentPrompts[agentName];
+    const prompt = promptData.prompt || '';
+    const instructions = promptData.instructions || '';
+    // Get current model from dropdown first, fall back to promptData.model
+    const currentModelFromDropdown = getCurrentModelForAgent(agentName);
+    const model = currentModelFromDropdown || promptData.model || 'Not configured';
+    const isEditing = editingPrompts[agentName] || false;
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const panelId = `${agentId}-qa-prompt-panel`;
+    
+    // Parse prompt to extract system and user parts
+    const promptParts = parsePromptParts(prompt);
+    
+    container.innerHTML = `
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
+                <div class="flex items-center gap-3">
+                    <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} QA Prompt</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
+                </div>
+                <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
+            </div>
+            <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${isEditing ? `
+                                <button onclick="cancelEditPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                    Cancel
+                                </button>
+                                <button onclick="saveAgentPrompt2('${agentName}')" 
+                                        class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
+                                    💾 Save
+                                </button>
+                            ` : `
+                                <button onclick="showPromptHistory('${agentName}')" 
+                                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
+                                    📜 History
+                                </button>
+                                <button onclick="editPrompt('${agentName}')" 
+                                        class="px-3 py-1 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
+                                    ✏️ Edit
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                    ${instructions ? `
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-instructions-2" 
+                                          rows="4"
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                            ` : `
+                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                            `}
+                        </div>
+                    ` : ''}
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-blue-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>🔧</span>
+                                    <span>System Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
+                        ${isEditing ? `
+                                <textarea id="${agentId}-prompt-system-2" 
+                                      rows="8"
+                                          placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                            ` : `
+                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                            `}
+                        </div>
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                <span class="inline-flex items-center gap-2">
+                                    <span>💬</span>
+                                    <span>User Prompt</span>
+                                </span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                            ${isEditing ? `
+                                <textarea id="${agentId}-prompt-user-2" 
+                                          rows="8"
+                                          placeholder="Enter user prompt (task, query, or user message)..."
+                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                            ` : `
+                                <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                            `}
+                        </div>
+                    </div>
+                    ${isEditing ? `
+                        <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
+                                <input type="text" id="${agentId}-change-description-2" 
+                                       placeholder="Describe what changed..."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white text-sm">
+                            </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Re-initialize collapsible panels for dynamically added content
+    // Use setTimeout to ensure DOM is updated before initialization
+    setTimeout(() => {
+        if (typeof initCollapsiblePanels === 'function') {
+            // Initialize within container first, then globally to catch any missed panels
+            initCollapsiblePanels(container);
+            initCollapsiblePanels();
+        }
+    }, 0);
+}
+
+function loadQASettings2() {
+    // Ensure we have a valid qa_enabled object
+    const qaEnabled = (currentConfig?.qa_enabled && typeof currentConfig.qa_enabled === 'object') 
+        ? currentConfig.qa_enabled 
+        : {};
+    
+    // Debug logging (can be removed after verification)
+    if (Object.keys(qaEnabled).length > 0) {
+        console.log('Loading QA settings:', qaEnabled);
+    }
+    
+    // Set checkboxes (skip RankAgent - it's handled by updateRankQAState)
+    const agents = [
+        { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
+        { name: 'ProcTreeExtract', id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
+        { name: 'SigmaAgent', id: 'qa-sigmaagent', prefix: 'sigma-agent' }
+    ];
+    
+    agents.forEach(agent => {
+        const checkbox = document.getElementById(agent.id);
+        if (checkbox) {
+            const shouldBeChecked = qaEnabled[agent.name] === true;
+            
+            // Set checkbox state - do this first
+            checkbox.checked = shouldBeChecked;
+            
+            // Force browser to recognize the checked state by accessing offsetHeight
+            // This triggers a reflow which helps Tailwind peer-checked classes apply
+            void checkbox.offsetHeight;
+            
+            // Trigger change event to ensure Tailwind peer-checked classes update
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            updateQABadge(agent.prefix);
+        }
+    });
+    
+    // Update QA checkbox states based on subagent enabled status
+    extractSubAgents.forEach(agentName => {
+        updateQAStateForSubagent(agentName);
+    });
+    
+    // Update Rank QA state based on Rank Agent enabled state (handles RankAgent QA checkbox)
+    // This must run AFTER other QA settings are loaded to ensure correct state
+    // On initial load, restore from config; when called from toggle, don't restore
+    updateRankQAState(true);
+}
+
+/**
+ * Update Rank QA Agent checkbox state based on Rank Agent enabled state
+ * When Rank Agent is disabled, Rank QA must also be disabled and unchecked
+ */
+function updateRankQAState(restoreFromConfig = false) {
+    const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
+    const rankQACheckbox = document.getElementById('qa-rankagent');
+    
+    if (!rankQACheckbox) return;
+    
+    const rankAgentEnabled = rankAgentEnabledCheckbox ? rankAgentEnabledCheckbox.checked : true;
+    
+    if (!rankAgentEnabled) {
+        // Rank Agent disabled: disable Rank QA checkbox and uncheck it
+        rankQACheckbox.disabled = true;
+        rankQACheckbox.checked = false;
+        
+        // Update label wrapper styling
+        const labelWrapper = rankQACheckbox.closest('label');
+        if (labelWrapper) {
+            labelWrapper.classList.add('opacity-50', 'cursor-not-allowed');
+            labelWrapper.classList.remove('cursor-pointer');
+        }
+        
+        // Update badge
+        updateQABadge('rank-agent');
+        
+        // Force browser to recognize the checked state
+        void rankQACheckbox.offsetHeight;
+        rankQACheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Update config display
+        if (typeof updateConfigDisplay === 'function') {
+            updateConfigDisplay();
+        }
+    } else {
+        // Rank Agent enabled: enable Rank QA checkbox
+        rankQACheckbox.disabled = false;
+        
+        // Only restore from config on initial page load, not when toggling
+        if (restoreFromConfig && currentConfig?.qa_enabled && typeof currentConfig.qa_enabled === 'object') {
+            const shouldBeChecked = currentConfig.qa_enabled.RankAgent === true;
+            rankQACheckbox.checked = shouldBeChecked;
+        } else {
+            // When toggling Rank Agent on, don't automatically check Rank QA
+            // Always leave it unchecked when enabling Rank Agent via toggle
+            rankQACheckbox.checked = false;
+        }
+        
+        // Restore label wrapper styling
+        const labelWrapper = rankQACheckbox.closest('label');
+        if (labelWrapper) {
+            labelWrapper.classList.remove('opacity-50', 'cursor-not-allowed');
+            labelWrapper.classList.add('cursor-pointer');
+        }
+        
+        // Update badge
+        updateQABadge('rank-agent');
+        
+        // Force browser to recognize the checked state
+        void rankQACheckbox.offsetHeight;
+        rankQACheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Update config display
+        if (typeof updateConfigDisplay === 'function') {
+            updateConfigDisplay();
+        }
+    }
+}
+
+function getDisabledExtractAgentsFromConfig(config) {
+    if (!config) return [];
+    const prompts = config.agent_prompts || {};
+    const extractSettings = prompts.ExtractAgentSettings || prompts.ExtractAgent || {};
+    const disabledRaw = extractSettings.disabled_agents || extractSettings.disabled_sub_agents || [];
+    
+    if (Array.isArray(disabledRaw)) {
+        return disabledRaw;
+    }
+    
+    if (disabledRaw && typeof disabledRaw === 'object') {
+        return Object.entries(disabledRaw)
+            .filter(([_, value]) => value === false || value === 0 || (typeof value === 'string' && value.toLowerCase() === 'false'))
+            .map(([key]) => key);
+    }
+    
+    return [];
+}
+
+function updateExtractAgentStatusBadge(agentName, enabled) {
+    const ids = [
+        `${agentName.toLowerCase()}-agent-enabled-badge`,
+        `${agentName.toLowerCase()}-agent-enabled-pill`
+    ];
+    ids.forEach(badgeId => {
+        const badge = document.getElementById(badgeId);
+        if (!badge) return;
+        badge.textContent = enabled ? 'Enabled' : 'Disabled';
+        badge.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200', 'bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        if (enabled) {
+            badge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+        } else {
+            badge.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        }
+    });
+}
+
+function updateRankEnabledBadge() {
+    const checkbox = document.getElementById('rank-agent-enabled');
+    const enabled = checkbox ? checkbox.checked : true;
+    const ids = [
+        'rank-agent-enabled-badge',
+        'rank-agent-enabled-pill'
+    ];
+    ids.forEach(badgeId => {
+        const badge = document.getElementById(badgeId);
+        if (!badge) return;
+        badge.textContent = enabled ? 'Enabled' : 'Disabled';
+        badge.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200', 'bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        if (enabled) {
+            badge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+        } else {
+            badge.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+        }
+    });
+}
+
+function syncExtractAgentTogglesFromConfig() {
+    const disabled = new Set(getDisabledExtractAgentsFromConfig(currentConfig));
+    disabledExtractAgents = disabled;
+    
+    extractSubAgents.forEach(agentName => {
+        const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+        if (checkbox) {
+            const enabled = !disabled.has(agentName);
+            checkbox.checked = enabled;
+            void checkbox.offsetHeight;
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            updateExtractAgentStatusBadge(agentName, enabled);
+            updateQAStateForSubagent(agentName);
+        }
+    });
+}
+
+async function persistExtractAgentSettings() {
+    try {
+        if (!currentConfig) {
+            console.warn('No currentConfig loaded; cannot save extract toggles.');
+            return;
+        }
+        
+        const disabledList = Array.from(disabledExtractAgents);
+        const promptsSource = {
+            ...(currentConfig?.agent_prompts || {}),
+            ...(agentPrompts || {})
+        };
+        const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
+        const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+        extractSettings.disabled_agents = disabledList;
+        promptsCopy.ExtractAgentSettings = extractSettings;
+        
+        // CRITICAL: Collect agent_models from DOM to ensure we save current values
+        // This prevents losing settings after prompt rollbacks
+        console.log('🔍 persistExtractAgentSettings: Collecting agent configs from DOM...');
+        const collectedAgentConfigs = collectAllAgentConfigs();
+        console.log('🔍 Collected agent configs:', collectedAgentConfigs);
+        
+        // Merge with existing agent_models to preserve settings not in DOM (e.g., embeddings, QA models)
+        const existingAgentModels = currentConfig.agent_models || {};
+        console.log('🔍 Existing agent models:', existingAgentModels);
+        const mergedAgentModels = {
+            ...existingAgentModels,
+            ...collectedAgentConfigs
+        };
+        console.log('🔍 Merged agent models:', mergedAgentModels);
+        
+        const payload = {
+            min_hunt_score: currentConfig.min_hunt_score ?? 97.0,
+            ranking_threshold: currentConfig.ranking_threshold ?? 6.0,
+            similarity_threshold: currentConfig.similarity_threshold ?? 0.5,
+            junk_filter_threshold: currentConfig.junk_filter_threshold ?? 0.8,
+            description: currentConfig.description || null,
+            agent_models: mergedAgentModels,
+            qa_enabled: currentConfig.qa_enabled || {},
+            sigma_fallback_enabled: currentConfig.sigma_fallback_enabled ?? false,
+            agent_prompts: promptsCopy
+        };
+        
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            const updatedConfig = await response.json();
+            
+            // Preserve QA settings from currentConfig if response doesn't have them or they're incomplete
+            if (currentConfig?.qa_enabled && Object.keys(currentConfig.qa_enabled).length > 0) {
+                updatedConfig.qa_enabled = {
+                    ...(updatedConfig.qa_enabled || {}),
+                    ...currentConfig.qa_enabled
+                };
+            }
+            
+            currentConfig = updatedConfig;
+            agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
+            disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
+            syncExtractAgentTogglesFromConfig();
+            resetOriginalConfigStateFromCurrent();
+            console.log('✅ Extract sub-agent toggles saved', { disabled: Array.from(disabledExtractAgents) });
+        } else {
+            const error = await response.json().catch(() => ({}));
+            console.error('❌ Failed to save extract sub-agent toggles', error);
+            // Re-sync UI to last known good state
+            syncExtractAgentTogglesFromConfig();
+        }
+    } catch (error) {
+        console.error('Error saving extract sub-agent toggles', error);
+        syncExtractAgentTogglesFromConfig();
+    } finally {
+        updateSaveButtonState();
+    }
+}
+
+function updateQAStateForSubagent(agentName) {
+    // Map subagent names to their QA checkbox IDs
+    const qaCheckboxMap = {
+        'CmdlineExtract': 'qa-cmdlineextract',
+        'ProcTreeExtract': 'qa-proctreeextract'
+    };
+    
+    const qaCheckboxId = qaCheckboxMap[agentName];
+    if (!qaCheckboxId) return; // Not a subagent with QA
+    
+    const subagentToggle = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+    const qaCheckbox = document.getElementById(qaCheckboxId);
+    
+    if (!subagentToggle || !qaCheckbox) return;
+    
+    const subagentEnabled = subagentToggle.checked;
+    
+    // Find the label wrapper (parent of checkbox)
+    const labelWrapper = qaCheckbox.closest('label');
+    
+    if (!subagentEnabled) {
+        // Subagent disabled: disable QA checkbox and uncheck it
+        qaCheckbox.disabled = true;
+        qaCheckbox.checked = false;
+        // Update label wrapper styling
+        if (labelWrapper) {
+            labelWrapper.classList.add('opacity-50', 'cursor-not-allowed');
+            labelWrapper.classList.remove('cursor-pointer');
+        }
+        // Update badge to reflect OFF state
+        const agentPrefix = `${agentName.toLowerCase()}-agent`;
+        updateQABadge(agentPrefix);
+    } else {
+        // Subagent enabled: enable QA checkbox and restore state from config
+        qaCheckbox.disabled = false;
+        
+        // Restore QA checkbox state from currentConfig if available
+        if (currentConfig?.qa_enabled && typeof currentConfig.qa_enabled === 'object') {
+            const shouldBeChecked = currentConfig.qa_enabled[agentName] === true;
+            qaCheckbox.checked = shouldBeChecked;
+            // Force browser to recognize the checked state
+            void qaCheckbox.offsetHeight;
+            // Trigger change event to ensure Tailwind peer-checked classes update
+            qaCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        // Restore label wrapper styling
+        if (labelWrapper) {
+            labelWrapper.classList.remove('opacity-50', 'cursor-not-allowed');
+            labelWrapper.classList.add('cursor-pointer');
+        }
+        
+        // Update badge to reflect current state
+        const agentPrefix = `${agentName.toLowerCase()}-agent`;
+        updateQABadge(agentPrefix);
+    }
+}
+
+async function handleExtractAgentToggle(agentName) {
+    const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+    const enabled = checkbox ? checkbox.checked : true;
+    if (!enabled) {
+        disabledExtractAgents.add(agentName);
+    } else {
+        disabledExtractAgents.delete(agentName);
+    }
+    updateExtractAgentStatusBadge(agentName, enabled);
+    updateQAStateForSubagent(agentName);
+    updateSaveButtonState();
+    
+    // Update config display to reflect disabled state
+    if (typeof updateConfigDisplay === 'function') {
+        updateConfigDisplay();
+    }
+}
+
+// Preset Management Functions
+function getFullPresetState() {
+    // Get all form state
+    const formState = getCurrentFormState();
+    
+    // Get sigma fallback setting
+    const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
+    const sigma_fallback_enabled = sigmaFallbackCheckbox ? sigmaFallbackCheckbox.checked : false;
+    
+    // Get rank agent enabled setting
+    const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
+    const rank_agent_enabled = rankAgentEnabledCheckbox ? rankAgentEnabledCheckbox.checked !== false : true;
+    
+    // Get disabled extract agents
+    const disabled_agents = Array.from(disabledExtractAgents);
+    
+    // Get description if available
+    const description = currentConfig?.description || null;
+    
+    // Get QA max retries (cap at 3)
+    const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+    const qa_max_retries = qaMaxRetriesInput ? Math.min(Math.max(1, parseInt(qaMaxRetriesInput.value) || 5), 3) : 5;
+    
+    // Build complete preset
+    const preset = {
+        version: "1.0",
+        created_at: new Date().toISOString(),
+        description: description,
+        thresholds: {
+            junk_filter_threshold: formState.junk_filter_threshold,
+            ranking_threshold: formState.ranking_threshold,
+            similarity_threshold: formState.similarity_threshold
+        },
+        agent_models: formState.agent_models,
+        qa_enabled: formState.qa_enabled,
+        sigma_fallback_enabled: sigma_fallback_enabled,
+        rank_agent_enabled: rank_agent_enabled,
+        qa_max_retries: qa_max_retries,
+        extract_agent_settings: {
+            disabled_agents: disabled_agents
+        },
+        agent_prompts: agentPrompts || {}
+    };
+    
+    return preset;
+}
+
+function savePreset() {
+    try {
+        const preset = getFullPresetState();
+        
+        // Prompt for preset name
+        const presetName = prompt('Enter a name for this preset:', `workflow-preset-${new Date().toISOString().split('T')[0]}`);
+        if (!presetName) {
+            return; // User cancelled
+        }
+        
+        // Clean preset name for filename
+        const filename = presetName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.json';
+        
+        // Create blob and download
+        const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Show success message
+        alert(`✅ Preset saved as "${filename}"`);
+    } catch (error) {
+        console.error('Error saving preset:', error);
+        alert('❌ Error saving preset: ' + error.message);
+    }
+}
+
+async function loadPreset(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+    
+    try {
+        const text = await file.text();
+        const preset = JSON.parse(text);
+        
+        // Validate preset structure
+        if (!preset.version || !preset.thresholds || !preset.agent_models) {
+            throw new Error('Invalid preset format. Missing required fields.');
+        }
+        
+        // Confirm load
+        const confirmed = confirm(
+            `Load preset "${file.name}"?\n\n` +
+            `This will replace all current settings:\n` +
+            `- Thresholds\n` +
+            `- Model selections\n` +
+            `- QA toggles\n` +
+            `- Temperature settings\n` +
+            `- Extract agent toggles\n` +
+            `- Sigma fallback setting\n` +
+            `- QA max retries\n` +
+            `- Agent prompts\n\n` +
+            `Click OK to proceed or Cancel to abort.`
+        );
+        
+        if (!confirmed) {
+            event.target.value = ''; // Reset file input
+            return;
+        }
+        
+        // Apply preset
+        await applyPreset(preset);
+        
+        // Show success message
+        alert(`✅ Preset "${file.name}" loaded successfully!`);
+        
+        // Reset file input
+        event.target.value = '';
+    } catch (error) {
+        console.error('Error loading preset:', error);
+        alert('❌ Error loading preset: ' + error.message);
+        event.target.value = ''; // Reset file input
+    }
+}
+
+async function applyPreset(preset) {
+    try {
+        // Apply thresholds
+        if (preset.thresholds) {
+            const junkFilterInput = document.getElementById('junkFilterThreshold');
+            if (junkFilterInput && preset.thresholds.junk_filter_threshold !== undefined) {
+                junkFilterInput.value = preset.thresholds.junk_filter_threshold;
+            }
+            
+            const rankingInput = document.getElementById('rankingThreshold');
+            if (rankingInput && preset.thresholds.ranking_threshold !== undefined) {
+                rankingInput.value = preset.thresholds.ranking_threshold;
+            }
+            
+            const similarityInput = document.getElementById('similarityThreshold');
+            if (similarityInput && preset.thresholds.similarity_threshold !== undefined) {
+                similarityInput.value = preset.thresholds.similarity_threshold;
+            }
+        }
+        
+        // Apply agent models using unified system
+        if (preset.agent_models) {
+            // Use the unified applyAgentConfigs function which handles providers correctly
+            // This ensures providers are set first, then models on the correct provider-specific selects
+            applyAgentConfigs(preset.agent_models);
+            
+            // Special handling for OS Detection embedding (not in AGENT_CONFIG)
+            const osEmbeddingSelect = document.getElementById('osdetectionagent-embedding-model-2');
+            if (osEmbeddingSelect && preset.agent_models.OSDetectionAgent_embedding) {
+                osEmbeddingSelect.value = preset.agent_models.OSDetectionAgent_embedding;
+            }
+            
+            // QA Models (not in AGENT_CONFIG, handled separately)
+            const qaModelFields = [
+                { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature' },
+                { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature' },
+                { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature' }
+            ];
+            
+            qaModelFields.forEach(field => {
+                const select = document.getElementById(field.id);
+                if (select && preset.agent_models[field.name]) {
+                    select.value = preset.agent_models[field.name];
+                }
+                
+                // Load QA temperature
+                const tempKey = `${field.name}_temperature`;
+                const tempInput = document.getElementById(field.tempId);
+                if (tempInput && preset.agent_models[tempKey] !== undefined) {
+                    tempInput.value = preset.agent_models[tempKey];
+                }
+            });
+        }
+        
+        // Apply QA enabled toggles
+        if (preset.qa_enabled) {
+            const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+            agents.forEach(agentName => {
+                const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+                const checkbox = document.getElementById(`qa-${agentId}`);
+                if (checkbox && preset.qa_enabled[agentName] !== undefined) {
+                    checkbox.checked = preset.qa_enabled[agentName];
+                    // Trigger change event to update badges
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
+        
+        // Apply sigma fallback
+        if (preset.sigma_fallback_enabled !== undefined) {
+            const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
+            if (sigmaFallbackCheckbox) {
+                sigmaFallbackCheckbox.checked = preset.sigma_fallback_enabled;
+            }
+        }
+        
+        // Apply rank agent enabled
+        if (preset.rank_agent_enabled !== undefined) {
+            const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
+            if (rankAgentEnabledCheckbox) {
+                rankAgentEnabledCheckbox.checked = preset.rank_agent_enabled;
+                // Update badge to reflect preset state
+                if (typeof updateRankEnabledBadge === 'function') {
+                    updateRankEnabledBadge();
+                }
+            }
+        }
+        
+        // Apply QA max retries (cap at 3)
+        if (preset.qa_max_retries !== undefined) {
+            const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+            if (qaMaxRetriesInput) {
+                const value = Math.min(Math.max(1, preset.qa_max_retries), 3);
+                qaMaxRetriesInput.value = value;
+            }
+        }
+        
+        // Apply extract agent toggles
+        if (preset.extract_agent_settings && preset.extract_agent_settings.disabled_agents) {
+            const disabledList = preset.extract_agent_settings.disabled_agents;
+            disabledExtractAgents = new Set(disabledList);
+            
+            extractSubAgents.forEach(agentName => {
+                const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+                if (checkbox) {
+                    const enabled = !disabledList.includes(agentName);
+                    checkbox.checked = enabled;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    updateExtractAgentStatusBadge(agentName, enabled);
+                }
+            });
+        }
+        
+        // Apply agent prompts
+        if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
+            console.log('🔄 Restoring agent prompts from preset...');
+            const promptPromises = [];
+            
+            for (const [agentName, promptData] of Object.entries(preset.agent_prompts)) {
+                if (promptData && promptData.prompt) {
+                    const promptPayload = {
+                        agent_name: agentName,
+                        prompt: promptData.prompt,
+                        instructions: promptData.instructions || null
+                    };
+                    
+                    const promise = fetch('/api/workflow/config/prompts', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(promptPayload)
+                    }).then(response => {
+                        if (!response.ok) {
+                            console.error(`❌ Failed to restore prompt for ${agentName}:`, response.status);
+                            return response.json().then(err => {
+                                throw new Error(`Failed to restore prompt for ${agentName}: ${err.detail || 'Unknown error'}`);
+                            });
+                        }
+                        console.log(`✅ Restored prompt for ${agentName}`);
+                        return response.json();
+                    }).catch(error => {
+                        console.error(`❌ Error restoring prompt for ${agentName}:`, error);
+                        throw error;
+                    });
+                    
+                    promptPromises.push(promise);
+                }
+            }
+            
+            // Wait for all prompts to be restored
+            if (promptPromises.length > 0) {
+                await Promise.all(promptPromises);
+                // Reload prompts to update UI
+                await loadAgentPrompts();
+                console.log('✅ All agent prompts restored from preset');
+            }
+        }
+        
+        // Trigger auto-save handlers to update UI state
+        if (typeof autoSaveModelChange === 'function') {
+            autoSaveModelChange();
+        }
+        
+        // Update save button state
+        if (typeof updateSaveButtonState === 'function') {
+            updateSaveButtonState();
+        }
+        
+        console.log('✅ Preset applied successfully');
+    } catch (error) {
+        console.error('Error applying preset:', error);
+        throw error;
+    }
+}
+
+// Prompt editing functions
+function editPrompt(agentName) {
+    editingPrompts[agentName] = true;
+    renderAgentPrompts();
+    // Also update QA prompt if it's visible
+    const qaEnabled = currentConfig?.qa_enabled || {};
+    if (agentName === 'QAAgent' || (qaEnabled[agentName] && agentName !== 'QAAgent')) {
+        // Re-render QA prompts if they're visible
+        const prefix = agentName === 'RankAgent' ? 'rank-agent' :
+                      agentName === 'ExtractAgent' ? 'extract-agent' :
+                      agentName === 'SigmaAgent' ? 'sigma-agent' : null;
+        if (prefix) {
+            const qaPromptContainer = document.getElementById(`${prefix}-qa-prompt-container`);
+            if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                if (prefix === 'rank-agent') {
+                    renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+                } else {
+                    renderQAPrompt('QAAgent', `${prefix}-qa-prompt-container`);
+                }
+            }
+        }
+    }
+}
+
+function cancelEditPrompt2(agentName) {
+    editingPrompts[agentName] = false;
+    renderAgentPrompts();
+    // Reload prompts to restore original values
+    loadAgentPrompts();
+    // Also update QA prompt if it's visible
+    const qaEnabled = currentConfig?.qa_enabled || {};
+    const qaAgentMap = {
+        'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
+        'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
+        'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' }
+    };
+    
+    // Check if this is a QA agent or if the corresponding extract agent has QA enabled
+    const qaInfo = qaAgentMap[agentName];
+    if (qaInfo) {
+        const qaPromptContainer = document.getElementById(qaInfo.container);
+        if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+            if (agentName === 'QAAgent') {
+                renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+            } else {
+                renderQAPrompt(agentName, qaInfo.container);
+            }
+        }
+    } else {
+        // Check if this extract agent has QA enabled
+        const extractToQA = {
+            'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' }
+        };
+        const qaMapping = extractToQA[agentName];
+        if (qaMapping && qaEnabled[agentName]) {
+            const qaPromptContainer = document.getElementById(`${qaMapping.prefix}-qa-prompt-container`);
+            if (qaPromptContainer && !qaPromptContainer.classList.contains('hidden')) {
+                renderQAPrompt(qaMapping.qaName, qaPromptContainer.id);
+            }
+        }
+    }
+}
+
+async function saveAgentPrompt2(agentName) {
+    console.log('saveAgentPrompt2 called for:', agentName);
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    console.log('Looking for elements with agentId:', agentId);
+    const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
+    const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
+    const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
+    const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
+    
+    console.log('Elements found:', {
+        system: !!promptSystemElement,
+        user: !!promptUserElement,
+        instructions: !!instructionsElement,
+        changeDescription: !!changeDescriptionElement
+    });
+    
+    if (!promptSystemElement || !promptUserElement) {
+        console.error('Prompt elements not found!', {
+            agentId,
+            systemId: `${agentId}-prompt-system-2`,
+            userId: `${agentId}-prompt-user-2`,
+            systemElement: promptSystemElement,
+            userElement: promptUserElement
+        });
+        alert(`Prompt elements not found for ${agentName}. Check console for details.`);
+        return;
+    }
+    
+    // Check if this is an extraction agent or QA agent that uses template format
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract'].includes(agentName);
+    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'QAAgent'].includes(agentName);
+    const usesTemplateFormat = isExtractionAgent || isQAAgent;
+    
+    console.log('Is extraction agent:', isExtractionAgent);
+    console.log('Is QA agent:', isQAAgent);
+    console.log('Uses template format:', usesTemplateFormat);
+    console.log('System element value length:', promptSystemElement.value?.length || 0);
+    console.log('User element value length:', promptUserElement.value?.length || 0);
+    
+    let combinedPrompt;
+    if (usesTemplateFormat) {
+        // For extraction/QA agents, preserve template format structure
+        // Try to get existing template data to preserve task, json_example, objective, evaluation_criteria, etc.
+        const existingPrompt = agentPrompts[agentName]?.prompt || '';
+        console.log('Existing prompt length:', existingPrompt.length);
+        let templateData = {};
+        
+        try {
+            if (existingPrompt) {
+                const parsed = JSON.parse(existingPrompt);
+                console.log('Parsed existing prompt:', parsed);
+                if (parsed && typeof parsed === 'object' && parsed.user_template) {
+                    // Preserve existing template fields
+                    if (isExtractionAgent) {
+                        templateData = {
+                            role: promptSystemElement.value || parsed.role || "",
+                            user_template: promptUserElement.value || parsed.user_template || "",
+                            task: parsed.task || "",
+                            json_example: parsed.json_example || "",
+                            instructions: parsed.instructions || ""
+                        };
+                    } else if (isQAAgent) {
+                        // QA agents may have objective, evaluation_criteria, etc.
+                        templateData = {
+                            role: promptSystemElement.value || parsed.role || "",
+                            user_template: promptUserElement.value || parsed.user_template || "",
+                            objective: parsed.objective || "",
+                            evaluation_criteria: parsed.evaluation_criteria || [],
+                            instructions: parsed.instructions || "",
+                            // Preserve other QA-specific fields if they exist
+                            input_format: parsed.input_format || {},
+                            qa_process: parsed.qa_process || {},
+                            output_format: parsed.output_format || {}
+                        };
+                    }
+                } else {
+                    // New template format
+                    if (isExtractionAgent) {
+                        templateData = {
+                            role: promptSystemElement.value || "",
+                            user_template: promptUserElement.value || "",
+                            task: "",
+                            json_example: "",
+                            instructions: ""
+                        };
+                    } else if (isQAAgent) {
+                        templateData = {
+                            role: promptSystemElement.value || "",
+                            user_template: promptUserElement.value || "",
+                            objective: "",
+                            evaluation_criteria: [],
+                            instructions: ""
+                        };
+                    }
+                }
+            } else {
+                // No existing prompt - create new template
+                if (isExtractionAgent) {
+                    templateData = {
+                        role: promptSystemElement.value || "",
+                        user_template: promptUserElement.value || "",
+                        task: "",
+                        json_example: "",
+                        instructions: ""
+                    };
+                } else if (isQAAgent) {
+                    templateData = {
+                        role: promptSystemElement.value || "",
+                        user_template: promptUserElement.value || "",
+                        objective: "",
+                        evaluation_criteria: [],
+                        instructions: ""
+                    };
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing existing prompt:', e);
+            // Fallback: create new template structure
+            if (isExtractionAgent) {
+                templateData = {
+                    role: promptSystemElement.value || "",
+                    user_template: promptUserElement.value || "",
+                    task: "",
+                    json_example: "",
+                    instructions: ""
+                };
+            } else if (isQAAgent) {
+                templateData = {
+                    role: promptSystemElement.value || "",
+                    user_template: promptUserElement.value || "",
+                    objective: "",
+                    evaluation_criteria: [],
+                    instructions: ""
+                };
+            }
+        }
+        
+        console.log('Template data before stringify:', templateData);
+        combinedPrompt = JSON.stringify(templateData);
+        console.log('Combined prompt JSON string:', combinedPrompt);
+    } else {
+        // For non-extraction/QA agents, use simple system/user format
+        combinedPrompt = JSON.stringify({
+            system: promptSystemElement.value || "",
+            user: promptUserElement.value || ""
+        });
+    }
+    
+    console.log('System prompt value:', promptSystemElement.value);
+    console.log('User prompt value:', promptUserElement.value);
+    console.log('Combined prompt JSON:', combinedPrompt);
+    
+    const promptData = {
+        agent_name: agentName,
+        prompt: combinedPrompt,
+        instructions: instructionsElement ? instructionsElement.value : null,
+        change_description: changeDescriptionElement ? changeDescriptionElement.value : null
+    };
+    
+    console.log('Prompt data to save:', {
+        agent_name: promptData.agent_name,
+        prompt_length: promptData.prompt.length,
+        prompt_preview: promptData.prompt.substring(0, 200),
+        prompt_full: promptData.prompt,
+        instructions: promptData.instructions,
+        change_description: promptData.change_description
+    });
+    
+    try {
+        console.log('Saving prompt for', agentName, ':', promptData);
+        const response = await fetch('/api/workflow/config/prompts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(promptData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Save successful:', result);
+            
+            // CRITICAL: Exit edit mode FIRST so display mode is shown
+            editingPrompts[agentName] = false;
+            
+            // Update agentPrompts immediately with the saved data
+            // This ensures the UI shows fresh data even if API has slight delay
+            if (!agentPrompts) agentPrompts = {};
+            // Use the promptData we just saved (it's what was sent to API and is guaranteed correct)
+            const savedPromptData = {
+                prompt: promptData.prompt,
+                instructions: promptData.instructions || '',
+                model: agentPrompts[agentName]?.model || 'Not configured'
+            };
+            // CRITICAL: Update agentPrompts with saved data BEFORE any rendering
+            // This ensures renderAgentPrompts() uses the correct data
+            agentPrompts[agentName] = savedPromptData;
+            
+            console.log('Updated agentPrompts for', agentName, ':', savedPromptData);
+            
+            // Re-render all prompts immediately with saved data (before reload)
+            // This shows the saved data immediately in display mode
+            renderAgentPrompts();
+            
+            // Use console.log instead of alert to avoid blocking browser automation
+            console.log(`✅ Agent prompt updated successfully for ${agentName}`);
+            
+            // Reload prompts from server after a delay to ensure server has processed
+            // Use longer delay and retry logic to ensure database commit is complete
+            const savedVersion = result.version;
+            let retries = 0;
+            const maxRetries = 5;
+            const checkVersion = async () => {
+                console.log(`🔄 Reloading prompts from server after save (attempt ${retries + 1}/${maxRetries})...`);
+                const oldPrompt = agentPrompts[agentName]?.prompt || '';
+                await loadAgentPrompts();
+                const newPrompt = agentPrompts[agentName]?.prompt || '';
+                console.log('📊 Prompt before reload (length):', oldPrompt.length);
+                console.log('📊 Prompt after reload (length):', newPrompt.length);
+                console.log('📊 Prompt changed:', oldPrompt !== newPrompt);
+                
+                // Check if we got the correct version by comparing prompt content
+                // If the prompt matches what we saved, we're good
+                const promptMatches = newPrompt === promptData.prompt;
+                
+                if (promptMatches) {
+                    console.log('✅ Prompt matches saved version - reload successful');
+                    if (newPrompt) {
+                        console.log('📊 New prompt preview:', newPrompt.substring(0, 150));
+                        // Parse to verify it's correct
+                        try {
+                            const parsed = JSON.parse(newPrompt);
+                            console.log('📊 Parsed role:', parsed.role?.substring(0, 50) || 'empty');
+                            console.log('📊 Parsed user_template:', parsed.user_template?.substring(0, 50) || 'empty');
+                        } catch (e) {
+                            console.error('❌ Failed to parse prompt:', e);
+                        }
+                    }
+                    // Force re-render after reload to ensure UI updates
+                    // renderAgentPrompts() is already called in loadAgentPrompts(), but call again to be safe
+                    renderAgentPrompts();
+                    
+                    // Verify the display elements were updated
+                    setTimeout(() => {
+                        const systemDisplay = document.getElementById('cmdlineextract-prompt-system-display-2');
+                        const userDisplay = document.getElementById('cmdlineextract-prompt-user-display-2');
+                        if (systemDisplay && userDisplay) {
+                            console.log('✅ Display elements found after render');
+                            console.log('📊 System display text:', systemDisplay.textContent?.substring(0, 50) || 'empty');
+                            console.log('📊 User display text:', userDisplay.textContent?.substring(0, 50) || 'empty');
+                        } else {
+                            console.warn('⚠️ Display elements not found:', {
+                                system: !!systemDisplay,
+                                user: !!userDisplay,
+                                system_id: 'cmdlineextract-prompt-system-display-2',
+                                user_id: 'cmdlineextract-prompt-user-display-2'
+                            });
+                        }
+                    }, 100);
+                    
+                    console.log('✅ Prompts reloaded and UI updated');
+                } else if (retries < maxRetries) {
+                    retries++;
+                    console.log(`⚠️ Prompt doesn't match saved version, retrying in 500ms... (attempt ${retries}/${maxRetries})`);
+                    setTimeout(checkVersion, 500);
+                } else {
+                    console.error('❌ Failed to get updated prompt after', maxRetries, 'retries');
+                    // Still render what we have
+                    renderAgentPrompts();
+                }
+            };
+            
+            // Start checking after initial delay
+            setTimeout(checkVersion, 2000);
+            
+            // Force explicit re-render of the saved agent's container as a safety measure
+            // Use setTimeout to ensure DOM updates are complete
+            setTimeout(() => {
+                const agentMap = {
+                    'OSDetectionAgent': { container: 'os-detection-prompt-container', prefix: 'os-detection' },
+                    'RankAgent': { container: 'rank-agent-prompt-container', prefix: 'rank-agent' },
+                    'SigmaAgent': { container: 'sigma-agent-prompt-container', prefix: 'sigma-agent' },
+                    'CmdlineExtract': { container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
+                    'ProcTreeExtract': { container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
+                    // QA Agents
+                    'CmdLineQA': { container: 'cmdlineextract-agent-qa-prompt-container', prefix: 'cmdlineextract-agent' },
+                    'ProcTreeQA': { container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' }
+                };
+
+                const agentInfo = agentMap[agentName];
+                if (agentInfo) {
+                    const agentContainer = document.getElementById(agentInfo.container);
+                    if (agentContainer) {
+                        // Double-check agentPrompts still has our data, if not restore it
+                        if (!agentPrompts[agentName] || agentPrompts[agentName].prompt !== savedPromptData.prompt) {
+                            agentPrompts[agentName] = savedPromptData;
+                        }
+                        // Force re-render with saved data
+                        agentContainer.innerHTML = renderSinglePrompt(agentName, agentPrompts[agentName], agentInfo.prefix);
+                        // Re-initialize collapsible panels
+                        setTimeout(() => {
+                            if (typeof initCollapsiblePanels === 'function') {
+                                initCollapsiblePanels(agentContainer);
+                            }
+                        }, 0);
+                    }
+                }
+            }, 50);
+
+            // Reload config to get updated version (but don't reload prompts - we already have the latest)
+            await loadConfig(true);
+            
+            // Always update QA prompt (even if container is hidden) so it shows fresh data when expanded
+            const qaEnabled = currentConfig?.qa_enabled || {};
+            const qaAgentMap = {
+                'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
+                'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
+                'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' }
+            };
+            
+            const qaInfo = qaAgentMap[agentName];
+            if (qaInfo) {
+                const qaPromptContainer = document.getElementById(qaInfo.container);
+                if (qaPromptContainer) {
+                    // Always re-render, even if hidden, so fresh data is shown when expanded
+                    if (agentName === 'QAAgent') {
+                        renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
+                    } else {
+                        renderQAPrompt(agentName, qaInfo.container);
+                    }
+                }
+            } else {
+                // For sub-agents, renderAgentPrompts() already handled them above
+                // But ensure QA prompts are also updated if this is an extract agent
+                const extractToQA = {
+                    'ProcTreeExtract': { qaName: 'ProcTreeQA', prefix: 'proctreeextract-agent' }
+                };
+                const qaMapping = extractToQA[agentName];
+                if (qaMapping && qaEnabled[agentName]) {
+                    const qaPromptContainer = document.getElementById(`${qaMapping.prefix}-qa-prompt-container`);
+                    if (qaPromptContainer) {
+                        // Always re-render, even if hidden, so fresh data is shown when expanded
+                        renderQAPrompt(qaMapping.qaName, qaPromptContainer.id);
+                    }
+                }
+            }
+        } else {
+            let errorMessage = 'Unknown error';
+            try {
+            const error = await response.json();
+                errorMessage = error.detail || error.message || JSON.stringify(error);
+                console.error('API error response:', error);
+            } catch (e) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                console.error('Failed to parse error response:', e);
+            }
+            alert(`Error updating agent prompt: ${errorMessage}\n\nCheck console (F12) for full details.`);
+            console.error('Full response status:', response.status);
+            console.error('Full response headers:', Object.fromEntries(response.headers.entries()));
+            console.error('Full response URL:', response.url);
+        }
+    } catch (error) {
+        console.error('Error saving agent prompt:', error);
+        alert(`Error saving agent prompt: ${error.message || error}`);
+    }
+}
+
+// Track original config state for change detection
+let originalConfigState = null;
+
+// Reset snapshot of the original state to match the current config (used after saves/auto-saves)
+function resetOriginalConfigStateFromCurrent() {
+    if (!currentConfig) return;
+    
+    // Get current prompts state (merged from currentConfig and agentPrompts)
+    const promptsSource = {
+        ...(currentConfig.agent_prompts || {}),
+        ...(agentPrompts || {})
+    };
+    const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
+    extractSettings.disabled_agents = Array.from(getDisabledExtractAgentsFromConfig(currentConfig) || []);
+    promptsSource.ExtractAgentSettings = extractSettings;
+    
+    originalConfigState = {
+        junk_filter_threshold: currentConfig.junk_filter_threshold || 0,
+        ranking_threshold: currentConfig.ranking_threshold || 0,
+        similarity_threshold: currentConfig.similarity_threshold || 0,
+        description: null,
+        qa_enabled: currentConfig.qa_enabled || {},
+        agent_models: currentConfig.agent_models || {},
+        disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig),
+        qa_max_retries: currentConfig.qa_max_retries || 5,
+        sigma_fallback_enabled: currentConfig.sigma_fallback_enabled || false,
+        rank_agent_enabled: currentConfig.rank_agent_enabled !== undefined ? currentConfig.rank_agent_enabled : true,
+        agent_prompts: promptsSource
+    };
+}
+
+// Function to check if a model is an embedding/text encoder (should be excluded)
+function isEmbeddingModel(modelName) {
+    if (!modelName) return false;
+    const lower = modelName.toLowerCase();
+    return lower.includes('bert') || 
+           lower.includes('embedding') || 
+           lower.includes('encoder') ||
+           lower.includes('text-embedding') ||
+           lower.includes('sentence-transformers') ||
+           lower.includes('all-mpnet') ||
+           lower.includes('e5-');
+}
+
+// Function to get all selected models from form (excluding embedding/text encoder models)
+function getAllSelectedModels() {
+    const models = new Set();
+    
+    // Main agent models
+    const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
+    if (rankModel && !isEmbeddingModel(rankModel)) models.add(rankModel);
+    
+    const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
+    if (extractModel && !isEmbeddingModel(extractModel)) models.add(extractModel);
+    
+    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
+    if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
+    
+    // Sub-agent models (only if explicitly set, not using ExtractAgent model)
+    const subAgents = [
+        { name: 'CmdlineExtract', id: 'cmdlineextract-model' },
+        { name: 'ProcTreeExtract', id: 'proctreeextract-model' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        const select = document.getElementById(subAgent.id);
+        if (select && select.value && select.value.trim()) {
+            const model = select.value.trim();
+            if (!isEmbeddingModel(model)) {
+                models.add(model);
+            }
+        }
+    });
+    
+    // OS Detection fallback model (exclude embedding model)
+    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+    if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+    
+    // QA agent models
+    const qaAgents = [
+        { name: 'RankAgentQA', id: 'rankqa-model' },
+        { name: 'CmdLineQA', id: 'cmdlineqa-model' },
+        { name: 'ProcTreeQA', id: 'proctreeqa-model' }
+    ];
+    
+    qaAgents.forEach(qaAgent => {
+        const modelElement = document.getElementById(qaAgent.id);
+        if (modelElement) {
+            const model = modelElement.value?.trim();
+            if (model && !isEmbeddingModel(model)) {
+                models.add(model);
+            }
+        }
+    });
+    
+    // Note: OS Detection embedding and Sigma embedding models are excluded (they're text encoders)
+    
+    return Array.from(models).sort();
+}
+
+// Function to get all selected models with their providers from UI state
+function getAllSelectedModelsWithProviders() {
+    const selectedModels = [];
+    
+    // Get disabled state
+    const disabled = typeof disabledExtractAgents !== 'undefined' ? disabledExtractAgents : new Set();
+    
+    // Get QA enabled state from checkboxes (current UI state), fallback to config
+    const qaEnabled = {};
+    const qaCheckboxes = {
+        'RankAgent': document.getElementById('qa-rankagent'),
+        'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
+        'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
+        'SigmaAgent': document.getElementById('qa-sigmaagent')
+    };
+    Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
+        qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
+    });
+    
+    // Helper to get model and provider from UI
+    function getModelWithProvider(agentPrefix, providerId, agentName) {
+        const providerSelect = document.getElementById(providerId);
+        if (!providerSelect) return null;
+        
+        const provider = (providerSelect.value || 'lmstudio').trim().toLowerCase();
+        
+        // Use getActiveAgentModelValue to get the correct model based on provider
+        // This handles LMStudio (uses -model or -model-2) vs commercial providers (uses -model-{provider})
+        const model = getActiveAgentModelValue(agentPrefix, provider);
+        if (!model || isEmbeddingModel(model)) return null;
+        
+        return { agent: agentName, model, provider };
+    }
+    
+    // Main agents - only show if enabled
+    // Rank Agent - check if enabled
+    const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
+    if (rankAgentEnabled) {
+        const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
+        const rankModel = document.getElementById('rankagent-model-2')?.value?.trim();
+        if (rankModel && !isEmbeddingModel(rankModel)) {
+            selectedModels.push({ agent: 'Rank', model: rankModel, provider: rankProvider });
+        }
+    }
+    
+    // Extract Agent - always enabled (no toggle)
+    const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+    const extractModel = document.getElementById('extractagent-model-2')?.value?.trim();
+    if (extractModel && !isEmbeddingModel(extractModel)) {
+        selectedModels.push({ agent: 'Extract', model: extractModel, provider: extractProvider });
+    }
+    
+    // SIGMA Agent - always show if model is configured
+    const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
+    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value?.trim();
+    if (sigmaModel && !isEmbeddingModel(sigmaModel)) {
+        selectedModels.push({ agent: 'SIGMA', model: sigmaModel, provider: sigmaProvider });
+    }
+    
+    // Sub-agents - only show if not disabled
+    const subAgents = [
+        { name: 'CmdlineExtract', prefix: 'cmdlineextract', providerId: 'cmdlineextract-provider' },
+        { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        // Skip if agent is disabled
+        if (disabled.has(subAgent.name)) return;
+        
+        const modelInfo = getModelWithProvider(subAgent.prefix, subAgent.providerId, subAgent.name);
+        if (modelInfo) {
+            selectedModels.push(modelInfo);
+        }
+    });
+    
+    // QA agents - only show if corresponding agent is enabled AND QA is enabled
+    const qaAgents = [
+        { name: 'CmdLineQA', prefix: 'cmdlineqa', providerId: 'cmdlineqa-provider', subAgent: 'CmdlineExtract' },
+        { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' },
+        { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null } // RankAgentQA doesn't have a sub-agent
+    ];
+    
+    qaAgents.forEach(qaAgent => {
+        // For sub-agent QA: check if sub-agent is enabled (QA enabled check removed - show if model exists)
+        if (qaAgent.subAgent) {
+            if (disabled.has(qaAgent.subAgent)) return; // Sub-agent is disabled
+            // Removed QA enabled check - show QA agent if model is configured
+        } else {
+            // For RankAgentQA: check if RankAgent is enabled (QA enabled check removed)
+            const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
+            if (!rankAgentEnabled) return;
+            // Removed QA enabled check - show QA agent if model is configured
+        }
+        
+        const modelInfo = getModelWithProvider(qaAgent.prefix, qaAgent.providerId, qaAgent.name);
+        if (modelInfo) {
+            selectedModels.push(modelInfo);
+        }
+    });
+    
+    // OS Detection fallback
+    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+    if (osFallbackToggle && osFallbackToggle.checked) {
+        const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
+        const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value?.trim();
+        if (osFallback && !isEmbeddingModel(osFallback)) {
+            selectedModels.push({ agent: 'OS Fallback', model: osFallback, provider: osFallbackProvider });
+        }
+    }
+    
+    return selectedModels;
+}
+
+// Function to update the config display with current UI state
+function updateConfigDisplay() {
+    const configDisplay = document.getElementById('configDisplay');
+    if (!configDisplay || !currentConfig) return;
+    
+    // Build selected models summary from UI state (not just saved config)
+    // This ensures we show all models currently selected in the UI
+    let uiModels = getAllSelectedModelsWithProviders();
+    let selectedModels = uiModels.map(m => `${m.agent}: ${m.model} (${m.provider})`);
+    
+    // Fallback: if UI doesn't have models yet, read from saved config
+    if (selectedModels.length === 0 && currentConfig.agent_models) {
+        const agentModels = currentConfig.agent_models;
+        const modelsList = [];
+        
+        // Map agent model keys to display names
+        const agentMap = {
+            'RankAgent': 'Rank',
+            'ExtractAgent': 'Extract',
+            'SigmaAgent': 'SIGMA',
+            'CmdlineExtract_model': 'CmdlineExtract',
+            'ProcTreeExtract_model': 'ProcTreeExtract',
+            'RankAgentQA': 'RankAgentQA',
+            'CmdlineExtractQA': 'CmdLineQA',
+            'ProcTreeExtractQA': 'ProcTreeQA'
+        };
+        
+        // Get disabled extract agents
+        const disabled = typeof disabledExtractAgents !== 'undefined' ? disabledExtractAgents : new Set();
+        const qaEnabled = currentConfig.qa_enabled || {};
+        
+        // Main agents
+        if (agentModels.RankAgent) {
+            const provider = agentModels.RankAgent_provider || 'lmstudio';
+            modelsList.push(`Rank: ${agentModels.RankAgent} (${provider})`);
+        }
+        if (agentModels.ExtractAgent) {
+            const provider = agentModels.ExtractAgent_provider || 'lmstudio';
+            modelsList.push(`Extract: ${agentModels.ExtractAgent} (${provider})`);
+        }
+        if (agentModels.SigmaAgent) {
+            const provider = agentModels.SigmaAgent_provider || 'lmstudio';
+            modelsList.push(`SIGMA: ${agentModels.SigmaAgent} (${provider})`);
+        }
+        
+        // Sub-agents
+        ['CmdlineExtract', 'ProcTreeExtract'].forEach(agent => {
+            if (disabled.has(agent)) return;
+            const modelKey = `${agent}_model`;
+            if (agentModels[modelKey]) {
+                const provider = agentModels[`${agent}_provider`] || 'lmstudio';
+                modelsList.push(`${agent}: ${agentModels[modelKey]} (${provider})`);
+            }
+        });
+        
+        // QA agents - show if model is configured (regardless of QA enabled status)
+        if (agentModels.RankAgentQA) {
+            const provider = agentModels.RankAgentQA_provider || 'lmstudio';
+            modelsList.push(`RankAgentQA: ${agentModels.RankAgentQA} (${provider})`);
+        }
+        const qaAgentMap = {
+            'CmdlineExtract': 'CmdLineQA',
+            'ProcTreeExtract': 'ProcTreeQA'
+        };
+        Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
+            if (disabled.has(agent)) return;
+            // Show QA agent if model is configured (removed QA enabled check)
+            if (agentModels[qaKey]) {
+                const provider = agentModels[`${qaKey}_provider`] || 'lmstudio';
+                modelsList.push(`${qaKey}: ${agentModels[qaKey]} (${provider})`);
+            }
+        });
+        
+        selectedModels = modelsList;
+    }
+    
+    const modelsHtml = selectedModels.length > 0 
+        ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs">${m}</li>`).join('')}</ul></div>`
+        : '';
+    
+    configDisplay.innerHTML = `
+        <div class="space-y-1">
+            <p><strong>Version:</strong> ${currentConfig.version || 'N/A'}</p>
+            <p><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold || 'N/A'}</p>
+            <p><strong>Junk Filter Threshold:</strong> ${currentConfig.junk_filter_threshold || 'N/A'}</p>
+            <p><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold || 'N/A'}</p>
+            <p><strong>Updated:</strong> ${new Date(currentConfig.updated_at).toLocaleString()}</p>
+            ${modelsHtml}
+        </div>
+    `;
+}
+
+// Generate LMStudio context window commands
+function showGenerateCommandsModal() {
+    // Get all selected models
+    const uiModels = getAllSelectedModelsWithProviders();
+    
+    // Filter to only LMStudio models and exclude embedding models
+    const embeddingModels = ['text-embedding-e5-base-v2', 'ibm-research/CTI-BERT', 'text-embedding', 'embedding'];
+    const lmstudioModels = uiModels.filter(m => 
+        m.provider === 'lmstudio' && 
+        !embeddingModels.some(emb => m.model.toLowerCase().includes(emb.toLowerCase()))
+    );
+    
+    if (lmstudioModels.length === 0) {
+        alert('No LMStudio models found in current configuration.');
+        return;
+    }
+    
+    // Get context lengths from config or use defaults
+    const contextLength = prompt('Enter context length (tokens):', '16384');
+    if (!contextLength || isNaN(contextLength)) {
+        return;
+    }
+    
+    const ctxLen = parseInt(contextLength);
+    
+    // Generate commands
+    let commands = [];
+    commands.push('# LMStudio Context Window Commands');
+    commands.push('# Generated from workflow configuration');
+    commands.push('');
+    
+    // Group by model to avoid duplicates
+    const uniqueModels = new Map();
+    lmstudioModels.forEach(m => {
+        const modelName = m.model;
+        if (!uniqueModels.has(modelName)) {
+            uniqueModels.set(modelName, {
+                model: modelName,
+                agents: []
+            });
+        }
+        uniqueModels.get(modelName).agents.push(m.agent);
+    });
+    
+    // Generate command for each unique model
+    uniqueModels.forEach((info, modelName) => {
+        commands.push(`# ${info.agents.join(', ')}`);
+        commands.push(`./scripts/set_lmstudio_context.sh "${modelName}" ${ctxLen}`);
+        commands.push('');
+    });
+    
+    const commandsText = commands.join('\n');
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'generateCommandsModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Generate LMStudio Context Commands</h3>
+                <button onclick="closeGenerateCommandsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Copy these commands to set context windows for your LMStudio models:
+                </p>
+                <textarea id="generatedCommands" readonly class="w-full h-64 p-4 font-mono text-sm bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg border border-gray-300 dark:border-gray-600">${commandsText}</textarea>
+            </div>
+            <div class="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button onclick="copyGeneratedCommands()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                    📋 Copy Commands
+                </button>
+                <button onclick="closeGenerateCommandsModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeGenerateCommandsModal() {
+    const modal = document.getElementById('generateCommandsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function copyGeneratedCommands() {
+    const textarea = document.getElementById('generatedCommands');
+    if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+        
+        // Show feedback
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = '✓ Copied!';
+        button.classList.add('bg-green-600', 'hover:bg-green-700');
+        button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('bg-green-600', 'hover:bg-green-700');
+            button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }, 2000);
+    }
+}
+
+// Get only LMStudio models from selected models
+
+function getLMStudioModelsOnly() {
+    const models = new Set();
+    
+    // Get disabled state
+    const disabled = typeof disabledExtractAgents !== 'undefined' ? disabledExtractAgents : new Set();
+    
+    // Get QA enabled state from checkboxes (current UI state), fallback to config
+    const qaEnabled = {};
+    const qaCheckboxes = {
+        'RankAgent': document.getElementById('qa-rankagent'),
+        'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
+        'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
+        'SigmaAgent': document.getElementById('qa-sigmaagent')
+    };
+    Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
+        qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
+    });
+    
+    // Main agent models - only include if provider is 'lmstudio' and agent is enabled
+    // Rank Agent - check if enabled
+    const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
+    if (rankAgentEnabled) {
+        const rankProviderSelect = document.getElementById('rankagent-provider');
+        if (rankProviderSelect) {
+            const rankProvider = (rankProviderSelect.value || '').trim().toLowerCase();
+            if (rankProvider === 'lmstudio') {
+                const rankModel = document.getElementById('rankagent-model-2')?.value.trim();
+                if (rankModel && !isEmbeddingModel(rankModel)) models.add(rankModel);
+            }
+        }
+    }
+    
+    // Extract Agent - always enabled (no toggle)
+    const extractProviderSelect = document.getElementById('extractagent-provider');
+    if (extractProviderSelect) {
+        const extractProvider = (extractProviderSelect.value || '').trim().toLowerCase();
+        if (extractProvider === 'lmstudio') {
+            const extractModel = document.getElementById('extractagent-model-2')?.value.trim();
+            if (extractModel && !isEmbeddingModel(extractModel)) models.add(extractModel);
+        }
+    }
+    
+    // SIGMA Agent - only if QA enabled
+    if (qaEnabled.SigmaAgent) {
+        const sigmaProviderSelect = document.getElementById('sigmaagent-provider');
+        if (sigmaProviderSelect) {
+            const sigmaProvider = (sigmaProviderSelect.value || '').trim().toLowerCase();
+            if (sigmaProvider === 'lmstudio') {
+                const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
+                if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
+            }
+        }
+    }
+    
+    // Sub-agent models (only if explicitly set, not using ExtractAgent model)
+    // Sub-agents have their own provider selectors
+    const subAgents = [
+        { name: 'CmdlineExtract', prefix: 'cmdlineextract', providerId: 'cmdlineextract-provider' },
+        { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' }
+    ];
+    
+    subAgents.forEach(subAgent => {
+        // Skip if agent is disabled
+        if (disabled.has(subAgent.name)) return;
+        
+        const providerSelect = document.getElementById(subAgent.providerId);
+        if (!providerSelect) return; // Skip if provider dropdown doesn't exist
+        
+        const provider = (providerSelect.value || '').trim().toLowerCase();
+        if (provider !== 'lmstudio') return; // Only process LMStudio providers
+        
+        // Use getActiveAgentModelValue to get the correct model (handles -model and -model-2 variants)
+        const model = getActiveAgentModelValue(subAgent.prefix, 'lmstudio');
+        if (model && !isEmbeddingModel(model)) {
+            models.add(model);
+        }
+    });
+    
+    // OS Detection fallback model (only if provider is LMStudio)
+    const osFallbackProviderSelect = document.getElementById('osdetectionagent-fallback-provider');
+    if (osFallbackProviderSelect) {
+        const osFallbackProvider = (osFallbackProviderSelect.value || '').trim().toLowerCase();
+        if (osFallbackProvider === 'lmstudio') {
+            const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
+            if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
+        }
+    }
+    
+    // QA agent models (only if provider is LMStudio, agent is enabled, and QA is enabled)
+    const qaAgents = [
+        { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null },
+        { name: 'CmdLineQA', prefix: 'cmdlineqa', providerId: 'cmdlineqa-provider', subAgent: 'CmdlineExtract' },
+        { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' }
+    ];
+    
+    qaAgents.forEach(qaAgent => {
+        // For sub-agent QA: check if sub-agent is enabled AND QA is enabled
+        if (qaAgent.subAgent) {
+            if (disabled.has(qaAgent.subAgent)) return; // Sub-agent is disabled
+            if (!qaEnabled[qaAgent.subAgent]) return; // QA not enabled for this sub-agent
+        } else {
+            // For RankAgentQA: check if RankAgent is enabled AND QA is enabled
+            if (!rankAgentEnabled) return;
+            if (!qaEnabled.RankAgent) return;
+        }
+        
+        const providerSelect = document.getElementById(qaAgent.providerId);
+        if (!providerSelect) return; // Skip if provider dropdown doesn't exist
+        
+        const provider = (providerSelect.value || '').trim().toLowerCase();
+        if (provider !== 'lmstudio') return; // Only process LMStudio providers
+        
+        // Use getActiveAgentModelValue to get the correct model (handles -model and -model-2 variants)
+        const model = getActiveAgentModelValue(qaAgent.prefix, 'lmstudio');
+        if (model && !isEmbeddingModel(model)) {
+            models.add(model);
+        }
+    });
+    
+    // Note: OS Detection embedding and Sigma embedding models are excluded (they're text encoders)
+    
+    return Array.from(models).sort();
+}
+
+
+// Function to get current form state
+function getCurrentFormState() {
+    const qaEnabled = {};
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+    agents.forEach(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const checkbox = document.getElementById(`qa-${agentId}`);
+        qaEnabled[agentName] = checkbox ? checkbox.checked : false;
+    });
+    
+    // Get agent models from form using unified system (includes providers)
+    const agent_models = collectAllAgentConfigs();
+    
+    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
+    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
+    if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
+    
+    // OS Detection fallback is already handled by collectAllAgentConfigs via AGENT_CONFIG
+
+    const qaModelFields = [
+        { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature', topPId: 'rankqa-top-p' },
+        { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature', topPId: 'cmdlineqa-top-p' },
+        { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature', topPId: 'proctreeqa-top-p' }
+    ];
+    
+    qaModelFields.forEach(field => {
+        const modelValue = document.getElementById(field.id)?.value;
+        if (modelValue) {
+            agent_models[field.name] = modelValue;
+        }
+        
+        // Get QA temperature
+        const tempValue = document.getElementById(field.tempId)?.value;
+        if (tempValue !== undefined) {
+            agent_models[`${field.name}_temperature`] = parseFloat(tempValue) || 0.1;
+        }
+        
+        // Get QA top_p
+        const topPValue = document.getElementById(field.topPId)?.value;
+        if (topPValue !== undefined && topPValue !== '') {
+            agent_models[`${field.name}_top_p`] = parseFloat(topPValue) || 0.9;
+        }
+    });
+   
+    const disabled_agents = Array.from(disabledExtractAgents || []);
+
+    // Get agent prompts from global agentPrompts variable (merged with currentConfig)
+    const promptsSource = {
+        ...(currentConfig?.agent_prompts || {}),
+        ...(agentPrompts || {})
+    };
+    const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
+    extractSettings.disabled_agents = Array.from(disabled_agents || []);
+    promptsSource.ExtractAgentSettings = extractSettings;
+
+    return {
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold')?.value || '0'),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold')?.value || '0'),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold')?.value || '0'),
+        description: null,
+        qa_enabled: qaEnabled,
+        agent_models: agent_models,
+        disabled_extract_agents: disabled_agents,
+        qa_max_retries: Math.min(Math.max(1, parseInt(document.getElementById('qaMaxRetries')?.value) || 5), 3),
+        sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
+        rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true,
+        agent_prompts: promptsSource
+    };
+}
+
+// Function to check if there are unsaved changes
+function checkForUnsavedChanges() {
+    if (!originalConfigState || !currentConfig) {
+        return false;
+    }
+    
+    const currentState = getCurrentFormState();
+    const originalState = originalConfigState;
+    
+    // Compare thresholds
+    if (Math.abs(currentState.junk_filter_threshold - originalState.junk_filter_threshold) > 0.0001) return true;
+    if (Math.abs(currentState.ranking_threshold - originalState.ranking_threshold) > 0.0001) return true;
+    if (Math.abs(currentState.similarity_threshold - originalState.similarity_threshold) > 0.0001) return true;
+    
+    
+    // Compare QA enabled settings
+    const currentQA = currentState.qa_enabled;
+    const originalQA = originalState.qa_enabled || {};
+    for (const agentName of Object.keys(currentQA)) {
+        if (currentQA[agentName] !== originalQA[agentName]) return true;
+    }
+    for (const agentName of Object.keys(originalQA)) {
+        if (currentQA[agentName] !== originalQA[agentName]) return true;
+    }
+
+    // Compare disabled extract agents
+    const currentDisabled = new Set(currentState.disabled_extract_agents || []);
+    const originalDisabled = new Set((originalState.disabled_extract_agents || []));
+    if (currentDisabled.size !== originalDisabled.size) return true;
+    for (const name of currentDisabled) {
+        if (!originalDisabled.has(name)) return true;
+    }
+    
+    // Compare agent_models - check all keys including sub-agent models and temperatures
+    const currentModels = currentState.agent_models || {};
+    const originalModels = originalState.agent_models || currentConfig.agent_models || {};
+    
+    // Get all unique keys from both objects
+    const allKeys = new Set([...Object.keys(currentModels), ...Object.keys(originalModels)]);
+    
+    for (const key of allKeys) {
+        const currentValue = currentModels[key];
+        const originalValue = originalModels[key];
+        
+        // Handle numeric comparison for temperatures (account for floating point precision)
+        if (key.includes('_temperature')) {
+            const currentNum = typeof currentValue === 'number' ? currentValue : parseFloat(currentValue) || 0.0;
+            const originalNum = typeof originalValue === 'number' ? originalValue : parseFloat(originalValue) || 0.0;
+            if (Math.abs(currentNum - originalNum) > 0.0001) return true;
+        } else {
+            // String comparison for model names
+            if (currentValue !== originalValue) return true;
+        }
+    }
+    
+    // Compare qa_max_retries
+    if (currentState.qa_max_retries !== originalState.qa_max_retries) return true;
+    
+    // Compare sigma_fallback_enabled
+    if (currentState.sigma_fallback_enabled !== originalState.sigma_fallback_enabled) return true;
+    
+    // Compare rank_agent_enabled
+    if (currentState.rank_agent_enabled !== originalState.rank_agent_enabled) return true;
+    
+    // Compare agent_prompts - deep comparison
+    const currentPrompts = currentState.agent_prompts || {};
+    const originalPrompts = originalState.agent_prompts || currentConfig.agent_prompts || {};
+    
+    // Compare all agent prompts
+    const allPromptKeys = new Set([...Object.keys(currentPrompts), ...Object.keys(originalPrompts)]);
+    for (const key of allPromptKeys) {
+        const currentPrompt = currentPrompts[key];
+        const originalPrompt = originalPrompts[key];
+        
+        // Deep comparison using JSON stringify for nested objects
+        if (JSON.stringify(currentPrompt) !== JSON.stringify(originalPrompt)) return true;
+    }
+    
+    return false;
+}
+
+// Function to update save button state
+function updateSaveButtonState() {
+    const saveButton = document.getElementById('save-config-button');
+    if (!saveButton) {
+        console.warn('Save button not found');
+        return;
+    }
+    
+    const hasChanges = checkForUnsavedChanges();
+    saveButton.disabled = !hasChanges;
+    
+    // Update button text and styling based on state
+    if (hasChanges) {
+        saveButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        saveButton.classList.add('hover:bg-purple-700');
+        saveButton.style.opacity = '1';
+        saveButton.style.cursor = 'pointer';
+    } else {
+        saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+        saveButton.classList.remove('hover:bg-purple-700');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+    }
+    
+    console.log('Save button state updated:', { hasChanges, disabled: saveButton.disabled });
+}
+
+    // Initialize original state and set up change listeners
+function initializeChangeTracking() {
+    // Store original state after config is loaded
+    resetOriginalConfigStateFromCurrent();
+    
+    // Add change listeners to all configurable fields
+    const fields = [
+        'junkFilterThreshold',
+        'rankingThreshold',
+        'similarityThreshold'
+    ];
+    
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', updateSaveButtonState);
+            field.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to agent model selects
+    const modelSelects = [
+        'rankagent-model-2',
+        'rankagent-temperature',
+        'extractagent-model-2',
+        'sigmaagent-model-2',
+        'osdetectionagent-embedding-model-2',
+        'osdetectionagent-fallback-model-2'
+    ];
+    
+    modelSelects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.addEventListener('change', updateSaveButtonState);
+            select.addEventListener('input', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to QA checkboxes
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+    agents.forEach(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const checkbox = document.getElementById(`qa-${agentId}`);
+        if (checkbox) {
+            checkbox.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to extract sub-agent enable toggles
+    extractSubAgents.forEach(agentName => {
+        const toggle = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+        if (toggle) {
+            toggle.addEventListener('change', updateSaveButtonState);
+        }
+    });
+    
+    // Add change listeners to sigma fallback and rank agent enabled toggles
+    const sigmaFallbackToggle = document.getElementById('sigma-fallback-enabled');
+    if (sigmaFallbackToggle) {
+        sigmaFallbackToggle.addEventListener('change', updateSaveButtonState);
+    }
+    
+    const rankAgentToggle = document.getElementById('rank-agent-enabled');
+    if (rankAgentToggle) {
+        rankAgentToggle.addEventListener('change', updateSaveButtonState);
+    }
+    
+    // Add change listener to qaMaxRetries input
+    const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+    if (qaMaxRetriesInput) {
+        qaMaxRetriesInput.addEventListener('input', updateSaveButtonState);
+        qaMaxRetriesInput.addEventListener('change', updateSaveButtonState);
+    }
+    
+    // Add change listeners to prompt input fields using event delegation
+    // This handles dynamically rendered prompts
+    const agentPromptsContainer = document.getElementById('agentPromptsContainer');
+    if (agentPromptsContainer) {
+        agentPromptsContainer.addEventListener('input', (e) => {
+            if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"], [id$="-prompt-system-2"], [id$="-prompt-user-2"]')) {
+                updateSaveButtonState();
+            }
+        });
+        agentPromptsContainer.addEventListener('change', (e) => {
+            if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"], [id$="-prompt-system-2"], [id$="-prompt-user-2"]')) {
+                updateSaveButtonState();
+            }
+        });
+    }
+    
+    // Also attach to document for any prompts rendered outside the container
+    document.addEventListener('input', (e) => {
+        if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"]')) {
+            updateSaveButtonState();
+        }
+    });
+    document.addEventListener('change', (e) => {
+        if (e.target.matches('[id$="-prompt-2"], [id$="-instructions-2"], [id$="-prompt-system"], [id$="-prompt-user"]')) {
+            updateSaveButtonState();
+        }
+    });
+    
+    // Initial button state - ensure button starts disabled
+    const saveButton = document.getElementById('save-config-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+    }
+    
+    // Then update based on actual changes
+    updateSaveButtonState();
+}
+
+const workflowConfigForm = document.getElementById('workflowConfigForm');
+if (workflowConfigForm) {
+    workflowConfigForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+    
+    // Check if there are any changes to save
+    if (!checkForUnsavedChanges()) {
+        console.log('No changes to save');
+        return;
+    }
+    
+    // Validate all thresholds before submission
+    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
+    const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
+    const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
+    
+    if (!junkFilterValid || !rankingValid || !similarityValid) {
+        alert('Please fix the validation errors before saving.');
+        return;
+    }
+    
+    // Collect QA enabled settings
+    const qaEnabled = {};
+    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+    agents.forEach(agentName => {
+        const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+        const checkbox = document.getElementById(`qa-${agentId}`);
+        qaEnabled[agentName] = checkbox ? checkbox.checked : false;
+    });
+    
+    // If Rank Agent is disabled, Rank QA must also be disabled
+    const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked ?? true;
+    if (!rankAgentEnabled) {
+        qaEnabled.RankAgent = false;
+    }
+    
+    // Collect all agent provider/model values using unified system
+    const collectedAgentConfigs = collectAllAgentConfigs();
+    
+    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
+    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
+    
+    // Special handling for OS Detection fallback (conditional)
+    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+    const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
+    if (!osFallbackEnabled) {
+        // Explicitly remove fallback when toggle is disabled
+        collectedAgentConfigs.OSDetectionAgent_fallback = null;
+        collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
+    } else {
+        // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
+        const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+        const model = getAgentModel('osdetectionagent-fallback', provider);
+        collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
+        // Only set model if a value is selected (not empty string)
+        if (model) {
+            collectedAgentConfigs.OSDetectionAgent_fallback = model;
+        } else {
+            // If no model selected but toggle is enabled, keep existing value (don't set to null)
+            // This allows the toggle to be enabled without requiring immediate model selection
+        }
+    }
+    
+    // Special handling for Sigma embedding model (not in AGENT_CONFIG)
+    const sigmaEmbedding = document.getElementById('sigma-embedding-model')?.value.trim() || null;
+    
+    const formData = {
+        min_hunt_score: currentConfig?.min_hunt_score || 97.0,
+        junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
+        ranking_threshold: parseFloat(document.getElementById('rankingThreshold').value),
+        similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
+        description: null,
+        agent_models: {
+            ...collectedAgentConfigs,
+            OSDetectionAgent_embedding: osEmbedding,
+            SigmaEmbeddingModel: sigmaEmbedding,
+            // QA model overrides
+            RankAgentQA: document.getElementById('rankqa-model')?.value.trim() || null,
+            CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
+            CmdLineQA_temperature: parseFloat(document.getElementById('cmdlineqa-temperature')?.value) || 0.1,
+            CmdLineQA_top_p: parseFloat(document.getElementById('cmdlineqa-top-p')?.value) || 0.9,
+            ProcTreeQA: document.getElementById('proctreeqa-model')?.value.trim() || null,
+            ProcTreeQA_temperature: parseFloat(document.getElementById('proctreeqa-temperature')?.value) || 0.1,
+            ProcTreeQA_top_p: parseFloat(document.getElementById('proctreeqa-top-p')?.value) || 0.9,
+            RankAgentQA_temperature: parseFloat(document.getElementById('rankqa-temperature')?.value) || 0.1,
+            RankAgentQA_top_p: parseFloat(document.getElementById('rankqa-top-p')?.value) || 0.9
+        },
+        qa_enabled: qaEnabled,
+        sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
+        rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true,
+        qa_max_retries: Math.min(Math.max(1, parseInt(document.getElementById('qaMaxRetries')?.value) || 5), 3)
+    };
+    
+    // Merge agent_prompts and include disabled extract agents
+    const promptsSource = {
+        ...(currentConfig?.agent_prompts || {}),
+        ...(agentPrompts || {})
+    };
+    const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
+    extractSettings.disabled_agents = Array.from(disabledExtractAgents || []);
+    promptsSource.ExtractAgentSettings = extractSettings;
+    formData.agent_prompts = promptsSource;
+    
+    // Validate RankAgent model is set
+    if (!formData.agent_models.RankAgent) {
+        alert('Rank Agent model is required. Please select a model from the dropdown.');
+        document.getElementById('rankagent-model-2')?.focus();
+        return;
+    }
+    
+    // Remove null values from agent_models
+    // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
+    const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
+    const cleanedAgentModels = {};
+    for (const [key, value] of Object.entries(formData.agent_models)) {
+        if (keysToPreserveNull.includes(key)) {
+            // Preserve null values for keys that need explicit removal
+            // Also include non-empty values (when toggle is enabled with a model selected)
+            if (value === null || value !== '') {
+                cleanedAgentModels[key] = value;
+            }
+        } else if (value !== null && value !== '') {
+            cleanedAgentModels[key] = value;
+        }
+    }
+    formData.agent_models = Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null;
+    
+    // Show loading state
+    const saveButton = document.getElementById('save-config-button');
+    const originalButtonText = saveButton.textContent;
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving...';
+    saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+    
+    try {
+        const response = await fetch('/api/workflow/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            const updatedConfig = await response.json();
+            
+            // Always merge qa_enabled from what we sent to ensure all settings are preserved
+            // This handles cases where backend might not return complete qa_enabled dict
+            if (qaEnabled && Object.keys(qaEnabled).length > 0) {
+                updatedConfig.qa_enabled = {
+                    ...(updatedConfig.qa_enabled || {}),
+                    ...qaEnabled
+                };
+            } else if (!updatedConfig.qa_enabled || Object.keys(updatedConfig.qa_enabled).length === 0) {
+                // Fallback: use what we sent if response is empty
+                updatedConfig.qa_enabled = qaEnabled || {};
+            }
+            
+            // Update currentConfig with the response to ensure QA settings are preserved
+            currentConfig = updatedConfig;
+            agentModels = updatedConfig.agent_models || {};
+            
+            // Re-apply agent configs to ensure Top_P and other values are set correctly
+            if (updatedConfig.agent_models) {
+                applyAgentConfigs(updatedConfig.agent_models);
+            }
+            
+            // Update form fields and UI directly instead of fetching again
+            if (updatedConfig.ranking_threshold !== undefined) {
+                document.getElementById('rankingThreshold').value = updatedConfig.ranking_threshold;
+            }
+            if (updatedConfig.junk_filter_threshold !== undefined) {
+                document.getElementById('junkFilterThreshold').value = updatedConfig.junk_filter_threshold;
+            }
+            if (updatedConfig.similarity_threshold !== undefined) {
+                document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
+            }
+            
+            // Update config display
+            const configDisplay = document.getElementById('configDisplay');
+            if (configDisplay) {
+                // Build selected models summary from UI state (not just saved config)
+                // This ensures we show all models currently selected in the UI
+                const uiModels = getAllSelectedModelsWithProviders();
+                const selectedModels = uiModels.map(m => `${m.agent}: ${m.model} (${m.provider})`);
+                
+                const modelsHtml = selectedModels.length > 0 
+                    ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs">${m}</li>`).join('')}</ul></div>`
+                    : '';
+                
+                configDisplay.innerHTML = `
+                    <div class="space-y-1">
+                        <p><strong>Version:</strong> ${updatedConfig.version || 'N/A'}</p>
+                        <p><strong>Ranking Threshold:</strong> ${updatedConfig.ranking_threshold || 'N/A'}</p>
+                        <p><strong>Junk Filter Threshold:</strong> ${updatedConfig.junk_filter_threshold || 'N/A'}</p>
+                        <p><strong>Similarity Threshold:</strong> ${updatedConfig.similarity_threshold || 'N/A'}</p>
+                        <p><strong>Updated:</strong> ${new Date(updatedConfig.updated_at).toLocaleString()}</p>
+                        ${modelsHtml}
+                    </div>
+                `;
+            }
+            
+            // Update agentModels global variable with the saved config before reloading
+            agentModels = updatedConfig.agent_models || {};
+            disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
+            syncExtractAgentTogglesFromConfig();
+            
+            // Show success state immediately (don't wait for reloads)
+            saveButton.textContent = '✓ Saved!';
+            saveButton.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+            saveButton.classList.add('bg-green-600');
+            
+            // Restore button state after 2 seconds, regardless of reload status
+            setTimeout(() => {
+                saveButton.textContent = originalButtonText;
+                saveButton.classList.remove('bg-green-600');
+                saveButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                saveButton.disabled = false;
+                updateSaveButtonState();
+            }, 2000);
+            
+            // Reload agent models and prompts in background (with timeout protection)
+            Promise.race([
+                Promise.all([
+                    loadAgentModels().then(() => {
+                        // Re-apply agent configs after models are reloaded to ensure Top_P values are set
+                        if (updatedConfig.agent_models) {
+                            applyAgentConfigs(updatedConfig.agent_models);
+                        }
+                    }).catch(err => {
+                        console.warn('Error reloading agent models after save:', err);
+                    }),
+                    loadAgentPrompts().catch(err => {
+                        console.warn('Error reloading agent prompts after save:', err);
+                    })
+                ]),
+                new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
+            ]).then(() => {
+                // Restore QA settings from the saved config
+                loadQASettings2();
+                
+                // Setup event listeners
+                setupQAEventListeners();
+                
+                // Initialize change tracking after save
+                initializeChangeTracking();
+            }).catch(err => {
+                console.warn('Error in post-save reload:', err);
+                // Still restore UI state even if reloads fail
+                loadQASettings2();
+                setupQAEventListeners();
+                initializeChangeTracking();
+            });
+        } else {
+            const error = await response.json();
+            // Handle error detail - could be string, array, or object
+            let errorMessage = 'Unknown error';
+            if (error.detail) {
+                if (Array.isArray(error.detail)) {
+                    // Pydantic validation errors - format them nicely
+                    errorMessage = error.detail.map(e => {
+                        if (typeof e === 'string') return e;
+                        if (e.msg) return `${e.loc?.join('.') || 'Field'}: ${e.msg}`;
+                        return JSON.stringify(e);
+                    }).join('\n');
+                } else if (typeof error.detail === 'string') {
+                    errorMessage = error.detail;
+                } else {
+                    errorMessage = JSON.stringify(error.detail, null, 2);
+                }
+            }
+            alert('Error updating configuration:\n\n' + errorMessage);
+            saveButton.disabled = false;
+            saveButton.textContent = originalButtonText;
+            updateSaveButtonState();
+        }
+    } catch (error) {
+        console.error('Error saving config:', error);
+        alert('Error saving configuration');
+        saveButton.disabled = false;
+        saveButton.textContent = originalButtonText;
+        updateSaveButtonState();
+    }
+    });
+}
+
+// Execution Functions
+
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-white font-semibold">Pending</span>',
+        'running': '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-white font-semibold">Running</span>',
+        'completed': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-white font-semibold">Completed</span>',
+        'failed': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-white font-semibold">Failed</span>'
+    };
+    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 font-semibold">' + status + '</span>';
+}
+
+function getTerminationBadge(reason) {
+    if (!reason) {
+        return '';
+    }
+    const badges = {
+        'rank_below_threshold': '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 font-semibold">Stopped: Below Threshold</span>',
+        'no_sigma_rules_generated': '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200 font-semibold">No SIGMA Rules</span>'
+    };
+    return badges[reason] || `<span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 font-semibold">${reason}</span>`;
+}
+
+function describeTermination(reason, details) {
+    if (!reason) {
+        return '';
+    }
+    const payload = details?.details || {};
+    switch (reason) {
+        case 'rank_below_threshold': {
+            const score = typeof payload.ranking_score === 'number' ? payload.ranking_score.toFixed(1) : payload.ranking_score;
+            const threshold = typeof payload.ranking_threshold === 'number' ? payload.ranking_threshold.toFixed(1) : payload.ranking_threshold;
+            return `Stopped after ranking (score ${score || 'N/A'} vs threshold ${threshold || 'N/A'})`;
+        }
+        case 'no_sigma_rules_generated': {
+            return 'Completed without generating SIGMA rules';
+        }
+        default:
+            return reason;
+    }
+}
+
+function getStepBadge(step) {
+    const steps = {
+        'junk_filter': '🔍 Filter',
+        'rank_article': '📊 Rank',
+        'extract_agent': '🔬 Extract',
+        'generate_sigma': '⚡ SIGMA',
+        'similarity_search': '🔎 Similarity',
+        'promote_to_queue': '📥 Queue'
+    };
+    return steps[step] || step || '-';
+}
+
+function highlightCurrentStep(step) {
+    document.querySelectorAll('.workflow-node').forEach(node => {
+        node.style.filter = 'none';
+        node.style.stroke = 'none';
+        node.style.strokeWidth = '0';
+    });
+    
+    if (step) {
+        const node = document.querySelector(`[data-step="${step}"]`);
+        if (node) {
+            node.style.filter = 'url(#glow)';
+            node.style.stroke = '#fbbf24';
+            node.style.strokeWidth = '3';
+        }
+    }
+}
+
+function getExecutionTableColumnCount() {
+    const baseColumns = 7; // ID, Article, Status, Step, Rank, Created, Actions
+    return showObservableCounts ? baseColumns + observableCountColumns.length : baseColumns;
+}
+
+function renderExecutionHeader() {
+    const headerRow = document.getElementById('executionsHeaderRow');
+    if (!headerRow) return;
+    
+    const headerClass = 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider';
+    const baseHeaders = [
+        'ID',
+        'Article',
+        'Status',
+        'Current Step',
+        'Ranking Score'
+    ];
+    const tailHeaders = ['Created', 'Actions'];
+    
+    const countHeaders = showObservableCounts ? observableCountColumns.map(col => col.label) : [];
+    const allHeaders = [...baseHeaders, ...countHeaders, ...tailHeaders];
+    
+    headerRow.innerHTML = allHeaders.map(text => `<th class="${headerClass}">${text}</th>`).join('');
+}
+
+function formatObservableCount(exec, key) {
+    const counts = exec?.extraction_counts || {};
+    const value = counts[key];
+    return typeof value === 'number' ? value : 0;
+}
+
+async function loadExecutions() {
+    try {
+        renderExecutionHeader();
+        const statusFilterEl = document.getElementById('statusFilter');
+        const statusFilter = statusFilterEl ? statusFilterEl.value : '';
+        const url = statusFilter ? `/api/workflow/executions?status=${statusFilter}` : '/api/workflow/executions';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            executions = data.executions || []; // Always use executions array
+            totalExecutions = data.total !== undefined ? data.total : executions.length;
+            renderExecutions();
+            updateStats(data); // Pass full data object to use API-provided stats
+        } else {
+            console.error('Failed to load executions:', response.status, response.statusText);
+            const tbody = document.getElementById('executionsTableBody');
+            if (tbody) {
+                const columns = getExecutionTableColumnCount();
+                renderExecutionHeader();
+                tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-red-500">Error loading executions</td></tr>`;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading executions:', error);
+        const tbody = document.getElementById('executionsTableBody');
+        if (tbody) {
+            const columns = getExecutionTableColumnCount();
+            renderExecutionHeader();
+            tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+        }
+    }
+}
+
+function renderExecutions() {
+    const tbody = document.getElementById('executionsTableBody');
+    if (!tbody) {
+        console.error('executionsTableBody element not found');
+        return;
+    }
+    
+    renderExecutionHeader();
+    const columns = getExecutionTableColumnCount();
+    
+    if (executions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-gray-500">No executions found</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = executions.map(exec => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${exec.id}</td>
+            <td class="px-6 py-4 text-sm">
+                <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                    ${exec.article_title || 'Article ' + exec.article_id}
+                </a>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${getStepBadge(exec.current_step)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
+            </td>
+            ${showObservableCounts ? observableCountColumns.map(col => `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center">
+                    ${formatObservableCount(exec, col.key)}
+                </td>
+            `).join('') : ''}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
+                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
+                ${exec.status === 'failed' ? `
+                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry</button>
+                    ${debugMode ? `<button onclick="retryExecution(${exec.id}, true)" class="text-purple-600 hover:text-purple-800 dark:text-purple-400" title="Retry synchronously and wait for completion (returns result)">Retry (Wait)</button>` : ''}
+                ` : ''}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function toggleObservableCounts(event) {
+    showObservableCounts = !!event?.target?.checked;
+    renderExecutions();
+}
+
+function toggleDebugMode(event) {
+    debugMode = !!event?.target?.checked;
+    renderExecutions();
+}
+
+function updateStats(data) {
+    // Use API-provided stats if available, otherwise calculate from executions array
+    const stats = data ? {
+        total: data.total !== undefined ? data.total : totalExecutions,
+        running: data.running !== undefined ? data.running : executions.filter(e => e.status === 'running').length,
+        completed: data.completed !== undefined ? data.completed : executions.filter(e => e.status === 'completed').length,
+        failed: data.failed !== undefined ? data.failed : executions.filter(e => e.status === 'failed').length
+    } : {
+        total: totalExecutions,
+        running: executions.filter(e => e.status === 'running').length,
+        completed: executions.filter(e => e.status === 'completed').length,
+        failed: executions.filter(e => e.status === 'failed').length
+    };
+    
+    const totalEl = document.getElementById('totalExecutions');
+    const runningEl = document.getElementById('runningExecutions');
+    const completedEl = document.getElementById('completedExecutions');
+    const failedEl = document.getElementById('failedExecutions');
+    
+    if (totalEl) totalEl.textContent = stats.total;
+    if (runningEl) runningEl.textContent = stats.running;
+    if (completedEl) completedEl.textContent = stats.completed;
+    if (failedEl) failedEl.textContent = stats.failed;
+}
+
+async function viewExecution(executionId) {
+    try {
+        const response = await fetch(`/api/workflow/executions/${executionId}`);
+        if (response.ok) {
+            const exec = await response.json();
+            
+            // Fetch active config to get agent_models if not in config_snapshot
+            let activeConfig = null;
+            try {
+                const configResponse = await fetch('/api/workflow/config');
+                if (configResponse.ok) {
+                    activeConfig = await configResponse.json();
+                }
+            } catch (e) {
+                console.warn('Could not fetch active config:', e);
+            }
+            
+            // Helper function to get model name
+            const getModel = (agentName) => {
+                // First try config_snapshot
+                if (exec.config_snapshot?.agent_models?.[agentName]) {
+                    return exec.config_snapshot.agent_models[agentName];
+                }
+                // Then try active config
+                if (activeConfig?.agent_models?.[agentName]) {
+                    return activeConfig.agent_models[agentName];
+                }
+                // Fallback to environment
+                return 'From environment';
+            };
+            
+            highlightCurrentStep(exec.current_step);
+            
+            // Build step-by-step inputs/outputs
+            const steps = [];
+            
+            // Step 0: OS Detection (runs first in workflow)
+            // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
+            const osDetectionResult = exec.error_log?.os_detection_result;
+            // Prioritize os_detection_result over termination_details to ensure correct data source
+            const osDetectionData = osDetectionResult || exec.termination_details || {};
+            const osDetectionError = exec.error_log?.os_detection;
+            const detectedOS = osDetectionData.detected_os || (osDetectionError ? null : undefined);
+            
+            // Show OS Detection step if:
+            // 1. OS detection result exists in error_log
+            // 2. OS was detected (in termination_details when workflow stopped)
+            // 3. There was an OS detection error
+            // 4. Workflow has any steps (OS detection runs first, so it should always be present)
+            if (osDetectionResult || detectedOS !== undefined || osDetectionError || exec.status !== 'pending') {
+                // Read method from detection_method field, ensuring we don't accidentally use fallback model name
+                const osMethod = (osDetectionData.detection_method && typeof osDetectionData.detection_method === 'string') 
+                    ? osDetectionData.detection_method 
+                    : 'Unknown';
+                const osConfidence = (osDetectionData.confidence && typeof osDetectionData.confidence === 'string')
+                    ? osDetectionData.confidence
+                    : (osDetectionData.confidence !== undefined ? String(osDetectionData.confidence) : 'Unknown');
+                const osSimilarities = (osDetectionData.similarities && typeof osDetectionData.similarities === 'object')
+                    ? osDetectionData.similarities
+                    : {};
+                // Ensure max_similarity is a number, not null/undefined
+                const osMaxSimilarity = (typeof osDetectionData.max_similarity === 'number' && !isNaN(osDetectionData.max_similarity))
+                    ? osDetectionData.max_similarity
+                    : undefined;
+                // Determine if Windows was detected:
+                // 1. detectedOS is 'Windows', OR
+                // 2. Workflow continued (which means Windows was detected or had highest similarity)
+                const workflowContinued = exec.extraction_result !== null && exec.extraction_result !== undefined;
+                const isWindows = detectedOS === 'Windows' || (workflowContinued && detectedOS !== 'Linux' && detectedOS !== 'MacOS');
+                
+                // Build similarities display
+                let similaritiesHtml = '';
+                if (Object.keys(osSimilarities).length > 0) {
+                    const similaritiesList = Object.entries(osSimilarities)
+                        .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
+                        .join('');
+                    similaritiesHtml = `<details class="mt-2 w-full">
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View OS Similarity Scores</summary>
+                        <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
+                            ${similaritiesList}
+                        </div>
+                    </details>`;
+                }
+                
+                // Get embedding model from config
+                const embeddingModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_embedding'] || 
+                                      activeConfig?.agent_models?.['OSDetectionAgent_embedding'] || 
+                                      'ibm-research/CTI-BERT';
+                const fallbackModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_fallback'] || 
+                                     activeConfig?.agent_models?.['OSDetectionAgent_fallback'] || 
+                                     'mistralai/mistral-7b-instruct-v0.3';
+                
+                const osInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                let osOutput = '';
+                if (osDetectionError) {
+                    osOutput = `<div class="space-y-1 text-red-700 dark:text-red-400">
+                        <div><strong>Error:</strong> ${osDetectionError}</div>
+                    </div>`;
+                } else if (detectedOS !== undefined) {
+                    osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Detected OS:</strong> ${detectedOS}</div>
+                        <div><strong>Method:</strong> ${osMethod}</div>
+                        <div><strong>Confidence:</strong> ${osConfidence}</div>
+                        ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
+                        <div><strong>Decision:</strong> ${isWindows ? '✅ Continue (Windows detected)' : '❌ Stop (Non-Windows OS)'}</div>
+                        ${!isWindows ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
+                    </div>`;
+                } else if (!osDetectionResult) {
+                    // No OS detection data stored - could be legacy execution
+                    const workflowContinued = exec.junk_filter_result !== null && exec.junk_filter_result !== undefined;
+                    osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Detected OS:</strong> ${workflowContinued ? 'Windows (inferred - workflow continued)' : 'Unknown (no data stored)'}</div>
+                        <div><strong>Decision:</strong> ${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: OS detection data not stored for this execution. ${workflowContinued ? 'Workflow continued, so Windows was likely detected.' : 'Check logs for OS detection errors.'}</div>
+                    </div>`;
+                }
+                
+                steps.push({
+                    name: 'Step 0: OS Detection',
+                    input: `<div class="space-y-1">
+                        <div>• Original article content (${osInputContentLength} chars)</div>
+                        <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
+                        ${fallbackModel ? `<div>• Fallback LLM Model: <span class="font-mono text-xs">${fallbackModel}</span></div>` : ''}
+                    </div>`,
+                    inputDetails: osInputDetails,
+                    output: osOutput,
+                    details: similaritiesHtml
+                });
+            }
+            
+            // Step 1: Junk Filter
+            if (exec.junk_filter_result) {
+                const originalContentPreview = exec.article_content_preview || '';
+                const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Original Article Content</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                steps.push({
+                    name: 'Step 1: Junk Filter',
+                    input: `<div class="space-y-1">
+                        <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
+                    </div>`,
+                    inputDetails: contentInputDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Filtered:</strong> ${exec.junk_filter_result.is_huntable ? 'Yes' : 'No'}</div>
+                        <div><strong>Confidence:</strong> ${(exec.junk_filter_result.confidence || 0).toFixed(2)}</div>
+                        <div><strong>Original Length:</strong> ${exec.junk_filter_result.original_length || 0} chars</div>
+                        <div><strong>Filtered Length:</strong> ${exec.junk_filter_result.filtered_length || 0} chars</div>
+                        <div><strong>Chunks Kept:</strong> ${exec.junk_filter_result.chunks_kept || 0}</div>
+                        <div><strong>Chunks Removed:</strong> ${exec.junk_filter_result.chunks_removed || 0}</div>
+                    </div>`
+                });
+            }
+            
+            // Step 2: Rank Article
+            if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
+                const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Ranking Reasoning (Full LLM Output)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        <!-- COMMENTED OUT: Truncation control -->
+                        ${exec.ranking_reasoning}
+                        <!-- ${exec.ranking_reasoning.substring(0, 5000)}${exec.ranking_reasoning.length > 5000 ? '\n\n... (truncated)' : ''} -->
+                    </div>
+                </details>` : '';
+                
+                // Show filtered content that was sent to ranking agent
+                const filteredContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const filteredContentDetails = exec.article_content ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                // Get model used for ranking
+                const rankModel = getModel('RankAgent');
+                
+                steps.push({
+                    name: 'Step 2: LLM Ranking',
+                    input: `<div class="space-y-1">
+                        <div>• Filtered article content (${filteredContentLength} chars)</div>
+                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                        <div>• Source metadata</div>
+                        <div>• RankAgent prompt from workflow config</div>
+                        <div>• Model: <span class="font-mono text-xs">${rankModel}</span></div>
+                    </div>`,
+                    inputDetails: filteredContentDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
+                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
+                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                    </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
+                    details: rankingDetails
+                });
+            }
+            
+            // Step 3: Extract Agents
+            if (exec.extraction_result) {
+                const observables = exec.extraction_result.observables || [];
+                const summary = exec.extraction_result.summary || {};
+                const discreteHuntablesCount = exec.extraction_result.discrete_huntables_count || summary.count || 0;
+                const obsCount = observables.length;
+                
+                // Build expandable sections for all findings
+                const detailsSections = [];
+                
+                // Observables (new format)
+                if (obsCount > 0) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Observables (${obsCount} items)</summary>
+                            <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                                <div class="space-y-3">
+                                    ${observables.map((obs, idx) => {
+                                        const type = obs.type || 'Unknown';
+                                        const value = obs.value || '';
+                                        const platform = obs.platform || 'Unknown';
+                                        const sourceContext = obs.source_context || '';
+                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                            <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. ${type}</div>
+                                            <div class="text-gray-700 dark:text-gray-300 mt-1 break-all">${value}</div>
+                                            ${platform !== 'Unknown' ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Platform: ${platform}</div>` : ''}
+                                            ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 mt-1 italic">Context: ${sourceContext}</div>` : ''}
+                                        </div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </details>`);
+                }
+                
+                // Summary
+                if (summary && (summary.count !== undefined || summary.platforms_detected || summary.source_url)) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Summary</summary>
+                            <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                                <div class="space-y-2 text-gray-900 dark:text-white">
+                                    ${summary.count !== undefined ? `<div><strong>Count:</strong> ${summary.count}</div>` : ''}
+                                    ${summary.source_url ? `<div><strong>Source URL:</strong> <a href="${summary.source_url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">${summary.source_url}</a></div>` : ''}
+                                    ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div><strong>Platforms Detected:</strong> ${summary.platforms_detected.join(', ')}</div>` : ''}
+                                </div>
+                            </div>
+                        </details>`);
+                }
+                
+                // Discrete Huntables content (if available)
+                if (exec.extraction_result.content && discreteHuntablesCount > 0) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Discrete Huntables Content</summary>
+                            <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                ${exec.extraction_result.content}
+                            </div>
+                        </details>`);
+                }
+                
+                // Raw LLM Response (if available)
+                if (exec.extraction_result.raw_response) {
+                    const rawResponse = String(exec.extraction_result.raw_response);
+                    // COMMENTED OUT: Truncation control
+                    // const truncatedResponse = rawResponse.length > 1000 ? rawResponse.substring(0, 1000) + '...' : rawResponse;
+                    const truncatedResponse = rawResponse;
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Raw LLM Response</summary>
+                            <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                ${rawResponse.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                        </details>`);
+                }
+                
+                // Show filtered content that was sent to extraction agent
+                const extractInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${String(exec.article_content).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                // Get model used for extraction
+                const extractModel = getModel('ExtractAgent');
+                
+                steps.push({
+                    name: 'Step 3: Extract Agents',
+                    input: `<div class="space-y-1">
+                        <div>• Filtered article content (${extractInputContentLength} chars)</div>
+                        <div>• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                        <div>• ExtractAgent prompt from workflow config</div>
+                        <div>• Model: <span class="font-mono text-xs">${extractModel}</span></div>
+                    </div>`,
+                    inputDetails: extractInputDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Discrete Huntables:</strong> ${discreteHuntablesCount}</div>
+                        <div><strong>Observables:</strong> ${obsCount} items</div>
+                        ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div><strong>Platforms:</strong> ${summary.platforms_detected.join(', ')}</div>` : ''}
+                    </div>`,
+                    details: detailsSections.join('')
+                });
+                
+                // Sub-Agents: Individual Extraction Agents (in workflow execution order)
+                if (exec.extraction_result?.subresults) {
+                    const subresults = exec.extraction_result.subresults || {};
+                    const qaResults = exec.error_log?.qa_results || {};
+                    
+                    // Sub-agents in workflow execution order
+                    const subAgents = [
+                        { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
+                        { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 2 }
+                    ];
+                    
+                    const subAgentDetails = subAgents.map(subAgent => {
+                        const result = subresults[subAgent.key];
+                        // Ensure items is always an array - handle case where items is a string (e.g., process_lineage)
+                        let items = [];
+                        if (result?.items !== undefined && result?.items !== null) {
+                            if (Array.isArray(result.items)) {
+                                items = result.items;
+                            } else {
+                                // If items is not an array (string, object, etc.), set to empty array
+                                items = [];
+                            }
+                        }
+                        const count = result?.count || items.length || 0;
+                        const raw = result?.raw || {};
+                        
+                        // Get QA result for this sub-agent
+                        const qaResult = qaResults[subAgent.name] || qaResults[subAgent.qaName] || null;
+                        const qaVerdict = qaResult?.verdict || qaResult?.status || null;
+                        const qaFeedback = qaResult?.feedback || null;
+                        const qaIssues = Array.isArray(qaResult?.issues) ? qaResult.issues : [];
+                        
+                        const itemsHtml = items.length > 0 ? `<details class="mt-2">
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: #ffffff !important;">View ${items.length} Items</summary>
+                            <div class="mt-2 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs">
+                                <div class="space-y-2">
+                                    ${items.slice(0, 20).map((item, idx) => {
+                                        const itemValue = typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item);
+                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                            <div class="font-semibold text-gray-600 dark:text-gray-300">${idx + 1}. Item</div>
+                                            <div class="text-gray-600 dark:text-gray-300 break-all whitespace-pre-wrap">${itemValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                                        </div>`;
+                                    }).join('')}
+                                    ${items.length > 20 ? `<div class="text-gray-600 dark:text-gray-300">... and ${items.length - 20} more</div>` : ''}
+                                </div>
+                            </div>
+                        </details>` : '';
+                        
+                        const rawHtml = raw && Object.keys(raw).length > 0 ? `<details class="mt-2">
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: #ffffff !important;">View Raw Agent Response</summary>
+                            <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                        </details>` : '';
+                        
+                        const qaHtml = qaResult ? `<div class="mt-3 border-t border-gray-300 dark:border-gray-600 pt-3">
+                            <strong class="text-gray-600 dark:text-gray-300 text-xs">QA Results (${subAgent.qaName}):</strong>
+                            <div class="mt-2">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : qaVerdict === 'fail' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'}">
+                                        ${qaVerdict === 'pass' ? '✅ PASS' : qaVerdict === 'fail' ? '❌ FAIL' : '⚠️ WARNING'}
+                                    </span>
+                                </div>
+                                ${qaFeedback ? `<div class="text-xs text-gray-600 dark:text-gray-300 mb-2"><strong class="text-gray-600 dark:text-gray-300">Feedback:</strong> ${qaFeedback.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+                                ${qaIssues.length > 0 ? `<div class="text-xs"><strong class="text-gray-600 dark:text-gray-300">Issues (${qaIssues.length}):</strong><ul class="list-disc list-inside mt-1 space-y-1 text-gray-600 dark:text-gray-300">${qaIssues.map(issue => {
+                                    const issueText = typeof issue === 'string' ? issue : (issue.description || issue.type || JSON.stringify(issue));
+                                    return `<li>${issueText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`;
+                                }).join('')}</ul></div>` : ''}
+                            </div>
+                        </div>` : '';
+                        
+                        const isProcessLineage = subAgent.key === 'process_lineage';
+                        const subAgentStyle = 'style="color: #ffffff !important;"';
+                        return `<details class="mt-2 border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
+                            <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm ${isProcessLineage ? 'process-lineage-extraction' : ''}" ${subAgentStyle}>
+                                ${subAgent.icon} ${subAgent.display} <span class="text-white dark:text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
+                            </summary>
+                            <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                                <div>
+                                    <strong class="text-gray-600 dark:text-gray-300 text-sm">Inputs:</strong>
+                                    <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                        <div>• Filtered Content: ${extractInputContentLength} chars</div>
+                                        <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                        <div>• Article URL: ${exec.article_url || 'N/A'}</div>
+                                        <div>• Agent: ${subAgent.name}</div>
+                                        ${exec.config_snapshot?.agent_models?.[`${subAgent.name}_model`] ? `<div>• Model: ${exec.config_snapshot.agent_models[`${subAgent.name}_model`]}</div>` : ''}
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong class="text-gray-600 dark:text-gray-300 text-sm">Outputs:</strong>
+                                    ${count > 0 ? `
+                                        <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                            <div>• Items Extracted: <strong class="text-gray-600 dark:text-gray-300">${count}</strong></div>
+                                        </div>
+                                        ${itemsHtml}
+                                        ${rawHtml}
+                                    ` : '<span class="text-gray-600 dark:text-gray-300 text-xs">No items extracted</span>'}
+                                    ${qaHtml}
+                                </div>
+                            </div>
+                        </details>`;
+                    }).join('');
+                    
+                    steps.push({
+                        name: '<span class="text-gray-600 dark:text-gray-300">🔬 Sub-Agents (Individual Extraction)</span>',
+                        input: `<div class="space-y-1 text-xs">
+                            <div>• ${Object.keys(subresults).length} sub-agents executed</div>
+                        </div>`,
+                        inputDetails: '',
+                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
+                            <div>• Total sub-agents: ${subAgents.length}</div>
+                        </div>`,
+                        details: `<div class="space-y-4">${subAgentDetails}</div>`
+                    });
+                    
+                    // ExtractionSupervisorAgent: Aggregation
+                    const supervisorDetails = `<div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div>
+                            <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
+                            <div class="mt-1 text-xs" style="color: #ffffff !important;">
+                                <div style="color: #ffffff !important;">• Sub-Agent Results: ${Object.keys(subresults).length} sub-agents</div>
+                                ${Object.entries(subresults).map(([key, data]) => {
+                                    const count = data?.count || data?.items?.length || 0;
+                                    const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                    return `<div style="color: #ffffff !important;">• ${displayName}: ${count} items</div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <strong class="text-gray-900 dark:text-white text-sm">Outputs:</strong>
+                            <div class="mt-1 text-xs" style="color: #ffffff !important;">
+                                <div style="color: #ffffff !important;">• Total Observables: <strong style="color: #ffffff !important;">${discreteHuntablesCount}</strong></div>
+                                <div style="color: #ffffff !important;">• Aggregated from ${Object.keys(subresults).length} sub-agents</div>
+                                ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div style="color: #ffffff !important;">• Platforms: ${summary.platforms_detected.join(', ')}</div>` : ''}
+                            </div>
+                            ${exec.extraction_result.content ? `<details class="mt-2">
+                                <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Aggregated Content Summary</summary>
+                                <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                                    ${String(exec.extraction_result.content).substring(0, 2000).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${exec.extraction_result.content.length > 2000 ? '...' : ''}
+                                </div>
+                            </details>` : ''}
+                        </div>
+                    </div>`;
+                    
+                    steps.push({
+                        name: '<span class="text-gray-600 dark:text-gray-300">🎯 ExtractionSupervisorAgent (Aggregation)</span>',
+                        input: `<div class="space-y-1 text-xs">
+                            <div>• Sub-agent results from ${Object.keys(subresults).length} sub-agents</div>
+                        </div>`,
+                        inputDetails: '',
+                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
+                            <div>• Total Observables: <strong>${discreteHuntablesCount}</strong></div>
+                        </div>`,
+                        details: supervisorDetails
+                    });
+                }
+            }
+            
+            // Step 4: Generate SIGMA
+            const sigmaErrors = exec.error_log?.generate_sigma || exec.error_log?.sigma_generation;
+            // Get conversation log from error_log even when there are no errors
+            const conversationLog = sigmaErrors?.conversation_log || [];
+            
+            // Show Step 4 if we have sigma_rules (even if empty array) OR if we have error/conversation data
+            if ((exec.sigma_rules !== null && exec.sigma_rules !== undefined) || sigmaErrors || conversationLog.length > 0) {
+                const validationResults = sigmaErrors?.validation_results || [];
+                const totalAttempts = sigmaErrors?.total_attempts || 0;
+                const sigmaRulesCount = (exec.sigma_rules && Array.isArray(exec.sigma_rules)) ? exec.sigma_rules.length : 0;
+                
+                let errorDetails = '';
+                if (sigmaRulesCount === 0 && sigmaErrors) {
+                    errorDetails = `<div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                        <div class="text-xs font-semibold text-red-800 dark:text-red-300 mb-1">Validation Errors:</div>
+                        <div class="text-xs text-red-700 dark:text-red-400">
+                            <div><strong>Total Attempts:</strong> ${totalAttempts}</div>
+                            ${validationResults.length > 0 ? `
+                                <details class="mt-1">
+                                    <summary class="cursor-pointer text-xs !text-white dark:!text-white" style="color: white !important;">View ${validationResults.length} validation result(s)</summary>
+                                    <div class="mt-1 space-y-1 font-mono text-xs text-gray-900 dark:text-white">
+                                        ${validationResults.map((vr, idx) => `
+                                            <div class="p-1 bg-white dark:bg-gray-800 rounded">
+                                                <div><strong>Attempt ${idx + 1}:</strong> ${vr.is_valid ? '✅ Valid' : '❌ Invalid'}</div>
+                                                ${vr.errors && vr.errors.length > 0 ? `
+                                                    <div class="ml-2 text-red-600 dark:text-red-400">
+                                                        ${vr.errors.slice(0, 3).map(e => `• ${e}`).join('<br>')}
+                                                        ${vr.errors.length > 3 ? `<br>... and ${vr.errors.length - 3} more errors` : ''}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </details>
+                            ` : ''}
+                            ${sigmaErrors.errors ? `<div class="mt-1 text-red-600 dark:text-red-400">${sigmaErrors.errors}</div>` : ''}
+                        </div>
+                    </div>`;
+                }
+                
+                // Build conversation log HTML - show even when no errors if validation results exist
+                let conversationHtml = '';
+                // Show conversation log if it exists, OR show validation results summary even when no errors
+                // Always show if validation results exist (even if conversation log is null)
+                if (conversationLog && conversationLog.length > 0) {
+                    // Full conversation log display
+                    conversationHtml = `<div class="mt-3 border-t pt-3 border-gray-200 dark:border-gray-700">
+                        <details class="w-full" open>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
+                                <span class="text-gray-900 dark:text-white">🔄 LLM ↔ pySigma Conversation Log (${conversationLog.length} attempt${conversationLog.length !== 1 ? 's' : ''})</span>
+                                <button onclick="event.stopPropagation(); toggleLogFullscreen('log-${exec.id}', 'log-btn-${exec.id}')" id="log-btn-${exec.id}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Toggle log fullscreen">
+                                    <svg id="log-fullscreen-icon-${exec.id}" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                                    </svg>
+                                    <svg id="log-exit-fullscreen-icon-${exec.id}" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"/>
+                                    </svg>
+                                </button>
+                            </summary>
+                            <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                            <div id="log-${exec.id}" class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                            ${conversationLog.map((entry, idx) => {
+                                const attempt = entry.attempt || (idx + 1);
+                                const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                                const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
+                                
+                                // Format messages
+                                const messages = entry.messages || [];
+                                const messagesHtml = messages.map((msg, msgIdx) => {
+                                    const role = msg.role || 'user';
+                                    const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                    const roleIcon = role === 'system' ? '⚙️' : '👤';
+                                    const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
+                                    // COMMENTED OUT: Truncation control
+                                    // const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
+                                    const collapsibleId = `msg-${exec.id}-${idx}-${msgIdx}`;
+                                    
+                                    return `<div class="mb-2">
+                                        <div class="flex items-center mb-1">
+                                            <span class="mr-2">${roleIcon}</span>
+                                            <span class="font-semibold ${roleColor} text-xs uppercase">${role}</span>
+                                            <!-- COMMENTED OUT: Truncation control button -->
+                                            <!-- ${content.length > 200 ? `<button onclick="toggleCollapse('${collapsibleId}')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-gray-300 underline">[toggle full]</button>` : ''} -->
+                                        </div>
+                                        <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded border border-gray-300 dark:border-gray-600">
+                                            <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${content}</div>
+                                            <!-- Truncation control code removed - preview variable was undefined -->
+                                        </div>
+                                    </div>`;
+                                }).join('');
+                                
+                                // Format LLM response
+                                const llmResponse = entry.llm_response || '';
+                                const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                // COMMENTED OUT: Truncation control
+                                // const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
+                                const llmCollapsibleId = `llm-${exec.id}-${idx}`;
+                                
+                                // Format validation results
+                                const validation = entry.validation || [];
+                                const hasErrors = validation.some(v => !v.is_valid);
+                                const validationIcon = hasErrors ? '❌' : '✅';
+                                const validationColor = hasErrors ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400';
+                                
+                                const validationHtml = validation.map((v, vIdx) => {
+                                    const errs = (v.errors || []).map(e => `<li class="text-red-700 dark:text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                                    const warns = (v.warnings || []).map(w => `<li class="text-yellow-700 dark:text-yellow-400 text-xs">${String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                                    return `<div class="mb-2 p-2 bg-white dark:bg-gray-800 rounded border ${hasErrors ? 'border-red-300 dark:border-red-700' : 'border-green-300 dark:border-green-700'}">
+                                        <div class="flex items-center mb-1">
+                                            <span class="mr-2">${validationIcon}</span>
+                                            <span class="font-semibold ${validationColor} text-xs">Rule ${v.rule_index || vIdx + 1}: ${v.is_valid ? 'Valid' : 'Invalid'}</span>
+                                        </div>
+                                        ${errs ? `<div class="text-xs mt-1"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">${errs}</ul></div>` : ''}
+                                        ${warns ? `<div class="text-xs mt-1"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">${warns}</ul></div>` : ''}
+                                    </div>`;
+                                }).join('');
+                                
+                                return `<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ${idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700'}">
+                                    <div class="flex items-center mb-2">
+                                        <span class="px-2 py-1 rounded text-xs font-semibold text-white ${attemptBadgeColor} mr-2">${attemptIcon} Attempt ${attempt}</span>
+                                        ${entry.all_valid ? '<span class="text-xs text-green-600 dark:text-green-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">Has Validation Errors</span>'}
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">Messages:</div>
+                                        ${messagesHtml}
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">LLM Response:</div>
+                                        <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">
+                                            <!-- COMMENTED OUT: Truncation control - showing full content directly -->
+                                            <pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>
+                                            <!-- Truncation control code removed - llmPreview variable was undefined -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">Validation Results:</div>
+                                        ${validationHtml || '<div class="text-xs text-gray-600 dark:text-white">No validation results</div>'}
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                            </div>
+                        </details>
+                    </div>`;
+                } else if (validationResults && validationResults.length > 0) {
+                    // Show validation results summary when no conversation log but validation occurred
+                    // Show this even when validation passed (sigmaErrors might be null but validationResults exist)
+                    conversationHtml = `<div class="mt-3 border-t pt-3 border-gray-200 dark:border-gray-700">
+                        <details class="w-full" open>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
+                                <span class="text-gray-900 dark:text-white">🔄 pySigma Validation Results (${validationResults.length} attempt${validationResults.length !== 1 ? 's' : ''})</span>
+                            </summary>
+                            <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the validation process between the LLM and pySigma validator</div>
+                            <div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                                ${validationResults.map((vr, idx) => {
+                                    const validationIcon = vr.is_valid ? '✅' : '❌';
+                                    const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+                                    const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
+                                    const errs = (vr.errors || []).map(e => `<li class="text-red-700 dark:text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                                    const warns = (vr.warnings || []).map(w => `<li class="text-yellow-700 dark:text-yellow-400 text-xs">${String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                                    return `<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ${borderColor}">
+                                        <div class="flex items-center mb-2">
+                                            <span class="px-2 py-1 rounded text-xs font-semibold text-white ${vr.is_valid ? 'bg-green-500' : 'bg-red-500'} mr-2">${validationIcon} Attempt ${idx + 1}</span>
+                                            <span class="font-semibold ${validationColor} text-xs">${vr.is_valid ? 'Valid' : 'Invalid'}</span>
+                                        </div>
+                                        ${errs ? `<div class="text-xs mt-2"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">${errs}</ul></div>` : ''}
+                                        ${warns ? `<div class="text-xs mt-2"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">${warns}</ul></div>` : ''}
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </details>
+                    </div>`;
+                }
+                
+                const rulesDetails = exec.sigma_rules.length > 0 ? exec.sigma_rules.map((rule, idx) => {
+                    const ruleTitle = rule.title || 'Untitled';
+                    const ruleDescription = rule.description || '';
+                    const ruleDetection = rule.detection || {};
+                    const ruleLogsource = rule.logsource || {};
+                    const ruleTags = rule.tags || [];
+                    const ruleReferences = rule.references || [];
+                    const ruleId = rule.id || '';
+                    const ruleStatus = rule.status || '';
+                    const ruleLevel = rule.level || '';
+                    
+                    return `
+                    <details class="mt-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" ${idx === 0 ? 'open' : ''}>
+                        <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50 text-sm" style="color: #ffffff !important;">
+                            Rule ${idx + 1}: ${ruleTitle}
+                        </summary>
+                        <div class="p-4 bg-white dark:bg-gray-800 space-y-4">
+                            ${ruleDescription ? `
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Description:</strong>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">${ruleDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                                </div>
+                            ` : ''}
+                            
+                            ${ruleId ? `
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Rule ID:</strong>
+                                    <span class="ml-2 text-sm text-gray-600 dark:text-gray-400 font-mono">${ruleId}</span>
+                                </div>
+                            ` : ''}
+                            
+                            ${ruleStatus || ruleLevel ? `
+                                <div class="flex gap-4">
+                                    ${ruleStatus ? `
+                                        <div>
+                                            <strong class="text-gray-900 dark:text-white text-sm">Status:</strong>
+                                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleStatus}</span>
+                                        </div>
+                                    ` : ''}
+                                    ${ruleLevel ? `
+                                        <div>
+                                            <strong class="text-gray-900 dark:text-white text-sm">Level:</strong>
+                                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleLevel}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+                            
+                            ${Object.keys(ruleLogsource).length > 0 ? `
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Log Source:</strong>
+                                    <pre class="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleLogsource, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                </div>
+                            ` : ''}
+                            
+                            ${Object.keys(ruleDetection).length > 0 ? `
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Detection Logic:</strong>
+                                    <pre class="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleDetection, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                                </div>
+                            ` : ''}
+                            
+                            ${ruleTags.length > 0 ? `
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">Tags:</strong>
+                                    <div class="mt-1 flex flex-wrap gap-2">
+                                        ${ruleTags.map(tag => `<span class="px-2 py-1 bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 rounded text-xs">${tag}</span>`).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${ruleReferences.length > 0 ? `
+                                <div>
+                                    <strong class="text-gray-900 dark:text-white text-sm">References:</strong>
+                                    <ul class="mt-1 list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                        ${ruleReferences.map(ref => `<li><a href="${ref}" target="_blank" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:underline break-all">${ref}</a></li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                            
+                            <details class="mt-2">
+                                <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200" style="color: #ffffff !important;">
+                                    View Full Rule JSON
+                                </summary>
+                                <pre class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                            </details>
+                        </div>
+                    </details>
+                    `;
+                }).join('') : '';
+                const step3Details = (rulesDetails + conversationHtml).trim();
+                
+                // Show extracted content that was sent to SIGMA generation
+                const extractContentForSigma = exec.extraction_result?.content || '';
+                const extractContentDetails = extractContentForSigma ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Extracted Content Sent to SIGMA Agent</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${extractContentForSigma.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                // Get model used for SIGMA generation
+                const sigmaModel = getModel('SigmaAgent');
+                
+                steps.push({
+                    name: 'Step 4: Generate SIGMA',
+                    input: `<div class="space-y-1" style="color: #ffffff !important;">
+                        <div style="color: #ffffff !important;">• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
+                        <div style="color: #ffffff !important;">• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
+                        <div style="color: #ffffff !important;">• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div style="color: #ffffff !important;">• SigmaAgent prompt from workflow config</div>
+                        <div style="color: #ffffff !important;">• Model: <span class="font-mono text-xs" style="color: #ffffff !important;">${sigmaModel}</span></div>
+                    </div>`,
+                    inputDetails: extractContentDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Rules Generated:</strong> ${exec.sigma_rules.length}</div>
+                        ${exec.sigma_rules.length === 0 ? `<div class="text-orange-600 dark:text-orange-400">⚠️ No rules generated</div>${errorDetails}` : ''}
+                        ${exec.sigma_rules.length > 0 ? `<div class="text-green-600 dark:text-green-400">✅ ${exec.sigma_rules.length} rule(s) generated successfully</div>` : ''}
+                    </div>`,
+                    details: step3Details
+                });
+            }
+            
+            // Step 5: Similarity Search
+            if (exec.similarity_results !== null && exec.similarity_results !== undefined && Array.isArray(exec.similarity_results)) {
+                const maxSim = exec.similarity_results.length > 0 ? exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0) : 0;
+                const similarityDetails = exec.similarity_results.length > 0 ? `<details class="mt-2 w-full" open>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100 font-medium" style="color: #ffffff !important;">🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs space-y-3">
+                        ${exec.similarity_results.map((result, idx) => `
+                            <div class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                <div class="mb-2">
+                                    <div class="font-semibold text-gray-900 dark:text-white">Generated Rule ${idx + 1}: ${result.rule_title || 'Untitled'}</div>
+                                    <div class="text-gray-600 dark:text-gray-400">Max Similarity: ${((result.max_similarity || 0) * 100).toFixed(1)}%</div>
+                                    <div class="text-gray-600 dark:text-gray-400">Similar Rules Found: ${result.similar_rules?.length || 0}</div>
+                                </div>
+                                ${result.similar_rules && result.similar_rules.length > 0 ? `
+                                    <div class="mt-2 space-y-2">
+                                        ${result.similar_rules.map((similarRule, ruleIdx) => `
+                                            <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
+                                                 onclick="showSimilarRuleDetails(${ruleIdx}, ${idx})" 
+                                                 data-rule-data='${JSON.stringify(similarRule).replace(/'/g, "&#39;")}'>
+                                                <div class="flex items-start justify-between">
+                                                    <div class="flex-1">
+                                                        <div class="font-medium text-blue-600 dark:text-blue-400 hover:underline">${similarRule.title || 'Untitled Rule'}</div>
+                                                        ${similarRule.description ? `<div class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">${similarRule.description.substring(0, 150)}${similarRule.description.length > 150 ? '...' : ''}</div>` : ''}
+                                                        <div class="flex flex-wrap gap-2 mt-2">
+                                                            ${similarRule.rule_id ? `<span class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">ID: ${similarRule.rule_id}</span>` : ''}
+                                                            ${similarRule.level ? `<span class="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 rounded text-purple-700 dark:text-purple-300">Level: ${similarRule.level}</span>` : ''}
+                                                            ${similarRule.status ? `<span class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 rounded text-green-700 dark:text-green-300">${similarRule.status}</span>` : ''}
+                                                        </div>
+                                                    </div>
+                                                    <div class="ml-3 text-right">
+                                                        <div class="text-lg font-bold text-blue-600 dark:text-blue-400">${((similarRule.similarity || 0) * 100).toFixed(1)}%</div>
+                                                        <div class="text-xs text-gray-500 dark:text-gray-400">similar</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : `
+                                    <div class="text-sm text-gray-500 dark:text-gray-400 italic mt-2">No similar rules found above threshold</div>
+                                `}
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>` : '';
+                
+                // Show SIGMA rules that were searched
+                const sigmaRulesForSearch = exec.sigma_rules && exec.sigma_rules.length > 0 ? exec.sigma_rules.map((rule, idx) => 
+                    `Rule ${idx + 1}: ${rule.title || 'Untitled'}` + (rule.description ? `\n${rule.description.substring(0, 200)}...` : '')
+                ).join('\n\n') : '';
+                const sigmaRulesInputDetails = sigmaRulesForSearch ? `<details class="mt-2 w-full">
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View SIGMA Rules Sent to Similarity Search</summary>
+                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                        ${sigmaRulesForSearch.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    </div>
+                </details>` : '';
+                
+                steps.push({
+                    name: 'Step 5: Similarity Search',
+                    input: `<div class="space-y-1">
+                        <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
+                        <div>• Similarity threshold: ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
+                        <div>• RAG embedding search</div>
+                    </div>`,
+                    inputDetails: sigmaRulesInputDetails,
+                    output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Rules Searched:</strong> ${exec.similarity_results.length}</div>
+                        <div><strong>Max Similarity:</strong> ${(maxSim * 100).toFixed(1)}%</div>
+                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
+                        <div><strong>Decision:</strong> ${maxSim >= (exec.config_snapshot?.similarity_threshold || 0.5) ? '⚠️ Similar rules found' : '✅ Low similarity'}</div>
+                    </div>`,
+                    details: similarityDetails
+                });
+            } else if (exec.sigma_rules && exec.sigma_rules.length === 0) {
+                steps.push({
+                    name: 'Step 5: Similarity Search',
+                    input: '0 generated SIGMA rules',
+                    output: '<div class="text-orange-600 dark:text-orange-400">⚠️ Skipped (no rules to search)</div>'
+                });
+            }
+            
+            // Step 6: Promote to Queue
+            const queuedCount = exec.queued_rules_count || 0;
+            const queuedRuleIds = exec.queued_rule_ids || [];
+            const queueDetails = queuedCount > 0 ? `<details class="mt-2 w-full">
+                <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Queued Rules</summary>
+                <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                    <div class="text-gray-700 dark:text-gray-300 mb-2">
+                        <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(queuedRuleIds)})">${queuedCount} rule(s) queued for review</span>
+                    </div>
+                    ${queuedRuleIds.length > 0 ? `
+                        <div class="space-y-1 mt-2">
+                            ${queuedRuleIds.map((ruleId, idx) => `
+                                <div>
+                                    <a href="/workflow#queue" 
+                                       onclick="const e = arguments[0] || window.event; e.preventDefault(); e.stopPropagation(); highlightQueuedRule(${ruleId}); return false;" 
+                                       class="text-purple-600 dark:text-purple-400 hover:underline cursor-pointer text-xs">
+                                        📋 View Queued Rule #${ruleId}
+                                    </a>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            </details>` : '';
+            
+            // Determine why no rules were queued
+            let queueMessage = '';
+            if (exec.sigma_rules && exec.sigma_rules.length > 0) {
+                if (queuedCount === 0) {
+                    if (exec.similarity_results === null || exec.similarity_results === undefined) {
+                        queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (similarity search did not run)</div>';
+                    } else if (exec.similarity_results.length === 0) {
+                        // Similarity search ran but found 0 matches - should have queued, but didn't
+                        queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (similarity search found 0 matches but rule was not queued)</div>';
+                    } else {
+                        // Similarity search ran and found matches - check if all above threshold
+                        const maxSim = exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0);
+                        if (maxSim >= (exec.config_snapshot?.similarity_threshold || 0.5)) {
+                            queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (all above similarity threshold)</div>';
+                        } else {
+                            queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (unexpected - similarity below threshold but not queued)</div>';
+                        }
+                    }
+                } else {
+                    queueMessage = '<div class="text-green-600 dark:text-green-400">✅ Rules queued for review</div>';
+                }
+            } else {
+                queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (no rules generated)</div>';
+            }
+            
+            steps.push({
+                name: 'Step 6: Promote to Queue',
+                input: `<div class="space-y-1">
+                    <div>• Generated rules: ${exec.sigma_rules?.length || 0}</div>
+                    <div>• Similarity results: ${exec.similarity_results !== null && exec.similarity_results !== undefined ? exec.similarity_results.length : 'N/A (did not run)'}</div>
+                    <div>• Similarity threshold: ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
+                </div>`,
+                output: exec.sigma_rules && exec.sigma_rules.length > 0 ? 
+                    `<div class="space-y-1 text-gray-700 dark:text-gray-300">
+                        <div><strong>Rules Queued:</strong> ${queuedCount}</div>
+                        ${queueMessage}
+                    </div>` : 
+                    '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (no rules generated)</div>',
+                details: queueDetails
+            });
+            
+            const content = `
+                <div class="space-y-4">
+                    <div class="border-b pb-2 border-gray-200 dark:border-gray-700">
+                        <div class="text-gray-900 dark:text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
+                        <div class="text-gray-900 dark:text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">${exec.article_title}</a></div>
+                        <div class="text-gray-900 dark:text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
+                        ${exec.termination_reason ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
+                        <div class="text-gray-900 dark:text-gray-300"><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
+                        <div class="text-gray-900 dark:text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                        ${exec.completed_at ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                        ${exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded mt-2"><strong class="text-gray-900 dark:text-gray-300">Error:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.error_message}</span></div>` : ''}
+                    </div>
+                    
+                    <div class="border-t pt-2 border-gray-200 dark:border-gray-700">
+                        <h4 class="font-bold mb-3 text-gray-900 dark:text-gray-300">Step-by-Step Inputs & Outputs</h4>
+                        <div class="space-y-3">
+                            ${steps.map((step, idx) => `
+                                <div class="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                                    <div class="font-semibold text-sm mb-2 text-gray-900 dark:text-gray-300">${step.name}</div>
+                                    <div class="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">INPUT:</div>
+                                            <div class="text-gray-700 dark:text-gray-300">${step.input}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">OUTPUT:</div>
+                                            <div class="text-gray-700 dark:text-gray-300">${step.output}</div>
+                                        </div>
+                                    </div>
+                                    ${step.inputDetails ? `<div class="mt-3">${step.inputDetails}</div>` : ''}
+                                    ${step.details ? `<div class="mt-3">${step.details}</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('executionDetailContent').innerHTML = content;
+            document.getElementById('executionModal').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error loading execution details:', error);
+    }
+}
+
+async function retryExecution(executionId, useLangGraphServer = false) {
+    const mode = useLangGraphServer ? 'synchronously (wait for completion)' : 'asynchronously (background)';
+    if (!confirm(`Retry execution ${executionId} ${mode}?`)) return;
+    
+    try {
+        const url = `/api/workflow/executions/${executionId}/retry?use_langgraph_server=${useLangGraphServer}`;
+        const response = await fetch(url, { method: 'POST' });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.via_direct_execution) {
+                alert('✅ Retry completed\n\n' +
+                      'Execution finished synchronously.\n' +
+                      'Langfuse traces created (if enabled).\n' +
+                      'Click "Trace" button to view traces.');
+            } else {
+                alert('✅ Retry queued\n\n' +
+                      'Execution running in background via Celery.\n' +
+                      'Langfuse traces will be created (if enabled).\n' +
+                      'Check execution status to see progress.');
+            }
+            await loadExecutions();
+        } else {
+            const error = await response.json();
+            const errorMsg = error.detail || 'Unknown error';
+            alert('❌ Error retrying execution:\n\n' + errorMsg);
+        }
+    } catch (error) {
+        console.error('Error retrying execution:', error);
+        alert('Error retrying execution');
+    }
+}
+
+function buildTraceUrl(info) {
+    const host = (info.langfuse_host || '').replace(/\/$/, '');
+    const projectId = info.langfuse_project_id;
+    // Prefer direct URL if provided (server uses resolved trace_id or session filter)
+    if (info.agent_chat_url) return info.agent_chat_url;
+    if (info.search_url) return info.search_url;
+    return null;
+}
+
+
+async function debugInAgentChat(executionId) {
+    try {
+        // Get debug info (Langfuse trace URL)
+        const response = await fetch(`/api/workflow/executions/${executionId}/debug-info`);
+        if (response.ok) {
+            const info = await response.json();
+            const traceUrl = buildTraceUrl(info);
+            
+            if (traceUrl) {
+                // Check if Langfuse is configured
+                if (!info.uses_langsmith && info.instructions && info.instructions.includes('not configured')) {
+                    // Show warning but still open trace URL
+                    const proceed = confirm(
+                        'Langfuse keys are not configured. The trace will only exist if the execution ran with Langfuse tracing enabled.\n\n' +
+                        'Would you like to open the trace URL anyway?'
+                    );
+                    if (!proceed) {
+                        return;
+                    }
+                }
+                
+                // Log instructions if available
+                if (info.instructions) {
+                    console.log('Debug Instructions:', info.instructions);
+                }
+                
+                // Show helpful message with search info
+                let message = 'Opening Langfuse session...\n\n';
+                if (info.session_id) {
+                    message += `If the session is not found (404), search for:\n`;
+                    message += `Session ID: ${info.session_id}\n`;
+                    if (info.trace_id) {
+                        message += `Trace ID: ${info.trace_id}\n`;
+                    }
+                    message += `\nUse the search/filter in Langfuse UI to find traces by session_id.`;
+                }
+                
+                // Open Langfuse session directly in new tab
+                window.open(traceUrl, '_blank');
+
+                // Show message after a brief delay (so it doesn't block the window.open)
+                setTimeout(() => {
+                    if (info.session_id || info.trace_id) {
+                        console.log(message);
+                    }
+                }, 500);
+            } else {
+                alert('Unable to generate session URL. Please check Langfuse configuration.');
+            }
+        } else {
+            const error = await response.json();
+            alert('Error getting debug info: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error opening session:', error);
+        alert('Error opening session. Please check your configuration.');
+    }
+}
+
+function closeModal() {
+    document.getElementById('executionModal').classList.add('hidden');
+    // Reset fullscreen state when closing
+    const modalContent = document.getElementById('executionModalContent');
+    if (modalContent) {
+        modalContent.classList.remove('modal-fullscreen');
+        document.getElementById('fullscreenIcon').classList.remove('hidden');
+        document.getElementById('exitFullscreenIcon').classList.add('hidden');
+    }
+    // Clear fullscreen stack
+    window.fullscreenStack = [];
+}
+
+function toggleModalFullscreen() {
+    const modalContent = document.getElementById('executionModalContent');
+    const fullscreenIcon = document.getElementById('fullscreenIcon');
+    const exitFullscreenIcon = document.getElementById('exitFullscreenIcon');
+    
+    if (!modalContent) return;
+    
+    if (modalContent.classList.contains('modal-fullscreen')) {
+        // Exit fullscreen
+        modalContent.classList.remove('modal-fullscreen');
+        fullscreenIcon.classList.remove('hidden');
+        exitFullscreenIcon.classList.add('hidden');
+        // Remove from fullscreen stack
+        window.fullscreenStack = window.fullscreenStack || [];
+        window.fullscreenStack = window.fullscreenStack.filter(el => el !== 'modal');
+    } else {
+        // Enter fullscreen
+        modalContent.classList.add('modal-fullscreen');
+        fullscreenIcon.classList.add('hidden');
+        exitFullscreenIcon.classList.remove('hidden');
+        // Add to fullscreen stack
+        window.fullscreenStack = window.fullscreenStack || [];
+        window.fullscreenStack.push('modal');
+    }
+}
+
+// COMMENTED OUT: Toggle collapsible content (for long prompts/responses)
+// function toggleCollapse(elementId) {
+//     const preview = document.getElementById(elementId + '-preview');
+//     const full = document.getElementById(elementId + '-full');
+//     if (preview && full) {
+//         if (full.classList.contains('hidden')) {
+//             preview.classList.add('hidden');
+//             full.classList.remove('hidden');
+//         } else {
+//             preview.classList.remove('hidden');
+//             full.classList.add('hidden');
+//         }
+//     }
+// }
+
+function toggleLogFullscreen(elementId, buttonId) {
+    const logElement = document.getElementById(elementId);
+    if (!logElement) return;
+    
+    const execId = elementId.replace('log-', '');
+    const fullscreenIcon = document.getElementById(`log-fullscreen-icon-${execId}`);
+    const exitFullscreenIcon = document.getElementById(`log-exit-fullscreen-icon-${execId}`);
+    
+    if (logElement.classList.contains('log-fullscreen')) {
+        // Exit fullscreen
+        logElement.classList.remove('log-fullscreen');
+        if (fullscreenIcon) fullscreenIcon.classList.remove('hidden');
+        if (exitFullscreenIcon) exitFullscreenIcon.classList.add('hidden');
+        // Remove from fullscreen stack
+        window.fullscreenStack = window.fullscreenStack || [];
+        window.fullscreenStack = window.fullscreenStack.filter(el => el !== elementId);
+    } else {
+        // Enter fullscreen
+        logElement.classList.add('log-fullscreen');
+        if (fullscreenIcon) fullscreenIcon.classList.add('hidden');
+        if (exitFullscreenIcon) exitFullscreenIcon.classList.remove('hidden');
+        // Add to fullscreen stack
+        window.fullscreenStack = window.fullscreenStack || [];
+        window.fullscreenStack.push(elementId);
+    }
+}
+
+// Trigger Workflow Modal Functions
+function showTriggerWorkflowModal() {
+    document.getElementById('triggerWorkflowModal').classList.remove('hidden');
+    document.getElementById('triggerArticleId').value = '';
+    document.getElementById('triggerWorkflowMessage').classList.add('hidden');
+    
+    // Focus input field after modal is visible
+    setTimeout(() => {
+        const input = document.getElementById('triggerArticleId');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }, 10);
+}
+
+function closeTriggerWorkflowModal() {
+    document.getElementById('triggerWorkflowModal').classList.add('hidden');
+    document.getElementById('triggerArticleId').value = '';
+    document.getElementById('triggerWorkflowMessage').classList.add('hidden');
+}
+
+async function triggerWorkflow() {
+    const articleId = document.getElementById('triggerArticleId').value;
+    const messageDiv = document.getElementById('triggerWorkflowMessage');
+    
+    if (!articleId || parseInt(articleId) < 1) {
+        messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
+        messageDiv.textContent = 'Please enter a valid article ID';
+        messageDiv.classList.remove('hidden');
+        return;
+    }
+    
+    try {
+        messageDiv.className = 'mt-4 p-3 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300';
+        messageDiv.textContent = 'Triggering workflow...';
+        messageDiv.classList.remove('hidden');
+        
+        // Always use Celery (fast, production mode) - no LangGraph server option
+        const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            messageDiv.className = 'mt-4 p-3 rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 text-green-800 dark:text-green-300';
+            messageDiv.innerHTML = `✅ Workflow triggered successfully!<br><strong>Execution ID:</strong> ${data.execution_id}<br><br>Refreshing executions list...`;
+            
+            // Close modal after 2 seconds and refresh executions
+            setTimeout(() => {
+                closeTriggerWorkflowModal();
+                loadExecutions();
+            }, 2000);
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
+            messageDiv.textContent = `Error: ${errorData.detail || 'Failed to trigger workflow'}`;
+        }
+    } catch (error) {
+        messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
+        messageDiv.textContent = `Error: ${error.message}`;
+    }
+}
+
+
+// Close modal when clicking outside
+const executionModal = document.getElementById('executionModal');
+if (executionModal) {
+    executionModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+}
+
+// Close modal with ESC key - handles nested fullscreen windows
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const executionModal = document.getElementById('executionModal');
+        const triggerModal = document.getElementById('triggerWorkflowModal');
+        
+        // Check if execution modal is open
+        if (executionModal && !executionModal.classList.contains('hidden')) {
+            const modalContent = document.getElementById('executionModalContent');
+            window.fullscreenStack = window.fullscreenStack || [];
+            
+            // First, check if log is fullscreen (most nested)
+            if (window.fullscreenStack.length > 0) {
+                const lastElementId = window.fullscreenStack[window.fullscreenStack.length - 1];
+                
+                if (lastElementId && lastElementId.startsWith('log-')) {
+                    // Shrink log fullscreen
+                    toggleLogFullscreen(lastElementId, null);
+                    e.preventDefault();
+                    return;
+                }
+            }
+            
+            // Check if modal itself is fullscreen
+            if (modalContent && modalContent.classList.contains('modal-fullscreen')) {
+                // Exit modal fullscreen, but don't close modal
+                toggleModalFullscreen();
+                e.preventDefault();
+                return;
+            }
+            
+            // If modal is not fullscreen, close it
+            closeModal();
+        } else if (triggerModal && !triggerModal.classList.contains('hidden')) {
+            closeTriggerWorkflowModal();
+        }
+    }
+});
+
+function filterExecutions() {
+    loadExecutions();
+}
+
+async function triggerStuckExecutions() {
+    const btn = document.getElementById('triggerStuckBtn');
+    const originalText = btn.textContent;
+    
+    if (!confirm('Trigger all stuck pending executions? This will bypass Celery and run them directly.')) {
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+    
+    try {
+        const response = await fetch('/api/workflow/executions/trigger-stuck', { method: 'POST' });
+        const data = await response.json();
+        
+        if (response.ok) {
+            if (data.count === 0) {
+                alert('✅ No pending executions found.');
+            } else {
+                const message = `✅ Triggered ${data.count} execution(s)\n\n` +
+                              `Successful: ${data.successful}\n` +
+                              `Failed: ${data.failed}`;
+                alert(message);
+            }
+            await loadExecutions();
+        } else {
+            alert('❌ Error: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error triggering stuck executions:', error);
+        alert('Error triggering stuck executions: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+async function cleanupStaleExecutions() {
+    if (!confirm('Mark all running or pending executions older than 15 minutes as failed?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/workflow/executions/cleanup-stale?max_age_hours=0.25', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            alert(`❌ Cleanup failed: ${errorData.detail || 'Unknown error'}`);
+            return;
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.message}`);
+            refreshExecutions(); // Refresh the list
+        } else {
+            alert(`❌ Cleanup failed: ${result.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Cleanup error:', error);
+        alert(`❌ Error cleaning up stale executions: ${error.message}`);
+    }
+}
+
+async function cancelAllRunningExecutions() {
+    if (!confirm('Cancel all running or pending executions? This will mark them as failed.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/workflow/executions/cancel-all-running', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            alert(`❌ Cancel failed: ${errorData.detail || 'Unknown error'}`);
+            return;
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.message}`);
+            refreshExecutions(); // Refresh the list
+        } else {
+            alert(`❌ Cancel failed: ${result.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Cancel error:', error);
+        alert(`❌ Error cancelling executions: ${error.message}`);
+    }
+}
+
+function refreshExecutions() {
+    loadExecutions();
+}
+
+// Queue Functions
+let currentRuleId = null;
+
+function getQueueStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-white font-semibold">Pending</span>',
+        'approved': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-white font-semibold">Approved</span>',
+        'rejected': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-white font-semibold">Rejected</span>',
+        'submitted': '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-white font-semibold">Submitted</span>'
+    };
+    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 font-semibold">' + status + '</span>';
+}
+
+async function loadQueue() {
+    try {
+        const statusFilterEl = document.getElementById('queueStatusFilter');
+        const statusFilter = statusFilterEl ? statusFilterEl.value : '';
+        const url = statusFilter ? `/api/sigma-queue/list?status=${statusFilter}` : '/api/sigma-queue/list';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+            queue = await response.json();
+            renderQueue();
+            updateQueueStats();
+        } else {
+            console.error('Failed to load queue:', response.status, response.statusText);
+            const tbody = document.getElementById('queueTableBody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error loading queue</td></tr>';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading queue:', error);
+        const tbody = document.getElementById('queueTableBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+        }
+    }
+}
+
+function renderQueue() {
+    const tbody = document.getElementById('queueTableBody');
+    if (!tbody) {
+        console.error('queueTableBody element not found');
+        return;
+    }
+    
+    if (queue.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = queue.map(rule => {
+        const metadata = rule.rule_metadata || {};
+        const title = metadata.title || 'Untitled Rule';
+        
+        return `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
+                <td class="px-6 py-4 text-sm">
+                    <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                        ${rule.article_title || 'Article ' + rule.article_id}
+                    </a>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">${getQueueStatusBadge(rule.status)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    ${parseUTCDate(rule.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
+                    ${rule.status === 'pending' ? `
+                        <button onclick="approveRule(${rule.id})" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
+                        <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateQueueStats() {
+    if (!queue || !Array.isArray(queue)) {
+        queue = [];
+    }
+    
+    const stats = {
+        pending: queue.filter(r => r.status === 'pending').length,
+        approved: queue.filter(r => r.status === 'approved').length,
+        rejected: queue.filter(r => r.status === 'rejected').length,
+        submitted: queue.filter(r => r.status === 'submitted').length
+    };
+    
+    const pendingEl = document.getElementById('pendingCount');
+    const approvedEl = document.getElementById('approvedCount');
+    const rejectedEl = document.getElementById('rejectedCount');
+    const submittedEl = document.getElementById('submittedCount');
+    
+    if (pendingEl) pendingEl.textContent = stats.pending;
+    if (approvedEl) approvedEl.textContent = stats.approved;
+    if (rejectedEl) rejectedEl.textContent = stats.rejected;
+    if (submittedEl) submittedEl.textContent = stats.submitted;
+}
+
+function previewRule(ruleId) {
+    const rule = queue.find(r => r.id === ruleId);
+    if (!rule) return;
+    
+    currentRuleId = ruleId;
+    resetQualityReviewCard();
+    
+    const metadata = rule.rule_metadata || {};
+    const similarityScores = rule.similarity_scores || [];
+    
+    let similarRulesHtml = '';
+    if (similarityScores.length > 0) {
+        similarRulesHtml = `
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2 text-gray-600 dark:text-gray-300">Similar Existing Rules:</h4>
+                <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                    ${similarityScores.slice(0, 5).map(s => `
+                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    const content = `
+        <div class="space-y-4 text-gray-600 dark:text-gray-300">
+            <div><strong>Rule ID:</strong> ${rule.id}</div>
+            <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
+            ${similarRulesHtml}
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2">Rule YAML:</h4>
+                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs text-gray-600 dark:text-gray-300"><code>${escapeHtml(rule.rule_yaml)}</code></pre>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('rulePreviewContent').innerHTML = content;
+    document.getElementById('ruleModal').classList.remove('hidden');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function approveRule(ruleId) {
+    if (!confirm('Approve this rule for PR submission?')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${ruleId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'approved' })
+        });
+        
+        if (response.ok) {
+            alert('Rule approved successfully');
+            closeRuleModal();
+            await loadQueue();
+        } else {
+            const error = await response.json();
+            alert('Error approving rule: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error approving rule:', error);
+        alert('Error approving rule');
+    }
+}
+
+async function rejectRule(ruleId) {
+    const notes = prompt('Rejection reason (optional):');
+    
+    try {
+        const url = new URL(`/api/sigma-queue/${ruleId}/reject`, window.location.origin);
+        if (notes) {
+            url.searchParams.append('review_notes', notes);
+        }
+        
+        const response = await fetch(url, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            alert('Rule rejected');
+            closeRuleModal();
+            await loadQueue();
+        } else {
+            const error = await response.json();
+            alert('Error rejecting rule: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error rejecting rule:', error);
+        alert('Error rejecting rule');
+    }
+}
+
+function closeRuleModal() {
+    document.getElementById('ruleModal').classList.add('hidden');
+    currentRuleId = null;
+    resetQualityReviewCard();
+}
+
+function resetQualityReviewCard() {
+    // Quality review card removed; keep stub in case preview logic still calls it.
+}
+
+// Close modal when clicking outside
+const ruleModal = document.getElementById('ruleModal');
+if (ruleModal) {
+    ruleModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeRuleModal();
+        }
+    });
+}
+
+// Close modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('ruleModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeRuleModal();
+        }
+    }
+});
+
+function filterQueue() {
+    loadQueue();
+}
+
+// Hash normalization will happen in DOMContentLoaded
+
+// Auto-refresh active tab
+setInterval(() => {
+    if (currentTab === 'executions') {
+        loadExecutions();
+    } else if (currentTab === 'queue') {
+        loadQueue();
+    }
+}, currentTab === 'executions' ? 10000 : 30000);
+
+// Help modal function
+function showHelp(fieldName) {
+    const helpTexts = {
+        'minHuntScore': {
+            title: 'Minimum Hunt Score (DISABLED)',
+            content: `<div class="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                        <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-50 font-semibold">⚠️ This threshold check is currently DISABLED</p>
+                        <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">All articles enter the workflow regardless of hunt score.</p>
+                      </div>
+                      <p class="mb-2"><strong>Range:</strong> 0.0 - 100.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 97.0</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">This is the ML model's threat hunting score threshold. <strong>When enabled</strong>, articles with a hunt score greater than or equal to this value will automatically trigger the agentic workflow.</p>
+                      <p class="mb-2"><strong>How it works (when enabled):</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Articles are scored by the ML model (0-100 scale)</li>
+                          <li>Only articles with score ≥ this threshold enter the workflow</li>
+                          <li>Higher values = fewer articles processed (more selective)</li>
+                          <li>Lower values = more articles processed (less selective)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 95.0-99.0 for production (high quality), 85.0-95.0 for testing (more volume)</p>`
+        },
+        'junkFilterThreshold': {
+            title: 'Junk Filter Threshold',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 0.8</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Minimum confidence level for content filtering. Higher values mean stricter filtering (more content removed), lower values mean more lenient filtering.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Content is analyzed for junk/noise patterns</li>
+                          <li>Confidence score (0.0-1.0) indicates how likely content is junk</li>
+                          <li>Content with confidence ≥ threshold is kept</li>
+                          <li>Content with confidence < threshold is filtered out</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.7-0.9 (0.8 is balanced). Higher = stricter (less junk), Lower = more lenient (more content passes)</p>`
+        },
+        'rankingThreshold': {
+            title: 'Ranking Threshold',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 10.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 6.0</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The minimum LLM ranking score (1-10 scale) required for an article to continue through the workflow. If the LLM ranks an article below this threshold, the workflow stops.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>After junk filtering, the LLM evaluates the article's huntability</li>
+                          <li>LLM returns a score from 1-10 (10 = highly huntable)</li>
+                          <li>If score < threshold: workflow stops (not huntable enough)</li>
+                          <li>If score ≥ threshold: workflow continues to extraction</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 5.0-7.0 (6.0 is balanced). Lower = more lenient, Higher = more strict</p>`
+        },
+        'similarityThreshold': {
+            title: 'Similarity Threshold',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
+                      <p class="mb-2"><strong>Default:</strong> 0.5</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Maximum cosine similarity allowed for queueing SIGMA rules. Rules with similarity above this threshold are considered duplicates and won't be queued.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>After generating a SIGMA rule, the system searches for similar existing rules</li>
+                          <li>Similarity is measured using cosine similarity (0.0 = no match, 1.0 = identical)</li>
+                          <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
+                          <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
+        },
+        'osDetectionAgent': {
+            title: 'OS Detection Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Configures the models used for operating system detection from threat intelligence articles. OS detection determines which articles continue through the workflow (Windows-only by default).</p>
+                      <p class="mb-2"><strong>Embedding Model:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (default)</li>
+                          <li><strong>SEC-BERT:</strong> Security-focused embeddings, alternative option</li>
+                      </ul>
+                      <p class="mb-2"><strong>Fallback Model (Optional):</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>LLM model used when embedding-based detection has low confidence</li>
+                          <li>Leave blank to use the primary OS detection model</li>
+                          <li>Typically used for ambiguous cases or when embedding confidence is low</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Step 1:</strong> Checks for Windows OS keywords (executables, paths, registry, etc.) - if ≥3 matches found, immediately returns Windows</li>
+                          <li><strong>Step 2:</strong> If <3 keyword matches, falls back to embedding-based classification (CTI-BERT or SEC-BERT)</li>
+                          <li><strong>Step 3:</strong> If embedding confidence is low, falls back to LLM-based detection (if configured)</li>
+                          <li>Detects: Windows, Linux, MacOS, multiple, or Unknown</li>
+                          <li>Workflow continues only for Windows (or multiple if Windows is included)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use CTI-BERT for embedding model. The keyword-first approach provides fast Windows detection for articles with clear Windows indicators, while BERT handles ambiguous cases. Configure fallback model only if you need LLM-based detection for low-confidence cases.</p>`
+        },
+        'rankAgent': {
+            title: 'Rank Agent Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The LLM model used to evaluate and rank articles for huntability. This agent determines whether an article contains actionable threat intelligence worth extracting.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>After junk filtering, the Rank Agent evaluates the article</li>
+                          <li>Returns a score from 1-10 (10 = highly huntable)</li>
+                          <li>If score ≥ ranking threshold: workflow continues</li>
+                          <li>If score < ranking threshold: workflow stops</li>
+                      </ul>
+                      <p class="mb-2"><strong>Temperature:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>0.0:</strong> Deterministic, consistent rankings (recommended)</li>
+                          <li><strong>Higher values:</strong> More creative/varied rankings</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model optimized for classification/ranking tasks. Temperature 0.0 for consistent results.</p>`
+        },
+        'extractAgent': {
+            title: 'Extract Agents Fallback Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The default LLM model used by sub-agents when no specific model is configured for them.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Each sub-agent can have its own model configured</li>
+                          <li>If a sub-agent has no model set, it falls back to this model</li>
+                          <li>The extraction workflow runs sub-agents sequentially via Python (not LLM orchestration)</li>
+                      </ul>
+                      <p class="mb-2"><strong>Sub-Agents:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>CmdlineExtract:</strong> Command line arguments and executions</li>
+                          <li><strong>ProcTreeExtract:</strong> Process lineage and relationships</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong instruction-following and structured output capabilities.</p>`
+        },
+        'sigmaAgent': {
+            title: 'SIGMA Generator Agent Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Receives extracted behaviors and IOCs from Extract Agents</li>
+                          <li>Generates SIGMA YAML rules following SIGMA specification</li>
+                          <li>Creates detection rules for Windows Event Logs, Sysmon, etc.</li>
+                          <li>Rules are then checked for similarity against existing rules</li>
+                          <li>Unique rules are queued for human review and PR submission</li>
+                      </ul>
+                      <p class="mb-2"><strong>Output Format:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>YAML format following SIGMA specification</li>
+                          <li>Includes: title, description, detection logic, tags, falsepositives</li>
+                          <li>Compatible with SIEM systems (Splunk, Elastic, QRadar, etc.)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong code generation and YAML formatting capabilities. Should understand SIGMA rule structure and Windows event log fields.</p>`
+        },
+        'cmdlineExtract': {
+            title: 'CmdlineExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting command line arguments and command executions from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Command line arguments and switches</li>
+                          <li>Executable names and paths</li>
+                          <li>Command execution patterns</li>
+                          <li>PowerShell commands and scripts</li>
+                          <li>CMD and batch commands</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agents supervisor</li>
+                          <li>Focuses specifically on command-line indicators</li>
+                          <li>Outputs structured command line data for SIGMA rules</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model optimized for command-line extraction if needed.</p>`
+        },
+        'procTreeExtract': {
+            title: 'ProcTreeExtract Model',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting process lineage, parent-child relationships, and process tree structures from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Process parent-child relationships</li>
+                          <li>Process execution chains</li>
+                          <li>Process lineage and hierarchies</li>
+                          <li>Process spawning patterns</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agents supervisor</li>
+                          <li>Identifies process relationships and execution chains</li>
+                          <li>Extracts process tree data for SIGMA rule generation</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong understanding of process relationships.</p>`
+        }
+    };
+    
+    const help = helpTexts[fieldName];
+    if (!help) return;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
+                    ${help.content}
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    // Close on Escape key
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
+}
+// Show similar rule details in a modal
+function showSimilarRuleDetails(ruleIdx, resultIdx) {
+    const clickedElement = event.currentTarget;
+    const ruleDataStr = clickedElement.getAttribute('data-rule-data');
+    if (!ruleDataStr) return;
+    
+    try {
+        const ruleData = JSON.parse(ruleDataStr.replace(/&#39;/g, "'"));
+        
+        // Remove any existing modal
+        const existingModal = document.getElementById('similarRuleModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'similarRuleModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        // Format tags
+        const tagsHtml = ruleData.tags && ruleData.tags.length > 0 ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Tags:</h4>
+                <div class="flex flex-wrap gap-2">
+                    ${ruleData.tags.map(tag => 
+                        `<span class="px-3 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded text-sm">${tag}</span>`
+                    ).join('')}
+                </div>
+            </div>
+        ` : '';
+        
+        // Format detection if available
+        const detectionHtml = ruleData.detection ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Detection Logic:</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.detection, null, 2)}</pre>
+            </div>
+        ` : '';
+        
+        // Format logsource if available
+        const logsourceHtml = ruleData.logsource ? `
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Log Source:</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.logsource, null, 2)}</pre>
+            </div>
+        ` : '';
+        
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800" style="margin-bottom: 50px;">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rule Details</h3>
+                    <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="space-y-4 text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Title:</h4>
+                        <div class="text-base">${ruleData.title || 'Untitled Rule'}</div>
+                    </div>
+                    
+                    ${ruleData.description ? `
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Description:</h4>
+                            <div class="text-sm">${ruleData.description}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        ${ruleData.rule_id ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Rule ID:</h4>
+                                <div class="text-sm">${ruleData.rule_id}</div>
+                            </div>
+                        ` : ''}
+                        ${ruleData.level ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Level:</h4>
+                                <div class="text-sm"><span class="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">${ruleData.level}</span></div>
+                            </div>
+                        ` : ''}
+                        ${ruleData.status ? `
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Status:</h4>
+                                <div class="text-sm"><span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">${ruleData.status}</span></div>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Similarity:</h4>
+                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400">${((ruleData.similarity || 0) * 100).toFixed(1)}%</div>
+                        </div>
+                    </div>
+                    
+                    ${ruleData.file_path ? `
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">File Path:</h4>
+                            <div class="text-xs font-mono text-gray-600 dark:text-gray-400">${ruleData.file_path}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${tagsHtml}
+                    ${logsourceHtml}
+                    ${detectionHtml}
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeSimilarRuleModal()" 
+                            class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeSimilarRuleModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeSimilarRuleModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error parsing rule data:', error);
+        alert('Error displaying rule details');
+    }
+}
+
+function closeSimilarRuleModal() {
+    const modal = document.getElementById('similarRuleModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Navigate to queued rules
+function navigateToQueuedRules(executionId, ruleIds) {
+    if (ruleIds && ruleIds.length > 0) {
+        // Store rule IDs in sessionStorage for the queue page to highlight
+        sessionStorage.setItem('highlightQueuedRules', JSON.stringify(ruleIds));
+        sessionStorage.setItem('highlightExecutionId', executionId.toString());
+        // Navigate to queue page
+        window.location.href = '/workflow#queue';
+    } else {
+        // Fallback to queue page
+        window.location.href = '/workflow#queue';
+    }
+}
+
+// Highlight a specific queued rule (called from link click)
+function highlightQueuedRule(ruleId) {
+    sessionStorage.setItem('highlightQueuedRules', JSON.stringify([ruleId]));
+    window.location.href = '/workflow#queue';
+}
+
+// Live execution view with SSE streaming
+let liveExecutionEventSource = null;
+let liveExecutionId = null;
+
+function openLiveExecutionView(executionId) {
+    liveExecutionId = executionId;
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'liveExecutionModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white">📺 Live Execution View - Execution ${executionId}</h2>
+                <button onclick="closeLiveExecutionView()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-green-400 bg-black rounded m-4" style="min-height: 400px;">
+                <div class="text-gray-500">Connecting to execution stream...</div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    <span id="liveExecutionStatus">Status: Connecting...</span>
+                </div>
+                <button onclick="closeLiveExecutionView()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Add click outside to close
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeLiveExecutionView();
+        }
+    });
+    
+    // Add ESC key to close
+    const handleEsc = function(e) {
+        if (e.key === 'Escape') {
+            closeLiveExecutionView();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
+    
+    // Start SSE connection
+    startLiveExecutionStream(executionId);
+}
+
+function closeLiveExecutionView() {
+    if (liveExecutionEventSource) {
+        liveExecutionEventSource.close();
+        liveExecutionEventSource = null;
+    }
+    const modal = document.getElementById('liveExecutionModal');
+    if (modal) {
+        modal.remove();
+    }
+    liveExecutionId = null;
+}
+
+function startLiveExecutionStream(executionId) {
+    const outputDiv = document.getElementById('liveExecutionOutput');
+    const statusSpan = document.getElementById('liveExecutionStatus');
+    
+    // Clear previous content
+    outputDiv.innerHTML = '<div class="text-gray-500">Connecting to execution stream...</div>';
+    
+    // Create EventSource connection
+    const eventSource = new EventSource(`/api/workflow/executions/${executionId}/stream`);
+    liveExecutionEventSource = eventSource;
+    
+    // Format timestamp
+    function formatTime() {
+        return new Date().toLocaleTimeString();
+    }
+    
+    // Append to output
+    function appendOutput(text, className = 'text-green-400') {
+        const line = document.createElement('div');
+        line.className = className;
+        line.textContent = `[${formatTime()}] ${text}`;
+        outputDiv.appendChild(line);
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+    }
+    
+    // Handle connection open
+    eventSource.onopen = () => {
+        appendOutput('✅ Connected to execution stream', 'text-green-400');
+        statusSpan.textContent = 'Status: Connected';
+    };
+    
+    // Handle messages
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'step':
+                    appendOutput(`📍 Step: ${data.step}`, 'text-blue-400');
+                    break;
+                    
+                case 'status':
+                    appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    break;
+                    
+                case 'llm_interaction':
+                    appendOutput(`\n🤖 LLM Call - ${data.agent} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach((msg, idx) => {
+                            const role = msg.role || 'user';
+                            const content = msg.content || '';
+                            // COMMENTED OUT: Truncation control
+                            // const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${content}`, 'text-gray-400');
+                        });
+                    }
+                    if (data.response) {
+                        // COMMENTED OUT: Truncation control
+                        // const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${data.response}`, 'text-green-300');
+                    }
+                    if (data.score !== undefined) {
+                        appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');
+                    }
+                    if (data.discrete_huntables_count !== undefined) {
+                        appendOutput(`  Discrete Huntables: ${data.discrete_huntables_count}`, 'text-yellow-300');
+                    }
+                    break;
+                    
+                case 'qa_result':
+                    const verdictIcon = data.verdict === 'pass' ? '✅' : data.verdict === 'critical_failure' ? '❌' : '⚠️';
+                    appendOutput(`\n${verdictIcon} QA Result - ${data.agent}: ${data.verdict.toUpperCase()}`, 
+                        data.verdict === 'pass' ? 'text-green-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-yellow-400');
+                    if (data.summary) {
+                        appendOutput(`  Summary: ${data.summary}`, 'text-gray-300');
+                    }
+                    if (data.issues && data.issues.length > 0) {
+                        appendOutput(`  Issues (${data.issues.length}):`, 'text-orange-400');
+                        data.issues.forEach((issue, idx) => {
+                            appendOutput(`    ${idx + 1}. [${issue.severity}] ${issue.type}: ${issue.description}`, 'text-orange-300');
+                        });
+                    }
+                    break;
+                    
+                case 'ranking':
+                    appendOutput(`\n📊 Ranking Score: ${data.score}/10`, 'text-yellow-400');
+                    if (data.reasoning) {
+                        const reasoningPreview = data.reasoning.length > 500 ? data.reasoning.substring(0, 500) + '...' : data.reasoning;
+                        appendOutput(`  Reasoning: ${reasoningPreview}`, 'text-gray-300');
+                    }
+                    break;
+                    
+                case 'complete':
+                    appendOutput(`\n🏁 Execution ${data.status.toUpperCase()}`, 
+                        data.status === 'completed' ? 'text-green-400' : 'text-red-400');
+                    if (data.error_message) {
+                        appendOutput(`  Error: ${data.error_message}`, 'text-red-300');
+                    }
+                    statusSpan.textContent = `Status: ${data.status}`;
+                    // Close stream after a delay
+                    setTimeout(() => {
+                        if (liveExecutionEventSource) {
+                            liveExecutionEventSource.close();
+                            liveExecutionEventSource = null;
+                        }
+                    }, 2000);
+                    break;
+                    
+                case 'error':
+                    appendOutput(`❌ Error: ${data.message}`, 'text-red-400');
+                    statusSpan.textContent = 'Status: Error';
+                    break;
+                    
+                default:
+                    appendOutput(`Unknown event type: ${data.type}`, 'text-gray-500');
+            }
+        } catch (e) {
+            appendOutput(`Error parsing event: ${e.message}`, 'text-red-400');
+        }
+    };
+    
+    // Handle errors
+    eventSource.onerror = (error) => {
+        appendOutput('❌ Stream error or connection closed', 'text-red-400');
+        statusSpan.textContent = 'Status: Disconnected';
+        if (eventSource.readyState === EventSource.CLOSED) {
+            appendOutput('Stream closed. Execution may have completed.', 'text-gray-500');
+        }
+    };
+}
+
+// Initialize on page load
+function initializeTabs() {
+    // Hide all tabs initially
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Function to handle hash and switch tab
+    function handleHashAndSwitch() {
+        let hash = window.location.hash.substring(1);
+        // Normalize hash: 'execution' -> 'executions'
+        if (hash === 'execution') {
+            hash = 'executions';
+            // Update hash - this will trigger hashchange, which will call handleHashAndSwitch again
+            window.location.hash = 'executions';
+            return;
+        }
+        if (hash && ['config', 'executions', 'queue'].includes(hash)) {
+            switchTab(hash);
+        } else {
+            // Default to config tab
+            switchTab('config');
+        }
+    }
+    
+    // Listen for hash changes FIRST (before initial load)
+    window.addEventListener('hashchange', handleHashAndSwitch);
+    
+    // Initial load - check hash immediately
+    let hash = window.location.hash.substring(1);
+    if (hash === 'execution') {
+        // Normalize to 'executions' and switch directly
+        hash = 'executions';
+        window.location.hash = 'executions';
+        switchTab('executions');
+    } else if (hash && ['config', 'executions', 'queue'].includes(hash)) {
+        switchTab(hash);
+    } else {
+        // Default to config tab
+        switchTab('config');
+    }
+}
+
+// Initialize save button state on page load
+function initializeSaveButton() {
+    const saveButton = document.getElementById('save-config-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+    }
+}
+
+
+
+// --- Global fallback definitions to ensure sub-agent provider inputs always render ---
+const subAgentModelKeysGlobal = {
+    cmdlineextract: 'CmdlineExtract_model',
+    proctreeextract: 'ProcTreeExtract_model',
+    rankqa: 'RankAgentQA',
+    cmdlineqa: 'CmdLineQA',
+    proctreeqa: 'ProcTreeQA'
+};
+
+function renderSubAgentCommercialInputsGlobal(agentPrefix) {
+    const modelKey = subAgentModelKeysGlobal[agentPrefix];
+    if (!modelKey) return;
+    const providerSelect = document.getElementById(`${agentPrefix}-provider`);
+    const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+    const currentModel = agentModels?.[modelKey] || '';
+
+    // Always use buildCommercialProviderInput for consistency with main agents
+    ['openai', 'anthropic'].forEach(p => {
+        const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
+        if (!container) {
+            console.warn(`Container not found for ${agentPrefix} provider ${p}`);
+            return;
+        }
+
+        // Use buildCommercialProviderInput which handles both catalog and manual input cases
+        if (typeof buildCommercialProviderInput === 'function') {
+            let html = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
+            // Sub-agents use smaller padding (px-2 py-1.5) and text-xs instead of px-3 py-2 and text-sm
+            html = html.replace(/px-3 py-2/g, 'px-2 py-1.5').replace(/text-sm/g, 'text-xs');
+            container.innerHTML = html;
+        } else {
+            // Fallback to manual input if buildCommercialProviderInput not available
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            container.innerHTML = `
+                <input type="text"
+                       id="${agentPrefix}-model-${p}"
+                       name="agent_models[${modelKey}]"
+                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
+                       placeholder="${placeholder}"
+                       value="${escapeHtml(currentModel || '')}"
+                       onchange="autoSaveModelChange()">
+            `;
+        }
+    });
+}
+window.renderSubAgentCommercialInputs = renderSubAgentCommercialInputsGlobal;
+
+// Run immediately if DOM is ready, otherwise wait for DOMContentLoaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', async () => {
+        initializeSaveButton();
+        initializeTabs();
+        
+        // Load enabled providers from Settings FIRST before rendering
+        await loadEnabledProviders();
+        
+        // Ensure agent model containers are rendered even if config hasn't loaded yet
+        if (typeof loadAgentModels === 'function') {
+            loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
+        }
+        if (typeof refreshAllProviderBlocks === 'function') {
+            refreshAllProviderBlocks();
+        }
+        
+        // __dbgLog('H5', 'DOMContentLoaded fired', { ready: document.readyState });
+    });
+} else {
+    // DOM is already loaded, run immediately
+    (async () => {
+        initializeSaveButton();
+        initializeTabs();
+        
+        // Load enabled providers from Settings FIRST before rendering
+        await loadEnabledProviders();
+        
+        // Ensure agent model containers are rendered even if config hasn't loaded yet
+        if (typeof loadAgentModels === 'function') {
+            loadAgentModels().catch(err => console.error('Error loading agent models on init:', err));
+        }
+        if (typeof refreshAllProviderBlocks === 'function') {
+            refreshAllProviderBlocks();
+        }
+        
+        // __dbgLog('H5', 'DOMContentLoaded immediate branch', { ready: document.readyState });
+    })();
+}
