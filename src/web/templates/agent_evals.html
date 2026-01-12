@@ -76,7 +76,18 @@
                 <select id="subagentSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
                     <option value="cmdline">CommandLine</option>
                     <option value="process_lineage">Process Lineage</option>
+                    <option value="hunt_queries">Hunt Queries</option>
                 </select>
+                <!-- Hunt Query Feature Selection (shown only when Hunt Queries is selected) -->
+                <div id="huntQueryFeatureContainer" class="hidden mt-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Hunt Query Feature
+                    </label>
+                    <select id="huntQueryFeatureSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                        <option value="hunt_queries_edr">EDR Queries</option>
+                        <option value="hunt_queries_sigma">SIGMA Rules</option>
+                    </select>
+                </div>
                 <button id="loadEvalArticlesBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Load Eval Articles
                 </button>
@@ -181,7 +192,7 @@
         <!-- MAE Chart -->
         <div id="maeChartContainer" class="mb-6 hidden">
             <div class="eval-card rounded-lg shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Normalized Mean Absolute Error (nMAE) by Config Version</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Mean Absolute Error Metrics by Config Version</h3>
                 <div class="h-64">
                     <canvas id="maeChart"></canvas>
                 </div>
@@ -206,7 +217,8 @@ const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1
 // Map dropdown values to agent names
 const SUBAGENT_MAP = {
     'cmdline': 'CmdlineExtract',
-    'process_lineage': 'ProcTreeExtract'
+    'process_lineage': 'ProcTreeExtract',
+    'hunt_queries': 'HuntQueriesExtract'
 };
 
 // Get latest prompt comment for an agent
@@ -233,7 +245,7 @@ async function getLatestPromptComment(agentName) {
 async function loadActiveConfig() {
     try {
         const subagentValue = document.getElementById('subagentSelect').value;
-        const agentName = SUBAGENT_MAP[subagentValue] || 'CmdlineExtract';
+        const agentName = SUBAGENT_MAP[subagentValue] || SUBAGENT_MAP[subagentValue === 'hunt_queries' ? 'hunt_queries' : 'cmdline'] || 'CmdlineExtract';
         
         const response = await fetch('/api/workflow/config');
         const data = await response.json();
@@ -318,7 +330,7 @@ async function loadActiveConfig() {
         // SIGMA is skipped for extractor evals, Rank is always disabled for evals
         
         // Sub-agents (only if enabled and has model)
-        ['CmdlineExtract', 'ProcTreeExtract'].forEach(agent => {
+        ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'].forEach(agent => {
             const modelKey = `${agent}_model`;
             // Only show if model exists and agent is not disabled
             if (models[modelKey] && !disabledSet.has(agent)) {
@@ -331,7 +343,8 @@ async function loadActiveConfig() {
         // Note: RankAgentQA is excluded since rank agent is always disabled for extractor evals
         const qaAgentMap = {
             'CmdlineExtract': 'CmdLineQA',
-            'ProcTreeExtract': 'ProcTreeQA'
+            'ProcTreeExtract': 'ProcTreeQA',
+            'HuntQueriesExtract': 'HuntQueriesQA'
         };
         Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
             if (disabledSet.has(agent)) return;
@@ -394,8 +407,11 @@ async function loadActiveConfig() {
 
 // Load eval articles for selected subagent
 async function loadEvalArticles() {
-    const subagent = document.getElementById('subagentSelect').value;
-    currentSubagent = subagent;
+    const subagentSelect = document.getElementById('subagentSelect').value;
+    // For API call, use base name for hunt_queries (API needs it to return both counts)
+    const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
+    // For currentSubagent, use effective subagent (includes feature selection)
+    currentSubagent = getEffectiveSubagent();
     const loadBtn = document.getElementById('loadEvalArticlesBtn');
     const articleList = document.getElementById('articleList');
     
@@ -404,7 +420,7 @@ async function loadEvalArticles() {
     articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading articles...</p>';
     
     try {
-        const response = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${subagent}`);
+        const response = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${apiSubagent}`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
@@ -457,9 +473,23 @@ async function loadEvalArticles() {
                 '<span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded ml-2">Found</span>' :
                 '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
             
+            // For hunt_queries, show the expected count based on selected feature
+            let expectedCountDisplay = '';
+            if (subagentSelect === 'hunt_queries') {
+                const featureSelect = document.getElementById('huntQueryFeatureSelect');
+                const selectedFeature = featureSelect ? featureSelect.value : 'hunt_queries_edr';
+                if (selectedFeature === 'hunt_queries_edr') {
+                    expectedCountDisplay = `Expected EDR: ${article.expected_edr_count !== undefined ? article.expected_edr_count : 'N/A'}`;
+                } else {
+                    expectedCountDisplay = `Expected SIGMA: ${article.expected_sigma_count !== undefined ? article.expected_sigma_count : 'N/A'}`;
+                }
+            } else {
+                expectedCountDisplay = `Expected: ${article.expected_count !== undefined ? article.expected_count : 'N/A'}`;
+            }
+            
             label.innerHTML = `
                 <span class="font-medium">${urlDisplay}</span>
-                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${article.expected_count}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">${expectedCountDisplay}</span>
                 ${foundBadge}
             `;
             
@@ -697,11 +727,15 @@ async function runEvaluation() {
     statusText.textContent = `Triggering ${selectedArticleUrls.size} workflow executions...`;
     
     try {
+        // For hunt_queries, always use base name when running (API creates both EDR and SIGMA records)
+        const subagentSelect = document.getElementById('subagentSelect').value;
+        const subagentForRun = subagentSelect === 'hunt_queries' ? 'hunt_queries' : currentSubagent;
+        
         const response = await fetch('/api/evaluations/run-subagent-eval', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                subagent_name: currentSubagent,
+                subagent_name: subagentForRun,
                 article_urls: Array.from(selectedArticleUrls),
                 use_active_config: true,
             }),
@@ -800,14 +834,86 @@ async function pollSubagentResults(executions) {
             }
             
             // Count completed vs pending
-            const completed = results.filter(r => r.status === 'completed').length;
-            const pending = results.filter(r => r.status === 'pending').length;
-            const failed = results.filter(r => r.status === 'failed').length;
+            // For hunt_queries, count only the most recent execution per article
+            // (each article can have multiple runs, each run has 2 eval records but 1 execution)
+            let completed, pending, failed, total;
+            if (subagent === 'hunt_queries') {
+                // Group by article_id, then find the most recent execution_id for each article
+                const articlesToExecutions = new Map(); // article_id -> array of {execution_id, created_at, status}
+                
+                results.forEach(r => {
+                    const articleId = r.article_id;
+                    if (!articleId) return; // Skip records without article_id
+                    
+                    if (!articlesToExecutions.has(articleId)) {
+                        articlesToExecutions.set(articleId, []);
+                    }
+                    
+                    const execId = r.execution_id;
+                    const createdAt = r.created_at ? new Date(r.created_at) : null;
+                    const status = r.status;
+                    
+                    // Check if we already have this execution_id for this article
+                    const existing = articlesToExecutions.get(articleId).find(e => e.execution_id === execId);
+                    if (!existing && execId) {
+                        articlesToExecutions.get(articleId).push({
+                            execution_id: execId,
+                            created_at: createdAt,
+                            status: status
+                        });
+                    }
+                });
+                
+                // For each article, find the most recent execution and its status
+                const latestExecutionStatus = new Map(); // article_id -> {status, hasCompleted, hasPending, hasFailed}
+                
+                articlesToExecutions.forEach((executions, articleId) => {
+                    if (executions.length === 0) return;
+                    
+                    // Find most recent execution by created_at, fallback to execution_id
+                    const latest = executions.reduce((latest, current) => {
+                        if (!latest) return current;
+                        if (current.created_at && latest.created_at) {
+                            return current.created_at > latest.created_at ? current : latest;
+                        }
+                        if (current.created_at) return current;
+                        if (latest.created_at) return latest;
+                        // Fallback to execution_id comparison
+                        return current.execution_id > latest.execution_id ? current : latest;
+                    });
+                    
+                    // Get all eval records for this execution to determine combined status
+                    const execRecords = results.filter(r => 
+                        r.article_id === articleId && r.execution_id === latest.execution_id
+                    );
+                    
+                    const hasCompleted = execRecords.some(r => r.status === 'completed');
+                    const hasPending = execRecords.some(r => r.status === 'pending');
+                    const hasFailed = execRecords.every(r => r.status === 'failed');
+                    
+                    latestExecutionStatus.set(articleId, {
+                        hasCompleted,
+                        hasPending,
+                        hasFailed
+                    });
+                });
+                
+                // Count status based on most recent executions only
+                completed = Array.from(latestExecutionStatus.values()).filter(item => item.hasCompleted).length;
+                pending = Array.from(latestExecutionStatus.values()).filter(item => !item.hasCompleted && item.hasPending).length;
+                failed = Array.from(latestExecutionStatus.values()).filter(item => !item.hasCompleted && !item.hasPending && item.hasFailed).length;
+                total = latestExecutionStatus.size;
+            } else {
+                completed = results.filter(r => r.status === 'completed').length;
+                pending = results.filter(r => r.status === 'pending').length;
+                failed = results.filter(r => r.status === 'failed').length;
+                total = results.length;
+            }
             
-            statusText.textContent = `⏳ Completed: ${completed}/${results.length}, Pending: ${pending}, Failed: ${failed}`;
+            statusText.textContent = `⏳ Completed: ${completed}/${total}, Pending: ${pending}, Failed: ${failed}`;
             
             // Stop polling if all completed or max attempts reached
-            if (completed + failed === results.length || attempts >= maxAttempts) {
+            if (completed + failed === total || attempts >= maxAttempts) {
                 if (pollInterval) {
                     clearInterval(pollInterval);
                     pollInterval = null;
@@ -1142,6 +1248,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
     
     const labels = validAggregates.map(agg => `v${agg.config_version}`);
     const nmaeData = validAggregates.map(agg => agg.mean_absolute_error);
+    const maeData = validAggregates.map(agg => agg.raw_mae !== null && agg.raw_mae !== undefined ? agg.raw_mae : null);
     
     const chartContainer = document.getElementById('maeChartContainer');
     chartContainer.classList.remove('hidden');
@@ -1157,7 +1264,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
     }
     
     // Determine color based on nMAE values (nMAE thresholds adjusted for normalized scale)
-    const colors = nmaeData.map(nmae => {
+    const nmaeColors = nmaeData.map(nmae => {
         if (nmae <= 0.2) return '#10B981'; // green (20% error)
         if (nmae <= 0.5) return '#F59E0B'; // yellow (50% error)
         return '#EF4444'; // red (>50% error)
@@ -1174,11 +1281,25 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 borderWidth: 2,
                 pointRadius: 5,
-                pointBackgroundColor: colors,
-                pointBorderColor: colors,
+                pointBackgroundColor: nmaeColors,
+                pointBorderColor: nmaeColors,
                 pointHoverRadius: 7,
                 tension: 0.1,
-                fill: true
+                fill: true,
+                yAxisID: 'y'
+            }, {
+                label: 'Mean Absolute Error (MAE)',
+                data: maeData,
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointBackgroundColor: '#10B981',
+                pointBorderColor: '#10B981',
+                pointHoverRadius: 7,
+                tension: 0.1,
+                fill: false,
+                yAxisID: 'y1'
             }]
         },
         options: {
@@ -1207,24 +1328,55 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
                             return `v${version}${modelText}`;
                         },
                         label: function(context) {
-                            const nmae = context.parsed.y;
-                            let quality = '';
-                            if (nmae <= 0.2) quality = ' (Excellent)';
-                            else if (nmae <= 0.5) quality = ' (Good)';
-                            else quality = ' (Needs Improvement)';
-                            return `nMAE: ${nmae.toFixed(4)}${quality}`;
+                            const datasetLabel = context.dataset.label;
+                            const value = context.parsed.y;
+                            
+                            if (datasetLabel === 'Normalized Mean Absolute Error (nMAE)') {
+                                let quality = '';
+                                if (value <= 0.2) quality = ' (Excellent)';
+                                else if (value <= 0.5) quality = ' (Good)';
+                                else quality = ' (Needs Improvement)';
+                                return `nMAE: ${value.toFixed(4)}${quality}`;
+                            } else {
+                                return `MAE: ${value !== null ? value.toFixed(4) : 'N/A'}`;
+                            }
                         }
                     }
                 }
             },
             scales: {
                 y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
                     beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Normalized MAE (nMAE)',
+                        color: '#3B82F6'
+                    },
                     ticks: {
                         color: '#9CA3AF'
                     },
                     grid: {
                         color: 'rgba(156, 163, 175, 0.1)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Mean Absolute Error (MAE)',
+                        color: '#10B981'
+                    },
+                    ticks: {
+                        color: '#9CA3AF'
+                    },
+                    grid: {
+                        drawOnChartArea: false
                     }
                 },
                 x: {
@@ -1254,15 +1406,17 @@ async function loadAggregateScores() {
         return;
     }
     
+    // For API calls, use base subagent name (hunt_queries returns both EDR and SIGMA)
+    const apiSubagent = subagent === 'hunt_queries' ? 'hunt_queries' : subagent;
     const agentName = SUBAGENT_MAP[subagent] || 'CmdlineExtract';
     const aggregateScores = document.getElementById('aggregateScores');
     const aggregateScoresContent = document.getElementById('aggregateScoresContent');
     
     // Debug logging
-    console.log(`Loading aggregate scores for subagent: ${subagent}, agentName: ${agentName}`);
+    console.log(`Loading aggregate scores for subagent: ${subagent}, apiSubagent: ${apiSubagent}, agentName: ${agentName}`);
     
     try {
-        const response = await fetch(`/api/evaluations/subagent-eval-aggregate?subagent=${encodeURIComponent(subagent)}`);
+        const response = await fetch(`/api/evaluations/subagent-eval-aggregate?subagent=${encodeURIComponent(apiSubagent)}`);
         
         if (!response.ok) {
             return; // Silently fail - aggregates are optional
@@ -1339,6 +1493,13 @@ async function loadAggregateScores() {
         }
         
         filteredAggregates.forEach(agg => {
+            // Debug: log aggregate data to verify fields are present
+            console.log('Aggregate data for version', agg.config_version, ':', {
+                raw_mae: agg.raw_mae,
+                mean_expected_count: agg.mean_expected_count,
+                mean_absolute_error: agg.mean_absolute_error
+            });
+            
             const card = document.createElement('div');
             card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800';
             
@@ -1362,6 +1523,15 @@ async function loadAggregateScores() {
                                  agg.mean_absolute_error <= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 
                                  'text-red-600 dark:text-red-400';
                 
+                // Build diagnostic info for nMAE - always show if available
+                let diagnosticHtml = '';
+                if (typeof agg.raw_mae === 'number' || agg.raw_mae != null) {
+                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Raw MAE: ${Number(agg.raw_mae).toFixed(4)}</div>`;
+                }
+                if (typeof agg.mean_expected_count === 'number' || agg.mean_expected_count != null) {
+                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500">Mean Expected: ${Number(agg.mean_expected_count).toFixed(4)}</div>`;
+                }
+                
                 metricsHtml = `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
@@ -1371,6 +1541,7 @@ async function loadAggregateScores() {
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Normalized MAE (nMAE)</div>
                             <div class="font-semibold ${nmaeClass}">${agg.mean_absolute_error !== null ? agg.mean_absolute_error.toFixed(4) : 'N/A'}</div>
+                            ${diagnosticHtml}
                         </div>
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
@@ -1410,7 +1581,10 @@ async function loadAggregateScores() {
 
 // Load previous results for current subagent
 async function loadPreviousResults() {
-    const subagent = document.getElementById('subagentSelect').value;
+    // For API calls, use base subagent name (hunt_queries returns both EDR and SIGMA)
+    // Feature selection only affects display, not the query
+    const subagentSelect = document.getElementById('subagentSelect').value;
+    const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
     
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
@@ -1419,7 +1593,7 @@ async function loadPreviousResults() {
     await loadAggregateScores();
     
     try {
-        const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
+        const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${apiSubagent}`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
@@ -1427,7 +1601,14 @@ async function loadPreviousResults() {
         }
         
         const data = await response.json();
-        const results = data.results || [];
+        let results = data.results || [];
+        
+        // For hunt_queries, filter by selected feature (EDR or SIGMA)
+        if (subagentSelect === 'hunt_queries') {
+            const featureSelect = document.getElementById('huntQueryFeatureSelect');
+            const selectedFeature = featureSelect ? featureSelect.value : 'hunt_queries_edr';
+            results = results.filter(r => r.subagent_name === selectedFeature);
+        }
         
         if (results.length === 0) {
             resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No previous results found for this subagent.</p>';
@@ -1484,13 +1665,15 @@ async function loadPreviousResults() {
 
 // Backfill pending evaluation records
 async function backfillEvalRecords() {
-    const subagent = document.getElementById('subagentSelect').value;
+    // For API calls, use base subagent name (hunt_queries handles both EDR and SIGMA)
+    const subagentSelect = document.getElementById('subagentSelect').value;
+    const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
     
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Updating pending records...</p>';
     
     try {
-        const response = await fetch(`/api/evaluations/subagent-eval-backfill?subagent=${subagent}`, {
+        const response = await fetch(`/api/evaluations/subagent-eval-backfill?subagent=${apiSubagent}`, {
             method: 'POST'
         });
         
@@ -1517,18 +1700,20 @@ async function backfillEvalRecords() {
 
 // Clear pending evaluation records
 async function clearPendingRecords() {
-    const subagent = document.getElementById('subagentSelect').value;
+    // For API calls, use base subagent name (hunt_queries handles both EDR and SIGMA)
+    const subagentSelect = document.getElementById('subagentSelect').value;
+    const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
     
     // Confirm deletion
-    if (!confirm(`Are you sure you want to delete all pending evaluation records for ${subagent}? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete all pending evaluation records for ${apiSubagent}? This action cannot be undone.`)) {
         return;
     }
     
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Clearing pending records...</p>';
     
     try {
-        const response = await fetch(`/api/evaluations/subagent-eval-clear-pending?subagent=${subagent}`, {
+        const response = await fetch(`/api/evaluations/subagent-eval-clear-pending?subagent=${apiSubagent}`, {
             method: 'DELETE'
         });
         
@@ -1577,8 +1762,28 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
     updateRunButton();
 });
 
+// Get effective subagent value (uses feature selection for hunt_queries)
+function getEffectiveSubagent() {
+    const subagent = document.getElementById('subagentSelect').value;
+    if (subagent === 'hunt_queries') {
+        const featureSelect = document.getElementById('huntQueryFeatureSelect');
+        return featureSelect ? featureSelect.value : 'hunt_queries_edr';
+    }
+    return subagent;
+}
+
 // Auto-load previous results when subagent changes
 document.getElementById('subagentSelect').addEventListener('change', () => {
+    const subagent = document.getElementById('subagentSelect').value;
+    const featureContainer = document.getElementById('huntQueryFeatureContainer');
+    
+    // Show/hide hunt query feature dropdown
+    if (subagent === 'hunt_queries') {
+        featureContainer.classList.remove('hidden');
+    } else {
+        featureContainer.classList.add('hidden');
+    }
+    
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
@@ -1596,6 +1801,67 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
     // Reload config to show agent-specific parameters
     loadActiveConfig();
     // Reload aggregate scores with correct subagent filter (will be called by loadPreviousResults if user clicks it)
+});
+
+// Also listen for changes to hunt query feature selection
+document.addEventListener('DOMContentLoaded', () => {
+    const featureSelect = document.getElementById('huntQueryFeatureSelect');
+    if (featureSelect) {
+        featureSelect.addEventListener('change', () => {
+            // Update currentSubagent
+            currentSubagent = getEffectiveSubagent();
+            
+            // Re-render articles if they're already loaded (to update expected counts)
+            if (evalArticles && evalArticles.length > 0) {
+                const articleList = document.getElementById('articleList');
+                const existingArticles = articleList.querySelectorAll('div[class*="border"]');
+                existingArticles.forEach((div, index) => {
+                    if (index < evalArticles.length) {
+                        const article = evalArticles[index];
+                        const label = div.querySelector('label');
+                        if (label) {
+                            const subagentSelect = document.getElementById('subagentSelect');
+                            if (subagentSelect && subagentSelect.value === 'hunt_queries') {
+                                const featureSelect = document.getElementById('huntQueryFeatureSelect');
+                                const selectedFeature = featureSelect ? featureSelect.value : 'hunt_queries_edr';
+                                const urlDisplay = article.url.length > 60 ? article.url.substring(0, 60) + '...' : article.url;
+                                const foundBadge = article.found ? 
+                                    '<span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded ml-2">Found</span>' :
+                                    '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
+                                
+                                let expectedCountDisplay = '';
+                                if (selectedFeature === 'hunt_queries_edr') {
+                                    expectedCountDisplay = `Expected EDR: ${article.expected_edr_count !== undefined ? article.expected_edr_count : 'N/A'}`;
+                                } else {
+                                    expectedCountDisplay = `Expected SIGMA: ${article.expected_sigma_count !== undefined ? article.expected_sigma_count : 'N/A'}`;
+                                }
+                                
+                                label.innerHTML = `
+                                    <span class="font-medium">${urlDisplay}</span>
+                                    <span class="text-gray-500 dark:text-gray-400 ml-2">${expectedCountDisplay}</span>
+                                    ${foundBadge}
+                                `;
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Clear results when feature changes
+            const resultsTable = document.getElementById('resultsTable');
+            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+            
+            // Clear aggregate scores
+            const aggregateScoresContent = document.getElementById('aggregateScoresContent');
+            if (aggregateScoresContent) {
+                aggregateScoresContent.innerHTML = '';
+            }
+            const aggregateScores = document.getElementById('aggregateScores');
+            if (aggregateScores) {
+                aggregateScores.classList.add('hidden');
+            }
+        });
+    }
 });
 
 // Show commandlines modal
@@ -1619,6 +1885,11 @@ async function showCommandlines(executionId, articleUrl, count) {
         const resultType = data.result_type || 'cmdline';
         const subagentEval = data.subagent_eval || '';
         
+        // For hunt_queries, get separate EDR queries and SIGMA rules if available
+        const edrQueries = data.edr_queries || [];
+        const sigmaRules = data.sigma_rules || [];
+        const hasSeparateData = (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') && (edrQueries.length > 0 || sigmaRules.length > 0);
+        
         // Show truncation warnings if any
         if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
             data.warnings.forEach(warning => {
@@ -1629,20 +1900,31 @@ async function showCommandlines(executionId, articleUrl, count) {
         // Update modal title based on result type
         const modalTitle = document.getElementById('commandlinesModalTitle');
         const exportBtn = document.getElementById('exportEvalBundleBtn');
+        let agentName = 'CmdlineExtract';
+        
         if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
             modalTitle.textContent = 'Extracted Process Lineage';
-            exportBtn.classList.add('hidden'); // Hide export for process_lineage
+            agentName = 'ProcTreeExtract';
+        } else if (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') {
+            modalTitle.textContent = 'Extracted Hunt Queries';
+            agentName = 'HuntQueriesExtract';
         } else {
             modalTitle.textContent = 'Extracted Commandlines';
-            exportBtn.classList.remove('hidden'); // Show export for cmdline
-            // Store executionId for export
-            exportBtn.dataset.executionId = executionId;
+            agentName = 'CmdlineExtract';
         }
         
-        if (commandlines.length === 0) {
-            const emptyMessage = resultType === 'process_lineage' || subagentEval === 'process_lineage'
-                ? 'No process lineage relationships found for this execution.'
-                : 'No commandlines found for this execution.';
+        // Show export button for all types and store executionId and agentName
+        exportBtn.classList.remove('hidden');
+        exportBtn.dataset.executionId = executionId;
+        exportBtn.dataset.agentName = agentName;
+        
+        if (commandlines.length === 0 && !hasSeparateData) {
+            let emptyMessage = 'No commandlines found for this execution.';
+            if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
+                emptyMessage = 'No process lineage relationships found for this execution.';
+            } else if (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') {
+                emptyMessage = 'No hunt queries found for this execution.';
+            }
             content.innerHTML = `
                 <div class="text-center py-8">
                     <p class="text-gray-500 dark:text-gray-400">${emptyMessage}</p>
@@ -1653,51 +1935,139 @@ async function showCommandlines(executionId, articleUrl, count) {
         }
         
         // Display results
-        const itemLabel = resultType === 'process_lineage' || subagentEval === 'process_lineage'
-            ? 'process lineage relationship(s)'
-            : 'commandline(s)';
         let html = `
             <div class="mb-4">
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${itemLabel} 
+                    Found <strong class="text-gray-700 dark:text-gray-300">${hasSeparateData ? (edrQueries.length + sigmaRules.length) : commandlines.length}</strong> ${hasSeparateData ? 'item(s)' : (resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)')} 
                     from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline">${articleUrl}</a>
                 </p>
             </div>
-            <div class="space-y-2">
         `;
         
-        commandlines.forEach((item, index) => {
-            let displayContent = '';
-            if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
-                // Process lineage items are objects with parent/child
-                if (typeof item === 'object' && item !== null) {
-                    const parent = item.parent || 'N/A';
-                    const child = item.child || 'N/A';
-                    const args = item.arguments ? ` (args: ${item.arguments})` : '';
-                    const context = item.context ? ` - ${item.context}` : '';
-                    displayContent = `<strong>${escapeHtml(parent)}</strong> → <strong>${escapeHtml(child)}</strong>${escapeHtml(args)}${escapeHtml(context)}`;
-                } else {
-                    displayContent = escapeHtml(String(item));
-                }
-            } else {
-                // Commandlines are strings
-                displayContent = escapeHtml(String(item));
+        // For hunt_queries with separate data, display EDR queries and SIGMA rules separately
+        if (hasSeparateData) {
+            // EDR Queries Section
+            if (edrQueries.length > 0) {
+                html += `
+                    <div class="mb-6">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span class="px-2 py-1 text-xs rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium">EDR QUERIES</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">(${edrQueries.length})</span>
+                        </h4>
+                        <div class="space-y-2">
+                `;
+                
+                edrQueries.forEach((item, index) => {
+                    let displayContent = '';
+                    if (typeof item === 'object' && item !== null) {
+                        const query = item.query || item.query_text || item.value || 'N/A';
+                        const queryType = item.type || item.platform || 'unknown';
+                        const context = item.context || item.source_context || '';
+                        const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
+                        displayContent = `<span class="px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">${escapeHtml(queryType)}</span> <span class="font-mono">${escapeHtml(String(query))}</span>${contextDisplay}`;
+                    } else {
+                        displayContent = escapeHtml(String(item));
+                    }
+                    
+                    html += `
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                            <div class="flex items-start gap-3">
+                                <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
+                                <div class="flex-1 text-sm text-gray-800 dark:text-gray-200">${displayContent}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div></div>';
             }
             
-            html += `
-                <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                    <div class="flex items-start gap-3">
-                        <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
-                        <div class="flex-1 text-sm ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
+            // SIGMA Rules Section
+            if (sigmaRules.length > 0) {
+                html += `
+                    <div class="mb-6">
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <span class="px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 font-medium">SIGMA RULES</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">(${sigmaRules.length})</span>
+                        </h4>
+                        <div class="space-y-2">
+                `;
+                
+                sigmaRules.forEach((item, index) => {
+                    let displayContent = '';
+                    if (typeof item === 'object' && item !== null) {
+                        const title = item.title || item.id || 'Untitled Rule';
+                        const yaml = item.yaml || '';
+                        const context = item.context || item.source_context || '';
+                        const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
+                        const yamlDisplay = yaml ? `<div class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">${escapeHtml(yaml)}</div>` : '';
+                        displayContent = `<div><strong class="text-gray-800 dark:text-gray-200">${escapeHtml(title)}</strong>${contextDisplay}${yamlDisplay}</div>`;
+                    } else {
+                        displayContent = escapeHtml(String(item));
+                    }
+                    
+                    html += `
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                            <div class="flex items-start gap-3">
+                                <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
+                                <div class="flex-1 text-sm text-gray-800 dark:text-gray-200">${displayContent}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div></div>';
+            }
+        } else {
+            // Standard display for other types or fallback
+            html += '<div class="space-y-2">';
+            
+            commandlines.forEach((item, index) => {
+                let displayContent = '';
+                if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
+                    // Process lineage items are objects with parent/child
+                    if (typeof item === 'object' && item !== null) {
+                        const parent = item.parent || 'N/A';
+                        const child = item.child || 'N/A';
+                        const args = item.arguments ? ` (args: ${item.arguments})` : '';
+                        const context = item.context ? ` - ${item.context}` : '';
+                        displayContent = `<strong>${escapeHtml(parent)}</strong> → <strong>${escapeHtml(child)}</strong>${escapeHtml(args)}${escapeHtml(context)}`;
+                    } else {
+                        displayContent = escapeHtml(String(item));
+                    }
+                } else if (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') {
+                    // Hunt queries are objects with query/type/context
+                    // Support both formats: query/type/context and query_text/platform/source_context
+                    if (typeof item === 'object' && item !== null) {
+                        const query = item.query || item.query_text || item.value || 'N/A';
+                        const queryType = item.type || item.platform || 'unknown';
+                        const context = item.context || item.source_context || '';
+                        const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
+                        displayContent = `<span class="px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">${escapeHtml(queryType)}</span> <span class="font-mono">${escapeHtml(String(query))}</span>${contextDisplay}`;
+                    } else {
+                        displayContent = escapeHtml(String(item));
+                    }
+                } else {
+                    // Commandlines are strings
+                    displayContent = escapeHtml(String(item));
+                }
+                
+                html += `
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                        <div class="flex items-start gap-3">
+                            <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
+                            <div class="flex-1 text-sm ${(resultType === 'process_lineage' || subagentEval === 'process_lineage' || resultType === 'hunt_queries' || subagentEval === 'hunt_queries') ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
+                        </div>
                     </div>
-                </div>
-            `;
-        });
+                `;
+            });
+            
+            html += '</div>';
+        }
         
-        html += '</div>';
         content.innerHTML = html;
         
     } catch (error) {
@@ -1710,8 +2080,8 @@ async function showCommandlines(executionId, articleUrl, count) {
     }
 }
 
-// Export eval bundle for CmdlineExtract
-async function exportCmdlineEvalBundle(executionId) {
+// Export eval bundle for any agent
+async function exportEvalBundle(executionId, agentName) {
     const button = document.getElementById('exportEvalBundleBtn');
     const originalText = button.textContent;
     button.disabled = true;
@@ -1724,7 +2094,7 @@ async function exportCmdlineEvalBundle(executionId) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                agent_name: 'CmdlineExtract',
+                agent_name: agentName,
                 attempt: null, // Auto-select last attempt
                 inline_large_text: false,
                 max_inline_chars: 200000
@@ -1739,7 +2109,7 @@ async function exportCmdlineEvalBundle(executionId) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `eval_bundle_exec${executionId}_CmdlineExtract_${bundle.bundle_id.substring(0, 8)}.json`;
+            a.download = `eval_bundle_exec${executionId}_${agentName}_${bundle.bundle_id.substring(0, 8)}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1764,6 +2134,11 @@ async function exportCmdlineEvalBundle(executionId) {
     }
 }
 
+// Legacy function name for backward compatibility
+async function exportCmdlineEvalBundle(executionId) {
+    return exportEvalBundle(executionId, 'CmdlineExtract');
+}
+
 // Close modal
 function closeCommandlinesModal() {
     const modal = document.getElementById('commandlinesModal');
@@ -1781,8 +2156,9 @@ function escapeHtml(text) {
 document.getElementById('closeCommandlinesModal').addEventListener('click', closeCommandlinesModal);
 document.getElementById('exportEvalBundleBtn').addEventListener('click', (e) => {
     const executionId = e.target.dataset.executionId;
+    const agentName = e.target.dataset.agentName || 'CmdlineExtract';
     if (executionId) {
-        exportCmdlineEvalBundle(parseInt(executionId));
+        exportEvalBundle(parseInt(executionId), agentName);
     }
 });
 document.getElementById('commandlinesModal').addEventListener('click', (e) => {
