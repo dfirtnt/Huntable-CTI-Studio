@@ -1,9 +1,9 @@
 # Huntable CTI Studio
 
-** SECURITY WARNING **
+## ** SECURITY WARNING **
 !! DO NOT DEPLOY IN HOSTILE NETWORK!!
 This app is a suite of utilities for processing open source intel. It is for reasearch learning and automation purposes. Code is NOT SECURE, and is not intended to be used in production!!
-
+##
 
 **CTIScraper v5.0.0 "Ganymede"** -  A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 33+ OSINT sources.
 
