@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Bulk Proctree Eval Update Script** (2026-01-12): Added `scripts/update_proctree_expected_counts.py` for bulk updating process_lineage expected counts from YAML config
+  - Updates all SubagentEvaluationTable records matching articles in config
+  - Recalculates scores for completed evaluations
+  - Supports both article_id and URL-based lookups
+
+### Changed
+- **Proctree Eval Expected Counts** (2026-01-12): Updated process_lineage expected counts in `config/eval_articles.yaml`
+  - Article 68: 2 → 1
+  - Article 62: Added (4)
+  - Article 762: 7 → 2
+  - Articles 985-989: Added (0, 1, 0, 0, 0)
+  - Article 1523: 4 → 2
+  - Updated 309 SubagentEvaluationTable records with new expected counts
+  - Recalculated scores for all completed evaluations
 - **Top_P Control for All Agents** (2026-01-07): Added per-agent Top_P (top-p sampling) parameter control
   - Top_P input fields for all agents: RankAgent, ExtractAgent, SigmaAgent, all sub-agents (CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract), and all QA agents
   - Top_P values are saved to workflow config and persist across saves
