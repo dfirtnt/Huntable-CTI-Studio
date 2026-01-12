@@ -1677,8 +1677,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             extraction_result = state.get('extraction_result', {})
             content_to_use = None
             
-            if extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
-                # Prefer extracted content if we have meaningful huntables
+            # If enabled, use filtered article content (minus junk) regardless of extraction results
+            if sigma_fallback_enabled:
+                content_to_use = filtered_content
+                logger.info(f"[Workflow {state['execution_id']}] Using filtered article content ({len(filtered_content)} chars) for SIGMA generation")
+            elif extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
+                # Use extracted content if we have meaningful huntables and toggle is disabled
                 extracted_content = extraction_result.get('content', '')
                 if extracted_content and len(extracted_content) > 100:
                     content_to_use = extracted_content
@@ -1686,26 +1690,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 else:
                     logger.warning(f"[Workflow {state['execution_id']}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content")
             
-            # Fallback logic: only use filtered_content if fallback is enabled
+            # If no content available, skip SIGMA generation
             if content_to_use is None:
-                if sigma_fallback_enabled:
-                    content_to_use = filtered_content
-                    logger.info(f"[Workflow {state['execution_id']}] SIGMA fallback enabled: using filtered_content ({len(filtered_content)} chars) for SIGMA generation")
-                else:
-                    # No extraction result and fallback disabled - skip SIGMA generation
-                    logger.warning(f"[Workflow {state['execution_id']}] No extraction result or zero huntables, and SIGMA fallback is disabled. Skipping SIGMA generation.")
-                    return {
-                        **state,
-                        'sigma_rules': [],
-                        'current_step': 'generate_sigma',
-                        'status': state.get('status', 'running'),
-                        'termination_reason': TERMINATION_REASON_NO_SIGMA_RULES,
-                        'termination_details': {
-                            'reason': 'No extraction results and SIGMA fallback disabled',
-                            'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0,
-                            'sigma_fallback_enabled': False
-                        }
+                logger.warning(f"[Workflow {state['execution_id']}] No extraction result or zero huntables, and filtered content toggle is disabled. Skipping SIGMA generation.")
+                return {
+                    **state,
+                    'sigma_rules': [],
+                    'current_step': 'generate_sigma',
+                    'status': state.get('status', 'running'),
+                    'termination_reason': TERMINATION_REASON_NO_SIGMA_RULES,
+                    'termination_details': {
+                        'reason': 'No extraction results and filtered content toggle disabled',
+                        'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0,
+                        'sigma_fallback_enabled': False
                     }
+                }
             
             # Generate SIGMA rules using service (single attempt on chosen content)
             sigma_service = SigmaGenerationService(config_models=agent_models)

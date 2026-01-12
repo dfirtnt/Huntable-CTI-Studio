@@ -481,8 +481,8 @@ class AgenticWorkflowConfigTable(Base):
     # e.g., {"OSDetectionAgent": true, "RankAgent": false, "ExtractAgent": true, "SigmaAgent": true}
     qa_enabled = Column(JSONB, nullable=True)
     
-    # SIGMA Agent fallback: if True, use filtered_content when extraction_result has no huntables
-    # Default False (no fallback - SIGMA only generates from extracted observables)
+    # SIGMA Agent content source: if True, use filtered_content (full article minus junk) instead of extracted observables
+    # Default False (use extracted observables summary - SIGMA only generates from extraction_result.content)
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
     
     # Rank Agent enabled: if False, skip ranking step and proceed directly to extraction

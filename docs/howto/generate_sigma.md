@@ -19,7 +19,7 @@ Sigma runs automatically after extraction:
 ```bash
 EXECUTION_ID=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger" | jq -r '.execution_id')
 ```
-The Sigma agent prefers `extraction_result.content` when `discrete_huntables_count > 0`; if none are present and `sigma_fallback_enabled` is true, it falls back to filtered article content.
+The Sigma agent uses filtered article content (minus junk) when `sigma_fallback_enabled` is true. Otherwise, it uses `extraction_result.content` when `discrete_huntables_count > 0`.
 
 ## 3) Retrieve generated rules
 ```bash
@@ -41,5 +41,5 @@ This compares the article (and its chunks) to indexed Sigma rules and stores res
 
 ## Troubleshooting
 - If validation fails, the Sigma agent retries up to three times with pySigma error feedback.
-- No rules are generated when extraction produces zero huntables and fallback is disabled.
+- No rules are generated when extraction produces zero huntables and the filtered content toggle is disabled.
 - Similarity search requires embeddings; confirm LM Studio is reachable and `LMSTUDIO_EMBEDDING_*` settings are set in `.env` or docker-compose.

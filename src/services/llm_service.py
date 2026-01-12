@@ -1156,21 +1156,34 @@ class LLMService:
                             
                             # Check if it's a model identifier error - try with/without prefix
                             if "invalid model identifier" in error_lower or ("model" in error_lower and ("not found" in error_lower or "not loaded" in error_lower)):
-                                # If we have a prefix in model_name but not in payload, try with prefix
+                                # Try both directions: with prefix (if model_name has it) and without prefix
+                                retry_attempts = []
+                                
+                                # If model_name has a prefix but payload doesn't, try with prefix
                                 if "/" in model_name and "/" not in current_model_in_payload:
-                                    logger.info(f"Retrying with full model name (with prefix): {model_name}")
+                                    retry_attempts.append(("with prefix", model_name))
+                                
+                                # If model_name has a prefix, also try without prefix
+                                if "/" in model_name:
+                                    model_without_prefix = model_name.split("/")[-1]
+                                    if model_without_prefix != current_model_in_payload:
+                                        retry_attempts.append(("without prefix", model_without_prefix))
+                                
+                                # Try each retry attempt
+                                for retry_type, retry_model in retry_attempts:
+                                    logger.info(f"Retrying {retry_type}: {retry_model}")
                                     payload_retry = payload.copy()
-                                    payload_retry["model"] = model_name
+                                    payload_retry["model"] = retry_model
                                     try:
                                         response_retry = await make_request(client, lmstudio_url)
                                         if response_retry.status_code == 200:
                                             result = response_retry.json()
-                                            logger.info(f"LMStudio accepted model with full name: {model_name}")
+                                            logger.info(f"LMStudio accepted model {retry_type}: {retry_model}")
                                             return result
                                         else:
-                                            logger.warning(f"Retry with full name also failed: {response_retry.status_code}")
+                                            logger.debug(f"Retry {retry_type} failed: {response_retry.status_code}")
                                     except Exception as retry_exc:
-                                        logger.debug(f"Retry with full model name failed: {retry_exc}")
+                                        logger.debug(f"Retry {retry_type} failed: {retry_exc}")
                             
                             # Close client before raising
                             try:

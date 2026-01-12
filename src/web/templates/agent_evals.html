@@ -1119,7 +1119,7 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
 let maeChart = null;
 
 // Render MAE line chart
-function renderMAEChart(aggregates) {
+function renderMAEChart(aggregates, modelsByVersion = {}) {
     if (!window.Chart) {
         console.warn('Chart.js not loaded');
         return;
@@ -1196,6 +1196,16 @@ function renderMAEChart(aggregates) {
                     titleColor: '#fff',
                     bodyColor: '#fff',
                     callbacks: {
+                        title: function(context) {
+                            const version = validAggregates[context[0].dataIndex].config_version;
+                            const modelInfo = modelsByVersion[version];
+                            let modelText = '';
+                            if (modelInfo && modelInfo.agentModel && modelInfo.agentModel !== 'N/A') {
+                                const provider = modelInfo.agentProvider || 'lmstudio';
+                                modelText = `\nModel: ${modelInfo.agentModel} (${provider})`;
+                            }
+                            return `v${version}${modelText}`;
+                        },
                         label: function(context) {
                             const nmae = context.parsed.y;
                             let quality = '';
@@ -1318,7 +1328,7 @@ async function loadAggregateScores() {
         }
         
         // Render MAE chart
-        renderMAEChart(filteredAggregates);
+        renderMAEChart(filteredAggregates, configParamsByVersion);
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';

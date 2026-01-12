@@ -899,7 +899,7 @@ class TestWorkflowConfigurationSigmaAgent:
     @pytest.mark.ui
     @pytest.mark.workflow
     def test_sigma_fallback_toggle(self, page: Page):
-        """Test SIGMA Fallback toggle checkbox."""
+        """Test SIGMA content source toggle checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("networkidle")
@@ -912,12 +912,12 @@ class TestWorkflowConfigurationSigmaAgent:
         toggle_button.click()
         page.wait_for_timeout(500)
         
-        # Find fallback toggle
+        # Find content source toggle
         fallback_toggle = page.locator("#sigma-fallback-enabled")
         expect(fallback_toggle).to_be_visible()
         
         # Verify description text
-        description = page.locator("text=SIGMA Fallback to Article Content")
+        description = page.locator("text=Use Full Article Content (Minus Junk)")
         expect(description).to_be_visible()
     
     @pytest.mark.ui

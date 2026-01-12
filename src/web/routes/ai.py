@@ -2979,6 +2979,42 @@ async def api_generate_sigma(article_id: int, request: Request):
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
 
+        # Load active workflow config to use SigmaAgent settings
+        from src.database.manager import DatabaseManager
+        from src.database.models import AgenticWorkflowConfigTable
+        
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.is_active == True
+            ).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).first()
+            
+            if not config:
+                logger.warning("No active workflow configuration found, using defaults")
+                config = None
+        except Exception as e:
+            logger.warning(f"Error loading workflow config: {e}, using defaults")
+            config = None
+        
+        # Get SigmaAgent prompt from config if available
+        sigma_prompt_template = None
+        if config and config.agent_prompts and "SigmaAgent" in config.agent_prompts:
+            sigma_prompt_data = config.agent_prompts["SigmaAgent"]
+            if isinstance(sigma_prompt_data.get("prompt"), str):
+                sigma_prompt_template = sigma_prompt_data["prompt"]
+                logger.info(f"Using SigmaAgent prompt from workflow config (len={len(sigma_prompt_template)} chars)")
+            else:
+                logger.warning("SigmaAgent prompt in config is not a string, using default")
+        else:
+            logger.info("No SigmaAgent prompt in workflow config, using default prompt")
+        
+        # Get agent models from config
+        agent_models = config.agent_models if config and config.agent_models else {}
+        
         # Apply content filtering to optimize for SIGMA generation
         from src.utils.llm_optimizer import optimize_article_content
 
@@ -3012,105 +3048,70 @@ async def api_generate_sigma(article_id: int, request: Request):
             tokens_saved = 0
             chunks_removed = 0
 
-        # For LMStudio, set context window size based on model
-        if ai_model == "lmstudio":
-            lmstudio_model_name = await _get_current_lmstudio_model()
-
-            # Determine context window based on model
-            # Reserve: 500 tokens for prompt template + 800 tokens for output + 200 safety margin = 1500 tokens overhead
-            if "1b" in lmstudio_model_name.lower():
-                # llama-3.2-1b-instruct: 2048 token context - 1500 overhead = ~550 tokens (~2200 chars)
-                max_content_chars = 2200
-            elif "3b" in lmstudio_model_name.lower():
-                # 3B models typically have 4096 token context - 1500 overhead = ~2600 tokens (~10400 chars)
-                max_content_chars = 10400
-            elif (
-                "8b" in lmstudio_model_name.lower()
-                or "7b" in lmstudio_model_name.lower()
-            ):
-                # llama-3-8b-instruct: 8192 token context - 1500 overhead = ~6700 tokens (~26800 chars)
-                max_content_chars = 26800
-            else:
-                # Default to conservative limit for unknown models (assume 4k context)
-                max_content_chars = 6000
-
-            sigma_content_truncation_warning = None
-            if len(content_to_analyze) > max_content_chars:
-                sigma_content_truncation_warning = (
-                    f"Content truncated: {len(content_to_analyze)} → {max_content_chars} chars "
-                    f"(model: {lmstudio_model_name})"
-                )
-                logger.warning(
-                    f"LMStudio ({lmstudio_model_name}): Truncating content from {len(content_to_analyze)} to {max_content_chars} chars"
-                )
-                content_to_analyze = (
-                    content_to_analyze[:max_content_chars]
-                    + "\n\n[Content truncated to fit model context window]"
-                )
-
-        # Load SIGMA generation prompt with filtered content
-        sigma_prompt = format_prompt(
-            "sigma_generation",
-            title=article.title,
-            source=source_name,
-            url=article.canonical_url or "N/A",
-            content=content_to_analyze,
+        # Use SigmaGenerationService with workflow config (same as test_sigma_agent_task)
+        from src.services.sigma_generation_service import SigmaGenerationService
+        
+        # Determine provider from config or fallback to ai_model parameter
+        sigma_provider = agent_models.get("SigmaAgent_provider") if agent_models else None
+        if not sigma_provider:
+            # Fallback: use ai_model parameter (lmstudio or chatgpt)
+            sigma_provider = "lmstudio" if ai_model == "lmstudio" else "openai"
+        
+        logger.info(f"Using SigmaGenerationService with provider={sigma_provider}, config_models={'present' if agent_models else 'default'}")
+        
+        # Initialize service with config
+        sigma_service = SigmaGenerationService(config_models=agent_models)
+        
+        # Generate SIGMA rules using service
+        generation_result = await sigma_service.generate_sigma_rules(
+            article_title=article.title,
+            article_content=content_to_analyze,
+            source_name=source_name,
+            url=article.canonical_url or "",
+            ai_model=sigma_provider,  # Use provider from config
+            api_key=api_key if sigma_provider == "openai" else None,
+            max_attempts=3,
+            min_confidence=min_confidence,
+            execution_id=None,  # Not part of workflow execution
+            article_id=article_id,
+            qa_feedback=None,
+            sigma_prompt_template=sigma_prompt_template  # Use prompt from config if available
         )
-
-        # Allow optional prompt override (e.g., from notebook/UI experiments)
-        prompt_override = body.get("prompt_override")
-        if prompt_override:
-            try:
-                sigma_prompt = prompt_override.format(
-                    title=article.title,
-                    source=source_name,
-                    url=article.canonical_url or "N/A",
-                    content=content_to_analyze,
-                )
-                logger.info(
-                    f"Using prompt_override for SIGMA generation (len={len(sigma_prompt)} chars)"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"prompt_override format failed ({e}); using raw override text"
-                )
-                sigma_prompt = prompt_override
-
-        # Additional guard: cap final prompt size for LMStudio to avoid context overflow
-        if ai_model == "lmstudio":
-            # Default conservative cap; increase slightly for larger models
-            if (
-                "8b" in lmstudio_model_name.lower()
-                or "7b" in lmstudio_model_name.lower()
-            ):
-                max_prompt_chars = 12000
-            elif "3b" in lmstudio_model_name.lower():
-                max_prompt_chars = 9000
-            else:
-                max_prompt_chars = 8000
+        
+        # Extract results from service
+        rules = generation_result.get('rules', []) if generation_result else []
+        sigma_errors = generation_result.get('errors')
+        sigma_metadata = generation_result.get('metadata', {}) if generation_result else {}
+        validation_results = sigma_metadata.get('validation_results', [])
+        conversation_log = sigma_metadata.get('conversation_log', [])
+        
+        # Track truncation warnings
+        sigma_content_truncation_warning = None
             sigma_prompt_truncation_warning = None
-            if len(sigma_prompt) > max_prompt_chars:
-                sigma_prompt_truncation_warning = (
-                    f"Prompt truncated: {len(sigma_prompt)} → {max_prompt_chars} chars to fit context"
-                )
-                logger.warning(
-                    f"LMStudio: Truncating final prompt from {len(sigma_prompt)} to {max_prompt_chars} chars to fit context"
-                )
-                sigma_prompt = (
-                    sigma_prompt[:max_prompt_chars]
-                    + "\n\n[Prompt truncated to fit model context window]"
-                )
-
-        # Log prompt size for debugging
-        prompt_tokens_estimate = len(sigma_prompt) // 4
-        logger.info(
-            f"SIGMA generation prompt size: {len(sigma_prompt)} chars (~{prompt_tokens_estimate} tokens) for {ai_model}"
-        )
-
-        # Track truncation warnings for SIGMA generation
         sigma_response_truncation_warning = None
         
-        # Define helper function for API calls based on ai_model
+        # Close DB session
+        if db_session:
+            db_session.close()
+        
+        # Legacy compatibility: Convert rules to old format if needed
+        # (SigmaGenerationService already returns proper format, but ensure compatibility)
+        formatted_rules = []
+        for rule in rules:
+            if isinstance(rule, dict):
+                formatted_rules.append(rule)
+            else:
+                # Fallback: create dict from rule content
+                formatted_rules.append({
+                    "content": str(rule),
+                    "title": "Generated Rule",
+                    "level": "medium",
+                    "validated": True
+                })
+        
+        rules = formatted_rules
+        
+        # Define helper function for API calls based on ai_model (kept for backward compatibility, not used)
         async def call_llm_api(prompt_text: str) -> str:
             """Call the appropriate LLM API based on ai_model setting."""
             nonlocal sigma_response_truncation_warning
@@ -3314,215 +3315,6 @@ async def api_generate_sigma(article_id: int, request: Request):
                     result = response.json()
                     return result["choices"][0]["message"]["content"]
 
-        # Implement iterative SIGMA rule generation with validation feedback
-        from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule
-
-        conversation_log = []
-        validation_results = []
-        rules = []
-        # Allow retries for all models - context window is managed via truncation
-        max_attempts = 3
-
-        for attempt in range(max_attempts):
-            logger.info(f"SIGMA generation attempt {attempt + 1}/{max_attempts}")
-
-            # Prepare the prompt for this attempt
-            if attempt == 0:
-                # First attempt - use the original prompt
-                current_prompt = sigma_prompt
-            else:
-                # Subsequent attempts - include validation feedback
-                previous_errors = []
-                previous_yaml = ""
-                for result in validation_results:
-                    if not result.is_valid and result.errors:
-                        previous_errors.extend(result.errors)
-                        if result.content_preview:
-                            previous_yaml = result.content_preview
-
-                if previous_errors:
-                    error_feedback = "\n".join(previous_errors)
-
-                    # Build retry prompt - no need to send article content, just fix YAML structure
-                    yaml_preview = (
-                        f"\n\nYOUR PREVIOUS INVALID YAML:\n{previous_yaml}\n"
-                        if previous_yaml
-                        else ""
-                    )
-
-                    current_prompt = f"""VALIDATION ERRORS FROM YOUR PREVIOUS ATTEMPT:
-{error_feedback}
-{yaml_preview}
-INSTRUCTIONS TO FIX ERRORS:
-
-If you see "logsource must be a dictionary" error:
-WRONG: logsource: Windows Event Log, Sysmon
-CORRECT:
-logsource:
-  category: process_creation
-  product: windows
-
-If you see "detection must be a dictionary" error:
-WRONG: detection: [selection, condition]
-CORRECT:
-detection:
-  selection:
-    CommandLine|contains: 'malware'
-  condition: selection
-
-If you see "Invalid tag format" error with dictionaries:
-WRONG: tags:
-  - MITRE ATT&CK: T1059.001
-CORRECT: tags:
-  - attack.execution
-  - attack.t1059.001
-
-CRITICAL FORMATTING RULES:
-1. Use ONLY simple YAML structures - no inline dictionaries in lists
-2. Indent nested keys with exactly 2 spaces
-3. Tags must be simple strings starting with "attack."
-4. Start output with "title:" - no explanatory text
-5. No markdown code blocks (```yaml)
-
-Generate the corrected SIGMA rule for the article titled: "{article.title}"
-Do NOT re-analyze the threat intelligence - just fix the YAML formatting errors above.
-Output ONLY valid YAML starting with "title:"."""
-                else:
-                    # No errors to fix, break the loop
-                    break
-
-            # Call LLM API for SIGMA rule generation
-            sigma_response = await call_llm_api(current_prompt)
-            
-            # Track response truncation warning if applicable
-            # (sigma_truncation_warning is set in call_llm_api for LMStudio)
-
-            # Clean the response and extract YAML rules
-            cleaned_response = clean_sigma_rule(sigma_response)
-
-            # Parse and validate the rules
-            attempt_validation_results = []
-            attempt_rules = []
-            all_valid = True
-
-            # Split response into individual rules (separated by --- or multiple yaml blocks)
-            rule_blocks = cleaned_response.split("---")
-            for i, block in enumerate(rule_blocks):
-                block = block.strip()
-
-                # Skip empty blocks
-                if not block:
-                    continue
-
-                # Check if block looks like YAML (contains key:value pairs)
-                # Don't require it to start with 'title:' - it could start with any SIGMA field
-                has_yaml_structure = ":" in block and any(
-                    key in block
-                    for key in ["title", "id", "description", "logsource", "detection"]
-                )
-
-                if not has_yaml_structure:
-                    logger.warning(
-                        f"Skipping block {i + 1} - doesn't look like YAML: {block[:100]}"
-                    )
-                    continue
-
-                try:
-                    validation_result = validate_sigma_rule(block)
-                    # Store rule index in metadata instead of as attribute
-                    if validation_result.metadata is None:
-                        validation_result.metadata = {}
-                    validation_result.metadata["rule_index"] = i + 1
-                    attempt_validation_results.append(validation_result)
-
-                    if validation_result.is_valid:
-                        # Extract parsed logsource and detection from validation metadata
-                        rule_metadata = validation_result.metadata or {}
-                        # Parse YAML to get full detection (metadata only has detection_fields)
-                        import yaml
-
-                        parsed_yaml = {}
-                        try:
-                            parsed_yaml = yaml.safe_load(block) if block else {}
-                        except Exception as e:
-                            logger.warning(f"Failed to parse YAML block: {e}")
-
-                        # Ensure detection is properly extracted - it should include selection, condition, filter, etc.
-                        detection = parsed_yaml.get("detection")
-                        if detection and isinstance(detection, dict):
-                            # Make sure it's a complete dict with all nested structures
-                            # The detection should already be fully parsed by yaml.safe_load
-                            pass  # Already correct
-                        elif not detection:
-                            # Fallback: detection might be missing
-                            logger.warning(f"Rule {i + 1} missing detection block")
-
-                        attempt_rules.append(
-                            {
-                                "content": block,
-                                "title": rule_metadata.get("title", f"Rule {i + 1}"),
-                                "level": rule_metadata.get("level", "medium"),
-                                "logsource": parsed_yaml.get("logsource")
-                                or rule_metadata.get("logsource"),
-                                "detection": detection,  # Use the parsed detection
-                                "validated": True,
-                            }
-                        )
-                    else:
-                        all_valid = False
-                        attempt_rules.append(
-                            {
-                                "content": block,
-                                "title": f"Rule {i + 1} (Validation Failed)",
-                                "level": "low",
-                                "validated": False,
-                                "errors": validation_result.errors,
-                            }
-                        )
-                except Exception as e:
-                    logger.error(f"SIGMA rule validation error: {e}")
-                    all_valid = False
-                    attempt_rules.append(
-                        {
-                            "content": block,
-                            "title": f"Rule {i + 1} (Parse Error)",
-                            "level": "low",
-                            "validated": False,
-                            "errors": [str(e)],
-                        }
-                    )
-
-            # Store conversation log entry
-            conversation_log.append(
-                {
-                    "attempt": attempt + 1,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation.",
-                        },
-                        {"role": "user", "content": current_prompt},
-                    ],
-                    "llm_response": sigma_response,
-                    "validation": attempt_validation_results,
-                    "all_valid": all_valid,
-                    "error": None,
-                }
-            )
-
-            # Update validation results and rules
-            validation_results = attempt_validation_results
-            rules = attempt_rules
-
-            # If all rules are valid, break the loop
-            if all_valid:
-                logger.info(f"SIGMA generation successful on attempt {attempt + 1}")
-                break
-            else:
-                logger.info(
-                    f"SIGMA generation attempt {attempt + 1} had validation errors, retrying..."
-                )
-
         # Log final results
         if validation_results and all(result.is_valid for result in validation_results):
             logger.info(
@@ -3533,29 +3325,36 @@ Output ONLY valid YAML starting with "title:"."""
                 f"SIGMA generation completed with errors after {len(conversation_log)} attempts"
             )
 
-        # Get model name for metadata
-        if ai_model == "lmstudio":
-            model_name = await _get_current_lmstudio_model()
+        # Get model name for metadata from config or fallback
+        if agent_models and agent_models.get("SigmaAgent"):
+            model_name = agent_models.get("SigmaAgent")
+        elif sigma_provider == "lmstudio":
+            model_name = agent_models.get("SigmaAgent") if agent_models else "lmstudio"
         else:
             model_name = "gpt-4o-mini"
 
         # Update article metadata with generated SIGMA rules
         current_metadata = article.article_metadata or {}
+        
+        # Get temperature and top_p from config if available
+        sigma_temperature = agent_models.get("SigmaAgent_temperature", 0.0) if agent_models else 0.0
+        sigma_top_p = agent_models.get("SigmaAgent_top_p", 0.9) if agent_models else 0.9
+        
         current_metadata["sigma_rules"] = {
             "rules": rules,
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
-                "ai_model": ai_model,
+                "ai_model": sigma_provider,  # Use provider from config
                 "model_name": model_name,
                 "author": author_name,
-                "temperature": 0.2,
+                "temperature": float(sigma_temperature),
+                "top_p": float(sigma_top_p),
                 "total_rules": len(rules),
                 "valid_rules": len([r for r in rules if r.get("validated", False)]),
                 "validation_results": validation_results,
                 "conversation": conversation_log,
-                "attempts": len(conversation_log),
-                "successful": len(conversation_log) > 0
-                and all(result.is_valid for result in validation_results),
+                "attempts": len(conversation_log) if conversation_log else 0,
+                "successful": len(rules) > 0 and all(r.get("validated", False) for r in rules),
                 "optimization": {
                     "enabled": True,
                     "cost_savings": cost_savings,
@@ -3563,6 +3362,7 @@ Output ONLY valid YAML starting with "title:"."""
                     "chunks_removed": chunks_removed,
                     "min_confidence": min_confidence,
                 },
+                "errors": sigma_errors,
             },
         }
 
