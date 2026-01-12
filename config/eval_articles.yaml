@@ -79,7 +79,23 @@ subagents:
       expected_count: 0
     - url: "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/"
       expected_count: 3
-    - url: "http://127.0.0.1:8001/articles/1523"
+    - url: "http://127.0.0.1:8001/articles/62"
       expected_count: 4
+    - url: "http://127.0.0.1:8001/articles/68"
+      expected_count: 1
+    - url: "http://127.0.0.1:8001/articles/762"
+      expected_count: 2
+    - url: "http://127.0.0.1:8001/articles/985"
+      expected_count: 0
+    - url: "http://127.0.0.1:8001/articles/986"
+      expected_count: 1
+    - url: "http://127.0.0.1:8001/articles/987"
+      expected_count: 0
+    - url: "http://127.0.0.1:8001/articles/988"
+      expected_count: 0
+    - url: "http://127.0.0.1:8001/articles/989"
+      expected_count: 0
+    - url: "http://127.0.0.1:8001/articles/1523"
+      expected_count: 2
   registry_keys: []
 
