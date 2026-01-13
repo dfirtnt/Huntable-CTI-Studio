@@ -166,14 +166,18 @@ class EvalBundleService:
         workflow_meta["agent_name"] = agent_name
         workflow_meta["attempt"] = actual_attempt or 1
         
-        # Get expected count from SubagentEvaluationTable if available
+        # Get expected count and actual count from SubagentEvaluationTable if available
         # Map agent names to subagent names
         agent_to_subagent_map = {
             "CmdlineExtract": "cmdline",
-            "ProcTreeExtract": "process_lineage"
+            "ProcTreeExtract": "process_lineage",
+            "HuntQueriesExtract": "hunt_queries"
         }
         subagent_name = agent_to_subagent_map.get(agent_name)
         expected_count = None
+        actual_count = None
+        evaluation_score = None
+        evaluation_status = None
         if subagent_name:
             subagent_eval = self.db_session.query(SubagentEvaluationTable).filter(
                 SubagentEvaluationTable.workflow_execution_id == execution_id,
@@ -181,9 +185,35 @@ class EvalBundleService:
             ).first()
             if subagent_eval:
                 expected_count = subagent_eval.expected_count
+                actual_count = subagent_eval.actual_count
+                evaluation_score = subagent_eval.score
+                evaluation_status = subagent_eval.status
         
         if expected_count is not None:
             workflow_meta["expected_count"] = expected_count
+        if actual_count is not None:
+            workflow_meta["actual_count"] = actual_count
+        if evaluation_score is not None:
+            workflow_meta["evaluation_score"] = evaluation_score
+        if evaluation_status:
+            workflow_meta["evaluation_status"] = evaluation_status
+        
+        # Extract additional context for extractor agents
+        extraction_context = self._extract_extraction_context(
+            execution, agent_name, subagent_name, warnings
+        )
+        
+        # Extract article metadata
+        article_metadata = self._extract_article_metadata(article, warnings)
+        
+        # Extract QA results
+        qa_results = self._extract_qa_results(error_log, agent_name, warnings)
+        
+        # Extract execution status and errors
+        execution_context = self._extract_execution_context(execution, warnings)
+        
+        # Extract config snapshot
+        config_snapshot = self._extract_config_snapshot(execution, warnings)
         
         # Build bundle (without bundle_sha256 for now)
         bundle = {
@@ -199,6 +229,26 @@ class EvalBundleService:
                 "warnings": warnings
             }
         }
+        
+        # Add extractor-specific context (only for extractor agents)
+        if subagent_name and extraction_context:
+            bundle["extraction_context"] = extraction_context
+        
+        # Add article metadata
+        if article_metadata:
+            bundle["article_metadata"] = article_metadata
+        
+        # Add QA results
+        if qa_results:
+            bundle["qa_results"] = qa_results
+        
+        # Add execution context
+        if execution_context:
+            bundle["execution_context"] = execution_context
+        
+        # Add config snapshot
+        if config_snapshot:
+            bundle["config_snapshot"] = config_snapshot
         
         # Compute bundle SHA256 (excluding bundle_sha256 field)
         bundle_for_hash = bundle.copy()
@@ -448,7 +498,7 @@ class EvalBundleService:
         else:
             agent_models = {}
         
-        # Map agent names to model config keys
+        # Map agent names to model config keys (for nested structure)
         model_key_map = {
             "rank_article": "RankAgent",
             "extract_agent": "ExtractAgent",
@@ -461,32 +511,63 @@ class EvalBundleService:
         
         model_config_key = model_key_map.get(agent_name, agent_name)
         
-        # Safely get model_config from agent_models
-        try:
-            if not isinstance(agent_models, dict):
-                logger.warning(f"Execution {execution.id}: agent_models is not a dict: {type(agent_models)}, value: {str(agent_models)[:100]}")
-                model_config_raw = {}
-            else:
-                model_config_raw = agent_models.get(model_config_key, {})
-        except AttributeError as e:
-            logger.error(f"Execution {execution.id}: AttributeError accessing agent_models: {e}, type: {type(agent_models)}")
-            model_config_raw = {}
+        # Sub-agents use flat keys (e.g., "HuntQueriesExtract_model", "HuntQueriesExtract_provider")
+        # Main agents may use nested structure (e.g., agent_models["ExtractAgent"] = {model: "...", provider: "..."})
+        sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
+        is_sub_agent = agent_name in sub_agents
         
-        # Ensure model_config is a dict
-        if isinstance(model_config_raw, str):
-            try:
-                model_config = json.loads(model_config_raw)
-                if not isinstance(model_config, dict):
-                    logger.warning(f"Execution {execution.id}: model_config parsed to non-dict: {type(model_config)}")
+        # Try to get model config
+        model_config = {}
+        
+        if isinstance(agent_models, dict):
+            # First, try nested structure (for main agents)
+            model_config_raw = agent_models.get(model_config_key, {})
+            
+            # Ensure model_config_raw is a dict
+            if isinstance(model_config_raw, str):
+                try:
+                    model_config = json.loads(model_config_raw)
+                    if not isinstance(model_config, dict):
+                        model_config = {}
+                except (json.JSONDecodeError, TypeError):
                     model_config = {}
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.warning(f"Execution {execution.id}: Failed to parse model_config: {e}")
+            elif isinstance(model_config_raw, dict):
+                model_config = model_config_raw
+            else:
                 model_config = {}
-        elif isinstance(model_config_raw, dict):
-            model_config = model_config_raw
+            
+            # If nested structure is empty and this is a sub-agent, try flat keys
+            if (not model_config or not isinstance(model_config, dict)) and is_sub_agent:
+                # Try flat keys: {agent_name}_provider, {agent_name}_model, etc.
+                flat_provider = agent_models.get(f"{agent_name}_provider")
+                flat_model = agent_models.get(f"{agent_name}_model")
+                flat_temperature = agent_models.get(f"{agent_name}_temperature")
+                flat_top_p = agent_models.get(f"{agent_name}_top_p")
+                flat_max_tokens = agent_models.get(f"{agent_name}_max_tokens")
+                
+                # If we found any flat keys, build model_config dict
+                if flat_provider or flat_model:
+                    model_config = {
+                        "provider": flat_provider,
+                        "model": flat_model,
+                        "temperature": flat_temperature,
+                        "top_p": flat_top_p,
+                        "max_tokens": flat_max_tokens
+                    }
+                else:
+                    # Fallback: try ExtractAgent nested structure for sub-agents
+                    extract_agent_config = agent_models.get("ExtractAgent", {})
+                    if isinstance(extract_agent_config, dict) and extract_agent_config:
+                        model_config = extract_agent_config
+                    elif isinstance(extract_agent_config, str):
+                        try:
+                            model_config = json.loads(extract_agent_config)
+                            if not isinstance(model_config, dict):
+                                model_config = {}
+                        except (json.JSONDecodeError, TypeError):
+                            model_config = {}
         else:
-            logger.warning(f"Execution {execution.id}: model_config_raw is unexpected type: {type(model_config_raw)}")
-            model_config = {}
+            logger.warning(f"Execution {execution.id}: agent_models is not a dict: {type(agent_models)}, value: {str(agent_models)[:100]}")
         
         # Safely extract values from model_config
         # If model_config is empty or invalid, use defaults but mark as missing
@@ -979,3 +1060,198 @@ class EvalBundleService:
             "response_sha256": None,
             "reconstructed": False
         }
+    
+    def _extract_extraction_context(
+        self,
+        execution: AgenticWorkflowExecutionTable,
+        agent_name: str,
+        subagent_name: Optional[str],
+        warnings: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """Extract parsed extraction result and related context for extractor agents."""
+        if not subagent_name:
+            return None
+        
+        context = {}
+        
+        # Get extraction_result from execution
+        extraction_result = execution.extraction_result
+        if not extraction_result or not isinstance(extraction_result, dict):
+            warnings.append("EXTRACTION_RESULT_MISSING")
+            return None
+        
+        # Get subresults
+        subresults = extraction_result.get("subresults", {})
+        if not isinstance(subresults, dict):
+            warnings.append("SUBRESULTS_MISSING")
+            return None
+        
+        # Get the specific subagent's result
+        subagent_result = subresults.get(subagent_name, {})
+        if not isinstance(subagent_result, dict):
+            warnings.append(f"SUBRESULT_MISSING_FOR_{subagent_name}")
+            return None
+        
+        # Extract parsed result
+        parsed_items = subagent_result.get("items", [])
+        parsed_count = subagent_result.get("count", 0)
+        raw_result = subagent_result.get("raw", {})
+        
+        context["parsed_result"] = {
+            "items": parsed_items,
+            "count": parsed_count,
+            "has_items": len(parsed_items) > 0 if isinstance(parsed_items, list) else False
+        }
+        
+        # Extract raw result (includes QA corrections if available)
+        if raw_result:
+            context["raw_result"] = raw_result
+            # Check for QA corrections in raw result
+            qa_corrections = raw_result.get("qa_corrections_applied") or raw_result.get("qa_corrections")
+            if qa_corrections:
+                context["qa_corrections_applied"] = True
+                context["qa_corrections"] = qa_corrections
+        
+        # Extract extraction warnings
+        extraction_warnings = extraction_result.get("warnings", [])
+        if extraction_warnings:
+            context["extraction_warnings"] = extraction_warnings
+        
+        # Extract discrete huntables count
+        discrete_count = extraction_result.get("discrete_huntables_count", 0)
+        if discrete_count is not None:
+            context["discrete_huntables_count"] = discrete_count
+        
+        return context
+    
+    def _extract_article_metadata(
+        self,
+        article: Optional[ArticleTable],
+        warnings: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """Extract article metadata for context."""
+        if not article:
+            return None
+        
+        metadata = {
+            "article_id": article.id,
+            "title": article.title,
+            "canonical_url": article.canonical_url,
+            "published_at": article.published_at.isoformat() if article.published_at else None,
+            "word_count": article.word_count,
+            "discovered_at": article.discovered_at.isoformat() if article.discovered_at else None
+        }
+        
+        # Extract article_metadata JSON
+        article_metadata_json = article.article_metadata
+        if isinstance(article_metadata_json, dict):
+            threat_hunt_score = article_metadata_json.get("threat_hunting_score")
+            ml_hunt_score = article_metadata_json.get("ml_hunt_score")
+            if threat_hunt_score is not None:
+                metadata["threat_hunting_score"] = threat_hunt_score
+            if ml_hunt_score is not None:
+                metadata["ml_hunt_score"] = ml_hunt_score
+        
+        # Get source name if available
+        if article.source:
+            metadata["source_name"] = article.source.name
+            metadata["source_id"] = article.source.id
+        
+        return metadata
+    
+    def _extract_qa_results(
+        self,
+        error_log: Dict[str, Any],
+        agent_name: str,
+        warnings: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """Extract QA results for the agent."""
+        if not isinstance(error_log, dict):
+            return None
+        
+        qa_results_all = error_log.get("qa_results", {})
+        if not isinstance(qa_results_all, dict):
+            return None
+        
+        # Map agent names to QA agent names
+        qa_agent_map = {
+            "CmdlineExtract": "CmdLineQA",
+            "ProcTreeExtract": "ProcTreeQA",
+            "HuntQueriesExtract": "HuntQueriesQA",
+            "rank_article": "RankAgentQA"
+        }
+        
+        qa_agent_name = qa_agent_map.get(agent_name)
+        if not qa_agent_name:
+            return None
+        
+        qa_result = qa_results_all.get(qa_agent_name) or qa_results_all.get(agent_name)
+        if not qa_result:
+            return None
+        
+        # Extract key QA information
+        qa_context = {
+            "verdict": qa_result.get("verdict"),
+            "summary": qa_result.get("summary"),
+            "issues": qa_result.get("issues", []),
+            "has_issues": len(qa_result.get("issues", [])) > 0
+        }
+        
+        # Extract feedback if available
+        feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied")
+        if feedback:
+            qa_context["feedback"] = feedback
+        
+        return qa_context
+    
+    def _extract_execution_context(
+        self,
+        execution: AgenticWorkflowExecutionTable,
+        warnings: List[str]
+    ) -> Dict[str, Any]:
+        """Extract execution status and error context."""
+        context = {
+            "status": execution.status,
+            "current_step": execution.current_step,
+            "retry_count": execution.retry_count
+        }
+        
+        if execution.error_message:
+            context["error_message"] = execution.error_message
+        
+        if execution.started_at:
+            context["started_at"] = execution.started_at.isoformat()
+        if execution.completed_at:
+            context["completed_at"] = execution.completed_at.isoformat()
+        
+        # Calculate duration if both timestamps exist
+        if execution.started_at and execution.completed_at:
+            duration = (execution.completed_at - execution.started_at).total_seconds()
+            context["duration_seconds"] = duration
+        
+        return context
+    
+    def _extract_config_snapshot(
+        self,
+        execution: AgenticWorkflowExecutionTable,
+        warnings: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """Extract full config snapshot."""
+        config_snapshot_raw = execution.config_snapshot
+        if not config_snapshot_raw:
+            return None
+        
+        if isinstance(config_snapshot_raw, str):
+            try:
+                config_snapshot = json.loads(config_snapshot_raw)
+            except (json.JSONDecodeError, TypeError):
+                warnings.append("CONFIG_SNAPSHOT_PARSE_ERROR")
+                return None
+        elif isinstance(config_snapshot_raw, dict):
+            config_snapshot = config_snapshot_raw
+        else:
+            warnings.append("CONFIG_SNAPSHOT_INVALID_TYPE")
+            return None
+        
+        # Return a sanitized version (exclude very large fields if needed)
+        return config_snapshot

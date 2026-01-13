@@ -373,11 +373,16 @@ async function loadActiveConfig() {
             ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
             : '';
         
-        // Parse local timestamp
+        // Parse local timestamp - ensure UTC timestamps are converted to local time
         let updatedDate = 'N/A';
         if (data.updated_at) {
-            // If timestamp has 'Z' (UTC), convert to local; otherwise treat as local
-            updatedDate = new Date(data.updated_at).toLocaleString();
+            let timestampStr = data.updated_at;
+            // If timestamp doesn't have timezone info, assume it's UTC and append 'Z'
+            if (!timestampStr.endsWith('Z') && !timestampStr.match(/[+-]\d{2}:\d{2}$/)) {
+                timestampStr = timestampStr + 'Z';
+            }
+            // Convert to local time
+            updatedDate = new Date(timestampStr).toLocaleString();
         }
         
         configDisplay.innerHTML = `

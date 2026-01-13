@@ -42,6 +42,12 @@ class QueueUpdateRequest(BaseModel):
     review_notes: Optional[str] = None
     pr_url: Optional[str] = None
     pr_repository: Optional[str] = None
+    rule_yaml: Optional[str] = None  # Updated rule YAML content
+
+
+class RuleYamlUpdateRequest(BaseModel):
+    """Request model for updating rule YAML."""
+    rule_yaml: str
 
 
 @router.get("/list", response_model=List[QueuedRuleResponse])
@@ -108,6 +114,10 @@ async def approve_queued_rule(request: Request, queue_id: int, update: QueueUpda
             rule.review_notes = update.review_notes
             rule.reviewed_by = "system"  # TODO: Get from auth context
             
+            # Update rule YAML if provided
+            if update.rule_yaml:
+                rule.rule_yaml = update.rule_yaml
+            
             if update.pr_url:
                 rule.pr_url = update.pr_url
                 rule.pr_repository = update.pr_repository
@@ -128,7 +138,7 @@ async def approve_queued_rule(request: Request, queue_id: int, update: QueueUpda
 
 
 @router.post("/{queue_id}/reject")
-async def reject_queued_rule(request: Request, queue_id: int, review_notes: Optional[str] = None):
+async def reject_queued_rule(request: Request, queue_id: int):
     """Reject a queued rule."""
     try:
         db_manager = DatabaseManager()
@@ -141,8 +151,20 @@ async def reject_queued_rule(request: Request, queue_id: int, review_notes: Opti
             
             rule.status = "rejected"
             rule.reviewed_at = datetime.now()
-            rule.review_notes = review_notes
             rule.reviewed_by = "system"  # TODO: Get from auth context
+            
+            # Try to parse JSON body first (new format with rule_yaml support)
+            try:
+                body = await request.json()
+                if body:
+                    rule.review_notes = body.get("review_notes")
+                    if body.get("rule_yaml"):
+                        rule.rule_yaml = body["rule_yaml"]
+            except:
+                # Fall back to query params (backward compatibility)
+                review_notes = request.query_params.get("review_notes")
+                if review_notes:
+                    rule.review_notes = review_notes
             
             db_session.commit()
             
@@ -154,5 +176,31 @@ async def reject_queued_rule(request: Request, queue_id: int, review_notes: Opti
         raise
     except Exception as e:
         logger.error(f"Error rejecting queued rule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{queue_id}/yaml")
+async def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpdateRequest):
+    """Update the YAML content of a queued rule."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            if not rule:
+                raise HTTPException(status_code=404, detail="Queued rule not found")
+            
+            rule.rule_yaml = update.rule_yaml
+            db_session.commit()
+            
+            return {"success": True, "message": f"Rule {queue_id} YAML updated"}
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating rule YAML: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

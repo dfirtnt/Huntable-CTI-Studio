@@ -78,7 +78,7 @@
                 <div id="rulePreviewContent">
                     <!-- Content loaded dynamically -->
                 </div>
-                <div class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
                     <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
                         ✅ Approve
                     </button>
@@ -97,6 +97,9 @@
 <script>
 let queue = [];
 let currentRuleId = null;
+let isEditMode = false;
+let originalYaml = '';
+let editedYaml = '';
 
 function getStatusBadge(status) {
     const badges = {
@@ -183,7 +186,15 @@ function previewRule(ruleId) {
     if (!rule) return;
     
     currentRuleId = ruleId;
+    isEditMode = false;
+    originalYaml = rule.rule_yaml;
+    editedYaml = rule.rule_yaml;
     
+    renderRulePreview(rule);
+    document.getElementById('ruleModal').classList.remove('hidden');
+}
+
+function renderRulePreview(rule) {
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
     
@@ -201,21 +212,104 @@ function previewRule(ruleId) {
         `;
     }
     
+    const yamlSection = isEditMode ? `
+        <div class="mt-4">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold">Rule YAML:</h4>
+                <button onclick="cancelEdit()" class="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                    Cancel
+                </button>
+            </div>
+            <textarea id="yamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs" rows="20" style="font-family: 'Courier New', monospace;">${escapeHtml(editedYaml)}</textarea>
+        </div>
+    ` : `
+        <div class="mt-4">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold">Rule YAML:</h4>
+                <button onclick="enableEditMode()" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                    ✏️ Edit
+                </button>
+            </div>
+            <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(editedYaml)}</code></pre>
+        </div>
+    `;
+    
     const content = `
         <div class="space-y-4">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
             <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
-            <div class="mt-4">
-                <h4 class="font-semibold mb-2">Rule YAML:</h4>
-                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(rule.rule_yaml)}</code></pre>
-            </div>
+            ${yamlSection}
         </div>
     `;
     
     document.getElementById('rulePreviewContent').innerHTML = content;
-    document.getElementById('ruleModal').classList.remove('hidden');
+    updateActionButtons();
+}
+
+function enableEditMode() {
+    isEditMode = true;
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (rule) {
+        renderRulePreview(rule);
+        // Focus the textarea after render
+        setTimeout(() => {
+            const editor = document.getElementById('yamlEditor');
+            if (editor) {
+                editor.focus();
+            }
+        }, 100);
+    }
+}
+
+function cancelEdit() {
+    isEditMode = false;
+    editedYaml = originalYaml;
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (rule) {
+        renderRulePreview(rule);
+    }
+}
+
+function saveYamlEdit() {
+    const editor = document.getElementById('yamlEditor');
+    if (!editor) return;
+    
+    editedYaml = editor.value;
+    isEditMode = false;
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (rule) {
+        renderRulePreview(rule);
+    }
+}
+
+function updateActionButtons() {
+    const buttonContainer = document.getElementById('actionButtons');
+    if (!buttonContainer) return;
+    
+    if (isEditMode) {
+        buttonContainer.innerHTML = `
+            <button onclick="saveYamlEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                💾 Save Changes
+            </button>
+            <button onclick="cancelEdit()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                Cancel Edit
+            </button>
+        `;
+    } else {
+        buttonContainer.innerHTML = `
+            <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                ✅ Approve
+            </button>
+            <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                ❌ Reject
+            </button>
+            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                Cancel
+            </button>
+        `;
+    }
 }
 
 function escapeHtml(text) {
@@ -228,10 +322,21 @@ async function approveRule(ruleId) {
     if (!confirm('Approve this rule for PR submission?')) return;
     
     try {
+        // Save any pending edits first
+        if (isEditMode) {
+            saveYamlEdit();
+        }
+        
+        const payload = { status: 'approved' };
+        // Include edited YAML if it differs from original
+        if (editedYaml !== originalYaml) {
+            payload.rule_yaml = editedYaml;
+        }
+        
         const response = await fetch(`/api/sigma-queue/${ruleId}/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'approved' })
+            body: JSON.stringify(payload)
         });
         
         if (response.ok) {
@@ -251,10 +356,21 @@ async function rejectRule(ruleId) {
     const notes = prompt('Rejection reason (optional):');
     
     try {
+        // Save any pending edits first
+        if (isEditMode) {
+            saveYamlEdit();
+        }
+        
+        const payload = { review_notes: notes || null };
+        // Include edited YAML if it differs from original
+        if (editedYaml !== originalYaml) {
+            payload.rule_yaml = editedYaml;
+        }
+        
         const response = await fetch(`/api/sigma-queue/${ruleId}/reject`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ review_notes: notes || null })
+            body: JSON.stringify(payload)
         });
         
         if (response.ok) {
@@ -273,6 +389,9 @@ async function rejectRule(ruleId) {
 function closeRuleModal() {
     document.getElementById('ruleModal').classList.add('hidden');
     currentRuleId = null;
+    isEditMode = false;
+    originalYaml = '';
+    editedYaml = '';
 }
 
 // Close modal when clicking outside
