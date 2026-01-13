@@ -70,10 +70,8 @@ def list_last_eval_extractions():
                     # Map subresult keys to display names
                     subagent_map = {
                         'cmdline': 'CmdlineExtract',
-                        'event_ids': 'EventCodeExtract',
-                        'registry_keys': 'RegExtract',
                         'process_lineage': 'ProcTreeExtract',
-                        'sigma_queries': 'SigExtract'
+                        'hunt_queries': 'HuntQueriesExtract'
                     }
                     
                     for key, display_name in subagent_map.items():

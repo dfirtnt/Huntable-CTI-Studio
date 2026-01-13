@@ -328,7 +328,7 @@
                                        max="1" 
                                        step="0.05"
                                        required
-                                       oninput="validateThreshold(this, 0, 1)"
+                                       oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
                                 <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
@@ -367,7 +367,7 @@
                                        max="3" 
                                        step="1"
                                        required
-                                       oninput="validateThreshold(this, 1, 3)"
+                                       oninput="validateThreshold(this, 1, 3); autoSaveConfig()"
                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Maximum number of times QA Agent will give feedback to counterpart agent (1-3)</p>
                                 <p id="qaMaxRetries-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
@@ -421,7 +421,7 @@
                                                id="rank-agent-enabled" 
                                                name="rank_agent_enabled"
                                                class="sr-only peer"
-                                               onchange="updateRankEnabledBadge(); updateRankQAState(false); updateSaveButtonState();">
+                                               onchange="updateRankEnabledBadge(); updateRankQAState(false); autoSaveConfig();">
                                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                     </label>
                                 </div>
@@ -463,7 +463,7 @@
                                            max="10" 
                                step="0.1"
                                            required
-                                           oninput="validateThreshold(this, 0, 10)"
+                                           oninput="validateThreshold(this, 0, 10); autoSaveConfig()"
                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
                                     <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (0-10) to continue workflow</p>
                                     <p id="rankingThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
@@ -491,7 +491,7 @@
                                            id="qa-rankagent" 
                                            name="qa_enabled[RankAgent]"
                                            class="sr-only peer" 
-                                           onchange="updateQABadge('rank-agent')">
+                                           onchange="updateQABadge('rank-agent'); autoSaveConfig();">
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                 </label>
                             </div>
@@ -687,7 +687,7 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation using the configured QA retry limit (default 5, max 20)</p>
                                                 </div>
                                                 <label class="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" id="qa-cmdlineextract" name="qa_enabled[CmdlineExtract]" class="sr-only peer" onchange="updateQABadge('cmdlineextract-agent')">
+                                                    <input type="checkbox" id="qa-cmdlineextract" name="qa_enabled[CmdlineExtract]" class="sr-only peer" onchange="updateQABadge('cmdlineextract-agent'); autoSaveConfig();">
                                                     <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                                                 </label>
                                             </div>
@@ -863,7 +863,7 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation using the configured QA retry limit (default 5, max 20)</p>
                                                 </div>
                                                 <label class="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" id="qa-proctreeextract" name="qa_enabled[ProcTreeExtract]" class="sr-only peer" onchange="updateQABadge('proctreeextract-agent')">
+                                                    <input type="checkbox" id="qa-proctreeextract" name="qa_enabled[ProcTreeExtract]" class="sr-only peer" onchange="updateQABadge('proctreeextract-agent'); autoSaveConfig();">
                                                     <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                                                 </label>
                                             </div>
@@ -1035,7 +1035,7 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation using the configured QA retry limit (default 5, max 20)</p>
                                                 </div>
                                                 <label class="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" id="qa-huntqueriesextract" name="qa_enabled[HuntQueriesExtract]" class="sr-only peer" onchange="updateQABadge('huntqueriesextract-agent')">
+                                                    <input type="checkbox" id="qa-huntqueriesextract" name="qa_enabled[HuntQueriesExtract]" class="sr-only peer" onchange="updateQABadge('huntqueriesextract-agent'); autoSaveConfig();">
                                                     <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                                                 </label>
                                             </div>
@@ -1178,7 +1178,7 @@
                                            id="qa-sigmaagent" 
                                            name="qa_enabled[SigmaAgent]"
                                            class="sr-only peer" 
-                                           onchange="updateQABadge('sigma-agent')">
+                                           onchange="updateQABadge('sigma-agent'); autoSaveConfig();">
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                 </label>
                             </div>
@@ -1201,7 +1201,8 @@
                                     <input type="checkbox" 
                                            id="sigma-fallback-enabled" 
                                            name="sigma_fallback_enabled"
-                                           class="sr-only peer">
+                                           class="sr-only peer"
+                                           onchange="autoSaveConfig();">
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                 </label>
                             </div>
@@ -1663,10 +1664,12 @@ function switchTab(tab) {
 
 // Configuration Functions
 let currentConfig = null;
+let isInitializing = true; // Flag to prevent autosave during page initialization
 let agentPrompts = {};
 let agentModels = {};
 const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
 let disabledExtractAgents = new Set();
+let autoSaveTimeout = null; // Debounce timer for autosave
 
 // Early global stub to avoid inline-handler errors before full script loads
 if (typeof window !== 'undefined' && typeof window.onAgentProviderChange !== 'function') {
@@ -3763,6 +3766,7 @@ window.updateQABadge = function(agentPrefix) {
     const checkboxId = agentPrefix === 'rank-agent' ? 'qa-rankagent' :
                       agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
                       agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
+                      agentPrefix === 'huntqueriesextract-agent' ? 'qa-huntqueriesextract' :
                       agentPrefix === 'sigma-agent' ? 'qa-sigmaagent' : null;
     
     if (!badge) {
@@ -3882,6 +3886,12 @@ function toggleCollapsible(panelId) {
 
 
 async function loadConfig(skipPromptReload = false) {
+    // Set initialization flag to prevent autosave during config loading
+    const wasInitializing = isInitializing;
+    if (!skipPromptReload) {
+        isInitializing = true;
+    }
+    
     try {
         const response = await fetch('/api/workflow/config');
         if (response.ok) {
@@ -3943,7 +3953,8 @@ async function loadConfig(skipPromptReload = false) {
         
         // Sync extract agent toggles first, then load QA settings
         // This ensures extract agent state is correct before QA settings are applied
-        syncExtractAgentTogglesFromConfig();
+        // Suppress events during initialization to prevent triggering autosave
+        syncExtractAgentTogglesFromConfig(true);
         loadQASettings2();
         
         // Load SIGMA fallback setting
@@ -3995,7 +4006,7 @@ async function loadConfig(skipPromptReload = false) {
                 }
                 // Ensure onChange handler is set
                 if (!tempInput.getAttribute('onchange')) {
-                    tempInput.setAttribute('onchange', 'autoSaveModelChange()');
+                    tempInput.setAttribute('onchange', 'autoSaveConfig()');
                 }
             }
         });
@@ -4014,11 +4025,39 @@ async function loadConfig(skipPromptReload = false) {
         
         // Load embedding models for SIGMA similarity search
         await loadLMStudioEmbeddingModels();
+        
+        // Clear initialization flag after all config is loaded and applied
+        // This allows autosave to work for user changes
+        if (!skipPromptReload) {
+            // Use setTimeout to ensure all change events from initialization have fired
+            setTimeout(() => {
+                isInitializing = false;
+                console.log('Initialization complete, autosave enabled');
+                // Reset original state after initialization to clear any false "unsaved changes"
+                resetOriginalConfigStateFromCurrent();
+                updateSaveButtonState();
+            }, 100);
+        } else {
+            // If skipping prompt reload, restore previous initialization state
+            isInitializing = wasInitializing;
+        }
     } catch (error) {
         console.error('Error loading config:', error);
         // Even on error, try to render agent models with empty config
         currentConfig = { agent_models: {} };
         await loadAgentModels().catch(err => console.error('Error loading agent models:', err));
+        
+        // Clear initialization flag even on error
+        if (!skipPromptReload) {
+            setTimeout(() => {
+                isInitializing = false;
+                console.log('Initialization complete (with errors), autosave enabled');
+                resetOriginalConfigStateFromCurrent();
+                updateSaveButtonState();
+            }, 100);
+        } else {
+            isInitializing = wasInitializing;
+        }
     }
 }
 
@@ -4035,7 +4074,7 @@ function setupQAEventListeners() {
         if (checkbox) {
             // Ensure onchange attribute is set (in case it was lost)
             if (!checkbox.getAttribute('onchange')) {
-                checkbox.setAttribute('onchange', `updateQABadge('${item.prefix}')`);
+                checkbox.setAttribute('onchange', `updateQABadge('${item.prefix}'); autoSaveConfig();`);
             }
             
             // Remove existing event listener if any (by cloning without listeners)
@@ -4045,6 +4084,7 @@ function setupQAEventListeners() {
             checkbox.addEventListener('change', function(e) {
                 console.log(`QA toggle changed for ${item.prefix}, checked: ${e.target.checked}`);
                 updateQABadge(item.prefix);
+                autoSaveConfig();
             }, { once: false });
         } else {
             console.warn(`setupQAEventListeners: Checkbox not found: ${item.id}`);
@@ -4622,7 +4662,7 @@ function renderAgentModels(lmstudioModels) {
             }).join('');
             select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
             if (!select.getAttribute('onchange')) {
-                select.setAttribute('onchange', 'autoSaveModelChange()');
+                select.setAttribute('onchange', 'autoSaveConfig()');
             }
             return;
         }
@@ -5144,8 +5184,47 @@ window.updateOSSelection = async function updateOSSelection() {
     await autoSaveModelChange();
 }
 
-window.autoSaveModelChange = async function autoSaveModelChange() {
+// Unified autosave function for all config changes (except prompts which require manual save)
+window.autoSaveConfig = async function autoSaveConfig() {
+    // Skip autosave during page initialization to prevent version jumps
+    if (isInitializing) {
+        console.log('Skipping autosave during initialization');
+        return;
+    }
+    
+    // Debounce autosave to prevent too many requests
+    if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+    }
+    
+    // Return a promise that resolves when the debounced save completes
+    return new Promise((resolve, reject) => {
+        autoSaveTimeout = setTimeout(async () => {
+            try {
+                await performAutoSave();
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        }, 300); // 300ms debounce
+    });
+}
+
+// Actual autosave implementation (separated for debouncing)
+async function performAutoSave() {
     try {
+        // Get current config to preserve other settings
+        if (!currentConfig) {
+            // Load config first if not available
+            const configResponse = await fetch('/api/workflow/config');
+            if (configResponse.ok) {
+                currentConfig = await configResponse.json();
+            } else {
+                console.error('Failed to load current config for auto-save');
+                return;
+            }
+        }
+        
         // Collect all agent configs using unified system
         const collectedAgentConfigs = collectAllAgentConfigs();
         
@@ -5174,9 +5253,6 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             // Only set model if a value is selected (not empty string)
             if (model) {
                 collectedAgentConfigs.OSDetectionAgent_fallback = model;
-            } else {
-                // If no model selected but toggle is enabled, keep existing value (don't set to null)
-                // This allows the toggle to be enabled without requiring immediate model selection
             }
         }
         
@@ -5189,11 +5265,6 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             OSDetectionAgent_selected_os: osSelection,
             SigmaEmbeddingModel: sigmaEmbedding
         };
-        
-        console.log('Rank Agent model change:', {
-            provider: collectedAgentConfigs.RankAgent_provider,
-            model: collectedAgentConfigs.RankAgent
-        });
         
         // Remove null/empty string values (but keep 0.0 for temperature)
         // CRITICAL: RankAgent must be included if it has a value (even if empty string, to override env var)
@@ -5235,49 +5306,88 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             }
         }
         
-        console.log('Auto-saving agent models:', cleanedAgentModels);
-        console.log('RankAgent value from select:', rankModelValue, 'Type:', typeof rankModelValue);
+        // Collect thresholds (only if valid)
+        const junkFilterInput = document.getElementById('junkFilterThreshold');
+        const rankingInput = document.getElementById('rankingThreshold');
+        const similarityInput = document.getElementById('similarityThreshold');
         
-        // Update save button state when models change (even though we auto-save, button should reflect changes)
-        updateSaveButtonState();
+        // Only save thresholds if they're valid (to avoid saving invalid intermediate values)
+        let junkFilterThreshold = currentConfig.junk_filter_threshold ?? 0.8;
+        let rankingThreshold = currentConfig.ranking_threshold ?? 6.0;
+        let similarityThreshold = currentConfig.similarity_threshold ?? 0.5;
         
-        // Refresh prompt displays immediately to show updated model values from dropdown
-        if (agentPrompts && Object.keys(agentPrompts).length > 0) {
-            renderAgentPrompts();
+        if (junkFilterInput && validateThreshold(junkFilterInput, 0, 1)) {
+            junkFilterThreshold = parseFloat(junkFilterInput.value);
+        }
+        if (rankingInput && validateThreshold(rankingInput, 0, 10)) {
+            rankingThreshold = parseFloat(rankingInput.value);
+        }
+        if (similarityInput && validateThreshold(similarityInput, 0, 1)) {
+            similarityThreshold = parseFloat(similarityInput.value);
         }
         
-        // Get current config to preserve other settings
-        if (!currentConfig) {
-            // Load config first if not available
-            const configResponse = await fetch('/api/workflow/config');
-            if (configResponse.ok) {
-                currentConfig = await configResponse.json();
-            } else {
-                console.error('Failed to load current config for auto-save');
-                return;
+        // Collect QA enabled settings
+        const qaEnabled = {};
+        const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
+        agents.forEach(agentName => {
+            const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+            const checkbox = document.getElementById(`qa-${agentId}`);
+            qaEnabled[agentName] = checkbox ? checkbox.checked : false;
+        });
+        
+        // If Rank Agent is disabled, Rank QA must also be disabled
+        const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked ?? true;
+        if (!rankAgentEnabled) {
+            qaEnabled.RankAgent = false;
+        }
+        
+        // Collect disabled extract agents
+        const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
+        const disabledFromDOM = [];
+        extractSubAgents.forEach(agentName => {
+            const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+            if (checkbox && !checkbox.checked) {
+                disabledFromDOM.push(agentName);
             }
+        });
+        disabledExtractAgents = new Set(disabledFromDOM);
+        
+        // Collect other toggles
+        const sigmaFallbackEnabled = document.getElementById('sigma-fallback-enabled')?.checked || false;
+        
+        // Only save QA max retries if valid
+        const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+        let qaMaxRetries = currentConfig.qa_max_retries ?? 5;
+        if (qaMaxRetriesInput && validateThreshold(qaMaxRetriesInput, 1, 3)) {
+            qaMaxRetries = Math.min(Math.max(1, parseInt(qaMaxRetriesInput.value) || 5), 3);
         }
         
-        // Build update payload with only fields that can be updated
-        // CRITICAL: Always send agent_models if RankAgent is set, even if it's the only field
-        // Always include the latest prompts so config auto-saves don't revert freshly saved prompt versions
+        // Merge agent_prompts and include disabled extract agents
         const promptsSource = {
             ...(currentConfig?.agent_prompts || {}),
             ...(agentPrompts || {})
         };
+        const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
+        const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+        extractSettings.disabled_agents = disabledFromDOM;
+        promptsCopy.ExtractAgentSettings = extractSettings;
         
+        // Build update payload with all config fields
         const updateData = {
-            min_hunt_score: currentConfig.min_hunt_score,
-            ranking_threshold: currentConfig.ranking_threshold,
-            similarity_threshold: currentConfig.similarity_threshold,
-            junk_filter_threshold: currentConfig.junk_filter_threshold,
+            min_hunt_score: currentConfig.min_hunt_score ?? 97.0,
+            ranking_threshold: rankingThreshold,
+            similarity_threshold: similarityThreshold,
+            junk_filter_threshold: junkFilterThreshold,
             description: currentConfig.description || null,
             agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
-            qa_enabled: currentConfig.qa_enabled || null,
-            agent_prompts: promptsSource
+            qa_enabled: qaEnabled,
+            sigma_fallback_enabled: sigmaFallbackEnabled,
+            rank_agent_enabled: rankAgentEnabled,
+            qa_max_retries: qaMaxRetries,
+            agent_prompts: promptsCopy
         };
         
-        console.log('Sending update payload:', JSON.stringify(updateData, null, 2));
+        console.log('Auto-saving config:', updateData);
         
         const response = await fetch('/api/workflow/config', {
             method: 'PUT',
@@ -5287,10 +5397,30 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
         
         if (response.ok) {
             const updatedConfig = await response.json();
+            
+            // Preserve QA settings from what we sent if response doesn't have them or they're incomplete
+            if (qaEnabled && Object.keys(qaEnabled).length > 0) {
+                updatedConfig.qa_enabled = {
+                    ...(updatedConfig.qa_enabled || {}),
+                    ...qaEnabled
+                };
+            }
+            
             currentConfig = updatedConfig;
             agentModels = updatedConfig.agent_models || {};
-            console.log('✅ Model change auto-saved successfully');
-            console.log('Updated config agent_models:', updatedConfig.agent_models);
+            agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
+            
+            // Update disabledExtractAgents from response, but DON'T sync toggles from config
+            // The DOM state is already correct (user just changed it), and syncing would overwrite it
+            // Only update the internal state to match what was saved
+            const savedDisabledAgents = getDisabledExtractAgentsFromConfig(updatedConfig);
+            disabledExtractAgents = new Set(savedDisabledAgents);
+            
+            // Don't call syncExtractAgentTogglesFromConfig() here - it would overwrite user's toggle state
+            // The DOM checkboxes are already in the correct state from the user's action
+            
+            console.log('✅ Config auto-saved successfully');
+            
             // Sync dirty-tracking baseline to the new config so the save button disables again
             resetOriginalConfigStateFromCurrent();
             updateSaveButtonState();
@@ -5304,27 +5434,23 @@ window.autoSaveModelChange = async function autoSaveModelChange() {
             if (typeof updateConfigDisplay === 'function') {
                 updateConfigDisplay();
             }
-            
-            // Verify the saved value matches what we sent
-            const savedRankModel = updatedConfig.agent_models?.RankAgent;
-            // Use the value that was actually sent (from cleanedAgentModels), not rankModelValue
-            const sentRankModel = cleanedAgentModels.RankAgent;
-            if (sentRankModel !== undefined && savedRankModel !== sentRankModel) {
-                console.warn(`⚠️ Model mismatch! Sent: "${sentRankModel}", Saved: "${savedRankModel}"`);
-            } else if (sentRankModel !== undefined) {
-                console.log(`✅ RankAgent model verified: "${savedRankModel}"`);
-            }
-            // If sentRankModel is undefined, RankAgent wasn't included in the update (preserved existing value)
         } else {
             const error = await response.json();
-            console.error('❌ Failed to auto-save model change:', error.detail || 'Unknown error');
+            const errorMessage = error.detail || 'Unknown error';
+            console.error('❌ Failed to auto-save config:', errorMessage);
             console.error('Response status:', response.status);
             console.error('Response body:', error);
+            // Don't throw - just log the error to avoid breaking the UI
+            // The user can still manually save if autosave fails
         }
     } catch (error) {
-        console.error('Error auto-saving model change:', error);
+        console.error('Error auto-saving config:', error);
+        // Don't throw - just log the error to avoid breaking the UI
     }
 }
+
+// Legacy function name for backward compatibility
+window.autoSaveModelChange = window.autoSaveConfig;
 
 async function loadAgentPrompts() {
     try {
@@ -5412,7 +5538,10 @@ function renderAgentPrompts() {
         // Always re-render if container exists (even if prompt data is missing)
         // This ensures the prompt editor is always available
         if (container) {
-            const promptData = agentPrompts[subAgent.name] || { prompt: '', instructions: '', model: 'Not configured' };
+            // Get current model from UI as fallback
+            const currentModelFromUI = getCurrentModelForAgent(subAgent.name);
+            const defaultModel = currentModelFromUI || 'Not configured';
+            const promptData = agentPrompts[subAgent.name] || { prompt: '', instructions: '', model: defaultModel };
             if (subAgent.name === 'CmdlineExtract') {
                 console.log(`🎨 Rendering ${subAgent.name} with prompt data:`, {
                     prompt_length: promptData.prompt?.length || 0,
@@ -5434,46 +5563,7 @@ function renderAgentPrompts() {
             }
             const renderedHTML = renderSinglePrompt(subAgent.name, promptData, subAgent.prefix);
             container.innerHTML = renderedHTML;
-            if (subAgent.name === 'CmdlineExtract') {
-                console.log(`✅ ${subAgent.name} container updated, HTML length:`, renderedHTML.length);
-                // Verify the display elements were created with correct content
-                setTimeout(() => {
-                    const agentId = subAgent.name.toLowerCase().replace(/\s+/g, '-');
-                    const systemDisplay = document.getElementById(`${agentId}-prompt-system-display-2`);
-                    const userDisplay = document.getElementById(`${agentId}-prompt-user-display-2`);
-                    if (systemDisplay && userDisplay) {
-                        try {
-                            const parsed = JSON.parse(promptData.prompt);
-                            const expectedSystem = parsed.role || '';
-                            const expectedUser = parsed.user_template || '';
-                            const actualSystem = systemDisplay.textContent?.trim() || '';
-                            const actualUser = userDisplay.textContent?.trim() || '';
-                            console.log(`🔍 Verification for ${subAgent.name}:`, {
-                                system_match: actualSystem === expectedSystem,
-                                system_expected: expectedSystem.substring(0, 30),
-                                system_actual: actualSystem.substring(0, 30),
-                                user_match: actualUser === expectedUser,
-                                user_expected: expectedUser.substring(0, 30),
-                                user_actual: actualUser.substring(0, 30)
-                            });
-                            if (actualSystem !== expectedSystem || actualUser !== expectedUser) {
-                                console.error(`❌ MISMATCH: ${subAgent.name} display does not match data!`);
-                            } else {
-                                console.log(`✅ VERIFIED: ${subAgent.name} display matches data`);
-                            }
-                        } catch (e) {
-                            console.warn(`⚠️ Could not verify ${subAgent.name}:`, e);
-                        }
-                    } else {
-                        console.warn(`⚠️ Display elements not found for ${subAgent.name} after render:`, {
-                            system: !!systemDisplay,
-                            user: !!userDisplay,
-                            system_id: `${agentId}-prompt-system-display-2`,
-                            user_id: `${agentId}-prompt-user-display-2`
-                        });
-                    }
-                }, 100);
-            }
+            // Verification code removed - no longer needed
             // Re-initialize collapsible panels after rendering
             setTimeout(() => {
                 if (typeof initCollapsiblePanels === 'function') {
@@ -5528,9 +5618,11 @@ function getCurrentModelForAgent(agentName) {
         'SigmaAgent': 'sigmaagent',
         'CmdlineExtract': 'cmdlineextract',
         'ProcTreeExtract': 'proctreeextract',
+        'HuntQueriesExtract': 'huntqueriesextract',
         'OSDetectionAgent': 'osdetectionagent',
         'CmdLineQA': 'cmdlineqa',
         'ProcTreeQA': 'proctreeqa',
+        'HuntQueriesQA': 'huntqueriesqa',
         'RankAgentQA': 'rankqa'
     };
     
@@ -5540,8 +5632,10 @@ function getCurrentModelForAgent(agentName) {
         'SigmaAgent': 'sigmaagent-provider',
         'CmdlineExtract': 'cmdlineextract-provider',
         'ProcTreeExtract': 'proctreeextract-provider',
+        'HuntQueriesExtract': 'huntqueriesextract-provider',
         'CmdLineQA': 'cmdlineqa-provider',
         'ProcTreeQA': 'proctreeqa-provider',
+        'HuntQueriesQA': 'huntqueriesqa-provider',
         'RankAgentQA': 'rankqa-provider'
     };
     
@@ -5853,6 +5947,7 @@ function loadQASettings2() {
     const agents = [
         { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { name: 'ProcTreeExtract', id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
+        { name: 'HuntQueriesExtract', id: 'qa-huntqueriesextract', prefix: 'huntqueriesextract-agent' },
         { name: 'SigmaAgent', id: 'qa-sigmaagent', prefix: 'sigma-agent' }
     ];
     
@@ -6013,7 +6108,7 @@ function updateRankEnabledBadge() {
     });
 }
 
-function syncExtractAgentTogglesFromConfig() {
+function syncExtractAgentTogglesFromConfig(suppressEvents = false) {
     const disabled = new Set(getDisabledExtractAgentsFromConfig(currentConfig));
     disabledExtractAgents = disabled;
     
@@ -6021,101 +6116,101 @@ function syncExtractAgentTogglesFromConfig() {
         const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
         if (checkbox) {
             const enabled = !disabled.has(agentName);
+            const wasChecked = checkbox.checked;
             checkbox.checked = enabled;
-            void checkbox.offsetHeight;
-            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Only dispatch change event if state actually changed and we're not suppressing events
+            // Suppress events during initialization to prevent triggering autosave
+            if (!suppressEvents && wasChecked !== enabled) {
+                void checkbox.offsetHeight;
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            
             updateExtractAgentStatusBadge(agentName, enabled);
             updateQAStateForSubagent(agentName);
+            // Hide/show model selection UI based on enabled state
+            toggleModelSelectionVisibility(agentName, enabled);
         }
     });
 }
 
-async function persistExtractAgentSettings() {
-    try {
-        if (!currentConfig) {
-            console.warn('No currentConfig loaded; cannot save extract toggles.');
-            return;
+function toggleModelSelectionVisibility(agentName, enabled) {
+    // Map agent names to their panel content IDs and provider select IDs
+    const agentConfig = {
+        'CmdlineExtract': {
+            panelContent: 'cmdlineextract-agent-panel-content',
+            providerSelect: 'cmdlineextract-provider'
+        },
+        'ProcTreeExtract': {
+            panelContent: 'proctreeextract-agent-panel-content',
+            providerSelect: 'proctreeextract-provider'
+        },
+        'HuntQueriesExtract': {
+            panelContent: 'huntqueriesextract-agent-panel-content',
+            providerSelect: 'huntqueriesextract-provider'
         }
-        
-        const disabledList = Array.from(disabledExtractAgents);
-        const promptsSource = {
-            ...(currentConfig?.agent_prompts || {}),
-            ...(agentPrompts || {})
-        };
-        const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
-        const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
-        extractSettings.disabled_agents = disabledList;
-        promptsCopy.ExtractAgentSettings = extractSettings;
-        
-        // CRITICAL: Collect agent_models from DOM to ensure we save current values
-        // This prevents losing settings after prompt rollbacks
-        console.log('🔍 persistExtractAgentSettings: Collecting agent configs from DOM...');
-        const collectedAgentConfigs = collectAllAgentConfigs();
-        console.log('🔍 Collected agent configs:', collectedAgentConfigs);
-        
-        // Merge with existing agent_models to preserve settings not in DOM (e.g., embeddings, QA models)
-        const existingAgentModels = currentConfig.agent_models || {};
-        console.log('🔍 Existing agent models:', existingAgentModels);
-        const mergedAgentModels = {
-            ...existingAgentModels,
-            ...collectedAgentConfigs
-        };
-        console.log('🔍 Merged agent models:', mergedAgentModels);
-        
-        const payload = {
-            min_hunt_score: currentConfig.min_hunt_score ?? 97.0,
-            ranking_threshold: currentConfig.ranking_threshold ?? 6.0,
-            similarity_threshold: currentConfig.similarity_threshold ?? 0.5,
-            junk_filter_threshold: currentConfig.junk_filter_threshold ?? 0.8,
-            description: currentConfig.description || null,
-            agent_models: mergedAgentModels,
-            qa_enabled: currentConfig.qa_enabled || {},
-            sigma_fallback_enabled: currentConfig.sigma_fallback_enabled ?? false,
-            agent_prompts: promptsCopy
-        };
-        
-        const response = await fetch('/api/workflow/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+    };
+    
+    const config = agentConfig[agentName];
+    if (!config) return;
+    
+    const panelContent = document.getElementById(config.panelContent);
+    if (!panelContent) return;
+    
+    // Find the Model Selection section by finding the div that contains the provider select
+    const providerSelect = document.getElementById(config.providerSelect);
+    if (!providerSelect) return;
+    
+    // Find the parent div that contains the provider select - this is the Model Selection section
+    let modelSelectionDiv = providerSelect.closest('div.bg-gray-50');
+    
+    // If not found by class, find by traversing up to find the container div
+    if (!modelSelectionDiv) {
+        let parent = providerSelect.parentElement;
+        while (parent && parent !== panelContent) {
+            if (parent.classList.contains('bg-gray-50') || parent.querySelector('label')?.textContent.includes('Model Provider')) {
+                modelSelectionDiv = parent;
+                break;
+            }
+            parent = parent.parentElement;
+        }
+    }
+    
+    if (modelSelectionDiv) {
+        // Also find Temperature and Top_P sections
+        const allSections = Array.from(panelContent.querySelectorAll('div.bg-gray-50'));
+        const temperatureDiv = allSections.find(div => {
+            const label = div.querySelector('label');
+            return label && label.textContent.trim() === 'Temperature';
+        });
+        const topPDiv = allSections.find(div => {
+            const label = div.querySelector('label');
+            return label && label.textContent.trim() === 'Top_P';
         });
         
-        if (response.ok) {
-            const updatedConfig = await response.json();
-            
-            // Preserve QA settings from currentConfig if response doesn't have them or they're incomplete
-            if (currentConfig?.qa_enabled && Object.keys(currentConfig.qa_enabled).length > 0) {
-                updatedConfig.qa_enabled = {
-                    ...(updatedConfig.qa_enabled || {}),
-                    ...currentConfig.qa_enabled
-                };
-            }
-            
-            currentConfig = updatedConfig;
-            agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
-            disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
-            syncExtractAgentTogglesFromConfig();
-            resetOriginalConfigStateFromCurrent();
-            console.log('✅ Extract sub-agent toggles saved', { disabled: Array.from(disabledExtractAgents) });
+        if (enabled) {
+            modelSelectionDiv.style.display = '';
+            if (temperatureDiv) temperatureDiv.style.display = '';
+            if (topPDiv) topPDiv.style.display = '';
         } else {
-            const error = await response.json().catch(() => ({}));
-            console.error('❌ Failed to save extract sub-agent toggles', error);
-            // Re-sync UI to last known good state
-            syncExtractAgentTogglesFromConfig();
+            modelSelectionDiv.style.display = 'none';
+            if (temperatureDiv) temperatureDiv.style.display = 'none';
+            if (topPDiv) topPDiv.style.display = 'none';
         }
-    } catch (error) {
-        console.error('Error saving extract sub-agent toggles', error);
-        syncExtractAgentTogglesFromConfig();
-    } finally {
-        updateSaveButtonState();
     }
+}
+
+// Legacy function - now uses unified autosave
+async function persistExtractAgentSettings() {
+    await autoSaveConfig();
 }
 
 function updateQAStateForSubagent(agentName) {
     // Map subagent names to their QA checkbox IDs
     const qaCheckboxMap = {
         'CmdlineExtract': 'qa-cmdlineextract',
-        'ProcTreeExtract': 'qa-proctreeextract'
+        'ProcTreeExtract': 'qa-proctreeextract',
+        'HuntQueriesExtract': 'qa-huntqueriesextract'
     };
     
     const qaCheckboxId = qaCheckboxMap[agentName];
@@ -6179,7 +6274,13 @@ async function handleExtractAgentToggle(agentName) {
     }
     updateExtractAgentStatusBadge(agentName, enabled);
     updateQAStateForSubagent(agentName);
-    updateSaveButtonState();
+    toggleModelSelectionVisibility(agentName, enabled);
+    
+    // Auto-save the change (don't await - let it debounce in background)
+    // If autosave fails, the toggle state is still correct in the DOM
+    autoSaveConfig().catch(err => {
+        console.warn('Autosave failed for extract agent toggle, but toggle state is preserved:', err);
+    });
     
     // Update config display to reflect disabled state
     if (typeof updateConfigDisplay === 'function') {
@@ -7533,7 +7634,7 @@ function getLMStudioModelsOnly() {
 // Function to get current form state
 function getCurrentFormState() {
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -7748,7 +7849,7 @@ function initializeChangeTracking() {
     });
     
     // Add change listeners to QA checkboxes
-    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -7766,6 +7867,7 @@ function initializeChangeTracking() {
     });
     
     // Add change listeners to sigma fallback and rank agent enabled toggles
+    // Note: These now use onchange handlers in HTML for autosave, but we keep listeners for save button state
     const sigmaFallbackToggle = document.getElementById('sigma-fallback-enabled');
     if (sigmaFallbackToggle) {
         sigmaFallbackToggle.addEventListener('change', updateSaveButtonState);
@@ -7777,6 +7879,7 @@ function initializeChangeTracking() {
     }
     
     // Add change listener to qaMaxRetries input
+    // Note: This now uses oninput handler in HTML for autosave, but we keep listeners for save button state
     const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
     if (qaMaxRetriesInput) {
         qaMaxRetriesInput.addEventListener('input', updateSaveButtonState);
@@ -7923,7 +8026,25 @@ if (workflowConfigForm) {
         ...(agentPrompts || {})
     };
     const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
-    extractSettings.disabled_agents = Array.from(disabledExtractAgents || []);
+    
+    // CRITICAL: Read disabled agents directly from DOM checkboxes to ensure accuracy
+    // This is the source of truth, not the disabledExtractAgents Set which might be stale
+    const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
+    const disabledFromDOM = [];
+    extractSubAgents.forEach(agentName => {
+        const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
+        if (checkbox && !checkbox.checked) {
+            disabledFromDOM.push(agentName);
+        }
+    });
+    
+    // Also sync the Set for consistency
+    disabledExtractAgents = new Set(disabledFromDOM);
+    
+    extractSettings.disabled_agents = disabledFromDOM;
+    
+    // Store disabledFromDOM in formData for use in response handler
+    formData._disabledFromDOM = disabledFromDOM;
     promptsSource.ExtractAgentSettings = extractSettings;
     formData.agent_prompts = promptsSource;
     
@@ -8029,9 +8150,26 @@ if (workflowConfigForm) {
                 `;
             }
             
+            // Update currentConfig first to ensure syncExtractAgentTogglesFromConfig uses the latest config
+            currentConfig = updatedConfig;
+            
+            // CRITICAL: Ensure currentConfig.agent_prompts includes ExtractAgentSettings with disabled_agents
+            // Use what we actually sent in the form submission, not just what the server returned
+            if (formData.agent_prompts && formData.agent_prompts.ExtractAgentSettings) {
+                if (!currentConfig.agent_prompts) {
+                    currentConfig.agent_prompts = {};
+                }
+                currentConfig.agent_prompts.ExtractAgentSettings = formData.agent_prompts.ExtractAgentSettings;
+            }
+            
             // Update agentModels global variable with the saved config before reloading
             agentModels = updatedConfig.agent_models || {};
-            disabledExtractAgents = new Set(getDisabledExtractAgentsFromConfig(updatedConfig));
+            
+            // CRITICAL: Use disabledFromDOM from form submission if available (what we actually sent)
+            // Otherwise fall back to reading from the response
+            const savedDisabledAgents = formData._disabledFromDOM || getDisabledExtractAgentsFromConfig(updatedConfig);
+            disabledExtractAgents = new Set(savedDisabledAgents);
+            
             syncExtractAgentTogglesFromConfig();
             
             // Show success state immediately (don't wait for reloads)
@@ -8065,6 +8203,9 @@ if (workflowConfigForm) {
                 ]),
                 new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
             ]).then(() => {
+                // Sync toggles again after prompts are reloaded to ensure UI is in sync
+                syncExtractAgentTogglesFromConfig();
+                
                 // Restore QA settings from the saved config
                 loadQASettings2();
                 
@@ -8076,6 +8217,8 @@ if (workflowConfigForm) {
             }).catch(err => {
                 console.warn('Error in post-save reload:', err);
                 // Still restore UI state even if reloads fail
+                // Sync toggles from currentConfig which was updated after save
+                syncExtractAgentTogglesFromConfig();
                 loadQASettings2();
                 setupQAEventListeners();
                 initializeChangeTracking();

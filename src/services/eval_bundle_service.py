@@ -212,8 +212,8 @@ class EvalBundleService:
         # Extract execution status and errors
         execution_context = self._extract_execution_context(execution, warnings)
         
-        # Extract config snapshot
-        config_snapshot = self._extract_config_snapshot(execution, warnings)
+        # Extract config snapshot (filtered to relevant agent)
+        config_snapshot = self._extract_config_snapshot(execution, agent_name, warnings)
         
         # Build bundle (without bundle_sha256 for now)
         bundle = {
@@ -1112,15 +1112,11 @@ class EvalBundleService:
                 context["qa_corrections_applied"] = True
                 context["qa_corrections"] = qa_corrections
         
-        # Extract extraction warnings
-        extraction_warnings = extraction_result.get("warnings", [])
-        if extraction_warnings:
-            context["extraction_warnings"] = extraction_warnings
+        # Note: extraction_warnings are global to the entire extraction, not agent-specific
+        # We don't include them here to avoid confusion with agent-specific data
         
-        # Extract discrete huntables count
-        discrete_count = extraction_result.get("discrete_huntables_count", 0)
-        if discrete_count is not None:
-            context["discrete_huntables_count"] = discrete_count
+        # Use the subagent's count, not the global discrete_huntables_count
+        # (discrete_huntables_count is the sum across all subagents)
         
         return context
     
@@ -1234,9 +1230,10 @@ class EvalBundleService:
     def _extract_config_snapshot(
         self,
         execution: AgenticWorkflowExecutionTable,
+        agent_name: str,
         warnings: List[str]
     ) -> Optional[Dict[str, Any]]:
-        """Extract full config snapshot."""
+        """Extract config snapshot filtered to relevant agent."""
         config_snapshot_raw = execution.config_snapshot
         if not config_snapshot_raw:
             return None
@@ -1253,5 +1250,78 @@ class EvalBundleService:
             warnings.append("CONFIG_SNAPSHOT_INVALID_TYPE")
             return None
         
-        # Return a sanitized version (exclude very large fields if needed)
-        return config_snapshot
+        # Filter to only include relevant agent's configuration
+        filtered_config = {}
+        
+        # Map agent names to config keys
+        agent_config_map = {
+            "CmdlineExtract": "ExtractAgent",
+            "ProcTreeExtract": "ExtractAgent",
+            "HuntQueriesExtract": "ExtractAgent",
+            "rank_article": "RankAgent",
+            "generate_sigma": "SigmaAgent",
+            "os_detection": "OSDetectionAgent"
+        }
+        
+        config_key = agent_config_map.get(agent_name, agent_name)
+        
+        # Include basic workflow config
+        if "config_version" in config_snapshot:
+            filtered_config["config_version"] = config_snapshot["config_version"]
+        if "min_hunt_score" in config_snapshot:
+            filtered_config["min_hunt_score"] = config_snapshot["min_hunt_score"]
+        
+        # Include only the relevant agent's model config
+        agent_models = config_snapshot.get("agent_models", {})
+        if isinstance(agent_models, dict):
+            # For sub-agents, try to get their specific config or ExtractAgent config
+            sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
+            if agent_name in sub_agents:
+                # Try agent-specific flat keys first
+                agent_model_config = {}
+                for key in ["provider", "model", "temperature", "top_p", "max_tokens"]:
+                    flat_key = f"{agent_name}_{key}"
+                    if flat_key in agent_models:
+                        agent_model_config[key] = agent_models[flat_key]
+                
+                # Fallback to ExtractAgent nested config
+                if not agent_model_config and "ExtractAgent" in agent_models:
+                    extract_config = agent_models["ExtractAgent"]
+                    if isinstance(extract_config, dict):
+                        agent_model_config = extract_config
+                    elif isinstance(extract_config, str):
+                        try:
+                            agent_model_config = json.loads(extract_config)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                
+                if agent_model_config:
+                    filtered_config["agent_models"] = {agent_name: agent_model_config}
+            else:
+                # For main agents, get their nested config
+                if config_key in agent_models:
+                    agent_config = agent_models[config_key]
+                    if isinstance(agent_config, dict):
+                        filtered_config["agent_models"] = {config_key: agent_config}
+                    elif isinstance(agent_config, str):
+                        try:
+                            parsed_config = json.loads(agent_config)
+                            filtered_config["agent_models"] = {config_key: parsed_config}
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+        
+        # Include only the relevant agent's prompt config
+        agent_prompts = config_snapshot.get("agent_prompts", {})
+        if isinstance(agent_prompts, dict):
+            if config_key in agent_prompts:
+                prompt_config = agent_prompts[config_key]
+                if isinstance(prompt_config, dict):
+                    filtered_config["agent_prompts"] = {config_key: prompt_config}
+                elif isinstance(prompt_config, str):
+                    try:
+                        parsed_prompt = json.loads(prompt_config)
+                        filtered_config["agent_prompts"] = {config_key: parsed_prompt}
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        
+        return filtered_config if filtered_config else None

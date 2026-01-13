@@ -2,7 +2,7 @@
 """
 Migration script to create subagent_evaluations table.
 
-This table stores evaluation results for extractor subagents (cmdline, sigextract, etc.)
+This table stores evaluation results for extractor subagents (cmdline, hunt_queries, etc.)
 with expected vs actual observable counts.
 """
 

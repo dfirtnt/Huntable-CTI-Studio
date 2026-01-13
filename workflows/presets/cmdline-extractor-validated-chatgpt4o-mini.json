@@ -30,10 +30,7 @@
     "OSDetectionAgent": false,
     "RankAgent": false,
     "CmdlineExtract": false,
-    "SigExtract": false,
-    "EventCodeExtract": false,
     "ProcTreeExtract": false,
-    "RegExtract": false,
     "SigmaAgent": false
   },
   "sigma_fallback_enabled": false,
@@ -41,18 +38,10 @@
   "qa_max_retries": 3,
   "extract_agent_settings": {
     "disabled_agents": [
-      "SigExtract",
-      "EventCodeExtract",
-      "RegExtract",
       "ProcTreeExtract"
     ]
   },
   "agent_prompts": {
-    "RegQA": {
-      "model": "qwen/qwen3-4b-2507",
-      "prompt": "{\n  \"role\": \"System: You are a QA specialist for Windows registry extraction. Enforce grounding and completeness; do not invent keys/values.\",\n  \"objective\": \"Verify that extracted registry keys/values and operations (add/delete/set) are explicitly present in the source text and correctly described.\",\n  \"input_format\": {\n    \"source_text\": \"<verbatim source>\",\n    \"extracted_registry\": \"<extracted JSON>\"\n  },\n  \"evaluation_criteria\": [\n    \"✅ Registry keys/values and operations are explicitly in the text.\",\n    \"✅ Operations (add/delete/set) match the source description.\",\n    \"❌ No hallucination or completion of partial paths.\"\n  ],\n  \"instructions\": \"USER: Compare extracted_registry to source_text. Flag any missing/incorrect keys, values, or operations. Output JSON only: {\\\"status\\\": \\\"pass|fail|needs_revision\\\", \\\"summary\\\": \\\"...\\\", \\\"issues\\\": [{\\\"type\\\": \\\"compliance|completeness\\\", \\\"description\\\": \\\"...\\\", \\\"severity\\\": \\\"low|medium|high\\\"}], \\\"corrections\\\": {\\\"removed\\\": [...], \\\"added\\\": [...]}}.\"\n}\n",
-      "instructions": ""
-    },
     "SigQA": {
       "model": "qwen/qwen3-4b-2507",
       "prompt": "{\n  \"role\": \"System: You are a QA specialist for detection query extraction. Enforce grounding and correctness; do not invent queries.\",\n  \"objective\": \"Verify that extracted detection queries/templates exist in the source text, match the source syntax/category, and are not hallucinated.\",\n  \"input_format\": {\n    \"source_text\": \"<verbatim source>\",\n    \"extracted_queries\": \"<extracted JSON>\"\n  },\n  \"evaluation_criteria\": [\n    \"✅ Extracted queries/templates appear literally or structurally in the source text.\",\n    \"✅ Query category/type (e.g., Splunk, KQL, SQL, Sigma-like) matches the source.\",\n    \"❌ No hallucinated queries or syntax not present in the source.\"\n  ],\n  \"instructions\": \"USER: Compare extracted_queries to source_text. If missing or miscategorized, flag issues. Output JSON only: {\\\"status\\\": \\\"pass|fail|needs_revision\\\", \\\"summary\\\": \\\"...\\\", \\\"issues\\\": [{\\\"type\\\": \\\"compliance|completeness\\\", \\\"description\\\": \\\"...\\\", \\\"severity\\\": \\\"low|medium|high\\\"}], \\\"corrections\\\": {\\\"removed\\\": [...], \\\"added\\\": [...]}}.\"\n}\n",
@@ -78,24 +67,9 @@
       "prompt": "{\n  \"role\": \"System: You are a QA specialist for process lineage extraction. Enforce grounding; do not infer relationships without evidence.\",\n  \"objective\": \"Verify that extracted parent-child process relationships (and arguments/context when present) are explicitly supported by the text.\",\n  \"input_format\": {\n    \"source_text\": \"<verbatim source>\",\n    \"extracted_lineage\": \"<extracted JSON>\"\n  },\n  \"evaluation_criteria\": [\n    \"✅ Parent-child relationships are explicitly stated or clearly implied in the text.\",\n    \"✅ Process names and arguments match the text.\",\n    \"❌ No inferred relationships without evidence.\"\n  ],\n  \"instructions\": \"USER: Compare extracted_lineage to source_text. Flag any missing or invented parent-child edges. Output JSON only: {\\\"status\\\": \\\"pass|fail|needs_revision\\\", \\\"summary\\\": \\\"...\\\", \\\"issues\\\": [{\\\"type\\\": \\\"compliance|completeness\\\", \\\"description\\\": \\\"...\\\", \\\"severity\\\": \\\"low|medium|high\\\"}], \\\"corrections\\\": {\\\"removed\\\": [...], \\\"added\\\": [...]}}.\"\n}\n",
       "instructions": ""
     },
-    "RegExtract": {
-      "model": "qwen/qwen3-4b-2507",
-      "prompt": "{\n  \"role\": \"You are a specialized detection engineer focused on Windows Registry activity.\",\n  \"objective\": \"Extract Registry keys and values that are created, modified, or deleted.\",\n  \"exclusions\": {\n    \"do_not_extract\": [\n      \"Generic mentions of 'the registry'\",\n      \"Keys not explicitly named\"\n    ]\n  },\n  \"output_format\": {\n    \"registry_keys\": \"Array of objects: {'key': 'HKCU\\\\...\\\\Run', 'value_name': 'Update', 'value_data': '...', 'operation': 'set/delete/add'}\",\n    \"count\": \"Integer count of registry items\"\n  },\n  \"instructions\": \"Identify full or partial registry paths, value names, and data. Note the operation if described (add, delete, modify). Output valid JSON.\"\n}\n\n",
-      "instructions": ""
-    },
-    "SigExtract": {
-      "model": "qwen/qwen3-4b-2507",
-      "prompt": "{\n  \"role\": \"You are a specialized detection engineer focused on extracting explicit detection logic and queries from threat intelligence.\",\n  \"objective\": \"Extract any explicit detection signatures or queries found in the text. Look for Sigma rules, Splunk searches, KQL (Kusto) queries, Elastic queries, YARA rules, or specific Snort/Suricata signatures.\",\n  \"exclusions\": {\n    \"do_not_extract\": [\n      \"Generic text descriptions of detection logic (unless it mimics a pseudo-code query)\",\n      \"Atomic IOCs (IPs, Hashes) unless part of a query string\"\n    ]\n  },\n  \"output_format\": {\n    \"sigma_queries\": \"Array of extracted Sigma rule snippets or titles\",\n    \"splunk_queries\": \"Array of Splunk search strings\",\n    \"kql_queries\": \"Array of KQL/Defender queries\",\n    \"other_queries\": \"Array of other query types (YARA, Snort, etc.)\",\n    \"count\": \"Integer total count of extracted queries\"\n  },\n  \"instructions\": \"Analyze the text for code blocks or lines that represent detection queries. Extract them verbatim. If a query is broken across lines, join it if obvious. Output valid JSON.\"\n}\n\n",
-      "instructions": ""
-    },
     "SigmaAgent": {
       "model": "qwen/qwen3-4b-2507",
       "prompt": "Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.\n\nThreat Intel Input:\n- title: {title}\n- source: {source}\n- url: {url}\n- content: {content}\n\nObjectives:\n- Extract every distinct behavioral TTP (command execution, process lineage, persistence, defense evasion, system modification).\n- Create 1 rule per behavior when possible.\n- Extract all command-line patterns with arguments; include all unique process-creation observables.\n\nStrict SIGMA Requirements:\n- Focus on behaviors, not atomic IOCs.\n- Use correct syntax and required fields.\n- Avoid rules for single IPs, hashes, or filenames alone.\n- Prefer command-line, parent/child relationships, LOLBins, system changes, scripting engine abuse, lateral movement, etc.\n- Use correct logsource for each behavior (process_creation, network_connection, registry_event, file_event, etc.).\n\nOutput Rules:\n- Output ONLY valid YAML.\n- No prose or comments.\n- No code fences.\n- Start with YAML immediately.\n- 2-space indentation only; no tabs.\n- All field names lowercase.\n\nRequired Structure:\ntitle: [descriptive rule title]\nid: [UUID]\ndescription: [behavior detected]\nlogsource:\n  category: [process_creation/network_connection/registry_event/...]\n  product: [windows/linux/macos]\ndetection:\n  selection:\n    [criteria]\n  condition: selection\nlevel: [low/medium/high/critical]\ntags:\n  - attack.[technique]\nreferences:\n  - {url}\n\nBehavioral Extraction Rules:\n- For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.\n- For system modification: include registry, services, scheduled tasks.\n- For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.\n\nFinal Instruction:\nGenerate all applicable SIGMA rules from the threat intelligence above.\n",
-      "instructions": ""
-    },
-    "EventCodeQA": {
-      "model": "qwen/qwen3-4b-2507",
-      "prompt": "{\n  \"role\": \"System: You are a QA specialist for Windows Event ID extraction. Enforce grounding and accuracy; do not invent IDs.\",\n  \"objective\": \"Verify that extracted Event IDs (with provider/source if present) are explicitly mentioned in the source text and accurately described.\",\n  \"input_format\": {\n    \"source_text\": \"<verbatim source>\",\n    \"extracted_events\": \"<extracted JSON>\"\n  },\n  \"evaluation_criteria\": [\n    \"✅ Event IDs are explicitly mentioned in the text with correct provider/source when present.\",\n    \"✅ Descriptions align with the text context (no fabricated semantics).\",\n    \"❌ No hallucinated IDs or inferred providers.\"\n  ],\n  \"instructions\": \"USER: Compare extracted_events to source_text. Flag any IDs not in text or with incorrect provider/description. Output JSON only: {\\\"status\\\": \\\"pass|fail|needs_revision\\\", \\\"summary\\\": \\\"...\\\", \\\"issues\\\": [{\\\"type\\\": \\\"compliance|completeness\\\", \\\"description\\\": \\\"...\\\", \\\"severity\\\": \\\"low|medium|high\\\"}], \\\"corrections\\\": {\\\"removed\\\": [...], \\\"added\\\": [...]}}.\"\n}\n",
       "instructions": ""
     },
     "CmdlineExtract": {
@@ -108,17 +82,9 @@
       "prompt": "{\n  \"role\": \"You are a specialized detection engineer focused on process execution chains.\",\n  \"objective\": \"Extract process lineage relationships (parent-child process executions) described in the text.\",\n  \"exclusions\": {\n    \"do_not_extract\": [\n      \"Single processes without a clear parent/child relationship mentioned\",\n      \"Generic statements like 'malware runs commands'\"\n    ]\n  },\n  \"output_format\": {\n    \"process_lineage\": \"Array of objects: {'parent': 'cmd.exe', 'child': 'powershell.exe', 'arguments': '...optional...', 'context': '...brief context...'}\",\n    \"count\": \"Integer count of relationships found\"\n  },\n  \"instructions\": \"Identify specific mentions of one process spawning another (e.g., 'macros spawning cmd.exe', 'services.exe launching malware.exe'). capturing the parent and child process names. Output valid JSON.\"\n}\n\n",
       "instructions": ""
     },
-    "EventCodeExtract": {
-      "model": "qwen/qwen3-4b-2507",
-      "prompt": "{\n  \"role\": \"You are a specialized detection engineer focused on Windows Event Logs.\",\n  \"objective\": \"Extract all explicit Windows Event IDs mentioned in the context of detection or attacker activity.\",\n  \"exclusions\": {\n    \"do_not_extract\": [\n      \"Event IDs not related to Windows (e.g., specific app error codes unless relevant to security)\",\n      \"Page numbers or other integers mistaken for Event IDs\"\n    ]\n  },\n  \"output_format\": {\n    \"event_ids\": \"Array of objects: {'id': '4688', 'source': 'Security', 'description': 'Process Creation'}\",\n    \"count\": \"Integer count of unique Event IDs found\"\n  },\n  \"instructions\": \"Identify Windows Event IDs (e.g., 4688, 4104, 7045). Extract the ID, the log source (if mentioned, e.g., Security, System, Sysmon), and a brief context/description. Deduplicate IDs. Output valid JSON.\"\n}\n\n",
-      "instructions": ""
-    },
     "ExtractAgentSettings": {
       "model": "deepseek/deepseek-r1-0528-qwen3-8b",
       "disabled_agents": [
-        "SigExtract",
-        "EventCodeExtract",
-        "RegExtract",
         "ProcTreeExtract"
       ]
     }

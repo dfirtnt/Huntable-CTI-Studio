@@ -696,7 +696,7 @@ class SubagentEvaluationTable(Base):
     __tablename__ = 'subagent_evaluations'
     
     id = Column(Integer, primary_key=True, index=True)
-    subagent_name = Column(String(50), nullable=False, index=True)  # cmdline, sigextract, event_ids, etc.
+    subagent_name = Column(String(50), nullable=False, index=True)  # cmdline, hunt_queries, event_ids, etc.
     article_url = Column(Text, nullable=False, index=True)  # Full URL (not just ID) to survive rehydration
     article_id = Column(Integer, ForeignKey('articles.id'), nullable=True, index=True)  # Resolved article ID if found
     

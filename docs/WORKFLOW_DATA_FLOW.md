@@ -43,7 +43,7 @@ Results are persisted to PostgreSQL in JSONB format:
 
 ### Step 1: Sub-Agent Execution
 
-Each sub-agent (CmdlineExtract, SigExtract, etc.) runs and produces results:
+Each sub-agent (CmdlineExtract, HuntQueriesExtract, etc.) runs and produces results:
 
 ```python
 # Sub-agents run sequentially

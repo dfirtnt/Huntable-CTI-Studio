@@ -1621,62 +1621,6 @@ class TestWorkflowSubAgentsAdditional:
     
     @pytest.mark.ui
     @pytest.mark.workflow
-    def test_sigextract_sub_agent_panel(self, page: Page):
-        """Test SigExtract sub-agent panel."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
-        
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
-        
-        # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
-        extract_toggle.click()
-        page.wait_for_timeout(500)
-        
-        # Find SigExtract panel
-        sig_toggle = page.locator("button:has-text('SigExtract')")
-        expect(sig_toggle).to_be_visible()
-        
-        # Toggle sub-agent panel
-        sig_toggle.click()
-        page.wait_for_timeout(300)
-        
-        # Verify panel content is visible
-        sig_content = page.locator("#sigextract-agent-panel-content")
-        expect(sig_content).to_be_visible()
-    
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_eventcodeextract_sub_agent_panel(self, page: Page):
-        """Test EventCodeExtract sub-agent panel."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
-        
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
-        
-        # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
-        extract_toggle.click()
-        page.wait_for_timeout(500)
-        
-        # Find EventCodeExtract panel
-        eventcode_toggle = page.locator("button:has-text('EventCodeExtract')")
-        expect(eventcode_toggle).to_be_visible()
-        
-        # Toggle sub-agent panel
-        eventcode_toggle.click()
-        page.wait_for_timeout(300)
-        
-        # Verify panel content is visible
-        eventcode_content = page.locator("#eventcodeextract-agent-panel-content")
-        expect(eventcode_content).to_be_visible()
-    
-    @pytest.mark.ui
-    @pytest.mark.workflow
     def test_proctreeextract_sub_agent_panel(self, page: Page):
         """Test ProcTreeExtract sub-agent panel."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -1703,33 +1647,6 @@ class TestWorkflowSubAgentsAdditional:
         proctree_content = page.locator("#proctreeextract-agent-panel-content")
         expect(proctree_content).to_be_visible()
     
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_regextract_sub_agent_panel(self, page: Page):
-        """Test RegExtract sub-agent panel."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
-        
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
-        
-        # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
-        extract_toggle.click()
-        page.wait_for_timeout(500)
-        
-        # Find RegExtract panel
-        reg_toggle = page.locator("button:has-text('RegExtract')")
-        expect(reg_toggle).to_be_visible()
-        
-        # Toggle sub-agent panel
-        reg_toggle.click()
-        page.wait_for_timeout(300)
-        
-        # Verify panel content is visible
-        reg_content = page.locator("#regextract-agent-panel-content")
-        expect(reg_content).to_be_visible()
 
 
 class TestWorkflowExecutionsTableAdvanced:

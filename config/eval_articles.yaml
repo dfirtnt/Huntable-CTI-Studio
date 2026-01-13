@@ -60,7 +60,6 @@ subagents:
       expected_count: 2
 
   # Placeholder for other subagents (to be populated later)
-  sigextract: []
   event_ids: []
   process_lineage:
     - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"

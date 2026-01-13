@@ -11,10 +11,8 @@ The agentic workflow is a chain of specialized workers executed by Celery when y
 
 ## Extract Agent sub-agents
 - **CmdlineExtract**: Command-line observables with arguments and QA corrections.
-- **SigExtract**: Sigma-like query fragments extracted directly from content.
-- **EventCodeExtract**: Windows Event IDs and log channel hints.
+- **HuntQueriesExtract**: Detection queries (EDR queries and SIGMA rules) extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
-- **RegExtract**: Registry keys and persistence artifacts.
 
 Each sub-agent returns `items` and `count`; the supervisor aggregates them into `observables`, `discrete_huntables_count`, and a `content` string that Sigma consumes.
 

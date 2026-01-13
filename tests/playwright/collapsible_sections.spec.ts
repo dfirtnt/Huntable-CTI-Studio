@@ -200,73 +200,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse SigExtract Sub-Agent panel', async ({ page }) => {
-      // First expand Extract Agent panel
-      const extractPanelId = 'extract-agent-panel';
-      const extractButton = page.locator(`button[onclick="toggleCollapsible('${extractPanelId}')"]`);
-      await extractButton.click();
-      await page.waitForTimeout(300);
 
-      // Now test SigExtract sub-panel
-      const panelId = 'sigextract-agent-panel';
-      const content = page.locator(`#${panelId}-content`);
-      const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick="toggleCollapsible('${panelId}')"]`);
-
-      // Initially should be hidden
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-
-      // Click to expand
-      await button.click();
-      await page.waitForTimeout(300);
-
-      // Should be visible now
-      await expect(content).toBeVisible();
-      await expect(toggle).toHaveText('▲');
-
-      // Click to collapse
-      await button.click();
-      await page.waitForTimeout(300);
-
-      // Should be hidden again
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-    });
-
-    test('should expand and collapse EventCodeExtract Sub-Agent panel', async ({ page }) => {
-      // First expand Extract Agent panel
-      const extractPanelId = 'extract-agent-panel';
-      const extractButton = page.locator(`button[onclick="toggleCollapsible('${extractPanelId}')"]`);
-      await extractButton.click();
-      await page.waitForTimeout(300);
-
-      // Now test EventCodeExtract sub-panel
-      const panelId = 'eventcodeextract-agent-panel';
-      const content = page.locator(`#${panelId}-content`);
-      const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick="toggleCollapsible('${panelId}')"]`);
-
-      // Initially should be hidden
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-
-      // Click to expand
-      await button.click();
-      await page.waitForTimeout(300);
-
-      // Should be visible now
-      await expect(content).toBeVisible();
-      await expect(toggle).toHaveText('▲');
-
-      // Click to collapse
-      await button.click();
-      await page.waitForTimeout(300);
-
-      // Should be hidden again
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-    });
 
     test('should expand and collapse ProcTreeExtract Sub-Agent panel', async ({ page }) => {
       // First expand Extract Agent panel
@@ -302,39 +236,6 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse RegexExtract Sub-Agent panel', async ({ page }) => {
-      // First expand Extract Agent panel
-      const extractPanelId = 'extract-agent-panel';
-      const extractButton = page.locator(`button[onclick="toggleCollapsible('${extractPanelId}')"]`);
-      await extractButton.click();
-      await page.waitForTimeout(300);
-
-      // Now test RegexExtract sub-panel
-      const panelId = 'regextract-agent-panel';
-      const content = page.locator(`#${panelId}-content`);
-      const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick="toggleCollapsible('${panelId}')"]`);
-
-      // Initially should be hidden
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-
-      // Click to expand
-      await button.click();
-      await page.waitForTimeout(300);
-
-      // Should be visible now
-      await expect(content).toBeVisible();
-      await expect(toggle).toHaveText('▲');
-
-      // Click to collapse
-      await button.click();
-      await page.waitForTimeout(300);
-
-      // Should be hidden again
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-    });
 
     test('should expand and collapse Sigma Agent panel', async ({ page }) => {
       const panelId = 'sigma-agent-panel';

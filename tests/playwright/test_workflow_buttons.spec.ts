@@ -31,10 +31,7 @@ test.describe('Workflow Test Buttons', () => {
         'rank-agent-configs-panel',
         'extract-agent-panel',
         'cmdlineextract-agent-panel',
-        'sigextract-agent-panel',
-        'eventcodeextract-agent-panel',
         'proctreeextract-agent-panel',
-        'regextract-agent-panel',
         'sigma-agent-panel'
       ];
       
@@ -65,10 +62,7 @@ test.describe('Workflow Test Buttons', () => {
     const buttonsToTest = [
       { agentName: 'RankAgent', selector: 'button[onclick*="testRankAgent"]' },
       { agentName: 'CmdlineExtract', selector: 'button[onclick*="testSubAgent(\'CmdlineExtract\'"]' },
-      { agentName: 'SigExtract', selector: 'button[onclick*="testSubAgent(\'SigExtract\'"]' },
-      { agentName: 'EventCodeExtract', selector: 'button[onclick*="testSubAgent(\'EventCodeExtract\'"]' },
       { agentName: 'ProcTreeExtract', selector: 'button[onclick*="testSubAgent(\'ProcTreeExtract\'"]' },
-      { agentName: 'RegExtract', selector: 'button[onclick*="testSubAgent(\'RegExtract\'"]' },
       { agentName: 'SigmaAgent', selector: 'button[onclick*="testSigmaAgent"]' },
     ];
     
