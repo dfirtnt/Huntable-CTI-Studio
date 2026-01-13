@@ -2014,8 +2014,28 @@ async function showCommandlines(executionId, articleUrl, count) {
                 sigmaRules.forEach((item, index) => {
                     let displayContent = '';
                     if (typeof item === 'object' && item !== null) {
-                        const title = item.title || item.id || 'Untitled Rule';
-                        const yaml = item.yaml || '';
+                        // Extract title from sigma_text if present, otherwise use title/id fields
+                        let title = item.title || item.id || 'Untitled Rule';
+                        let yaml = item.yaml || '';
+                        const sigmaText = item.sigma_text || '';
+                        
+                        // If we have sigma_text but no title/yaml, extract title from sigma_text
+                        if (sigmaText && (!item.title && !item.yaml)) {
+                            // Extract title from sigma_text (format: "title: ... status:" or "title: ... description:")
+                            // Title ends at the next field (status, description, author, etc.)
+                            const titleMatch = sigmaText.match(/title:\s*([^\n]+?)(?:\s+status:|\s+description:|\s+author:|\s+references:|\s+date:|\s+logsource:|\s+detection:|\n|$)/i);
+                            if (titleMatch) {
+                                title = titleMatch[1].trim();
+                            } else {
+                                // Fallback: extract everything after "title:" until newline
+                                const fallbackMatch = sigmaText.match(/title:\s*([^\n]+)/i);
+                                if (fallbackMatch) {
+                                    title = fallbackMatch[1].trim();
+                                }
+                            }
+                            yaml = sigmaText;
+                        }
+                        
                         const context = item.context || item.source_context || '';
                         const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
                         const yamlDisplay = yaml ? `<div class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">${escapeHtml(yaml)}</div>` : '';
