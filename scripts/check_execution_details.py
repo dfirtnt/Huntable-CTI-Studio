@@ -51,6 +51,61 @@ def check_execution(execution_id: int):
         print(f"  Extraction Result: {execution.extraction_result is not None}")
         if execution.extraction_result:
             print(f"    Discrete Huntables: {execution.extraction_result.get('discrete_huntables_count', 0)}")
+            
+            # Check for HuntQueriesExtract results
+            subresults = execution.extraction_result.get('subresults', {})
+            hunt_queries_result = subresults.get('hunt_queries', {}) or subresults.get('HuntQueriesExtract', {})
+            if hunt_queries_result:
+                print(f"\n  HuntQueriesExtract Results:")
+                print(f"    Query Count: {hunt_queries_result.get('query_count', 'N/A')}")
+                print(f"    SIGMA Count: {hunt_queries_result.get('sigma_count', 'N/A')}")
+                
+                # Check raw agent result
+                raw_result = hunt_queries_result.get('raw', {})
+                if raw_result:
+                    print(f"    Raw Agent Result Keys: {list(raw_result.keys())}")
+                    raw_sigma_rules = raw_result.get('sigma_rules', [])
+                    raw_sigma_count = raw_result.get('sigma_count', 0)
+                    print(f"    Raw SIGMA Count: {raw_sigma_count}")
+                    print(f"    Raw SIGMA Rules Type: {type(raw_sigma_rules)}")
+                    if isinstance(raw_sigma_rules, list) and len(raw_sigma_rules) > 0:
+                        print(f"    Raw SIGMA Rules Length: {len(raw_sigma_rules)}")
+                        for idx, rule in enumerate(raw_sigma_rules[:3]):  # Show first 3
+                            print(f"      Rule {idx+1}:")
+                            if isinstance(rule, dict):
+                                print(f"        Title: {rule.get('title', 'MISSING')}")
+                                print(f"        ID: {rule.get('id', 'MISSING')}")
+                                print(f"        Has YAML: {bool(rule.get('yaml'))}")
+                                print(f"        Context: {rule.get('context', 'N/A')[:50] if rule.get('context') else 'N/A'}")
+                            else:
+                                print(f"        Type: {type(rule)}, Value: {str(rule)[:100]}")
+                
+                # Check normalized sigma rules
+                sigma_rules = hunt_queries_result.get('sigma_rules', [])
+                if isinstance(sigma_rules, list) and len(sigma_rules) > 0:
+                    print(f"\n    Normalized SIGMA Rules ({len(sigma_rules)}):")
+                    for idx, rule in enumerate(sigma_rules[:3]):  # Show first 3
+                        print(f"      Rule {idx+1}:")
+                        if isinstance(rule, dict):
+                            title = rule.get('title', '')
+                            print(f"        Title: '{title}' {'(EMPTY!)' if not title else ''}")
+                            print(f"        ID: {rule.get('id', 'MISSING')}")
+                            print(f"        Has YAML: {bool(rule.get('yaml'))}")
+                            yaml_content = rule.get('yaml', '')
+                            if yaml_content:
+                                # Try to extract title from YAML
+                                import re
+                                yaml_title_match = re.search(r'^title:\s*(.+)$', yaml_content, re.MULTILINE)
+                                if yaml_title_match:
+                                    yaml_title = yaml_title_match.group(1).strip().strip('"').strip("'")
+                                    print(f"        Title in YAML: '{yaml_title}'")
+                            print(f"        Context: {rule.get('context', 'N/A')[:50] if rule.get('context') else 'N/A'}")
+                        else:
+                            print(f"        Type: {type(rule)}, Value: {str(rule)[:100]}")
+                elif sigma_rules:
+                    print(f"    SIGMA Rules (non-list): {type(sigma_rules)}")
+                else:
+                    print(f"    No SIGMA rules found in normalized result")
         
         print(f"\nSIGMA Rules:")
         print(f"  Has sigma_rules: {execution.sigma_rules is not None}")

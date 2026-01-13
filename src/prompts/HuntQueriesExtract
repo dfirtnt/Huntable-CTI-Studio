@@ -15,5 +15,5 @@
     "sigma_count": "Integer count of SIGMA rules extracted",
     "sigma_rules": "Array of objects: {'title': '<rule title>', 'id': '<rule id/uuid>', 'yaml': '<full or partial SIGMA YAML>' (optional), 'context': '<brief source context>' (optional)}"
   },
-  "instructions": "Analyze the text for code blocks, query examples, or SIGMA rule YAML. Separate EDR queries (KQL, Splunk, Elastic, etc.) from SIGMA detection rules. Extract them verbatim. If a query is broken across lines, join it if obvious. Preserve original syntax, formatting, and structure. Output valid JSON only."
+  "instructions": "Analyze the text for code blocks, query examples, or SIGMA rule YAML. Separate EDR queries (KQL, Splunk, Elastic, etc.) from SIGMA detection rules. Extract them verbatim. If a query is broken across lines, join it if obvious. Preserve original syntax, formatting, and structure. Output valid JSON only. CRITICAL: For SIGMA rules, the 'title' field is REQUIRED. If a SIGMA rule YAML contains a 'title:' field, extract it. If no explicit title exists in the source, derive a descriptive title from the rule's detection logic or description. Never leave 'title' empty or use generic placeholders like 'paragraph'."
 }
