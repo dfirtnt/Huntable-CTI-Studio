@@ -609,60 +609,10 @@ async def get_execution_commandlines(
                         edr_queries = hunt_queries_result.get("queries", [])
                         sigma_rules = hunt_queries_result.get("sigma_rules", [])
                         
-                        # Detect if LLM swapped them: SIGMA rules have specific content patterns
-                        # EDR queries have query/query_text and type/platform fields
-                        def is_sigma_rule(item):
-                            """Check if an item looks like a SIGMA rule."""
-                            if not isinstance(item, dict):
-                                return False
-                            # SIGMA rules typically have these fields as keys
-                            sigma_fields = ['title', 'description', 'tags', 'logsource', 'detection', 'yaml', 'sigma_text']
-                            if any(field in item for field in sigma_fields):
-                                return True
-                            # Or check if query_text/yaml contains SIGMA YAML structure
-                            text_content = item.get('query_text') or item.get('yaml') or item.get('sigma_text') or ''
-                            if isinstance(text_content, str):
-                                # SIGMA YAML has these patterns
-                                sigma_patterns = ['logsource:', 'detection:', 'title:', 'description:']
-                                if any(pattern in text_content for pattern in sigma_patterns):
-                                    return True
-                            return False
-                        
-                        def is_edr_query(item):
-                            """Check if an item looks like an EDR query."""
-                            if not isinstance(item, dict):
-                                return False
-                            # If it's clearly a SIGMA rule, it's not an EDR query
-                            if is_sigma_rule(item):
-                                return False
-                            # EDR queries have query/query_text and type/platform
-                            has_query = 'query' in item or 'query_text' in item
-                            has_type = 'type' in item or 'platform' in item
-                            return has_query and has_type
-                        
-                        # Check if items are misclassified and swap if needed
-                        edr_queries_checked = []
-                        sigma_rules_checked = []
-                        
-                        # Check items in edr_queries - if they look like SIGMA rules, move them
-                        for item in (edr_queries if isinstance(edr_queries, list) else []):
-                            if is_sigma_rule(item):
-                                sigma_rules_checked.append(item)
-                            elif is_edr_query(item) or not isinstance(item, dict):
-                                edr_queries_checked.append(item)
-                            else:
-                                # Ambiguous - keep in original location
-                                edr_queries_checked.append(item)
-                        
-                        # Check items in sigma_rules - if they look like EDR queries, move them
-                        for item in (sigma_rules if isinstance(sigma_rules, list) else []):
-                            if is_edr_query(item):
-                                edr_queries_checked.append(item)
-                            elif is_sigma_rule(item) or not isinstance(item, dict):
-                                sigma_rules_checked.append(item)
-                            else:
-                                # Ambiguous - keep in original location
-                                sigma_rules_checked.append(item)
+                        # Apply correction to fix misclassifications
+                        edr_queries_checked, sigma_rules_checked = _correct_hunt_queries_classification(
+                            edr_queries, sigma_rules
+                        )
                         
                         if edr_queries_checked or sigma_rules_checked:
                             response_data["edr_queries"] = edr_queries_checked
@@ -676,6 +626,66 @@ async def get_execution_commandlines(
     except Exception as e:
         logger.error(f"Error getting execution commandlines: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _correct_hunt_queries_classification(edr_queries: list, sigma_rules: list) -> Tuple[list, list]:
+    """
+    Correct misclassified EDR queries and SIGMA rules by detecting their actual type.
+    Returns (corrected_edr_queries, corrected_sigma_rules).
+    """
+    def is_sigma_rule(item):
+        """Check if an item looks like a SIGMA rule."""
+        if not isinstance(item, dict):
+            return False
+        # SIGMA rules typically have these fields as keys
+        sigma_fields = ['title', 'description', 'tags', 'logsource', 'detection', 'yaml', 'sigma_text']
+        if any(field in item for field in sigma_fields):
+            return True
+        # Or check if query_text/yaml contains SIGMA YAML structure
+        text_content = item.get('query_text') or item.get('yaml') or item.get('sigma_text') or ''
+        if isinstance(text_content, str):
+            # SIGMA YAML has these patterns
+            sigma_patterns = ['logsource:', 'detection:', 'title:', 'description:']
+            if any(pattern in text_content for pattern in sigma_patterns):
+                return True
+        return False
+    
+    def is_edr_query(item):
+        """Check if an item looks like an EDR query."""
+        if not isinstance(item, dict):
+            return False
+        # If it's clearly a SIGMA rule, it's not an EDR query
+        if is_sigma_rule(item):
+            return False
+        # EDR queries have query/query_text and type/platform
+        has_query = 'query' in item or 'query_text' in item
+        has_type = 'type' in item or 'platform' in item
+        return has_query and has_type
+    
+    edr_queries_checked = []
+    sigma_rules_checked = []
+    
+    # Check items in edr_queries - if they look like SIGMA rules, move them
+    for item in (edr_queries if isinstance(edr_queries, list) else []):
+        if is_sigma_rule(item):
+            sigma_rules_checked.append(item)
+        elif is_edr_query(item) or not isinstance(item, dict):
+            edr_queries_checked.append(item)
+        else:
+            # Ambiguous - keep in original location
+            edr_queries_checked.append(item)
+    
+    # Check items in sigma_rules - if they look like EDR queries, move them
+    for item in (sigma_rules if isinstance(sigma_rules, list) else []):
+        if is_edr_query(item):
+            edr_queries_checked.append(item)
+        elif is_sigma_rule(item) or not isinstance(item, dict):
+            sigma_rules_checked.append(item)
+        else:
+            # Ambiguous - keep in original location
+            sigma_rules_checked.append(item)
+    
+    return edr_queries_checked, sigma_rules_checked
 
 
 def resolve_article_by_url(url: str) -> Optional[int]:
@@ -1132,24 +1142,48 @@ async def get_subagent_eval_results(
 
             results = []
             for record in eval_records:
-                # Calculate score if actual_count is set
-                score = None
-                if record.actual_count is not None:
-                    score = record.actual_count - record.expected_count
-
-                # Extract warnings from execution if available
+                # For hunt_queries evaluations, get corrected counts from execution data
+                actual_count = record.actual_count
                 warnings = []
+                
                 if record.workflow_execution_id:
                     execution = (
                         db_session.query(AgenticWorkflowExecutionTable)
                         .filter(AgenticWorkflowExecutionTable.id == record.workflow_execution_id)
                         .first()
                     )
+                    
                     if execution and execution.extraction_result and isinstance(execution.extraction_result, dict):
+                        # Extract warnings
                         if "warnings" in execution.extraction_result:
                             extraction_warnings = execution.extraction_result.get("warnings")
                             if isinstance(extraction_warnings, list):
                                 warnings.extend(extraction_warnings)
+                        
+                        # For hunt_queries evaluations, get corrected counts
+                        if record.subagent_name in ("hunt_queries_edr", "hunt_queries_sigma"):
+                            subresults = execution.extraction_result.get("subresults", {})
+                            if isinstance(subresults, dict):
+                                hunt_queries_result = subresults.get("hunt_queries", {}) or subresults.get("HuntQueriesExtract", {})
+                                if isinstance(hunt_queries_result, dict):
+                                    edr_queries = hunt_queries_result.get("queries", [])
+                                    sigma_rules = hunt_queries_result.get("sigma_rules", [])
+                                    
+                                    # Apply correction to get accurate counts
+                                    edr_queries_checked, sigma_rules_checked = _correct_hunt_queries_classification(
+                                        edr_queries, sigma_rules
+                                    )
+                                    
+                                    # Use corrected count based on subagent type
+                                    if record.subagent_name == "hunt_queries_edr":
+                                        actual_count = len(edr_queries_checked)
+                                    elif record.subagent_name == "hunt_queries_sigma":
+                                        actual_count = len(sigma_rules_checked)
+
+                # Calculate score if actual_count is set
+                score = None
+                if actual_count is not None:
+                    score = actual_count - record.expected_count
 
                 results.append(
                     {
@@ -1158,7 +1192,7 @@ async def get_subagent_eval_results(
                         "article_id": record.article_id,
                         "subagent_name": record.subagent_name,  # Include subagent_name for filtering
                         "expected_count": record.expected_count,
-                        "actual_count": record.actual_count,
+                        "actual_count": actual_count,
                         "score": score,
                         "status": record.status,
                         "execution_id": record.workflow_execution_id,
