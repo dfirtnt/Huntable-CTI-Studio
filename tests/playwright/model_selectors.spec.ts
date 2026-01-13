@@ -283,69 +283,6 @@ describeFn('Model Selector Dropdowns - Duplicate Placeholder Check', () => {
     expect(hasSinglePlaceholder).toBe(true);
   });
 
-  test('Sig QA model selector should have single placeholder', async ({ page }) => {
-    // Expand Extract Agent panel and SigExtract sub-agent panel
-    const extractPanelToggle = page.locator('#extract-agent-panel-toggle');
-    if (await extractPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#extract-agent-panel-content');
-      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-      if (isHidden) {
-        await extractPanelToggle.click();
-        await page.waitForTimeout(500);
-      }
-    }
-    
-    // Expand SigExtract sub-agent panel
-    const sigPanelToggle = page.locator('#sigextract-agent-panel-toggle');
-    if (await sigPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#sigextract-agent-panel-content');
-      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-      if (isHidden) {
-        await sigPanelToggle.click();
-        await page.waitForTimeout(500);
-      }
-    }
-    
-    const hasSinglePlaceholder = await checkNoDuplicatePlaceholders(
-      page,
-      '#sigqa-model',
-      'Sig QA Model Selector'
-    );
-    
-    expect(hasSinglePlaceholder).toBe(true);
-  });
-
-  test('EventCode QA model selector should have single placeholder', async ({ page }) => {
-    // Expand Extract Agent panel and EventCodeExtract sub-agent panel
-    const extractPanelToggle = page.locator('#extract-agent-panel-toggle');
-    if (await extractPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#extract-agent-panel-content');
-      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-      if (isHidden) {
-        await extractPanelToggle.click();
-        await page.waitForTimeout(500);
-      }
-    }
-    
-    // Expand EventCodeExtract sub-agent panel
-    const eventcodePanelToggle = page.locator('#eventcodeextract-agent-panel-toggle');
-    if (await eventcodePanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#eventcodeextract-agent-panel-content');
-      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-      if (isHidden) {
-        await eventcodePanelToggle.click();
-        await page.waitForTimeout(500);
-      }
-    }
-    
-    const hasSinglePlaceholder = await checkNoDuplicatePlaceholders(
-      page,
-      '#eventcodeqa-model',
-      'EventCode QA Model Selector'
-    );
-    
-    expect(hasSinglePlaceholder).toBe(true);
-  });
 
   test('ProcTree QA model selector should have single placeholder', async ({ page }) => {
     // Expand Extract Agent panel and ProcTreeExtract sub-agent panel
@@ -379,35 +316,4 @@ describeFn('Model Selector Dropdowns - Duplicate Placeholder Check', () => {
     expect(hasSinglePlaceholder).toBe(true);
   });
 
-  test('Reg QA model selector should have single placeholder', async ({ page }) => {
-    // Expand Extract Agent panel and RegExtract sub-agent panel
-    const extractPanelToggle = page.locator('#extract-agent-panel-toggle');
-    if (await extractPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#extract-agent-panel-content');
-      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-      if (isHidden) {
-        await extractPanelToggle.click();
-        await page.waitForTimeout(500);
-      }
-    }
-    
-    // Expand RegExtract sub-agent panel
-    const regPanelToggle = page.locator('#regextract-agent-panel-toggle');
-    if (await regPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#regextract-agent-panel-content');
-      const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-      if (isHidden) {
-        await regPanelToggle.click();
-        await page.waitForTimeout(500);
-      }
-    }
-    
-    const hasSinglePlaceholder = await checkNoDuplicatePlaceholders(
-      page,
-      '#regqa-model',
-      'Reg QA Model Selector'
-    );
-    
-    expect(hasSinglePlaceholder).toBe(true);
-  });
 });

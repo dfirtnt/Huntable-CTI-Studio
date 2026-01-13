@@ -28,10 +28,7 @@ test.describe('Workflow Test Buttons', () => {
     const expectedAgents = [
       'RankAgent',
       'CmdlineExtract',
-      'SigExtract',
-      'EventCodeExtract',
       'ProcTreeExtract',
-      'RegExtract',
       'SigmaAgent'
     ];
     
@@ -51,14 +48,8 @@ test.describe('Workflow Test Buttons', () => {
         agentName = 'SigmaAgent';
       } else if (onclick?.includes("testSubAgent('CmdlineExtract'")) {
         agentName = 'CmdlineExtract';
-      } else if (onclick?.includes("testSubAgent('SigExtract'")) {
-        agentName = 'SigExtract';
-      } else if (onclick?.includes("testSubAgent('EventCodeExtract'")) {
-        agentName = 'EventCodeExtract';
       } else if (onclick?.includes("testSubAgent('ProcTreeExtract'")) {
         agentName = 'ProcTreeExtract';
-      } else if (onclick?.includes("testSubAgent('RegExtract'")) {
-        agentName = 'RegExtract';
       }
       
       console.log(`Testing ${agentName}...`);

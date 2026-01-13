@@ -26,10 +26,8 @@ docker exec -it cti_workflow_worker python3 /app/scripts/test_prompt_with_models
 
 **Extraction Agents:**
 - `CmdlineExtract` - Windows command-line extraction
-- `SigExtract` - SIGMA rule extraction
-- `EventCodeExtract` - Windows Event Code extraction
+- `HuntQueriesExtract` - Detection query extraction (EDR queries and SIGMA rules)
 - `ProcTreeExtract` - Process tree extraction
-- `RegExtract` - Registry key extraction
 
 **Other Agents:**
 - `RankAgent` - Article ranking/scoring
@@ -67,9 +65,9 @@ docker exec -it cti_workflow_worker python3 /app/scripts/test_prompt_with_models
 ./scripts/run_prompt_test.sh --agent SigmaAgent --model "qwen/qwen3-8b" --article 68
 ```
 
-### Test SigExtract extraction agent
+### Test HuntQueriesExtract extraction agent
 ```bash
-./scripts/run_prompt_test.sh --agent SigExtract --model "qwen/qwen3-8b" --article 68
+./scripts/run_prompt_test.sh --agent HuntQueriesExtract --model "qwen/qwen3-8b" --article 68
 ```
 
 ### Test multiple models with wildcards

@@ -407,6 +407,11 @@ async def get_agent_prompts(request: Request):
                     if agent_name in deleted_agents:
                         continue
                     
+                    # Preserve ExtractAgentSettings (contains disabled_agents list)
+                    if agent_name == "ExtractAgentSettings":
+                        prompts_dict[agent_name] = prompt_data
+                        continue
+                    
                     # Add model info if not in database prompt data
                     if "model" not in prompt_data:
                         if agent_name == "ExtractAgent":
@@ -982,7 +987,8 @@ async def bootstrap_prompts_from_files(request: Request):
             # Sub-Agents
             sub_agents = [
                 ("CmdlineExtract", "CmdLineQA"),
-                ("ProcTreeExtract", "ProcTreeQA")
+                ("ProcTreeExtract", "ProcTreeQA"),
+                ("HuntQueriesExtract", "HuntQueriesQA")
             ]
 
             for agent_name, qa_name in sub_agents:

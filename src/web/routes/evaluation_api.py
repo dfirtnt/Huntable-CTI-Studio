@@ -766,7 +766,7 @@ def resolve_article_by_url(url: str) -> Optional[int]:
 @router.get("/subagent-eval-articles")
 async def get_subagent_eval_articles(
     request: Request,
-    subagent: str = Query(..., description="Subagent name (cmdline, sigextract, etc.)"),
+    subagent: str = Query(..., description="Subagent name (cmdline, hunt_queries, etc.)"),
 ):
     """Get eval articles for a specific subagent from config file."""
     try:

@@ -169,9 +169,9 @@ def main():
     # Extract unique model names (excluding temperature and other non-model keys)
     model_keys = [
         "RankAgent", "ExtractAgent", "SigmaAgent",
-        "CmdlineExtract_model", "SigExtract_model", "EventCodeExtract_model",
-        "ProcTreeExtract_model", "RegExtract_model",
-        "CmdLineQA", "SigQA", "EventCodeQA", "ProcTreeQA", "RegQA",
+        "CmdlineExtract_model",
+        "ProcTreeExtract_model", "HuntQueriesExtract_model",
+        "CmdLineQA", "ProcTreeQA", "HuntQueriesQA",
         "OSDetectionAgent_fallback"
     ]
     
