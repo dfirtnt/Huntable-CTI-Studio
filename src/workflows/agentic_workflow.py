@@ -13,6 +13,7 @@ This workflow processes articles through 7 steps:
 
 import logging
 import json
+import re
 import yaml
 from typing import Dict, Any, Optional, TypedDict
 from datetime import datetime
@@ -1515,8 +1516,24 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         normalized_sigma_rules = []
                         for r in sigma_rules:
                             if isinstance(r, dict):
+                                # Extract title - try direct field first, then parse from YAML
+                                title = r.get("title", "")
+                                if not title:
+                                    yaml_content = r.get("yaml", "")
+                                    if yaml_content:
+                                        try:
+                                            # Try to parse YAML and extract title
+                                            parsed = yaml.safe_load(yaml_content)
+                                            if isinstance(parsed, dict):
+                                                title = parsed.get("title", "")
+                                        except (yaml.YAMLError, AttributeError):
+                                            # If YAML parsing fails, try regex extraction
+                                            title_match = re.search(r'^title:\s*(.+)$', yaml_content, re.MULTILINE)
+                                            if title_match:
+                                                title = title_match.group(1).strip().strip('"').strip("'")
+                                
                                 normalized_r = {
-                                    "title": r.get("title", ""),
+                                    "title": title,
                                     "id": r.get("id", ""),
                                     "yaml": r.get("yaml", ""),
                                     "context": r.get("context") or r.get("source_context", "")
