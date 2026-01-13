@@ -1791,7 +1791,7 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
     
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
-    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
     
     // Clear aggregate scores section to prevent showing wrong subagent's data
     const aggregateScoresContent = document.getElementById('aggregateScoresContent');
@@ -1804,12 +1804,19 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
     }
     
     // Reload config to show agent-specific parameters
-    loadActiveConfig();
-    // Reload aggregate scores with correct subagent filter (will be called by loadPreviousResults if user clicks it)
+    loadActiveConfig().then(() => {
+        // Auto-load previous results after config is loaded
+        loadPreviousResults();
+    });
 });
 
 // Also listen for changes to hunt query feature selection
 document.addEventListener('DOMContentLoaded', () => {
+    // Auto-load previous results on page load after config is loaded
+    loadActiveConfig().then(() => {
+        loadPreviousResults();
+    });
+    
     const featureSelect = document.getElementById('huntQueryFeatureSelect');
     if (featureSelect) {
         featureSelect.addEventListener('change', () => {
@@ -1852,9 +1859,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             
-            // Clear results when feature changes
+            // Auto-load previous results when feature changes
             const resultsTable = document.getElementById('resultsTable');
-            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Select a subagent and load articles to run evaluation.</p>';
+            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
             
             // Clear aggregate scores
             const aggregateScoresContent = document.getElementById('aggregateScoresContent');
@@ -1865,6 +1872,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (aggregateScores) {
                 aggregateScores.classList.add('hidden');
             }
+            
+            // Auto-load previous results after clearing
+            loadPreviousResults();
         });
     }
 });
@@ -2182,8 +2192,15 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Initialize
-loadActiveConfig();
+// Initialize (if DOM is already loaded, this will run; otherwise DOMContentLoaded will handle it)
+if (document.readyState === 'loading') {
+    // DOM is still loading, DOMContentLoaded will handle initialization
+} else {
+    // DOM is already loaded, initialize now
+    loadActiveConfig().then(() => {
+        loadPreviousResults();
+    });
+}
 </script>
 {% endblock %}
 
