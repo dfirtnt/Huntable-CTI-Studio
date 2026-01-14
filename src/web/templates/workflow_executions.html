@@ -915,11 +915,10 @@ async function viewExecution(executionId) {
                                             <div class="mt-2 space-y-1">
                                                 ${queuedRuleIds.map((ruleId, idx) => `
                                                     <div class="text-xs">
-                                                        <a href="/workflow#queue" 
-                                                           onclick="const e = arguments[0] || window.event; e.preventDefault(); e.stopPropagation(); highlightQueuedRule(${ruleId}); return false;" 
-                                                           class="text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">
+                                                        <span onclick="previewQueuedRule(${ruleId})" 
+                                                              class="text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">
                                                             📋 View Queued Rule #${ruleId}
-                                                        </a>
+                                                        </span>
                                 </div>
                                                 `).join('')}
                                             </div>
@@ -1527,13 +1526,19 @@ function startLiveExecutionStream(executionId) {
                     appendOutput(`📍 Step: ${data.step}`, 'text-blue-400');
                     break;
                     
+                case 'step_complete':
+                    appendOutput(`✅ Step Complete: ${data.step}`, 'text-green-400');
+                    break;
+                    
                 case 'status':
                     appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
                     statusSpan.textContent = `Status: ${data.status}`;
                     break;
                     
                 case 'llm_interaction':
-                    appendOutput(`\n🤖 LLM Call - ${data.agent} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    // Display step context if available to show which workflow step this belongs to
+                    const stepContext = data.step ? ` [${data.step}]` : '';
+                    appendOutput(`\n🤖 LLM Call - ${data.agent}${stepContext} (Attempt ${data.attempt})`, 'text-cyan-400');
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach((msg, idx) => {
                             const role = msg.role || 'user';
@@ -1632,5 +1637,381 @@ function startLiveExecutionStream(executionId) {
         }
     };
 }
+
+// Rule Preview Modal for Queued Rules
+let currentRuleId = null;
+let currentQueuedRule = null;
+let isEditMode = false;
+let originalYaml = '';
+let editedYaml = '';
+
+async function previewQueuedRule(ruleId) {
+    try {
+        // Fetch all queued rules and find the one with matching ID
+        const response = await fetch(`/api/sigma-queue/list?limit=1000`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const rules = await response.json();
+        const rule = rules.find(r => r.id === ruleId);
+        
+        if (!rule) {
+            alert(`Rule #${ruleId} not found in queue`);
+            return;
+        }
+        
+        currentRuleId = ruleId;
+        currentQueuedRule = rule;
+        isEditMode = false;
+        originalYaml = rule.rule_yaml;
+        editedYaml = rule.rule_yaml;
+        
+        renderQueuedRulePreview(rule);
+        document.getElementById('ruleModal').classList.remove('hidden');
+    } catch (error) {
+        console.error('Error fetching queued rule:', error);
+        alert(`Error loading rule: ${error.message}`);
+    }
+}
+
+function renderQueuedRulePreview(rule) {
+    const metadata = rule.rule_metadata || {};
+    const similarityScores = rule.similarity_scores || [];
+    
+    let similarRulesHtml = '';
+    if (similarityScores.length > 0) {
+        similarRulesHtml = `
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2 text-gray-900 dark:text-white">Similar Existing Rules:</h4>
+                <ul class="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                    ${similarityScores.slice(0, 5).map(s => `
+                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    const yamlSection = isEditMode ? `
+        <div class="mt-4">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold text-gray-900 dark:text-white">Rule YAML:</h4>
+                <button onclick="cancelEdit()" class="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                    Cancel
+                </button>
+            </div>
+            <textarea id="yamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs" rows="20" style="font-family: 'Courier New', monospace;">${escapeHtml(editedYaml)}</textarea>
+        </div>
+    ` : `
+        <div class="mt-4">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold text-gray-900 dark:text-white">Rule YAML:</h4>
+                <button onclick="enableEditMode()" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                    ✏️ Edit
+                </button>
+            </div>
+            <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs border border-gray-300 dark:border-gray-600"><code class="text-gray-700 dark:text-gray-300">${escapeHtml(editedYaml)}</code></pre>
+        </div>
+    `;
+    
+    const content = `
+        <div class="space-y-4">
+            <div><strong class="text-gray-900 dark:text-white">Rule ID:</strong> <span class="text-gray-700 dark:text-gray-300">${rule.id}</span></div>
+            <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600 dark:text-purple-400 hover:underline">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            <div><strong class="text-gray-900 dark:text-white">Max Similarity:</strong> <span class="text-gray-700 dark:text-gray-300">${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+            ${similarRulesHtml}
+            ${yamlSection}
+        </div>
+    `;
+    
+    document.getElementById('rulePreviewContent').innerHTML = content;
+    updateActionButtons();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function enableEditMode() {
+    isEditMode = true;
+    if (currentQueuedRule) {
+        renderQueuedRulePreview(currentQueuedRule);
+        // Focus the textarea after render
+        setTimeout(() => {
+            const editor = document.getElementById('yamlEditor');
+            if (editor) {
+                editor.focus();
+            }
+        }, 100);
+    }
+}
+
+function cancelEdit() {
+    isEditMode = false;
+    editedYaml = originalYaml;
+    if (currentQueuedRule) {
+        renderQueuedRulePreview(currentQueuedRule);
+    }
+}
+
+async function saveYamlEdit() {
+    const editor = document.getElementById('yamlEditor');
+    if (!editor) return;
+    
+    editedYaml = editor.value;
+    
+    try {
+        // Save YAML to server
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: editedYaml })
+        });
+        
+        if (response.ok) {
+            originalYaml = editedYaml; // Update original to match saved version
+            if (currentQueuedRule) {
+                currentQueuedRule.rule_yaml = editedYaml;
+            }
+            isEditMode = false;
+            if (currentQueuedRule) {
+                renderQueuedRulePreview(currentQueuedRule);
+            }
+        } else {
+            alert('Error saving YAML changes');
+        }
+    } catch (error) {
+        console.error('Error saving YAML:', error);
+        alert('Error saving YAML changes: ' + error.message);
+    }
+}
+
+function updateActionButtons() {
+    const buttonContainer = document.getElementById('actionButtons');
+    if (!buttonContainer) return;
+    
+    if (isEditMode) {
+        buttonContainer.innerHTML = `
+            <button onclick="saveYamlEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                💾 Save Changes
+            </button>
+            <button onclick="cancelEdit()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                Cancel Edit
+            </button>
+        `;
+    } else {
+        buttonContainer.innerHTML = `
+            <button onclick="approveQueuedRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                ✅ Approve
+            </button>
+            <button onclick="rejectQueuedRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                ❌ Reject
+            </button>
+            <button onclick="openEnrichModalForQueue()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                ✨ Enrich
+            </button>
+            <button onclick="checkSimilarRulesForQueuedRule()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                🔍 Similarity Search
+            </button>
+            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                Cancel
+            </button>
+        `;
+    }
+}
+
+async function approveQueuedRule(ruleId) {
+    if (!confirm('Approve this rule for PR submission?')) return;
+    
+    try {
+        // Save any pending edits first
+        if (isEditMode) {
+            saveYamlEdit();
+        }
+        
+        const payload = { status: 'approved' };
+        // Include edited YAML if it differs from original
+        if (editedYaml !== originalYaml) {
+            payload.rule_yaml = editedYaml;
+        }
+        
+        const response = await fetch(`/api/sigma-queue/${ruleId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            alert('Rule approved successfully');
+            closeRuleModal();
+            // Refresh executions to show updated status
+            refreshExecutions();
+        } else {
+            alert('Error approving rule');
+        }
+    } catch (error) {
+        console.error('Error approving rule:', error);
+        alert('Error approving rule');
+    }
+}
+
+async function rejectQueuedRule(ruleId) {
+    const notes = prompt('Rejection reason (optional):');
+    
+    try {
+        // Save any pending edits first
+        if (isEditMode) {
+            saveYamlEdit();
+        }
+        
+        const payload = { review_notes: notes || null };
+        // Include edited YAML if it differs from original
+        if (editedYaml !== originalYaml) {
+            payload.rule_yaml = editedYaml;
+        }
+        
+        const response = await fetch(`/api/sigma-queue/${ruleId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            alert('Rule rejected');
+            closeRuleModal();
+            // Refresh executions to show updated status
+            refreshExecutions();
+        } else {
+            alert('Error rejecting rule');
+        }
+    } catch (error) {
+        console.error('Error rejecting rule:', error);
+        alert('Error rejecting rule');
+    }
+}
+
+function openEnrichModalForQueue() {
+    alert('Enrich functionality is available from the SIGMA Queue page. Please navigate to /workflow#queue to use this feature.');
+}
+
+async function checkSimilarRulesForQueuedRule() {
+    if (!currentRuleId) {
+        alert('No rule selected');
+        return;
+    }
+    
+    // Show loading indicator
+    const loadingMsg = document.createElement('div');
+    loadingMsg.id = 'similarRulesLoading';
+    loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+    loadingMsg.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take 20-30 seconds</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingMsg);
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/similar-rules?force=true`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(60000)
+        });
+        
+        const loadingEl = document.getElementById('similarRulesLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        if (!response.ok) {
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || errorMessage;
+            } catch (e) {
+                errorMessage = response.statusText || errorMessage;
+            }
+            alert('Error finding similar rules: ' + errorMessage);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.similar_rules && data.similar_rules.length > 0) {
+            // Update the rule with new similarity scores and re-render
+            currentQueuedRule.similarity_scores = data.similar_rules;
+            currentQueuedRule.max_similarity = Math.max(...data.similar_rules.map(r => r.similarity || 0));
+            renderQueuedRulePreview(currentQueuedRule);
+            alert(`Found ${data.similar_rules.length} similar rules. Results updated in preview.`);
+        } else {
+            alert('No similar rules found.');
+        }
+    } catch (error) {
+        const loadingEl = document.getElementById('similarRulesLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        if (error.name === 'AbortError') {
+            alert('Similarity search timed out. Please try again.');
+        } else {
+            console.error('Error checking similar rules:', error);
+            alert('Error checking similar rules: ' + error.message);
+        }
+    }
+}
+
+function closeRuleModal() {
+    document.getElementById('ruleModal').classList.add('hidden');
+    currentRuleId = null;
+    currentQueuedRule = null;
+    isEditMode = false;
+    originalYaml = '';
+    editedYaml = '';
+}
+
+// Add click outside to close
+document.addEventListener('DOMContentLoaded', function() {
+    const ruleModal = document.getElementById('ruleModal');
+    if (ruleModal) {
+        ruleModal.addEventListener('click', function(e) {
+            if (e.target === ruleModal) {
+                closeRuleModal();
+            }
+        });
+    }
+    
+    // Add ESC key to close
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('ruleModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeRuleModal();
+            }
+        }
+    });
+});
 </script>
+
+<!-- Rule Preview Modal -->
+<div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+        <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
+            <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+        </div>
+        <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+            <div id="rulePreviewContent">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                <!-- Buttons loaded dynamically by updateActionButtons() -->
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

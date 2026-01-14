@@ -3470,10 +3470,6 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     else:
                         extracted_feedback = ""
                 
-                # If still no feedback, use default
-                if not extracted_feedback:
-                    extracted_feedback = "QA failed without feedback."
-                
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
                     # Convert QA result format to match UI expectations
@@ -3502,6 +3498,16 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                                 "description": f"Added: {added.get('command', '')} - Found in: {added.get('found_in', '')}",
                                 "severity": "low"
                             })
+                    
+                    # Set appropriate summary based on verdict
+                    # Override any misleading summary when verdict is "pass"
+                    if verdict == "pass":
+                        # If no feedback or feedback indicates failure, use positive message
+                        if not extracted_feedback or "failed" in extracted_feedback.lower() or "without feedback" in extracted_feedback.lower():
+                            extracted_feedback = "QA passed successfully."
+                    elif not extracted_feedback:
+                        # Only set failure message if no feedback exists
+                        extracted_feedback = "QA failed without feedback."
                     
                     # Always store QA result when QA runs, even if parsing failed
                     if not qa_result or len(qa_result) == 0:

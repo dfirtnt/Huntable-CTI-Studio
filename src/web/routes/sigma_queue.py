@@ -3,6 +3,8 @@ API routes for SIGMA rule queue management.
 """
 
 import logging
+import httpx
+import yaml
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -11,6 +13,8 @@ from datetime import datetime
 
 from src.database.manager import DatabaseManager
 from src.database.models import SigmaRuleQueueTable, ArticleTable
+from src.utils.prompt_loader import format_prompt
+from src.services.sigma_matching_service import SigmaMatchingService
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,12 @@ class QueueUpdateRequest(BaseModel):
 class RuleYamlUpdateRequest(BaseModel):
     """Request model for updating rule YAML."""
     rule_yaml: str
+
+
+class EnrichRuleRequest(BaseModel):
+    """Request model for enriching a rule."""
+    instruction: Optional[str] = None  # Optional user instruction for enrichment
+    current_rule_yaml: Optional[str] = None  # Optional current rule YAML for iterative enrichment
 
 
 @router.get("/list", response_model=List[QueuedRuleResponse])
@@ -202,5 +212,201 @@ async def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpda
         raise
     except Exception as e:
         logger.error(f"Error updating rule YAML: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{queue_id}/enrich")
+async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRuleRequest):
+    """Enrich a SIGMA rule using AI assistance."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            if not rule:
+                raise HTTPException(status_code=404, detail="Queued rule not found")
+            
+            # Get article for context
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail="Article not found")
+            
+            # Get API key from request headers or body
+            api_key_raw = (
+                request.headers.get("X-OpenAI-API-Key")
+                or request.headers.get("X-Anthropic-API-Key")
+            )
+            
+            # If not in headers, try to get from body
+            if not api_key_raw:
+                try:
+                    body = await request.json()
+                    api_key_raw = body.get("api_key")
+                except:
+                    pass
+            
+            api_key = api_key_raw.strip() if api_key_raw else None
+            
+            if not api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="API key is required. Please provide X-OpenAI-API-Key or X-Anthropic-API-Key header, or api_key in body.",
+                )
+            
+            # Build enrichment prompt
+            instruction_text = enrich_request.instruction or "Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata."
+            
+            # Use provided current rule YAML for iterative enrichment, or fall back to stored rule
+            rule_yaml_to_enrich = enrich_request.current_rule_yaml or rule.rule_yaml
+            
+            enrichment_prompt = format_prompt(
+                "sigma_enrichment",
+                rule_yaml=rule_yaml_to_enrich,
+                article_title=article.title,
+                article_url=article.canonical_url or 'N/A',
+                user_instruction=instruction_text
+            )
+            
+            # Call OpenAI API
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "gpt-4o-mini",
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks.",
+                                },
+                                {"role": "user", "content": enrichment_prompt},
+                            ],
+                            "max_tokens": 4000,
+                            "temperature": 0.2,
+                        },
+                        timeout=120.0,
+                    )
+                    
+                    if response.status_code != 200:
+                        error_detail = f"OpenAI API error: {response.status_code}"
+                        if response.status_code == 401:
+                            error_detail = "OpenAI API key is invalid or expired. Please check your API key."
+                        elif response.status_code == 429:
+                            error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
+                        logger.error(f"OpenAI API error: {response.text}")
+                        raise HTTPException(status_code=response.status_code, detail=error_detail)
+                    
+                    response_data = response.json()
+                    enriched_yaml = response_data["choices"][0]["message"]["content"].strip()
+                    
+                    # Remove markdown code blocks if present
+                    if enriched_yaml.startswith("```"):
+                        lines = enriched_yaml.split("\n")
+                        enriched_yaml = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
+                    
+                    return {
+                        "success": True,
+                        "enriched_yaml": enriched_yaml,
+                        "message": f"Rule {queue_id} enriched successfully"
+                    }
+                except httpx.TimeoutException:
+                    raise HTTPException(status_code=504, detail="Request timeout. Please try again.")
+                except Exception as e:
+                    logger.error(f"Error calling OpenAI API: {e}")
+                    raise HTTPException(status_code=500, detail=f"Error enriching rule: {str(e)}")
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error enriching rule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{queue_id}/similar-rules")
+async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bool = False):
+    """
+    Compare a queued rule's YAML against existing SigmaHQ rules using behavioral novelty assessment.
+    
+    This endpoint directly compares the queued rule's YAML (not the article's generated rules)
+    to find similar rules in the repository.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Get the queued rule
+            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            if not rule:
+                raise HTTPException(status_code=404, detail="Queued rule not found")
+            
+            # Parse the rule YAML
+            try:
+                rule_yaml = yaml.safe_load(rule.rule_yaml)
+            except yaml.YAMLError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}")
+            
+            # Normalize rule structure
+            normalized_rule = {
+                'title': rule_yaml.get('title', ''),
+                'description': rule_yaml.get('description', ''),
+                'tags': rule_yaml.get('tags', []),
+                'logsource': rule_yaml.get('logsource', {}),
+                'detection': rule_yaml.get('detection', {}),
+                'level': rule_yaml.get('level'),
+                'status': rule_yaml.get('status', 'experimental'),
+            }
+            
+            # Skip if essential fields are missing
+            if not normalized_rule['title'] or not normalized_rule['detection']:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Rule missing essential fields (title or detection)"
+                )
+            
+            # Use behavioral novelty assessment to find similar rules
+            matching_service = SigmaMatchingService(db_session)
+            similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                proposed_rule=normalized_rule,
+                threshold=0.0,  # No threshold - get top matches
+            )
+            
+            # Calculate max similarity
+            max_similarity = max([m.get('similarity', 0.0) for m in similar_matches], default=0.0) if similar_matches else 0.0
+            
+            # Update the queued rule's max_similarity if it's None or different
+            if rule.max_similarity is None or abs(rule.max_similarity - max_similarity) > 0.001:
+                rule.max_similarity = max_similarity
+                rule.similarity_scores = similar_matches[:10]  # Store top 10
+                db_session.commit()
+            
+            # Prepare response
+            return {
+                "success": True,
+                "matches": similar_matches[:20],  # Return top 20
+                "max_similarity": max_similarity,
+                "coverage_summary": {
+                    "covered": len([m for m in similar_matches if m.get('coverage_status') == 'covered']),
+                    "extend": len([m for m in similar_matches if m.get('coverage_status') == 'extend']),
+                    "new": len([m for m in similar_matches if m.get('coverage_status') == 'new']),
+                    "total": len(similar_matches),
+                },
+                "assessment_method": "behavioral_novelty",
+            }
+            
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error finding similar rules for queued rule {queue_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

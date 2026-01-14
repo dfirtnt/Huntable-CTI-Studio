@@ -708,7 +708,7 @@ Return JSON array only, no markdown formatting."""
             matches = []
             for match in novelty_result.get('top_matches', []):
                 # The 'similarity' field from novelty service is already a similarity score (0-1, higher = more similar)
-                # It's the weighted similarity: 0.55 * atom_jaccard + 0.25 * logic_shape + 0.20 * cosine
+                # It's the weighted similarity: 0.70 * atom_jaccard + 0.30 * logic_shape
                 similarity = match.get('similarity', 0.0)  # Already a similarity score, no inversion needed
                 
                 if similarity >= threshold:
@@ -754,8 +754,7 @@ Return JSON array only, no markdown formatting."""
                             'novelty_label': str(novelty_label_value),
                             'novelty_score': novelty_result.get('novelty_score', 1.0),
                             'atom_jaccard': match.get('atom_jaccard', 0.0),
-                            'logic_shape_similarity': match.get('logic_shape_similarity', 0.0),
-                            'cosine': match.get('cosine', 0.0),
+                            'logic_shape_similarity': match.get('logic_shape_similarity'),  # Preserve None for early exit
                             # Explainability
                             'shared_atoms': match.get('shared_atoms', []),
                             'added_atoms': match.get('added_atoms', []),
@@ -764,8 +763,11 @@ Return JSON array only, no markdown formatting."""
                             # Backward compatibility: similarity_breakdown
                             'similarity_breakdown': {
                                 'atom_jaccard': round(match.get('atom_jaccard', 0.0), 4),
-                                'logic_shape_similarity': round(match.get('logic_shape_similarity', 0.0), 4),
-                                'cosine': round(match.get('cosine', 0.0), 4)
+                                'logic_shape_similarity': (
+                                    round(match.get('logic_shape_similarity'), 4) 
+                                    if match.get('logic_shape_similarity') is not None 
+                                    else None
+                                )
                             }
                         })
             

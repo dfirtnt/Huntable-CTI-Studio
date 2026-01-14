@@ -549,7 +549,7 @@ class SigmaSyncService:
                     canonical_json = asdict(canonical_rule)
                     exact_hash = novelty_service.generate_exact_hash(canonical_rule)
                     canonical_text = novelty_service.generate_canonical_text(canonical_rule)
-                    logsource_key = novelty_service.normalize_logsource(rule_data.get('logsource', {}))
+                    logsource_key, _ = novelty_service.normalize_logsource(rule_data.get('logsource', {}))
                 except Exception as e:
                     logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
                     canonical_json = None

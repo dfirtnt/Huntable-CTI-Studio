@@ -85,10 +85,82 @@
                     <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                         ❌ Reject
                     </button>
+                    <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                        ✨ Enrich
+                    </button>
                     <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                        🔍 Cosign Similarity Search
+                        🔍 Similarity Search
                     </button>
                     <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enrich Rule Modal -->
+    <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white">✨ AI-Assisted Rule Enrichment</h3>
+                <button onclick="closeEnrichModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Enrichment Instructions (optional):
+                    </label>
+                    <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Original Rule:
+                    </label>
+                    <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
+                </div>
+                <div id="enrichLoading" class="hidden text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <p class="mt-2 text-gray-600 dark:text-gray-400">Enriching rule with AI...</p>
+                </div>
+                <div id="enrichResult" class="hidden">
+                    <div class="mb-3 flex items-center justify-between">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enriched Rule:
+                        </label>
+                        <div class="flex space-x-2">
+                            <button onclick="toggleEnrichView()" id="toggleViewBtn" class="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                📊 Show Comparison
+                            </button>
+                        </div>
+                    </div>
+                    <div id="enrichComparisonView" class="hidden mb-4">
+                        <div class="mb-2 text-xs text-gray-600 dark:text-gray-400" id="enrichIterationInfo"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900">
+                                <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2" id="enrichLeftLabel">Original Rule</h6>
+                                <pre id="enrichOriginalComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                            </div>
+                            <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
+                                <h6 class="text-xs font-bold text-green-700 dark:text-green-300 mb-2" id="enrichRightLabel">Enriched Rule</h6>
+                                <pre id="enrichedComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs"></textarea>
+                </div>
+                <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
+                    <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                    <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                        ✅ Apply Enriched Rule
+                    </button>
+                    <button onclick="enrichRule()" id="enrichBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                        ✨ Enrich Rule
+                    </button>
+                    <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                        🔄 Enrich Further
+                    </button>
+                    <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                         Cancel
                     </button>
                 </div>
@@ -103,6 +175,8 @@ let currentRuleId = null;
 let isEditMode = false;
 let originalYaml = '';
 let editedYaml = '';
+let currentEnrichedYaml = null; // Track current enriched state for iterative enrichment
+let enrichIteration = 0; // Track number of enrichment iterations
 
 function getStatusBadge(status) {
     const badges = {
@@ -308,8 +382,11 @@ function updateActionButtons() {
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
+            <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                ✨ Enrich
+            </button>
             <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                🔍 Cosign Similarity Search
+                🔍 Similarity Search
             </button>
             <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                 Cancel
@@ -400,6 +477,390 @@ function closeRuleModal() {
     editedYaml = '';
 }
 
+function openEnrichModal() {
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (!rule) return;
+    
+    // Reset state
+    currentEnrichedYaml = null;
+    enrichIteration = 0;
+    
+    // Set original rule YAML
+    document.getElementById('enrichOriginalRule').value = rule.rule_yaml;
+    document.getElementById('enrichInstruction').value = 'Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.';
+    document.getElementById('enrichResult').classList.add('hidden');
+    document.getElementById('enrichError').classList.add('hidden');
+    document.getElementById('applyEnrichBtn').classList.add('hidden');
+    document.getElementById('enrichFurtherBtn').classList.add('hidden');
+    document.getElementById('enrichBtn').classList.remove('hidden');
+    document.getElementById('enrichLoading').classList.add('hidden');
+    
+    // Reset comparison view
+    document.getElementById('enrichComparisonView').classList.add('hidden');
+    document.getElementById('enrichedRuleYaml').classList.remove('hidden');
+    document.getElementById('toggleViewBtn').textContent = '📊 Show Comparison';
+    document.getElementById('enrichLeftLabel').textContent = 'Original Rule';
+    document.getElementById('enrichRightLabel').textContent = 'Enriched Rule';
+    document.getElementById('enrichIterationInfo').textContent = '';
+    
+    // Show modal
+    document.getElementById('enrichModal').classList.remove('hidden');
+}
+
+function closeEnrichModal() {
+    document.getElementById('enrichModal').classList.add('hidden');
+}
+
+async function enrichRule() {
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (!rule) return;
+    
+    // Get API key - try settings API first, fallback to localStorage
+    let apiKey = null;
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            const data = await response.json();
+            const settings = data.settings || {};
+            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+        }
+    } catch (error) {
+        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
+    }
+    
+    // Fallback to localStorage if not found in settings API
+    if (!apiKey) {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+    }
+    
+    if (!apiKey) {
+        document.getElementById('enrichError').textContent = 'Please configure your OpenAI API key in Settings first.';
+        document.getElementById('enrichError').classList.remove('hidden');
+        return;
+    }
+    
+    const instruction = document.getElementById('enrichInstruction').value.trim();
+    
+    // Show loading, hide error and result
+    const enrichBtn = document.getElementById('enrichBtn');
+    enrichBtn.disabled = true;
+    enrichBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Enriching...';
+    enrichBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    
+    document.getElementById('enrichLoading').classList.remove('hidden');
+    document.getElementById('enrichError').classList.add('hidden');
+    document.getElementById('enrichResult').classList.add('hidden');
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OpenAI-API-Key': apiKey
+            },
+            body: JSON.stringify({
+                instruction: instruction || undefined
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const enrichedYaml = data.enriched_yaml;
+            enrichIteration++;
+            
+            // Determine what to compare against
+            const previousYaml = currentEnrichedYaml || document.getElementById('enrichOriginalRule').value;
+            const isIterative = currentEnrichedYaml !== null;
+            
+            console.log('Enrichment successful, showing comparison view', { iteration: enrichIteration, isIterative });
+            
+            // Get all elements first
+            const enrichResult = document.getElementById('enrichResult');
+            const comparisonView = document.getElementById('enrichComparisonView');
+            const textarea = document.getElementById('enrichedRuleYaml');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+            const originalComparison = document.getElementById('enrichOriginalComparison');
+            const enrichedComparison = document.getElementById('enrichedComparison');
+            const applyBtn = document.getElementById('applyEnrichBtn');
+            const enrichBtn = document.getElementById('enrichBtn');
+            const enrichFurtherBtn = document.getElementById('enrichFurtherBtn');
+            const leftLabel = document.getElementById('enrichLeftLabel');
+            const rightLabel = document.getElementById('enrichRightLabel');
+            const iterationInfo = document.getElementById('enrichIterationInfo');
+            
+            if (!enrichResult || !comparisonView || !textarea || !toggleBtn) {
+                console.error('Missing elements for comparison view');
+                alert('Error: Could not display comparison view. Please check console.');
+                return;
+            }
+            
+            // Update current enriched state
+            currentEnrichedYaml = enrichedYaml;
+            
+            // Set enriched rule in textarea
+            textarea.value = enrichedYaml;
+            
+            // Update labels and info based on iteration
+            if (isIterative) {
+                leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
+                rightLabel.textContent = `Enriched (Iteration ${enrichIteration})`;
+                iterationInfo.textContent = `🔄 Iterative enrichment - This is iteration #${enrichIteration}. Building on previous enrichment.`;
+            } else {
+                leftLabel.textContent = 'Original Rule';
+                rightLabel.textContent = 'Enriched Rule';
+                iterationInfo.textContent = '';
+            }
+            
+            // Populate comparison view
+            originalComparison.textContent = previousYaml;
+            enrichedComparison.textContent = enrichedYaml;
+            
+            // Show result section first
+            enrichResult.classList.remove('hidden');
+            
+            // Force a reflow to ensure DOM is updated
+            enrichResult.offsetHeight;
+            
+            // Show comparison view by default
+            comparisonView.classList.remove('hidden');
+            textarea.classList.add('hidden');
+            toggleBtn.textContent = '📝 Show Editor';
+            
+            // Scroll comparison view into view if needed
+            setTimeout(() => {
+                comparisonView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+            // Show buttons
+            applyBtn.classList.remove('hidden');
+            enrichBtn.classList.add('hidden');
+            enrichFurtherBtn.classList.remove('hidden'); // Show "Enrich Further" button
+            
+            console.log('Comparison view should now be visible');
+        } else {
+            document.getElementById('enrichError').textContent = data.detail || 'Error enriching rule';
+            document.getElementById('enrichError').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error enriching rule:', error);
+        document.getElementById('enrichError').textContent = 'Network error: ' + error.message;
+        document.getElementById('enrichError').classList.remove('hidden');
+    } finally {
+        document.getElementById('enrichLoading').classList.add('hidden');
+        const enrichBtn = document.getElementById('enrichBtn');
+        enrichBtn.disabled = false;
+        enrichBtn.innerHTML = '✨ Enrich Rule';
+        enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+}
+
+async function enrichRuleFurther() {
+    // Use the current enriched rule as the base for further enrichment
+    if (!currentEnrichedYaml) {
+        alert('No enriched rule to build upon. Please enrich the rule first.');
+        return;
+    }
+    
+    // Get API key
+    let apiKey = null;
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            const data = await response.json();
+            const settings = data.settings || {};
+            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+        }
+    } catch (error) {
+        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
+    }
+    
+    if (!apiKey) {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+    }
+    
+    if (!apiKey) {
+        document.getElementById('enrichError').textContent = 'Please configure your OpenAI API key in Settings first.';
+        document.getElementById('enrichError').classList.remove('hidden');
+        return;
+    }
+    
+    // Prompt for new instruction
+    const newInstruction = prompt('Enter additional enrichment instructions (or leave empty for default):\n\nThis will enrich the already-enriched rule further.');
+    
+    if (newInstruction === null) return; // User cancelled
+    
+    // Show loading
+    const enrichFurtherBtn = document.getElementById('enrichFurtherBtn');
+    enrichFurtherBtn.disabled = true;
+    enrichFurtherBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Enriching Further...';
+    enrichFurtherBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    
+    document.getElementById('enrichLoading').classList.remove('hidden');
+    document.getElementById('enrichError').classList.add('hidden');
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OpenAI-API-Key': apiKey
+            },
+            body: JSON.stringify({
+                instruction: newInstruction.trim() || undefined,
+                current_rule_yaml: currentEnrichedYaml  // Pass current enriched YAML
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const enrichedYaml = data.enriched_yaml;
+            enrichIteration++;
+            
+            // Get previous version for comparison
+            const previousYaml = currentEnrichedYaml;
+            
+            // Get all elements
+            const enrichResult = document.getElementById('enrichResult');
+            const comparisonView = document.getElementById('enrichComparisonView');
+            const textarea = document.getElementById('enrichedRuleYaml');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+            const originalComparison = document.getElementById('enrichOriginalComparison');
+            const enrichedComparison = document.getElementById('enrichedComparison');
+            const leftLabel = document.getElementById('enrichLeftLabel');
+            const rightLabel = document.getElementById('enrichRightLabel');
+            const iterationInfo = document.getElementById('enrichIterationInfo');
+            
+            // Update current enriched state
+            currentEnrichedYaml = enrichedYaml;
+            
+            // Set enriched rule in textarea
+            textarea.value = enrichedYaml;
+            
+            // Update labels for iterative enrichment
+            leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
+            rightLabel.textContent = `Enriched (Iteration ${enrichIteration})`;
+            iterationInfo.textContent = `🔄 Iterative enrichment - This is iteration #${enrichIteration}. Building on previous enrichment.`;
+            
+            // Populate comparison view
+            originalComparison.textContent = previousYaml;
+            enrichedComparison.textContent = enrichedYaml;
+            
+            // Ensure views are visible
+            enrichResult.classList.remove('hidden');
+            comparisonView.classList.remove('hidden');
+            textarea.classList.add('hidden');
+            toggleBtn.textContent = '📝 Show Editor';
+            
+            // Scroll into view
+            setTimeout(() => {
+                comparisonView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+        } else {
+            document.getElementById('enrichError').textContent = data.detail || 'Error enriching rule further';
+            document.getElementById('enrichError').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error enriching rule further:', error);
+        document.getElementById('enrichError').textContent = 'Network error: ' + error.message;
+        document.getElementById('enrichError').classList.remove('hidden');
+    } finally {
+        document.getElementById('enrichLoading').classList.add('hidden');
+        enrichFurtherBtn.disabled = false;
+        enrichFurtherBtn.innerHTML = '🔄 Enrich Further';
+        enrichFurtherBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+}
+
+async function applyEnrichedRule() {
+    const enrichedYaml = document.getElementById('enrichedRuleYaml').value;
+    if (!enrichedYaml.trim()) {
+        alert('No enriched rule to apply');
+        return;
+    }
+    
+    if (!confirm('Apply the enriched rule? This will update the rule YAML.')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: enrichedYaml })
+        });
+        
+        if (response.ok) {
+            // Close only the enrich modal
+            closeEnrichModal();
+            
+            // Update the rule in the queue array
+            const rule = queue.find(r => r.id === currentRuleId);
+            if (rule) {
+                rule.rule_yaml = enrichedYaml;
+                // Update editedYaml and originalYaml to reflect the change
+                editedYaml = enrichedYaml;
+                originalYaml = enrichedYaml;
+                isEditMode = false;
+                
+                // Re-render the rule preview with updated YAML
+                renderRulePreview(rule);
+            }
+            
+            // Reload queue in background to sync with server
+            loadQueue().catch(err => console.error('Error reloading queue:', err));
+        } else {
+            alert('Error applying enriched rule');
+        }
+    } catch (error) {
+        console.error('Error applying enriched rule:', error);
+        alert('Error applying enriched rule');
+    }
+}
+
+// Close enrich modal when clicking outside
+const enrichModal = document.getElementById('enrichModal');
+if (enrichModal) {
+    enrichModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEnrichModal();
+        }
+    });
+}
+
+// Close enrich modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('enrichModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeEnrichModal();
+        }
+    }
+});
+
+function toggleEnrichView() {
+    const comparisonView = document.getElementById('enrichComparisonView');
+    const toggleBtn = document.getElementById('toggleViewBtn');
+    const textarea = document.getElementById('enrichedRuleYaml');
+    
+    if (!comparisonView || !toggleBtn || !textarea) {
+        console.error('Toggle enrich view: elements not found');
+        return;
+    }
+    
+    if (comparisonView.classList.contains('hidden')) {
+        comparisonView.classList.remove('hidden');
+        textarea.classList.add('hidden');
+        toggleBtn.textContent = '📝 Show Editor';
+    } else {
+        comparisonView.classList.add('hidden');
+        textarea.classList.remove('hidden');
+        toggleBtn.textContent = '📊 Show Comparison';
+    }
+}
+
 // Close modal when clicking outside
 const ruleModal = document.getElementById('ruleModal');
 if (ruleModal) {
@@ -459,12 +920,9 @@ async function checkSimilarRulesForQueue() {
     document.body.appendChild(loadingMsg);
     
     try {
-        // Get LLM provider from Settings
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const llmProvider = settings.aiModel || 'chatgpt';
-        
-        // Use article endpoint to get similar rules
-        const response = await fetch(`/api/articles/${rule.article_id}/sigma-matches?llm_provider=${encodeURIComponent(llmProvider)}&force=true`, {
+        // Use the queued rule's direct comparison endpoint
+        // This compares the specific queued rule's YAML, not the article's generated rules
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/similar-rules?force=true`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -472,15 +930,25 @@ async function checkSimilarRulesForQueue() {
             signal: AbortSignal.timeout(60000)  // 60 second timeout
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
         // Remove loading indicator
         const loadingEl = document.getElementById('similarRulesLoading');
         if (loadingEl) loadingEl.remove();
+        
+        if (!response.ok) {
+            // Try to parse error response
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorData.message || errorMessage;
+            } catch (e) {
+                // If JSON parsing fails, use status text
+                errorMessage = response.statusText || errorMessage;
+            }
+            alert('Error finding similar rules: ' + errorMessage);
+            return;
+        }
+        
+        const data = await response.json();
         
         if (data.success) {
             // Parse current rule YAML to extract rule structure
@@ -720,44 +1188,20 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
     };
     document.addEventListener('keydown', handleEsc);
     
-    // Build coverage summary HTML
-    let coverageHtml = '';
-    if (coverageSummary && coverageSummary.total > 0) {
-        const coveredPercent = ((coverageSummary.covered / coverageSummary.total) * 100).toFixed(1);
-        const extendPercent = ((coverageSummary.extend / coverageSummary.total) * 100).toFixed(1);
-        const newPercent = ((coverageSummary.new / coverageSummary.total) * 100).toFixed(1);
-        
-        coverageHtml = `
-            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md">
-                <h4 class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">📊 Coverage Summary</h4>
-                <div class="grid grid-cols-3 gap-2 text-sm">
-                    <div class="text-center p-2 bg-green-100 dark:bg-green-900 rounded">
-                        <div class="font-bold text-green-700 dark:text-green-300">${coverageSummary.covered}</div>
-                        <div class="text-xs text-green-600 dark:text-green-400">Covered (${coveredPercent}%)</div>
-                    </div>
-                    <div class="text-center p-2 bg-yellow-100 dark:bg-yellow-900 rounded">
-                        <div class="font-bold text-yellow-700 dark:text-yellow-300">${coverageSummary.extend}</div>
-                        <div class="text-xs text-yellow-600 dark:text-yellow-400">Extend (${extendPercent}%)</div>
-                    </div>
-                    <div class="text-center p-2 bg-purple-100 dark:bg-purple-900 rounded">
-                        <div class="font-bold text-purple-700 dark:text-purple-300">${coverageSummary.new}</div>
-                        <div class="text-xs text-purple-600 dark:text-purple-400">New (${newPercent}%)</div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
     
     // Build matches HTML
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
         matchesHtml = `
-            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
-                <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <p>No similar rules found in SigmaHQ repository</p>
-                <p class="text-sm mt-2">This may indicate a novel detection opportunity!</p>
+            <div class="text-center py-8">
+                <div class="w-16 h-16 mx-auto mb-4 text-green-500 dark:text-green-400 flex items-center justify-center">
+                    <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </div>
+                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">✨ Novel Detection Pattern</p>
+                <p class="text-gray-600 dark:text-gray-400 mb-1">No similar rules found in SigmaHQ repository</p>
+                <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing SigmaHQ rules.</p>
             </div>
         `;
     } else {
@@ -823,16 +1267,12 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                             <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
                             <div class="grid grid-cols-2 gap-1 text-xs">
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 55%)</span>:</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
                                     <span class="font-medium text-blue-700 dark:text-blue-300">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 25%)</span>:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1)}%</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Cosine Similarity <span class="text-gray-500">(weight: 20%)</span>:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.cosine || match.similarity_breakdown?.cosine || 0) * 100).toFixed(1)}%</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
+                                    <span class="font-medium text-blue-700 dark:text-blue-300">${match.logic_shape_similarity === null || match.logic_shape_similarity === undefined || match.similarity_breakdown?.logic_shape_similarity === null || match.similarity_breakdown?.logic_shape_similarity === undefined ? 'N/A' : ((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1) + '%'}</span>
                                 </div>
                                 <div class="col-span-2 pt-1 border-t border-blue-200 dark:border-blue-700 flex justify-between">
                                     <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
@@ -845,7 +1285,6 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                         <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-gray-100">${escapeHtml(match.rule_id || 'N/A')}</code></div>
                         <div><span class="font-medium text-gray-700 dark:text-gray-300">Status:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.status || 'N/A')}</span></div>
-                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Match Type:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.match_level || 'article')}</span></div>
                     </div>
                     
                     ${match.tags && match.tags.length > 0 ? `
@@ -869,12 +1308,6 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                                 ).join('')}
                                 ${match.matched_discriminators.length > 5 ? `<span class="text-xs text-gray-500 dark:text-gray-400">+${match.matched_discriminators.length - 5} more</span>` : ''}
                             </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${match.coverage_reasoning ? `
-                        <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400 italic">
-                            💡 ${escapeHtml(match.coverage_reasoning)}
                         </div>
                     ` : ''}
                     
@@ -954,15 +1387,13 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
             </div>
             
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                Found ${matches ? matches.length : 0} most similar rules${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches[0] && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (embedding-based)'} (sorted by similarity)
+                Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)
                 ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}
                     </div>
                 ` : ''}
             </div>
-            
-            ${coverageHtml}
             
             <div id="similarRulesMatchesContainer" class="space-y-3 max-h-96 overflow-y-auto">
                 ${matchesHtml}
