@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed article content background from `dark:bg-gray-950` to `dark:bg-gray-800` for better visibility
   - All buttons and annotation capabilities now working correctly
   - Resolved all "Uncaught ReferenceError" and "Uncaught SyntaxError" console errors
+- **Database Restore with pgvector Extension** (2026-01-14): Fixed restore operations to automatically enable pgvector extension for SIGMA similarity search
+  - Restore scripts now explicitly enable pgvector extension after database creation
+  - Ensures vector embeddings and similarity search features work correctly after restore
+  - Updated both `restore_database.py` and `restore_system.py` scripts
+  - Added verification steps in backup/restore documentation
 
 ### Added
 - **Queued Rule Preview Modal** (2026-01-14): Added comprehensive rule preview and management from execution view
