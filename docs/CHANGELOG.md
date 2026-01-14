@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **LM Studio Error Message Display** (2026-01-14): Fixed incorrect LM Studio availability warning appearing when OpenAI or Anthropic is selected
+  - Error message now only displays when LM Studio is actually selected as the provider
+  - Fixed for both Rank Agent and Extract Agent model selectors
+  - Provider state now read from DOM to update dynamically when provider changes
+- **Live Execution View QA Results** (2026-01-14): Fixed confusing QA result display issues
+  - Fixed QA results showing "QA failed without feedback" when verdict is "PASS"
+  - QA results with "pass" verdict now correctly show "QA passed successfully" summary
+  - Fixed duplicate QA results appearing for same agent (CmdlineExtract + CmdLineQA)
+  - Improved QA result deduplication by tracking mapped agent names
+  - QA results now include step context to show which workflow step they belong to
+- **Live Execution View Step Progression** (2026-01-14): Fixed misleading step progression display
+  - Added step completion tracking for extract_agent node
+  - Step completion events now emitted when steps finish
+  - LLM interactions and QA results include step context to clarify which step they belong to
+  - Fixed ranking score appearing after extract_agent step change (now appears immediately when available)
 - **Workflow Config Selected Models Display** (2026-01-14): Fixed Rank Agent not appearing in Selected Models list
   - Fixed provider-agnostic model retrieval using `getActiveAgentModelValue()` instead of direct DOM access
   - Rank Agent now appears correctly for all providers (LMStudio, OpenAI, Anthropic)
@@ -21,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolved all "Uncaught ReferenceError" and "Uncaught SyntaxError" console errors
 
 ### Added
+- **Queued Rule Preview Modal** (2026-01-14): Added comprehensive rule preview and management from execution view
+  - Modal displays queued SIGMA rule details including YAML, similarity scores, and metadata
+  - Inline YAML editing with save functionality via PUT `/api/sigma-queue/{id}/yaml`
+  - Approve/reject actions with review notes support
+  - Similarity search integration with loading indicators
+  - Improved event listener attachment for dynamically rendered rule links
+  - Modal accessible from execution detail view queued rules list
+- **Live Execution View Step Context** (2026-01-14): Enhanced event display with workflow step context
+  - LLM interactions now show which workflow step they belong to (e.g., `[extract_agent]`)
+  - QA results include step context for better event grouping
+  - Step completion events displayed when steps finish
+  - Better visibility into execution flow and event ordering
 - **Agent Status Indicators** (2026-01-14): Added enabled/disabled badges to Selected Models list in workflow config
   - Green "Enabled" badge for active agents
   - Gray "Disabled" badge for inactive agents
@@ -36,6 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports both article_id and URL-based lookups
 
 ### Changed
+- **SIGMA Similarity Algorithm** (2026-01-14): Replaced cosine similarity with behavioral novelty assessment for SIGMA rule similarity search
+  - Similarity now calculated as weighted combination: 70% atom Jaccard + 30% logic shape similarity
+  - Atom Jaccard measures overlap of detection predicates (field/operator/value combinations)
+  - Logic shape similarity measures structural similarity of detection logic (AND/OR/NOT patterns)
+  - Service mismatches and filter differences apply penalties that reduce similarity
+  - Updated similarity threshold help text to explain new algorithm components
+  - Removed embedding model selector from workflow config (no longer needed for similarity search)
+  - Backend still accepts `SigmaEmbeddingModel` for backward compatibility but UI no longer sends it
 - **Proctree Eval Expected Counts** (2026-01-12): Updated process_lineage expected counts in `config/eval_articles.yaml`
   - Article 68: 2 → 1
   - Article 62: Added (4)
