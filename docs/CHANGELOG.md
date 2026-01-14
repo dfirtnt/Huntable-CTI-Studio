@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Article Detail Page JavaScript Errors** (2026-01-14): Fixed critical JavaScript syntax error and function availability issues
+  - Fixed unclosed template string in `displaySigmaRuleDetails` function causing "Unexpected token ';'" syntax error
+  - Moved critical functions (`setAnnotationMode`, `copyArticleContentToClipboard`) to early script block for immediate availability
+  - Fixed JavaScript else block alignment in `navigateToNextUnclassified` function
+  - Changed article content background from `dark:bg-gray-950` to `dark:bg-gray-800` for better visibility
+  - All buttons and annotation capabilities now working correctly
+  - Resolved all "Uncaught ReferenceError" and "Uncaught SyntaxError" console errors
+
 ### Added
 - **Bulk Proctree Eval Update Script** (2026-01-12): Added `scripts/update_proctree_expected_counts.py` for bulk updating process_lineage expected counts from YAML config
   - Updates all SubagentEvaluationTable records matching articles in config
