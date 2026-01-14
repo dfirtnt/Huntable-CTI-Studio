@@ -538,6 +538,25 @@ class SigmaSyncService:
                 # Store model name for tracking
                 embedding_model_name = "intfloat/e5-base-v2"
                 
+                # Compute canonical fields for behavioral novelty assessment
+                try:
+                    from src.services.sigma_novelty_service import SigmaNoveltyService
+                    novelty_service = SigmaNoveltyService(db_session=db_session)
+                    canonical_rule = novelty_service.build_canonical_rule(rule_data)
+                    
+                    import json
+                    from dataclasses import asdict
+                    canonical_json = asdict(canonical_rule)
+                    exact_hash = novelty_service.generate_exact_hash(canonical_rule)
+                    canonical_text = novelty_service.generate_canonical_text(canonical_rule)
+                    logsource_key = novelty_service.normalize_logsource(rule_data.get('logsource', {}))
+                except Exception as e:
+                    logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
+                    canonical_json = None
+                    exact_hash = None
+                    canonical_text = None
+                    logsource_key = None
+                
                 # Create or update rule record (with no autoflush to prevent premature commits)
                 with db_session.no_autoflush:
                     existing_rule = db_session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
@@ -558,6 +577,11 @@ class SigmaSyncService:
                         existing_rule.logsource_embedding = logsource_emb
                         existing_rule.detection_structure_embedding = detection_structure_emb
                         existing_rule.detection_fields_embedding = detection_fields_emb
+                        # Update canonical fields
+                        existing_rule.canonical_json = canonical_json
+                        existing_rule.exact_hash = exact_hash
+                        existing_rule.canonical_text = canonical_text
+                        existing_rule.logsource_key = logsource_key
                     else:
                         # Create new rule
                         new_rule = SigmaRuleTable(
@@ -585,7 +609,12 @@ class SigmaSyncService:
                             tags_embedding=tags_emb,
                             logsource_embedding=logsource_emb,
                             detection_structure_embedding=detection_structure_emb,
-                            detection_fields_embedding=detection_fields_emb
+                            detection_fields_embedding=detection_fields_emb,
+                            # Canonical fields
+                            canonical_json=canonical_json,
+                            exact_hash=exact_hash,
+                            canonical_text=canonical_text,
+                            logsource_key=logsource_key
                         )
                         db_session.add(new_rule)
                 

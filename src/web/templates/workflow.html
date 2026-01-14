@@ -10606,15 +10606,15 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                             <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
                             <div class="grid grid-cols-2 gap-1 text-xs">
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard (55%):</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 55%)</span>:</span>
                                     <span class="font-medium text-blue-700 dark:text-blue-300">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape (25%):</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 25%)</span>:</span>
                                     <span class="font-medium text-blue-700 dark:text-blue-300">${((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1)}%</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Cosine Similarity (20%):</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Cosine Similarity <span class="text-gray-500">(weight: 20%)</span>:</span>
                                     <span class="font-medium text-blue-700 dark:text-blue-300">${((match.cosine || match.similarity_breakdown?.cosine || 0) * 100).toFixed(1)}%</span>
                                 </div>
                                 <div class="col-span-2 pt-1 border-t border-blue-200 dark:border-blue-700 flex justify-between">

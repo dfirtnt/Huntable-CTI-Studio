@@ -623,20 +623,12 @@ async function viewExecution(executionId) {
                                                     </div>
                                                 ` : ''}
                                                 
-                                                ${ruleStatus || ruleLevel ? `
+                                                ${ruleStatus ? `
                                                     <div class="flex gap-4">
-                                                        ${ruleStatus ? `
-                                                            <div>
-                                                                <strong class="text-gray-900 dark:text-white text-sm">Status:</strong>
-                                                                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleStatus}</span>
-                                                            </div>
-                                                        ` : ''}
-                                                        ${ruleLevel ? `
-                                                            <div>
-                                                                <strong class="text-gray-900 dark:text-white text-sm">Level:</strong>
-                                                                <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleLevel}</span>
-                                                            </div>
-                                                        ` : ''}
+                                                        <div>
+                                                            <strong class="text-gray-900 dark:text-white text-sm">Status:</strong>
+                                                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">${ruleStatus}</span>
+                                                        </div>
                                                     </div>
                                                 ` : ''}
                                                 
@@ -850,7 +842,6 @@ async function viewExecution(executionId) {
                                                                                 ${similarRule.description ? `<div class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">${similarRule.description.substring(0, 150)}${similarRule.description.length > 150 ? '...' : ''}</div>` : ''}
                                                                                 <div class="flex flex-wrap gap-2 mt-2">
                                                                                     ${similarRule.rule_id ? `<span class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">ID: ${similarRule.rule_id}</span>` : ''}
-                                                                                    ${similarRule.level ? `<span class="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 rounded text-purple-700 dark:text-purple-300">Level: ${similarRule.level}</span>` : ''}
                                                                                     ${similarRule.status ? `<span class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 rounded text-green-700 dark:text-green-300">${similarRule.status}</span>` : ''}
                                                                                 </div>
                                                                             </div>
@@ -1366,10 +1357,6 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                         ` : ''}
                         ${ruleData.level ? `
                             <div>
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Level:</h4>
-                                <div class="text-sm"><span class="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">${ruleData.level}</span></div>
-                            </div>
-                        ` : ''}
                         ${ruleData.status ? `
                             <div>
                                 <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Status:</h4>
