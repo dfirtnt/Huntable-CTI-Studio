@@ -123,6 +123,11 @@
 </div>
 
 <script>
+// Ensure previewQueuedRule is available early
+if (typeof window.previewQueuedRule === 'undefined') {
+    window.previewQueuedRule = null; // Will be defined later
+}
+
 let executions = [];
 
 function getStatusBadge(status) {
@@ -915,7 +920,7 @@ async function viewExecution(executionId) {
                                             <div class="mt-2 space-y-1">
                                                 ${queuedRuleIds.map((ruleId, idx) => `
                                                     <div class="text-xs">
-                                                        <span onclick="previewQueuedRule(${ruleId})" 
+                                                        <span data-queued-rule-id="${ruleId}"
                                                               class="text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">
                                                             📋 View Queued Rule #${ruleId}
                                                         </span>
@@ -1014,6 +1019,25 @@ async function viewExecution(executionId) {
             `;
             
             contentDiv.innerHTML = content;
+            
+            // Attach event listeners to queued rule links after content is inserted
+            setTimeout(() => {
+                const ruleLinks = contentDiv.querySelectorAll('[data-queued-rule-id]');
+                ruleLinks.forEach(link => {
+                    const ruleId = parseInt(link.getAttribute('data-queued-rule-id'));
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (window.previewQueuedRule) {
+                            window.previewQueuedRule(ruleId);
+                        } else {
+                            console.error('previewQueuedRule function not found');
+                            alert('Preview function not available. Please refresh the page.');
+                        }
+                    });
+                });
+            }, 100);
+            
             modal.classList.remove('hidden');
         } else {
             // Handle non-ok response
@@ -1645,7 +1669,9 @@ let isEditMode = false;
 let originalYaml = '';
 let editedYaml = '';
 
-async function previewQueuedRule(ruleId) {
+// Make function globally accessible
+window.previewQueuedRule = async function previewQueuedRule(ruleId) {
+    console.log('previewQueuedRule called with ruleId:', ruleId);
     try {
         // Fetch all queued rules and find the one with matching ID
         const response = await fetch(`/api/sigma-queue/list?limit=1000`);
@@ -1668,7 +1694,14 @@ async function previewQueuedRule(ruleId) {
         editedYaml = rule.rule_yaml;
         
         renderQueuedRulePreview(rule);
-        document.getElementById('ruleModal').classList.remove('hidden');
+        const modal = document.getElementById('ruleModal');
+        if (!modal) {
+            console.error('ruleModal element not found!');
+            alert('Rule preview modal not found. Please refresh the page.');
+            return;
+        }
+        modal.classList.remove('hidden');
+        console.log('Rule preview modal opened');
     } catch (error) {
         console.error('Error fetching queued rule:', error);
         alert(`Error loading rule: ${error.message}`);

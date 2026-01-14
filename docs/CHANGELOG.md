@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Workflow Config Selected Models Display** (2026-01-14): Fixed Rank Agent not appearing in Selected Models list
+  - Fixed provider-agnostic model retrieval using `getActiveAgentModelValue()` instead of direct DOM access
+  - Rank Agent now appears correctly for all providers (LMStudio, OpenAI, Anthropic)
+  - Also fixed Extract and SIGMA agents to use same provider-agnostic approach
 - **Article Detail Page JavaScript Errors** (2026-01-14): Fixed critical JavaScript syntax error and function availability issues
   - Fixed unclosed template string in `displaySigmaRuleDetails` function causing "Unexpected token ';'" syntax error
   - Moved critical functions (`setAnnotationMode`, `copyArticleContentToClipboard`) to early script block for immediate availability
@@ -17,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolved all "Uncaught ReferenceError" and "Uncaught SyntaxError" console errors
 
 ### Added
+- **Agent Status Indicators** (2026-01-14): Added enabled/disabled badges to Selected Models list in workflow config
+  - Green "Enabled" badge for active agents
+  - Gray "Disabled" badge for inactive agents
+  - Status reflects Rank Agent toggle, Extract sub-agent toggles, and QA agent checkboxes
+  - Badges support dark mode styling
+- **OS Detection Fallback in Selected Models** (2026-01-14): Added OS Detection Fallback to Selected Models list
+  - Appears when fallback model is configured and toggle is enabled
+  - Uses provider-agnostic model retrieval for all providers
+  - Displays with "Enabled" badge when configured
 - **Bulk Proctree Eval Update Script** (2026-01-12): Added `scripts/update_proctree_expected_counts.py` for bulk updating process_lineage expected counts from YAML config
   - Updates all SubagentEvaluationTable records matching articles in config
   - Recalculates scores for completed evaluations
