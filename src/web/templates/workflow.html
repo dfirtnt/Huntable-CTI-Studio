@@ -1152,7 +1152,6 @@
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">SIGMA Generator Agent</h3>
                             <span id="sigma-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
-                            <span id="sigma-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -1190,7 +1189,7 @@
                                 <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" title="In live workflow, the SIGMA agent ingests observables produced by the Extract Agents, not raw article content.">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
                                 </svg>
-                                <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agents.</p>
+                                <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agents (unless "Use Full Article Content" is enabled below).</p>
                             </div>
                             <div class="flex gap-2">
                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm font-medium rounded-md transition-colors">
@@ -1199,30 +1198,7 @@
                             </div>
                         </div>
                         <!-- SIGMA Agent Prompt -->
-                        <div id="sigma-agent-prompt-container"></div>
-                        <!-- SIGMA QA Agent Toggle -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        SIGMA QA Agent
-                                    </label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Enable QA validation using the configured QA retry limit (default 5, max 20)
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" 
-                                           id="qa-sigmaagent" 
-                                           name="qa_enabled[SigmaAgent]"
-                                           class="sr-only peer" 
-                                           onchange="updateQABadge('sigma-agent'); autoSaveConfig();">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                                </label>
-                            </div>
-                        </div>
-                        <!-- SIGMA QA Agent Prompt -->
-                        <div id="sigma-agent-qa-prompt-container" class="hidden"></div>
+                        <div id="sigma-agent-prompt-container">                        </div>
                         
                         <!-- SIGMA Use Full Article Content Toggle -->
                         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -3817,8 +3793,7 @@ window.updateQABadge = function(agentPrefix) {
     const checkboxId = agentPrefix === 'rank-agent' ? 'qa-rankagent' :
                       agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
                       agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
-                      agentPrefix === 'huntqueriesextract-agent' ? 'qa-huntqueriesextract' :
-                      agentPrefix === 'sigma-agent' ? 'qa-sigmaagent' : null;
+                      agentPrefix === 'huntqueriesextract-agent' ? 'qa-huntqueriesextract' : null;
     
     if (!badge) {
         console.error(`updateQABadge: Badge not found for prefix: ${agentPrefix}, badgeId: ${badgeId}`);
@@ -3865,8 +3840,6 @@ window.updateQABadge = function(agentPrefix) {
                 renderQAPrompt('ProcTreeQA', `${agentPrefix}-qa-prompt-container`);
             } else if (agentPrefix === 'huntqueriesextract-agent') {
                 renderQAPrompt('HuntQueriesQA', `${agentPrefix}-qa-prompt-container`);
-            } else {
-                renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
             }
             
             // Force re-initialization after renderQAPrompt completes
@@ -4125,8 +4098,7 @@ function setupQAEventListeners() {
     const qaCheckboxes = [
         { id: 'qa-rankagent', prefix: 'rank-agent' },
         { id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
-        { id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
-        { id: 'qa-sigmaagent', prefix: 'sigma-agent' }
+        { id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' }
     ];
     
     qaCheckboxes.forEach(function(item) {
@@ -5995,11 +5967,11 @@ function renderQAPrompt(agentName, containerId) {
     // Use requestAnimationFrame to ensure DOM is fully updated and visible before initialization
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            if (typeof initCollapsiblePanels === 'function') {
-                // Initialize within container first, then globally to catch any missed panels
-                initCollapsiblePanels(container);
-                initCollapsiblePanels();
-            }
+        if (typeof initCollapsiblePanels === 'function') {
+            // Initialize within container first, then globally to catch any missed panels
+            initCollapsiblePanels(container);
+            initCollapsiblePanels();
+        }
         });
     });
 }
@@ -6019,8 +5991,7 @@ function loadQASettings2() {
     const agents = [
         { name: 'CmdlineExtract', id: 'qa-cmdlineextract', prefix: 'cmdlineextract-agent' },
         { name: 'ProcTreeExtract', id: 'qa-proctreeextract', prefix: 'proctreeextract-agent' },
-        { name: 'HuntQueriesExtract', id: 'qa-huntqueriesextract', prefix: 'huntqueriesextract-agent' },
-        { name: 'SigmaAgent', id: 'qa-sigmaagent', prefix: 'sigma-agent' }
+        { name: 'HuntQueriesExtract', id: 'qa-huntqueriesextract', prefix: 'huntqueriesextract-agent' }
     ];
     
     agents.forEach(agent => {
@@ -7208,8 +7179,7 @@ function getAllSelectedModelsWithProviders() {
     const qaCheckboxes = {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
-        'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
-        'SigmaAgent': document.getElementById('qa-sigmaagent')
+        'ProcTreeExtract': document.getElementById('qa-proctreeextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
@@ -7379,7 +7349,7 @@ function updateConfigDisplay() {
             : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
         const badgeText = enabled ? 'Enabled' : 'Disabled';
         return {
-            text: `${m.agent}: ${m.model} (${m.provider})`,
+        text: `${m.agent}: ${m.model} (${m.provider})`,
             indent: m.indent,
             enabled: enabled,
             badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
@@ -7655,8 +7625,7 @@ function getLMStudioModelsOnly() {
     const qaCheckboxes = {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
-        'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
-        'SigmaAgent': document.getElementById('qa-sigmaagent')
+        'ProcTreeExtract': document.getElementById('qa-proctreeextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
@@ -7686,17 +7655,6 @@ function getLMStudioModelsOnly() {
         }
     }
     
-    // SIGMA Agent - only if QA enabled
-    if (qaEnabled.SigmaAgent) {
-        const sigmaProviderSelect = document.getElementById('sigmaagent-provider');
-        if (sigmaProviderSelect) {
-            const sigmaProvider = (sigmaProviderSelect.value || '').trim().toLowerCase();
-            if (sigmaProvider === 'lmstudio') {
-                const sigmaModel = document.getElementById('sigmaagent-model-2')?.value.trim();
-                if (sigmaModel && !isEmbeddingModel(sigmaModel)) models.add(sigmaModel);
-            }
-        }
-    }
     
     // Sub-agent models (only if explicitly set, not using ExtractAgent model)
     // Sub-agents have their own provider selectors
@@ -10806,6 +10764,14 @@ async function checkSimilarRulesForQueue() {
         const loadingEl = document.getElementById('similarRulesLoading');
         if (loadingEl) loadingEl.remove();
         
+        // Debug logging
+        console.log('Similarity search response:', {
+            success: data.success,
+            matchesCount: data.matches ? data.matches.length : 0,
+            assessmentMethod: data.assessment_method,
+            matches: data.matches ? data.matches.slice(0, 2) : null
+        });
+        
         if (data.success) {
             // Parse current rule YAML to extract rule structure
             let currentRuleParsed = null;
@@ -11053,7 +11019,7 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
                 <div class="w-16 h-16 mx-auto mb-4 text-green-500 dark:text-green-400 flex items-center justify-center">
                     <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                    </svg>
+                </svg>
                 </div>
                 <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">✨ Novel Detection Pattern</p>
                 <p class="text-gray-600 dark:text-gray-400 mb-1">No similar rules found in SigmaHQ repository</p>
