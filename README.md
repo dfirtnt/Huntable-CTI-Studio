@@ -51,3 +51,4 @@ The documentation has been reorganized under `/docs` and is published with MkDoc
 - **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery + optional LangGraph server; start with `./start.sh`.
 
 For full details, begin at `docs/index.md`.
+# SIGMASimTest
