@@ -3852,7 +3852,11 @@ window.updateQABadge = function(agentPrefix) {
             qaPromptContainer = document.getElementById('rank-qa-agent-prompt-content');
         }
         if (qaPromptContainer) {
+            // Remove hidden class first to ensure container is visible
             qaPromptContainer.classList.remove('hidden');
+            // Force a reflow to ensure the browser processes the visibility change
+            void qaPromptContainer.offsetHeight;
+            
             if (agentPrefix === 'rank-agent') {
                 renderQAPrompt('QAAgent', 'rank-qa-agent-prompt-content');
             } else if (agentPrefix === 'cmdlineextract-agent') {
@@ -3864,7 +3868,17 @@ window.updateQABadge = function(agentPrefix) {
             } else {
                 renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
             }
-            // renderQAPrompt already initializes collapsible panels, no need to call again
+            
+            // Force re-initialization after renderQAPrompt completes
+            // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (typeof initCollapsiblePanels === 'function') {
+                        initCollapsiblePanels(qaPromptContainer);
+                        initCollapsiblePanels();
+                    }
+                });
+            });
         }
         if (qaConfigs) {
             qaConfigs.classList.remove('hidden');
@@ -5972,6 +5986,12 @@ function renderQAPrompt(agentName, containerId) {
     `;
     
     // Re-initialize collapsible panels for dynamically added content
+    // Clear any existing initialization markers first (in case of re-render)
+    const panelHeaders = container.querySelectorAll('[data-collapsible-panel]');
+    panelHeaders.forEach(header => {
+        header.removeAttribute('data-collapsible-initialized');
+    });
+    
     // Use requestAnimationFrame to ensure DOM is fully updated and visible before initialization
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
