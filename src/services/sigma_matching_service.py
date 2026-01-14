@@ -679,7 +679,10 @@ Return JSON array only, no markdown formatting."""
     
     def compare_proposed_rule_to_embeddings(self, proposed_rule: Dict[str, Any], threshold: float = 0.0) -> List[Dict[str, Any]]:
         """
-        Compare proposed Sigma rule to existing Sigma rules using weighted multi-vector similarity.
+        Compare proposed Sigma rule to existing Sigma rules using behavioral novelty assessment.
+
+        This method now delegates to the novelty service for behavioral comparison.
+        Maintains backward compatibility by converting novelty results to similarity format.
 
         Args:
             proposed_rule: The proposed Sigma rule to compare.
@@ -689,283 +692,86 @@ Return JSON array only, no markdown formatting."""
             List of Sigma rules with similarity scores (sorted by similarity, no threshold filter).
         """
         try:
-            # Generate section embeddings for the proposed rule
-            if not self.sigma_embedding_client:
-                logger.error("LM Studio client unavailable - cannot compare proposed rule")
-                return []
+            from src.services.sigma_novelty_service import SigmaNoveltyService
             
-            from src.services.sigma_sync_service import SigmaSyncService
-            sync_service = SigmaSyncService()
+            # Initialize novelty service with database session
+            novelty_service = SigmaNoveltyService(db_session=self.db)
             
-            # Generate section embedding texts
-            section_texts = sync_service.create_section_embeddings_text(proposed_rule)
+            # Assess novelty
+            novelty_result = novelty_service.assess_novelty(
+                proposed_rule=proposed_rule,
+                threshold=threshold,
+                top_k=20
+            )
             
-            # Generate embeddings for each section (batch for efficiency)
-            # New format: title, description, tags, signature (4 sections)
-            section_texts_list = [
-                section_texts['title'],
-                section_texts['description'],
-                section_texts['tags'],
-                section_texts['signature']
-            ]
-            
-            section_embeddings = self.sigma_embedding_client.generate_embeddings_batch(section_texts_list)
-            
-            # Handle cases where batch might return fewer embeddings than expected
-            while len(section_embeddings) < 4:
-                section_embeddings.append([0.0] * 768)  # Zero vector for missing sections
-            
-            # Prepare embedding strings for pgvector
-            # Only create embedding strings if vectors are valid (768 dimensions)
-            def safe_embedding_str(emb, index):
-                if emb and len(emb) == 768:
-                    return '[' + ','.join(map(str, emb)) + ']'
-                return None
-            
-            # For backward compatibility, use signature embedding for all three fields
-            signature_emb = safe_embedding_str(section_embeddings[3], 3)
-            embeddings_dict = {
-                'title': safe_embedding_str(section_embeddings[0], 0),
-                'description': safe_embedding_str(section_embeddings[1], 1),
-                'tags': safe_embedding_str(section_embeddings[2], 2),
-                'logsource': signature_emb,  # Use signature for backward compatibility
-                'detection_structure': signature_emb,  # Use signature for backward compatibility
-                'detection_fields': signature_emb  # Use signature for backward compatibility
-            }
-
-            # Check if we have section embeddings, fallback to main embedding if not
-            has_section_embeddings = any(embeddings_dict.values())
-            
-            if not has_section_embeddings:
-                # Fallback: use main embedding for backward compatibility
-                logger.warning("Section embeddings not available, falling back to main embedding")
-                main_embedding_text = sync_service.create_rule_embedding_text(proposed_rule)
-                main_embedding = self.sigma_embedding_client.generate_embedding(main_embedding_text)
-                main_embedding_str = '[' + ','.join(map(str, main_embedding)) + ']'
-                
-                from sqlalchemy import text
-                query_text = """
-                    SELECT 
-                        sr.id,
-                        sr.rule_id,
-                        sr.title,
-                        sr.description,
-                        sr.logsource,
-                        sr.detection,
-                        sr.tags,
-                        sr.level,
-                        sr.status,
-                        sr.file_path,
-                        1 - (sr.embedding <=> %(embedding)s::vector) AS similarity
-                    FROM sigma_rules sr
-                    WHERE sr.embedding IS NOT NULL
-                    ORDER BY similarity DESC
-                    LIMIT 20
-                """
-                
-                connection = self.db.connection()
-                cursor = connection.connection.cursor()
-                cursor.execute(query_text, {'embedding': main_embedding_str})
-                rows = cursor.fetchall()
-                cursor.close()
-                
-                matches = []
-                for row in rows:
-                    similarity = float(row[10]) if row[10] is not None else 0.0
-                    if similarity >= threshold:
-                        matches.append({
-                            'id': row[0],
-                            'rule_id': row[1],
-                            'title': row[2],
-                            'description': row[3],
-                            'logsource': row[4],
-                            'detection': row[5],
-                            'tags': row[6],
-                            'level': row[7],
-                            'status': row[8],
-                            'file_path': row[9],
-                            'similarity': similarity,
-                            'similarity_score': similarity
-                        })
-                
-                return matches
-            
-            # Query for similar Sigma rules using weighted multi-vector similarity
-            # Uses standardized weights from SIMILARITY_WEIGHTS constant
-            # Signature combines logsource (10.5%), detection_structure (9.5%), and detection_fields (67.4%) = 87.4%
-            from sqlalchemy import text
-            
-            # Use zero vectors for missing embeddings (PostgreSQL handles NULL parameters poorly)
-            zero_vector = '[' + ','.join(['0.0'] * 768) + ']'
-            
-            query_text = """
-                SELECT 
-                    sr.id,
-                    sr.rule_id,
-                    sr.title,
-                    sr.description,
-                    sr.logsource,
-                    sr.detection,
-                    sr.tags,
-                    sr.level,
-                    sr.status,
-                    sr.file_path,
-                    CASE 
-                        WHEN sr.title_embedding IS NOT NULL AND %(title_emb)s != %(zero_vec)s
-                            THEN 1 - (sr.title_embedding <=> %(title_emb)s::vector) 
-                        ELSE 0.0 
-                    END AS title_sim,
-                    CASE 
-                        WHEN sr.description_embedding IS NOT NULL AND %(desc_emb)s != %(zero_vec)s
-                            THEN 1 - (sr.description_embedding <=> %(desc_emb)s::vector) 
-                        ELSE 0.0 
-                    END AS desc_sim,
-                    CASE 
-                        WHEN sr.tags_embedding IS NOT NULL AND %(tags_emb)s != %(zero_vec)s
-                            THEN 1 - (sr.tags_embedding <=> %(tags_emb)s::vector) 
-                        ELSE 0.0 
-                    END AS tags_sim,
-                    CASE 
-                        WHEN sr.logsource_embedding IS NOT NULL AND %(logsource_emb)s != %(zero_vec)s
-                            THEN 1 - (sr.logsource_embedding <=> %(logsource_emb)s::vector) 
-                        ELSE 0.0 
-                    END AS logsource_sim,
-                    CASE 
-                        WHEN sr.detection_structure_embedding IS NOT NULL AND %(det_struct_emb)s != %(zero_vec)s
-                            THEN 1 - (sr.detection_structure_embedding <=> %(det_struct_emb)s::vector) 
-                        ELSE 0.0 
-                    END AS det_struct_sim,
-                    CASE 
-                        WHEN sr.detection_fields_embedding IS NOT NULL AND %(det_fields_emb)s != %(zero_vec)s
-                            THEN 1 - (sr.detection_fields_embedding <=> %(det_fields_emb)s::vector) 
-                        ELSE 0.0 
-                    END AS det_fields_sim
-                FROM sigma_rules sr
-                WHERE (
-                    sr.title_embedding IS NOT NULL OR
-                    sr.description_embedding IS NOT NULL OR
-                    sr.tags_embedding IS NOT NULL OR
-                    sr.logsource_embedding IS NOT NULL OR
-                    sr.detection_structure_embedding IS NOT NULL OR
-                    sr.detection_fields_embedding IS NOT NULL
-                )
-                LIMIT 50
-            """
-            
-            # Use zero vector for missing embeddings instead of NULL
-            params = {
-                'title_emb': embeddings_dict['title'] or zero_vector,
-                'desc_emb': embeddings_dict['description'] or zero_vector,
-                'tags_emb': embeddings_dict['tags'] or zero_vector,
-                'logsource_emb': embeddings_dict['logsource'] or zero_vector,
-                'det_struct_emb': embeddings_dict['detection_structure'] or zero_vector,
-                'det_fields_emb': embeddings_dict['detection_fields'] or zero_vector,
-                'zero_vec': zero_vector
-            }
-            
-            # Execute with raw connection
-            connection = self.db.connection()
-            cursor = connection.connection.cursor()
-            
-            # Log which embeddings we have
-            emb_count = sum(1 for k, v in embeddings_dict.items() if v is not None and k != 'description')
-            logger.info(f"Executing similarity query with {emb_count}/6 section embeddings available")
-            
-            try:
-                cursor.execute(query_text, params)
-                rows = cursor.fetchall()
-                logger.info(f"Query returned {len(rows)} rows before similarity computation")
-            except Exception as e:
-                logger.error(f"Query execution failed: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                raise
-            finally:
-                cursor.close()
-
-            # Compute weighted similarity scores and normalize
-            matches_raw = []
-            for row in rows:
-                title_sim = float(row[10]) if row[10] is not None else 0.0
-                desc_sim = float(row[11]) if row[11] is not None else 0.0
-                tags_sim = float(row[12]) if row[12] is not None else 0.0
-                logsource_sim = float(row[13]) if row[13] is not None else 0.0
-                det_struct_sim = float(row[14]) if row[14] is not None else 0.0
-                det_fields_sim = float(row[15]) if row[15] is not None else 0.0
-                
-                # Weighted similarity using standardized weights
-                # Signature combines logsource (10.5%), detection_structure (9.5%), and detection_fields (67.4%)
-                # Since all three use the same signature embedding, we use signature_sim for all
-                signature_sim = logsource_sim  # All three are the same (signature embedding)
-                weighted_sim = self._calculate_weighted_similarity(
-                    title_sim, desc_sim, tags_sim, signature_sim
-                )
-                
-                matches_raw.append({
-                    'id': row[0],
-                    'rule_id': row[1],
-                    'title': row[2],
-                    'description': row[3],
-                    'logsource': row[4],
-                    'detection': row[5],
-                    'tags': row[6],
-                    'level': row[7],
-                    'status': row[8],
-                    'file_path': row[9],
-                    'similarity': weighted_sim,
-                    'title_sim': title_sim,
-                    'desc_sim': desc_sim,
-                    'tags_sim': tags_sim,
-                    'logsource_sim': logsource_sim,
-                    'det_struct_sim': det_struct_sim,
-                    'det_fields_sim': det_fields_sim
-                })
-            
-            # DON'T normalize - show raw weighted similarity scores
-            # Normalization was causing false 100% scores when max similarity < 1.0
-            # Raw scores accurately reflect true semantic similarity
-            if matches_raw:
-                # Sort by similarity (descending)
-                matches_raw.sort(key=lambda x: x['similarity'], reverse=True)
-            
-            # Semantic clustering fallback for tight thresholds
-            # When multiple rules score within tight threshold (<0.05 difference), cluster them
-            if matches_raw and len(matches_raw) > 1:
-                matches_raw = self._apply_semantic_clustering(matches_raw, tight_threshold=0.05)
-            
-            # Optional LLM reranking for top candidates (disabled by default - async context required)
-            # This will be handled by the calling async method if use_llm_rerank=True
-            
-            # Convert to final format and apply threshold
+            # Convert novelty results to backward-compatible similarity format
             matches = []
-            for match in matches_raw[:20]:  # Return top 20
-                if match['similarity'] >= threshold:
-                    matches.append({
-                        'id': match['id'],
-                        'rule_id': match['rule_id'],
-                        'title': match['title'],
-                        'description': match['description'],
-                        'logsource': match['logsource'],
-                        'detection': match['detection'],
-                        'tags': match['tags'],
-                        'level': match['level'],
-                        'status': match['status'],
-                        'file_path': match['file_path'],
-                        'similarity': match['similarity'],
-                        'similarity_score': match['similarity'],  # Frontend compatibility
-                        'similarity_method': match.get('similarity_method', 'embeddings'),
-                        'llm_explanation': match.get('llm_explanation', ''),
-                        # Per-section similarity breakdown for explainability
-                        'similarity_breakdown': {
-                            'title': round(match.get('title_sim', 0.0), 4),
-                            'description': round(match.get('desc_sim', 0.0), 4),
-                            'tags': round(match.get('tags_sim', 0.0), 4),
-                            'logsource': round(match.get('logsource_sim', 0.0), 4),
-                            'detection_structure': round(match.get('det_struct_sim', 0.0), 4),
-                            'detection_fields': round(match.get('det_fields_sim', 0.0), 4)
-                        }
-                    })
-
+            for match in novelty_result.get('top_matches', []):
+                # The 'similarity' field from novelty service is already a similarity score (0-1, higher = more similar)
+                # It's the weighted similarity: 0.55 * atom_jaccard + 0.25 * logic_shape + 0.20 * cosine
+                similarity = match.get('similarity', 0.0)  # Already a similarity score, no inversion needed
+                
+                if similarity >= threshold:
+                    # Get full rule details from database
+                    from src.database.models import SigmaRuleTable
+                    rule = self.db.query(SigmaRuleTable).filter(
+                        SigmaRuleTable.rule_id == match.get('rule_id', '')
+                    ).first()
+                    
+                    if rule:
+                        # Safety check: verify logsource_key matches (hard gate)
+                        proposed_logsource_key = novelty_result.get('logsource_key', '')
+                        rule_logsource_key = getattr(rule, 'logsource_key', None)
+                        
+                        if rule_logsource_key and proposed_logsource_key:
+                            if rule_logsource_key != proposed_logsource_key:
+                                logger.warning(
+                                    f"Skipping rule {rule.rule_id}: logsource_key mismatch "
+                                    f"({rule_logsource_key} != {proposed_logsource_key})"
+                                )
+                                continue
+                        
+                        # Convert enum to string if needed
+                        novelty_label_value = novelty_result.get('novelty_label', 'NOVEL')
+                        if hasattr(novelty_label_value, 'value'):
+                            novelty_label_value = novelty_label_value.value
+                        
+                        matches.append({
+                            'id': rule.id,
+                            'rule_id': rule.rule_id,
+                            'title': rule.title,
+                            'description': rule.description,
+                            'logsource': rule.logsource,
+                            'detection': rule.detection,
+                            'tags': rule.tags,
+                            'level': rule.level,
+                            'status': rule.status,
+                            'file_path': rule.file_path,
+                            'similarity': similarity,
+                            'similarity_score': similarity,  # Frontend compatibility
+                            'similarity_method': 'novelty_assessment',
+                            # Novelty metrics
+                            'novelty_label': str(novelty_label_value),
+                            'novelty_score': novelty_result.get('novelty_score', 1.0),
+                            'atom_jaccard': match.get('atom_jaccard', 0.0),
+                            'logic_shape_similarity': match.get('logic_shape_similarity', 0.0),
+                            'cosine': match.get('cosine', 0.0),
+                            # Explainability
+                            'shared_atoms': match.get('shared_atoms', []),
+                            'added_atoms': match.get('added_atoms', []),
+                            'removed_atoms': match.get('removed_atoms', []),
+                            'filter_differences': match.get('filter_differences', []),
+                            # Backward compatibility: similarity_breakdown
+                            'similarity_breakdown': {
+                                'atom_jaccard': round(match.get('atom_jaccard', 0.0), 4),
+                                'logic_shape_similarity': round(match.get('logic_shape_similarity', 0.0), 4),
+                                'cosine': round(match.get('cosine', 0.0), 4)
+                            }
+                        })
+            
+            # Sort by similarity (descending)
+            matches.sort(key=lambda x: x['similarity'], reverse=True)
+            
             return matches
 
         except Exception as e:

@@ -3569,16 +3569,19 @@ def calculate_semantic_overlap(
 
 @router.get("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(
-    article_id: int, llm_provider: str = "auto", force: bool = False
+    article_id: int, force: bool = False
 ):
     """
-    Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules.
+    Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules
+    using behavioral novelty assessment.
 
-    Uses hybrid approach:
-    1. Fast embedding-based search (top 20 candidates)
-    2. Optional LLM reranking of top 10 (if available, may take 10-30s)
+    Uses behavioral novelty assessment (per build spec):
+    - Canonicalization of detection logic
+    - Atomic predicate extraction (field+operator+value)
+    - Structural similarity metrics (AST comparison)
+    - Weighted similarity: 0.55 × atom_jaccard + 0.25 × logic_shape + 0.20 × cosine
 
-    Falls back gracefully to embeddings if LLM unavailable or times out.
+    No LLM reranking - purely algorithmic as per specification.
     """
     try:
         from src.database.async_manager import AsyncDatabaseManager
@@ -3595,21 +3598,28 @@ async def api_get_sigma_matches(
             )
 
         # OPTIONAL CACHE: If not forcing, return cached matches from article metadata when available
+        # Only use cache if it's from the new novelty assessment system with proper classification (version 2.1+)
         if (
             not force
             and article.article_metadata
             and article.article_metadata.get("sigma_similar_cache")
         ):
             cached = article.article_metadata.get("sigma_similar_cache")
-            return {
-                "success": True,
-                "matches": cached.get("matches", []),
-                "coverage_summary": cached.get(
-                    "coverage_summary",
-                    {"covered": 0, "extend": 0, "new": 0, "total": 0},
-                ),
-                "cached": True,
-            }
+            cache_version = cached.get("cache_version", "1.0")  # Old caches don't have version
+            
+            # Invalidate old caches (version < 2.1) - need to regenerate with proper novelty_label classification
+            if cache_version < "2.1":
+                logger.info(f"Invalidating old cache (version {cache_version}), regenerating with novelty_label classification")
+            else:
+                return {
+                    "success": True,
+                    "matches": cached.get("matches", []),
+                    "coverage_summary": cached.get(
+                        "coverage_summary",
+                        {"covered": 0, "extend": 0, "new": 0, "total": 0},
+                    ),
+                    "cached": True,
+                }
 
         # Get generated SIGMA rules from article metadata
         generated_rules = []
@@ -3656,7 +3666,9 @@ async def api_get_sigma_matches(
                         )
                         continue
 
-                    # Step 1: Fast embedding-based search to get top candidates
+                    # Behavioral novelty assessment (per build spec)
+                    # Uses canonicalization, atomic predicates, and structural similarity metrics
+                    # No LLM reranking - purely algorithmic as per specification
                     similar_matches = (
                         matching_service.compare_proposed_rule_to_embeddings(
                             proposed_rule=normalized_rule,
@@ -3665,39 +3677,8 @@ async def api_get_sigma_matches(
                     )
 
                     logger.debug(
-                        f"Rule '{normalized_rule['title']}' found {len(similar_matches)} similar rules via embeddings"
+                        f"Rule '{normalized_rule['title']}' found {len(similar_matches)} similar rules via behavioral novelty assessment"
                     )
-
-                    # Step 2: LLM reranking for top 10 candidates (hybrid approach)
-                    # Note: This is optional and may take 10-30 seconds. Falls back to embeddings if timeout/failure
-                    if len(similar_matches) > 0:
-                        try:
-                            import asyncio
-
-                            # Add timeout to prevent hanging requests
-                            similar_matches = await asyncio.wait_for(
-                                matching_service.llm_rerank_matches(
-                                    proposed_rule=normalized_rule,
-                                    candidates=similar_matches,
-                                    top_k=10,
-                                    provider=llm_provider,  # Use provider from Settings page
-                                ),
-                                timeout=28.0,  # 28 seconds max (leave buffer for nginx 30s timeout)
-                            )
-                            logger.info(
-                                f"LLM reranking completed for rule '{normalized_rule['title']}', top match similarity: {similar_matches[0].get('similarity', 0) if similar_matches else 'N/A'}"
-                            )
-                        except asyncio.TimeoutError:
-                            logger.warning(
-                                f"LLM reranking timed out for rule '{normalized_rule['title']}', using embeddings ranking"
-                            )
-                        except Exception as e:
-                            logger.warning(
-                                f"LLM reranking failed for rule '{normalized_rule['title']}': {e}, using embeddings ranking"
-                            )
-                            import traceback
-
-                            logger.debug(traceback.format_exc())
 
                     # Deduplicate by rule_id, keeping highest similarity score
                     # Also store reference to generated rule for semantic analysis
@@ -3724,65 +3705,67 @@ async def api_get_sigma_matches(
                 all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True
             )[:20]
 
-            # Add coverage classification to each match with semantic validation
+            # Classify each match using behavioral novelty assessment (per spec)
+            # Use novelty_label directly from behavioral metrics
             for match in matches:
-                embedding_similarity = match.get("similarity", 0)
-
-                # Calculate semantic overlap between actual detection values
-                generated_rule = match.get("_generated_rule", {})
-                sigmahq_rule = {
-                    "detection": match.get("detection", {}),
-                    "logsource": match.get("logsource", {}),
-                }
-
-                semantic_data = calculate_semantic_overlap(generated_rule, sigmahq_rule)
-                semantic_overlap = semantic_data["semantic_overlap_ratio"]
-
-                # Store semantic analysis for debugging/explainability
-                match["semantic_overlap"] = semantic_overlap
-                match["semantic_details"] = {
-                    "process_overlap": semantic_data["process_overlap"],
-                    "path_overlap": semantic_data["path_overlap"],
-                    "cmdline_overlap": semantic_data["cmdline_overlap"],
-                }
-
-                # Combined score: Weight embedding similarity 60%, semantic overlap 40%
-                # This balances structural similarity with actual behavioral overlap
-                combined_score = (0.6 * embedding_similarity) + (0.4 * semantic_overlap)
-                match["combined_score"] = combined_score
-
-                # Classification logic with adjusted thresholds:
-                # - COVERED: High combined score (90%+) AND semantic overlap (50%+)
-                # - EXTEND: Medium combined score (75-90%) OR (high embedding but low semantic)
-                # - NEW: Lower combined score or minimal semantic overlap
-
-                if combined_score >= 0.90 and semantic_overlap >= 0.50:
+                # Get behavioral metrics from novelty assessment
+                behavioral_similarity = match.get("similarity", 0)
+                atom_jaccard = match.get("atom_jaccard", 0.0)
+                logic_shape = match.get("logic_shape_similarity", 0.0)
+                cosine_sim = match.get("cosine", 0.0)
+                
+                # Debug logging
+                logger.debug(
+                    f"Classifying match '{match.get('rule_id', 'unknown')}': "
+                    f"atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape:.3f}, cosine={cosine_sim:.3f}"
+                )
+                
+                # Check for exact hash match (duplicate)
+                is_exact_match = match.get("exact_hash_match", False)
+                
+                # Classify using behavioral novelty thresholds (per spec)
+                # DUPLICATE: atom_jaccard > 0.95 AND logic_similarity > 0.95
+                # SIMILAR: (atom_jaccard > 0.70 AND cosine > 0.80) OR atom_jaccard > 0.80
+                # NOVEL: Everything else
+                if is_exact_match:
+                    novelty_label = "DUPLICATE"
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (exact hash match)")
+                elif atom_jaccard > 0.95 and logic_shape > 0.95:
+                    novelty_label = "DUPLICATE"
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape:.3f})")
+                elif (atom_jaccard > 0.70 and cosine_sim > 0.80) or atom_jaccard > 0.80:
+                    novelty_label = "SIMILAR"
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f}, cosine={cosine_sim:.3f})")
+                else:
+                    novelty_label = "NOVEL"
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape:.3f}, cosine={cosine_sim:.3f})")
+                
+                # Store novelty classification
+                match["novelty_label"] = novelty_label
+                
+                # Map novelty_label to coverage_status for UI display
+                # DUPLICATE → covered, SIMILAR → extend, NOVEL → new
+                if novelty_label == "DUPLICATE":
                     match["coverage_status"] = "covered"
                     match["coverage_reasoning"] = (
-                        f"High combined similarity ({combined_score:.1%}) with semantic overlap ({semantic_overlap:.1%}). "
-                        f"Embedding: {embedding_similarity:.1%}, "
-                        f"Overlaps: {semantic_data['process_overlap']} processes, "
-                        f"{semantic_data['path_overlap']} paths, {semantic_data['cmdline_overlap']} cmdline patterns. "
+                        f"Duplicate detection (Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}). "
+                        f"Behavioral similarity: {behavioral_similarity:.1%} "
+                        f"(Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}, Cosine: {cosine_sim:.1%}). "
                         f"This detection is already covered by existing SigmaHQ rules."
                     )
-                elif combined_score >= 0.75 or (
-                    embedding_similarity >= 0.80 and semantic_overlap >= 0.20
-                ):
+                elif novelty_label == "SIMILAR":
                     match["coverage_status"] = "extend"
                     match["coverage_reasoning"] = (
-                        f"Medium combined similarity ({combined_score:.1%}) with semantic overlap ({semantic_overlap:.1%}). "
-                        f"Embedding: {embedding_similarity:.1%}, "
-                        f"Overlaps: {semantic_data['process_overlap']} processes, "
-                        f"{semantic_data['path_overlap']} paths, {semantic_data['cmdline_overlap']} cmdline patterns. "
+                        f"Similar detection (Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}, Cosine: {cosine_sim:.1%}). "
+                        f"Behavioral similarity: {behavioral_similarity:.1%}. "
                         f"Partial overlap detected - existing rule could be extended."
                     )
-                else:
+                else:  # NOVEL
                     match["coverage_status"] = "new"
                     match["coverage_reasoning"] = (
-                        f"Low combined similarity ({combined_score:.1%}) with semantic overlap ({semantic_overlap:.1%}). "
-                        f"Embedding: {embedding_similarity:.1%}, "
-                        f"Overlaps: {semantic_data['process_overlap']} processes, "
-                        f"{semantic_data['path_overlap']} paths, {semantic_data['cmdline_overlap']} cmdline patterns. "
+                        f"Novel detection pattern. "
+                        f"Behavioral similarity: {behavioral_similarity:.1%} "
+                        f"(Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}, Cosine: {cosine_sim:.1%}). "
                         f"This represents a novel detection pattern not well-covered by SigmaHQ."
                     )
 
@@ -3791,13 +3774,8 @@ async def api_get_sigma_matches(
                     del match["_generated_rule"]
 
             # Prepare response
-            # Derive LLM model used for rerank if present in matches
-            llm_model_used = None
-            for m in matches:
-                if m.get("similarity_method") == "llm_reranked" and m.get("llm_model"):
-                    llm_model_used = m.get("llm_model")
-                    break
-
+            # Prepare response
+            # Note: Using pure behavioral novelty assessment (no LLM reranking per spec)
             result = {
                 "success": True,
                 "matches": matches,
@@ -3813,7 +3791,7 @@ async def api_get_sigma_matches(
                     ),
                     "total": len(matches),
                 },
-                "llm_model": llm_model_used,
+                "assessment_method": "behavioral_novelty",
             }
 
             # Save cache to article metadata (server-side) for subsequent fast displays
@@ -3823,8 +3801,8 @@ async def api_get_sigma_matches(
                     "matches": result["matches"],
                     "coverage_summary": result["coverage_summary"],
                     "cached_at": datetime.now().isoformat(),
-                    "llm_provider": llm_provider,
-                    "llm_model": llm_model_used,
+                    "cache_version": "2.1",  # Mark as novelty_label-based classification cache
+                    "assessment_method": "behavioral_novelty"
                 }
                 from src.models.article import ArticleUpdate
 

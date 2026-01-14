@@ -33,6 +33,7 @@ from src.services.rag_service import RAGService
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.qa_agent_service import QAAgentService
+from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.utils.langfuse_client import trace_workflow_execution, log_workflow_step, get_langfuse_client, is_langfuse_enabled
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.workflows.status_utils import (
@@ -2028,8 +2029,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     'termination_details': state.get('termination_details')
                 }
             
-            similarity_results = []
-            max_similarity = 0.0
+            novelty_results = []
+            max_novelty_score = 1.0  # Start at 1.0 (fully novel), decrease with similarity
             config = state.get('config')
             similarity_threshold = config.get('similarity_threshold', 0.5) if config and isinstance(config, dict) else 0.5
             
@@ -2037,13 +2038,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             config_obj = trigger_service.get_active_config()
             agent_models = config_obj.agent_models if config_obj else None
             
-            # Initialize SigmaMatchingService for 4-segment weighted similarity search
+            # Initialize SigmaMatchingService (now uses novelty assessment internally)
             sigma_matching_service = SigmaMatchingService(db_session, config_models=agent_models)
             
-            # Search for similar rules for each generated rule using 4-segment weighted approach
+            # Assess novelty for each generated rule using behavioral novelty assessment
             for rule in sigma_rules:
-                # Use compare_proposed_rule_to_embeddings for 4-segment weighted similarity
-                # This uses: title (4.2%), description (4.2%), tags (4.2%), signature (87.4%)
+                # compare_proposed_rule_to_embeddings now uses novelty assessment internally
                 similar_rules = sigma_matching_service.compare_proposed_rule_to_embeddings(
                     proposed_rule=rule,
                     threshold=0.0  # Get all results, filter by threshold below
@@ -2052,16 +2052,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Filter by threshold and limit to top 10
                 filtered_rules = [r for r in similar_rules if r.get('similarity', 0.0) >= similarity_threshold][:10]
                 
-                rule_similarities = [r['similarity'] for r in filtered_rules]
-                rule_max_sim = max(rule_similarities) if rule_similarities else 0.0
+                # Extract novelty information
+                rule_novelty_scores = [r.get('novelty_score', 1.0) for r in filtered_rules]
+                rule_min_novelty = min(rule_novelty_scores) if rule_novelty_scores else 1.0
+                rule_novelty_label = filtered_rules[0].get('novelty_label', 'NOVEL') if filtered_rules else 'NOVEL'
                 
-                similarity_results.append({
+                novelty_results.append({
                     'rule_title': rule.get('title'),
-                    'similar_rules': filtered_rules,
-                    'max_similarity': rule_max_sim
+                    'similar_rules': filtered_rules,  # Keep key for backward compatibility
+                    'max_similarity': 1.0 - rule_min_novelty,  # Backward compatibility
+                    'novelty_label': rule_novelty_label,
+                    'novelty_score': rule_min_novelty,
+                    'top_matches': filtered_rules[:5]  # Top matches with explainability
                 })
                 
-                max_similarity = max(max_similarity, rule_max_sim)
+                max_novelty_score = min(max_novelty_score, rule_min_novelty)
             
             # Update execution record
             execution = db_session.query(AgenticWorkflowExecutionTable).filter(
@@ -2072,15 +2077,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Only update current_step if workflow didn't fail earlier
                 if execution.status != 'failed':
                     execution.current_step = 'similarity_search'
-                execution.similarity_results = similarity_results
+                # Store both for backward compatibility
+                execution.similarity_results = novelty_results  # Keep key name for backward compatibility
                 db_session.commit()
             
-            logger.info(f"[Workflow {state['execution_id']}] Similarity: max={max_similarity:.2f}")
+            logger.info(f"[Workflow {state['execution_id']}] Novelty assessment: min_novelty={max_novelty_score:.2f}")
             
             return {
                 **state,
-                'similarity_results': similarity_results,
-                'max_similarity': max_similarity,
+                'similarity_results': novelty_results,  # Keep key for backward compatibility
+                'novelty_results': novelty_results,  # New key
+                'max_similarity': 1.0 - max_novelty_score,  # Backward compatibility
+                'novelty_score': max_novelty_score,  # New key
                 'current_step': 'similarity_search',
                 'status': state.get('status', 'running'),
                 'termination_reason': state.get('termination_reason'),
@@ -2532,6 +2540,18 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: Optio
         
         state_eval_run_flag = _bool_from_value(config.get('eval_run', False))
         state_skip_rank_flag = _bool_from_value(config.get('skip_rank_agent', False))
+        
+        # Auto-load LMStudio models before starting workflow
+        agent_models_for_loading = config.get('agent_models', {})
+        if agent_models_for_loading:
+            logger.info(f"[Workflow {execution.id}] Auto-loading LMStudio models...")
+            load_result = auto_load_workflow_models(agent_models_for_loading)
+            if load_result['models_loaded']:
+                logger.info(f"[Workflow {execution.id}] ✅ Loaded {len(load_result['models_loaded'])} model(s)")
+            if load_result['models_failed']:
+                logger.warning(f"[Workflow {execution.id}] ⚠️ Failed to load {len(load_result['models_failed'])} model(s) - workflow will continue")
+            if not load_result['lmstudio_cli_available']:
+                logger.warning(f"[Workflow {execution.id}] ⚠️ LMStudio CLI not available - models must be loaded manually")
         
         # Initialize state
         execution.status = 'running'

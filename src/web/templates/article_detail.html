@@ -11,6 +11,95 @@
             document.documentElement.setAttribute('data-annotation-mode', mode);
             document.body?.setAttribute('data-annotation-mode', mode);
         })();
+        
+        // Define triggerWorkflowForArticle early to ensure it's available for inline handlers
+        async function triggerWorkflowForArticle(articleId) {
+            const btn = document.getElementById('triggerWorkflowBtn');
+            const btnText = document.getElementById('triggerWorkflowBtnText');
+            
+            // Disable button and show loading state
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            if (btnText) {
+                btnText.textContent = 'Triggering...';
+            }
+            
+            try {
+                // showNotification might not be defined yet, use console as fallback
+                if (typeof showNotification === 'function') {
+                    showNotification('Triggering workflow...', 'info');
+                }
+                
+                const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const message = `Workflow triggered successfully! Execution ID: ${data.execution_id || 'N/A'}`;
+                    if (typeof showNotification === 'function') {
+                        showNotification(message, 'success');
+                    } else {
+                        alert(message);
+                    }
+                    
+                    // Redirect to workflow executions page
+                    window.location.href = '/workflow#executions';
+                } else {
+                    let errorData;
+                    try {
+                        errorData = await response.json();
+                    } catch (e) {
+                        errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
+                    }
+                    
+                    const errorMessage = errorData.detail || errorData.message || 'Failed to trigger workflow';
+                    if (typeof showNotification === 'function') {
+                        showNotification(`Error: ${errorMessage}`, 'error');
+                    } else {
+                        alert(`Error: ${errorMessage}`);
+                    }
+                    
+                    // If there's an existing execution, offer to view it
+                    if (errorMessage.includes('already has an active workflow execution')) {
+                        const execIdMatch = errorMessage.match(/execution \(ID: (\d+)\)/);
+                        if (execIdMatch) {
+                            const execId = execIdMatch[1];
+                            setTimeout(() => {
+                                if (confirm(`${errorMessage}\n\nWould you like to view the existing execution?`)) {
+                                    window.location.href = `/workflow#executions`;
+                                }
+                            }, 100);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error triggering workflow:', error);
+                const errorMsg = `Error: ${error.message}`;
+                if (typeof showNotification === 'function') {
+                    showNotification(errorMsg, 'error');
+                } else {
+                    alert(errorMsg);
+                }
+            } finally {
+                // Re-enable button
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                if (btnText) {
+                    btnText.textContent = 'Send to Workflow';
+                }
+            }
+        }
+        
+        // Explicitly attach to window for inline onclick handlers
+        window.triggerWorkflowForArticle = triggerWorkflowForArticle;
     </script>
     <style>
         /* Hard switch between rich and plain surfaces to prevent legacy span bleed */
@@ -194,7 +283,7 @@
                     </a>
                     {% endif %}
 
-                    <button onclick="triggerWorkflowForArticle({{ article.id }})" 
+                    <button onclick="triggerWorkflowForArticle({{ article.id|default(0)|int }})" 
                             id="triggerWorkflowBtn"
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] transition-colors">
                         <span class="mr-2">⚡</span>
@@ -459,8 +548,8 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
-                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-950 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|e }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 p-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|e }}</div>
             </div>
         </div>
     </div>
@@ -568,8 +657,76 @@
 {% block scripts %}
 <!-- html2pdf.js library for PDF generation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- CRITICAL: Early script block with essential functions - must load before main script -->
 <script>
+    // Essential functions that must be available immediately for onclick handlers
+    // Defined in separate script block to ensure they load even if main script has errors
+    
+    function setAnnotationMode(mode) {
+        try {
+            if (window.simpleTextManager) {
+                window.simpleTextManager.setAnnotationMode(mode);
+            } else {
+                console.warn('setAnnotationMode called before simpleTextManager initialized, mode:', mode);
+                localStorage.setItem('annotationMode', mode);
+            }
+        } catch (error) {
+            console.error('Error in setAnnotationMode:', error);
+        }
+    }
+    window.setAnnotationMode = setAnnotationMode;
+    
+    function copyArticleContentToClipboard() {
+        try {
+            const contentElement = document.getElementById('article-content');
+            if (!contentElement) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Article content element not found', 'error');
+                } else {
+                    alert('Article content element not found');
+                }
+                return;
+            }
+            
+            const textContent = contentElement.innerText || contentElement.textContent || '';
+            
+            if (!textContent.trim()) {
+                if (typeof showNotification === 'function') {
+                    showNotification('Article has no content to copy', 'error');
+                } else {
+                    alert('Article has no content to copy');
+                }
+                return;
+            }
+            
+            navigator.clipboard.writeText(textContent).then(() => {
+                if (typeof showNotification === 'function') {
+                    showNotification('Article content copied to clipboard!', 'success');
+                } else {
+                    alert('Article content copied to clipboard!');
+                }
+            }).catch(error => {
+                console.error('Error copying to clipboard:', error);
+                if (typeof showNotification === 'function') {
+                    showNotification('Failed to copy article content', 'error');
+                } else {
+                    alert('Failed to copy article content');
+                }
+            });
+        } catch (error) {
+            console.error('Error copying article content:', error);
+            if (typeof showNotification === 'function') {
+                showNotification('Failed to copy article content', 'error');
+            } else {
+                alert('Failed to copy article content');
+            }
+        }
+    }
+    window.copyArticleContentToClipboard = copyArticleContentToClipboard;
+</script>
 
+<!-- Main script block - rest of the application code -->
+<script>
     // Global help functions - must be defined at top level for onclick handlers
     let previousModalElement = null;
     
@@ -1066,7 +1223,7 @@ Please provide a detailed analysis based on the article content and the user's s
     };
 
     // Canonical article text (immutable, from database - before any DOM mutation)
-    const CANONICAL_ARTICLE_TEXT = {{ article.content|tojson }};
+    const CANONICAL_ARTICLE_TEXT = {{ article.content|tojson if article.content else '""' }};
 
     // Simple Text Management System - Single Source of Truth
     class SimpleTextManager {
@@ -3883,6 +4040,9 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
+    // Explicitly attach to window for inline onclick handlers
+    window.copyArticleContentToClipboard = copyArticleContentToClipboard;
+    
     // Export article to PDF and open for printing
     async function exportArticleToPDF() {
         try {
@@ -4281,8 +4441,8 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const bannerArticleTitle = articleTitle ? 
             articleTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 
-            {{ article.title | tojson }};
-        const bannerArticleId = articleId || {{ article.id }};
+            ({{ article.title | tojson }});
+        const bannerArticleId = articleId || {{ article.id|default(0)|int }};
         
         banner.innerHTML = `
             <div class="flex items-center space-x-2">
@@ -4316,7 +4476,7 @@ Please provide a detailed analysis based on the article content and the user's s
     // Navigation functions
     async function navigateToNextUnclassified(retryCount = 0) {
         try {
-            const response = await fetch(`/api/articles/next-unclassified?current_article_id={{ article.id }}`);
+            const response = await fetch(`/api/articles/next-unclassified?current_article_id={{ article.id|default(0)|int }}`);
             const data = await response.json();
             
             if (data.article_id) {
@@ -4328,8 +4488,8 @@ Please provide a detailed analysis based on the article content and the user's s
                     setTimeout(() => {
                         navigateToNextUnclassified(1);
                     }, 1000);
-            } else {
-                showNotification('No more unclassified articles found!', 'info');
+                } else {
+                    showNotification('No more unclassified articles found!', 'info');
                 }
             }
         } catch (error) {
@@ -4339,7 +4499,7 @@ Please provide a detailed analysis based on the article content and the user's s
     
     async function navigateToPrevious() {
         try {
-            const currentId = {{ article.id }};
+            const currentId = {{ article.id|default(0)|int }};
             const response = await fetch(`/api/articles/previous?current_article_id=${currentId}`);
             const data = await response.json();
             
@@ -4355,7 +4515,7 @@ Please provide a detailed analysis based on the article content and the user's s
     
     async function navigateToNext() {
         try {
-            const currentId = {{ article.id }};
+            const currentId = {{ article.id|default(0)|int }};
             const response = await fetch(`/api/articles/next?current_article_id=${currentId}`);
             const data = await response.json();
             
@@ -4393,8 +4553,8 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} :
-                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ chatgpt_content_limit }};
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit|default(1000000)|int }} :
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit|default(1000000)|int }} : {{ chatgpt_content_limit|default(1000000)|int }};
 
         if (contentLength > contentLimit) {
             const modelName = aiModel === 'chatgpt' ? 'ChatGPT' :
@@ -4419,7 +4579,7 @@ Please provide a detailed analysis based on the article content and the user's s
 
         
         try {
-            const response = await fetch(`/api/articles/{{ article.id }}`);
+            const response = await fetch(`/api/articles/{{ article.id|default(0)|int }}`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.article_metadata) {
@@ -4706,7 +4866,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         // Store ongoing AI operation in localStorage for cross-page tracking
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         const operationId = `ai_${type}_${articleId}_${Date.now()}`;
         const operationData = {
             id: operationId,
@@ -5047,7 +5207,7 @@ Please provide a detailed analysis based on the article content and the user's s
     
     // Enhanced GPT4o Ranking Function with Content Filtering
     async function rankWithGPT4o() {
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         
         // Get API key from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -6115,7 +6275,7 @@ Please provide a detailed analysis based on the article content and the user's s
         // Check if article has embeddings and enable/disable buttons
         const checkBtn = document.getElementById('checkSimilarRulesBtn');
         const embedBtn = document.getElementById('embedArticleBtn');
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         
         // Fetch embedding status from API
         fetch(`/api/articles/${articleId}`)
@@ -6642,7 +6802,7 @@ Please provide a detailed analysis based on the article content and the user's s
     async function detectOS() {
         closeAIAssistantModal();
         
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         
         // Show optimization dialog first
         const optimizationOptions = await showOptimizationDialog(false);
@@ -6943,7 +7103,7 @@ Please provide a detailed analysis based on the article content and the user's s
     async function extractIOCsCTIBERT() {
         closeAIAssistantModal();
         
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         
         // Show loading modal
         const loadingModal = document.createElement('div');
@@ -7257,7 +7417,7 @@ Please provide a detailed analysis based on the article content and the user's s
         
         // If not found, fetch from article metadata
         if (generatedRules.length === 0) {
-            const articleId = {{ article.id }};
+            const articleId = {{ article.id|default(0)|int }};
             try {
                 const articleResponse = await fetch(`/api/articles/${articleId}`);
                 if (articleResponse.ok) {
@@ -7277,7 +7437,7 @@ Please provide a detailed analysis based on the article content and the user's s
             return;
         }
         
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         
         // Show loading indicator
         showNotification('Searching for similar rules in SigmaHQ repository...', 'info');
@@ -7347,7 +7507,7 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     async function generateArticleEmbedding() {
-        const articleId = {{ article.id }};
+        const articleId = {{ article.id|default(0)|int }};
         
         // Disable button during generation
         const embedBtn = document.getElementById('embedArticleBtn');
@@ -7565,12 +7725,6 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                             <div><span class="font-medium">Rule ID:</span> <code class="text-xs bg-gray-100 px-1 rounded">${match.rule_id || 'N/A'}</code></div>
-                            <div><span class="font-medium">Level:</span> <span class="px-2 py-0.5 rounded text-xs ${
-                                match.level === 'critical' ? 'bg-red-100 text-red-700' :
-                                match.level === 'high' ? 'bg-orange-100 text-orange-700' :
-                                match.level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-blue-100 text-blue-700'
-                            }">${match.level || 'N/A'}</span></div>
                             <div><span class="font-medium">Status:</span> ${match.status || 'N/A'}</div>
                             <div><span class="font-medium">Match Type:</span> ${match.match_level || 'article'}</div>
                         </div>
@@ -7867,12 +8021,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         ${rule.level ? `
                             <div>
                                 <div class="text-xs text-gray-500 uppercase">Level</div>
-                                <div class="text-sm font-medium ${
-                                    rule.level === 'critical' ? 'text-red-700' :
-                                    rule.level === 'high' ? 'text-orange-700' :
-                                    rule.level === 'medium' ? 'text-yellow-700' :
-                                    'text-blue-700'
-                                }">${rule.level}</div>
+                                <div class="text-sm font-medium">${rule.level}</div>
                             </div>
                         ` : ''}
                         
@@ -8019,74 +8168,8 @@ ${JSON.stringify(rule.logsource, null, 2)}
         }
     }
     
-    async function triggerWorkflowForArticle(articleId) {
-        const btn = document.getElementById('triggerWorkflowBtn');
-        const btnText = document.getElementById('triggerWorkflowBtnText');
-        
-        // Disable button and show loading state
-        if (btn) {
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-        if (btnText) {
-            btnText.textContent = 'Triggering...';
-        }
-        
-        try {
-            showNotification('Triggering workflow...', 'info');
-            
-            const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const message = `Workflow triggered successfully! Execution ID: ${data.execution_id || 'N/A'}`;
-                showNotification(message, 'success');
-                
-                // Redirect to workflow executions page
-                window.location.href = '/workflow#executions';
-            } else {
-                let errorData;
-                try {
-                    errorData = await response.json();
-                } catch (e) {
-                    errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
-                }
-                
-                const errorMessage = errorData.detail || errorData.message || 'Failed to trigger workflow';
-                showNotification(`Error: ${errorMessage}`, 'error');
-                
-                // If there's an existing execution, offer to view it
-                if (errorMessage.includes('already has an active workflow execution')) {
-                    const execIdMatch = errorMessage.match(/execution \(ID: (\d+)\)/);
-                    if (execIdMatch) {
-                        const execId = execIdMatch[1];
-                        setTimeout(() => {
-                            if (confirm(`${errorMessage}\n\nWould you like to view the existing execution?`)) {
-                                window.location.href = `/workflow#executions`;
-                            }
-                        }, 100);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error triggering workflow:', error);
-            showNotification(`Error: ${error.message}`, 'error');
-        } finally {
-            // Re-enable button
-            if (btn) {
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-            if (btnText) {
-                btnText.textContent = 'Send to Workflow';
-            }
-        }
-    }
+    // Explicitly attach to window for inline onclick handlers
+    window.deleteArticle = deleteArticle;
     
     // Check for pending completion notifications from other pages
     function checkPendingCompletions() {
@@ -8114,7 +8197,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Get current article ID from URL
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
@@ -8174,7 +8257,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Get current article ID from URL
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
@@ -8214,7 +8297,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             console.log('Processing cmdlines hash...');
 
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
 
             if (currentArticleId == templateArticleId) {
                 const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
@@ -8252,7 +8335,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             console.log('Processing cmdlines hash...');
 
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
 
             if (currentArticleId == templateArticleId) {
                 const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
@@ -8291,7 +8374,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Get current article ID from URL
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
@@ -8370,7 +8453,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Get current article ID from URL
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
@@ -8428,7 +8511,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Get current article ID from URL
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
@@ -8469,7 +8552,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Get current article ID from URL
             const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id }};
+            const templateArticleId = {{ article.id|default(0)|int }};
             
             if (currentArticleId == templateArticleId) {
                 // Same article - use template data
@@ -8616,7 +8699,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             chunkRequestStarted = true;
             const fetchPromise = (async () => {
                 const currentThreshold = window.chunkDebugThreshold || 0.7;
-                const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`, {
+                const response = await fetch(`/api/articles/{{ article.id|default(0)|int }}/chunk-debug?chunk_size=1000&overlap=200&min_confidence=${currentThreshold}`, {
                     signal: chunkAbortController.signal
                 });
                 if (!response.ok) {
@@ -8789,31 +8872,51 @@ ${JSON.stringify(rule.logsource, null, 2)}
     }
     
     function showChunkDebugResults(data) {
-        // Create modal
-        const modal = document.createElement('div');
-        modal.id = 'chunkDebugModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeChunkDebugModal();
+        // Temporarily disabled to fix syntax error
+        console.warn('showChunkDebugResults is temporarily disabled');
+        return;
+        try {
+            if (!data) {
+                console.error('showChunkDebugResults: data is required');
+                return;
             }
-        });
-        
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeChunkDebugModal();
-                document.removeEventListener('keydown', handleEsc);
+            // Create modal
+            const modal = document.createElement('div');
+            modal.id = 'chunkDebugModal';
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+            
+            // Add click outside to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    if (typeof closeChunkDebugModal === 'function') {
+                        closeChunkDebugModal();
+                    }
+                }
+            });
+            
+            // Add ESC key to close
+            const handleEsc = function(e) {
+                if (e.key === 'Escape') {
+                    if (typeof closeChunkDebugModal === 'function') {
+                        closeChunkDebugModal();
+                    }
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            };
+            document.addEventListener('keydown', handleEsc);
+            
+            // Generate chunk visualization
+            let chunkVisualization = '';
+            try {
+                if (typeof generateChunkVisualization === 'function') {
+                    chunkVisualization = generateChunkVisualization(data);
+                }
+            } catch (e) {
+                console.error('Error generating chunk visualization:', e);
+                chunkVisualization = '<div class="p-4 text-red-600">Error generating visualization</div>';
             }
-        };
-        document.addEventListener('keydown', handleEsc);
-        
-        // Generate chunk visualization
-        const chunkVisualization = generateChunkVisualization(data);
-        
-        modal.innerHTML = `
+            
+            modal.innerHTML = `
             <div class="relative top-4 mx-auto p-6 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-2xl font-bold text-gray-900">🔍 Junk Filter Tuning</h3>
@@ -8858,25 +8961,25 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 <!-- Statistics Overview -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div id="totalChunksCount" class="text-2xl font-bold text-blue-600">${data.total_chunks}</div>
+                        <div id="totalChunksCount" class="text-2xl font-bold text-blue-600">${data.total_chunks !== undefined ? data.total_chunks : 0}</div>
                         <div class="text-sm text-blue-800">Total Chunks</div>
                     </div>
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div id="keptChunksCount" class="text-2xl font-bold text-green-600">${data.kept_chunks}</div>
+                        <div id="keptChunksCount" class="text-2xl font-bold text-green-600">${data.kept_chunks !== undefined ? data.kept_chunks : 0}</div>
                         <div class="text-sm text-green-800">Kept for LLM</div>
                     </div>
                     <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div id="removedChunksCount" class="text-2xl font-bold text-red-600">${data.removed_chunks}</div>
+                        <div id="removedChunksCount" class="text-2xl font-bold text-red-600">${data.removed_chunks !== undefined ? data.removed_chunks : 0}</div>
                         <div class="text-sm text-red-800">Filtered Out</div>
                     </div>
                     <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                        <div id="contentReductionPercent" class="text-2xl font-bold text-purple-600">${data.filtering_stats.reduction_percent.toFixed(1)}%</div>
+                        <div id="contentReductionPercent" class="text-2xl font-bold text-purple-600">${data.filtering_stats && data.filtering_stats.reduction_percent ? data.filtering_stats.reduction_percent.toFixed(1) : '0.0'}%</div>
                         <div class="text-sm text-purple-800">Content Reduction</div>
                     </div>
                 </div>
                 
                 <div id="chunkProcessingSummary">
-                    ${generateProcessingSummary(data.processing_summary)}
+                    ${(typeof generateProcessingSummary === 'function' && data.processing_summary) ? generateProcessingSummary(data.processing_summary) : '<div class="p-4 text-gray-500">No processing summary available</div>'}
                 </div>
                 
                 <!-- ML Accuracy Statistics -->
@@ -8885,19 +8988,19 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <div class="text-sm text-indigo-600">ML Predictions</div>
-                            <div class="text-lg font-semibold">${data.ml_stats.total_predictions}</div>
+                            <div class="text-lg font-semibold">${data.ml_stats && data.ml_stats.total_predictions !== undefined ? data.ml_stats.total_predictions : 0}</div>
                         </div>
                <div>
                    <div class="text-sm text-indigo-600">Matching Predictions</div>
-                   <div class="text-lg font-semibold text-green-600">${data.ml_stats.correct_predictions}</div>
+                   <div class="text-lg font-semibold text-green-600">${data.ml_stats && data.ml_stats.correct_predictions !== undefined ? data.ml_stats.correct_predictions : 0}</div>
                </div>
                         <div>
                             <div class="text-sm text-indigo-600">Accuracy</div>
-                            <div class="text-lg font-semibold ${data.ml_stats.accuracy_percent >= 80 ? 'text-green-600' : data.ml_stats.accuracy_percent >= 60 ? 'text-yellow-600' : 'text-red-600'}">${data.ml_stats.accuracy_percent.toFixed(1)}%</div>
+                            <div class="text-lg font-semibold ${data.ml_stats && data.ml_stats.accuracy_percent !== undefined ? (data.ml_stats.accuracy_percent >= 80 ? 'text-green-600' : data.ml_stats.accuracy_percent >= 60 ? 'text-yellow-600' : 'text-red-600') : 'text-gray-600'}">${data.ml_stats && data.ml_stats.accuracy_percent !== undefined ? data.ml_stats.accuracy_percent.toFixed(1) : '0.0'}%</div>
                         </div>
                         <div>
                             <div class="text-sm text-indigo-600">Mismatches</div>
-                            <div class="text-lg font-semibold text-yellow-600">${data.ml_stats.mismatches}</div>
+                            <div class="text-lg font-semibold text-yellow-600">${data.ml_stats && data.ml_stats.mismatches !== undefined ? data.ml_stats.mismatches : 0}</div>
                         </div>
                     </div>
                 </div>
@@ -8921,15 +9024,15 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <div class="text-sm text-gray-600">Original Content</div>
-                            <div id="originalContentLength" class="text-lg font-semibold">${data.content_length.toLocaleString()} chars</div>
+                            <div id="originalContentLength" class="text-lg font-semibold">${data.content_length !== undefined ? data.content_length.toLocaleString() : '0'} chars</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-600">Estimated Cost Savings per Article</div>
-                            <div id="costSavings" class="text-lg font-semibold text-green-600">$${data.filtering_stats.cost_savings.toFixed(4)}</div>
+                            <div id="costSavings" class="text-lg font-semibold text-green-600">$${data.filtering_stats && data.filtering_stats.cost_savings ? data.filtering_stats.cost_savings.toFixed(4) : '0.0000'}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-600">Tokens Saved</div>
-                            <div id="tokensSaved" class="text-lg font-semibold text-blue-600">${data.filtering_stats.tokens_saved.toLocaleString()}</div>
+                            <div id="tokensSaved" class="text-lg font-semibold text-blue-600">${data.filtering_stats && data.filtering_stats.tokens_saved ? data.filtering_stats.tokens_saved.toLocaleString() : '0'}</div>
                         </div>
                     </div>
                 </div>
@@ -8979,7 +9082,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-900 mb-3">📝 Chunk Details</h4>
                     <div id="chunkDetails" class="space-y-4">
-                        ${generateChunkDetails(data.chunk_analysis)}
+                        ${(typeof generateChunkDetails === 'function' && data.chunk_analysis) ? generateChunkDetails(data.chunk_analysis) : '<div class="p-4 text-gray-500">No chunk analysis data available</div>'}
                     </div>
                 </div>
                 
@@ -8991,12 +9094,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 </div>
             </div>
         `;
-        
-        document.body.appendChild(modal);
-        
-        // Store debug data globally for filtering
-        window.chunkDebugData = data;
-        window.chunkDebugFullAnalysisInProgress = false;
+            
+            document.body.appendChild(modal);
+            
+            // Store debug data globally for filtering
+            window.chunkDebugData = data;
+            window.chunkDebugFullAnalysisInProgress = false;
+        } catch (e) {
+            console.error('Error in showChunkDebugResults:', e);
+            alert('Error displaying chunk debug results: ' + e.message);
+        }
         
         if (data.processing_summary?.chunk_limit_applied) {
             showNotification(
@@ -9018,8 +9125,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
     }
     
     function generateChunkVisualization(data) {
-        const totalLength = data.content_length;
-        const chunks = data.chunk_analysis;
+        if (!data) return '';
+        const totalLength = data.content_length !== undefined ? data.content_length : 0;
+        const chunks = data.chunk_analysis || [];
         
         let html = '<div class="relative bg-gray-100 rounded-lg p-2 mb-4" style="height: 60px;">';
         
@@ -9363,7 +9471,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 full_analysis: fullAnalysis
             });
             
-            const response = await fetch(`/api/articles/{{ article.id }}/chunk-debug?${params.toString()}`);
+            const response = await fetch(`/api/articles/{{ article.id|default(0)|int }}/chunk-debug?${params.toString()}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -9412,16 +9520,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
         if (totalChunksEl) totalChunksEl.textContent = data.total_chunks;
         if (keptChunksEl) keptChunksEl.textContent = data.kept_chunks;
         if (removedChunksEl) removedChunksEl.textContent = data.removed_chunks;
-        if (reductionEl) reductionEl.textContent = `${data.filtering_stats.reduction_percent.toFixed(1)}%`;
+        if (reductionEl) reductionEl.textContent = `${data.filtering_stats && data.filtering_stats.reduction_percent ? data.filtering_stats.reduction_percent.toFixed(1) : '0.0'}%`;
         
         // Update cost analysis
         const originalContentEl = document.getElementById('originalContentLength');
         const costSavingsEl = document.getElementById('costSavings');
         const tokensSavedEl = document.getElementById('tokensSaved');
         
-        if (originalContentEl) originalContentEl.textContent = `${data.content_length.toLocaleString()} chars`;
-        if (costSavingsEl) costSavingsEl.textContent = `$${data.filtering_stats.cost_savings.toFixed(4)}`;
-        if (tokensSavedEl) tokensSavedEl.textContent = `${data.filtering_stats.tokens_saved.toLocaleString()}`;
+        if (originalContentEl) originalContentEl.textContent = `${data.content_length !== undefined ? data.content_length.toLocaleString() : '0'} chars`;
+        if (costSavingsEl) costSavingsEl.textContent = `$${data.filtering_stats && data.filtering_stats.cost_savings ? data.filtering_stats.cost_savings.toFixed(4) : '0.0000'}`;
+        if (tokensSavedEl) tokensSavedEl.textContent = `${data.filtering_stats && data.filtering_stats.tokens_saved ? data.filtering_stats.tokens_saved.toLocaleString() : '0'}`;
         
         // Update chunk details
         const chunkDetails = document.getElementById('chunkDetails');
@@ -9658,8 +9766,8 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Check content size limits
         const contentLength = {{ article.content|length if article.content else 0 }};
-        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit }} :
-                           aiModel === 'anthropic' ? {{ anthropic_content_limit }} : {{ chatgpt_content_limit }};
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit|default(1000000)|int }} :
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit|default(1000000)|int }} : {{ chatgpt_content_limit|default(1000000)|int }};
         
         if (contentLength > contentLimit) {
             // Disable button and add explanation

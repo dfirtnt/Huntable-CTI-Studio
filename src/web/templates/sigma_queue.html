@@ -85,6 +85,9 @@
                     <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                         ❌ Reject
                     </button>
+                    <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                        🔍 Cosign Similarity Search
+                    </button>
                     <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                         Cancel
                     </button>
@@ -305,6 +308,9 @@ function updateActionButtons() {
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
+            <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                🔍 Cosign Similarity Search
+            </button>
             <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                 Cancel
             </button>
@@ -423,6 +429,645 @@ setInterval(loadQueue, 30000);
 
 // Load on page load
 loadQueue();
+
+// Similar Rules functionality
+let currentQueueRule = null;
+let isSimilarRulesModalExpanded = false;
+
+async function checkSimilarRulesForQueue() {
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (!rule) {
+        alert('Rule not found');
+        return;
+    }
+    
+    currentQueueRule = rule;
+    
+    // Show loading indicator
+    const loadingMsg = document.createElement('div');
+    loadingMsg.id = 'similarRulesLoading';
+    loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+    loadingMsg.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take 20-30 seconds</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingMsg);
+    
+    try {
+        // Get LLM provider from Settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const llmProvider = settings.aiModel || 'chatgpt';
+        
+        // Use article endpoint to get similar rules
+        const response = await fetch(`/api/articles/${rule.article_id}/sigma-matches?llm_provider=${encodeURIComponent(llmProvider)}&force=true`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            signal: AbortSignal.timeout(60000)  // 60 second timeout
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Remove loading indicator
+        const loadingEl = document.getElementById('similarRulesLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        if (data.success) {
+            // Parse current rule YAML to extract rule structure
+            let currentRuleParsed = null;
+            try {
+                const yaml = rule.rule_yaml || '';
+                const metadata = rule.rule_metadata || {};
+                
+                if (yaml) {
+                    // Function to parse YAML block (improved parser for nested structures)
+                    function parseYamlBlock(blockText, indentLevel = 0) {
+                        const lines = blockText.split('\n');
+                        const result = {};
+                        let i = 0;
+                        
+                        while (i < lines.length) {
+                            const line = lines[i];
+                            const trimmed = line.trim();
+                            if (!trimmed || trimmed.startsWith('#')) {
+                                i++;
+                                continue;
+                            }
+                            
+                            // Get current line indent
+                            const currentIndent = line.match(/^(\s*)/)[1].length;
+                            
+                            // Check for key-value pair (allow keys with underscores, hyphens, etc.)
+                            // Pattern: key: value or key: (with nested content on next line)
+                            const kvMatch = trimmed.match(/^([\w_-]+(?:\|[\w_-]+)*):\s*(.*)$/);
+                            if (kvMatch) {
+                                const key = kvMatch[1];
+                                let value = kvMatch[2].trim();
+                                
+                                // Remove quotes if present
+                                if ((value.startsWith('"') && value.endsWith('"')) || 
+                                    (value.startsWith("'") && value.endsWith("'"))) {
+                                    value = value.slice(1, -1);
+                                }
+                                
+                                // Check if next line starts a nested block or if value is empty (nested content)
+                                if (i + 1 < lines.length) {
+                                    const nextLine = lines[i + 1];
+                                    if (nextLine.trim()) {
+                                        const nextIndent = nextLine.match(/^(\s*)/)[1].length;
+                                        
+                                        if (nextIndent > currentIndent || (!value && nextIndent >= currentIndent)) {
+                                            // Nested block - extract it
+                                            const nestedLines = [];
+                                            let j = i + 1;
+                                            while (j < lines.length) {
+                                                const nestedLine = lines[j];
+                                                if (!nestedLine.trim()) {
+                                                    nestedLines.push(nestedLine);
+                                                    j++;
+                                                    continue;
+                                                }
+                                                const nestedIndent = nestedLine.match(/^(\s*)/)[1].length;
+                                                // Stop if we hit same or less indentation (and it's not empty)
+                                                if (nestedIndent <= currentIndent && nestedLine.trim()) {
+                                                    break;
+                                                }
+                                                nestedLines.push(nestedLine);
+                                                j++;
+                                            }
+                                            const nestedBlock = nestedLines.join('\n');
+                                            if (nestedBlock.trim()) {
+                                                value = parseYamlBlock(nestedBlock, nextIndent);
+                                            }
+                                            i = j - 1;
+                                        } else if (!value) {
+                                            // Empty value, no nested content
+                                            value = null;
+                                        }
+                                    }
+                                }
+                                
+                                // Handle array values (lines starting with -)
+                                if (typeof value === 'string' && value.startsWith('-')) {
+                                    const arrayValues = [];
+                                    let arrayLine = i;
+                                    while (arrayLine < lines.length) {
+                                        const arrLine = lines[arrayLine].trim();
+                                        if (arrLine.startsWith('-')) {
+                                            const arrValue = arrLine.substring(1).trim();
+                                            // Remove quotes
+                                            const cleanValue = (arrValue.startsWith('"') && arrValue.endsWith('"')) || 
+                                                              (arrValue.startsWith("'") && arrValue.endsWith("'")) ?
+                                                              arrValue.slice(1, -1) : arrValue;
+                                            arrayValues.push(cleanValue);
+                                        } else if (arrLine && !arrLine.startsWith('#')) {
+                                            break;
+                                        }
+                                        arrayLine++;
+                                    }
+                                    if (arrayValues.length > 0) {
+                                        value = arrayValues;
+                                        i = arrayLine - 1;
+                                    }
+                                }
+                                
+                                result[key] = value;
+                            }
+                            i++;
+                        }
+                        
+                        return result;
+                    }
+                    
+                    // Extract logsource block
+                    let logsourceObj = metadata.logsource || {};
+                    const logsourceMatch = yaml.match(/^logsource:\s*\n((?:\s{2,}.*\n?)*)/m);
+                    if (logsourceMatch && (!logsourceObj || Object.keys(logsourceObj).length === 0)) {
+                        try {
+                            logsourceObj = parseYamlBlock(logsourceMatch[1]);
+                        } catch (e) {
+                            console.warn('Could not parse logsource:', e);
+                        }
+                    }
+                    
+                    // Extract detection block (more complex, nested structure)
+                    // Prefer metadata.detection if it exists and is complete
+                    let detectionObj = metadata.detection || {};
+                    
+                    // Check if metadata detection is complete (has more than just condition)
+                    const hasCompleteDetection = detectionObj && 
+                        Object.keys(detectionObj).length > 1 || 
+                        (Object.keys(detectionObj).length === 1 && Object.keys(detectionObj)[0] !== 'condition');
+                    
+                    if (!hasCompleteDetection) {
+                        // Try to parse from YAML using improved parser
+                        const detectionMatch = yaml.match(/^detection:\s*\n((?:\s{2,}.*\n?)*)/m);
+                        if (detectionMatch) {
+                            try {
+                                // Use a more robust approach: try to parse the entire detection block
+                                // Find where detection block ends (next top-level key or end of YAML)
+                                const detectionStart = yaml.indexOf('detection:');
+                                if (detectionStart !== -1) {
+                                    const afterDetection = yaml.substring(detectionStart + 'detection:'.length);
+                                    // Find next top-level key (starts at column 0, not indented)
+                                    const nextTopLevelMatch = afterDetection.match(/\n^(\w+):/m);
+                                    const detectionEnd = nextTopLevelMatch ? 
+                                        detectionStart + 'detection:'.length + nextTopLevelMatch.index : 
+                                        yaml.length;
+                                    
+                                    const detectionBlock = yaml.substring(detectionStart, detectionEnd);
+                                    detectionObj = parseYamlBlock(detectionBlock.replace(/^detection:\s*\n?/, ''));
+                                }
+                            } catch (e) {
+                                console.warn('Could not parse detection from YAML:', e);
+                                // Fall back to metadata even if incomplete
+                            }
+                        }
+                    }
+                    
+                    // Final fallback: ensure we have at least condition
+                    if (!detectionObj || Object.keys(detectionObj).length === 0) {
+                        detectionObj = { condition: 'selection' };
+                    }
+                    
+                    currentRuleParsed = {
+                        title: metadata.title || '',
+                        description: metadata.description || '',
+                        tags: metadata.tags || [],
+                        logsource: logsourceObj,
+                        detection: detectionObj,
+                        level: metadata.level || '',
+                        status: metadata.status || ''
+                    };
+                } else {
+                    // No YAML, use metadata only
+                    currentRuleParsed = {
+                        title: metadata.title || '',
+                        description: metadata.description || '',
+                        tags: metadata.tags || [],
+                        logsource: metadata.logsource || {},
+                        detection: metadata.detection || {},
+                        level: metadata.level || '',
+                        status: metadata.status || ''
+                    };
+                }
+            } catch (e) {
+                console.warn('Could not parse rule structure:', e);
+                // Fallback to metadata
+                const metadata = rule.rule_metadata || {};
+                currentRuleParsed = {
+                    title: metadata.title || '',
+                    description: metadata.description || '',
+                    tags: metadata.tags || [],
+                    logsource: metadata.logsource || {},
+                    detection: metadata.detection || {},
+                    level: metadata.level || '',
+                    status: metadata.status || ''
+                };
+            }
+            
+            // Use parsed rule or create from metadata
+            const generatedRules = currentRuleParsed ? [currentRuleParsed] : [];
+            showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules);
+        } else {
+            alert('Failed to find similar rules: ' + (data.message || 'Unknown error'));
+        }
+    } catch (error) {
+        // Remove loading indicator
+        const loadingEl = document.getElementById('similarRulesLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        console.error('Error checking similar rules:', error);
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            alert('Request timed out - LLM reranking may still be processing. Try again in a moment.');
+        } else {
+            alert('Error checking similar rules: ' + error.message);
+        }
+    }
+}
+
+function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
+    // Remove any existing modal
+    closeSimilarRulesModal();
+    
+    const modal = document.createElement('div');
+    modal.id = 'similarRulesModal';
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+    
+    // Add click outside to close
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeSimilarRulesModal();
+        }
+    });
+    
+    // Add ESC key to close
+    const handleEsc = function(e) {
+        if (e.key === 'Escape') {
+            closeSimilarRulesModal();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
+    
+    // Build coverage summary HTML
+    let coverageHtml = '';
+    if (coverageSummary && coverageSummary.total > 0) {
+        const coveredPercent = ((coverageSummary.covered / coverageSummary.total) * 100).toFixed(1);
+        const extendPercent = ((coverageSummary.extend / coverageSummary.total) * 100).toFixed(1);
+        const newPercent = ((coverageSummary.new / coverageSummary.total) * 100).toFixed(1);
+        
+        coverageHtml = `
+            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md">
+                <h4 class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">📊 Coverage Summary</h4>
+                <div class="grid grid-cols-3 gap-2 text-sm">
+                    <div class="text-center p-2 bg-green-100 dark:bg-green-900 rounded">
+                        <div class="font-bold text-green-700 dark:text-green-300">${coverageSummary.covered}</div>
+                        <div class="text-xs text-green-600 dark:text-green-400">Covered (${coveredPercent}%)</div>
+                    </div>
+                    <div class="text-center p-2 bg-yellow-100 dark:bg-yellow-900 rounded">
+                        <div class="font-bold text-yellow-700 dark:text-yellow-300">${coverageSummary.extend}</div>
+                        <div class="text-xs text-yellow-600 dark:text-yellow-400">Extend (${extendPercent}%)</div>
+                    </div>
+                    <div class="text-center p-2 bg-purple-100 dark:bg-purple-900 rounded">
+                        <div class="font-bold text-purple-700 dark:text-purple-300">${coverageSummary.new}</div>
+                        <div class="text-xs text-purple-600 dark:text-purple-400">New (${newPercent}%)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Build matches HTML
+    let matchesHtml = '';
+    if (!matches || matches.length === 0) {
+        matchesHtml = `
+            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p>No similar rules found in SigmaHQ repository</p>
+                <p class="text-sm mt-2">This may indicate a novel detection opportunity!</p>
+            </div>
+        `;
+    } else {
+        // Get parsed data from current rule
+        let newRuleLogsource = null;
+        let newRuleDetection = null;
+        if (generatedRules.length > 0) {
+            const firstRule = generatedRules[0];
+            newRuleLogsource = firstRule.logsource || null;
+            newRuleDetection = firstRule.detection || null;
+        }
+        
+        matchesHtml = matches.map((match, index) => {
+            const similarityPercent = ((match.similarity_score || match.similarity || 0) * 100).toFixed(1);
+            const coverageStatus = match.coverage_status || 'unknown';
+            const statusIcon = coverageStatus === 'covered' ? '✓' : 
+                              coverageStatus === 'extend' ? '⚡' : '✨';
+            
+            // Determine status color classes (using full class names for Tailwind)
+            let similarityColorClass = 'text-purple-600 dark:text-purple-400';
+            let statusBadgeClass = 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900';
+            if (coverageStatus === 'covered') {
+                similarityColorClass = 'text-green-600 dark:text-green-400';
+                statusBadgeClass = 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900';
+            } else if (coverageStatus === 'extend') {
+                similarityColorClass = 'text-yellow-600 dark:text-yellow-400';
+                statusBadgeClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900';
+            }
+            
+            // Escape rule_id for JavaScript
+            const escapedRuleId = match.rule_id ? match.rule_id.replace(/'/g, "\\'") : '';
+            // Escape logsource and detection for safe JSON display
+            const logsourceJson = match.logsource ? JSON.stringify(match.logsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+            const detectionJson = match.detection ? JSON.stringify(match.detection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+            // Escape new rule logsource and detection
+            const newRuleLogsourceJson = newRuleLogsource ? JSON.stringify(newRuleLogsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+            const newRuleDetectionJson = newRuleDetection ? JSON.stringify(newRuleDetection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
+            
+            return `
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h5 class="font-medium text-gray-900 dark:text-white">${escapeHtml(match.title || 'Untitled Rule')}</h5>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(match.description || 'No description')}</p>
+                        </div>
+                        <div class="ml-4 flex flex-col items-end">
+                            <div class="text-2xl font-bold ${similarityColorClass}">${similarityPercent}%</div>
+                            <div class="text-xs ${statusBadgeClass} px-2 py-1 rounded mt-1">
+                                ${statusIcon} ${coverageStatus.toUpperCase()}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${match.llm_explanation ? `
+                        <div class="mt-3 p-2 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded">
+                            <div class="text-xs font-bold text-green-900 dark:text-green-100 mb-1">🤖 LLM Explanation:</div>
+                            <div class="text-xs text-green-800 dark:text-green-200 italic">${escapeHtml(match.llm_explanation)}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${match.similarity_breakdown || match.atom_jaccard !== undefined ? `
+                        <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded">
+                            <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
+                            <div class="grid grid-cols-2 gap-1 text-xs">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 55%)</span>:</span>
+                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 25%)</span>:</span>
+                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1)}%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-700 dark:text-gray-300">Cosine Similarity <span class="text-gray-500">(weight: 20%)</span>:</span>
+                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.cosine || match.similarity_breakdown?.cosine || 0) * 100).toFixed(1)}%</span>
+                                </div>
+                                <div class="col-span-2 pt-1 border-t border-blue-200 dark:border-blue-700 flex justify-between">
+                                    <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
+                                    <span class="font-medium text-blue-700 dark:text-blue-300">${similarityPercent}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-gray-100">${escapeHtml(match.rule_id || 'N/A')}</code></div>
+                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Status:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.status || 'N/A')}</span></div>
+                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Match Type:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.match_level || 'article')}</span></div>
+                    </div>
+                    
+                    ${match.tags && match.tags.length > 0 ? `
+                        <div class="mt-2">
+                            <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Tags:</div>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                ${match.tags.slice(0, 5).map(tag => 
+                                    `<span class="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded">${escapeHtml(tag)}</span>`
+                                ).join('')}
+                                ${match.tags.length > 5 ? `<span class="text-xs text-gray-500 dark:text-gray-400">+${match.tags.length - 5} more</span>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${match.matched_discriminators && match.matched_discriminators.length > 0 ? `
+                        <div class="mt-2">
+                            <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Matched Behaviors:</div>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                ${match.matched_discriminators.slice(0, 5).map(d => 
+                                    `<span class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">${escapeHtml(d)}</span>`
+                                ).join('')}
+                                ${match.matched_discriminators.length > 5 ? `<span class="text-xs text-gray-500 dark:text-gray-400">+${match.matched_discriminators.length - 5} more</span>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${match.coverage_reasoning ? `
+                        <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400 italic">
+                            💡 ${escapeHtml(match.coverage_reasoning)}
+                        </div>
+                    ` : ''}
+                    
+                    ${(match.logsource || match.detection || (generatedRules.length > 0 && (generatedRules[0].logsource || generatedRules[0].detection))) ? `
+                        <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                            <button onclick="event.stopPropagation(); toggleRuleDetails('rule-details-${index}', 'toggle-icon-${index}')" 
+                                    class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium flex items-center">
+                                <svg id="toggle-icon-${index}" class="w-4 h-4 mr-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                                <span>Show Logsource & Detection Comparison</span>
+                            </button>
+                            <div id="rule-details-${index}" class="hidden mt-2">
+                                ${generatedRules.length > 0 ? `
+                                    <div class="mb-4 p-2 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded">
+                                        <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-1">📝 Current Rule: ${escapeHtml(generatedRules[0].title || 'Untitled')}</h6>
+                                    </div>
+                                ` : ''}
+                                <div class="space-y-4">
+                                    <!-- Logsource Comparison -->
+                                    <div>
+                                        <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">📋 Logsource Comparison</h6>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900">
+                                                <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-2">Current Rule</h6>
+                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${newRuleLogsourceJson}</pre>
+                                            </div>
+                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-blue-50 dark:bg-blue-900">
+                                                <h6 class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">Similar Rule</h6>
+                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${logsourceJson}</pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Detection Comparison -->
+                                    <div>
+                                        <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">🔍 Detection Comparison</h6>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900">
+                                                <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-2">Current Rule</h6>
+                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${newRuleDetectionJson}</pre>
+                                            </div>
+                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-green-50 dark:bg-green-900">
+                                                <h6 class="text-xs font-bold text-green-900 dark:text-green-100 mb-2">Similar Rule</h6>
+                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${detectionJson}</pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        📁 ${escapeHtml(match.file_path || 'N/A')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    modal.innerHTML = `
+        <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rules in SigmaHQ Repository</h3>
+                <div class="flex items-center space-x-2">
+                    <button onclick="toggleSimilarRulesModalExpand()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Expand to full screen">
+                        <svg id="expandIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+                        </svg>
+                    </button>
+                    <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                Found ${matches ? matches.length : 0} most similar rules${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches[0] && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (embedding-based)'} (sorted by similarity)
+                ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}
+                    </div>
+                ` : ''}
+            </div>
+            
+            ${coverageHtml}
+            
+            <div id="similarRulesMatchesContainer" class="space-y-3 max-h-96 overflow-y-auto">
+                ${matchesHtml}
+            </div>
+            
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeSimilarRulesModal()" 
+                        class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function toggleSimilarRulesModalExpand() {
+    const modalContent = document.getElementById('similarRulesModalContent');
+    const expandIcon = document.getElementById('expandIcon');
+    
+    if (!modalContent) return;
+    
+    isSimilarRulesModalExpanded = !isSimilarRulesModalExpanded;
+    
+    const matchesContainer = document.getElementById('similarRulesMatchesContainer');
+    
+    if (isSimilarRulesModalExpanded) {
+        // Expand to full screen
+        modalContent.className = 'fixed inset-4 p-5 border shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300 flex flex-col';
+        modalContent.style.top = '1rem';
+        modalContent.style.left = '1rem';
+        modalContent.style.right = '1rem';
+        modalContent.style.bottom = '1rem';
+        modalContent.style.width = 'auto';
+        modalContent.style.maxWidth = 'none';
+        modalContent.style.margin = '0';
+        
+        // Increase max height of matches container
+        if (matchesContainer) {
+            matchesContainer.className = 'space-y-3 flex-1 overflow-y-auto';
+        }
+        
+        // Update icon to show minimize
+        if (expandIcon) {
+            expandIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"></path>';
+        }
+    } else {
+        // Return to normal size
+        modalContent.className = 'relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300';
+        modalContent.style.top = '';
+        modalContent.style.left = '';
+        modalContent.style.right = '';
+        modalContent.style.bottom = '';
+        modalContent.style.width = '';
+        modalContent.style.maxWidth = '';
+        modalContent.style.margin = '';
+        
+        // Reset max height of matches container
+        if (matchesContainer) {
+            matchesContainer.className = 'space-y-3 max-h-96 overflow-y-auto';
+        }
+        
+        // Update icon to show expand
+        if (expandIcon) {
+            expandIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>';
+        }
+    }
+}
+
+function closeSimilarRulesModal() {
+    const modal = document.getElementById('similarRulesModal');
+    if (modal) {
+        modal.remove();
+        isSimilarRulesModalExpanded = false;
+    }
+}
+
+function toggleRuleDetails(detailsId, iconId) {
+    const detailsDiv = document.getElementById(detailsId);
+    const iconSvg = document.getElementById(iconId);
+    const button = iconSvg ? iconSvg.closest('button') : null;
+    
+    if (!detailsDiv || !iconSvg) {
+        return;
+    }
+    
+    const isHidden = detailsDiv.classList.contains('hidden');
+    
+    if (isHidden) {
+        detailsDiv.classList.remove('hidden');
+        iconSvg.style.transform = 'rotate(180deg)';
+        if (button) {
+            const span = button.querySelector('span');
+            if (span) span.textContent = 'Hide Logsource & Detection Comparison';
+        }
+    } else {
+        detailsDiv.classList.add('hidden');
+        iconSvg.style.transform = 'rotate(0deg)';
+        if (button) {
+            const span = button.querySelector('span');
+            if (span) span.textContent = 'Show Logsource & Detection Comparison';
+        }
+    }
+}
 </script>
 {% endblock %}
 

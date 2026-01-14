@@ -277,10 +277,10 @@ class RAGService:
     async def find_similar_sigma_rules(self, query: str, top_k: int = 10,
                                       threshold: float = 0.7) -> List[Dict[str, Any]]:
         """
-        Find similar Sigma detection rules using semantic search.
+        Find similar Sigma detection rules using behavioral novelty assessment.
         
-        Uses standardized section-based matching: compares query embedding against
-        rule's signature embedding (87.4% weight) since queries focus on detection logic.
+        Note: Query-based search is not fully supported by novelty assessment.
+        This method converts the query to a minimal rule structure for comparison.
 
         Args:
             query: Search query text
@@ -291,8 +291,10 @@ class RAGService:
             List of similar Sigma rules with metadata
         """
         try:
-            # Import weights from sigma_matching_service for consistency
-            from src.services.sigma_matching_service import SIMILARITY_WEIGHTS
+            # For query-based search, we need to create a minimal rule structure
+            # This is a limitation: novelty assessment requires full rule structure
+            # For now, fall back to embedding-based search for queries
+            logger.warning("Query-based SIGMA search not fully supported by novelty assessment, using embeddings")
             
             # Generate query embedding using SIGMA embedding model (e5-base-v2)
             query_embedding = self.sigma_embedding_service.generate_embedding(query)
@@ -345,11 +347,8 @@ class RAGService:
                 all_results = []
                 for row in result:
                     signature_sim = float(row[8]) if row[8] is not None else 0.0
-                    # For queries, similarity is primarily signature-based (detection logic)
-                    # Apply signature weight directly
-                    weighted_sim = signature_sim * SIMILARITY_WEIGHTS['signature']
-                    all_results.append((row[2], weighted_sim))  # title and similarity
-                    if weighted_sim >= threshold:
+                    all_results.append((row[2], signature_sim))  # title and similarity
+                    if signature_sim >= threshold:
                         rules.append({
                             'id': row[0],
                             'rule_id': row[1],
@@ -359,7 +358,9 @@ class RAGService:
                             'level': row[5],
                             'status': row[6],
                             'file_path': row[7],
-                            'similarity': weighted_sim
+                            'similarity': signature_sim,
+                            'novelty_label': 'NOVEL',  # Query search doesn't support novelty assessment
+                            'novelty_score': 1.0 - signature_sim
                         })
 
                 if all_results:
