@@ -497,8 +497,16 @@
                             </div>
                         </div>
                         <div id="rank-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Rank QA Model Provider
+                                <button type="button" 
+                                        onclick="showHelp('rankAgentQA')"
+                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                        title="Help">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
                             </label>
                             <select id="rankqa-provider"
                                     name="agent_models[RankAgentQA_provider]"
@@ -694,7 +702,17 @@
                                         </div>
                                         <!-- CmdLine QA Model -->
                                         <div id="cmdlineextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">CmdLine QA Model Provider</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                CmdLine QA Model Provider
+                                                <button type="button"
+                                                        onclick="showHelp('cmdlineQA')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="cmdlineqa-provider"
                                                     name="agent_models[CmdLineQA_provider]"
                                                     onchange="onAgentProviderChange('cmdlineqa')"
@@ -870,7 +888,17 @@
                                         </div>
                                         <!-- ProcTree QA Model -->
                                         <div id="proctreeextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ProcTree QA Model Provider</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                ProcTree QA Model Provider
+                                                <button type="button"
+                                                        onclick="showHelp('procTreeQA')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="proctreeqa-provider"
                                                     name="agent_models[ProcTreeQA_provider]"
                                                     onchange="onAgentProviderChange('proctreeqa')"
@@ -1042,7 +1070,17 @@
                                         </div>
                                         <!-- HuntQueries QA Model -->
                                         <div id="huntqueriesextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueries QA Model Provider</label>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                HuntQueries QA Model Provider
+                                                <button type="button"
+                                                        onclick="showHelp('huntQueriesQA')"
+                                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                        title="Help">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
                                             <select id="huntqueriesqa-provider"
                                                     name="agent_models[HuntQueriesQA_provider]"
                                                     onchange="onAgentProviderChange('huntqueriesqa')"
@@ -10922,9 +10960,20 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use CTI-BERT for embedding model. The keyword-first approach provides fast Windows detection for articles with clear Windows indicators, while BERT handles ambiguous cases. Configure fallback model only if you need LLM-based detection for low-confidence cases.</p>`
         },
         'rankAgent': {
-            title: 'Rank Agent Model',
+            title: 'Rank / Triage Agent Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">The LLM model used to evaluate and rank articles for huntability. This agent determines whether an article contains actionable threat intelligence worth extracting.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>google/gemma-3-4b</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                          <li>Qwen3-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.2 – 0.4</li>
+                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
+                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After junk filtering, the Rank Agent evaluates the article</li>
@@ -10932,17 +10981,23 @@ function showHelp(fieldName) {
                           <li>If score ≥ ranking threshold: workflow continues</li>
                           <li>If score < ranking threshold: workflow stops</li>
                       </ul>
-                      <p class="mb-2"><strong>Temperature:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>0.0:</strong> Deterministic, consistent rankings (recommended)</li>
-                          <li><strong>Higher values:</strong> More creative/varied rankings</li>
-                      </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model optimized for classification/ranking tasks. Temperature 0.0 for consistent results.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires real reasoning and comparison, not extraction. Distilled R1 variants excel at judgment tasks. Llama/Qwen Instruct provide stable classification at lower cost.</p>`
         },
         'extractAgent': {
             title: 'Extract Agents Fallback Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">The default LLM model used by sub-agents when no specific model is configured for them.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>Qwen3-32B-Instruct</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                          <li>Qwen2.5-Coder-14B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
+                          <li><strong>Top-P:</strong> 0.5 – 0.7</li>
+                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Each sub-agent can have its own model configured</li>
@@ -10953,33 +11008,24 @@ function showHelp(fieldName) {
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li><strong>CmdlineExtract:</strong> Command line arguments and executions</li>
                           <li><strong>ProcTreeExtract:</strong> Process lineage and relationships</li>
+                          <li><strong>HuntQueriesExtract:</strong> EDR/SIEM query extraction</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong instruction-following and structured output capabilities.</p>`
-        },
-        'sigmaAgent': {
-            title: 'SIGMA Generator Agent Model',
-            content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
-                      <p class="mb-2"><strong>How it works:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Receives extracted behaviors and IOCs from Extract Agents</li>
-                          <li>Generates SIGMA YAML rules following SIGMA specification</li>
-                          <li>Creates detection rules for Windows Event Logs, Sysmon, etc.</li>
-                          <li>Rules are then checked for similarity against existing rules</li>
-                          <li>Unique rules are queued for human review and PR submission</li>
-                      </ul>
-                      <p class="mb-2"><strong>Output Format:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>YAML format following SIGMA specification</li>
-                          <li>Includes: title, description, detection logic, tags, falsepositives</li>
-                          <li>Compatible with SIEM systems (Splunk, Elastic, QRadar, etc.)</li>
-                      </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use a model with strong code generation and YAML formatting capabilities. Should understand SIGMA rule structure and Windows event log fields.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Verbatim literal extraction only. Qwen Instruct models are strongest at constraint obedience. Coder variant helps preserve exact token sequences in JSON.</p>`
         },
         'cmdlineExtract': {
-            title: 'CmdlineExtract Model',
+            title: 'Command-Line Extraction Agent (Windows)',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Specialized sub-agent for extracting command line arguments and command executions from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>qwen/qwen3-14b</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
+                          <li><strong>Top-P:</strong> 0.5 – 0.7</li>
+                      </ul>
                       <p class="mb-2"><strong>What it extracts:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Command line arguments and switches</li>
@@ -10995,12 +11041,22 @@ function showHelp(fieldName) {
                           <li>Outputs structured command line data for SIGMA rules</li>
                           <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model optimized for command-line extraction if needed.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Verbatim literal extraction only. Qwen Instruct models are strongest at constraint obedience. Coder variant helps preserve exact token sequences in JSON.</p>`
         },
         'procTreeExtract': {
             title: 'ProcTreeExtract Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Specialized sub-agent for extracting process lineage, parent-child relationships, and process tree structures from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>qwen/qwen3-14b</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
+                          <li><strong>Top-P:</strong> 0.6 – 0.75</li>
+                      </ul>
                       <p class="mb-2"><strong>What it extracts:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Process parent-child relationships</li>
@@ -11015,7 +11071,169 @@ function showHelp(fieldName) {
                           <li>Extracts process tree data for SIGMA rule generation</li>
                           <li>Can use Extract Agents model or override with dedicated model</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Leave blank to use Extract Agents model, or specify a model with strong understanding of process relationships.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Queries resemble code; coder models preserve syntax. Slightly higher Top-P tolerates complex punctuation. Still fully constrained to prevent query rewriting.</p>`
+        },
+        'huntQueriesExtract': {
+            title: 'Hunt Query Extractor Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting EDR and SIEM queries from threat intelligence articles. Extracts detection queries in various formats (KQL, SPL, etc.).</p>
+                      <p class="mb-2"><strong>Primary Model (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>Qwen3-Coder-8B-Instruct</li>
+                          <li>microsoft/phi-4-reasoning-plus</li>
+                      </ol>
+                      <p class="mb-2"><strong>Backup Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1" start="2">
+                          <li>Qwen3-14B-Instruct</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
+                          <li><strong>Top-P:</strong> 0.6 – 0.7</li>
+                      </ul>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>EDR detection queries (KQL, SPL, etc.)</li>
+                          <li>SIEM search queries</li>
+                          <li>Query syntax and logic</li>
+                          <li>Query parameters and filters</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Orchestrated by the Extract Agents supervisor</li>
+                          <li>Identifies and extracts query syntax from articles</li>
+                          <li>Preserves exact query formatting and structure</li>
+                          <li>Can use Extract Agents model or override with dedicated model</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Coder models best preserve query syntax and field names. Low temperature prevents query reconstruction or completion. Moderately constrained Top-P tolerates complex query punctuation. Optimized for literal string selection under hard gating.</p>`
+        },
+        'sigmaAgent': {
+            title: 'SIGMA Rule Generation Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>Qwen2.5-Coder-14B-Instruct</li>
+                          <li>Qwen3-32B-Instruct</li>
+                          <li>DeepSeek-R1-Distill (largest feasible variant)</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.2 – 0.35</li>
+                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Receives extracted behaviors and IOCs from Extract Agents</li>
+                          <li>Generates SIGMA YAML rules following SIGMA specification</li>
+                          <li>Creates detection rules for Windows Event Logs, Sysmon, etc.</li>
+                          <li>Rules are then checked for similarity against existing rules</li>
+                          <li>Unique rules are queued for human review and PR submission</li>
+                      </ul>
+                      <p class="mb-2"><strong>Output Format:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>YAML format following SIGMA specification</li>
+                          <li>Includes: title, description, detection logic, tags, falsepositives</li>
+                          <li>Compatible with SIEM systems (Splunk, Elastic, QRadar, etc.)</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Detection engineering requires controlled reasoning. Coder models excel at structured YAML output. R1 distills help with logic synthesis (must be tightly gated).</p>`
+        },
+        'rankAgentQA': {
+            title: 'Rank QA / Verification Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">QA agent that validates Rank Agent outputs by comparing against source text. Performs adversarial comparison to ensure accuracy.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
+                          <li>Qwen3-14b</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
+                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Validates Rank Agent scoring accuracy</li>
+                          <li>Compares rankings against source article content</li>
+                          <li>Identifies discrepancies or errors in ranking logic</li>
+                          <li>Reports structured issues for review</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires adversarial comparison against source text. R1 models are strongest for grounding judgments. Qwen/Llama provide stable structured issue reporting.</p>`
+        },
+        'cmdlineQA': {
+            title: 'CmdlineExtract QA / Verification Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">QA agent that validates CmdlineExtract outputs by comparing extracted command lines against source text. Ensures verbatim accuracy.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
+                          <li>Qwen3-32B-Instruct</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
+                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Validates extracted command line arguments</li>
+                          <li>Compares against source article for accuracy</li>
+                          <li>Identifies missing or incorrect extractions</li>
+                          <li>Reports structured validation issues</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires adversarial comparison against source text. R1 models are strongest for grounding judgments. Qwen/Llama provide stable structured issue reporting.</p>`
+        },
+        'procTreeQA': {
+            title: 'ProcTreeExtract QA / Verification Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">QA agent that validates ProcTreeExtract outputs by comparing extracted process relationships against source text. Ensures accurate process tree extraction.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
+                          <li>Qwen3-32B-Instruct</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
+                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Validates extracted process relationships</li>
+                          <li>Compares process trees against source article</li>
+                          <li>Identifies missing or incorrect process links</li>
+                          <li>Reports structured validation issues</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires adversarial comparison against source text. R1 models are strongest for grounding judgments. Qwen/Llama provide stable structured issue reporting.</p>`
+        },
+        'huntQueriesQA': {
+            title: 'HuntQueriesExtract QA / Verification Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">QA agent that validates HuntQueriesExtract outputs by comparing extracted EDR/SIEM queries against source text. Ensures query syntax accuracy.</p>
+                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
+                      <ol class="list-decimal list-inside mb-2 space-y-1">
+                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
+                          <li>Qwen3-32B-Instruct</li>
+                          <li>Meta-Llama-3.1-8B-Instruct</li>
+                      </ol>
+                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
+                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
+                      </ul>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Validates extracted query syntax</li>
+                          <li>Compares queries against source article</li>
+                          <li>Identifies syntax errors or missing query components</li>
+                          <li>Reports structured validation issues</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires adversarial comparison against source text. R1 models are strongest for grounding judgments. Qwen/Llama provide stable structured issue reporting.</p>`
         }
     };
     
