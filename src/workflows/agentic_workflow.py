@@ -1615,9 +1615,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 execution.error_log = {}
                             if 'qa_results' not in execution.error_log:
                                 execution.error_log['qa_results'] = {}
-                            # Store using both agent_name and qa_name for UI compatibility
+                            # Store using agent_name as primary key; qa_name is only for backward compatibility
+                            # The streaming endpoint maps both to the same workflow agent, so storing once is sufficient
                             execution.error_log['qa_results'][agent_name] = qa_result
-                            execution.error_log['qa_results'][qa_name] = qa_result
+                            # Only store qa_name if it's different from agent_name to avoid duplicates
+                            if qa_name and qa_name != agent_name:
+                                execution.error_log['qa_results'][qa_name] = qa_result
                             # Mark as modified so SQLAlchemy tracks the change
                             from sqlalchemy.orm.attributes import flag_modified
                             flag_modified(execution, 'error_log')
@@ -1720,6 +1723,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 db_session.commit()
             
             logger.info(f"[Workflow {state['execution_id']}] Extraction: {discrete_count} discrete huntables")
+            
+            # Mark extract_agent as complete before returning
+            # This ensures generate_sigma doesn't appear until extraction is truly done
+            if execution:
+                execution.current_step = 'extract_agent'  # Keep as extract_agent until next step starts
+                # Store completion marker in error_log for streaming view
+                if execution.error_log is None:
+                    execution.error_log = {}
+                if 'extract_agent' not in execution.error_log:
+                    execution.error_log['extract_agent'] = {}
+                execution.error_log['extract_agent']['completed'] = True
+                execution.error_log['extract_agent']['completed_at'] = datetime.now().isoformat()
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(execution, 'error_log')
+                db_session.commit()
             
             return {
                 **state,

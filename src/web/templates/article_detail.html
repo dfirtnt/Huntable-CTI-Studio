@@ -6248,7 +6248,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Search for similar rules in SigmaHQ repository"
                                 disabled>
-                            🔍 Check Similar Rules
+                            🔍 Similarity Search
                         </button>
                         <button id="regenerateSimilarRulesBtn" onclick="checkSimilarSigmaRules(true)"
                                 class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
@@ -7493,7 +7493,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 if (hadSuccess) {
                     checkBtn.textContent = '📚 Display Similar Rules';
                 } else {
-                    checkBtn.textContent = '🔍 Check Similar Rules';
+                    checkBtn.textContent = '🔍 Similarity Search';
                 }
             }
             if (regenBtn) {
@@ -7535,7 +7535,7 @@ Please provide a detailed analysis based on the article content and the user's s
             if (data.status === 'task_submitted' || data.status === 'already_embedded') {
                 showNotification('✓ Article embedding generated successfully!', 'success');
                 
-                // Re-enable Check Similar Rules button
+                // Re-enable Similarity Search button
                 const checkBtn = document.getElementById('checkSimilarRulesBtn');
                 if (checkBtn) {
                     checkBtn.disabled = false;
@@ -7584,44 +7584,20 @@ Please provide a detailed analysis based on the article content and the user's s
         };
         document.addEventListener('keydown', handleEsc);
         
-        // Build coverage summary HTML
-        let coverageHtml = '';
-        if (coverageSummary && coverageSummary.total > 0) {
-            const coveredPercent = ((coverageSummary.covered / coverageSummary.total) * 100).toFixed(1);
-            const extendPercent = ((coverageSummary.extend / coverageSummary.total) * 100).toFixed(1);
-            const newPercent = ((coverageSummary.new / coverageSummary.total) * 100).toFixed(1);
-            
-            coverageHtml = `
-                <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                    <h4 class="text-sm font-medium text-blue-900 mb-2">📊 Coverage Summary</h4>
-                    <div class="grid grid-cols-3 gap-2 text-sm">
-                        <div class="text-center p-2 bg-green-100 rounded">
-                            <div class="font-bold text-green-700">${coverageSummary.covered}</div>
-                            <div class="text-xs text-green-600">Covered (${coveredPercent}%)</div>
-                        </div>
-                        <div class="text-center p-2 bg-yellow-100 rounded">
-                            <div class="font-bold text-yellow-700">${coverageSummary.extend}</div>
-                            <div class="text-xs text-yellow-600">Extend (${extendPercent}%)</div>
-                        </div>
-                        <div class="text-center p-2 bg-purple-100 rounded">
-                            <div class="font-bold text-purple-700">${coverageSummary.new}</div>
-                            <div class="text-xs text-purple-600">New (${newPercent}%)</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
         
         // Build matches HTML
         let matchesHtml = '';
         if (!matches || matches.length === 0) {
             matchesHtml = `
-                <div class="text-center py-8 text-gray-500">
-                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p>No similar rules found in SigmaHQ repository</p>
-                    <p class="text-sm mt-2">This may indicate a novel detection opportunity!</p>
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 mx-auto mb-4 text-green-500 flex items-center justify-center">
+                        <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-lg font-semibold text-gray-900 mb-2">✨ Novel Detection Pattern</p>
+                    <p class="text-gray-600 mb-1">No similar rules found in SigmaHQ repository</p>
+                    <p class="text-sm text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing SigmaHQ rules.</p>
                 </div>
             `;
         } else {
@@ -7691,33 +7667,21 @@ Please provide a detailed analysis based on the article content and the user's s
                             </div>
                         ` : ''}
                         
-                        ${match.similarity_breakdown ? `
+                        ${match.similarity_breakdown || match.atom_jaccard !== undefined ? `
                             <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                                <div class="text-xs font-bold text-blue-900 mb-2">🔍 Embedding Similarity Breakdown:</div>
+                                <div class="text-xs font-bold text-blue-900 mb-2">🔍 Behavioral Similarity Breakdown:</div>
                                 <div class="grid grid-cols-2 gap-1 text-xs">
                                     <div class="flex justify-between">
-                                        <span class="text-gray-700">Title:</span>
-                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.title * 100).toFixed(1)}%</span>
+                                        <span class="text-gray-700">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
+                                        <span class="font-medium text-blue-700">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span class="text-gray-700">Description:</span>
-                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.description * 100).toFixed(1)}%</span>
+                                        <span class="text-gray-700">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
+                                        <span class="font-medium text-blue-700">${match.logic_shape_similarity === null || match.logic_shape_similarity === undefined || match.similarity_breakdown?.logic_shape_similarity === null || match.similarity_breakdown?.logic_shape_similarity === undefined ? 'N/A' : ((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1) + '%'}</span>
                                     </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-700">Tags:</span>
-                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.tags * 100).toFixed(1)}%</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-700">Logsource:</span>
-                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.logsource * 100).toFixed(1)}%</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-700">Detection Structure:</span>
-                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.detection_structure * 100).toFixed(1)}%</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-700">Detection Fields:</span>
-                                        <span class="font-medium text-blue-700">${(match.similarity_breakdown.detection_fields * 100).toFixed(1)}%</span>
+                                    <div class="col-span-2 pt-1 border-t border-blue-200 flex justify-between">
+                                        <span class="text-gray-700 font-semibold">Weighted Total:</span>
+                                        <span class="font-medium text-blue-700">${similarityPercent}%</span>
                                     </div>
                                 </div>
                             </div>
@@ -7726,7 +7690,6 @@ Please provide a detailed analysis based on the article content and the user's s
                         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                             <div><span class="font-medium">Rule ID:</span> <code class="text-xs bg-gray-100 px-1 rounded">${match.rule_id || 'N/A'}</code></div>
                             <div><span class="font-medium">Status:</span> ${match.status || 'N/A'}</div>
-                            <div><span class="font-medium">Match Type:</span> ${match.match_level || 'article'}</div>
                         </div>
                         
                         ${match.tags && match.tags.length > 0 ? `
@@ -7750,12 +7713,6 @@ Please provide a detailed analysis based on the article content and the user's s
                                     ).join('')}
                                     ${match.matched_discriminators.length > 5 ? `<span class="text-xs text-gray-500">+${match.matched_discriminators.length - 5} more</span>` : ''}
                                 </div>
-                            </div>
-                        ` : ''}
-                        
-                        ${match.coverage_reasoning ? `
-                            <div class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 italic">
-                                💡 ${match.coverage_reasoning}
                             </div>
                         ` : ''}
                         
@@ -7828,15 +7785,13 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
-                    Found ${matches ? matches.length : 0} most similar rules${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : ' (embedding-based)'} (sorted by similarity)
+                    Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)
                     ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                         <div class="mt-1 text-xs text-gray-500">
                             Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? ' — ' + matches[0].llm_model : ''}
                         </div>
                     ` : ''}
                 </div>
-                
-                ${coverageHtml}
                 
                 <div class="space-y-3 max-h-96 overflow-y-auto">
                     ${matchesHtml}

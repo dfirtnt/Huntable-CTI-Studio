@@ -29,9 +29,10 @@ class NoveltyLabel(str, Enum):
 class Atom:
     """Atomic predicate representing one irreducible behavioral constraint."""
     field: str
-    ops: List[str]  # Operators/modifiers (e.g., ["contains", "all"])
+    op: str  # Primary operator (e.g., "contains", "endswith", "re")
+    op_type: str  # "literal" or "regex" (determined by operator)
     value: str
-    value_type: str  # "string", "int", "float", etc.
+    value_type: str  # "string", "int", "float", "bool"
     polarity: str  # "positive" or "negative" (NOT logic)
 
 
@@ -50,12 +51,56 @@ class CanonicalRule:
 
 
 class SigmaNoveltyService:
-    """Service for assessing behavioral novelty of SIGMA rules."""
+    """Service for assessing behavioral novelty of SIGMA rules (v1.2)."""
+    
+    # Canonical version
+    CANONICAL_VERSION = "1.2"
     
     # Fields that require aggressive normalization
     AGGRESSIVE_NORMALIZATION_FIELDS = {
         'CommandLine', 'ProcessCommandLine', 'ParentCommandLine'
     }
+    
+    # Field alias map (v1.2) - maps equivalent field names to canonical form
+    FIELD_ALIAS_MAP = {
+        # Process execution
+        'CommandLine': 'CommandLine',
+        'ProcessCommandLine': 'CommandLine',
+        'Image': 'Image',
+        'ProcessPath': 'Image',
+        'NewProcessName': 'Image',
+        'ExecutablePath': 'Image',
+        'ParentImage': 'ParentImage',
+        'ParentProcessPath': 'ParentImage',
+        'ParentProcessName': 'ParentImage',
+        # Network
+        'DestinationIp': 'DestinationIp',
+        'DestinationIpAddress': 'DestinationIp',
+        'DestIp': 'DestinationIp',
+        'SourceIp': 'SourceIp',
+        'SourceIpAddress': 'SourceIp',
+        'SrcIp': 'SourceIp',
+        'DestinationPort': 'DestinationPort',
+        'DestPort': 'DestinationPort',
+        'SourcePort': 'SourcePort',
+        'SrcPort': 'SourcePort',
+        # DNS
+        'QueryName': 'DnsQuery',
+        'DnsQuery': 'DnsQuery',
+        'Query': 'DnsQuery',
+        # File system
+        'TargetFilename': 'FilePath',
+        'TargetFileName': 'FilePath',
+        'FileName': 'FilePath',
+        'FilePath': 'FilePath',
+        # Registry
+        'TargetObject': 'RegistryPath',
+        'RegistryKey': 'RegistryPath',
+        'RegistryPath': 'RegistryPath',
+    }
+    
+    # Service penalty configuration (v1.2)
+    SERVICE_PENALTY = 0.05
     
     def __init__(self, db_session=None):
         """
@@ -90,7 +135,7 @@ class SigmaNoveltyService:
             # Step 2: Generate fingerprints
             exact_hash = self.generate_exact_hash(canonical_rule)
             canonical_text = self.generate_canonical_text(canonical_rule)
-            logsource_key = self.normalize_logsource(proposed_rule.get('logsource', {}))
+            logsource_key, proposed_service = self.normalize_logsource(proposed_rule.get('logsource', {}))
             
             # Step 3: Retrieve candidates (hard gate: same logsource_key)
             logger.debug(f"Retrieving candidates for logsource_key: '{logsource_key}'")
@@ -115,15 +160,33 @@ class SigmaNoveltyService:
                 atom_jaccard = self.compute_atom_jaccard(
                     canonical_rule, candidate_canonical
                 )
-                logic_similarity = self.compute_logic_shape_similarity(
-                    canonical_rule, candidate_canonical
-                )
-                cosine_sim = 0.0  # Placeholder - would use embeddings if available
                 
-                # Weighted similarity
-                weighted_sim = self.compute_weighted_similarity(
-                    atom_jaccard, logic_similarity, cosine_sim
-                )
+                # Compute service penalty (v1.2)
+                candidate_service = None
+                if isinstance(candidate, dict):
+                    _, candidate_service = self.normalize_logsource(candidate.get('logsource', {}))
+                service_penalty = self._compute_service_penalty(proposed_service, candidate_service)
+                
+                # Compute filter divergence penalty (v1.2)
+                filter_penalty = self._compute_filter_penalty(canonical_rule, candidate_canonical)
+                
+                # Early exit for proven event equivalence (v1.2)
+                # If all atoms are identical, no service mismatch, and no filter divergence,
+                # the rules match the exact same EDR events - return 1.0 immediately
+                if atom_jaccard == 1.0 and service_penalty == 0.0 and filter_penalty == 0.0:
+                    weighted_sim = 1.0
+                    logic_similarity = None  # Not computed - N/A when atoms are identical
+                else:
+                    # Compute logic shape similarity only if needed
+                    logic_similarity = self.compute_logic_shape_similarity(
+                        canonical_rule, candidate_canonical
+                    )
+                    
+                    # Weighted similarity with penalties
+                    weighted_sim = self.compute_weighted_similarity(
+                        atom_jaccard, logic_similarity,
+                        service_penalty=service_penalty, filter_penalty=filter_penalty
+                    )
                 
                 if weighted_sim >= threshold:
                     # Generate explainability
@@ -135,7 +198,6 @@ class SigmaNoveltyService:
                         'rule_id': candidate.get('rule_id', '') if isinstance(candidate, dict) else '',
                         'atom_jaccard': atom_jaccard,
                         'logic_shape_similarity': logic_similarity,
-                        'cosine': cosine_sim,
                         'similarity': weighted_sim,
                         **explainability
                     })
@@ -180,8 +242,8 @@ class SigmaNoveltyService:
             CanonicalRule object
         """
         # Normalize logsource
-        logsource = self.normalize_logsource(rule_data.get('logsource', {}))
-        product, category = logsource.split('|') if '|' in logsource else ('', '')
+        logsource_key, _ = self.normalize_logsource(rule_data.get('logsource', {}))
+        product, category = logsource_key.split('|') if '|' in logsource_key else ('', '')
         
         # Extract atoms from detection
         detection = rule_data.get('detection', {})
@@ -191,7 +253,7 @@ class SigmaNoveltyService:
         logic = self.canonicalize_detection_logic(detection, atoms)
         
         return CanonicalRule(
-            version="1.0",
+            version=self.CANONICAL_VERSION,
             logsource={"product": product, "category": category},
             detection={
                 "atoms": [asdict(atom) for atom in atoms],
@@ -199,27 +261,27 @@ class SigmaNoveltyService:
             }
         )
     
-    def normalize_logsource(self, logsource: Dict[str, Any]) -> str:
+    def normalize_logsource(self, logsource: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """
-        Normalize logsource to product|category key.
+        Normalize logsource to product|category key and extract service (v1.2).
         
         Args:
             logsource: Logsource dictionary
             
         Returns:
-            String in format "product|category"
+            Tuple of (logsource_key, service) where logsource_key is "product|category"
         """
         if not isinstance(logsource, dict):
             logger.warning(f"Invalid logsource type: {type(logsource)}, expected dict")
-            return "|"
+            return "|", None
         
         product = logsource.get('product', '').lower().strip() if logsource.get('product') else ''
         category = logsource.get('category', '').lower().strip() if logsource.get('category') else ''
+        service = logsource.get('service', '').lower().strip() if logsource.get('service') else None
         
-        # Service is ignored (per spec)
         logsource_key = f"{product}|{category}"
-        logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}'")
-        return logsource_key
+        logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}' (service: {service})")
+        return logsource_key, service
     
     def normalize_detection(
         self,
@@ -305,6 +367,9 @@ class SigmaNoveltyService:
         
         Lists are exploded into separate atoms. Logic explicitly represents OR/AND.
         
+        Normalizes `contains|all` to separate `contains` atoms (semantically equivalent
+        to multiple `contains` checks combined with AND logic).
+        
         Args:
             detection: Detection dictionary
             
@@ -328,6 +393,40 @@ class SigmaNoveltyService:
             for field_name, field_value in value.items():
                 base_field, modifiers = self._parse_field_with_modifiers(field_name)
                 
+                # Apply field alias normalization (v1.2)
+                # Make lookup case-insensitive (map uses title case)
+                base_field_lower = base_field.lower() if base_field else ''
+                # Find matching key in map (case-insensitive)
+                canonical_field = base_field
+                for map_key, map_value in self.FIELD_ALIAS_MAP.items():
+                    if map_key.lower() == base_field_lower:
+                        canonical_field = map_value
+                        break
+                # If no match found, use title case version of original
+                if canonical_field == base_field and base_field:
+                    canonical_field = base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
+                
+                # Normalize `contains|all` to `contains` - semantically equivalent
+                # `contains|all: [a, b, c]` means "all of a, b, c must be present"
+                # which is equivalent to `contains: a AND contains: b AND contains: c`
+                normalized_modifiers = []
+                has_all_modifier = False
+                for mod in modifiers:
+                    if mod.lower() == 'all':
+                        has_all_modifier = True
+                        # Don't add 'all' to ops - it's handled by condition logic
+                    else:
+                        normalized_modifiers.append(mod)
+                
+                # Determine primary operator and op_type (v1.2)
+                if normalized_modifiers:
+                    primary_op = normalized_modifiers[0].lower()
+                else:
+                    primary_op = 'contains'  # Default operator
+                
+                # Determine op_type: regex if operator is 're', otherwise literal
+                op_type = 'regex' if primary_op == 're' else 'literal'
+                
                 # Determine polarity (check for NOT in condition or filter blocks)
                 polarity = "positive"
                 if key.startswith('filter') or 'not' in str(detection.get('condition', '')).lower():
@@ -337,11 +436,13 @@ class SigmaNoveltyService:
                         polarity = "negative"
                 
                 # Explode lists into separate atoms
+                # For `contains|all`, each value becomes a separate atom (AND semantics)
                 if isinstance(field_value, list):
                     for item in field_value:
                         atom = Atom(
-                            field=base_field,
-                            ops=modifiers.copy(),
+                            field=canonical_field,
+                            op=primary_op,
+                            op_type=op_type,
                             value=str(item),
                             value_type=self._infer_value_type(item),
                             polarity=polarity
@@ -349,8 +450,9 @@ class SigmaNoveltyService:
                         atoms.append(atom)
                 else:
                     atom = Atom(
-                        field=base_field,
-                        ops=modifiers.copy(),
+                        field=canonical_field,
+                        op=primary_op,
+                        op_type=op_type,
                         value=str(field_value),
                         value_type=self._infer_value_type(field_value),
                         polarity=polarity
@@ -664,7 +766,8 @@ class SigmaNoveltyService:
         detection: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Convert AST to atom-index-based logic."""
-        # Map selections to atom indices
+        # Map selections to atom indices, preserving field-level grouping
+        # Fields in a selection are ANDed; values in a list are ORed (unless |all modifier)
         selection_to_atoms = {}
         atom_idx = 0
         
@@ -674,28 +777,38 @@ class SigmaNoveltyService:
             if not isinstance(value, dict):
                 continue
             
-            indices = []
+            # Group atoms by field (fields are ANDed, values within field are ORed/ANDed based on modifier)
+            field_groups = []
             for field_name, field_value in value.items():
+                base_field, modifiers = self._parse_field_with_modifiers(field_name)
+                has_all = 'all' in [m.lower() for m in modifiers]
+                
                 if isinstance(field_value, list):
-                    indices.extend(range(atom_idx, atom_idx + len(field_value)))
+                    field_indices = list(range(atom_idx, atom_idx + len(field_value)))
                     atom_idx += len(field_value)
+                    # If |all modifier, values are ANDed; otherwise ORed
+                    if has_all:
+                        field_groups.append({"AND": [{"ATOM": idx} for idx in field_indices]})
+                    else:
+                        field_groups.append({"OR": [{"ATOM": idx} for idx in field_indices]})
                 else:
-                    indices.append(atom_idx)
+                    field_indices = [atom_idx]
                     atom_idx += 1
+                    field_groups.append({"ATOM": field_indices[0]})
             
-            selection_to_atoms[key] = indices
+            # All fields in a selection are ANDed together
+            if len(field_groups) == 1:
+                selection_to_atoms[key] = field_groups[0]
+            else:
+                selection_to_atoms[key] = {"AND": field_groups}
         
         # Convert AST to use atom indices
         def convert_node(node):
             if node.get('type') == 'selection':
                 sel_name = node.get('name', '')
                 if sel_name in selection_to_atoms:
-                    indices = selection_to_atoms[sel_name]
-                    if len(indices) == 1:
-                        return {"ATOM": indices[0]}
-                    else:
-                        # Multiple atoms from same selection → OR
-                        return {"OR": [{"ATOM": idx} for idx in indices]}
+                    # selection_to_atoms now contains pre-built logic structure
+                    return selection_to_atoms[sel_name]
                 else:
                     return {"ATOM": 0}  # Fallback
             elif node.get('type') in ['and', 'or']:
@@ -878,17 +991,19 @@ class SigmaNoveltyService:
         return intersection / union if union > 0 else 0.0
     
     def _atom_to_key(self, atom: Union[Dict[str, Any], Atom]) -> str:
-        """Convert atom to normalized key for comparison."""
+        """Convert atom to normalized key for comparison (v1.2: includes op_type)."""
         if isinstance(atom, Atom):
             field = atom.field
-            ops = '|'.join(sorted(atom.ops))
+            op = atom.op
+            op_type = atom.op_type
             value = atom.value
         else:
             field = atom.get('field', '')
-            ops = '|'.join(sorted(atom.get('ops', [])))
+            op = atom.get('op', '')
+            op_type = atom.get('op_type', 'literal')
             value = atom.get('value', '')
         
-        return f"{field}|{ops}|{value}"
+        return f"{field}|{op}|{op_type}|{value}"
     
     def compute_logic_shape_similarity(
         self,
@@ -896,7 +1011,7 @@ class SigmaNoveltyService:
         rule2: CanonicalRule
     ) -> float:
         """
-        Compute similarity of logic AST shapes.
+        Compute similarity of logic AST shapes (v1.2: enhanced metrics).
         
         Args:
             rule1: First canonical rule
@@ -915,21 +1030,73 @@ class SigmaNoveltyService:
         if str1 == str2:
             return 1.0
         
-        # Simple structural similarity (count operators, depth, etc.)
-        # More sophisticated: tree edit distance
-        depth1 = self._compute_logic_depth(logic1)
-        depth2 = self._compute_logic_depth(logic2)
+        # Enhanced metrics (v1.2)
+        metrics1 = self._compute_logic_metrics(logic1)
+        metrics2 = self._compute_logic_metrics(logic2)
         
-        op_count1 = self._count_operators(logic1)
-        op_count2 = self._count_operators(logic2)
+        # Weighted distance calculation
+        distances = []
+        weights = {
+            'node_count': 0.3,
+            'and_count': 0.2,
+            'or_count': 0.2,
+            'not_count': 0.1,
+            'max_depth': 0.2
+        }
+        normalization_factor = 10.0
         
-        # Normalized difference
-        depth_diff = abs(depth1 - depth2) / max(depth1, depth2, 1)
-        op_diff = abs(op_count1 - op_count2) / max(op_count1, op_count2, 1)
+        for metric_name, weight in weights.items():
+            val1 = metrics1.get(metric_name, 0)
+            val2 = metrics2.get(metric_name, 0)
+            max_val = max(val1, val2, 1)
+            diff = abs(val1 - val2) / (max_val + normalization_factor)
+            distances.append(weight * diff)
         
-        similarity = 1.0 - (depth_diff + op_diff) / 2.0
+        similarity = 1.0 - sum(distances)
         
         return max(0.0, min(1.0, similarity))
+    
+    def _compute_logic_metrics(self, logic: Dict[str, Any]) -> Dict[str, int]:
+        """Compute enhanced logic metrics (v1.2)."""
+        return {
+            'node_count': self._count_nodes(logic),
+            'and_count': self._count_operator(logic, 'AND'),
+            'or_count': self._count_operator(logic, 'OR'),
+            'not_count': self._count_operator(logic, 'NOT'),
+            'max_depth': self._compute_logic_depth(logic)
+        }
+    
+    def _count_nodes(self, logic: Dict[str, Any]) -> int:
+        """Count total nodes in logic tree."""
+        if 'ATOM' in logic:
+            return 1
+        elif 'AND' in logic or 'OR' in logic:
+            operands = logic.get('AND', logic.get('OR', []))
+            return 1 + sum(self._count_nodes(op) for op in operands)
+        elif 'NOT' in logic:
+            return 1 + self._count_nodes(logic['NOT'])
+        else:
+            return 0
+    
+    def _count_operator(self, logic: Dict[str, Any], op_name: str) -> int:
+        """Count occurrences of specific operator."""
+        count = 0
+        if op_name in logic:
+            count = 1
+            if op_name == 'NOT':
+                count += self._count_operator(logic[op_name], op_name)
+            else:
+                operands = logic.get(op_name, [])
+                for op in operands:
+                    count += self._count_operator(op, op_name)
+        elif 'AND' in logic or 'OR' in logic:
+            operands = logic.get('AND', logic.get('OR', []))
+            for op in operands:
+                count += self._count_operator(op, op_name)
+        elif 'NOT' in logic:
+            count += self._count_operator(logic['NOT'], op_name)
+        
+        return count
     
     def _compute_logic_depth(self, logic: Dict[str, Any]) -> int:
         """Compute maximum depth of logic tree."""
@@ -962,24 +1129,28 @@ class SigmaNoveltyService:
         self,
         atom_jaccard: float,
         logic_similarity: float,
-        cosine_similarity: float
+        service_penalty: float = 0.0,
+        filter_penalty: float = 0.0
     ) -> float:
         """
-        Compute weighted similarity score.
+        Compute weighted similarity score with penalties (v1.2).
         
         Args:
             atom_jaccard: Atom Jaccard similarity (0-1)
             logic_similarity: Logic shape similarity (0-1)
-            cosine_similarity: Cosine similarity from embeddings (0-1)
+            service_penalty: Service mismatch penalty (0-1)
+            filter_penalty: Filter divergence penalty (0-1)
             
         Returns:
-            Weighted similarity (0-1)
+            Weighted similarity (0-1), clamped to [0.0, 1.0]
         """
-        return (
-            0.55 * atom_jaccard +
-            0.25 * logic_similarity +
-            0.20 * cosine_similarity
+        similarity = (
+            0.70 * atom_jaccard +
+            0.30 * logic_similarity -
+            service_penalty -
+            filter_penalty
         )
+        return max(0.0, min(1.0, similarity))
     
     def classify_novelty(
         self,
@@ -1006,14 +1177,15 @@ class SigmaNoveltyService:
         top_match = matches[0]
         atom_jaccard = top_match.get('atom_jaccard', 0.0)
         logic_similarity = top_match.get('logic_shape_similarity', 0.0)
-        cosine = top_match.get('cosine', 0.0)
         weighted_sim = top_match.get('similarity', 0.0)
         
         # Classification thresholds (per spec)
+        # Handle None for logic_similarity (early exit case)
+        if logic_similarity is None:
+            logic_similarity = 1.0  # Early exit means perfect match
+        
         if atom_jaccard > 0.95 and logic_similarity > 0.95:
             return (NoveltyLabel.DUPLICATE, 1.0 - weighted_sim)
-        elif atom_jaccard > 0.70 and cosine > 0.80:
-            return (NoveltyLabel.SIMILAR, 1.0 - weighted_sim)
         elif atom_jaccard > 0.80:
             return (NoveltyLabel.SIMILAR, 1.0 - weighted_sim)
         else:
@@ -1077,12 +1249,71 @@ class SigmaNoveltyService:
         }
     
     def _atom_to_string(self, atom: Dict[str, Any]) -> str:
-        """Convert atom to human-readable string."""
+        """Convert atom to human-readable string (v1.2)."""
         field = atom.get('field', '')
-        ops = '|'.join(atom.get('ops', []))
+        op = atom.get('op', '')
         value = atom.get('value', '')
         
-        if ops:
-            return f"{field}|{ops}:{value}"
+        if op:
+            return f"{field}|{op}:{value}"
         else:
             return f"{field}:{value}"
+    
+    def _compute_service_penalty(self, service1: Optional[str], service2: Optional[str]) -> float:
+        """
+        Compute service mismatch penalty (v1.2).
+        
+        Penalty applied only if both services are present and different.
+        No penalty if either is missing.
+        
+        Returns:
+            Penalty value (0.0 or SERVICE_PENALTY)
+        """
+        if service1 and service2:
+            if service1 != service2:
+                return self.SERVICE_PENALTY
+        return 0.0
+    
+    def _compute_filter_penalty(
+        self,
+        rule1: CanonicalRule,
+        rule2: CanonicalRule
+    ) -> float:
+        """
+        Compute filter divergence penalty (v1.2).
+        
+        Penalizes rules that differ in NOT logic (negative atoms).
+        
+        Returns:
+            Penalty value (0.0 to max_penalty)
+        """
+        atoms1 = rule1.detection.get('atoms', [])
+        atoms2 = rule2.detection.get('atoms', [])
+        
+        # Filter to negative atoms only
+        negative_atoms1 = [a for a in atoms1 if a.get('polarity', 'positive') == 'negative']
+        negative_atoms2 = [a for a in atoms2 if a.get('polarity', 'positive') == 'negative']
+        
+        if not negative_atoms1 and not negative_atoms2:
+            return 0.0
+        
+        # Compute Jaccard similarity for negative atoms
+        set1 = {self._atom_to_key(a) for a in negative_atoms1}
+        set2 = {self._atom_to_key(a) for a in negative_atoms2}
+        
+        if not set1 and not set2:
+            return 0.0
+        
+        intersection = len(set1 & set2)
+        union = len(set1 | set2)
+        filter_jaccard = intersection / union if union > 0 else 0.0
+        
+        # Apply penalty if below threshold
+        jaccard_threshold = 0.5
+        max_penalty = 0.10
+        
+        if filter_jaccard < jaccard_threshold:
+            penalty = max_penalty * (1.0 - filter_jaccard)
+            return min(penalty, max_penalty)
+        
+        return 0.0

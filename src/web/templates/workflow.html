@@ -1246,21 +1246,6 @@
                             </div>
                         </div>
                         
-                        <!-- Embedding Model Selection for SIGMA Similarity Search -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                            <label for="sigma-embedding-model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Embedding Model (for SIGMA Similarity Search)
-                            </label>
-                            <select id="sigma-embedding-model" 
-                                    name="agent_models[SigmaEmbeddingModel]"
-                                    onchange="autoSaveModelChange()"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                                <option value="">Loading embedding models...</option>
-                            </select>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Select embedding model for SIGMA rule similarity search. Used by similarity_search step.
-                            </p>
-                        </div>
                     </div>
                 </div>
 
@@ -1595,10 +1580,82 @@
                         <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                             ❌ Reject
                         </button>
+                        <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                            ✨ Enrich
+                        </button>
                         <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                            🔍 Cosign Similarity Search
+                            🔍 Similarity Search
                         </button>
                         <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enrich Rule Modal -->
+        <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+                <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">✨ AI-Assisted Rule Enrichment</h3>
+                    <button onclick="closeEnrichModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Enrichment Instructions (optional):
+                        </label>
+                        <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Original Rule:
+                        </label>
+                        <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
+                    </div>
+                    <div id="enrichLoading" class="hidden text-center py-4">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                        <p class="mt-2 text-gray-600 dark:text-gray-400">Enriching rule with AI...</p>
+                    </div>
+                    <div id="enrichResult" class="hidden">
+                        <div class="mb-3 flex items-center justify-between">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Enriched Rule:
+                            </label>
+                            <div class="flex space-x-2">
+                                <button onclick="toggleEnrichView()" id="toggleViewBtn" class="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                    📊 Show Comparison
+                                </button>
+                            </div>
+                        </div>
+                        <div id="enrichComparisonView" class="hidden mb-4">
+                            <div class="mb-2 text-xs text-gray-600 dark:text-gray-400" id="enrichIterationInfo"></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900">
+                                    <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2" id="enrichLeftLabel">Original Rule</h6>
+                                    <pre id="enrichOriginalComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                </div>
+                                <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
+                                    <h6 class="text-xs font-bold text-green-700 dark:text-green-300 mb-2" id="enrichRightLabel">Enriched Rule</h6>
+                                    <pre id="enrichedComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                </div>
+                            </div>
+                        </div>
+                        <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs"></textarea>
+                    </div>
+                    <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
+                    <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                        <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                            ✅ Apply Enriched Rule
+                        </button>
+                        <button onclick="enrichRule()" id="enrichBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                            ✨ Enrich Rule
+                        </button>
+                        <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                            🔄 Enrich Further
+                        </button>
+                        <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                             Cancel
                         </button>
                     </div>
@@ -3172,54 +3229,6 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
 // Ensure current dropdown selections drive visibility/inputs even if agentModels default to LMStudio
 syncProviderVisibilityAndInputs();
 
-// Load LMStudio embedding models for SIGMA similarity search
-async function loadLMStudioEmbeddingModels() {
-    try {
-        const response = await fetch('/api/lmstudio-embedding-models');
-        const data = await response.json();
-        
-        const embeddingSelect = document.getElementById('sigma-embedding-model');
-        if (!embeddingSelect) return;
-        
-        if (data.success && data.models && data.models.length > 0) {
-            embeddingSelect.innerHTML = ''; // Clear loading option
-            
-            // Get current embedding model from config
-            const currentEmbeddingModel = agentModels['SigmaEmbeddingModel'] || '';
-            
-            // Sort models alphabetically
-            const sortedModels = [...data.models].sort();
-            
-            sortedModels.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                if (model === currentEmbeddingModel) {
-                    option.selected = true;
-                }
-                embeddingSelect.appendChild(option);
-            });
-            
-            // If current model is not in the list, add it as an option
-            if (currentEmbeddingModel && !data.models.includes(currentEmbeddingModel)) {
-                const option = document.createElement('option');
-                option.value = currentEmbeddingModel;
-                option.textContent = `${currentEmbeddingModel} (not available)`;
-                option.selected = true;
-                option.style.color = 'orange';
-                embeddingSelect.appendChild(option);
-            }
-        } else {
-            embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
-        }
-    } catch (error) {
-        console.error('Error loading LMStudio embedding models:', error);
-        const embeddingSelect = document.getElementById('sigma-embedding-model');
-        if (embeddingSelect) {
-            embeddingSelect.innerHTML = '<option value="">Error loading embedding models</option>';
-        }
-    }
-}
 
 // REMOVED: Duplicate loadAgentPrompts function - using the one at line 5599 instead
 
@@ -3829,7 +3838,10 @@ window.updateQABadge = function(agentPrefix) {
         badge.textContent = 'QA: ON';
         badge.className = 'px-2 py-1 text-xs rounded-full bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300';
         // Show QA prompt container
-        const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        let qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        if (agentPrefix === 'rank-agent') {
+            qaPromptContainer = document.getElementById('rank-qa-agent-prompt-content');
+        }
         if (qaPromptContainer) {
             qaPromptContainer.classList.remove('hidden');
             if (agentPrefix === 'rank-agent') {
@@ -3843,6 +3855,12 @@ window.updateQABadge = function(agentPrefix) {
             } else {
                 renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
             }
+            // Initialize collapsible panels after rendering
+            setTimeout(() => {
+                if (typeof initCollapsiblePanels === 'function') {
+                    initCollapsiblePanels(qaPromptContainer);
+                }
+            }, 0);
         }
         if (qaConfigs) {
             qaConfigs.classList.remove('hidden');
@@ -3851,7 +3869,10 @@ window.updateQABadge = function(agentPrefix) {
         badge.textContent = 'QA: OFF';
         badge.className = 'px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
         // Hide QA prompt container
-        const qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        let qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
+        if (agentPrefix === 'rank-agent') {
+            qaPromptContainer = document.getElementById('rank-qa-agent-prompt-content');
+        }
         if (qaPromptContainer) {
             qaPromptContainer.classList.add('hidden');
         }
@@ -4044,20 +4065,8 @@ async function loadConfig(skipPromptReload = false) {
             }
         });
         
-        // Load embedding model selection
-        const embeddingModelSelect = document.getElementById('sigma-embedding-model');
-        if (embeddingModelSelect) {
-            const currentEmbeddingModel = agentModels['SigmaEmbeddingModel'] || '';
-            if (currentEmbeddingModel) {
-                embeddingModelSelect.value = currentEmbeddingModel;
-            }
-        }
-        
         // Setup event listeners for QA toggles after content is loaded
         setupQAEventListeners();
-        
-        // Load embedding models for SIGMA similarity search
-        await loadLMStudioEmbeddingModels();
         
         // Clear initialization flag after all config is loaded and applied
         // This allows autosave to work for user changes
@@ -4334,7 +4343,11 @@ function renderAgentModels(lmstudioModels) {
         const currentModel = currentModelFromDOM || currentModelFromConfig;
         const currentTemperature = agentModels['RankAgent_temperature'] !== undefined ? agentModels['RankAgent_temperature'] : 0.0;
         const currentTopP = agentModels['RankAgent_top_p'] !== undefined ? agentModels['RankAgent_top_p'] : 0.9;
-        const currentProvider = (agentModels && agentModels['RankAgent_provider']) || 'lmstudio';
+        // Get current provider from DOM first (preserves unsaved user selection), then fallback to config
+        const rankProviderSelect = document.getElementById('rankagent-provider');
+        const currentProviderFromDOM = rankProviderSelect?.value || '';
+        const currentProviderFromConfig = (agentModels && agentModels['RankAgent_provider']) || 'lmstudio';
+        const currentProvider = currentProviderFromDOM || currentProviderFromConfig;
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
         const modelOptions = buildOptions(lmstudioModel, 'Select a model (required)');
@@ -4374,7 +4387,7 @@ function renderAgentModels(lmstudioModels) {
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Rank Agent scoring.</p>
-                ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
+                ${currentProvider === 'lmstudio' && sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
                 <div class="mt-3 flex gap-3">
                     <div class="flex-1">
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
@@ -4546,7 +4559,11 @@ function renderAgentModels(lmstudioModels) {
         const currentModelFromConfig = agentModels['ExtractAgent'] || '';
         const currentModel = currentModelFromDOM || currentModelFromConfig;
         const currentTemperature = agentModels['ExtractAgent_temperature'] !== undefined ? agentModels['ExtractAgent_temperature'] : 0.0;
-        const currentProvider = (agentModels && agentModels['ExtractAgent_provider']) || 'lmstudio';
+        // Get current provider from DOM first (preserves unsaved user selection), then fallback to config
+        const extractProviderSelect = document.getElementById('extractagent-provider');
+        const currentProviderFromDOM = extractProviderSelect?.value || '';
+        const currentProviderFromConfig = (agentModels && agentModels['ExtractAgent_provider']) || 'lmstudio';
+        const currentProvider = currentProviderFromDOM || currentProviderFromConfig;
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
         // Use deduplicated sorted models
@@ -4590,7 +4607,7 @@ function renderAgentModels(lmstudioModels) {
                     </div>
                  </div>
                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Extract Agent operations.</p>
-                 ${sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
+                 ${currentProvider === 'lmstudio' && sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
                  <div class="mt-3">
                      <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                      <input type="number" id="extractagent-temperature" name="agent_models[ExtractAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
@@ -5289,14 +5306,10 @@ async function performAutoSave() {
             }
         }
         
-        // Special handling for Sigma embedding model (not in AGENT_CONFIG)
-        const sigmaEmbedding = document.getElementById('sigma-embedding-model')?.value.trim() || null;
-        
         const agentModelsData = {
             ...collectedAgentConfigs,
             OSDetectionAgent_embedding: osEmbedding,
-            OSDetectionAgent_selected_os: osSelection,
-            SigmaEmbeddingModel: sigmaEmbedding
+            OSDetectionAgent_selected_os: osSelection
         };
         
         // Remove null/empty string values (but keep 0.0 for temperature)
@@ -7196,24 +7209,24 @@ function getAllSelectedModelsWithProviders() {
     const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
     if (rankAgentEnabled) {
         const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
-        const rankModel = document.getElementById('rankagent-model-2')?.value?.trim();
+        const rankModel = getActiveAgentModelValue('rankagent', rankProvider);
         if (rankModel && !isEmbeddingModel(rankModel)) {
-            selectedModels.push({ agent: 'Rank', model: rankModel, provider: rankProvider });
+            selectedModels.push({ agent: 'Rank', model: rankModel, provider: rankProvider, enabled: true });
         }
     }
     
     // Extract Agent - always enabled (no toggle)
     const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
-    const extractModel = document.getElementById('extractagent-model-2')?.value?.trim();
+    const extractModel = getActiveAgentModelValue('extractagent', extractProvider);
     if (extractModel && !isEmbeddingModel(extractModel)) {
-        selectedModels.push({ agent: 'Extract', model: extractModel, provider: extractProvider });
+        selectedModels.push({ agent: 'Extract', model: extractModel, provider: extractProvider, enabled: true });
     }
     
     // SIGMA Agent - always show if model is configured
     const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
-    const sigmaModel = document.getElementById('sigmaagent-model-2')?.value?.trim();
+    const sigmaModel = getActiveAgentModelValue('sigmaagent', sigmaProvider);
     if (sigmaModel && !isEmbeddingModel(sigmaModel)) {
-        selectedModels.push({ agent: 'SIGMA', model: sigmaModel, provider: sigmaProvider });
+        selectedModels.push({ agent: 'SIGMA', model: sigmaModel, provider: sigmaProvider, enabled: true });
     }
     
     // Sub-agents - only show if not disabled
@@ -7229,6 +7242,7 @@ function getAllSelectedModelsWithProviders() {
         
         const modelInfo = getModelWithProvider(subAgent.prefix, subAgent.providerId, subAgent.name);
         if (modelInfo) {
+            modelInfo.enabled = true; // Sub-agents shown here are enabled (disabled ones are filtered out)
             selectedModels.push(modelInfo);
         }
     });
@@ -7242,19 +7256,23 @@ function getAllSelectedModelsWithProviders() {
     ];
     
     qaAgents.forEach(qaAgent => {
+        let isQAEnabled = false;
         // For sub-agent QA: check if sub-agent is enabled (QA enabled check removed - show if model exists)
         if (qaAgent.subAgent) {
             if (disabled.has(qaAgent.subAgent)) return; // Sub-agent is disabled
-            // Removed QA enabled check - show QA agent if model is configured
+            // Check QA enabled state for sub-agent QA
+            isQAEnabled = qaEnabled[qaAgent.subAgent] || false;
         } else {
             // For RankAgentQA: check if RankAgent is enabled (QA enabled check removed)
             const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
             if (!rankAgentEnabled) return;
-            // Removed QA enabled check - show QA agent if model is configured
+            // Check QA enabled state for RankAgent
+            isQAEnabled = qaEnabled['RankAgent'] || false;
         }
         
         const modelInfo = getModelWithProvider(qaAgent.prefix, qaAgent.providerId, qaAgent.name);
         if (modelInfo) {
+            modelInfo.enabled = isQAEnabled;
             selectedModels.push(modelInfo);
         }
     });
@@ -7263,9 +7281,9 @@ function getAllSelectedModelsWithProviders() {
     const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
     if (osFallbackToggle && osFallbackToggle.checked) {
         const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
-        const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value?.trim();
+        const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
         if (osFallback && !isEmbeddingModel(osFallback)) {
-            selectedModels.push({ agent: 'OS Fallback', model: osFallback, provider: osFallbackProvider });
+            selectedModels.push({ agent: 'OS Fallback', model: osFallback, provider: osFallbackProvider, enabled: true });
         }
     }
     
@@ -7328,10 +7346,19 @@ function updateConfigDisplay() {
     let uiModels = getAllSelectedModelsWithProviders();
     // Order models by workflow execution order and add indentation for sub-agents
     const orderedModels = orderModelsByWorkflow(uiModels);
-    let selectedModels = orderedModels.map(m => ({
-        text: `${m.agent}: ${m.model} (${m.provider})`,
-        indent: m.indent
-    }));
+    let selectedModels = orderedModels.map(m => {
+        const enabled = m.enabled !== undefined ? m.enabled : true; // Default to enabled if not specified
+        const badgeClass = enabled 
+            ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+            : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+        const badgeText = enabled ? 'Enabled' : 'Disabled';
+        return {
+            text: `${m.agent}: ${m.model} (${m.provider})`,
+            indent: m.indent,
+            enabled: enabled,
+            badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
+        };
+    });
     
     // Fallback: if UI doesn't have models yet, read from saved config
     if (selectedModels.length === 0 && currentConfig.agent_models) {
@@ -7358,19 +7385,42 @@ function updateConfigDisplay() {
         // 1. Rank Agent
         if (agentModels.RankAgent) {
             const provider = agentModels.RankAgent_provider || 'lmstudio';
-            modelsList.push({ text: `Rank: ${agentModels.RankAgent} (${provider})`, indent: false });
+            const rankEnabled = currentConfig.rank_agent_enabled !== false; // Default to enabled
+            const badgeClass = rankEnabled 
+                ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+            const badgeText = rankEnabled ? 'Enabled' : 'Disabled';
+            modelsList.push({ 
+                text: `Rank: ${agentModels.RankAgent} (${provider})`, 
+                indent: false,
+                badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
+            });
         }
         
         // 2. RankAgentQA (if configured) - indented as sub-bullet
         if (agentModels.RankAgentQA) {
             const provider = agentModels.RankAgentQA_provider || 'lmstudio';
-            modelsList.push({ text: `RankAgentQA: ${agentModels.RankAgentQA} (${provider})`, indent: true });
+            const rankQAEnabled = qaEnabled['RankAgent'] || false;
+            const badgeClass = rankQAEnabled 
+                ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+            const badgeText = rankQAEnabled ? 'Enabled' : 'Disabled';
+            modelsList.push({ 
+                text: `RankAgentQA: ${agentModels.RankAgentQA} (${provider})`, 
+                indent: true,
+                badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
+            });
         }
         
         // 3. Extract Agent (supervisor)
         if (agentModels.ExtractAgent) {
             const provider = agentModels.ExtractAgent_provider || 'lmstudio';
-            modelsList.push({ text: `Extract: ${agentModels.ExtractAgent} (${provider})`, indent: false });
+            const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            modelsList.push({ 
+                text: `Extract: ${agentModels.ExtractAgent} (${provider})`, 
+                indent: false,
+                badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
+            });
         }
         
         // 4. Extract Sub-agents (indented) - in workflow order
@@ -7386,27 +7436,57 @@ function updateConfigDisplay() {
             const modelKey = `${agent}_model`;
             if (agentModels[modelKey]) {
                 const provider = agentModels[`${agent}_provider`] || 'lmstudio';
-                modelsList.push({ text: `${agent}: ${agentModels[modelKey]} (${provider})`, indent: true });
+                const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+                modelsList.push({ 
+                    text: `${agent}: ${agentModels[modelKey]} (${provider})`, 
+                    indent: true,
+                    badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
+                });
             }
             // Show QA agent if model is configured (immediately after sub-agent)
             const qaKey = qaAgentMap[agent];
             if (qaKey && agentModels[qaKey]) {
                 const provider = agentModels[`${qaKey}_provider`] || 'lmstudio';
-                modelsList.push({ text: `${qaKey}: ${agentModels[qaKey]} (${provider})`, indent: true });
+                const qaEnabledForAgent = qaEnabled[agent] || false;
+                const badgeClass = qaEnabledForAgent 
+                    ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+                const badgeText = qaEnabledForAgent ? 'Enabled' : 'Disabled';
+                modelsList.push({ 
+                    text: `${qaKey}: ${agentModels[qaKey]} (${provider})`, 
+                    indent: true,
+                    badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
+                });
             }
         });
         
-        // 5. SIGMA Agent (last)
+        // 5. SIGMA Agent
         if (agentModels.SigmaAgent) {
             const provider = agentModels.SigmaAgent_provider || 'lmstudio';
-            modelsList.push({ text: `SIGMA: ${agentModels.SigmaAgent} (${provider})`, indent: false });
+            const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            modelsList.push({ 
+                text: `SIGMA: ${agentModels.SigmaAgent} (${provider})`, 
+                indent: false,
+                badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
+            });
+        }
+        
+        // 6. OS Detection Fallback (if configured - presence of model indicates enabled)
+        if (agentModels.OSDetectionAgent_fallback) {
+            const provider = agentModels.OSDetectionAgent_fallback_provider || 'lmstudio';
+            const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+            modelsList.push({ 
+                text: `OS Fallback: ${agentModels.OSDetectionAgent_fallback} (${provider})`, 
+                indent: false,
+                badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
+            });
         }
         
         selectedModels = modelsList;
     }
     
     const modelsHtml = selectedModels.length > 0 
-        ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs ${m.indent ? 'ml-6' : ''}">${m.text}</li>`).join('')}</ul></div>`
+        ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs ${m.indent ? 'ml-6' : ''}">${m.text}${m.badge || ''}</li>`).join('')}</ul></div>`
         : '';
     
     configDisplay.innerHTML = `
@@ -8023,9 +8103,6 @@ if (workflowConfigForm) {
         }
     }
     
-    // Special handling for Sigma embedding model (not in AGENT_CONFIG)
-    const sigmaEmbedding = document.getElementById('sigma-embedding-model')?.value.trim() || null;
-    
     const formData = {
         min_hunt_score: currentConfig?.min_hunt_score || 97.0,
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
@@ -8035,7 +8112,6 @@ if (workflowConfigForm) {
         agent_models: {
             ...collectedAgentConfigs,
             OSDetectionAgent_embedding: osEmbedding,
-            SigmaEmbeddingModel: sigmaEmbedding,
             // QA model overrides
             RankAgentQA: document.getElementById('rankqa-model')?.value.trim() || null,
             CmdLineQA: document.getElementById('cmdlineqa-model')?.value.trim() || null,
@@ -9323,7 +9399,7 @@ async function viewExecution(executionId) {
                     input: `<div class="space-y-1">
                         <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
                         <div>• Similarity threshold: ${(exec.config_snapshot?.similarity_threshold || 0.5) * 100}%</div>
-                        <div>• RAG embedding search</div>
+                        <div>• Behavioral novelty assessment</div>
                     </div>`,
                     inputDetails: sigmaRulesInputDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
@@ -9865,6 +9941,8 @@ function refreshExecutions() {
 // Queue Functions
 let currentRuleId = null;
 let isEditMode = false;
+let currentEnrichedYaml = null; // Track current enriched state for iterative enrichment
+let enrichIteration = 0; // Track number of enrichment iterations
 let originalYaml = '';
 let editedYaml = '';
 
@@ -10096,8 +10174,11 @@ function updateActionButtons() {
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
+            <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                ✨ Enrich
+            </button>
             <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                🔍 Cosign Similarity Search
+                🔍 Similarity Search
             </button>
             <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                 Cancel
@@ -10193,6 +10274,395 @@ function closeRuleModal() {
 
 function resetQualityReviewCard() {
     // Quality review card removed; keep stub in case preview logic still calls it.
+}
+
+function openEnrichModal() {
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (!rule) return;
+    
+    // Reset state
+    currentEnrichedYaml = null;
+    enrichIteration = 0;
+    
+    // Set original rule YAML
+    document.getElementById('enrichOriginalRule').value = rule.rule_yaml;
+    document.getElementById('enrichInstruction').value = 'Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.';
+    document.getElementById('enrichResult').classList.add('hidden');
+    document.getElementById('enrichError').classList.add('hidden');
+    document.getElementById('applyEnrichBtn').classList.add('hidden');
+    document.getElementById('enrichFurtherBtn').classList.add('hidden');
+    document.getElementById('enrichBtn').classList.remove('hidden');
+    document.getElementById('enrichLoading').classList.add('hidden');
+    
+    // Reset comparison view
+    document.getElementById('enrichComparisonView').classList.add('hidden');
+    document.getElementById('enrichedRuleYaml').classList.remove('hidden');
+    document.getElementById('toggleViewBtn').textContent = '📊 Show Comparison';
+    
+    // Safely reset labels if they exist
+    const leftLabel = document.getElementById('enrichLeftLabel');
+    const rightLabel = document.getElementById('enrichRightLabel');
+    const iterationInfo = document.getElementById('enrichIterationInfo');
+    if (leftLabel) leftLabel.textContent = 'Original Rule';
+    if (rightLabel) rightLabel.textContent = 'Enriched Rule';
+    if (iterationInfo) iterationInfo.textContent = '';
+    
+    // Show modal
+    document.getElementById('enrichModal').classList.remove('hidden');
+}
+
+function closeEnrichModal() {
+    document.getElementById('enrichModal').classList.add('hidden');
+}
+
+async function enrichRule() {
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (!rule) return;
+    
+    // Get API key - try settings API first, fallback to localStorage
+    let apiKey = null;
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            const data = await response.json();
+            const settings = data.settings || {};
+            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+        }
+    } catch (error) {
+        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
+    }
+    
+    // Fallback to localStorage if not found in settings API
+    if (!apiKey) {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+    }
+    
+    if (!apiKey) {
+        document.getElementById('enrichError').textContent = 'Please configure your OpenAI API key in Settings first.';
+        document.getElementById('enrichError').classList.remove('hidden');
+        return;
+    }
+    
+    const instruction = document.getElementById('enrichInstruction').value.trim();
+    
+    // Show loading, hide error and result
+    const enrichBtn = document.getElementById('enrichBtn');
+    enrichBtn.disabled = true;
+    enrichBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Enriching...';
+    enrichBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    
+    document.getElementById('enrichLoading').classList.remove('hidden');
+    document.getElementById('enrichError').classList.add('hidden');
+    document.getElementById('enrichResult').classList.add('hidden');
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OpenAI-API-Key': apiKey
+            },
+            body: JSON.stringify({
+                instruction: instruction || undefined
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const enrichedYaml = data.enriched_yaml;
+            enrichIteration++;
+            
+            // Determine what to compare against (before updating currentEnrichedYaml)
+            const previousYaml = currentEnrichedYaml || document.getElementById('enrichOriginalRule').value;
+            const isIterative = currentEnrichedYaml !== null;
+            
+            console.log('Enrichment successful, showing comparison view', { iteration: enrichIteration, isIterative });
+            
+            // Get all elements first
+            const enrichResult = document.getElementById('enrichResult');
+            const comparisonView = document.getElementById('enrichComparisonView');
+            const textarea = document.getElementById('enrichedRuleYaml');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+            const originalComparison = document.getElementById('enrichOriginalComparison');
+            const enrichedComparison = document.getElementById('enrichedComparison');
+            const applyBtn = document.getElementById('applyEnrichBtn');
+            const enrichBtn = document.getElementById('enrichBtn');
+            const enrichFurtherBtn = document.getElementById('enrichFurtherBtn');
+            const leftLabel = document.getElementById('enrichLeftLabel');
+            const rightLabel = document.getElementById('enrichRightLabel');
+            const iterationInfo = document.getElementById('enrichIterationInfo');
+            
+            if (!enrichResult || !comparisonView || !textarea || !toggleBtn) {
+                console.error('Missing elements for comparison view');
+                alert('Error: Could not display comparison view. Please check console.');
+                return;
+            }
+            
+            // Update current enriched state
+            currentEnrichedYaml = enrichedYaml;
+            
+            // Set enriched rule in textarea
+            textarea.value = enrichedYaml;
+            
+            // Update labels and info based on iteration
+            if (isIterative) {
+                leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
+                rightLabel.textContent = `Enriched (Iteration ${enrichIteration})`;
+                iterationInfo.textContent = `🔄 Iterative enrichment - This is iteration #${enrichIteration}. Building on previous enrichment.`;
+            } else {
+                leftLabel.textContent = 'Original Rule';
+                rightLabel.textContent = 'Enriched Rule';
+                iterationInfo.textContent = '';
+            }
+            
+            // Populate comparison view
+            originalComparison.textContent = previousYaml;
+            enrichedComparison.textContent = enrichedYaml;
+            
+            // Show result section first
+            enrichResult.classList.remove('hidden');
+            
+            // Force a reflow to ensure DOM is updated
+            enrichResult.offsetHeight;
+            
+            // Show comparison view by default
+            comparisonView.classList.remove('hidden');
+            textarea.classList.add('hidden');
+            toggleBtn.textContent = '📝 Show Editor';
+            
+            // Scroll comparison view into view if needed
+            setTimeout(() => {
+                comparisonView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+            // Show buttons
+            applyBtn.classList.remove('hidden');
+            enrichBtn.classList.add('hidden');
+            enrichFurtherBtn.classList.remove('hidden'); // Show "Enrich Further" button
+            
+            console.log('Comparison view should now be visible');
+        } else {
+            document.getElementById('enrichError').textContent = data.detail || 'Error enriching rule';
+            document.getElementById('enrichError').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error enriching rule:', error);
+        document.getElementById('enrichError').textContent = 'Network error: ' + error.message;
+        document.getElementById('enrichError').classList.remove('hidden');
+    } finally {
+        document.getElementById('enrichLoading').classList.add('hidden');
+        const enrichBtn = document.getElementById('enrichBtn');
+        enrichBtn.disabled = false;
+        enrichBtn.innerHTML = '✨ Enrich Rule';
+        enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+}
+
+async function applyEnrichedRule() {
+    const enrichedYaml = document.getElementById('enrichedRuleYaml').value;
+    if (!enrichedYaml.trim()) {
+        alert('No enriched rule to apply');
+        return;
+    }
+    
+    if (!confirm('Apply the enriched rule? This will update the rule YAML.')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: enrichedYaml })
+        });
+        
+        if (response.ok) {
+            // Close only the enrich modal
+            closeEnrichModal();
+            
+            // Update the rule in the queue array
+            const rule = queue.find(r => r.id === currentRuleId);
+            if (rule) {
+                rule.rule_yaml = enrichedYaml;
+                // Update editedYaml and originalYaml to reflect the change
+                editedYaml = enrichedYaml;
+                originalYaml = enrichedYaml;
+                isEditMode = false;
+                
+                // Re-render the rule preview with updated YAML
+                renderRulePreview(rule);
+            }
+            
+            // Reload queue in background to sync with server
+            loadQueue().catch(err => console.error('Error reloading queue:', err));
+        } else {
+            alert('Error applying enriched rule');
+        }
+    } catch (error) {
+        console.error('Error applying enriched rule:', error);
+        alert('Error applying enriched rule');
+    }
+}
+
+// Close enrich modal when clicking outside
+const enrichModal = document.getElementById('enrichModal');
+if (enrichModal) {
+    enrichModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEnrichModal();
+        }
+    });
+}
+
+// Close enrich modal with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('enrichModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeEnrichModal();
+        }
+    }
+});
+
+async function enrichRuleFurther() {
+    // Use the current enriched rule as the base for further enrichment
+    if (!currentEnrichedYaml) {
+        alert('No enriched rule to build upon. Please enrich the rule first.');
+        return;
+    }
+    
+    // Get API key
+    let apiKey = null;
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            const data = await response.json();
+            const settings = data.settings || {};
+            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+        }
+    } catch (error) {
+        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
+    }
+    
+    if (!apiKey) {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+    }
+    
+    if (!apiKey) {
+        document.getElementById('enrichError').textContent = 'Please configure your OpenAI API key in Settings first.';
+        document.getElementById('enrichError').classList.remove('hidden');
+        return;
+    }
+    
+    // Prompt for new instruction
+    const newInstruction = prompt('Enter additional enrichment instructions (or leave empty for default):\n\nThis will enrich the already-enriched rule further.');
+    
+    if (newInstruction === null) return; // User cancelled
+    
+    // Show loading
+    const enrichFurtherBtn = document.getElementById('enrichFurtherBtn');
+    enrichFurtherBtn.disabled = true;
+    enrichFurtherBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Enriching Further...';
+    enrichFurtherBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    
+    document.getElementById('enrichLoading').classList.remove('hidden');
+    document.getElementById('enrichError').classList.add('hidden');
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OpenAI-API-Key': apiKey
+            },
+            body: JSON.stringify({
+                instruction: newInstruction.trim() || undefined,
+                current_rule_yaml: currentEnrichedYaml  // Pass current enriched YAML
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const enrichedYaml = data.enriched_yaml;
+            enrichIteration++;
+            
+            // Get previous version for comparison
+            const previousYaml = currentEnrichedYaml;
+            
+            // Get all elements
+            const enrichResult = document.getElementById('enrichResult');
+            const comparisonView = document.getElementById('enrichComparisonView');
+            const textarea = document.getElementById('enrichedRuleYaml');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+            const originalComparison = document.getElementById('enrichOriginalComparison');
+            const enrichedComparison = document.getElementById('enrichedComparison');
+            const leftLabel = document.getElementById('enrichLeftLabel');
+            const rightLabel = document.getElementById('enrichRightLabel');
+            const iterationInfo = document.getElementById('enrichIterationInfo');
+            
+            // Update current enriched state
+            currentEnrichedYaml = enrichedYaml;
+            
+            // Set enriched rule in textarea
+            textarea.value = enrichedYaml;
+            
+            // Update labels for iterative enrichment
+            leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
+            rightLabel.textContent = `Enriched (Iteration ${enrichIteration})`;
+            iterationInfo.textContent = `🔄 Iterative enrichment - This is iteration #${enrichIteration}. Building on previous enrichment.`;
+            
+            // Populate comparison view
+            originalComparison.textContent = previousYaml;
+            enrichedComparison.textContent = enrichedYaml;
+            
+            // Ensure views are visible
+            enrichResult.classList.remove('hidden');
+            comparisonView.classList.remove('hidden');
+            textarea.classList.add('hidden');
+            toggleBtn.textContent = '📝 Show Editor';
+            
+            // Scroll into view
+            setTimeout(() => {
+                comparisonView.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+        } else {
+            document.getElementById('enrichError').textContent = data.detail || 'Error enriching rule further';
+            document.getElementById('enrichError').classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error enriching rule further:', error);
+        document.getElementById('enrichError').textContent = 'Network error: ' + error.message;
+        document.getElementById('enrichError').classList.remove('hidden');
+    } finally {
+        document.getElementById('enrichLoading').classList.add('hidden');
+        enrichFurtherBtn.disabled = false;
+        enrichFurtherBtn.innerHTML = '🔄 Enrich Further';
+        enrichFurtherBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+}
+
+function toggleEnrichView() {
+    const comparisonView = document.getElementById('enrichComparisonView');
+    const toggleBtn = document.getElementById('toggleViewBtn');
+    const textarea = document.getElementById('enrichedRuleYaml');
+    
+    if (!comparisonView || !toggleBtn || !textarea) {
+        console.error('Toggle enrich view: elements not found');
+        return;
+    }
+    
+    if (comparisonView.classList.contains('hidden')) {
+        comparisonView.classList.remove('hidden');
+        textarea.classList.add('hidden');
+        toggleBtn.textContent = '📝 Show Editor';
+    } else {
+        comparisonView.classList.add('hidden');
+        textarea.classList.remove('hidden');
+        toggleBtn.textContent = '📊 Show Comparison';
+    }
 }
 
 // Close modal when clicking outside
@@ -10309,13 +10779,13 @@ async function checkSimilarRulesForQueue() {
                                 if (i + 1 < lines.length) {
                                     const nextLine = lines[i + 1];
                                     if (nextLine.trim()) {
-                                        const nextIndent = nextLine.match(/^(\s*)/)[1].length;
-                                        
+                                    const nextIndent = nextLine.match(/^(\s*)/)[1].length;
+                                    
                                         if (nextIndent > currentIndent || (!value && nextIndent >= currentIndent)) {
-                                            // Nested block - extract it
-                                            const nestedLines = [];
-                                            let j = i + 1;
-                                            while (j < lines.length) {
+                                        // Nested block - extract it
+                                        const nestedLines = [];
+                                        let j = i + 1;
+                                        while (j < lines.length) {
                                                 const nestedLine = lines[j];
                                                 if (!nestedLine.trim()) {
                                                     nestedLines.push(nestedLine);
@@ -10325,16 +10795,16 @@ async function checkSimilarRulesForQueue() {
                                                 const nestedIndent = nestedLine.match(/^(\s*)/)[1].length;
                                                 // Stop if we hit same or less indentation (and it's not empty)
                                                 if (nestedIndent <= currentIndent && nestedLine.trim()) {
-                                                    break;
-                                                }
+                                                break;
+                                            }
                                                 nestedLines.push(nestedLine);
-                                                j++;
-                                            }
-                                            const nestedBlock = nestedLines.join('\n');
+                                            j++;
+                                        }
+                                        const nestedBlock = nestedLines.join('\n');
                                             if (nestedBlock.trim()) {
-                                                value = parseYamlBlock(nestedBlock, nextIndent);
+                                        value = parseYamlBlock(nestedBlock, nextIndent);
                                             }
-                                            i = j - 1;
+                                        i = j - 1;
                                         } else if (!value) {
                                             // Empty value, no nested content
                                             value = null;
@@ -10396,7 +10866,7 @@ async function checkSimilarRulesForQueue() {
                     
                     if (!hasCompleteDetection) {
                         // Try to parse from YAML using improved parser
-                        const detectionMatch = yaml.match(/^detection:\s*\n((?:\s{2,}.*\n?)*)/m);
+                    const detectionMatch = yaml.match(/^detection:\s*\n((?:\s{2,}.*\n?)*)/m);
                         if (detectionMatch) {
                             try {
                                 // Use a more robust approach: try to parse the entire detection block
@@ -10413,7 +10883,7 @@ async function checkSimilarRulesForQueue() {
                                     const detectionBlock = yaml.substring(detectionStart, detectionEnd);
                                     detectionObj = parseYamlBlock(detectionBlock.replace(/^detection:\s*\n?/, ''));
                                 }
-                            } catch (e) {
+                        } catch (e) {
                                 console.warn('Could not parse detection from YAML:', e);
                                 // Fall back to metadata even if incomplete
                             }
@@ -10505,44 +10975,20 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
     };
     document.addEventListener('keydown', handleEsc);
     
-    // Build coverage summary HTML
-    let coverageHtml = '';
-    if (coverageSummary && coverageSummary.total > 0) {
-        const coveredPercent = ((coverageSummary.covered / coverageSummary.total) * 100).toFixed(1);
-        const extendPercent = ((coverageSummary.extend / coverageSummary.total) * 100).toFixed(1);
-        const newPercent = ((coverageSummary.new / coverageSummary.total) * 100).toFixed(1);
-        
-        coverageHtml = `
-            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md">
-                <h4 class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">📊 Coverage Summary</h4>
-                <div class="grid grid-cols-3 gap-2 text-sm">
-                    <div class="text-center p-2 bg-green-100 dark:bg-green-900 rounded">
-                        <div class="font-bold text-green-700 dark:text-green-300">${coverageSummary.covered}</div>
-                        <div class="text-xs text-green-600 dark:text-green-400">Covered (${coveredPercent}%)</div>
-                    </div>
-                    <div class="text-center p-2 bg-yellow-100 dark:bg-yellow-900 rounded">
-                        <div class="font-bold text-yellow-700 dark:text-yellow-300">${coverageSummary.extend}</div>
-                        <div class="text-xs text-yellow-600 dark:text-yellow-400">Extend (${extendPercent}%)</div>
-                    </div>
-                    <div class="text-center p-2 bg-purple-100 dark:bg-purple-900 rounded">
-                        <div class="font-bold text-purple-700 dark:text-purple-300">${coverageSummary.new}</div>
-                        <div class="text-xs text-purple-600 dark:text-purple-400">New (${newPercent}%)</div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
     
     // Build matches HTML
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
         matchesHtml = `
-            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
-                <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <p>No similar rules found in SigmaHQ repository</p>
-                <p class="text-sm mt-2">This may indicate a novel detection opportunity!</p>
+            <div class="text-center py-8">
+                <div class="w-16 h-16 mx-auto mb-4 text-green-500 dark:text-green-400 flex items-center justify-center">
+                    <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </div>
+                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">✨ Novel Detection Pattern</p>
+                <p class="text-gray-600 dark:text-gray-400 mb-1">No similar rules found in SigmaHQ repository</p>
+                <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing SigmaHQ rules.</p>
             </div>
         `;
     } else {
@@ -10606,16 +11052,12 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                             <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
                             <div class="grid grid-cols-2 gap-1 text-xs">
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 55%)</span>:</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
                                     <span class="font-medium text-blue-700 dark:text-blue-300">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 25%)</span>:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1)}%</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Cosine Similarity <span class="text-gray-500">(weight: 20%)</span>:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.cosine || match.similarity_breakdown?.cosine || 0) * 100).toFixed(1)}%</span>
+                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
+                                    <span class="font-medium text-blue-700 dark:text-blue-300">${match.logic_shape_similarity === null || match.logic_shape_similarity === undefined || match.similarity_breakdown?.logic_shape_similarity === null || match.similarity_breakdown?.logic_shape_similarity === undefined ? 'N/A' : ((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1) + '%'}</span>
                                 </div>
                                 <div class="col-span-2 pt-1 border-t border-blue-200 dark:border-blue-700 flex justify-between">
                                     <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
@@ -10628,7 +11070,6 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                         <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-gray-100">${escapeHtml(match.rule_id || 'N/A')}</code></div>
                         <div><span class="font-medium text-gray-700 dark:text-gray-300">Status:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.status || 'N/A')}</span></div>
-                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Match Type:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.match_level || 'article')}</span></div>
                     </div>
                     
                     ${match.tags && match.tags.length > 0 ? `
@@ -10652,12 +11093,6 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                                 ).join('')}
                                 ${match.matched_discriminators.length > 5 ? `<span class="text-xs text-gray-500 dark:text-gray-400">+${match.matched_discriminators.length - 5} more</span>` : ''}
                             </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${match.coverage_reasoning ? `
-                        <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400 italic">
-                            💡 ${escapeHtml(match.coverage_reasoning)}
                         </div>
                     ` : ''}
                     
@@ -10736,16 +11171,14 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                 </div>
             </div>
             
-                <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                    Found ${matches ? matches.length : 0} most similar rules${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches[0] && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (embedding-based)'} (sorted by similarity)
+            <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                    Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)
                 ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}
                     </div>
                 ` : ''}
             </div>
-            
-            ${coverageHtml}
             
             <div id="similarRulesMatchesContainer" class="space-y-3 max-h-96 overflow-y-auto">
                 ${matchesHtml}
@@ -10924,11 +11357,14 @@ function showHelp(fieldName) {
             content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
                       <p class="mb-2"><strong>Default:</strong> 0.5</p>
                       <p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Maximum cosine similarity allowed for queueing SIGMA rules. Rules with similarity above this threshold are considered duplicates and won't be queued.</p>
+                      <p class="mb-2">Maximum behavioral similarity allowed for queueing SIGMA rules. Rules with similarity above this threshold are considered duplicates and won't be queued.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>After generating a SIGMA rule, the system searches for similar existing rules</li>
-                          <li>Similarity is measured using cosine similarity (0.0 = no match, 1.0 = identical)</li>
+                          <li>After generating a SIGMA rule, the system searches for similar existing rules using behavioral novelty assessment</li>
+                          <li>Similarity is calculated as a weighted combination: 70% atom Jaccard + 30% logic shape similarity</li>
+                          <li><strong>Atom Jaccard:</strong> Measures overlap of detection predicates (field/operator/value combinations)</li>
+                          <li><strong>Logic shape similarity:</strong> Measures structural similarity of detection logic (AND/OR/NOT patterns)</li>
+                          <li>Service mismatches and filter differences apply penalties that reduce similarity</li>
                           <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
                           <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
                       </ul>

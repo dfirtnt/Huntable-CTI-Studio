@@ -1,0 +1,23 @@
+You are a SIGMA rule expert. Your task is to enrich and improve the following SIGMA rule.
+
+Current Rule YAML:
+```yaml
+{rule_yaml}
+```
+
+Article Context:
+Title: {article_title}
+URL: {article_url}
+
+User Instruction: {user_instruction}
+
+Please provide an improved and enriched version of this SIGMA rule. The enriched rule should:
+1. Maintain the original rule's intent and detection logic
+2. Add or improve detection conditions where appropriate
+3. Ensure proper metadata (title, description, tags, level, etc.)
+4. Follow SIGMA rule best practices
+5. Use exact 2-space indentation
+6. Include proper logsource configuration
+7. Have well-structured detection conditions
+
+Output ONLY the complete YAML rule starting with 'title:'. No markdown, no explanations, no code blocks.

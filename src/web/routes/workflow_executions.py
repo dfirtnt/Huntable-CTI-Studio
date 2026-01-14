@@ -399,15 +399,25 @@ async def stream_execution_updates(execution_id: int):
                     current_error_log = execution.error_log
                     current_ranking_score = execution.ranking_score
                     
+                    # Send ranking score as soon as it becomes available (independent of step changes)
+                    if current_ranking_score is not None and last_ranking_score is None:
+                        yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
+                        last_ranking_score = current_ranking_score
+                    
+                    # Check for step completion markers and emit completion events
+                    if current_error_log and isinstance(current_error_log, dict):
+                        # Check if extract_agent just completed
+                        extract_agent_log = current_error_log.get('extract_agent', {})
+                        if isinstance(extract_agent_log, dict) and extract_agent_log.get('completed'):
+                            # Emit step completion event (only once per completion)
+                            last_extract_log = last_error_log.get('extract_agent', {}) if last_error_log else {}
+                            if not isinstance(last_extract_log, dict) or not last_extract_log.get('completed'):
+                                yield f"data: {json.dumps({'type': 'step_complete', 'step': 'extract_agent', 'timestamp': extract_agent_log.get('completed_at', datetime.now().isoformat())})}\n\n"
+                    
                     # Send step update
                     if current_step != last_step:
                         last_step = current_step
                         yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.now().isoformat()})}\n\n"
-                        
-                        # Include ranking score with step update if available and not yet sent
-                        if current_ranking_score is not None and last_ranking_score is None:
-                            yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
-                            last_ranking_score = current_ranking_score
                     
                     # Send status update
                     if current_status != last_status:
@@ -482,7 +492,10 @@ async def stream_execution_updates(execution_id: int):
                                             if display_agent in removed_agents:
                                                 continue  # Skip displaying removed agents
                                             
-                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.now().isoformat()})}\n\n"
+                                            # Add step context to event - map agent_name to workflow step
+                                            step_context = agent_name  # Default to agent_name as step
+                                            
+                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'step': step_context, 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.now().isoformat()})}\n\n"
                         
                         # Check for QA results (moved outside agent loop for efficiency)
                         if 'qa_results' in current_error_log:
@@ -494,41 +507,98 @@ async def stream_execution_updates(execution_id: int):
                                 # Filter out removed agents from QA results
                                 removed_agents = {'SigExtract', 'EventCodeExtract', 'RegExtract', 'SigQA', 'EventCodeQA', 'RegQA'}
                                 
-                                for qa_agent_name, qa_result in qa_results.items():
-                                    # Skip removed agents
-                                    if qa_agent_name in removed_agents:
+                                # Map QA agent names to workflow agent names
+                                agent_mapping = {
+                                    'RankAgent': 'rank_article',
+                                    'ExtractAgent': 'extract_agent',
+                                    'SigmaAgent': 'generate_sigma',
+                                    'OSDetectionAgent': 'os_detection',
+                                    # Extraction sub-agents
+                                    'CmdlineExtract': 'extract_agent',
+                                    'CmdLineQA': 'extract_agent',
+                                    'ProcTreeExtract': 'extract_agent',
+                                    'ProcTreeQA': 'extract_agent'
+                                }
+                                
+                                # Deduplicate by mapped agent name to avoid emitting same result twice
+                                # Prefer primary agent names (e.g., "CmdlineExtract") over QA names (e.g., "CmdLineQA")
+                                primary_agents = {'RankAgent', 'ExtractAgent', 'SigmaAgent', 'OSDetectionAgent', 
+                                                  'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'}
+                                
+                                # Track which mapped agents we've already sent in this iteration
+                                sent_mapped_agents = set()
+                                # Track last sent result by mapped agent name (not qa_agent_name) to prevent duplicates
+                                last_sent_by_mapped = {}
+                                
+                                # First pass: process primary agents
+                                for qa_agent_name in primary_agents:
+                                    if qa_agent_name not in qa_results or qa_agent_name in removed_agents:
                                         continue
                                     
-                                    # Ensure qa_result is a dict
+                                    qa_result = qa_results[qa_agent_name]
                                     if not isinstance(qa_result, dict):
                                         continue
                                     
-                                    # Map QA agent names to workflow agent names
-                                    agent_mapping = {
-                                        'RankAgent': 'rank_article',
-                                        'ExtractAgent': 'extract_agent',
-                                        'SigmaAgent': 'generate_sigma',
-                                        'OSDetectionAgent': 'os_detection',
-                                        # Extraction sub-agents
-                                        'CmdlineExtract': 'extract_agent',
-                                        'CmdLineQA': 'extract_agent',
-                                        'ProcTreeExtract': 'extract_agent',
-                                        'ProcTreeQA': 'extract_agent'
-                                    }
                                     mapped_agent_name = agent_mapping.get(qa_agent_name, qa_agent_name)
                                     
-                                    # Only send if this QA result is new or updated
-                                    last_qa_result = last_qa_results.get(qa_agent_name)
-                                    if not isinstance(last_qa_result, dict) or last_qa_result.get('verdict') != qa_result.get('verdict'):
-                                        yield f"data: {json.dumps({'type': 'qa_result', 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.now().isoformat()})}\n\n"
+                                    # Check if we've already sent a result for this mapped agent in this iteration
+                                    if mapped_agent_name in sent_mapped_agents:
+                                        continue
+                                    
+                                    # Check if this result is different from what we last sent for this mapped agent
+                                    # Check all qa_agent_names that map to this mapped_agent_name
+                                    last_verdict = None
+                                    for check_name, check_result in last_qa_results.items():
+                                        if isinstance(check_result, dict):
+                                            check_mapped = agent_mapping.get(check_name, check_name)
+                                            if check_mapped == mapped_agent_name:
+                                                last_verdict = check_result.get('verdict')
+                                                break
+                                    
+                                    # Only send if verdict changed or this is first time
+                                    if last_verdict != qa_result.get('verdict'):
+                                        # Add step context - QA results belong to their parent workflow step
+                                        step_context = mapped_agent_name  # QA results are for the workflow step
+                                        yield f"data: {json.dumps({'type': 'qa_result', 'step': step_context, 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.now().isoformat()})}\n\n"
+                                        sent_mapped_agents.add(mapped_agent_name)
+                                        last_sent_by_mapped[mapped_agent_name] = qa_result.get('verdict')
+                                
+                                # Second pass: process QA agents only if primary agent wasn't found
+                                for qa_agent_name, qa_result in qa_results.items():
+                                    # Skip removed agents or already processed primary agents
+                                    if qa_agent_name in removed_agents or qa_agent_name in primary_agents:
+                                        continue
+                                    
+                                    if not isinstance(qa_result, dict):
+                                        continue
+                                    
+                                    mapped_agent_name = agent_mapping.get(qa_agent_name, qa_agent_name)
+                                    
+                                    # Skip if we've already sent a result for this mapped agent
+                                    if mapped_agent_name in sent_mapped_agents:
+                                        continue
+                                    
+                                    # Check if this result is different from what we last sent for this mapped agent
+                                    last_verdict = last_sent_by_mapped.get(mapped_agent_name)
+                                    if last_verdict is None:
+                                        # Check last_qa_results for any agent that maps to this mapped_agent_name
+                                        for check_name, check_result in last_qa_results.items():
+                                            if isinstance(check_result, dict):
+                                                check_mapped = agent_mapping.get(check_name, check_name)
+                                                if check_mapped == mapped_agent_name:
+                                                    last_verdict = check_result.get('verdict')
+                                                    break
+                                    
+                                    # Only send if verdict changed or this is first time
+                                    if last_verdict != qa_result.get('verdict'):
+                                        # Add step context - QA results belong to their parent workflow step
+                                        step_context = mapped_agent_name  # QA results are for the workflow step
+                                        yield f"data: {json.dumps({'type': 'qa_result', 'step': step_context, 'agent': mapped_agent_name, 'verdict': qa_result.get('verdict'), 'summary': qa_result.get('summary'), 'issues': qa_result.get('issues', []), 'timestamp': datetime.now().isoformat()})}\n\n"
+                                        sent_mapped_agents.add(mapped_agent_name)
+                                        last_sent_by_mapped[mapped_agent_name] = qa_result.get('verdict')
                         
                         # Update last_error_log after processing
                         last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}
-                    
-                    # Send ranking score only once when it first becomes available
-                    if current_ranking_score is not None and last_ranking_score is None:
-                        yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
-                        last_ranking_score = current_ranking_score
                     
                 finally:
                     db_session.close()

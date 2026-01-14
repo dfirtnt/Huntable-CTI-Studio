@@ -3579,7 +3579,7 @@ async def api_get_sigma_matches(
     - Canonicalization of detection logic
     - Atomic predicate extraction (field+operator+value)
     - Structural similarity metrics (AST comparison)
-    - Weighted similarity: 0.55 × atom_jaccard + 0.25 × logic_shape + 0.20 × cosine
+    - Weighted similarity: 0.70 × atom_jaccard + 0.30 × logic_shape
 
     No LLM reranking - purely algorithmic as per specification.
     """
@@ -3711,13 +3711,15 @@ async def api_get_sigma_matches(
                 # Get behavioral metrics from novelty assessment
                 behavioral_similarity = match.get("similarity", 0)
                 atom_jaccard = match.get("atom_jaccard", 0.0)
-                logic_shape = match.get("logic_shape_similarity", 0.0)
-                cosine_sim = match.get("cosine", 0.0)
+                logic_shape_raw = match.get("logic_shape_similarity")
+                # Handle None (early exit case) - treat as perfect match for classification
+                logic_shape = 1.0 if logic_shape_raw is None else logic_shape_raw
                 
                 # Debug logging
+                logic_shape_display = "N/A" if match.get("logic_shape_similarity") is None else f"{logic_shape:.3f}"
                 logger.debug(
                     f"Classifying match '{match.get('rule_id', 'unknown')}': "
-                    f"atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape:.3f}, cosine={cosine_sim:.3f}"
+                    f"atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display}"
                 )
                 
                 # Check for exact hash match (duplicate)
@@ -3725,20 +3727,20 @@ async def api_get_sigma_matches(
                 
                 # Classify using behavioral novelty thresholds (per spec)
                 # DUPLICATE: atom_jaccard > 0.95 AND logic_similarity > 0.95
-                # SIMILAR: (atom_jaccard > 0.70 AND cosine > 0.80) OR atom_jaccard > 0.80
+                # SIMILAR: atom_jaccard > 0.80
                 # NOVEL: Everything else
                 if is_exact_match:
                     novelty_label = "DUPLICATE"
                     logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (exact hash match)")
                 elif atom_jaccard > 0.95 and logic_shape > 0.95:
                     novelty_label = "DUPLICATE"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape:.3f})")
-                elif (atom_jaccard > 0.70 and cosine_sim > 0.80) or atom_jaccard > 0.80:
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})")
+                elif atom_jaccard > 0.80:
                     novelty_label = "SIMILAR"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f}, cosine={cosine_sim:.3f})")
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f})")
                 else:
                     novelty_label = "NOVEL"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape:.3f}, cosine={cosine_sim:.3f})")
+                    logger.debug(f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})")
                 
                 # Store novelty classification
                 match["novelty_label"] = novelty_label
@@ -3747,31 +3749,17 @@ async def api_get_sigma_matches(
                 # DUPLICATE → covered, SIMILAR → extend, NOVEL → new
                 if novelty_label == "DUPLICATE":
                     match["coverage_status"] = "covered"
-                    match["coverage_reasoning"] = (
-                        f"Duplicate detection (Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}). "
-                        f"Behavioral similarity: {behavioral_similarity:.1%} "
-                        f"(Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}, Cosine: {cosine_sim:.1%}). "
-                        f"This detection is already covered by existing SigmaHQ rules."
-                    )
                 elif novelty_label == "SIMILAR":
                     match["coverage_status"] = "extend"
-                    match["coverage_reasoning"] = (
-                        f"Similar detection (Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}, Cosine: {cosine_sim:.1%}). "
-                        f"Behavioral similarity: {behavioral_similarity:.1%}. "
-                        f"Partial overlap detected - existing rule could be extended."
-                    )
                 else:  # NOVEL
                     match["coverage_status"] = "new"
-                    match["coverage_reasoning"] = (
-                        f"Novel detection pattern. "
-                        f"Behavioral similarity: {behavioral_similarity:.1%} "
-                        f"(Atom Jaccard: {atom_jaccard:.1%}, Logic Shape: {logic_shape:.1%}, Cosine: {cosine_sim:.1%}). "
-                        f"This represents a novel detection pattern not well-covered by SigmaHQ."
-                    )
 
                 # Clean up internal fields before returning
                 if "_generated_rule" in match:
                     del match["_generated_rule"]
+                # Remove coverage_reasoning if present (removed from UI)
+                if "coverage_reasoning" in match:
+                    del match["coverage_reasoning"]
 
             # Prepare response
             # Prepare response

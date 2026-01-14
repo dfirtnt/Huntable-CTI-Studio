@@ -936,10 +936,7 @@ class TestWorkflowConfigurationSigmaAgent:
         toggle_button.click()
         page.wait_for_timeout(500)
         
-        # Find embedding model dropdown
-        embedding_dropdown = page.locator("#sigma-embedding-model")
-        expect(embedding_dropdown).to_be_visible()
-        expect(embedding_dropdown).to_have_attribute("name", "agent_models[SigmaEmbeddingModel]")
+        # Note: Embedding model selector removed - similarity search now uses behavioral novelty assessment
 
 
 class TestWorkflowConfigurationWorkflowOverview:
