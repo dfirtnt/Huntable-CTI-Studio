@@ -122,6 +122,7 @@ backups/system_backup_20251010_103000/
 - **Safety Checks**: Pre-restore validation and snapshots
 - **Complete Table Coverage**: All tables backed up, including ml_model_versions for ML metric history
 - **Restore Verification**: Automatically verifies ml_model_versions count matches backup metadata
+- **pgvector Extension**: Automatically enables pgvector extension during restore (required for SIGMA similarity search with vector embeddings)
 
 ### Commands
 
@@ -413,10 +414,14 @@ cat logs/backup.log
 ./scripts/backup_restore.sh db-list
 
 # 2. Restore from specific backup
+# Note: pgvector extension is automatically enabled during restore for SIGMA similarity search
 ./scripts/backup_restore.sh db-restore cti_scraper_backup_20250907_134653.sql.gz
 
 # 3. Verify database
 docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"
+
+# 4. Verify pgvector extension (for SIGMA features)
+docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
 ```
 
 #### Restore from Snapshot

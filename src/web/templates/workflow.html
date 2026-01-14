@@ -1643,6 +1643,15 @@
                             </div>
                         </div>
                         <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs"></textarea>
+                        <div class="mt-4">
+                            <button onclick="toggleRawResponse()" class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-left text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer" role="button" aria-expanded="false" id="rawResponseToggle">
+                                <span>📄 Raw LLM Response</span>
+                                <span id="rawResponseCaret" class="transform transition-transform">▼</span>
+                            </button>
+                            <div id="rawResponseContent" class="hidden mt-2">
+                                <pre id="rawResponseText" class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                            </div>
+                        </div>
                     </div>
                     <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
                     <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
@@ -3855,12 +3864,7 @@ window.updateQABadge = function(agentPrefix) {
             } else {
                 renderQAPrompt('QAAgent', `${agentPrefix}-qa-prompt-container`);
             }
-            // Initialize collapsible panels after rendering
-            setTimeout(() => {
-                if (typeof initCollapsiblePanels === 'function') {
-                    initCollapsiblePanels(qaPromptContainer);
-                }
-            }, 0);
+            // renderQAPrompt already initializes collapsible panels, no need to call again
         }
         if (qaConfigs) {
             qaConfigs.classList.remove('hidden');
@@ -5968,14 +5972,16 @@ function renderQAPrompt(agentName, containerId) {
     `;
     
     // Re-initialize collapsible panels for dynamically added content
-    // Use setTimeout to ensure DOM is updated before initialization
-    setTimeout(() => {
-        if (typeof initCollapsiblePanels === 'function') {
-            // Initialize within container first, then globally to catch any missed panels
-            initCollapsiblePanels(container);
-            initCollapsiblePanels();
-        }
-    }, 0);
+    // Use requestAnimationFrame to ensure DOM is fully updated and visible before initialization
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            if (typeof initCollapsiblePanels === 'function') {
+                // Initialize within container first, then globally to catch any missed panels
+                initCollapsiblePanels(container);
+                initCollapsiblePanels();
+            }
+        });
+    });
 }
 
 function loadQASettings2() {
@@ -10307,6 +10313,16 @@ function openEnrichModal() {
     if (rightLabel) rightLabel.textContent = 'Enriched Rule';
     if (iterationInfo) iterationInfo.textContent = '';
     
+    // Reset raw response section
+    const rawResponseContent = document.getElementById('rawResponseContent');
+    const rawResponseToggle = document.getElementById('rawResponseToggle');
+    const rawResponseCaret = document.getElementById('rawResponseCaret');
+    if (rawResponseContent) rawResponseContent.classList.add('hidden');
+    if (rawResponseToggle) rawResponseToggle.setAttribute('aria-expanded', 'false');
+    if (rawResponseCaret) rawResponseCaret.textContent = '▼';
+    const rawResponseText = document.getElementById('rawResponseText');
+    if (rawResponseText) rawResponseText.textContent = '';
+    
     // Show modal
     document.getElementById('enrichModal').classList.remove('hidden');
 }
@@ -10372,6 +10388,7 @@ async function enrichRule() {
         
         if (response.ok && data.success) {
             const enrichedYaml = data.enriched_yaml;
+            const rawResponse = data.raw_response || enrichedYaml;
             enrichIteration++;
             
             // Determine what to compare against (before updating currentEnrichedYaml)
@@ -10393,6 +10410,7 @@ async function enrichRule() {
             const leftLabel = document.getElementById('enrichLeftLabel');
             const rightLabel = document.getElementById('enrichRightLabel');
             const iterationInfo = document.getElementById('enrichIterationInfo');
+            const rawResponseText = document.getElementById('rawResponseText');
             
             if (!enrichResult || !comparisonView || !textarea || !toggleBtn) {
                 console.error('Missing elements for comparison view');
@@ -10405,6 +10423,11 @@ async function enrichRule() {
             
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
+            
+            // Set raw response
+            if (rawResponseText) {
+                rawResponseText.textContent = rawResponse;
+            }
             
             // Update labels and info based on iteration
             if (isIterative) {
@@ -10586,6 +10609,7 @@ async function enrichRuleFurther() {
         
         if (response.ok && data.success) {
             const enrichedYaml = data.enriched_yaml;
+            const rawResponse = data.raw_response || enrichedYaml;
             enrichIteration++;
             
             // Get previous version for comparison
@@ -10601,12 +10625,18 @@ async function enrichRuleFurther() {
             const leftLabel = document.getElementById('enrichLeftLabel');
             const rightLabel = document.getElementById('enrichRightLabel');
             const iterationInfo = document.getElementById('enrichIterationInfo');
+            const rawResponseText = document.getElementById('rawResponseText');
             
             // Update current enriched state
             currentEnrichedYaml = enrichedYaml;
             
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
+            
+            // Set raw response
+            if (rawResponseText) {
+                rawResponseText.textContent = rawResponse;
+            }
             
             // Update labels for iterative enrichment
             leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
@@ -10665,6 +10695,28 @@ function toggleEnrichView() {
     }
 }
 
+function toggleRawResponse() {
+    const content = document.getElementById('rawResponseContent');
+    const toggle = document.getElementById('rawResponseToggle');
+    const caret = document.getElementById('rawResponseCaret');
+    
+    if (!content || !toggle) {
+        console.error('Toggle raw response: elements not found');
+        return;
+    }
+    
+    const isHidden = content.classList.contains('hidden');
+    if (isHidden) {
+        content.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+        if (caret) caret.textContent = '▲';
+    } else {
+        content.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+        if (caret) caret.textContent = '▼';
+    }
+}
+
 // Close modal when clicking outside
 const ruleModal = document.getElementById('ruleModal');
 if (ruleModal) {
@@ -10714,12 +10766,9 @@ async function checkSimilarRulesForQueue() {
     document.body.appendChild(loadingMsg);
     
     try {
-        // Get LLM provider from Settings
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const llmProvider = settings.aiModel || 'chatgpt';
-        
-        // Use article endpoint to get similar rules
-        const response = await fetch(`/api/articles/${rule.article_id}/sigma-matches?llm_provider=${encodeURIComponent(llmProvider)}&force=true`, {
+        // Use the queued rule's direct comparison endpoint
+        // This compares the specific queued rule's YAML, not the article's generated rules
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/similar-rules?force=true`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -10933,7 +10982,7 @@ async function checkSimilarRulesForQueue() {
             
             // Use parsed rule or create from metadata
             const generatedRules = currentRuleParsed ? [currentRuleParsed] : [];
-            showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules);
+            showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules, data.assessment_method);
         } else {
             alert('Failed to find similar rules: ' + (data.message || 'Unknown error'));
         }
@@ -10951,7 +11000,7 @@ async function checkSimilarRulesForQueue() {
     }
 }
 
-function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
+function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], assessmentMethod = null) {
     // Remove any existing modal
     closeSimilarRulesModal();
     
@@ -11172,7 +11221,7 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
             </div>
             
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                    Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)
+Found ${matches ? matches.length : 0} most similar rules${assessmentMethod === 'behavioral_novelty' || (matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment') ? ' (behavioral novelty assessment)' : matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : ' (behavioral novelty assessment)'} (sorted by similarity)
                 ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}

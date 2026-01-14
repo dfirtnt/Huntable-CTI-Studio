@@ -302,9 +302,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         raise HTTPException(status_code=response.status_code, detail=error_detail)
                     
                     response_data = response.json()
-                    enriched_yaml = response_data["choices"][0]["message"]["content"].strip()
+                    raw_response = response_data["choices"][0]["message"]["content"].strip()
                     
-                    # Remove markdown code blocks if present
+                    # Extract YAML from response (remove markdown code blocks if present)
+                    enriched_yaml = raw_response
                     if enriched_yaml.startswith("```"):
                         lines = enriched_yaml.split("\n")
                         enriched_yaml = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
@@ -312,6 +313,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     return {
                         "success": True,
                         "enriched_yaml": enriched_yaml,
+                        "raw_response": raw_response,
                         "message": f"Rule {queue_id} enriched successfully"
                     }
                 except httpx.TimeoutException:

@@ -216,6 +216,14 @@ def restore_database(
         )
         subprocess.run(create_cmd, check=True)
 
+        # Enable pgvector extension (required for SIGMA similarity search)
+        print("🔧 Enabling pgvector extension...")
+        extension_cmd = get_docker_exec_cmd(
+            "cti_postgres",
+            f"psql -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c 'CREATE EXTENSION IF NOT EXISTS vector;'",
+        )
+        subprocess.run(extension_cmd, check=True)
+
         # Restore from backup
         print("📥 Restoring data...")
         restore_cmd = get_docker_exec_cmd(
