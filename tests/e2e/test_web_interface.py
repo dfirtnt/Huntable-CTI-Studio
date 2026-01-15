@@ -2,6 +2,9 @@ import pytest
 from playwright.sync_api import Page, expect
 import time
 
+# Mark all tests in this file as e2e tests (require web server + Playwright)
+pytestmark = pytest.mark.e2e
+
 
 class TestCTIScraperWebInterface:
     """End-to-end tests for CTIScraper web interface"""

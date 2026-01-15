@@ -37,15 +37,15 @@ def normalize_span(text: str, mode: NormalizationMode = "relaxed") -> str:
         # STRICT: Only trim whitespace and normalize quotes
         # NO argument reordering, NO semantic canonicalization
         normalized = text.strip()
-        # Normalize quote types only
-        normalized = re.sub(r'["""]', '"', normalized)
-        normalized = re.sub(r'[\u2018\u2019]', "'", normalized)
+        # Normalize quote types only (including smart quotes)
+        normalized = re.sub(r'["""\u201C\u201D]', '"', normalized)
+        normalized = re.sub(r'[\'\'\u2018\u2019]', "'", normalized)
         return normalized
     else:
         # RELAXED: Collapse whitespace, normalize quotes
         normalized = re.sub(r'\s+', ' ', text)
-        normalized = re.sub(r'["""]', '"', normalized)
-        normalized = re.sub(r'[\u2018\u2019]', "'", normalized)
+        normalized = re.sub(r'["""\u201C\u201D]', '"', normalized)
+        normalized = re.sub(r'[\'\'\u2018\u2019]', "'", normalized)
         normalized = normalized.strip()
         return normalized
 

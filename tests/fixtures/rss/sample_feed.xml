@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Test Security Blog</title>
+        <link>https://example.com</link>
+        <description>Test RSS feed for CTI Scraper tests</description>
+        <item>
+            <title>Test Threat Intelligence Article</title>
+            <link>https://example.com/article1</link>
+            <description><![CDATA[This is a comprehensive test article about threat intelligence with TTP indicators including command-line execution patterns. The article describes how threat actors use PowerShell and cmd.exe to execute malicious commands. It covers various techniques including process injection, registry manipulation, and network communication patterns. The content includes detailed analysis of attack chains and provides actionable threat hunting queries for security analysts. This article contains sufficient content to meet minimum length requirements for RSS parsing tests.]]></description>
+            <pubDate>Wed, 01 Jan 2024 12:00:00 GMT</pubDate>
+            <guid isPermaLink="true">https://example.com/article1</guid>
+        </item>
+        <item>
+            <title>Another Test Article</title>
+            <link>https://example.com/article2</link>
+            <description><![CDATA[This is a second comprehensive test article for deduplication testing. It describes additional threat intelligence techniques and provides more context about security research. The article includes information about malware analysis, reverse engineering, and threat hunting methodologies. This content is designed to test the RSS parser's ability to handle multiple articles and ensure proper deduplication logic works correctly.]]></description>
+            <pubDate>Wed, 02 Jan 2024 12:00:00 GMT</pubDate>
+            <guid isPermaLink="true">https://example.com/article2</guid>
+        </item>
+    </channel>
+</rss>

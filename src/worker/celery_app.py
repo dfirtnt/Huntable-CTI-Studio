@@ -41,6 +41,18 @@ if redis_url:
 else:
     celery_app = Celery("cti_scraper")
 
+# Test environment guard - prevent production DB access in tests
+if os.getenv("APP_ENV") == "test":
+    try:
+        from tests.utils.test_environment import assert_test_environment
+        assert_test_environment()
+        logger.info("Test environment guard passed for Celery app")
+    except ImportError:
+        logger.warning("Test environment guard not available - tests may not be properly isolated")
+    except RuntimeError as e:
+        logger.error(f"Test environment guard failed: {e}")
+        raise
+
 # Import config module to get other settings (but we won't use its broker_url)
 import src.worker.celeryconfig as celeryconfig
 

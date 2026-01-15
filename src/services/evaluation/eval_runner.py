@@ -22,9 +22,19 @@ logger = logging.getLogger(__name__)
 
 
 def _run_async_in_thread(coro):
-    """Run async coroutine in a new thread with its own event loop."""
+    """Run async coroutine in a new thread with its own event loop.
+    
+    WARNING: This should only be used when absolutely necessary (e.g., Celery tasks).
+    Prefer using async/await directly in async contexts.
+    """
     def run_in_thread():
-        return asyncio.run(coro)
+        # Create a new event loop in this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
     
     with ThreadPoolExecutor() as executor:
         future = executor.submit(run_in_thread)
@@ -406,12 +416,14 @@ class EvalRunner:
         )
         
         # Run async code - handle event loop gracefully
+        # This method is called from sync context (EvalRunner is sync), so we need to handle both cases
         try:
             loop = asyncio.get_running_loop()
-            # Event loop is running, use thread executor
+            # Event loop is running, use thread executor (shouldn't happen in normal flow)
+            logger.warning("EvalRunner._run_extraction called from running event loop - using thread executor")
             extractor_result = _run_async_in_thread(coro)
         except RuntimeError:
-            # No event loop running, can use asyncio.run()
+            # No event loop running, safe to use asyncio.run()
             extractor_result = asyncio.run(coro)
         
         # Log what we received from the extraction

@@ -669,11 +669,8 @@ test.describe.skip(
     await expect(executionModal).toBeVisible();
   });
 
-  test('should have white text for View summary elements in dark mode', async ({ page }) => {
-    // Enable dark mode
-    await page.emulateMedia({ colorScheme: 'dark' });
-    
-    // Wait for executions to load
+  test('should have readable text colors for View summary elements (static theme)', async ({ page }) => {
+    // Wait for executions to load (no dark mode - colors are static)
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
     
@@ -709,7 +706,10 @@ test.describe.skip(
       return;
     }
     
-    // Check each View summary element has white color
+    // Check each View summary element has readable color (static theme)
+    const colorIssues: string[] = [];
+    const actualColors: string[] = [];
+    
     for (let i = 0; i < count; i++) {
       const summary = viewSummaries.nth(i);
       await expect(summary).toBeVisible();
@@ -720,21 +720,25 @@ test.describe.skip(
         return computed.color;
       });
       
-      // Check if color is white or very close to white (rgb(255, 255, 255) or rgba equivalent)
-      const isWhite = color.includes('255, 255, 255') || 
-                     color.includes('rgb(255, 255, 255)') ||
-                     color.includes('rgba(255, 255, 255') ||
-                     color === '#ffffff' ||
-                     color === 'white';
+      const text = await summary.textContent();
+      if (!actualColors.includes(color)) {
+        actualColors.push(color);
+      }
+      console.log(`View summary "${text}" has color: ${color}`);
       
-      if (!isWhite) {
-        const text = await summary.textContent();
-        console.log(`View summary "${text}" has color: ${color}`);
-        // Don't fail immediately, log all issues first
+      // Check for readable color (white, light gray, or medium gray on dark background)
+      const isReadable = color.includes('255, 255, 255') || // white
+                        color.includes('209, 213, 219') || // text-gray-300
+                        color.includes('55, 65, 81') ||   // text-gray-700
+                        color === '#ffffff' ||
+                        color === 'white';
+      
+      if (!isReadable) {
+        colorIssues.push(`"${text}" has color: ${color} (may be unreadable)`);
       }
     }
     
-    // Also check specific View elements that should be white
+    // Also check specific View elements
     const specificViews = [
       'View Content Sent to OS Detection',
       'View Original Article Content',
@@ -757,15 +761,26 @@ test.describe.skip(
           return window.getComputedStyle(el).color;
         });
         
-        const isWhite = color.includes('255, 255, 255') || 
-                       color.includes('rgb(255, 255, 255)') ||
-                       color.includes('rgba(255, 255, 255') ||
-                       color === '#ffffff' ||
-                       color === 'white';
+        // Check for readable color
+        const isReadable = color.includes('255, 255, 255') ||
+                          color.includes('209, 213, 219') ||
+                          color.includes('55, 65, 81') ||
+                          color === '#ffffff' ||
+                          color === 'white';
         
-        expect(isWhite).toBe(true, `"${viewText}" should be white but got color: ${color}`);
+        if (!isReadable) {
+          colorIssues.push(`"${viewText}" has color: ${color} (may be unreadable)`);
+        }
       }
     }
+    
+    if (colorIssues.length > 0) {
+      console.log('\n=== Color Issues ===');
+      colorIssues.forEach(issue => console.log(issue));
+      throw new Error(`Found ${colorIssues.length} View summary elements with potentially unreadable colors`);
+    }
+    
+    console.log(`\n✅ All View summary elements have readable colors: ${actualColors.join(', ')}`);
   });
 });
 

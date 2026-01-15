@@ -1,9 +1,13 @@
 """
 Integration tests for AI cross-model functionality.
 Tests model switching, fallbacks, and integration between different AI providers.
-"""
 
+NOTE: These tests require cloud LLM API keys or proper mocking.
+"""
 import pytest
+
+# Mark all tests in this file as integration tests
+pytestmark = pytest.mark.integration
 import asyncio
 import json
 import os

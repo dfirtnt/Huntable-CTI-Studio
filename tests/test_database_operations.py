@@ -1,4 +1,7 @@
-"""Tests for database operations functionality."""
+"""Tests for database operations functionality.
+
+These are unit tests that use mocks - they do not require a real database.
+"""
 
 import pytest
 import asyncio
@@ -7,6 +10,9 @@ from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from typing import List, Optional, Dict, Any
 
 from src.database.async_manager import AsyncDatabaseManager
+
+# Mark all tests in this file as unit tests (they use mocks, no real DB)
+pytestmark = pytest.mark.unit
 from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter
 from src.models.article import Article, ArticleCreate, ArticleUpdate, ArticleListFilter
 from src.models.annotation import ArticleAnnotation, ArticleAnnotationCreate, ArticleAnnotationUpdate, ArticleAnnotationFilter

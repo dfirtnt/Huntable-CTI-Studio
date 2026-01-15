@@ -3,6 +3,8 @@ API routes for SIGMA rule queue management.
 """
 
 import logging
+import json
+import os
 import httpx
 import yaml
 from typing import List, Dict, Any, Optional
@@ -59,7 +61,10 @@ class RuleYamlUpdateRequest(BaseModel):
 class EnrichRuleRequest(BaseModel):
     """Request model for enriching a rule."""
     instruction: Optional[str] = None  # Optional user instruction for enrichment
+    system_prompt: Optional[str] = None  # Optional system prompt override
     current_rule_yaml: Optional[str] = None  # Optional current rule YAML for iterative enrichment
+    provider: Optional[str] = None  # LLM provider (openai, anthropic, gemini)
+    model: Optional[str] = None  # Model name
 
 
 @router.get("/list", response_model=List[QueuedRuleResponse])
@@ -260,6 +265,17 @@ async def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpda
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _sanitize_error_detail(detail: str) -> str:
+    """Sanitize error detail to prevent serialization issues."""
+    if not detail:
+        return "Unknown error"
+    # Replace all problematic characters
+    sanitized = str(detail).replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+    # Remove any control characters
+    sanitized = ''.join(char for char in sanitized if ord(char) >= 32 or char in '\n\r\t')
+    return sanitized.strip()
+
+
 @router.post("/{queue_id}/enrich")
 async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRuleRequest):
     """Enrich a SIGMA rule using AI assistance."""
@@ -277,26 +293,26 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             if not article:
                 raise HTTPException(status_code=404, detail="Article not found")
             
-            # Get API key from request headers or body
-            api_key_raw = (
-                request.headers.get("X-OpenAI-API-Key")
-                or request.headers.get("X-Anthropic-API-Key")
-            )
+            # Get provider and model from request, default to OpenAI
+            provider = (enrich_request.provider or "openai").lower()
+            model = enrich_request.model or "gpt-4o-mini"
             
-            # If not in headers, try to get from body
-            if not api_key_raw:
-                try:
-                    body = await request.json()
-                    api_key_raw = body.get("api_key")
-                except:
-                    pass
+            # Get API key from request headers (not needed for LMStudio)
+            api_key = None
+            if provider == "openai":
+                api_key = request.headers.get("X-OpenAI-API-Key")
+            elif provider == "anthropic":
+                api_key = request.headers.get("X-Anthropic-API-Key")
+            elif provider == "gemini":
+                api_key = request.headers.get("X-Gemini-API-Key")
+            elif provider == "lmstudio":
+                # LMStudio doesn't need an API key, uses local URL
+                api_key = "not_required"
             
-            api_key = api_key_raw.strip() if api_key_raw else None
-            
-            if not api_key:
+            if provider != "lmstudio" and (not api_key or not api_key.strip()):
                 raise HTTPException(
                     status_code=400,
-                    detail="API key is required. Please provide X-OpenAI-API-Key or X-Anthropic-API-Key header, or api_key in body.",
+                    detail=f"API key is required. Please provide X-{provider.capitalize()}-API-Key header. Provider: {provider}, Model: {model}",
                 )
             
             # Build enrichment prompt
@@ -313,67 +329,464 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 user_instruction=instruction_text
             )
             
-            # Call OpenAI API
+            # Use provided system prompt or fall back to default
+            system_message = enrich_request.system_prompt or "You are a SIGMA rule validation and enrichment agent. Follow the OUTPUT CONTRACT: Return a JSON object with status 'pass'|'needs_revision'|'fail'. If status='pass', include 'updated_sigma_yaml' as YAML string. If status='needs_revision' or 'fail', 'updated_sigma_yaml' may be empty but 'issues' must explain. Output ONLY the JSON object, no markdown, no code blocks."
+            
+            logger.info(f"Enriching rule {queue_id} with provider={provider}, model={model}, has_system_prompt={bool(enrich_request.system_prompt)}")
+            
+            # Call provider API
             async with httpx.AsyncClient() as client:
                 try:
-                    response = await client.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": "gpt-4o-mini",
+                    if provider == "openai":
+                        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
+                        is_newer_model = any(x in model.lower() for x in ['gpt-4.1', 'gpt-5', 'o1', 'o3', 'o4'])
+                        # Some newer models (gpt-5.2+, gpt-5-nano, etc.) don't support custom temperature
+                        # They only support the default value (1), so we omit the parameter
+                        is_temperature_restricted = any(x in model.lower() for x in [
+                            'gpt-5.2', 'gpt-5.1', 'gpt-5-nano', 'gpt-5-mini', 'gpt-5-chat'
+                        ])
+                        
+                        payload = {
+                            "model": model,
                             "messages": [
-                                {
-                                    "role": "system",
-                                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks.",
-                                },
+                                {"role": "system", "content": system_message},
                                 {"role": "user", "content": enrichment_prompt},
                             ],
-                            "max_tokens": 4000,
-                            "temperature": 0.2,
-                        },
-                        timeout=120.0,
-                    )
+                        }
+                        
+                        # Only add temperature if the model supports custom values
+                        # Restricted models will use default temperature (1) if omitted
+                        if not is_temperature_restricted:
+                            payload["temperature"] = 0.2
+                        
+                        if is_newer_model:
+                            payload["max_completion_tokens"] = 4000
+                        else:
+                            payload["max_tokens"] = 4000
+                        
+                        response = await client.post(
+                            "https://api.openai.com/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {api_key}",
+                                "Content-Type": "application/json",
+                            },
+                            json=payload,
+                            timeout=120.0,
+                        )
+                        if response.status_code != 200:
+                            error_detail = f"OpenAI API error: {response.status_code}"
+                            try:
+                                error_data = response.json()
+                                if "error" in error_data:
+                                    error_detail = error_data["error"].get("message", error_detail)
+                            except:
+                                error_detail = f"OpenAI API error: {response.status_code} - {response.text[:200]}"
+                            
+                            if response.status_code == 401:
+                                error_detail = "OpenAI API key is invalid or expired. Please check your API key."
+                            elif response.status_code == 429:
+                                error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
+                            logger.error(f"OpenAI API error: {response.text}")
+                            raise HTTPException(status_code=response.status_code, detail=error_detail)
+                        response_data = response.json()
+                        raw_response = response_data["choices"][0]["message"]["content"].strip()
+                        
+                    elif provider == "anthropic":
+                        response = await client.post(
+                            "https://api.anthropic.com/v1/messages",
+                            headers={
+                                "x-api-key": api_key,
+                                "Content-Type": "application/json",
+                                "anthropic-version": "2023-06-01",
+                            },
+                            json={
+                                "model": model,
+                                "max_tokens": 4000,
+                                "temperature": 0.2,
+                                "system": system_message,
+                                "messages": [{"role": "user", "content": enrichment_prompt}],
+                            },
+                            timeout=120.0,
+                        )
+                        if response.status_code != 200:
+                            error_detail = f"Anthropic API error: {response.status_code}"
+                            if response.status_code == 401:
+                                error_detail = "Anthropic API key is invalid or expired. Please check your API key."
+                            elif response.status_code == 429:
+                                error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
+                            logger.error(f"Anthropic API error: {response.text}")
+                            raise HTTPException(status_code=response.status_code, detail=error_detail)
+                        response_data = response.json()
+                        content = response_data.get("content", [])
+                        raw_response = content[0].get("text", "").strip() if content else ""
+                        
+                    elif provider == "gemini":
+                        # Gemini API endpoint
+                        response = await client.post(
+                            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+                            headers={"Content-Type": "application/json"},
+                            json={
+                                "contents": [{
+                                    "parts": [{"text": f"{system_message}\n\n{enrichment_prompt}"}]
+                                }],
+                                "generationConfig": {
+                                    "temperature": 0.2,
+                                    "maxOutputTokens": 4000,
+                                }
+                            },
+                            timeout=120.0,
+                        )
+                        if response.status_code != 200:
+                            error_detail = f"Gemini API error: {response.status_code}"
+                            if response.status_code == 401:
+                                error_detail = "Gemini API key is invalid or expired. Please check your API key."
+                            elif response.status_code == 429:
+                                error_detail = "Gemini API rate limit exceeded. Please wait and try again."
+                            logger.error(f"Gemini API error: {response.text}")
+                            raise HTTPException(status_code=response.status_code, detail=error_detail)
+                        response_data = response.json()
+                        candidates = response_data.get("candidates", [])
+                        raw_response = ""
+                        if candidates and "content" in candidates[0]:
+                            parts = candidates[0]["content"].get("parts", [])
+                            if parts:
+                                raw_response = parts[0].get("text", "").strip()
                     
-                    if response.status_code != 200:
-                        error_detail = f"OpenAI API error: {response.status_code}"
-                        if response.status_code == 401:
-                            error_detail = "OpenAI API key is invalid or expired. Please check your API key."
-                        elif response.status_code == 429:
-                            error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
-                        logger.error(f"OpenAI API error: {response.text}")
-                        raise HTTPException(status_code=response.status_code, detail=error_detail)
+                    elif provider == "lmstudio":
+                        logger.info(f"Calling LMStudio API for rule {queue_id} with model {model}")
+                        # LMStudio API (OpenAI-compatible, local) with URL fallback
+                        def _lmstudio_url_candidates():
+                            """Generate ordered LMStudio base URL candidates."""
+                            raw_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1").strip()
+                            if not raw_url:
+                                raw_url = "http://localhost:1234/v1"
+                            
+                            normalized = raw_url.rstrip("/")
+                            candidates = [normalized]
+                            
+                            if not normalized.lower().endswith("/v1"):
+                                candidates.append(f"{normalized}/v1")
+                            
+                            # If URL contains localhost, also try host.docker.internal (for Docker containers)
+                            if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
+                                docker_url = normalized.replace("localhost", "host.docker.internal").replace(
+                                    "127.0.0.1", "host.docker.internal"
+                                )
+                                if docker_url not in candidates:
+                                    candidates.append(docker_url)
+                                if not docker_url.lower().endswith("/v1"):
+                                    docker_url_v1 = f"{docker_url}/v1"
+                                    if docker_url_v1 not in candidates:
+                                        candidates.append(docker_url_v1)
+                            
+                            # Remove duplicates while preserving order
+                            seen = set()
+                            unique_candidates = []
+                            for candidate in candidates:
+                                if candidate not in seen:
+                                    unique_candidates.append(candidate)
+                                    seen.add(candidate)
+                            return unique_candidates
+                        
+                        lmstudio_urls = _lmstudio_url_candidates()
+                        logger.info(f"LMStudio URL candidates for rule {queue_id}: {lmstudio_urls}")
+                        # Reduced timeouts to prevent hangs - LMStudio should respond faster
+                        connect_timeout = 10.0
+                        read_timeout = 180.0  # 3 minutes max for response
+                        last_error = None
+                        raw_response = None
+                        
+                        for idx, lmstudio_url in enumerate(lmstudio_urls):
+                            try:
+                                # Ensure URL ends with /v1 but not /v1/v1
+                                base_url = lmstudio_url.rstrip('/')
+                                if not base_url.endswith('/v1'):
+                                    if base_url.endswith('/v1/v1'):
+                                        base_url = base_url[:-3]  # Remove extra /v1
+                                    chat_url = f"{base_url}/v1/chat/completions"
+                                else:
+                                    chat_url = f"{base_url}/chat/completions"
+                                
+                                logger.info(f"Attempting LMStudio at {chat_url} with model {model} (attempt {idx + 1}/{len(lmstudio_urls)})")
+                                
+                                # Use shorter timeout to fail fast if LMStudio isn't responding
+                                response = await client.post(
+                                    chat_url,
+                                    headers={"Content-Type": "application/json"},
+                                    json={
+                                        "model": model,
+                                        "messages": [
+                                            {"role": "system", "content": system_message},
+                                            {"role": "user", "content": enrichment_prompt},
+                                        ],
+                                        "max_tokens": 4000,
+                                        "temperature": 0.2,
+                                        "stream": False,  # Ensure non-streaming response
+                                    },
+                                    timeout=httpx.Timeout(connect=connect_timeout, read=read_timeout, write=30.0, pool=10.0),
+                                )
+                                
+                                if response.status_code == 200:
+                                    try:
+                                        response_data = response.json()
+                                        if "choices" not in response_data or len(response_data["choices"]) == 0:
+                                            last_error = "No choices in LMStudio response"
+                                            logger.error(f"LMStudio response missing choices: {response_data}")
+                                            if idx < len(lmstudio_urls) - 1:
+                                                continue
+                                            raise HTTPException(
+                                                status_code=500,
+                                                detail="LMStudio returned invalid response format (no choices)"
+                                            )
+                                        message = response_data["choices"][0].get("message", {})
+                                        content = message.get("content", "")
+                                        raw_response = content.strip() if content else ""
+                                        logger.info(f"LMStudio request succeeded using {chat_url}, response length: {len(raw_response)}")
+                                        logger.debug(f"LMStudio response structure: choices={len(response_data.get('choices', []))}, message keys={list(message.keys())}")
+                                        if not raw_response:
+                                            last_error = "LMStudio returned empty response content"
+                                            logger.warning(f"LMStudio returned empty content. Full response structure: {json.dumps(response_data, indent=2)[:2000]}")
+                                            # Check if there's a finish_reason that might explain the empty response
+                                            finish_reason = response_data["choices"][0].get("finish_reason", "unknown")
+                                            if finish_reason != "stop":
+                                                logger.warning(f"LMStudio finish_reason: {finish_reason} (expected 'stop')")
+                                            if idx < len(lmstudio_urls) - 1:
+                                                continue
+                                            error_detail = f"LMStudio returned empty response (finish_reason: {finish_reason}). The model may not be loaded or may have encountered an error. Please check LMStudio is running and the model is loaded."
+                                            raise HTTPException(
+                                                status_code=503,
+                                                detail=error_detail
+                                            )
+                                        break
+                                    except (KeyError, IndexError, json.JSONDecodeError) as e:
+                                        last_error = f"Failed to parse LMStudio response: {e}"
+                                        logger.error(f"LMStudio response parsing error: {e}, Response: {response.text[:500]}")
+                                        if idx < len(lmstudio_urls) - 1:
+                                            continue
+                                        error_detail = f"Failed to parse LMStudio response: {str(e)}"
+                                        error_detail = error_detail.replace('\n', ' ').replace('\r', ' ').strip()
+                                        raise HTTPException(
+                                            status_code=500,
+                                            detail=error_detail
+                                        )
+                                else:
+                                    # Non-200 status code
+                                    last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                                    error_detail = f"LMStudio API error: {response.status_code}"
+                                    error_text = response.text[:500] if hasattr(response, 'text') else str(response)
+                                    
+                                    if response.status_code == 404:
+                                        error_detail = f"LMStudio model '{model}' not found. Please ensure the model is loaded in LMStudio."
+                                        if idx < len(lmstudio_urls) - 1:
+                                            logger.warning(f"LMStudio 404 at {chat_url}, trying next URL...")
+                                            continue
+                                    elif response.status_code == 503:
+                                        error_detail = "LMStudio service unavailable. Please ensure LMStudio is running."
+                                        if idx < len(lmstudio_urls) - 1:
+                                            logger.warning(f"LMStudio 503 at {chat_url}, trying next URL...")
+                                            continue
+                                    
+                                    logger.error(f"LMStudio API error at {chat_url}: HTTP {response.status_code}, Response: {error_text}")
+                                    if idx < len(lmstudio_urls) - 1:
+                                        logger.warning(f"Trying next LMStudio URL...")
+                                        continue
+                                    raise HTTPException(status_code=response.status_code, detail=error_detail)
+                            
+                            except httpx.TimeoutException:
+                                last_error = f"Timeout connecting to {lmstudio_url}"
+                                if idx == len(lmstudio_urls) - 1:
+                                    raise HTTPException(
+                                        status_code=504,
+                                        detail="LMStudio request timeout - the model may be slow or overloaded. Tried URLs: " + ", ".join(lmstudio_urls)
+                                    )
+                                logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
+                                continue
+                            
+                            except httpx.ConnectError as e:
+                                last_error = f"Cannot connect to {lmstudio_url}: {str(e)}"
+                                logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
+                                if idx == len(lmstudio_urls) - 1:
+                                    error_detail = f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}"
+                                    error_detail = error_detail.replace('\n', ' ').replace('\r', ' ').strip()
+                                    raise HTTPException(
+                                        status_code=503,
+                                        detail=error_detail
+                                    )
+                                logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
+                                continue
+                            except Exception as e:
+                                last_error = f"Unexpected error with {lmstudio_url}: {str(e)}"
+                                logger.error(f"LMStudio unexpected error at {lmstudio_url}: {e}", exc_info=True)
+                                if idx == len(lmstudio_urls) - 1:
+                                    error_detail = f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}"
+                                    error_detail = error_detail.replace('\n', ' ').replace('\r', ' ').strip()
+                                    raise HTTPException(
+                                        status_code=500,
+                                        detail=error_detail
+                                    )
+                                continue
+                        
+                        if not raw_response:
+                            error_detail = f"Failed to connect to LMStudio after trying all URLs: {', '.join(lmstudio_urls)}. Last error: {last_error}"
+                            error_detail = error_detail.replace('\n', ' ').replace('\r', ' ').strip()
+                            raise HTTPException(
+                                status_code=503,
+                                detail=error_detail
+                            )
                     
-                    response_data = response.json()
-                    raw_response = response_data["choices"][0]["message"]["content"].strip()
+                    else:
+                        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+                    
+                    # Validate we got a response
+                    if not raw_response or not raw_response.strip():
+                        logger.error(f"Empty response from {provider} API for rule {queue_id}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Received empty response from {provider} API. Please try again or use a different model."
+                        )
+                    
+                    # Try to parse as JSON first (new prompt format), fall back to YAML (legacy format)
+                    enriched_yaml = None
+                    enrichment_result = None
+                    
+                    try:
+                        # Try parsing as JSON (new format with status/updated_sigma_yaml)
+                        # Remove markdown code blocks if present
+                        json_text = raw_response.strip()
+                        if json_text.startswith("```"):
+                            lines = json_text.split("\n")
+                            json_text = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
+                            json_text = json_text.strip()
+                        
+                        # Try to find JSON object in the text (in case there's extra text)
+                        if "{" in json_text:
+                            start_idx = json_text.find("{")
+                            end_idx = json_text.rfind("}") + 1
+                            if end_idx > start_idx:
+                                json_text = json_text[start_idx:end_idx]
+                        
+                        # Ensure json_text is not empty before parsing
+                        if not json_text or not json_text.strip():
+                            raise ValueError("Empty JSON text after cleaning")
+                        
+                        enrichment_result = json.loads(json_text)
+                        logger.debug(f"Parsed JSON response, keys: {list(enrichment_result.keys()) if isinstance(enrichment_result, dict) else 'not a dict'}")
+                        
+                        # Check if it's the new JSON format
+                        if isinstance(enrichment_result, dict) and "status" in enrichment_result:
+                            status = enrichment_result.get("status")
+                            logger.info(f"Parsed JSON enrichment response with status: {status}")
+                            # Validate status is a string
+                            if not isinstance(status, str):
+                                logger.warning(f"Invalid status type: {type(status)}, value: {status}")
+                                status = str(status) if status else "unknown"
+                            if status == "pass":
+                                enriched_yaml = enrichment_result.get("updated_sigma_yaml", "")
+                            elif status == "needs_revision":
+                                enriched_yaml = enrichment_result.get("updated_sigma_yaml", "")
+                                # Log issues if present
+                                issues = enrichment_result.get("issues", [])
+                                if issues:
+                                    logger.warning(f"Enrichment needs revision: {issues}")
+                            elif status == "fail":
+                                issues = enrichment_result.get("issues", [])
+                                error_msg = enrichment_result.get("summary", "Enrichment failed")
+                                if issues:
+                                    error_details = "; ".join([f"{i.get('type', 'unknown')}: {i.get('message', '')}" for i in issues[:3]])
+                                    error_msg = f"{error_msg}. {error_details}"
+                                # Clean error message
+                                error_msg = error_msg.replace('\n', ' ').replace('\r', ' ').strip()
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=error_msg
+                                )
+                            else:
+                                # Unknown status, try to extract YAML anyway
+                                enriched_yaml = enrichment_result.get("updated_sigma_yaml", "")
+                        else:
+                            # JSON parsed but doesn't have expected structure, treat as legacy
+                            logger.debug(f"JSON parsed but missing 'status' field, treating as legacy format")
+                            enriched_yaml = raw_response
+                    except (json.JSONDecodeError, ValueError) as e:
+                        # Not JSON, treat as legacy YAML format
+                        error_msg = _sanitize_error_detail(str(e))
+                        # Log with repr to see exact content
+                        logger.warning(f"Response is not valid JSON, treating as YAML. Error: {error_msg}, Response length: {len(raw_response)}, Response preview (first 500 chars): {repr(raw_response[:500])}")
+                        enriched_yaml = raw_response
+                        enrichment_result = None  # Ensure it's cleared on parse failure
+                    except KeyError as e:
+                        # Missing expected key in JSON, log and fall back to YAML
+                        logger.warning(f"JSON response missing expected key: {e}, Response preview: {raw_response[:200]}")
+                        enriched_yaml = raw_response
+                        enrichment_result = None  # Ensure it's cleared on key error
+                    except Exception as e:
+                        # Unexpected error during JSON parsing, log and fall back to YAML
+                        error_msg = _sanitize_error_detail(str(e))
+                        logger.error(f"Unexpected error parsing enrichment response: {error_msg}, Type: {type(e)}, Response preview: {raw_response[:200]}", exc_info=True)
+                        enriched_yaml = raw_response
+                        enrichment_result = None  # Ensure it's cleared on unexpected error
                     
                     # Extract YAML from response (remove markdown code blocks if present)
-                    enriched_yaml = raw_response
-                    if enriched_yaml.startswith("```"):
+                    if enriched_yaml and enriched_yaml.startswith("```"):
                         lines = enriched_yaml.split("\n")
                         enriched_yaml = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
                     
-                    return {
+                    # Validate that we got a response
+                    if not enriched_yaml or not enriched_yaml.strip():
+                        logger.error(f"Empty enriched YAML received from {provider} API. Raw response: {raw_response[:500]}")
+                        # If we have enrichment_result but no YAML, provide more context
+                        if enrichment_result and isinstance(enrichment_result, dict):
+                            status = enrichment_result.get('status', 'unknown')
+                            error_detail = f"Enrichment returned status '{status}' but no YAML. "
+                            issues = enrichment_result.get('issues')
+                            if issues:
+                                error_detail += f"Issues: {issues[:2] if isinstance(issues, list) else issues}"
+                            # Sanitize error message
+                            error_detail = error_detail.replace('\n', ' ').replace('\r', ' ').strip()
+                            raise HTTPException(
+                                status_code=400,
+                                detail=error_detail
+                            )
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Received empty response from {provider} API. Please try again or use a different model."
+                        )
+                    
+                    logger.info(f"Successfully enriched rule {queue_id} using {provider}/{model}, response length: {len(enriched_yaml)}")
+                    
+                    response_data = {
                         "success": True,
                         "enriched_yaml": enriched_yaml,
                         "raw_response": raw_response,
                         "message": f"Rule {queue_id} enriched successfully"
                     }
+                    
+                    # Include enrichment result metadata if available
+                    if enrichment_result and isinstance(enrichment_result, dict):
+                        response_data["enrichment_status"] = enrichment_result.get("status")
+                        response_data["summary"] = enrichment_result.get("summary")
+                        response_data["issues"] = enrichment_result.get("issues", [])
+                        response_data["actions_taken"] = enrichment_result.get("actions_taken", [])
+                        response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
+                    
+                    return response_data
                 except httpx.TimeoutException:
                     raise HTTPException(status_code=504, detail="Request timeout. Please try again.")
+                except HTTPException:
+                    raise
                 except Exception as e:
-                    logger.error(f"Error calling OpenAI API: {e}")
-                    raise HTTPException(status_code=500, detail=f"Error enriching rule: {str(e)}")
+                    logger.error(f"Error calling {provider} API: {e}", exc_info=True)
+                    error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
+                    raise HTTPException(status_code=500, detail=f"Error enriching rule: {error_msg}")
         finally:
             db_session.close()
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error enriching rule: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error enriching rule: {e}", exc_info=True)
+        error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.post("/{queue_id}/validate")

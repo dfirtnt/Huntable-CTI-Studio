@@ -59,10 +59,7 @@ class AsyncDatabaseManager:
 
     def __init__(
         self,
-        database_url: str = os.getenv(
-            "DATABASE_URL",
-            "postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper",
-        ),
+        database_url: Optional[str] = None,
         echo: bool = False,
         pool_size: int = 20,
         max_overflow: int = 30,
@@ -73,13 +70,26 @@ class AsyncDatabaseManager:
         Initialize the async database manager.
 
         Args:
-            database_url: PostgreSQL connection string
+            database_url: PostgreSQL connection string (if None, uses TEST_DATABASE_URL in test mode, else DATABASE_URL)
             echo: Enable SQL query logging
             pool_size: Database connection pool size
             max_overflow: Maximum overflow connections
             pool_pre_ping: Enable connection health checks
             pool_recycle: Connection recycle time in seconds
         """
+        # Prefer TEST_DATABASE_URL in test environment
+        if database_url is None:
+            if os.getenv("APP_ENV") == "test":
+                database_url = os.getenv(
+                    "TEST_DATABASE_URL",
+                    "postgresql+asyncpg://cti_user:cti_password@localhost:5433/cti_scraper_test"
+                )
+            else:
+                database_url = os.getenv(
+                    "DATABASE_URL",
+                    "postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper",
+                )
+        
         self.database_url = database_url
         self.echo = echo
 

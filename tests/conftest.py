@@ -45,6 +45,14 @@ try:
 except ImportError:
     pass  # AI fixtures not required for all tests
 
+# Import test environment guard (required)
+try:
+    from tests.utils.test_environment import assert_test_environment
+    TEST_ENV_GUARD_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Test environment guard not available: {e}")
+    TEST_ENV_GUARD_AVAILABLE = False
+
 # Import test environment utilities (optional)
 try:
     from tests.utils.test_environment import (
@@ -411,7 +419,15 @@ def isolation_manager():
 
 
 def pytest_configure(config):
-    """Register custom markers to satisfy strict marker checks."""
+    """Register custom markers and validate test environment."""
+    # Invoke test environment guard at pytest bootstrap
+    if TEST_ENV_GUARD_AVAILABLE:
+        try:
+            assert_test_environment()
+        except RuntimeError as e:
+            pytest.exit(f"Test environment validation failed: {e}")
+    
+    # Register custom markers to satisfy strict marker checks
     config.addinivalue_line("markers", "ui: UI tests")
     config.addinivalue_line("markers", "ai: AI assistant and summarization tests")
     config.addinivalue_line("markers", "e2e: End-to-end tests using Playwright")
@@ -430,6 +446,8 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "priority_high: High priority E2E tests")
     config.addinivalue_line("markers", "priority_medium: Medium priority E2E tests")
     config.addinivalue_line("markers", "priority_low: Low priority E2E tests")
+    config.addinivalue_line("markers", "quarantine: Quarantined tests that need fixes (tracked in SKIPPED_TESTS.md)")
+    config.addinivalue_line("markers", "ui_smoke: UI smoke tests (reclassified Playwright tests)")
 
 
 def pytest_collection_modifyitems(config, items):

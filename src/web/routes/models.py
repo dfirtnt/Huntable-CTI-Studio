@@ -4,7 +4,6 @@ Model management endpoints.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 from typing import Any, Dict
@@ -36,14 +35,11 @@ async def api_model_retrain_status():
                     from src.database.async_manager import AsyncDatabaseManager
                     import asyncio
                     
-                    async def get_latest_version():
-                        db_manager = AsyncDatabaseManager()
-                        version_manager = MLModelVersionManager(db_manager)
-                        latest_version = await version_manager.get_latest_version()
-                        await db_manager.close()
-                        return latest_version
-                    
-                    latest_version = asyncio.run(get_latest_version())
+                    # We're already in an async context, so just await directly
+                    db_manager = AsyncDatabaseManager()
+                    version_manager = MLModelVersionManager(db_manager)
+                    latest_version = await version_manager.get_latest_version()
+                    await db_manager.close()
                     if latest_version:
                         status_data.update({
                             "new_version": latest_version.version_number,
@@ -160,8 +156,9 @@ async def api_model_retrain():
                     try:
                         from src.utils.model_versioning import MLModelVersionManager
                         from src.database.async_manager import AsyncDatabaseManager
-                        import asyncio
+                        from src.utils.async_tools import run_sync
                         
+                        # run_retrain() is called from a thread, so we need to use run_sync
                         async def get_latest_version():
                             db_manager = AsyncDatabaseManager()
                             version_manager = MLModelVersionManager(db_manager)
@@ -169,7 +166,7 @@ async def api_model_retrain():
                             await db_manager.close()
                             return latest_version
                         
-                        latest_version = asyncio.run(get_latest_version())
+                        latest_version = run_sync(get_latest_version(), allow_running_loop=False)
                         
                         if latest_version:
                             # Return detailed metrics for the frontend

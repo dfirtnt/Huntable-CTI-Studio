@@ -27,4 +27,5 @@ patterns:
   powershell: '(?i)(?:"?[A-Za-z]:\\\\[^"\r\n]*\\(?:powershell|pwsh)(?:\.exe)?"?)\s+[^\r\n]+'
 
   # Common Windows System32 utilities (net, ipconfig, setspn, quser)
-  system32_utils: '(?i)"?C:\\\\Windows\\\\System32\\\\(?:net|ipconfig|setspn|quser)\.exe"?\s+[^\r\n]+'
+  # Note: In YAML, \\ becomes \ in Python string, which matches single backslash in text
+  system32_utils: '(?i)"?C:\\Windows\\System32\\(?:net|ipconfig|setspn|quser)\.exe"?\s+[^\r\n]+'

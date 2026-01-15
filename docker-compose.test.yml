@@ -1,0 +1,44 @@
+services:
+  # PostgreSQL Database for testing (ephemeral, no named volumes)
+  postgres_test:
+    image: pgvector/pgvector:pg15
+    container_name: cti_postgres_test
+    environment:
+      POSTGRES_DB: cti_scraper_test
+      POSTGRES_USER: cti_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cti_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      TZ: America/New_York
+    # No volumes section - data exists only in container filesystem
+    # Data at /var/lib/postgresql/data is destroyed when container is removed
+    ports:
+      - "5433:5432"  # Different port from production (5432)
+    networks:
+      - test_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cti_user -d cti_scraper_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for testing (ephemeral, no named volumes)
+  redis_test:
+    image: redis:7-alpine
+    container_name: cti_redis_test
+    ports:
+      - "6380:6379"  # Different port from production (6379)
+    # No volumes section - data exists only in container filesystem
+    # Data at /data is destroyed when container is removed
+    networks:
+      - test_network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  test_network:
+    driver: bridge
+    name: cti_test_network
