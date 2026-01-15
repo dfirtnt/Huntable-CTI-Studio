@@ -8827,9 +8827,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
     }
     
     function showChunkDebugResults(data) {
-        // Temporarily disabled to fix syntax error
-        console.warn('showChunkDebugResults is temporarily disabled');
-        return;
         try {
             if (!data) {
                 console.error('showChunkDebugResults: data is required');
@@ -9058,9 +9055,11 @@ ${JSON.stringify(rule.logsource, null, 2)}
         } catch (e) {
             console.error('Error in showChunkDebugResults:', e);
             alert('Error displaying chunk debug results: ' + e.message);
+            return;
         }
         
-        if (data.processing_summary?.chunk_limit_applied) {
+        // Post-processing (only if modal was successfully created)
+        if (data && data.processing_summary?.chunk_limit_applied) {
             showNotification(
                 `Processed ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks (analysis limit applied).`,
                 'warning'
@@ -9068,14 +9067,18 @@ ${JSON.stringify(rule.logsource, null, 2)}
         }
         
         // Initialize slider position based on current threshold
-        const thresholdSlider = document.getElementById('thresholdSlider');
-        if (thresholdSlider) {
-            thresholdSlider.value = getSliderFromThreshold(data.min_confidence);
-        }
-        
-        // Load existing feedback for all chunks
-        for (let i = 0; i < data.chunk_analysis.length; i++) {
-            loadExistingFeedback(i);
+        if (data) {
+            const thresholdSlider = document.getElementById('thresholdSlider');
+            if (thresholdSlider && data.min_confidence !== undefined) {
+                thresholdSlider.value = getSliderFromThreshold(data.min_confidence);
+            }
+            
+            // Load existing feedback for all chunks
+            if (data.chunk_analysis && Array.isArray(data.chunk_analysis)) {
+                for (let i = 0; i < data.chunk_analysis.length; i++) {
+                    loadExistingFeedback(i);
+                }
+            }
         }
     }
     
