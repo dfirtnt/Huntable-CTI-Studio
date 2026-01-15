@@ -346,8 +346,8 @@ class RSSParser:
         if not rss_only and hasattr(source, "id") and source.id is not None:
             try:
                 from src.database.async_manager import AsyncDatabaseManager
-                import asyncio
 
+                # Define async function inline
                 async def get_raw_config():
                     db_manager = AsyncDatabaseManager()
                     async with db_manager.get_session() as session:
@@ -369,17 +369,9 @@ class RSSParser:
                             return config_dict.get("rss_only", False)
                         return False
 
-                # Run the async function
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # We're already in an async context, create a new task
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, get_raw_config())
-                        rss_only = future.result()
-                else:
-                    rss_only = asyncio.run(get_raw_config())
+                # We're already in an async context (_extract_content is async), so just await directly
+                # This avoids the "Runner.run() cannot be called from a running event loop" error
+                rss_only = await get_raw_config()
             except Exception as e:
                 logger.warning(
                     f"Failed to read rss_only from database for {source.name}: {e}"

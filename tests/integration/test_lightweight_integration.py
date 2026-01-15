@@ -3,8 +3,13 @@ Lightweight integration tests for critical paths with mocked dependencies.
 
 These tests focus on critical user journeys while reducing environment dependencies
 by mocking external services and using in-memory databases.
+
+NOTE: These tests may still require test containers for database operations.
 """
 import pytest
+
+# Mark all tests in this file as integration tests (may require test containers)
+pytestmark = pytest.mark.integration
 import pytest_asyncio
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch

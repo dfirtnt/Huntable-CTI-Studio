@@ -299,7 +299,12 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
 
         async def process_articles():
             """Async wrapper that runs blocking operation in thread pool."""
-            loop = asyncio.get_event_loop()
+            # Use get_running_loop() instead of get_event_loop() to avoid creating new loop
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No running loop, but we're in async context - this shouldn't happen
+                raise RuntimeError("process_articles() must be called from async context")
             try:
                 # Run blocking operation in thread pool to avoid blocking event loop
                 results = await loop.run_in_executor(None, process_articles_sync)

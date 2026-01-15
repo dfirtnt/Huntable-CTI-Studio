@@ -1,0 +1,2 @@
+title: Invalid SIGMA Rule
+# Missing required fields: id, logsource, detection

@@ -1,5 +1,7 @@
 """
 Unit tests for observable model evaluator.
+
+These are unit tests using mocks - no real database required.
 """
 
 import pytest
@@ -7,6 +9,9 @@ from unittest.mock import Mock, MagicMock, patch
 
 from src.services.observable_evaluation.evaluator import ObservableModelEvaluator
 from src.database.models import ArticleAnnotationTable, ArticleTable
+
+# Mark all tests in this file as unit tests (use mocks, no real infrastructure)
+pytestmark = pytest.mark.unit
 
 
 class TestObservableModelEvaluator:
@@ -80,10 +85,12 @@ class TestObservableModelEvaluator:
         mock_result.scalars.return_value.all.return_value = mock_annotations
         mock_session.execute.return_value = mock_result
         
-        annotations = evaluator._load_annotations(mock_session, "eval")
+        article_annotations = evaluator._load_annotations_by_article(mock_session, "eval")
         
-        assert len(annotations) == 2
-        assert annotations[0].article_id == 100
+        assert len(article_annotations) == 1  # Grouped by article_id
+        assert 100 in article_annotations
+        assert len(article_annotations[100]) == 2
+        assert article_annotations[100][0].article_id == 100
         mock_session.execute.assert_called_once()
     
     @patch('src.services.observable_evaluation.evaluator.ObservableModelInference')

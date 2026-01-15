@@ -13,8 +13,8 @@ CTI Scraper uses a combination of semantic versioning and planetary moon names f
 
 ## Current Version
 
-**v4.0.0 "Kepler"** - Current stable release
-**v5.0.0 "Ganymede"** - Next planned major release (theme switched to planetary moons)
+**v5.0.0 "Callisto"** - Current stable release
+**v4.0.0 "Kepler"** - Previous stable release
 
 ## Planetary Moon Naming System
 
@@ -51,10 +51,15 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - **Significance**: Represents precision and mathematical understanding
 - **Features**: Agent prompt version control system, database schema improvements, enhanced workflow configuration UI
 
-### v5.0.0 "Ganymede" (Planned)
+### v5.0.0 "Callisto" (2026-01-15)
+- **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons
+- **Significance**: Represents stability, maturity, and advanced capabilities
+- **Features**: Stabilized agentic workflow and evaluation datasets, advanced SIGMA rule management with similarity searching, AI-assisted editing and enrichment, GitHub repository integration
+
+### v5.0.0 "Ganymede" (Planned, Superseded)
 - **Named After**: Largest moon of Jupiter and the solar system; discovered by Galileo Galilei
 - **Significance**: Emphasizes scale, robustness, and exploration of new terrain
-- **Features**: TBD
+- **Status**: Planned but superseded by Callisto release
 
 ## Version Naming Convention
 

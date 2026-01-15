@@ -64,33 +64,48 @@ subresults = {
 
 ### Step 2: Supervisor Aggregation
 
-The supervisor agent collects all sub-agent outputs and aggregates them:
+The supervisor agent collects all sub-agent outputs and normalizes them before merging. Each item is tagged with its source level and a lightweight summary is appended for SIGMA input.
 
 ```python
-# Supervisor aggregation (lines 689-720 in agentic_workflow.py)
-all_observables = []  # Unified list
-content_summary = []  # Text summary for SIGMA
+# Supervisor aggregation (lines 1641-1679 in agentic_workflow.py)
+all_observables = []
+content_summary = []
 
 for cat, data in subresults.items():
     items = data.get("items", [])
+    if items is None:
+        items = []
+    elif not isinstance(items, list):
+        items = [items]
+
+    if not items:
+        continue
+
+    content_summary.append(f"Extracted {cat.replace('_', ' ').title()}:")
     for item in items:
+        normalized_value = item
+        if isinstance(item, dict):
+            normalized_value = item.get("value", item)
+
         all_observables.append({
             "type": cat,
-            "value": item,
+            "value": normalized_value,
+            "original_data": item if isinstance(item, dict) else None,
             "source": "supervisor_aggregation"
         })
-        content_summary.append(f"- {item}")
+        content_summary.append(f"- {json.dumps(item, indent=None) if isinstance(item, dict) else item}")
+    content_summary.append("")
 
 extraction_result = {
     "observables": all_observables,
     "summary": {
-        "count": total_count,
+        "count": len(all_observables),
         "source_url": article.canonical_url,
         "platforms_detected": ["Windows"]
     },
-    "discrete_huntables_count": total_count,
-    "subresults": subresults,  # Preserve detailed breakdown
-    "content": "\n".join(content_summary),  # Text for SIGMA agent
+    "discrete_huntables_count": len(all_observables),
+    "subresults": subresults,
+    "content": "\n".join(content_summary) if content_summary else "",
     "raw_response": json.dumps(subresults, indent=2)
 }
 ```
@@ -101,12 +116,25 @@ extraction_result = {
 
 ### Step 3: Database Persistence
 
-The aggregated result is committed to the database:
+The execution row is updated with both the extracted conversation log and the aggregated result before committing:
 
 ```python
-# Line 752 in agentic_workflow.py
-execution.extraction_result = extraction_result
-db_session.commit()
+# Lines 1718-1741 in agentic_workflow.py
+if execution:
+    execution.error_log = execution.error_log or {}
+    execution.error_log['extract_agent'] = {
+        'conversation_log': conversation_log,
+        'sub_agents_run': sub_agents_run,
+        'sub_agents_disabled': disabled_sub_agents,
+        'completed': True,
+        'completed_at': datetime.now().isoformat()
+    }
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(execution, 'error_log')
+    db_session.commit()
+
+    execution.extraction_result = extraction_result
+    db_session.commit()
 ```
 
 **Database Structure:**
@@ -134,38 +162,52 @@ db_session.commit()
 
 ### Step 4: SIGMA Agent Consumption
 
-The SIGMA generation agent reads from memory (not database), with content selection logic:
+The SIGMA node reads the in-memory `extraction_result` and picks the best content before calling the SigmaGenerationService:
 
 ```python
-# Lines 1676-1708 in agentic_workflow.py
-extraction_result = state.get('extraction_result', {})  # From memory
+# Lines 1832-1859 in agentic_workflow.py
+sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
+extraction_result = state.get('extraction_result', {})
 content_to_use = None
 
-# If enabled, use filtered article content (minus junk) regardless of extraction results
 if sigma_fallback_enabled:
     content_to_use = filtered_content
+    logger.info(f"[Workflow {state['execution_id']}] Using filtered article content ({len(filtered_content)} chars) for SIGMA generation")
 elif extraction_result and extraction_result.get('discrete_huntables_count', 0) > 0:
-    # Use extracted content if we have meaningful huntables and toggle is disabled
     extracted_content = extraction_result.get('content', '')
     if extracted_content and len(extracted_content) > 100:
         content_to_use = extracted_content
+        logger.info(f"[Workflow {state['execution_id']}] Using extracted content ({len(extracted_content)} chars) for SIGMA generation")
+    else:
+        logger.warning(f"[Workflow {state['execution_id']}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content")
 
-# If no content available, skip SIGMA generation
 if content_to_use is None:
-    return {'sigma_rules': [], 'termination_reason': 'no_sigma_rules'}
+    logger.warning(f"[Workflow {state['execution_id']}] No extraction result or filtered content toggle disabled. Skipping SIGMA generation.")
+    return {
+        **state,
+        'sigma_rules': [],
+        'current_step': 'generate_sigma',
+        'status': state.get('status', 'running'),
+        'termination_reason': TERMINATION_REASON_NO_SIGMA_RULES,
+        'termination_details': {
+            'reason': 'No extraction result or filtered content disabled',
+            'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0,
+            'sigma_fallback_enabled': sigma_fallback_enabled
+        }
+    }
 ```
 
 **Content Selection Priority:**
 1. **Filtered article content** (if `sigma_fallback_enabled = True`) - always used when enabled
-2. **Extracted content** (if `discrete_huntables_count > 0` and content length > 100, and toggle is disabled)
-3. **Skip SIGMA generation** (if toggle disabled and no extraction results)
+2. **Extracted content** (if `discrete_huntables_count > 0`, content length > 100, and toggle is disabled)
+3. **Skip SIGMA generation** (if fallback disabled and no extraction results)
 
 **Why memory?**
 - Faster access (no database query)
-- Workflow is sequential (extraction → SIGMA in same execution)
-- Database is for persistence/audit, not workflow execution
+- Workflow is sequential (extraction → SIGMA within the same execution)
+- Database is for persistence/audit, not execution logic
 
-**Important:** If all sub-agents return 0 items and `sigma_fallback_enabled` is `False`, SIGMA generation is skipped and the workflow terminates with `termination_reason: 'no_sigma_rules'`.
+**Important:** When every sub-agent returns zero items and fallback is disabled, SIGMA generation returns early with `termination_reason: 'no_sigma_rules'`.
 
 ## Celery vs Direct Execution
 
@@ -376,119 +418,86 @@ agent_chat_url = f"{langfuse_host}/project/{project_id}/sessions/{session_id}"
 
 See [DEBUGGING_TOOLS_GUIDE.md](DEBUGGING_TOOLS_GUIDE.md#langfuse-workflow-debugging) for detailed debugging instructions.
 
-## Execution Methods: Celery vs LangGraph Server vs Direct
+## Execution Methods: Celery (LangGraph state machine) vs Direct Testing
 
-The workflow can be executed via three different methods, each serving different purposes:
+All workflow executions run the same LangGraph state machine (`src/workflows/agentic_workflow.py`); Celery and the direct API simply differ in how they trigger that graph.
 
-### 1. Celery (Production - Background Execution)
+### 1. Celery (Background + LangGraph state machine)
 
 **When Used:**
-- "Send to Workflow" button from article page (default)
-- Automatic workflow triggers (high hunt score articles)
-- Scheduled/background processing
+- "Send to Workflow" button on the article page (default)
+- Automated high-hunt-score triggers, scheduled jobs, and the executions retry endpoint
 
 **Flow:**
 ```
-User Action / Auto Trigger
+User action / automated trigger
   → WorkflowTriggerService.trigger_workflow()
     → trigger_agentic_workflow.delay(article_id)  # Celery task
-      → Background worker executes workflow
+      → run_workflow() (LangGraph state machine)
 ```
 
 **Characteristics:**
-- ✅ **Fast**: No debugging overhead
-- ✅ **Non-blocking**: Returns immediately
-- ✅ **Production-ready**: Optimized for performance
-- ⚠️ **Limited debugging**: No time-travel, state inspection
-- ⚠️ **Traces**: Only if LangFuse enabled separately
+- ✅ **Production ready**: Queues work, scales across workers
+- ✅ **Tracing**: LangFuse traces are emitted when configured
+- ✅ **Background**: UI gets an immediate acknowledgement
+- ⚠️ **Debugger friendly via LangFuse**: No embedded http debugger, lean on trace views
 
-**Code:**
-- Trigger: `src/services/workflow_trigger_service.py:157`
-- Task: `src/worker/celery_app.py:527-563`
-- Article page: `src/web/templates/article_detail.html:7127` (uses `use_langgraph_server=false`)
+**Code references:**
+- `src/services/workflow_trigger_service.py:120-165` (creates execution + dispatches Celery)
+- `src/worker/celery_app.py:637-679` (`trigger_agentic_workflow` task)
+- `src/web/routes/workflow_executions.py:1046-1105` (`/api/workflow/articles/{article_id}/trigger`)
+- `src/web/routes/workflow_executions.py:694-770` (`/api/workflow/executions/{execution_id}/retry`)
 
-### 2. LangGraph Server (Debugging - HTTP API)
+**Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter—the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
+
+### 2. Direct Execution (Testing - Single Agent)
 
 **When Used:**
-- "Retry (Trace)" button from workflow executions page
-- Manual workflow execution with `use_langgraph_server=true`
-- Development/debugging scenarios
+- Workflow config UI's "Test with Article" button
+- Direct API calls to `POST /api/workflow/config/test-subagent`
 
 **Flow:**
 ```
-User Action (with trace option)
-  → POST /api/workflow/articles/{id}/trigger?use_langgraph_server=true
-    → _trigger_via_langgraph_server()
-      → HTTP POST to LangGraph Server API
-        → LangGraph Server executes workflow
+Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent() → immediate result
 ```
 
 **Characteristics:**
-- ✅ **Full debugging**: Time-travel, state inspection
-- ✅ **Always creates traces**: LangFuse integration
-- ✅ **Agent Chat UI**: Compatible with debugging interface
-- ⚠️ **Slower**: Debugging overhead
-- ⚠️ **Requires server**: LangGraph server must be running
+- ✅ **Immediate feedback**: Synchronous execution
+- ✅ **Isolated**: Only a single agent runs (no Sigma or similarity stages)
+- ⚠️ **No persistence**: Execution records are not written
+- ⚠️ **No LangFuse traces**: Runs in-process, no background worker
 
-**Code:**
-- Endpoint: `src/web/routes/workflow_executions.py:495-564`
-- Trigger: `src/web/routes/workflow_executions.py:616-686` (retry with trace)
-- Server: `src/workflows/langgraph_server.py`
-
-### 3. Direct Execution (Testing - Single Agent)
-
-**When Used:**
-- "Test with Article 1427" button from workflow config page
-- Agent configuration testing
-- Quick validation of agent prompts
-
-**Flow:**
-```
-Test Button Click
-  → POST /api/workflow/config/test-subagent
-    → test_sub_agent() endpoint
-      → llm_service.run_extraction_agent()  # Direct call
-        → Returns result immediately
-```
-
-**Characteristics:**
-- ✅ **Fastest**: No workflow overhead
-- ✅ **Isolated**: Tests single agent only
-- ✅ **Immediate feedback**: Synchronous response
-- ⚠️ **No persistence**: Results not saved to database
-- ⚠️ **No workflow context**: Doesn't run full workflow steps
-
-**Code:**
-- Endpoint: `src/web/routes/workflow_config.py:579-680`
-- Frontend: `src/web/templates/workflow.html:2051-2087`
+**Code references:**
+- `src/web/routes/workflow_config.py:579-680`
+- `src/web/templates/workflow.html:2051-2087`
 
 ### Comparison Table
 
-| Aspect | Celery | LangGraph Server | Direct Test |
-|--------|--------|------------------|-------------|
-| **Use Case** | Production | Debugging | Testing |
-| **Execution** | Background (async) | HTTP API (async) | Synchronous |
-| **Speed** | Fast | Slower (debugging) | Fastest |
-| **Debugging** | Limited | Full (time-travel) | None |
-| **Traces** | Optional (LangFuse) | Always | Optional (LangFuse) |
-| **Persistence** | Database | Database + checkpoints | None |
-| **Scope** | Full workflow | Full workflow | Single agent |
-| **When to Use** | Production, scheduled | Debugging, development | Prompt testing |
+| Aspect | Celery (LangGraph state machine) | Direct Test |
+|--------|----------------------------------|-------------|
+| **Use Case** | Production workflows | Prompt/agent testing |
+| **Execution** | Background async | Synchronous |
+| **Speed** | Fast (queued) | Fastest |
+| **Debugging** | LangFuse trace views | Console logs |
+| **Traces** | Optional (LangFuse) | None |
+| **Persistence** | Execution DB records | None |
+| **Scope** | Full extraction → Sigma → similarity | Single agent |
 
 ### How to Choose
 
-- **Production workflows**: Use Celery (default from article page)
-- **Debugging issues**: Use LangGraph Server (retry with trace)
-- **Testing prompts**: Use Direct Test (config page test button)
+- **Production runs**: Use the Celery path (article page buttons, automated triggers, retries)
+- **Debugging/replays**: Trigger a retry and inspect the LangFuse trace (the task still runs via Celery)
+- **Agent/prompt testing**: Use the direct endpoint in the workflow config UI
 
 ## Code References
 
-- **Sub-agent execution**: `src/workflows/agentic_workflow.py:590-671`
-- **Supervisor aggregation**: `src/workflows/agentic_workflow.py:689-736`
-- **Database persistence**: `src/workflows/agentic_workflow.py:750-753`
-- **SIGMA consumption**: `src/workflows/agentic_workflow.py:836-843`
-- **Celery trigger**: `src/worker/celery_app.py:527-563`
-- **LangGraph Server trigger**: `src/web/routes/workflow_executions.py:495-564`
+- **Sub-agent execution**: `src/workflows/agentic_workflow.py:859-1110`
+- **Supervisor aggregation**: `src/workflows/agentic_workflow.py:1641-1680`
+- **Database persistence**: `src/workflows/agentic_workflow.py:1695-1744`
+- **SIGMA consumption**: `src/workflows/agentic_workflow.py:1772-1860`
+- **Celery trigger task**: `src/worker/celery_app.py:637-679`
+- **Workflow trigger service**: `src/services/workflow_trigger_service.py:120-165`
+- **Retry execution trigger**: `src/web/routes/workflow_executions.py:694-770`
+- **Manual trigger endpoint**: `src/web/routes/workflow_executions.py:1046-1105`
 - **Direct test trigger**: `src/web/routes/workflow_config.py:579-680`
 - **Database model**: `src/database/models.py:479-515`
-

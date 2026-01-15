@@ -5,6 +5,58 @@ All notable changes to CTI Scraper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0 "Callisto"] - 2026-01-15
+
+### Added
+- **Stabilized Agentic Workflow and Evaluation Datasets**: Production-ready agentic workflow system with comprehensive evaluation framework
+  - Complete evaluation dataset management for testing and validation
+  - Stable workflow execution with improved error handling and retry logic
+  - Enhanced evaluation metrics and reporting
+- **Advanced SIGMA Rule Similarity Searching**: Enhanced similarity search algorithm for SIGMA rule matching
+  - Behavioral novelty assessment combining atom Jaccard (70%) and logic shape similarity (30%)
+  - Improved detection predicate overlap analysis
+  - Structural similarity matching for detection logic patterns
+  - Service mismatch and filter difference penalties for accurate matching
+- **AI-Assisted SIGMA Rule Editing and Enrichment**: Intelligent rule improvement system
+  - AI-powered rule enrichment with context-aware improvements
+  - Iterative rule editing with LLM feedback
+  - Article context integration for better rule quality
+  - Support for multiple LLM providers (OpenAI, Anthropic, Claude, LMStudio)
+  - Raw LLM response display for transparency
+  - Provider indicator badges in enrichment interface
+- **GitHub SIGMA Rule Repository Integration**: Complete GitHub integration for rule submission
+  - Automated PR creation for approved SIGMA rules
+  - SigmaPRService for repository management
+  - Configurable repository paths and authentication
+  - Branch creation, commit, and PR automation
+  - GitHub PR Configuration in Settings page
+  - Submit PR functionality from SIGMA Queue interface
+  - Docker volume mounting for repository access
+
+### Changed
+- **SIGMA Similarity Algorithm**: Replaced cosine similarity with behavioral novelty assessment
+  - Atom Jaccard measures overlap of detection predicates (field/operator/value combinations)
+  - Logic shape similarity measures structural similarity of detection logic (AND/OR/NOT patterns)
+  - Updated similarity threshold help text to explain new algorithm components
+- **Agentic Workflow Stability**: Improved workflow reliability and error recovery
+  - Enhanced checkpointing and state management
+  - Better retry logic for failed steps
+  - Improved evaluation dataset handling
+
+### Fixed
+- **Rule Enrichment Modal**: Fixed enrichment interface issues
+  - Improved provider detection and display
+  - Better error handling for enrichment failures
+  - Enhanced raw response display
+- **LMStudio Integration**: Fixed LMStudio enrichment functionality
+  - Fixed syntax error in sigma_queue.py (duplicate else clause)
+  - Fixed prompt template KeyError by escaping JSON braces in sigma_enrichment.txt
+  - Added empty response handling for LMStudio API calls
+  - Improved error sanitization for HTTPException details
+  - Enhanced LMStudio URL fallback logic and connection error handling
+  - Added finish_reason logging for debugging empty responses
+  - Verified LMStudio connectivity and model availability
+
 ## [Unreleased]
 
 ### Added
@@ -72,6 +124,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented event listeners attached after modal content insertion
   - Made previewQueuedRule globally accessible via window object
   - Modal matches SIGMA Queue preview functionality
+- **Workflow Config Page Model Selection Resets** (2026-01-15): Fixed model selection dropdowns resetting to default when provider changes
+  - Rank Agent model selection now preserves user selection across provider changes
+  - Extract Agent (Supervisor) model selection now preserves user selection across provider changes
+  - CmdlineExtract Agent model selection now preserves user selection across provider changes
+  - All model dropdowns now read current DOM value first, then fallback to config
+  - Prevents loss of unsaved model selections during UI re-renders
 - **LM Studio Error Message Display** (2026-01-14): Fixed incorrect LM Studio availability warning appearing when OpenAI or Anthropic is selected
   - Error message now only displays when LM Studio is actually selected as the provider
   - Fixed for both Rank Agent and Extract Agent model selectors

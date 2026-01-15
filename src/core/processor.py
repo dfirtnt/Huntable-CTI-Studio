@@ -132,7 +132,8 @@ class ContentProcessor:
             'quality_filtered': sum(1 for _, reason in duplicates if reason == "quality_filter"),
             'hash_duplicates': sum(1 for _, reason in duplicates if reason == "content_hash"),
             'url_duplicates': sum(1 for _, reason in duplicates if reason == "url"),
-            'similarity_duplicates': sum(1 for _, reason in duplicates if reason == "content_similarity")
+            'similarity_duplicates': sum(1 for _, reason in duplicates if reason == "content_similarity"),
+            'validation_failures': self.stats.get('validation_failures', 0)
         }
         
         logger.info(f"Processing complete: {len(unique_articles)} unique articles from {len(articles)} input")
@@ -159,6 +160,11 @@ class ContentProcessor:
             
             # Content type detection
             content_type = self._detect_content_type(article)
+            
+            # Initialize article_metadata if not present
+            if not hasattr(article, 'article_metadata') or article.article_metadata is None:
+                article.article_metadata = {}
+            
             if content_type == 'podcast' and len(article.content) < 500:
                 logger.info(f"Detected podcast entry: {article.title[:50]}...")
                 # For podcast entries, we'll keep them but flag them
@@ -188,7 +194,7 @@ class ContentProcessor:
             word_count = len(normalized_content.split())
             
             # Extract/enhance metadata if enabled
-            enhanced_metadata = article.article_metadata.copy()
+            enhanced_metadata = article.article_metadata.copy() if article.article_metadata else {}
             enhanced_metadata.update({
                 'content_type': content_type,
                 'word_count': word_count,

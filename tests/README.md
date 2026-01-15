@@ -122,6 +122,29 @@ tests/
 
 ## 🚀 Quick Commands
 
+### Test Infrastructure (New)
+
+**Start test containers:**
+```bash
+make test-up
+# or
+./scripts/test_setup.sh
+```
+
+**Run tests (auto-configures env vars):**
+```bash
+make test
+# or
+./scripts/run_tests.sh
+```
+
+**Stop test containers:**
+```bash
+make test-down
+# or
+./scripts/test_teardown.sh
+```
+
 ### Health Check
 ```bash
 python3 run_tests.py smoke          # 26 tests, ~30s
@@ -130,6 +153,36 @@ python3 run_tests.py smoke          # 26 tests, ~30s
 ### Full Suite
 ```bash
 python3 run_tests.py all --coverage  # 685+ tests, ~8m
+```
+
+### New Test Categories
+
+**Stateless tests (no containers):**
+```bash
+make test-unit
+# or
+./scripts/run_tests.sh tests/services/ tests/utils/ -m "not integration"
+```
+
+**Stateful tests (requires containers):**
+```bash
+make test-integration
+# or
+make test-up && ./scripts/run_tests.sh tests/integration/ -m integration && make test-down
+```
+
+**UI tests:**
+```bash
+make test-ui
+# or
+./scripts/run_tests.sh tests/ui/ -m ui
+```
+
+**E2E tests:**
+```bash
+make test-e2e
+# or
+npm test -- tests/playwright/workflow_full.spec.ts tests/playwright/eval_workflow.spec.ts
 ```
 
 ### Specialized
@@ -254,15 +307,37 @@ python3 run_tests.py e2e             # End-to-end tests
 
 ### Skipped Tests (205 tests)
 Tests requiring async mock configuration fixes:
-- **RSS Parser** (46 tests)
-- **Content Processor** (47 tests)
-- **Deduplication Service** (35 tests)
-- **Database Operations** (33 tests)
-- See `SKIPPED_TESTS.md` for details
+- **RSS Parser** (46 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
+- **Content Processor** (47 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
+- **Deduplication Service** (35 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
+- **Database Operations** (33 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
+- See `SKIPPED_TESTS.md` for details and tracking
 
-### Failing Tests (32 tests)
-- **HTTP Client** (1/39 tests failing)
-- See `SKIPPED_TESTS.md` for details
+### Failing Tests
+- **HTTP Client** - Fixed in Phase 0 (retry test mock updated)
+
+## 🆕 New Test Infrastructure
+
+### Test Environment Safety
+
+All tests now include safety guards:
+- **Database Safety**: Prevents tests from targeting production database
+- **API Key Safety**: Prevents accidental cloud LLM API usage (requires `ALLOW_CLOUD_LLM_IN_TESTS=true`)
+
+### Test Containers
+
+Ephemeral test containers use different ports to avoid conflicts:
+- PostgreSQL: 5433 (production: 5432)
+- Redis: 6380 (production: 6379)
+- Web: 8002 (production: 8001)
+
+### Fixtures and Factories
+
+- **Fixtures**: Reusable test data in `tests/fixtures/`
+- **Factories**: Test data generators in `tests/factories/`
+- **Golden Files**: Deterministic test outputs in `tests/fixtures/similarity/`
+
+See `docs/TESTING_STRATEGY.md` and `docs/TEST_PLAN.md` for details.
 
 ## 📞 Support
 

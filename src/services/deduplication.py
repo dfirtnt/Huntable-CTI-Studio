@@ -107,23 +107,28 @@ class DeduplicationService:
         content_hash = self.compute_content_hash(article.content)
         simhash, bucket = compute_article_simhash(article.content, article.title)
         
-        db_article = ArticleTable(
-            title=article.title,
-            content=article.content,
-            canonical_url=article.canonical_url,
-            source_id=article.source_id,
-            published_at=article.published_at.replace(tzinfo=None) if article.published_at and article.published_at.tzinfo else article.published_at,
-            authors=article.authors,
-            tags=article.tags,
-            summary=article.summary,
-            content_hash=content_hash,
-            simhash=simhash,
-            simhash_bucket=bucket,
-            article_metadata=article.article_metadata,
-            quality_score=article.quality_score,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        )
+        # Build ArticleTable - only include quality_score if it exists on the model
+        article_kwargs = {
+            'title': article.title,
+            'content': article.content,
+            'canonical_url': article.canonical_url,
+            'source_id': article.source_id,
+            'published_at': article.published_at.replace(tzinfo=None) if article.published_at and article.published_at.tzinfo else article.published_at,
+            'authors': article.authors,
+            'tags': article.tags,
+            'summary': article.summary,
+            'content_hash': content_hash,
+            'simhash': simhash,
+            'simhash_bucket': bucket,
+            'article_metadata': article.article_metadata,
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        # Only add quality_score if ArticleCreate has it
+        if hasattr(article, 'quality_score'):
+            article_kwargs['quality_score'] = article.quality_score
+        
+        db_article = ArticleTable(**article_kwargs)
         
         self.session.add(db_article)
         self.session.flush()  # Get the ID without committing
@@ -234,22 +239,28 @@ class AsyncDeduplicationService:
         content_hash = self.compute_content_hash(article.content)
         simhash, bucket = compute_article_simhash(article.content, article.title)
         
-        db_article = ArticleTable(
-            title=article.title,
-            content=article.content,
-            canonical_url=article.canonical_url,
-            source_id=article.source_id,
-            published_at=article.published_at.replace(tzinfo=None) if article.published_at and article.published_at.tzinfo else article.published_at,
-            authors=article.authors,
-            tags=article.tags,
-            summary=article.summary,
-            content_hash=content_hash,
-            simhash=simhash,
-            simhash_bucket=bucket,
-            article_metadata=article.article_metadata,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        )
+        # Build ArticleTable - only include quality_score if it exists on the model
+        article_kwargs = {
+            'title': article.title,
+            'content': article.content,
+            'canonical_url': article.canonical_url,
+            'source_id': article.source_id,
+            'published_at': article.published_at.replace(tzinfo=None) if article.published_at and article.published_at.tzinfo else article.published_at,
+            'authors': article.authors,
+            'tags': article.tags,
+            'summary': article.summary,
+            'content_hash': content_hash,
+            'simhash': simhash,
+            'simhash_bucket': bucket,
+            'article_metadata': article.article_metadata,
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        # Only add quality_score if ArticleCreate has it
+        if hasattr(article, 'quality_score'):
+            article_kwargs['quality_score'] = article.quality_score
+        
+        db_article = ArticleTable(**article_kwargs)
         
         self.session.add(db_article)
         await self.session.flush()  # Get the ID without committing

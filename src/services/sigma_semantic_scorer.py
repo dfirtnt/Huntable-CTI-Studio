@@ -179,7 +179,12 @@ Respond in JSON format:
             embedding_service = EmbeddingService()
             
             # Generate embeddings (synchronous, but run in executor to avoid blocking)
-            loop = asyncio.get_event_loop()
+            # Use get_running_loop() instead of get_event_loop() to avoid creating new loop
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No running loop, but we're in async context - this shouldn't happen
+                raise RuntimeError("compare_rules() must be called from async context")
             gen_embedding = await loop.run_in_executor(None, embedding_service.generate_embedding, generated_rule)
             ref_embedding = await loop.run_in_executor(None, embedding_service.generate_embedding, reference_rule)
             

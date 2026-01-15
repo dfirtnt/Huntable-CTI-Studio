@@ -5,8 +5,25 @@ This document tracks tests that are currently skipped and need to be fixed.
 
 **Total Tests**: 674
 - **Passing**: 442
-- **Failed**: 32
+- **Failed**: 32 (1 HTTP retry test - FIXED in Phase 0)
 - **Skipped**: 202
+
+## Quarantined Tests
+
+Tests marked with `@pytest.mark.quarantine` that require fixes. All quarantined tests must be tracked in this table.
+
+| Test File | Test Name | Reason | Owner | Created | Intended Fix |
+|-----------|-----------|--------|-------|---------|--------------|
+| test_http_client.py | test_request_with_retry | Retry logic mock needs context manager pattern | @system | 2025-01-XX | Fixed: Mock AsyncClient context manager properly |
+| test_rss_parser.py | All 46 tests | Async mock configuration needed for HTTP client and feedparser | TBD | 2025-01-XX | Use respx/aioresponses for HTTP mocking, mock feedparser responses |
+| test_content_processor.py | All 47 tests | Async mock configuration needed for deduplication service and DB | TBD | 2025-01-XX | Use AsyncMock for deduplication service, mock async DB operations |
+| test_deduplication_service.py | All 35 tests | SimHash algorithm tests need refinement, async mocks needed | TBD | 2025-01-XX | Fix SimHash assertions, use AsyncMock for service methods |
+| test_database_operations.py | All 33 tests | Async mock configuration needed for AsyncDatabaseManager | TBD | 2025-01-XX | Mock async SQLAlchemy session with proper context managers |
+| test_modern_scraper.py | All 18 tests | Async mock configuration needed for HTTP client | TBD | 2025-01-XX | Use respx for HTTP mocking, mock BeautifulSoup parsing |
+| test_search_parser.py | All 15 tests | Async mock configuration needed | TBD | 2025-01-XX | Use AsyncMock for search operations |
+| test_web_application.py | All 10 tests | Async mock configuration needed | TBD | 2025-01-XX | Mock async web application components |
+| test_core.py | All 8 tests | Async mock configuration needed | TBD | 2025-01-XX | Use AsyncMock for core async operations |
+| test_database.py | All 5 tests | Async mock configuration needed | TBD | 2025-01-XX | Mock async database models and operations |
 
 ## Test Status by Category
 
