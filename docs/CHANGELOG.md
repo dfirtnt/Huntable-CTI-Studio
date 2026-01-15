@@ -7,7 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **SIGMA PR Submission Feature with GitHub Integration** (2026-01-15): Complete GitHub PR submission system for approved SIGMA rules
+  - SigmaPRService for submitting approved rules via GitHub PRs
+  - Auto-stash uncommitted changes before PR creation
+  - Configure Git remote authentication with GitHub token
+  - GitHub PR Configuration section in Settings page
+  - Submit PR button on SIGMA Queue pages
+  - Mount SIGMA repository as Docker volume
+  - Support configurable repo path, token, and Git credentials via UI
+  - Handles branch creation, commit, and PR creation with error handling
+- **Repository Comparison in A/B Test** (2026-01-14): Added repository comparison functionality to SIGMA A/B test interface
+  - Compare generated rules against external repository rules
+  - Enhanced similarity search with repository context
+  - Improved rule matching accuracy
+- **Raw LLM Response Display** (2026-01-14): Added collapsible section in enrichment modal to show complete raw LLM response
+  - Raw response displayed below enriched rule YAML in collapsible panel
+  - Shows unprocessed LLM output before markdown code block removal
+  - Toggle button with proper ARIA attributes for accessibility
+  - Available in both SIGMA queue and workflow execution views
+- **LLM Provider Indicator** (2026-01-14): Added provider indicator badge in enrichment modal header
+  - Displays current LLM provider (OpenAI, Claude, Gemini, LMStudio) with icon
+  - Dynamically detects provider from workflow config or settings
+  - Updates automatically when modal opens
+- **Rule Validation Feature** (2026-01-14): Added LLM + pySIGMA validation for queued rules
+  - Validation button in rule preview modal
+  - Combines LLM-based rule improvement with pySIGMA validation
+  - Up to 3 retry attempts with error feedback
+  - Success/failure indicators with detailed error messages
+  - Apply validated rule button to update rule YAML
+- **QA Top_P Parameter Support** (2026-01-14): Added top_p (top-p sampling) parameter for all QA agents
+  - Top_P input fields for RankAgentQA, CmdLineQA, ProcTreeQA, HuntQueriesQA
+  - Values saved to workflow config and persist across saves
+  - Applied to all QA agent LLM calls
+
+### Changed
+- **Preset System QA Top_P Values** (2026-01-14): Updated preset system to include QA top_p values
+  - Presets now configure top_p for all QA agents
+  - Consistent QA behavior across preset configurations
+- **Workflow Help Text** (2026-01-14): Updated workflow help text to mention 'Use Full Article Content' option
+  - Clarified when full article content is used in workflow execution
+  - Improved user guidance for content selection
+- **Button Text Updates** (2026-01-14): Updated button labels for clarity
+  - 'Cosign Similarity Search' and 'Check Similar Rules' → 'Similarity Search'
+  - More intuitive button naming for similarity search functionality
+- **Collapsible Panel Initialization** (2026-01-14): Improved collapsible panel initialization with requestAnimationFrame
+  - Uses double requestAnimationFrame to ensure DOM is fully updated before initialization
+  - Clears initialization markers on re-render to prevent duplicate handlers
+  - Better handling of dynamically added content (QA prompts, agent configs)
+  - Prevents panel toggle issues after config changes
+
+### Removed
+- **SIGMA QA Agent Toggle** (2026-01-14): Removed SIGMA QA agent toggle and configuration
+  - QA validation not applicable for SIGMA rule generation
+  - Removed QA toggle, model selector, and badge from SIGMA Agent panel
+  - Removed JavaScript references to SIGMA QA functionality
+  - SIGMA Agent now runs without QA validation
+
 ### Fixed
+- **Rule Preview Modal from Execution View** (2026-01-15): Fixed rule preview modal opening from execution view
+  - Changed 'View Queued Rule' links in execution modal to open rule preview modal
+  - Replaced navigation to /workflow#queue with previewQueuedRule() function call
+  - Added full rule preview modal with edit, approve, reject, enrich, and similarity search
+  - Implemented event listeners attached after modal content insertion
+  - Made previewQueuedRule globally accessible via window object
+  - Modal matches SIGMA Queue preview functionality
 - **LM Studio Error Message Display** (2026-01-14): Fixed incorrect LM Studio availability warning appearing when OpenAI or Anthropic is selected
   - Error message now only displays when LM Studio is actually selected as the provider
   - Fixed for both Rank Agent and Extract Agent model selectors
