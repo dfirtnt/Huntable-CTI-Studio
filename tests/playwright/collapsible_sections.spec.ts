@@ -62,14 +62,14 @@ test.describe('Collapsible Sections', () => {
       const panelId = 'other-thresholds-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick*="${panelId}"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -77,7 +77,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again
@@ -89,14 +89,14 @@ test.describe('Collapsible Sections', () => {
       const panelId = 'os-detection-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick*="${panelId}"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -104,7 +104,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again
@@ -116,14 +116,14 @@ test.describe('Collapsible Sections', () => {
       const panelId = 'rank-agent-configs-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick*="${panelId}"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -131,7 +131,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again
@@ -143,14 +143,14 @@ test.describe('Collapsible Sections', () => {
       const panelId = 'extract-agent-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick="toggleCollapsible('${panelId}')"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -158,7 +158,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again
@@ -169,22 +169,22 @@ test.describe('Collapsible Sections', () => {
     test('should expand and collapse CmdlineExtract Sub-Agent panel', async ({ page }) => {
       // First expand Extract Agent panel
       const extractPanelId = 'extract-agent-panel';
-      const extractButton = page.locator(`button[onclick="toggleCollapsible('${extractPanelId}')"]`);
-      await extractButton.click();
+      const extractHeader = page.locator(`[data-collapsible-panel="${extractPanelId}"]`);
+      await extractHeader.click();
       await page.waitForTimeout(300);
 
       // Now test CmdlineExtract sub-panel
       const panelId = 'cmdlineextract-agent-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick="toggleCollapsible('${panelId}')"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -192,7 +192,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again
@@ -205,22 +205,22 @@ test.describe('Collapsible Sections', () => {
     test('should expand and collapse ProcTreeExtract Sub-Agent panel', async ({ page }) => {
       // First expand Extract Agent panel
       const extractPanelId = 'extract-agent-panel';
-      const extractButton = page.locator(`button[onclick="toggleCollapsible('${extractPanelId}')"]`);
-      await extractButton.click();
+      const extractHeader = page.locator(`[data-collapsible-panel="${extractPanelId}"]`);
+      await extractHeader.click();
       await page.waitForTimeout(300);
 
       // Now test ProcTreeExtract sub-panel
       const panelId = 'proctreeextract-agent-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick="toggleCollapsible('${panelId}')"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -228,7 +228,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again
@@ -241,14 +241,14 @@ test.describe('Collapsible Sections', () => {
       const panelId = 'sigma-agent-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
-      const button = page.locator(`button[onclick*="${panelId}"]`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
       // Click to expand
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be visible now
@@ -256,7 +256,7 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▲');
 
       // Click to collapse
-      await button.click();
+      await header.click();
       await page.waitForTimeout(300);
 
       // Should be hidden again

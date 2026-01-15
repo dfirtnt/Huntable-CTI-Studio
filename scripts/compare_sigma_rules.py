@@ -322,13 +322,27 @@ def build_canonical_rule(rule_data: Dict[str, Any]) -> CanonicalRule:
 def _atom_to_key(atom: Union[Dict[str, Any], Atom]) -> str:
     """Convert atom to normalized key for comparison."""
     if isinstance(atom, Atom):
-        return f"{atom.field}|{atom.op}|{atom.op_type}|{atom.value}"
+        field = atom.field
+        op = atom.op
+        op_type = atom.op_type
+        value = atom.value
     else:
         field = atom.get('field', '')
         op = atom.get('op', '')
         op_type = atom.get('op_type', 'literal')
         value = atom.get('value', '')
-        return f"{field}|{op}|{op_type}|{value}"
+    
+    # Normalize backslashes in Windows paths for literal values
+    # Double backslashes (from YAML/JSON escaping) should match single backslashes
+    if op_type == 'literal' and isinstance(value, str) and '\\' in value:
+        # Normalize all consecutive backslashes (2+) to single backslash
+        # This handles C:\\Users\\... matching C:\Users\...
+        # Uses regex to handle any number of consecutive backslashes
+        normalized_value = re.sub(r'\\+', r'\\', value)
+    else:
+        normalized_value = value
+    
+    return f"{field}|{op}|{op_type}|{normalized_value}"
 
 
 def compute_atom_jaccard(rule1: CanonicalRule, rule2: CanonicalRule) -> float:
