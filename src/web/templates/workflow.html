@@ -6494,10 +6494,10 @@ async function applyPreset(preset) {
             
             // QA Models (not in AGENT_CONFIG, handled separately)
             const qaModelFields = [
-                { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature' },
-                { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature' },
-                { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature' },
-                { name: 'HuntQueriesQA', id: 'huntqueriesqa-model', tempId: 'huntqueriesqa-temperature' }
+                { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature', topPId: 'rankqa-top-p' },
+                { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature', topPId: 'cmdlineqa-top-p' },
+                { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature', topPId: 'proctreeqa-top-p' },
+                { name: 'HuntQueriesQA', id: 'huntqueriesqa-model', tempId: 'huntqueriesqa-temperature', topPId: 'huntqueriesqa-top-p' }
             ];
             
             qaModelFields.forEach(field => {
@@ -6511,6 +6511,13 @@ async function applyPreset(preset) {
                 const tempInput = document.getElementById(field.tempId);
                 if (tempInput && preset.agent_models[tempKey] !== undefined) {
                     tempInput.value = preset.agent_models[tempKey];
+                }
+                
+                // Load QA top_p
+                const topPKey = `${field.name}_top_p`;
+                const topPInput = document.getElementById(field.topPId);
+                if (topPInput && preset.agent_models[topPKey] !== undefined) {
+                    topPInput.value = preset.agent_models[topPKey];
                 }
             });
         }
