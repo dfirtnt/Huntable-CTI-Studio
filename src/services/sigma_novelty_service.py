@@ -1003,7 +1003,17 @@ class SigmaNoveltyService:
             op_type = atom.get('op_type', 'literal')
             value = atom.get('value', '')
         
-        return f"{field}|{op}|{op_type}|{value}"
+        # Normalize backslashes in Windows paths for literal values
+        # Double backslashes (from YAML/JSON escaping) should match single backslashes
+        if op_type == 'literal' and isinstance(value, str) and '\\' in value:
+            # Normalize all consecutive backslashes (2+) to single backslash
+            # This handles C:\\Users\\... matching C:\Users\...
+            # Uses regex to handle any number of consecutive backslashes
+            normalized_value = re.sub(r'\\+', r'\\', value)
+        else:
+            normalized_value = value
+        
+        return f"{field}|{op}|{op_type}|{normalized_value}"
     
     def compute_logic_shape_similarity(
         self,

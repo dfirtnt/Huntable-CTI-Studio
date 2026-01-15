@@ -23,12 +23,13 @@ test.describe.skip('Workflow Config Save Button', () => {
     await page.waitForTimeout(1000); // Wait for config to fully load
     
     // Expand Rank Agent configs panel if it's collapsed
-    const rankPanelToggle = page.locator('#rank-agent-configs-panel-toggle');
-    if (await rankPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#rank-agent-configs-panel-content');
+    const panelId = 'rank-agent-configs-panel';
+    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+    if (await header.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const panelContent = page.locator(`#${panelId}-content`);
       const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
       if (isHidden) {
-        await rankPanelToggle.click();
+        await header.click();
         await page.waitForTimeout(300);
       }
     }
@@ -113,12 +114,13 @@ test.describe.skip('Workflow Config Save Button', () => {
     const saveButton = page.locator('#save-config-button');
     
     // Expand Rank Agent panel if needed
-    const rankPanelToggle = page.locator('#rank-agent-configs-panel-toggle');
-    if (await rankPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#rank-agent-configs-panel-content');
+    const rankPanelId = 'rank-agent-configs-panel';
+    const rankHeader = page.locator(`[data-collapsible-panel="${rankPanelId}"]`);
+    if (await rankHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const panelContent = page.locator(`#${rankPanelId}-content`);
       const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
       if (isHidden) {
-        await rankPanelToggle.click();
+        await rankHeader.click();
         await page.waitForTimeout(500);
       }
     }
@@ -342,11 +344,12 @@ test.describe.skip('Workflow Config Save Button', () => {
     const saveButton = page.locator('#save-config-button');
 
     // Ensure Junk Filter panel is expanded
-    const junkPanelToggle = page.locator('#other-thresholds-panel-toggle');
-    const junkPanelContent = page.locator('#other-thresholds-panel-content');
+    const junkPanelId = 'other-thresholds-panel';
+    const junkPanelHeader = page.locator(`[data-collapsible-panel="${junkPanelId}"]`);
+    const junkPanelContent = page.locator(`#${junkPanelId}-content`);
     const junkHidden = await junkPanelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
     if (junkHidden) {
-      await junkPanelToggle.click();
+      await junkPanelHeader.click();
       await page.waitForTimeout(300);
     }
     
@@ -390,18 +393,19 @@ test.describe.skip('Workflow Config Save Button', () => {
     }
     
     // Test similarity threshold
-    const sigmaToggle = page.locator('#sigma-agent-panel-toggle');
-    const sigmaContent = page.locator('#sigma-agent-panel-content');
+    const sigmaPanelId = 'sigma-agent-panel';
+    const sigmaHeader = page.locator(`[data-collapsible-panel="${sigmaPanelId}"]`);
+    const sigmaContent = page.locator(`#${sigmaPanelId}-content`);
     const sigmaHidden = await sigmaContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
     if (sigmaHidden) {
-      await sigmaToggle.click();
+      await sigmaHeader.click();
       await page.waitForTimeout(300);
     }
-    const junkPanelToggle2 = page.locator('#other-thresholds-panel-toggle');
-    const junkPanelContent2 = page.locator('#other-thresholds-panel-content');
+    const junkPanelHeader2 = page.locator(`[data-collapsible-panel="${junkPanelId}"]`);
+    const junkPanelContent2 = page.locator(`#${junkPanelId}-content`);
     const junkHidden2 = await junkPanelContent2.evaluate(el => el.classList.contains('hidden')).catch(() => true);
     if (junkHidden2) {
-      await junkPanelToggle2.click();
+      await junkPanelHeader2.click();
       await page.waitForTimeout(300);
     }
     const similarity = page.locator('#similarityThreshold');
@@ -464,12 +468,13 @@ test.describe.skip('Workflow Config Save Button', () => {
     const saveButton = page.locator('#save-config-button');
     
     // Expand Rank Agent panel if needed
-    const rankPanelToggle = page.locator('#rank-agent-configs-panel-toggle');
-    if (await rankPanelToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const panelContent = page.locator('#rank-agent-configs-panel-content');
+    const rankPanelId = 'rank-agent-configs-panel';
+    const rankHeader = page.locator(`[data-collapsible-panel="${rankPanelId}"]`);
+    if (await rankHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const panelContent = page.locator(`#${rankPanelId}-content`);
       const isHidden = await panelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
       if (isHidden) {
-        await rankPanelToggle.click();
+        await rankHeader.click();
         await page.waitForTimeout(500);
       }
     }
@@ -522,18 +527,20 @@ test.describe.skip('Workflow Config Save Button', () => {
     const saveButton = page.locator('#save-config-button');
 
     // Expand Extract Agent panel and Cmdline sub-panel
-    const extractPanelToggle = page.locator('#extract-agent-panel-toggle');
-    const extractPanelContent = page.locator('#extract-agent-panel-content');
+    const extractPanelId = 'extract-agent-panel';
+    const extractHeader = page.locator(`[data-collapsible-panel="${extractPanelId}"]`);
+    const extractPanelContent = page.locator(`#${extractPanelId}-content`);
     const extractHidden = await extractPanelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
     if (extractHidden) {
-      await extractPanelToggle.click();
+      await extractHeader.click();
       await page.waitForTimeout(300);
     }
-    const cmdPanelToggle = page.locator('#cmdlineextract-agent-panel-toggle');
-    const cmdPanelContent = page.locator('#cmdlineextract-agent-panel-content');
+    const cmdPanelId = 'cmdlineextract-agent-panel';
+    const cmdHeader = page.locator(`[data-collapsible-panel="${cmdPanelId}"]`);
+    const cmdPanelContent = page.locator(`#${cmdPanelId}-content`);
     const cmdHidden = await cmdPanelContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
     if (cmdHidden) {
-      await cmdPanelToggle.click();
+      await cmdHeader.click();
       await page.waitForTimeout(300);
     }
 

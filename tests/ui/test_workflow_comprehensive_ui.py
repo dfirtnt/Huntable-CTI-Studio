@@ -151,16 +151,17 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
         
-        # Find Junk Filter panel toggle button
-        toggle_button = page.locator("button:has-text('Junk Filter')")
-        expect(toggle_button).to_be_visible()
+        # Find Junk Filter panel header
+        panel_id = "other-thresholds-panel"
+        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        expect(header).to_be_visible()
         
         # Get initial state
         panel_content = page.locator("#other-thresholds-panel-content")
         initial_state = panel_content.is_visible()
         
-        # Click toggle
-        toggle_button.click()
+        # Click header to toggle
+        header.click()
         page.wait_for_timeout(300)
         
         # Verify state changed
@@ -178,14 +179,15 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
         
-        # Find OS Detection panel toggle
-        toggle_button = page.locator("button:has-text('OS Detection Agent')")
-        expect(toggle_button).to_be_visible()
+        # Find OS Detection panel header
+        panel_id = "os-detection-panel"
+        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        expect(header).to_be_visible()
         
         panel_content = page.locator("#os-detection-panel-content")
         initial_state = panel_content.is_visible()
         
-        toggle_button.click()
+        header.click()
         page.wait_for_timeout(300)
         
         new_state = panel_content.is_visible()
@@ -202,13 +204,14 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
         
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
-        expect(toggle_button).to_be_visible()
+        panel_id = "rank-agent-configs-panel"
+        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        expect(header).to_be_visible()
         
         panel_content = page.locator("#rank-agent-configs-panel-content")
         initial_state = panel_content.is_visible()
         
-        toggle_button.click()
+        header.click()
         page.wait_for_timeout(300)
         
         new_state = panel_content.is_visible()
@@ -225,13 +228,14 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
         
-        toggle_button = page.locator("button:has-text('Extract Agent')")
-        expect(toggle_button).to_be_visible()
+        panel_id = "extract-agent-panel"
+        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        expect(header).to_be_visible()
         
         panel_content = page.locator("#extract-agent-panel-content")
         initial_state = panel_content.is_visible()
         
-        toggle_button.click()
+        header.click()
         page.wait_for_timeout(300)
         
         new_state = panel_content.is_visible()
@@ -248,13 +252,14 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
         
-        toggle_button = page.locator("button:has-text('SIGMA Generator Agent')")
-        expect(toggle_button).to_be_visible()
+        panel_id = "sigma-agent-panel"
+        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        expect(header).to_be_visible()
         
         panel_content = page.locator("#sigma-agent-panel-content")
         initial_state = panel_content.is_visible()
         
-        toggle_button.click()
+        header.click()
         page.wait_for_timeout(300)
         
         new_state = panel_content.is_visible()
@@ -272,20 +277,22 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_timeout(500)
         
         # Get chevron element
-        chevron = page.locator("#other-thresholds-panel-toggle")
+        panel_id = "other-thresholds-panel"
+        chevron = page.locator(f"#{panel_id}-toggle")
         expect(chevron).to_be_visible()
         
-        initial_transform = chevron.evaluate("el => window.getComputedStyle(el).transform")
+        # Get initial chevron text (should be ▼ when collapsed)
+        initial_text = chevron.text_content()
         
-        # Toggle panel
-        toggle_button = page.locator("button:has-text('Junk Filter')")
-        toggle_button.click()
+        # Toggle panel by clicking header
+        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        header.click()
         page.wait_for_timeout(300)
         
-        # Chevron should rotate (transform changes)
-        new_transform = chevron.evaluate("el => window.getComputedStyle(el).transform")
-        # Note: Transform may be "none" initially, then rotate
-        # This test verifies the chevron exists and is interactive
+        # Chevron text should change (▼ to ▲)
+        new_text = chevron.text_content()
+        assert initial_text != new_text, "Chevron text should change on toggle"
+        # This test verifies the chevron exists and updates correctly
     
     @pytest.mark.ui
     @pytest.mark.workflow

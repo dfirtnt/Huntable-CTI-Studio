@@ -355,18 +355,21 @@ test.describe('Agent Config Toggle Interactions', () => {
     const responseData = await response.json();
     const disabledAgents = responseData.agent_prompts?.ExtractAgentSettings?.disabled_agents || [];
     const isDisabled = disabledAgents.includes('ProcTreeExtract');
-    expect(isDisabled).toBe(!initialChecked);
+    // After toggle: checkbox.checked = !initialChecked
+    // UI logic: isDisabled = !checkbox.checked = !(!initialChecked) = initialChecked
+    // So if agent was enabled (initialChecked=true), after toggle it's disabled (isDisabled=true)
+    expect(isDisabled).toBe(initialChecked);
   });
 });
 
 async function expandPanelIfNeeded(page: any, panelId: string) {
   const content = page.locator(`#${panelId}-content`);
-  const toggle = page.locator(`#${panelId}-toggle, button[onclick*="${panelId}"]`).first();
+  const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-  if (await toggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await header.isVisible({ timeout: 2000 }).catch(() => false)) {
     const isHidden = await content.evaluate((el: HTMLElement) => el.classList.contains('hidden')).catch(() => true);
     if (isHidden) {
-      await toggle.click();
+      await header.click();
       await page.waitForTimeout(300);
     }
   }

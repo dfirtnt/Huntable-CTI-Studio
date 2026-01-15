@@ -272,12 +272,12 @@ test.describe('Agent Config Presets', () => {
 
 async function expandPanelIfNeeded(page: any, panelId: string) {
   const content = page.locator(`#${panelId}-content`);
-  const toggle = page.locator(`#${panelId}-toggle, button[onclick*="${panelId}"]`).first();
+  const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-  if (await toggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await header.isVisible({ timeout: 2000 }).catch(() => false)) {
     const isHidden = await content.evaluate((el: HTMLElement) => el.classList.contains('hidden')).catch(() => true);
     if (isHidden) {
-      await toggle.click();
+      await header.click();
       await page.waitForTimeout(300);
     }
   }
