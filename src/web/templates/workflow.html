@@ -1486,6 +1486,9 @@
                 <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
                     🔄 Refresh
                 </button>
+                <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    📤 Submit PR
+                </button>
                 <select id="queueStatusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
@@ -1555,6 +1558,9 @@
                         </button>
                         <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                             ❌ Reject
+                        </button>
+                        <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                            ✓ Validate
                         </button>
                         <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
                             ✨ Enrich
@@ -10171,6 +10177,9 @@ function updateActionButtons() {
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
+            <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                ✓ Validate
+            </button>
             <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
                 ✨ Enrich
             </button>
@@ -10260,6 +10269,55 @@ async function rejectRule(ruleId) {
     }
 }
 
+async function submitPR() {
+    const btn = document.getElementById('submitPRBtn');
+    if (!btn) return;
+    
+    // Check if there are approved rules
+    const approvedCount = parseInt(document.getElementById('approvedCount').textContent) || 0;
+    if (approvedCount === 0) {
+        alert('No approved rules to submit. Please approve rules first.');
+        return;
+    }
+    
+    if (!confirm(`Submit ${approvedCount} approved rule(s) as a GitHub PR?`)) {
+        return;
+    }
+    
+    // Disable button and show loading state
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Submitting...';
+    
+    try {
+        const response = await fetch('/api/sigma-queue/submit-pr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ PR created successfully!\n\nPR URL: ${result.pr_url}\nRules: ${result.rules_count}`);
+            // Reload queue to show updated status
+            await loadQueue();
+        } else {
+            let errorMsg = `❌ Failed to create PR: ${result.error || 'Unknown error'}`;
+            if (result.branch) {
+                errorMsg += `\n\nBranch created: ${result.branch}\nYou may need to create the PR manually.`;
+            }
+            alert(errorMsg);
+        }
+    } catch (error) {
+        console.error('Error submitting PR:', error);
+        alert('❌ Error submitting PR: ' + error.message);
+    } finally {
+        // Restore button
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
 function closeRuleModal() {
     document.getElementById('ruleModal').classList.add('hidden');
     currentRuleId = null;
@@ -10267,6 +10325,209 @@ function closeRuleModal() {
     originalYaml = '';
     editedYaml = '';
     resetQualityReviewCard();
+    // Clear validation results if any
+    const validationResult = document.getElementById('validationResult');
+    if (validationResult) {
+        validationResult.remove();
+    }
+}
+
+async function validateRule() {
+    if (!currentRuleId) {
+        alert('No rule selected');
+        return;
+    }
+    
+    // Get API key
+    let apiKey = null;
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            const data = await response.json();
+            const settings = data.settings || {};
+            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+        }
+    } catch (error) {
+        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
+    }
+    
+    if (!apiKey) {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+    }
+    
+    if (!apiKey) {
+        alert('Please configure your OpenAI API key in Settings first.');
+        return;
+    }
+    
+    // Remove any existing validation result
+    const existingResult = document.getElementById('validationResult');
+    if (existingResult) {
+        existingResult.remove();
+    }
+    
+    // Show loading indicator
+    const loadingMsg = document.createElement('div');
+    loadingMsg.id = 'validationLoading';
+    loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+    loadingMsg.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p class="text-gray-700 dark:text-gray-300">Validating rule with LLM + pySIGMA...</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take up to 3 attempts</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingMsg);
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/validate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-OpenAI-API-Key': apiKey
+            }
+        });
+        
+        // Remove loading indicator
+        const loadingEl = document.getElementById('validationLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        const data = await response.json();
+        
+        // Create result container
+        const resultContainer = document.createElement('div');
+        resultContainer.id = 'validationResult';
+        resultContainer.className = 'mt-4 p-4 rounded-md border';
+        
+        if (response.ok && data.success) {
+            // Validation succeeded
+            resultContainer.className += ' bg-green-50 dark:bg-green-900 border-green-200 dark:border-green-700';
+            resultContainer.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h4 class="text-sm font-medium text-green-800 dark:text-green-200">
+                            ✓ Validation Successful
+                        </h4>
+                        <p class="mt-1 text-sm text-green-700 dark:text-green-300">
+                            Rule validated successfully after ${data.attempts} attempt(s). The validated rule has been enriched and passed pySIGMA validation.
+                        </p>
+                        <div class="mt-3">
+                            <button onclick="applyValidatedRule()" class="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md">
+                                Apply Validated Rule
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Store validated YAML for apply function
+            window.validatedYaml = data.validated_yaml;
+        } else {
+            // Validation failed
+            resultContainer.className += ' bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700';
+            const errorsHtml = data.errors && data.errors.length > 0 
+                ? `<ul class="mt-2 list-disc list-inside text-sm text-red-700 dark:text-red-300">${data.errors.map(err => `<li>${escapeHtml(err)}</li>`).join('')}</ul>`
+                : '<p class="mt-2 text-sm text-red-700 dark:text-red-300">Validation failed after 3 attempts.</p>';
+            
+            resultContainer.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h4 class="text-sm font-medium text-red-800 dark:text-red-200">
+                            ✗ Validation Failed
+                        </h4>
+                        <p class="mt-1 text-sm text-red-700 dark:text-red-300">
+                            ${data.message || 'Validation failed after 3 attempts'}
+                        </p>
+                        ${errorsHtml}
+                        ${data.validated_yaml ? `
+                            <div class="mt-3">
+                                <p class="text-sm text-red-700 dark:text-red-300 mb-2">Last attempt's rule:</p>
+                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-red-200 dark:border-red-700 overflow-x-auto max-h-48 overflow-y-auto text-gray-900 dark:text-gray-100">${escapeHtml(data.validated_yaml)}</pre>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Insert result into modal content
+        const previewContent = document.getElementById('rulePreviewContent');
+        if (previewContent) {
+            previewContent.appendChild(resultContainer);
+            // Scroll to result
+            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    } catch (error) {
+        // Remove loading indicator
+        const loadingEl = document.getElementById('validationLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        console.error('Error validating rule:', error);
+        alert('Error validating rule: ' + error.message);
+    }
+}
+
+async function applyValidatedRule() {
+    if (!window.validatedYaml) {
+        alert('No validated rule to apply');
+        return;
+    }
+    
+    if (!confirm('Apply the validated rule? This will update the rule YAML.')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: window.validatedYaml })
+        });
+        
+        if (response.ok) {
+            // Update the rule in the queue array
+            const rule = queue.find(r => r.id === currentRuleId);
+            if (rule) {
+                rule.rule_yaml = window.validatedYaml;
+                editedYaml = window.validatedYaml;
+                originalYaml = window.validatedYaml;
+                isEditMode = false;
+                
+                // Re-render the rule preview with updated YAML
+                renderRulePreview(rule);
+            }
+            
+            // Remove validation result
+            const validationResult = document.getElementById('validationResult');
+            if (validationResult) {
+                validationResult.remove();
+            }
+            
+            // Clear validated YAML
+            window.validatedYaml = null;
+            
+            // Reload queue in background
+            loadQueue().catch(err => console.error('Error reloading queue:', err));
+            
+            alert('Validated rule applied successfully');
+        } else {
+            alert('Error applying validated rule');
+        }
+    } catch (error) {
+        console.error('Error applying validated rule:', error);
+        alert('Error applying validated rule');
+    }
 }
 
 function resetQualityReviewCard() {
