@@ -684,8 +684,117 @@
              </div>
         </div>
 
+        <!-- GitHub PR Configuration -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleGitHubPRConfig()">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📤 GitHub PR Configuration</h2>
+                <svg id="githubPRConfigChevron" class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
 
+            <div id="githubPRConfigContent" class="space-y-4 hidden">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Configure GitHub authentication and repository settings for submitting approved SIGMA rules as Pull Requests.
+                </p>
 
+                <!-- GitHub Token -->
+                <div>
+                    <label for="githubToken" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        GitHub Personal Access Token
+                    </label>
+                    <div class="relative">
+                        <input type="password"
+                               id="githubToken"
+                               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                               class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <button type="button"
+                                id="toggleGithubToken"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Required for creating PRs. Token needs <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">repo</code> scope.
+                        <a href="https://github.com/settings/tokens" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Create token →</a>
+                    </p>
+                </div>
+
+                <!-- Repository Path -->
+                <div>
+                    <label for="sigmaRepoPath" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        SIGMA Repository Path
+                    </label>
+                    <input type="text"
+                           id="sigmaRepoPath"
+                           placeholder="sigma-repo"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Path to the SIGMA rules repository inside the container.
+                        <br><strong>Docker:</strong> Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code> (mounted at <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">/app/sigma-repo</code>)
+                        <br><strong>Local:</strong> Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">../Huntable-SIGMA-Rules</code> or absolute path
+                    </p>
+                </div>
+
+                <!-- GitHub Repository -->
+                <div>
+                    <label for="githubRepo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        GitHub Repository
+                    </label>
+                    <input type="text"
+                           id="githubRepo"
+                           placeholder="dfirtnt/Huntable-SIGMA-Rules"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
+                    </p>
+                </div>
+
+                <!-- Git User Configuration -->
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Git Configuration</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Git user identity for commits (required for creating PRs)
+                    </p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="gitUserName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Git User Name
+                            </label>
+                            <input type="text"
+                                   id="gitUserName"
+                                   placeholder="Huntable CTI Studio"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label for="gitUserEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Git User Email
+                            </label>
+                            <input type="email"
+                                   id="gitUserEmail"
+                                   placeholder="cti-studio@huntable.local"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        Used as commit author when creating PRs. Defaults shown if not set.
+                    </p>
+                </div>
+
+                <!-- Test Connection Button -->
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <button id="testGitHubConnection"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        🧪 Test GitHub Connection
+                    </button>
+                    <span id="githubTestStatus" class="ml-3 text-sm"></span>
+                </div>
+            </div>
+        </div>
 
         <!-- Save Button -->
         <div class="flex justify-end">
@@ -767,6 +876,9 @@
             console.error('Error loading LMStudio models:', err);
         });
 
+        // Load GitHub PR settings from database
+        await loadGitHubPRSettings();
+        
         // Load workflow configuration
         const workflowAppSettings = await loadWorkflowAppSettings();
 
@@ -1158,6 +1270,39 @@
             console.error('❌ Error saving Hugging Face token:', error);
         }
 
+        // Save GitHub PR settings to backend API
+        try {
+            const githubPRSettings = [
+                { key: 'GITHUB_TOKEN', value: document.getElementById('githubToken').value.trim() },
+                { key: 'SIGMA_REPO_PATH', value: document.getElementById('sigmaRepoPath').value.trim() },
+                { key: 'GITHUB_REPO', value: document.getElementById('githubRepo').value.trim() },
+                { key: 'GIT_NAME', value: document.getElementById('gitUserName').value.trim() },
+                { key: 'GIT_EMAIL', value: document.getElementById('gitUserEmail').value.trim() }
+            ];
+            
+            for (const setting of githubPRSettings) {
+                if (setting.value) {
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            key: setting.key,
+                            value: setting.value
+                        })
+                    });
+                } else {
+                    // Delete if empty (revert to env var)
+                    await fetch(`/api/settings/${setting.key}`, {
+                        method: 'DELETE'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error saving GitHub PR settings:', error);
+        }
+        
         // Save Langfuse keys to backend API
         try {
             const langfuseSettings = [
@@ -1309,6 +1454,161 @@
         }
     }
     
+    // Toggle GitHub Token visibility
+    function toggleGithubTokenVisibility() {
+        const input = document.getElementById('githubToken');
+        const button = document.getElementById('toggleGithubToken');
+        const icon = button.querySelector('svg');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            `;
+        } else {
+            input.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            `;
+        }
+    }
+    
+    // Load GitHub PR settings from database (with localStorage fallback)
+    async function loadGitHubPRSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        
+        // GitHub Token - check database first
+        try {
+            const response = await fetch('/api/settings/GITHUB_TOKEN');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('githubToken').value = data.value;
+            } else {
+                // Fallback to localStorage or env default
+                document.getElementById('githubToken').value = settings.githubToken || '';
+            }
+        } catch (error) {
+            console.log('Could not fetch GITHUB_TOKEN from database:', error);
+            document.getElementById('githubToken').value = settings.githubToken || '';
+        }
+        
+        // SIGMA Repo Path - check database first
+        try {
+            const response = await fetch('/api/settings/SIGMA_REPO_PATH');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('sigmaRepoPath').value = data.value;
+            } else {
+                // Fallback to localStorage or default (sigma-repo for Docker, ../Huntable-SIGMA-Rules for local)
+                document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
+            }
+        } catch (error) {
+            console.log('Could not fetch SIGMA_REPO_PATH from database:', error);
+            document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
+        }
+        
+        // GitHub Repo - check database first
+        try {
+            const response = await fetch('/api/settings/GITHUB_REPO');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('githubRepo').value = data.value;
+            } else {
+                // Fallback to localStorage or default
+                document.getElementById('githubRepo').value = settings.githubRepo || 'dfirtnt/Huntable-SIGMA-Rules';
+            }
+        } catch (error) {
+            console.log('Could not fetch GITHUB_REPO from database:', error);
+            document.getElementById('githubRepo').value = settings.githubRepo || 'dfirtnt/Huntable-SIGMA-Rules';
+        }
+        
+        // Git User Name - check database first
+        try {
+            const response = await fetch('/api/settings/GIT_NAME');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('gitUserName').value = data.value;
+            } else {
+                document.getElementById('gitUserName').value = settings.gitUserName || 'Huntable CTI Studio';
+            }
+        } catch (error) {
+            console.log('Could not fetch GIT_NAME from database:', error);
+            document.getElementById('gitUserName').value = settings.gitUserName || 'Huntable CTI Studio';
+        }
+        
+        // Git User Email - check database first
+        try {
+            const response = await fetch('/api/settings/GIT_EMAIL');
+            const data = await response.json();
+            if (data.success && data.exists && data.value) {
+                document.getElementById('gitUserEmail').value = data.value;
+            } else {
+                document.getElementById('gitUserEmail').value = settings.gitUserEmail || 'cti-studio@huntable.local';
+            }
+        } catch (error) {
+            console.log('Could not fetch GIT_EMAIL from database:', error);
+            document.getElementById('gitUserEmail').value = settings.gitUserEmail || 'cti-studio@huntable.local';
+        }
+    }
+    
+    // Test GitHub connection
+    async function testGitHubConnection() {
+        const statusElement = document.getElementById('githubTestStatus');
+        const testButton = document.getElementById('testGitHubConnection');
+        const token = document.getElementById('githubToken').value.trim();
+        const repo = document.getElementById('githubRepo').value.trim();
+        
+        if (!token) {
+            statusElement.textContent = 'Please enter a GitHub token first';
+            statusElement.className = 'text-sm text-red-600';
+            return;
+        }
+        
+        if (!repo || !repo.includes('/')) {
+            statusElement.textContent = 'Please enter a valid repository (owner/repo)';
+            statusElement.className = 'text-sm text-red-600';
+            return;
+        }
+        
+        // Disable button and show loading
+        testButton.disabled = true;
+        testButton.textContent = 'Testing...';
+        statusElement.textContent = 'Testing connection...';
+        statusElement.className = 'text-sm text-gray-600';
+        
+        try {
+            // Test by fetching repo info
+            const [owner, repoName] = repo.split('/');
+            const response = await fetch(`https://api.github.com/repos/${owner}/${repoName}`, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (response.ok) {
+                statusElement.textContent = '✅ Connection successful!';
+                statusElement.className = 'text-sm text-green-600';
+            } else if (response.status === 401) {
+                statusElement.textContent = '❌ Invalid token or insufficient permissions';
+                statusElement.className = 'text-sm text-red-600';
+            } else if (response.status === 404) {
+                statusElement.textContent = '❌ Repository not found or no access';
+                statusElement.className = 'text-sm text-red-600';
+            } else {
+                statusElement.textContent = `❌ Error: ${response.status} ${response.statusText}`;
+                statusElement.className = 'text-sm text-red-600';
+            }
+        } catch (error) {
+            statusElement.textContent = '❌ Network error - please try again';
+            statusElement.className = 'text-sm text-red-600';
+        } finally {
+            testButton.disabled = false;
+            testButton.textContent = '🧪 Test GitHub Connection';
+        }
+    }
+    
     // Toggle functions
     function setToggleState(toggleId, enabled) {
         const toggle = document.getElementById(toggleId);
@@ -1371,6 +1671,20 @@
     function toggleAgenticWorkflowConfig() {
         const content = document.getElementById('agenticWorkflowConfigContent');
         const chevron = document.getElementById('agenticWorkflowConfigChevron');
+
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    // Toggle GitHub PR configuration section
+    function toggleGitHubPRConfig() {
+        const content = document.getElementById('githubPRConfigContent');
+        const chevron = document.getElementById('githubPRConfigChevron');
 
         if (content.classList.contains('hidden')) {
             content.classList.remove('hidden');
@@ -1942,6 +2256,10 @@
         safeAddListener('toggleLangfusePublicKey', 'click', toggleLangfusePublicKeyVisibility);
         safeAddListener('toggleLangfuseSecretKey', 'click', toggleLangfuseSecretKeyVisibility);
         safeAddListener('testLangfuseConnection', 'click', testLangfuseConnection);
+        
+        // GitHub PR settings
+        safeAddListener('toggleGithubToken', 'click', toggleGithubTokenVisibility);
+        safeAddListener('testGitHubConnection', 'click', testGitHubConnection);
 
         // Test workflow API key buttons
         safeAddListener('testWorkflowOpenaiApiKey', 'click', function() {
