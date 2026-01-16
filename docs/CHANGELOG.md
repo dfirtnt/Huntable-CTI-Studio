@@ -885,7 +885,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent System**: Extract Agent, Rank Agent, and Sigma Agent orchestrated via LangGraph
 - **Observability**: LangFuse integration for workflow and LLM call tracing
 
-## [3.0.0 "Copernicus"] - 2025-01-28
+## [3.0.0 "Copernicus"] - 2025-10-28
 
 ### Added
 - **SIGMA Rule Similarity Search**: Advanced similarity matching between generated SIGMA rules and existing SigmaHQ rules
@@ -1150,7 +1150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed debug prints and sensitive TODOs
 - Implemented proper environment variable handling
 
-## [2.0.0 "Tycho"] - 2025-01-15
+## [2.0.0 "Tycho"] - 2025-08-28
 
 ### Added
 - **PostgreSQL Database**: Replaced SQLite with production-grade PostgreSQL
