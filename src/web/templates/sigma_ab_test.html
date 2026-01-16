@@ -154,6 +154,7 @@
     </div>
 </div>
 
+<script src="/static/js/components/similarity-display.js"></script>
 <script>
     // Example rules for testing
     const exampleRules = {
@@ -208,6 +209,11 @@ tags:
     function validateRule(rule) {
         const textarea = document.getElementById(`rule${rule.toUpperCase()}`);
         const validationDiv = document.getElementById(`${rule}Validation`);
+        
+        if (!textarea || !validationDiv) {
+            return false;
+        }
+        
         const yaml = textarea.value.trim();
         
         if (!yaml) {
@@ -241,12 +247,40 @@ tags:
         return true;
     }
 
+    // Helper function to clean YAML content
+    function cleanYamlContent(yaml) {
+        if (!yaml) return '';
+        
+        // Remove HTML tags if any were accidentally pasted
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = yaml;
+        let cleaned = tempDiv.textContent || tempDiv.innerText || yaml;
+        
+        // Remove common non-YAML patterns that might be accidentally included
+        // Remove lines that look like HTML headings or UI text
+        const lines = cleaned.split('\n');
+        const filteredLines = lines.filter(line => {
+            const trimmed = line.trim();
+            // Skip lines that look like UI headings or HTML content
+            if (trimmed === 'Comparison Results' || 
+                trimmed === 'Weighted Similarity' ||
+                trimmed === 'Repository Comparison Results' ||
+                trimmed.startsWith('<') && trimmed.endsWith('>') ||
+                trimmed.match(/^[A-Z][a-z]+ [A-Z][a-z]+$/)) { // Simple pattern like "Comparison Results"
+                return false;
+            }
+            return true;
+        });
+        
+        return filteredLines.join('\n').trim();
+    }
+
     async function compareRules() {
         console.log('compareRules() called');
         
         try {
-            const ruleA = document.getElementById('ruleA').value.trim();
-            const ruleB = document.getElementById('ruleB').value.trim();
+            let ruleA = document.getElementById('ruleA').value.trim();
+            let ruleB = document.getElementById('ruleB').value.trim();
             const compareBtn = document.getElementById('compareBtn');
             const resultsDiv = document.getElementById('results');
             const errorDiv = document.getElementById('errorDisplay');
@@ -259,6 +293,15 @@ tags:
             
             if (!ruleA || !ruleB) {
                 showError('Please provide both Rule A and Rule B');
+                return;
+            }
+            
+            // Clean YAML content to remove any accidentally pasted HTML or UI text
+            ruleA = cleanYamlContent(ruleA);
+            ruleB = cleanYamlContent(ruleB);
+            
+            if (!ruleA || !ruleB) {
+                showError('Please provide valid YAML content in both Rule A and Rule B');
                 return;
             }
             
@@ -290,7 +333,15 @@ tags:
                 } catch (e) {
                     errorData = { detail: `HTTP error! status: ${response.status}` };
                 }
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                
+                // Improve YAML parsing error messages
+                let errorMessage = errorData.detail || `HTTP error! status: ${response.status}`;
+                if (errorMessage.includes('Invalid YAML')) {
+                    errorMessage = 'Invalid YAML detected. Please ensure your rules contain only valid YAML content. ' +
+                        'Make sure you haven\'t accidentally pasted HTML or UI text into the rule fields.';
+                }
+                
+                throw new Error(errorMessage);
             }
             
             const data = await response.json();
@@ -319,86 +370,8 @@ tags:
         const resultsDiv = document.getElementById('results');
         resultsDiv.classList.remove('hidden');
         
-        // Overall similarity
-        const similarity = (data.similarity * 100).toFixed(1);
-        document.getElementById('overallSimilarity').textContent = `${similarity}%`;
-        document.getElementById('similarityBar').style.width = `${similarity}%`;
-        
-        // Novelty classification
-        const noveltyLabel = data.novelty_label || 'NOVEL';
-        const noveltyLabelEl = document.getElementById('noveltyLabel');
-        noveltyLabelEl.textContent = noveltyLabel;
-        
-        // Set color based on label
-        if (noveltyLabel === 'DUPLICATE') {
-            noveltyLabelEl.className = 'px-3 py-1 rounded text-sm font-semibold bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300';
-        } else if (noveltyLabel === 'SIMILAR') {
-            noveltyLabelEl.className = 'px-3 py-1 rounded text-sm font-semibold bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300';
-        } else {
-            noveltyLabelEl.className = 'px-3 py-1 rounded text-sm font-semibold bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300';
-        }
-        
-        // Novelty score
-        const noveltyScore = (data.novelty_score * 100).toFixed(1);
-        document.getElementById('noveltyScore').textContent = `${noveltyScore}%`;
-        
-        // Behavioral similarity breakdown
-        document.getElementById('atomJaccard').textContent = `${((data.atom_jaccard || 0) * 100).toFixed(1)}%`;
-        
-        // Logic shape similarity - show N/A if not computed (early exit case)
-        const logicShapeEl = document.getElementById('logicShape');
-        const logicShapeNAEl = document.getElementById('logicShapeNA');
-        if (data.logic_shape_similarity === null || data.logic_shape_similarity === undefined) {
-            logicShapeEl.textContent = 'N/A';
-            logicShapeEl.classList.add('italic', 'text-gray-500', 'dark:text-gray-400');
-            if (logicShapeNAEl) {
-                logicShapeNAEl.classList.remove('hidden');
-            }
-        } else {
-            logicShapeEl.textContent = `${((data.logic_shape_similarity || 0) * 100).toFixed(1)}%`;
-            logicShapeEl.classList.remove('italic', 'text-gray-500', 'dark:text-gray-400');
-            if (logicShapeNAEl) {
-                logicShapeNAEl.classList.add('hidden');
-            }
-        }
-        
-        document.getElementById('weightedTotal').textContent = `${similarity}%`;
-        
-        // Explainability
-        const explainabilitySection = document.getElementById('explainabilitySection');
-        explainabilitySection.classList.remove('hidden');
-        
-        // Shared atoms
-        if (data.shared_atoms && data.shared_atoms.length > 0) {
-            document.getElementById('sharedAtomsSection').classList.remove('hidden');
-            document.getElementById('sharedAtoms').textContent = data.shared_atoms.join('\n');
-        } else {
-            document.getElementById('sharedAtomsSection').classList.add('hidden');
-        }
-        
-        // Added atoms (in Rule A, not in Rule B)
-        if (data.added_atoms && data.added_atoms.length > 0) {
-            document.getElementById('addedAtomsSection').classList.remove('hidden');
-            document.getElementById('addedAtoms').textContent = data.added_atoms.join('\n');
-        } else {
-            document.getElementById('addedAtomsSection').classList.add('hidden');
-        }
-        
-        // Removed atoms (in Rule B, not in Rule A)
-        if (data.removed_atoms && data.removed_atoms.length > 0) {
-            document.getElementById('removedAtomsSection').classList.remove('hidden');
-            document.getElementById('removedAtoms').textContent = data.removed_atoms.join('\n');
-        } else {
-            document.getElementById('removedAtomsSection').classList.add('hidden');
-        }
-        
-        // Filter differences
-        if (data.filter_differences && data.filter_differences.length > 0) {
-            document.getElementById('filterDifferencesSection').classList.remove('hidden');
-            document.getElementById('filterDifferences').textContent = data.filter_differences.join('\n');
-        } else {
-            document.getElementById('filterDifferencesSection').classList.add('hidden');
-        }
+        // Use standardized similarity display component
+        updateSimilarityDisplay(data, { prefix: '' });
         
         // Show error if present (e.g., incompatible logsource)
         if (data.error) {
@@ -417,7 +390,7 @@ tags:
         console.log('compareRuleToRepository() called');
         
         try {
-            const ruleA = document.getElementById('ruleA').value.trim();
+            let ruleA = document.getElementById('ruleA').value.trim();
             const compareToRepoBtn = document.getElementById('compareToRepoBtn');
             const resultsDiv = document.getElementById('results');
             const errorDiv = document.getElementById('errorDisplay');
@@ -432,6 +405,14 @@ tags:
             
             if (!ruleA) {
                 showError('Please provide Rule A to compare against the repository');
+                return;
+            }
+            
+            // Clean YAML content to remove any accidentally pasted HTML or UI text
+            ruleA = cleanYamlContent(ruleA);
+            
+            if (!ruleA) {
+                showError('Please provide valid YAML content in Rule A');
                 return;
             }
             
@@ -462,7 +443,15 @@ tags:
                 } catch (e) {
                     errorData = { detail: `HTTP error! status: ${response.status}` };
                 }
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                
+                // Improve YAML parsing error messages
+                let errorMessage = errorData.detail || `HTTP error! status: ${response.status}`;
+                if (errorMessage.includes('Invalid YAML')) {
+                    errorMessage = 'Invalid YAML detected. Please ensure your rule contains only valid YAML content. ' +
+                        'Make sure you haven\'t accidentally pasted HTML or UI text into the rule field.';
+                }
+                
+                throw new Error(errorMessage);
             }
             
             const data = await response.json();

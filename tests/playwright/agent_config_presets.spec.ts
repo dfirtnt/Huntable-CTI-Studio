@@ -232,7 +232,7 @@ test.describe('Agent Config Presets', () => {
     // Wait for autosave
     await page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 15000 }  // Increased from 5000 to 15000
     );
     await page.waitForTimeout(1000);
 

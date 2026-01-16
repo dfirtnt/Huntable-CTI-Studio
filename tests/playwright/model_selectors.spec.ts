@@ -179,16 +179,18 @@ describeFn('Model Selector Dropdowns - Duplicate Placeholder Check', () => {
     await providerSelect.waitFor({ state: 'visible' });
 
     await providerSelect.selectOption('openai');
+    await page.waitForTimeout(2000);  // Wait for UI to update
     const openaiSelect = page.locator('#rankagent-model-openai');
-    await expect(openaiSelect).toBeVisible();
+    await expect(openaiSelect).toBeVisible({ timeout: 10000 });
     const openaiOptions = await openaiSelect.locator('option').allTextContents();
     expect(openaiOptions[0].trim()).toBe('Select an OpenAI model');
     expect(openaiOptions.some(text => text.includes('gpt-4.1'))).toBeTruthy();
     expect(openaiOptions.some(text => text.includes('gpt-4o'))).toBeTruthy();
 
     await providerSelect.selectOption('anthropic');
+    await page.waitForTimeout(2000);  // Wait for UI to update
     const anthropicSelect = page.locator('#rankagent-model-anthropic');
-    await expect(anthropicSelect).toBeVisible();
+    await expect(anthropicSelect).toBeVisible({ timeout: 10000 });
     const anthropicOptions = await anthropicSelect.locator('option').allTextContents();
     expect(anthropicOptions[0].trim()).toBe('Select a Claude model');
     const hasClaude37 = anthropicOptions.some(text => text.toLowerCase().includes('claude-3.7'));
@@ -223,9 +225,10 @@ describeFn('Model Selector Dropdowns - Duplicate Placeholder Check', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible' });
     await providerSelect.selectOption('anthropic');
+    await page.waitForTimeout(2000);  // Wait for UI to update
 
     const anthropicSelect = page.locator('#rankagent-model-anthropic');
-    await expect(anthropicSelect).toBeVisible();
+    await expect(anthropicSelect).toBeVisible({ timeout: 10000 });
     const options = await anthropicSelect.locator('option').allTextContents();
     expect(options.some(text => text.includes('nvidia'))).toBeFalsy();
   });

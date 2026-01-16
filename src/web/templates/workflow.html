@@ -1559,9 +1559,20 @@
                         <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                             ❌ Reject
                         </button>
-                        <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
-                            ✓ Validate
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <select id="validateProviderSelect" class="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="gemini">Gemini</option>
+                                <option value="lmstudio">LMStudio</option>
+                            </select>
+                            <select id="validateModelSelect" class="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[150px]">
+                                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                            </select>
+                            <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                                ✓ Validate
+                            </button>
+                        </div>
                         <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
                             ✨ Enrich
                         </button>
@@ -1577,7 +1588,7 @@
         </div>
 
         <!-- Enrich Rule Modal -->
-        <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[60]">
             <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
                 <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white">✨ AI-Assisted Rule Enrichment</h3>
@@ -1589,11 +1600,23 @@
                             <select id="enrichModelSelect" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[200px]">
                                 <option value="">Select model...</option>
                             </select>
+                            <button onclick="saveEnrichmentPreset()" class="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md">
+                                💾 Save Preset
+                            </button>
+                            <button onclick="showPresetList()" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                                📋 Load Preset
+                            </button>
                         </div>
                         <button onclick="closeEnrichModal()" class="text-gray-400 hover:text-gray-600">✕</button>
                     </div>
                 </div>
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
+                        <input type="checkbox" id="includeArticleContent" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="includeArticleContent" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                            Include article content (0.8 junk-filtered) in enrichment prompt
+                        </label>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             User Instruction (optional):
@@ -1801,6 +1824,76 @@ END SYSTEM PROMPT</textarea>
                                 </div>
                             </div>
                         </div>
+                        <div id="enrichDiffView" class="hidden mt-4">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Results</h3>
+                                
+                                <!-- Overall Similarity & Novelty Classification -->
+                                <div class="mb-6">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">Weighted Similarity</span>
+                                        <div class="flex items-center space-x-4">
+                                            <span id="enrichOverallSimilarity" class="text-3xl font-bold text-blue-600 dark:text-blue-400">-</span>
+                                            <span id="enrichNoveltyLabel" class="px-3 py-1 rounded text-sm font-semibold"></span>
+                                        </div>
+                                    </div>
+                                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-4">
+                                        <div id="enrichSimilarityBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                                        <span>Novelty Score: </span>
+                                        <span id="enrichNoveltyScore" class="font-semibold">-</span>
+                                    </div>
+                                </div>
+
+                                <!-- Behavioral Similarity Breakdown -->
+                                <div class="mb-6">
+                                    <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🔍 Behavioral Similarity Breakdown</h4>
+                                    <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                                        <div class="grid grid-cols-1 gap-2 text-sm">
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
+                                                <span id="enrichAtomJaccard" class="font-medium text-blue-700 dark:text-blue-300">-</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
+                                                <span id="enrichLogicShape" class="font-medium text-blue-700 dark:text-blue-300">-</span>
+                                            </div>
+                                            <div id="enrichLogicShapeNA" class="hidden text-xs text-gray-500 dark:text-gray-400 italic">
+                                                N/A - Logic shape not computed when all atoms are identical (proven event equivalence)
+                                            </div>
+                                            <div class="pt-2 border-t border-blue-200 dark:border-blue-700 flex justify-between">
+                                                <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
+                                                <span id="enrichWeightedTotal" class="font-medium text-blue-700 dark:text-blue-300">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Explainability -->
+                                <div id="enrichExplainabilitySection" class="mb-6 hidden">
+                                    <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">📊 Explainability</h4>
+                                    <div class="space-y-4">
+                                        <div id="enrichSharedAtomsSection" class="hidden">
+                                            <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Shared Atoms:</h5>
+                                            <div id="enrichSharedAtoms" class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
+                                        </div>
+                                        <div id="enrichAddedAtomsSection" class="hidden">
+                                            <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in Original (not in Enriched):</h5>
+                                            <div id="enrichAddedAtoms" class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
+                                        </div>
+                                        <div id="enrichRemovedAtomsSection" class="hidden">
+                                            <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in Enriched (not in Original):</h5>
+                                            <div id="enrichRemovedAtoms" class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
+                                        </div>
+                                        <div id="enrichFilterDifferencesSection" class="hidden">
+                                            <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Filter Differences (NOT logic):</h5>
+                                            <div id="enrichFilterDifferences" class="bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs"></textarea>
                         <div class="mt-4">
                             <button onclick="toggleRawResponse()" class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-left text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer" role="button" aria-expanded="false" id="rawResponseToggle">
@@ -1832,7 +1925,7 @@ END SYSTEM PROMPT</textarea>
         </div>
         
         <!-- Prompt History Modal -->
-        <div id="promptHistoryModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div id="promptHistoryModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
             <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
@@ -1846,6 +1939,28 @@ END SYSTEM PROMPT</textarea>
                     </div>
                     <div class="mt-4 flex justify-end">
                         <button onclick="closePromptHistoryModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Preset List Modal -->
+        <div id="presetListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">📋 Enrichment Presets</h3>
+                        <button onclick="closePresetListModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            ✕
+                        </button>
+                    </div>
+                    <div id="presetList" class="space-y-3 max-h-[60vh] overflow-y-auto">
+                        <!-- Preset items will be populated here -->
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="closePresetListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                             Close
                         </button>
                     </div>
@@ -10257,12 +10372,95 @@ function previewRule(ruleId) {
     resetQualityReviewCard();
     
     renderRulePreview(rule);
-    document.getElementById('ruleModal').classList.remove('hidden');
+    pushModal('ruleModal', false); // Don't hide previous, rule modal is base level
+}
+
+function initializeValidateDropdowns() {
+    const validateProviderSelect = document.getElementById('validateProviderSelect');
+    const validateModelSelect = document.getElementById('validateModelSelect');
+    
+    if (!validateProviderSelect || !validateModelSelect) return;
+    
+    // Remove existing listeners to avoid duplicates
+    const newProviderSelect = validateProviderSelect.cloneNode(true);
+    validateProviderSelect.parentNode.replaceChild(newProviderSelect, validateProviderSelect);
+    
+    newProviderSelect.addEventListener('change', async function() {
+        const provider = this.value;
+        const modelSelect = document.getElementById('validateModelSelect');
+        if (!modelSelect) return;
+        
+        modelSelect.innerHTML = '<option value="">Loading...</option>';
+        
+        if (provider === 'lmstudio') {
+            try {
+                const response = await fetch('/api/lmstudio-models');
+                if (response.ok) {
+                    const data = await response.json();
+                    modelSelect.innerHTML = '';
+                    if (data.success && data.models && data.models.length > 0) {
+                        data.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            modelSelect.appendChild(option);
+                        });
+                        modelSelect.value = data.models[0];
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'No models available';
+                        option.disabled = true;
+                        modelSelect.appendChild(option);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading LMStudio models:', error);
+            }
+        } else if (enrichProviderCatalog && enrichProviderCatalog[provider]) {
+            modelSelect.innerHTML = '';
+            enrichProviderCatalog[provider].forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+            if (enrichProviderCatalog[provider].length > 0) {
+                modelSelect.value = enrichProviderCatalog[provider][0];
+            }
+        } else {
+            // Default models for each provider
+            modelSelect.innerHTML = '';
+            const defaultModels = {
+                'openai': ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+                'anthropic': ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
+                'gemini': ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash']
+            };
+            
+            if (defaultModels[provider]) {
+                defaultModels[provider].forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    modelSelect.appendChild(option);
+                });
+                modelSelect.value = defaultModels[provider][0];
+            }
+        }
+    });
+    
+    // Trigger initial population
+    if (newProviderSelect.value) {
+        newProviderSelect.dispatchEvent(new Event('change'));
+    }
 }
 
 function renderRulePreview(rule) {
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
+    
+    // Initialize validate dropdowns when rule preview is rendered
+    setTimeout(() => initializeValidateDropdowns(), 100);
     
     let similarRulesHtml = '';
     if (similarityScores.length > 0) {
@@ -10512,6 +10710,12 @@ async function submitPR() {
 }
 
 function closeRuleModal() {
+    // Remove from stack
+    const index = modalStack.indexOf('ruleModal');
+    if (index > -1) {
+        modalStack.splice(index, 1);
+    }
+    
     document.getElementById('ruleModal').classList.add('hidden');
     currentRuleId = null;
     isEditMode = false;
@@ -10531,33 +10735,51 @@ async function validateRule() {
         return;
     }
     
-    // Get API key
+    // Get provider and model from dropdowns
+    const providerSelect = document.getElementById('validateProviderSelect');
+    const modelSelect = document.getElementById('validateModelSelect');
+    const selectedProvider = providerSelect ? providerSelect.value : 'openai';
+    const selectedModel = modelSelect ? modelSelect.value : 'gpt-4o-mini';
+    
+    if (!selectedProvider || !selectedModel) {
+        alert('Please select both a provider and model.');
+        return;
+    }
+    
+    // Get API key based on provider
     let apiKey = null;
     try {
         const response = await fetch('/api/settings');
         if (response.ok) {
             const data = await response.json();
             const settings = data.settings || {};
-            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+            if (selectedProvider === 'openai') {
+                apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
+            } else if (selectedProvider === 'anthropic') {
+                apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
+            } else if (selectedProvider === 'gemini') {
+                apiKey = settings.WORKFLOW_GEMINI_API_KEY || settings.GEMINI_API_KEY;
+            }
+            // LMStudio doesn't need API key
         }
     } catch (error) {
         console.warn('Could not fetch API key from settings API, trying localStorage:', error);
     }
     
-    if (!apiKey) {
+    if (!apiKey && selectedProvider !== 'lmstudio') {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+        if (selectedProvider === 'openai') {
+            apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+        } else if (selectedProvider === 'anthropic') {
+            apiKey = settings.aiAnthropicApiKey;
+        } else if (selectedProvider === 'gemini') {
+            apiKey = settings.geminiApiKey;
+        }
     }
     
-    if (!apiKey) {
-        alert('Please configure your OpenAI API key in Settings first.');
+    if (!apiKey && selectedProvider !== 'lmstudio') {
+        alert(`Please configure your ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} API key in Settings first.`);
         return;
-    }
-    
-    // Remove any existing validation result
-    const existingResult = document.getElementById('validationResult');
-    if (existingResult) {
-        existingResult.remove();
     }
     
     // Show loading indicator
@@ -10576,29 +10798,185 @@ async function validateRule() {
     document.body.appendChild(loadingMsg);
     
     try {
+        // Build request headers
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (selectedProvider === 'openai') {
+            headers['X-OpenAI-API-Key'] = apiKey;
+        } else if (selectedProvider === 'anthropic') {
+            headers['X-Anthropic-API-Key'] = apiKey;
+        } else if (selectedProvider === 'gemini') {
+            headers['X-Gemini-API-Key'] = apiKey;
+        }
+        
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/validate`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-OpenAI-API-Key': apiKey
-            }
+            headers: headers,
+            body: JSON.stringify({
+                provider: selectedProvider,
+                model: selectedModel
+            })
         });
         
         // Remove loading indicator
         const loadingEl = document.getElementById('validationLoading');
         if (loadingEl) loadingEl.remove();
         
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (error) {
+            console.error('Error parsing response:', error);
+            const responseText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${responseText.substring(0, 200)}`);
+        }
         
-        // Create result container
-        const resultContainer = document.createElement('div');
-        resultContainer.id = 'validationResult';
-        resultContainer.className = 'mt-4 p-4 rounded-md border';
+        // If response is not ok, still show modal with error info
+        if (!response.ok) {
+            data = {
+                success: false,
+                message: data.detail || data.message || `Validation failed with status ${response.status}`,
+                attempts: 0,
+                conversation_log: [],
+                validation_results: [],
+                errors: [data.detail || data.message || 'Unknown error']
+            };
+        }
         
-        if (response.ok && data.success) {
-            // Validation succeeded
-            resultContainer.className += ' bg-green-50 dark:bg-green-900 border-green-200 dark:border-green-700';
-            resultContainer.innerHTML = `
+        // Ensure conversation_log exists
+        if (!data.conversation_log) {
+            data.conversation_log = [];
+        }
+        if (!data.validation_results) {
+            data.validation_results = [];
+        }
+        
+        // Show conversation log modal
+        showValidationConversationModal(data, selectedProvider, selectedModel);
+        
+    } catch (error) {
+        // Remove loading indicator
+        const loadingEl = document.getElementById('validationLoading');
+        if (loadingEl) loadingEl.remove();
+        
+        console.error('Error validating rule:', error);
+        alert('Error validating rule: ' + error.message);
+    }
+}
+
+function showValidationConversationModal(data, provider, model) {
+    // Remove any existing modal
+    closeValidationConversationModal();
+    
+    const modal = document.createElement('div');
+    modal.id = 'validationConversationModal';
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[65]';
+    
+    // Push to modal stack (will hide previous modal)
+    pushModal('validationConversationModal', true);
+    
+    // Add click outside to close
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeValidationConversationModal();
+        }
+    });
+    
+    const success = data.success || false;
+    const validatedYaml = data.validated_yaml || '';
+    const attempts = data.attempts || 0;
+    const message = data.message || '';
+    const conversationLog = data.conversation_log || [];
+    const validationResults = data.validation_results || [];
+    const errors = data.errors || [];
+    
+    // Build validation status display
+    let validationStatusHtml = '';
+    if (validationResults.length > 0) {
+        validationStatusHtml = '<div class="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">';
+        validationStatusHtml += '<h4 class="font-medium text-gray-900 dark:text-white mb-2">🔍 Validation Results</h4>';
+        
+        validationResults.forEach((result, index) => {
+            const statusIcon = result.is_valid ? '✅' : '❌';
+            const statusColor = result.is_valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+            const statusText = result.is_valid ? 'Valid' : 'Invalid';
+            const ruleIndex = result.rule_index !== undefined ? result.rule_index : (index + 1);
+            
+            validationStatusHtml += `<div class="mb-2 p-2 border rounded ${result.is_valid ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20'}">`;
+            validationStatusHtml += `<div class="flex items-center mb-1">`;
+            validationStatusHtml += `<span class="mr-2">${statusIcon}</span>`;
+            validationStatusHtml += `<span class="font-medium ${statusColor}">Rule ${ruleIndex}: ${statusText}</span>`;
+            validationStatusHtml += `</div>`;
+            
+            if (result.errors && result.errors.length > 0) {
+                validationStatusHtml += `<div class="text-sm text-red-600 dark:text-red-400 mb-1">`;
+                validationStatusHtml += `<strong>Errors:</strong><ul class="list-disc list-inside ml-2">`;
+                result.errors.forEach(error => {
+                    const escapedError = String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    validationStatusHtml += `<li>${escapedError}</li>`;
+                });
+                validationStatusHtml += `</ul></div>`;
+            }
+            
+            if (result.warnings && result.warnings.length > 0) {
+                validationStatusHtml += `<div class="text-sm text-yellow-600 dark:text-yellow-400 mb-1">`;
+                validationStatusHtml += `<strong>Warnings:</strong><ul class="list-disc list-inside ml-2">`;
+                result.warnings.forEach(warning => {
+                    const escapedWarning = String(warning).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    validationStatusHtml += `<li>${escapedWarning}</li>`;
+                });
+                validationStatusHtml += `</ul></div>`;
+            }
+            
+            validationStatusHtml += `</div>`;
+        });
+        
+        validationStatusHtml += '</div>';
+    }
+    
+    // Build error banner if failed
+    let errorBannerHtml = '';
+    if (!success) {
+        const errorsHtml = errors.length > 0 
+            ? `<ul class="mt-2 list-disc list-inside text-sm text-red-700 dark:text-red-300">${errors.map(err => `<li>${escapeHtml(String(err))}</li>`).join('')}</ul>`
+            : '';
+        errorBannerHtml = `
+            <div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-lg">
+                <div class="flex items-start">
+                    <span class="text-2xl mr-3">⚠️</span>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-red-900 dark:text-red-200 mb-2">Validation Failed</h4>
+                        <p class="text-sm text-red-800 dark:text-red-300 mb-2">${escapeHtml(message)}</p>
+                        ${errorsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Validation Results</h3>
+                <button onclick="closeValidationConversationModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                <span class="font-medium">Provider:</span> ${provider.charAt(0).toUpperCase() + provider.slice(1)} | 
+                <span class="font-medium">Model:</span> ${model} |
+                <span class="font-medium">Attempts:</span> ${attempts}
+            </div>
+            
+            ${errorBannerHtml}
+            
+            ${success ? `
+            <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                 <div class="flex items-start">
                     <div class="flex-shrink-0">
                         <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -10610,66 +10988,258 @@ async function validateRule() {
                             ✓ Validation Successful
                         </h4>
                         <p class="mt-1 text-sm text-green-700 dark:text-green-300">
-                            Rule validated successfully after ${data.attempts} attempt(s). The validated rule has been enriched and passed pySIGMA validation.
+                            ${escapeHtml(message)}
                         </p>
+                        ${validatedYaml ? `
                         <div class="mt-3">
-                            <button onclick="applyValidatedRule()" class="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md">
-                                Apply Validated Rule
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Store validated YAML for apply function
-            window.validatedYaml = data.validated_yaml;
-        } else {
-            // Validation failed
-            resultContainer.className += ' bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700';
-            const errorsHtml = data.errors && data.errors.length > 0 
-                ? `<ul class="mt-2 list-disc list-inside text-sm text-red-700 dark:text-red-300">${data.errors.map(err => `<li>${escapeHtml(err)}</li>`).join('')}</ul>`
-                : '<p class="mt-2 text-sm text-red-700 dark:text-red-300">Validation failed after 3 attempts.</p>';
-            
-            resultContainer.innerHTML = `
-                <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="ml-3 flex-1">
-                        <h4 class="text-sm font-medium text-red-800 dark:text-red-200">
-                            ✗ Validation Failed
-                        </h4>
-                        <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                            ${data.message || 'Validation failed after 3 attempts'}
-                        </p>
-                        ${errorsHtml}
-                        ${data.validated_yaml ? `
-                            <div class="mt-3">
-                                <p class="text-sm text-red-700 dark:text-red-300 mb-2">Last attempt's rule:</p>
-                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-red-200 dark:border-red-700 overflow-x-auto max-h-48 overflow-y-auto text-gray-900 dark:text-gray-100">${escapeHtml(data.validated_yaml)}</pre>
+                            <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Validated Rule:</h5>
+                            <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg max-h-96 overflow-y-auto">
+                                <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200">${escapeHtml(validatedYaml)}</pre>
                             </div>
+                        </div>
                         ` : ''}
                     </div>
                 </div>
-            `;
+            </div>
+            ` : ''}
+            
+            ${validationStatusHtml}
+            
+            <div class="mt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-md font-medium text-gray-900 dark:text-white">🔄 LLM ↔ pySigma Conversation Log</h4>
+                    <button id="toggleValidationConversation" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-3 py-1 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                        Show Log
+                    </button>
+                </div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mb-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                <div id="validationConversationContent" style="display: none;">
+                    <div id="validationConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded border">
+                        <!-- Filled by script below -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex justify-between items-center">
+                <div class="flex space-x-2">
+                    ${success && validatedYaml ? `
+                    <button onclick="applyValidatedRuleFromModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                        ✅ Apply Validated Rule
+                    </button>
+                    ` : ''}
+                </div>
+                <button onclick="closeValidationConversationModal()" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Store validated YAML for apply function
+    if (success && validatedYaml) {
+        window.validatedYaml = validatedYaml;
+    }
+    
+    // Add toggle functionality for conversation log
+    const toggleButton = document.getElementById('toggleValidationConversation');
+    const conversationContent = document.getElementById('validationConversationContent');
+    if (toggleButton && conversationContent) {
+        toggleButton.addEventListener('click', function() {
+            if (conversationContent.style.display === 'none') {
+                conversationContent.style.display = 'block';
+                toggleButton.textContent = 'Hide Log';
+            } else {
+                conversationContent.style.display = 'none';
+                toggleButton.textContent = 'Show Log';
+            }
+        });
+    }
+    
+    // Render conversation entries
+    try {
+        const convo = conversationLog || [];
+        const container = document.getElementById('validationConversation');
+        if (container) {
+            if (!convo.length) {
+                container.innerHTML = '<div class="text-sm text-gray-600 dark:text-gray-400 text-center py-4">⚠️ No conversation log available.</div>';
+            } else {
+                container.innerHTML = convo.map((entry, idx) => {
+                    const attempt = entry.attempt || (idx + 1);
+                    const attemptBadgeColor = idx === convo.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                    const attemptIcon = idx === convo.length - 1 ? '✅' : '🔄';
+                    
+                    // Format the messages (system + user prompts)
+                    const messages = entry.messages || [];
+                    const messagesHtml = messages.map((msg, msgIdx) => {
+                        const role = msg.role || 'user';
+                        const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const roleIcon = role === 'system' ? '⚙️' : '👤';
+                        const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
+                        const collapsibleId = 'val-msg-' + idx + '-' + msgIdx;
+                        
+                        return '<div class="mb-2">' +
+                            '<div class="flex items-center mb-1">' +
+                                '<span class="mr-2">' + roleIcon + '</span>' +
+                                '<span class="font-semibold ' + roleColor + ' text-sm uppercase">' + role + '</span>' +
+                            '</div>' +
+                            '<div class="bg-gray-100 dark:bg-gray-800 p-2 rounded border border-gray-300 dark:border-gray-600">' +
+                                '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">' + content + '</div>' +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                    
+                    // Format LLM response
+                    const llmResponse = entry.llm_response || '';
+                    const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const llmCollapsibleId = 'val-llm-' + idx;
+                    
+                    // Format validation results
+                    const validation = entry.validation || [];
+                    const hasErrors = validation.some(v => !v.is_valid);
+                    const validationIcon = hasErrors ? '❌' : '✅';
+                    const validationColor = hasErrors ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400';
+                    
+                    const validationHtml = validation.map((v, vIdx) => {
+                        const errs = (v.errors || []).map(e => '<li class="text-red-700 dark:text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                        const warns = (v.warnings || []).map(w => '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                        const statusBadge = v.is_valid 
+                            ? '<span class="px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">✅ VALID</span>'
+                            : '<span class="px-2 py-1 text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">❌ INVALID</span>';
+                        const borderClass = v.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
+                        const errsHtml = errs ? '<div class="mt-2"><strong class="text-sm text-red-800 dark:text-red-300">Errors:</strong><ul class="list-disc ml-5 mt-1">' + errs + '</ul></div>' : '';
+                        const warnsHtml = warns ? '<div class="mt-2"><strong class="text-sm text-yellow-800 dark:text-yellow-300">Warnings:</strong><ul class="list-disc ml-5 mt-1">' + warns + '</ul></div>' : '';
+                        
+                        return '<div class="mb-3 p-3 bg-white dark:bg-gray-800 border ' + borderClass + ' rounded">' +
+                            '<div class="flex items-center justify-between mb-2">' +
+                                '<span class="font-semibold text-sm text-gray-900 dark:text-white">Rule #' + (vIdx + 1) + '</span>' +
+                                statusBadge +
+                            '</div>' +
+                            errsHtml +
+                            warnsHtml +
+                        '</div>';
+                    }).join('');
+                    
+                    if (entry.error) {
+                        return '<div class="mb-4 p-3 border rounded bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700">' +
+                            '<div class="flex items-center mb-2">' +
+                                '<span class="mr-2">❌</span>' +
+                                '<span class="font-medium">Attempt ' + attempt + ' (Error)</span>' +
+                            '</div>' +
+                            '<div class="text-red-700 dark:text-red-300 text-sm">' + escapeHtml(entry.error) + '</div>' +
+                        '</div>';
+                    }
+                    
+                    return '<div class="mb-4 p-3 border rounded ' + (hasErrors ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700') + '">' +
+                        '<div class="flex items-center mb-2">' +
+                            '<span class="mr-2">' + attemptIcon + '</span>' +
+                            '<span class="font-medium text-gray-900 dark:text-white">Attempt ' + attempt + ':</span>' +
+                        '</div>' +
+                        '<div class="space-y-3">' +
+                            '<div class="border-l-4 border-blue-500 dark:border-blue-400 pl-3">' +
+                                '<div class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">📝 Prompts Sent to LLM</div>' +
+                                messagesHtml +
+                            '</div>' +
+                            '<div class="border-l-4 border-purple-500 dark:border-purple-400 pl-3">' +
+                                '<div class="flex items-center mb-2">' +
+                                    '<span class="mr-2">🤖</span>' +
+                                    '<span class="font-semibold text-sm text-gray-700 dark:text-gray-300">LLM Response</span>' +
+                                '</div>' +
+                                '<div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded border border-purple-200 dark:border-purple-700">' +
+                                    '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">' + llmContent + '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="border-l-4 ' + (hasErrors ? 'border-red-500 dark:border-red-400' : 'border-green-500 dark:border-green-400') + ' pl-3">' +
+                                '<div class="flex items-center mb-2">' +
+                                    '<span class="mr-2">' + validationIcon + '</span>' +
+                                    '<span class="font-semibold text-sm ' + validationColor + '">pySigma Validation</span>' +
+                                '</div>' +
+                                '<div class="space-y-2">' +
+                                    validationHtml +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+            }
+        }
+    } catch (e) {
+        console.error('Failed to render validation conversation', e);
+        const container = document.getElementById('validationConversation');
+        if (container) {
+            container.innerHTML = '<div class="text-sm text-red-600 dark:text-red-400">Error rendering conversation log. Check console for details.</div>';
+        }
+    }
+}
+
+function closeValidationConversationModal() {
+    const modal = document.getElementById('validationConversationModal');
+    if (modal) {
+        // Remove from stack and restore previous modal
+        const index = modalStack.indexOf('validationConversationModal');
+        if (index > -1) {
+            modalStack.splice(index, 1);
+            
+            // Restore previous modal if any
+            if (modalStack.length > 0) {
+                const previousModalId = modalStack[modalStack.length - 1];
+                const previousModal = document.getElementById(previousModalId);
+                if (previousModal) {
+                    previousModal.classList.remove('hidden');
+                }
+            }
         }
         
-        // Insert result into modal content
-        const previewContent = document.getElementById('rulePreviewContent');
-        if (previewContent) {
-            previewContent.appendChild(resultContainer);
-            // Scroll to result
-            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Remove modal element
+        modal.remove();
+    }
+}
+
+async function applyValidatedRuleFromModal() {
+    if (!window.validatedYaml) {
+        alert('No validated rule to apply');
+        return;
+    }
+    
+    if (!confirm('Apply the validated rule? This will update the rule YAML.')) return;
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: window.validatedYaml })
+        });
+        
+        if (response.ok) {
+            // Update the rule in the queue array
+            const rule = queue.find(r => r.id === currentRuleId);
+            if (rule) {
+                rule.rule_yaml = window.validatedYaml;
+                editedYaml = window.validatedYaml;
+                originalYaml = window.validatedYaml;
+                isEditMode = false;
+                
+                // Re-render the rule preview with updated YAML
+                renderRulePreview(rule);
+            }
+            
+            // Close validation modal
+            closeValidationConversationModal();
+            
+            // Clear validated YAML
+            window.validatedYaml = null;
+            
+            // Reload queue in background
+            loadQueue().catch(err => console.error('Error reloading queue:', err));
+            
+            alert('Validated rule applied successfully');
+        } else {
+            alert('Error applying validated rule');
         }
     } catch (error) {
-        // Remove loading indicator
-        const loadingEl = document.getElementById('validationLoading');
-        if (loadingEl) loadingEl.remove();
-        
-        console.error('Error validating rule:', error);
-        alert('Error validating rule: ' + error.message);
+        console.error('Error applying validated rule:', error);
+        alert('Error applying validated rule');
     }
 }
 
@@ -10860,9 +11430,30 @@ async function populateEnrichModelDropdown(provider) {
     }
 }
 
+// Track if preview modal was open when opening enrich modal
+// previewModalWasOpen removed - using modal stack instead
+
 async function openEnrichModal() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) return;
+    
+    // Ensure rule modal is in stack if it's open
+    const ruleModal = document.getElementById('ruleModal');
+    if (ruleModal && !ruleModal.classList.contains('hidden')) {
+        // Check if rule modal is already in stack
+        if (!modalStack.includes('ruleModal')) {
+            // Add rule modal to stack BEFORE pushing enrich modal
+            modalStack.push('ruleModal');
+        }
+    } else if (currentRuleId) {
+        // Rule modal should be open but isn't - this shouldn't happen, but ensure it's in stack
+        if (!modalStack.includes('ruleModal')) {
+            modalStack.push('ruleModal');
+        }
+    }
+    
+    // Push to modal stack (will hide previous modal, which should be ruleModal)
+    pushModal('enrichModal', true);
     
     // Reset state
     currentEnrichedYaml = null;
@@ -11058,6 +11649,7 @@ END SYSTEM PROMPT`;
     // Reset comparison view
     document.getElementById('enrichComparisonView').classList.add('hidden');
     document.getElementById('enrichedRuleYaml').classList.remove('hidden');
+    document.getElementById('enrichDiffView').classList.add('hidden');
     document.getElementById('toggleViewBtn').textContent = '📊 Show Comparison';
     
     // Safely reset labels if they exist
@@ -11083,11 +11675,39 @@ END SYSTEM PROMPT`;
     loadEnrichProviderModelCatalog();
     
     // Show modal
-    document.getElementById('enrichModal').classList.remove('hidden');
+    // Modal is already shown by pushModal in openEnrichModal
 }
 
 function closeEnrichModal() {
-    document.getElementById('enrichModal').classList.add('hidden');
+    const enrichModal = document.getElementById('enrichModal');
+    if (!enrichModal) return;
+    
+    // Hide enrich modal
+    enrichModal.classList.add('hidden');
+    
+    // Remove from stack if present
+    const enrichIndex = modalStack.indexOf('enrichModal');
+    if (enrichIndex > -1) {
+        modalStack.splice(enrichIndex, 1);
+    }
+    
+    // Always restore rule modal - enrich modal is always opened from rule modal
+    const ruleModal = document.getElementById('ruleModal');
+    if (ruleModal) {
+        // Show rule modal
+        ruleModal.classList.remove('hidden');
+        // Ensure it's in the stack
+        if (!modalStack.includes('ruleModal')) {
+            modalStack.push('ruleModal');
+        }
+    } else if (modalStack.length > 0) {
+        // Rule modal doesn't exist, restore whatever is in the stack
+        const previousModalId = modalStack[modalStack.length - 1];
+        const previousModal = document.getElementById(previousModalId);
+        if (previousModal) {
+            previousModal.classList.remove('hidden');
+        }
+    }
 }
 
 async function saveEnrichmentPrompt() {
@@ -11137,6 +11757,9 @@ async function showPromptHistory() {
             throw new Error(data.detail || 'Failed to load history');
         }
         
+        // Push to modal stack
+        pushModal('promptHistoryModal', true);
+        
         const historyList = document.getElementById('promptHistoryList');
         historyList.innerHTML = '';
         
@@ -11172,8 +11795,6 @@ async function showPromptHistory() {
                 historyList.appendChild(item);
             });
         }
-        
-        document.getElementById('promptHistoryModal').classList.remove('hidden');
     } catch (error) {
         console.error('Error loading history:', error);
         alert(`Error loading history: ${error.message}`);
@@ -11181,7 +11802,7 @@ async function showPromptHistory() {
 }
 
 function closePromptHistoryModal() {
-    document.getElementById('promptHistoryModal').classList.add('hidden');
+    popModal(); // This will hide prompt history modal and restore previous modal
 }
 
 async function loadPromptVersion(versionId) {
@@ -11206,6 +11827,290 @@ async function loadPromptVersion(versionId) {
     } catch (error) {
         console.error('Error loading prompt version:', error);
         alert(`Error loading prompt version: ${error.message}`);
+    }
+}
+
+async function saveEnrichmentPreset() {
+    const provider = document.getElementById('enrichProviderSelect').value;
+    const model = document.getElementById('enrichModelSelect').value;
+    const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
+    const userInstruction = document.getElementById('enrichInstruction').value.trim();
+    
+    if (!provider || !model) {
+        alert('Please select both a provider and model');
+        return;
+    }
+    
+    if (!systemPrompt) {
+        alert('System prompt cannot be empty');
+        return;
+    }
+    
+    // Prompt for preset name and description
+    const name = prompt('Enter a name for this preset:');
+    if (!name || !name.trim()) {
+        return; // User cancelled
+    }
+    
+    const description = prompt('Enter a description (optional):') || null;
+    
+    try {
+        const response = await fetch('/api/sigma-queue/preset/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name.trim(),
+                description: description,
+                provider: provider,
+                model: model,
+                system_prompt: systemPrompt,
+                user_instruction: userInstruction || null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to save preset');
+        }
+        
+        alert(`✅ Preset "${name}" ${data.message}`);
+    } catch (error) {
+        console.error('Error saving preset:', error);
+        alert(`Error saving preset: ${error.message}`);
+    }
+}
+
+async function showPresetList() {
+    try {
+        const response = await fetch('/api/sigma-queue/preset/list');
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to load presets');
+        }
+        
+        // Push to modal stack
+        pushModal('presetListModal', true);
+        
+        const presetList = document.getElementById('presetList');
+        presetList.innerHTML = '';
+        
+        if (data.presets.length === 0) {
+            presetList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No presets saved yet.</p>';
+        } else {
+            data.presets.forEach(preset => {
+                const item = document.createElement('div');
+                item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+                
+                const date = new Date(preset.updated_at);
+                const dateStr = date.toLocaleString();
+                
+                item.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="font-semibold text-gray-900 dark:text-white">${escapeHtml(preset.name)}</span>
+                                <span class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">${escapeHtml(preset.provider)}</span>
+                                <span class="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded">${escapeHtml(preset.model)}</span>
+                            </div>
+                            ${preset.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(preset.description)}</p>` : ''}
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                Updated: ${dateStr}
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="loadPreset(${preset.id})" class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                                Load
+                            </button>
+                            <button onclick="deletePreset(${preset.id}, '${escapeHtml(preset.name)}')" class="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                presetList.appendChild(item);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading presets:', error);
+        alert(`Error loading presets: ${error.message}`);
+    }
+}
+
+function closePresetListModal() {
+    popModal(); // This will hide preset list modal and restore previous modal
+}
+
+async function loadPreset(presetId) {
+    try {
+        const response = await fetch(`/api/sigma-queue/preset/${presetId}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to load preset');
+        }
+        
+        // Load the preset into the form
+        document.getElementById('enrichProviderSelect').value = data.provider;
+        await populateEnrichModelDropdown(data.provider);
+        
+        // Wait a bit for model dropdown to populate, then set model
+        setTimeout(() => {
+            document.getElementById('enrichModelSelect').value = data.model;
+        }, 100);
+        
+        document.getElementById('enrichSystemPrompt').value = data.system_prompt;
+        if (data.user_instruction) {
+            document.getElementById('enrichInstruction').value = data.user_instruction;
+        } else {
+            document.getElementById('enrichInstruction').value = '';
+        }
+        
+        // Close preset modal
+        closePresetListModal();
+        
+        alert(`✅ Preset "${data.name}" loaded`);
+    } catch (error) {
+        console.error('Error loading preset:', error);
+        alert(`Error loading preset: ${error.message}`);
+    }
+}
+
+async function deletePreset(presetId, presetName) {
+    if (!confirm(`Are you sure you want to delete preset "${presetName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/sigma-queue/preset/${presetId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to delete preset');
+        }
+        
+        // Reload preset list
+        await showPresetList();
+        
+        alert(`✅ Preset "${presetName}" deleted`);
+    } catch (error) {
+        console.error('Error deleting preset:', error);
+        alert(`Error deleting preset: ${error.message}`);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
+    const diffView = document.getElementById('enrichDiffView');
+    
+    if (!diffView) {
+        console.warn('Diff view element not found');
+        return;
+    }
+    
+    // Basic validation - check if rules are not empty
+    if (!originalYaml || !originalYaml.trim()) {
+        diffView.classList.remove('hidden');
+        diffView.innerHTML = `<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div class="flex items-center">
+                <span class="text-yellow-600 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
+                <span class="text-yellow-800 dark:text-yellow-200">Original rule is empty. Cannot compare.</span>
+            </div>
+        </div>`;
+        return;
+    }
+    
+    if (!enrichedYaml || !enrichedYaml.trim()) {
+        diffView.classList.remove('hidden');
+        diffView.innerHTML = `<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div class="flex items-center">
+                <span class="text-yellow-600 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
+                <span class="text-yellow-800 dark:text-yellow-200">Enriched rule is empty. Cannot compare.</span>
+            </div>
+        </div>`;
+        return;
+    }
+    
+    // Show loading state
+    diffView.classList.remove('hidden');
+    const overallSimilarityEl = document.getElementById('enrichOverallSimilarity');
+    const noveltyLabelEl = document.getElementById('enrichNoveltyLabel');
+    const similarityBarEl = document.getElementById('enrichSimilarityBar');
+    
+    if (overallSimilarityEl) overallSimilarityEl.textContent = '...';
+    if (noveltyLabelEl) noveltyLabelEl.textContent = '';
+    if (similarityBarEl) similarityBarEl.style.width = '0%';
+    
+    try {
+        // Call the sigma-ab-test compare endpoint
+        const response = await fetch('/api/sigma-ab-test/compare', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                rule_a: originalYaml,
+                rule_b: enrichedYaml
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            // Extract detailed error message
+            let errorMsg = 'Failed to compare rules';
+            if (data.detail) {
+                errorMsg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+            } else if (data.error) {
+                errorMsg = data.error;
+            } else if (data.message) {
+                errorMsg = data.message;
+            }
+            throw new Error(errorMsg);
+        }
+        
+        if (!data.success) {
+            throw new Error(data.error || data.detail || 'Comparison returned unsuccessful result');
+        }
+        
+        // Display results using standardized similarity display component
+        updateSimilarityDisplay(data, { prefix: 'enrich' });
+        
+    } catch (error) {
+        console.error('Error generating enrichment diff:', error);
+        // Show error in diff view with more detail
+        const diffView = document.getElementById('enrichDiffView');
+        if (diffView) {
+            // Preserve the structure but show error message
+            const errorMsg = error.message || 'Failed to compare rules';
+            const isValidationError = errorMsg.includes('validation') || errorMsg.includes('Invalid YAML') || errorMsg.includes('Rule') || errorMsg.includes('validation');
+            
+            diffView.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Error</h3>
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <span class="text-red-600 dark:text-red-400 font-semibold mr-2 mt-1">❌</span>
+                        <div class="flex-1">
+                            <div class="text-red-800 dark:text-red-200 font-semibold mb-2">${isValidationError ? 'Validation Error' : 'Comparison Failed'}</div>
+                            <div class="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap">${escapeHtml(errorMsg)}</div>
+                            ${isValidationError ? '<div class="text-red-600 dark:text-red-400 text-xs mt-2 italic">Tip: Ensure both rules are valid Sigma YAML before comparing.</div>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
     }
 }
 
@@ -11296,11 +12201,14 @@ async function enrichRule() {
             headers[headerKey] = apiKey;
         }
         
+        const includeArticleContent = document.getElementById('includeArticleContent').checked;
+        
         const requestBody = {
             instruction: instruction || undefined,
             system_prompt: systemPrompt || undefined,
             provider: selectedProvider,
-            model: selectedModel
+            model: selectedModel,
+            include_article_content: includeArticleContent
         };
         
         console.log('Sending enrich request:', {
@@ -11384,6 +12292,9 @@ async function enrichRule() {
             // Populate comparison view
             originalComparison.textContent = previousYaml;
             enrichedComparison.textContent = enrichedYaml;
+            
+            // Generate and display A/B diff automatically
+            await generateEnrichmentDiff(previousYaml, enrichedYaml);
             
             // Show result section first
             enrichResult.classList.remove('hidden');
@@ -11478,15 +12389,7 @@ if (enrichModal) {
     });
 }
 
-// Close enrich modal with ESC key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('enrichModal');
-        if (modal && !modal.classList.contains('hidden')) {
-            closeEnrichModal();
-        }
-    }
-});
+// Enrich modal escape handling is now done by the unified escape handler below
 
 async function enrichRuleFurther() {
     // Use the current enriched rule as the base for further enrichment
@@ -11558,6 +12461,7 @@ async function enrichRuleFurther() {
     if (newInstruction === null) return; // User cancelled
     
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
+    const includeArticleContent = document.getElementById('includeArticleContent').checked;
     
     // Show loading
     const enrichFurtherBtn = document.getElementById('enrichFurtherBtn');
@@ -11588,7 +12492,8 @@ async function enrichRuleFurther() {
                 system_prompt: systemPrompt || undefined,
                 provider: selectedProvider,
                 model: selectedModel,
-                current_rule_yaml: currentEnrichedYaml  // Pass current enriched YAML
+                current_rule_yaml: currentEnrichedYaml,  // Pass current enriched YAML
+                include_article_content: includeArticleContent
             })
         });
         
@@ -11642,6 +12547,9 @@ async function enrichRuleFurther() {
             // Populate comparison view
             originalComparison.textContent = previousYaml;
             enrichedComparison.textContent = enrichedYaml;
+            
+            // Generate and display A/B diff automatically
+            await generateEnrichmentDiff(previousYaml, enrichedYaml);
             
             // Ensure views are visible
             enrichResult.classList.remove('hidden');
@@ -11723,12 +12631,116 @@ if (ruleModal) {
     });
 }
 
-// Close modal with ESC key
+// Modal stack management
+const modalStack = [];
+
+function pushModal(modalId, hidePrevious = true) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    
+    // Hide previous modal if requested
+    if (hidePrevious && modalStack.length > 0) {
+        const previousModalId = modalStack[modalStack.length - 1];
+        const previousModal = document.getElementById(previousModalId);
+        if (previousModal) {
+            previousModal.classList.add('hidden');
+        }
+    }
+    
+    // Add to stack and show
+    modalStack.push(modalId);
+    modal.classList.remove('hidden');
+}
+
+function popModal() {
+    if (modalStack.length === 0) return null;
+    
+    const currentModalId = modalStack.pop();
+    const currentModal = document.getElementById(currentModalId);
+    if (currentModal) {
+        // Remove modal if it's dynamically created
+        const dynamicModals = ['validationConversationModal', 'similarRulesModal', 'similarRuleModal'];
+        if (dynamicModals.includes(currentModalId)) {
+            currentModal.remove();
+        } else {
+            currentModal.classList.add('hidden');
+        }
+    }
+    
+    // Restore previous modal
+    if (modalStack.length > 0) {
+        const previousModalId = modalStack[modalStack.length - 1];
+        const previousModal = document.getElementById(previousModalId);
+        if (previousModal) {
+            previousModal.classList.remove('hidden');
+        }
+    }
+    
+    return currentModalId;
+}
+
+function isModalOpen(modalId) {
+    return modalStack.includes(modalId);
+}
+
+// Unified ESC key handler - closes topmost modal
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        const modal = document.getElementById('ruleModal');
-        if (modal && !modal.classList.contains('hidden')) {
+        // Check for dynamically created modals first (they're always on top)
+        const validationModal = document.getElementById('validationConversationModal');
+        if (validationModal && validationModal.parentNode) {
+            closeValidationConversationModal();
+            e.stopPropagation();
+            return;
+        }
+        
+        // Check similar rule detail modal (highest z-index, dynamically created)
+        const similarRuleModal = document.getElementById('similarRuleModal');
+        if (similarRuleModal && similarRuleModal.parentNode) {
+            closeSimilarRuleModal();
+            e.stopPropagation();
+            return;
+        }
+        
+        // Check prompt history/preset modals (highest z-index)
+        const promptHistoryModal = document.getElementById('promptHistoryModal');
+        if (promptHistoryModal && !promptHistoryModal.classList.contains('hidden')) {
+            closePromptHistoryModal();
+            e.stopPropagation();
+            return;
+        }
+        
+        const presetListModal = document.getElementById('presetListModal');
+        if (presetListModal && !presetListModal.classList.contains('hidden')) {
+            closePresetListModal();
+            e.stopPropagation();
+            return;
+        }
+        
+        // Check similarity rules modal (dynamically created)
+        const similarRulesModal = document.getElementById('similarRulesModal');
+        if (similarRulesModal && similarRulesModal.parentNode) {
+            closeSimilarRulesModal();
+            e.stopPropagation();
+            return;
+        }
+        
+        // Check enrich modal first (it's on top)
+        const enrichModal = document.getElementById('enrichModal');
+        if (enrichModal && !enrichModal.classList.contains('hidden')) {
+            closeEnrichModal();
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+        }
+        
+        // Check rule modal (only if enrich modal is not open)
+        const ruleModal = document.getElementById('ruleModal');
+        if (ruleModal && !ruleModal.classList.contains('hidden')) {
             closeRuleModal();
+            e.stopPropagation();
+            e.preventDefault();
+            return;
         }
     }
 });
@@ -12010,7 +13022,10 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
     
     const modal = document.createElement('div');
     modal.id = 'similarRulesModal';
-    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[65]';
+    
+    // Push to modal stack (will hide previous modal)
+    pushModal('similarRulesModal', true);
     
     // Add click outside to close
     modal.addEventListener('click', function(e) {
@@ -12018,15 +13033,6 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
             closeSimilarRulesModal();
         }
     });
-    
-    // Add ESC key to close
-    const handleEsc = function(e) {
-        if (e.key === 'Escape') {
-            closeSimilarRulesModal();
-            document.removeEventListener('keydown', handleEsc);
-        }
-    };
-    document.addEventListener('keydown', handleEsc);
     
     
     // Build matches HTML
@@ -12116,6 +13122,38 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
                                     <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
                                     <span class="font-medium text-blue-700 dark:text-blue-300">${similarityPercent}%</span>
                                 </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${(match.shared_atoms && match.shared_atoms.length > 0) || (match.added_atoms && match.added_atoms.length > 0) || (match.removed_atoms && match.removed_atoms.length > 0) || (match.filter_differences && match.filter_differences.length > 0) ? `
+                        <div class="mt-3 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded">
+                            <div class="text-xs font-bold text-gray-900 dark:text-gray-100 mb-2">📊 Explainability:</div>
+                            <div class="space-y-2 text-xs">
+                                ${match.shared_atoms && match.shared_atoms.length > 0 ? `
+                                    <div>
+                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Shared Atoms:</div>
+                                        <div class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.shared_atoms.join('\n'))}</div>
+                                    </div>
+                                ` : ''}
+                                ${match.added_atoms && match.added_atoms.length > 0 ? `
+                                    <div>
+                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Atoms in Current Rule (not in Similar Rule):</div>
+                                        <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.added_atoms.join('\n'))}</div>
+                                    </div>
+                                ` : ''}
+                                ${match.removed_atoms && match.removed_atoms.length > 0 ? `
+                                    <div>
+                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Atoms in Similar Rule (not in Current Rule):</div>
+                                        <div class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.removed_atoms.join('\n'))}</div>
+                                    </div>
+                                ` : ''}
+                                ${match.filter_differences && match.filter_differences.length > 0 ? `
+                                    <div>
+                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Differences (NOT logic):</div>
+                                        <div class="bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.filter_differences.join('\n'))}</div>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     ` : ''}
@@ -12305,6 +13343,21 @@ function toggleSimilarRulesModalExpand() {
 function closeSimilarRulesModal() {
     const modal = document.getElementById('similarRulesModal');
     if (modal) {
+        // Remove from stack and restore previous modal
+        const index = modalStack.indexOf('similarRulesModal');
+        if (index > -1) {
+            modalStack.splice(index, 1);
+            
+            // Restore previous modal if any
+            if (modalStack.length > 0) {
+                const previousModalId = modalStack[modalStack.length - 1];
+                const previousModal = document.getElementById(previousModalId);
+                if (previousModal) {
+                    previousModal.classList.remove('hidden');
+                }
+            }
+        }
+        
         modal.remove();
         isSimilarRulesModalExpanded = false;
     }
@@ -12793,7 +13846,10 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'similarRuleModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]';
+        
+        // Push to modal stack (will hide previous modal)
+        pushModal('similarRuleModal', true);
         
         // Format tags
         const tagsHtml = ruleData.tags && ruleData.tags.length > 0 ? `
@@ -12894,14 +13950,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
             }
         });
         
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeSimilarRuleModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
+        // ESC key handled by unified handler
         
         document.body.appendChild(modal);
     } catch (error) {
@@ -12913,6 +13962,21 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
 function closeSimilarRuleModal() {
     const modal = document.getElementById('similarRuleModal');
     if (modal) {
+        // Remove from stack and restore previous modal
+        const index = modalStack.indexOf('similarRuleModal');
+        if (index > -1) {
+            modalStack.splice(index, 1);
+            
+            // Restore previous modal if any
+            if (modalStack.length > 0) {
+                const previousModalId = modalStack[modalStack.length - 1];
+                const previousModal = document.getElementById(previousModalId);
+                if (previousModal) {
+                    previousModal.classList.remove('hidden');
+                }
+            }
+        }
+        
         modal.remove();
     }
 }

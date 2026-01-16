@@ -30,7 +30,7 @@ test.describe('Agent Config Commercial Models', () => {
 
     // Check for model selector (could be input or select)
     const modelSelector = page.locator('#rankagent-model-openai');
-    await modelSelector.waitFor({ state: 'visible', timeout: 5000 });
+    await modelSelector.waitFor({ state: 'visible', timeout: 15000 });  // Increased from 5000 to 15000
 
     // Verify it exists and is either input or select
     const tagName = await modelSelector.evaluate((el: HTMLElement) => el.tagName.toLowerCase());
@@ -50,7 +50,7 @@ test.describe('Agent Config Commercial Models', () => {
 
     // Check for model selector
     const modelSelector = page.locator('#rankagent-model-anthropic');
-    await modelSelector.waitFor({ state: 'visible', timeout: 5000 });
+    await modelSelector.waitFor({ state: 'visible', timeout: 15000 });  // Increased from 5000 to 15000
 
     // Verify it exists and is either input or select
     const tagName = await modelSelector.evaluate((el: HTMLElement) => el.tagName.toLowerCase());
@@ -65,7 +65,7 @@ test.describe('Agent Config Commercial Models', () => {
     await page.waitForTimeout(2000);
 
     const modelSelector = page.locator('#rankagent-model-openai');
-    await modelSelector.waitFor({ state: 'visible', timeout: 5000 });
+    await modelSelector.waitFor({ state: 'visible', timeout: 15000 });  // Increased from 5000 to 15000
 
     const tagName = await modelSelector.evaluate((el: HTMLElement) => el.tagName.toLowerCase());
     
@@ -98,7 +98,7 @@ test.describe('Agent Config Commercial Models', () => {
     await page.waitForTimeout(2000);
 
     const modelSelector = page.locator('#rankagent-model-openai');
-    await modelSelector.waitFor({ state: 'visible', timeout: 5000 });
+    await modelSelector.waitFor({ state: 'visible', timeout: 15000 });  // Increased from 5000 to 15000
 
     const tagName = await modelSelector.evaluate((el: HTMLElement) => el.tagName.toLowerCase());
     

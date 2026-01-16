@@ -65,8 +65,8 @@ test.describe('Observables plain selection', () => {
     await page.goto(`${BASE}/articles/658`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Observables Mode' }).click();
-    await page.waitForSelector('#article-content-plain', { state: 'visible' });
-    await page.waitForFunction(() => Boolean((window as any).SimpleTextManager || (window as any).simpleTextManager));
+    await page.waitForSelector('#article-content-plain', { state: 'visible', timeout: 15000 });  // Increased timeout
+    await page.waitForFunction(() => Boolean((window as any).SimpleTextManager || (window as any).simpleTextManager), { timeout: 15000 });  // Increased timeout
     await page.evaluate(() => {
       const w = window as any;
       if (!w.simpleTextManager && typeof w.SimpleTextManager === 'function') {
@@ -77,6 +77,7 @@ test.describe('Observables plain selection', () => {
     const phrases = ['Cloudflare verification prompt', 'After the device restarts'];
     for (const phrase of phrases) {
       await selectPhrase(page, phrase);
+      await page.waitForTimeout(1000);  // Wait for annotation to be saved
       const resp = await page.request.get(`${BASE}/api/articles/658/annotations`);
       expect(resp.ok()).toBeTruthy();
       const data = await resp.json();

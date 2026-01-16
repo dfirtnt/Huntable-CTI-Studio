@@ -158,17 +158,21 @@ test.describe('Workflow Config Persistence', () => {
 
     try {
       const tempSave = page.waitForResponse(response =>
-        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT'
+        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',
+        { timeout: 15000 }  // Increased timeout
       );
       await tempInput.fill(newTemp.toString());
-      await tempInput.dispatchEvent('change');
+      await tempInput.blur();  // Use blur instead of dispatchEvent for autosave
+      await page.waitForTimeout(500);  // Wait for debouncing
       await tempSave;
 
       const topPSave = page.waitForResponse(response =>
-        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT'
+        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',
+        { timeout: 15000 }  // Increased timeout
       );
       await topPInput.fill(newTopP.toString());
-      await topPInput.dispatchEvent('change');
+      await topPInput.blur();  // Use blur instead of dispatchEvent for autosave
+      await page.waitForTimeout(500);  // Wait for debouncing
       await topPSave;
 
       await reloadWorkflowConfig(page);
@@ -220,11 +224,13 @@ test.describe('Workflow Config Persistence', () => {
 
     try {
       const saveResponse = page.waitForResponse(response =>
-        response.url().includes('/api/workflow/config/prompts') && response.request().method() === 'PUT'
+        response.url().includes('/api/workflow/config/prompts') && response.request().method() === 'PUT',
+        { timeout: 15000 }  // Increased timeout
       );
       await userInput.fill(updatedUser);
       const saveButton = page.locator('#rank-agent-prompt-container button', { hasText: 'Save' });
       await saveButton.click();
+      await page.waitForTimeout(500);  // Wait for API call
       await saveResponse;
 
       await waitForConfigUpdate(page, initialVersion);

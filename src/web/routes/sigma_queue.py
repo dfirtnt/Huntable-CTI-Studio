@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from src.database.manager import DatabaseManager
-from src.database.models import SigmaRuleQueueTable, ArticleTable, EnrichmentPromptVersionTable
+from src.database.models import SigmaRuleQueueTable, ArticleTable, EnrichmentPromptVersionTable, EnrichmentPresetTable
 from src.utils.prompt_loader import format_prompt
+from src.utils.content_filter import ContentFilter
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.sigma_pr_service import SigmaPRService
@@ -65,6 +66,13 @@ class EnrichRuleRequest(BaseModel):
     current_rule_yaml: Optional[str] = None  # Optional current rule YAML for iterative enrichment
     provider: Optional[str] = None  # LLM provider (openai, anthropic, gemini)
     model: Optional[str] = None  # Model name
+    include_article_content: Optional[bool] = False  # Include junk-filtered article content
+
+
+class ValidateRuleRequest(BaseModel):
+    """Request model for validating a rule."""
+    provider: Optional[str] = None  # LLM provider (openai, anthropic, gemini, lmstudio)
+    model: Optional[str] = None  # Model name
 
 
 class SavePromptRequest(BaseModel):
@@ -72,6 +80,16 @@ class SavePromptRequest(BaseModel):
     system_prompt: str
     user_instruction: Optional[str] = None
     change_description: Optional[str] = None
+
+
+class SavePresetRequest(BaseModel):
+    """Request model for saving an enrichment preset."""
+    name: str
+    description: Optional[str] = None
+    provider: str
+    model: str
+    system_prompt: str
+    user_instruction: Optional[str] = None
 
 
 @router.get("/list", response_model=List[QueuedRuleResponse])
@@ -328,13 +346,38 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             # Use provided current rule YAML for iterative enrichment, or fall back to stored rule
             rule_yaml_to_enrich = enrich_request.current_rule_yaml or rule.rule_yaml
             
-            enrichment_prompt = format_prompt(
-                "sigma_enrichment",
-                rule_yaml=rule_yaml_to_enrich,
-                article_title=article.title,
-                article_url=article.canonical_url or 'N/A',
-                user_instruction=instruction_text
-            )
+            # Get article content if requested (with 0.8 junk filter)
+            article_content = None
+            if enrich_request.include_article_content:
+                try:
+                    content_filter = ContentFilter()
+                    hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
+                    filter_result = content_filter.filter_content(
+                        article.content,
+                        min_confidence=0.8,
+                        hunt_score=hunt_score,
+                        article_id=article.id
+                    )
+                    article_content = filter_result.filtered_content or article.content
+                    logger.info(f"Including filtered article content ({len(article_content)} chars) for enrichment")
+                except Exception as e:
+                    logger.warning(f"Failed to filter article content: {e}, using original content")
+                    article_content = article.content
+            
+            # Build prompt with optional article content
+            prompt_params = {
+                "rule_yaml": rule_yaml_to_enrich,
+                "article_title": article.title,
+                "article_url": article.canonical_url or 'N/A',
+                "user_instruction": instruction_text,
+            }
+            
+            if article_content:
+                prompt_params["article_content_section"] = f"\nArticle Content (junk-filtered at 0.8 threshold):\n```\n{article_content}\n```\n"
+            else:
+                prompt_params["article_content_section"] = ""
+            
+            enrichment_prompt = format_prompt("sigma_enrichment", **prompt_params)
             
             # Use provided system prompt or fall back to default
             system_message = enrich_request.system_prompt or "You are a SIGMA rule validation and enrichment agent. Follow the OUTPUT CONTRACT: Return a JSON object with status 'pass'|'needs_revision'|'fail'. If status='pass', include 'updated_sigma_yaml' as YAML string. If status='needs_revision' or 'fail', 'updated_sigma_yaml' may be empty but 'issues' must explain. Output ONLY the JSON object, no markdown, no code blocks."
@@ -967,8 +1010,266 @@ async def load_prompt_version(version_id: int):
         raise HTTPException(status_code=500, detail=f"Error loading prompt version: {str(e)}")
 
 
+@router.post("/preset/save")
+async def save_enrichment_preset(save_request: SavePresetRequest):
+    """Save a new enrichment preset."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Check if preset with same name exists
+            existing = db_session.query(EnrichmentPresetTable).filter(
+                EnrichmentPresetTable.name == save_request.name
+            ).first()
+            
+            if existing:
+                # Update existing preset
+                existing.description = save_request.description
+                existing.provider = save_request.provider
+                existing.model = save_request.model
+                existing.system_prompt = save_request.system_prompt
+                existing.user_instruction = save_request.user_instruction
+                existing.updated_at = datetime.now()
+                
+                db_session.commit()
+                db_session.refresh(existing)
+                
+                logger.info(f"Updated preset: {save_request.name}")
+                
+                return {
+                    "success": True,
+                    "id": existing.id,
+                    "message": "Preset updated",
+                    "created_at": existing.created_at.isoformat(),
+                    "updated_at": existing.updated_at.isoformat()
+                }
+            else:
+                # Create new preset
+                preset = EnrichmentPresetTable(
+                    name=save_request.name,
+                    description=save_request.description,
+                    provider=save_request.provider,
+                    model=save_request.model,
+                    system_prompt=save_request.system_prompt,
+                    user_instruction=save_request.user_instruction
+                )
+                
+                db_session.add(preset)
+                db_session.commit()
+                db_session.refresh(preset)
+                
+                logger.info(f"Saved preset: {save_request.name}")
+                
+                return {
+                    "success": True,
+                    "id": preset.id,
+                    "message": "Preset saved",
+                    "created_at": preset.created_at.isoformat(),
+                    "updated_at": preset.updated_at.isoformat()
+                }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error saving preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error saving preset: {str(e)}")
+
+
+@router.get("/preset/list")
+async def list_enrichment_presets():
+    """Get list of all saved enrichment presets."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            presets = db_session.query(EnrichmentPresetTable).order_by(
+                EnrichmentPresetTable.name.asc()
+            ).all()
+            
+            preset_list = [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "provider": p.provider,
+                    "model": p.model,
+                    "created_at": p.created_at.isoformat(),
+                    "updated_at": p.updated_at.isoformat()
+                }
+                for p in presets
+            ]
+            
+            return {
+                "success": True,
+                "presets": preset_list
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error listing presets: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error listing presets: {str(e)}")
+
+
+@router.get("/preset/{preset_id}")
+async def get_enrichment_preset(preset_id: int):
+    """Get a specific enrichment preset by ID."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            preset = db_session.query(EnrichmentPresetTable).filter(
+                EnrichmentPresetTable.id == preset_id
+            ).first()
+            
+            if not preset:
+                raise HTTPException(status_code=404, detail="Preset not found")
+            
+            return {
+                "success": True,
+                "id": preset.id,
+                "name": preset.name,
+                "description": preset.description,
+                "provider": preset.provider,
+                "model": preset.model,
+                "system_prompt": preset.system_prompt,
+                "user_instruction": preset.user_instruction,
+                "created_at": preset.created_at.isoformat(),
+                "updated_at": preset.updated_at.isoformat()
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting preset: {str(e)}")
+
+
+@router.delete("/preset/{preset_id}")
+async def delete_enrichment_preset(preset_id: int):
+    """Delete an enrichment preset."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            preset = db_session.query(EnrichmentPresetTable).filter(
+                EnrichmentPresetTable.id == preset_id
+            ).first()
+            
+            if not preset:
+                raise HTTPException(status_code=404, detail="Preset not found")
+            
+            db_session.delete(preset)
+            db_session.commit()
+            
+            logger.info(f"Deleted preset: {preset_id}")
+            
+            return {
+                "success": True,
+                "message": "Preset deleted"
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error deleting preset: {str(e)}")
+
+
+class CompareRulesRequest(BaseModel):
+    """Request model for comparing two rules."""
+    original_rule_yaml: str
+    enriched_rule_yaml: str
+
+
+@router.post("/compare-similarity")
+async def compare_rules_similarity(compare_request: CompareRulesRequest):
+    """Compare original and enriched rules against database for similarity."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            matching_service = SigmaMatchingService(db_session)
+            
+            results = {
+                "original": {"matches": [], "max_similarity": 0.0},
+                "enriched": {"matches": [], "max_similarity": 0.0}
+            }
+            
+            # Compare original rule
+            try:
+                original_yaml = yaml.safe_load(compare_request.original_rule_yaml)
+                if original_yaml and original_yaml.get('detection'):
+                    normalized_original = {
+                        'title': original_yaml.get('title', ''),
+                        'description': original_yaml.get('description', ''),
+                        'tags': original_yaml.get('tags', []),
+                        'logsource': original_yaml.get('logsource', {}),
+                        'detection': original_yaml.get('detection', {}),
+                        'level': original_yaml.get('level'),
+                        'status': original_yaml.get('status', 'experimental'),
+                    }
+                    
+                    if normalized_original['title'] and normalized_original['detection']:
+                        original_matches = matching_service.compare_proposed_rule_to_embeddings(
+                            proposed_rule=normalized_original,
+                            threshold=0.0,
+                        )
+                        results["original"]["matches"] = original_matches[:10]
+                        results["original"]["max_similarity"] = max(
+                            [m.get('similarity', 0.0) for m in original_matches], 
+                            default=0.0
+                        ) if original_matches else 0.0
+            except Exception as e:
+                logger.warning(f"Error comparing original rule: {e}")
+            
+            # Compare enriched rule
+            try:
+                enriched_yaml = yaml.safe_load(compare_request.enriched_rule_yaml)
+                if enriched_yaml and enriched_yaml.get('detection'):
+                    normalized_enriched = {
+                        'title': enriched_yaml.get('title', ''),
+                        'description': enriched_yaml.get('description', ''),
+                        'tags': enriched_yaml.get('tags', []),
+                        'logsource': enriched_yaml.get('logsource', {}),
+                        'detection': enriched_yaml.get('detection', {}),
+                        'level': enriched_yaml.get('level'),
+                        'status': enriched_yaml.get('status', 'experimental'),
+                    }
+                    
+                    if normalized_enriched['title'] and normalized_enriched['detection']:
+                        enriched_matches = matching_service.compare_proposed_rule_to_embeddings(
+                            proposed_rule=normalized_enriched,
+                            threshold=0.0,
+                        )
+                        results["enriched"]["matches"] = enriched_matches[:10]
+                        results["enriched"]["max_similarity"] = max(
+                            [m.get('similarity', 0.0) for m in enriched_matches], 
+                            default=0.0
+                        ) if enriched_matches else 0.0
+            except Exception as e:
+                logger.warning(f"Error comparing enriched rule: {e}")
+            
+            return {
+                "success": True,
+                "results": results
+            }
+            
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        logger.error(f"Error comparing rules: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error comparing rules: {str(e)}")
+
+
 @router.post("/{queue_id}/validate")
-async def validate_rule(request: Request, queue_id: int):
+async def validate_rule(request: Request, queue_id: int, validate_request: Optional[ValidateRuleRequest] = None):
     """Validate a SIGMA rule using LLM + pySIGMA with retry loop."""
     try:
         db_manager = DatabaseManager()
@@ -984,86 +1285,355 @@ async def validate_rule(request: Request, queue_id: int):
             if not article:
                 raise HTTPException(status_code=404, detail="Article not found")
             
-            # Get API key from request headers (body is optional for this endpoint)
-            api_key_raw = (
-                request.headers.get("X-OpenAI-API-Key")
-                or request.headers.get("X-Anthropic-API-Key")
-            )
+            # Get provider and model from request body if not in Pydantic model
+            if not validate_request:
+                try:
+                    body = await request.json()
+                    if body:
+                        validate_request = ValidateRuleRequest(
+                            provider=body.get("provider"),
+                            model=body.get("model")
+                        )
+                except:
+                    pass  # Body might be empty, use defaults
             
-            api_key = api_key_raw.strip() if api_key_raw else None
+            # Get provider and model from request, default to OpenAI
+            provider = (validate_request.provider if validate_request else None) or "openai"
+            provider = provider.lower()
+            model = (validate_request.model if validate_request else None) or "gpt-4o-mini"
             
-            if not api_key:
-                raise HTTPException(
-                    status_code=400,
-                    detail="API key is required. Please provide X-OpenAI-API-Key or X-Anthropic-API-Key header.",
-                )
+            # Get API key from request headers (not needed for LMStudio)
+            api_key = None
+            if provider == "openai":
+                api_key = request.headers.get("X-OpenAI-API-Key")
+            elif provider == "anthropic":
+                api_key = request.headers.get("X-Anthropic-API-Key")
+            elif provider == "gemini":
+                api_key = request.headers.get("X-Gemini-API-Key")
+            elif provider == "lmstudio":
+                # LMStudio doesn't need an API key, uses local URL
+                api_key = "not_required"
+            
+            # Initialize conversation log before any early returns
+            conversation_log = []
+            validation_results = []
+            
+            if provider != "lmstudio" and (not api_key or not api_key.strip()):
+                # Return error response with empty conversation log
+                return {
+                    "success": False,
+                    "validated_yaml": None,
+                    "errors": [f"API key is required. Please provide X-{provider.capitalize()}-API-Key header."],
+                    "attempts": 0,
+                    "message": f"API key is required for {provider}",
+                    "conversation_log": conversation_log,
+                    "validation_results": validation_results
+                }
+            
+            # System message for validation (same as AI/ML Assistant modal)
+            system_message = "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation."
             
             # Start with the current rule YAML
             current_rule_yaml = rule.rule_yaml
             max_attempts = 3
             validation_errors = []
             enriched_yaml = None
+            previous_yaml_preview = current_rule_yaml[:500] if current_rule_yaml else ""
             
             for attempt in range(1, max_attempts + 1):
-                logger.info(f"Validation attempt {attempt}/{max_attempts} for rule {queue_id}")
+                logger.info(f"Validation attempt {attempt}/{max_attempts} for rule {queue_id} with provider={provider}, model={model}")
                 
-                # Build enrichment prompt (first attempt) or feedback prompt (subsequent attempts)
-                if attempt == 1:
-                    instruction_text = "Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata. Ensure the rule is valid according to SIGMA specifications."
-                    enrichment_prompt = format_prompt(
-                        "sigma_enrichment",
-                        rule_yaml=current_rule_yaml,
-                        article_title=article.title,
-                        article_url=article.canonical_url or 'N/A',
-                        user_instruction=instruction_text
-                    )
-                else:
-                    # Include validation errors in the prompt for retry
-                    errors_text = "\n".join([f"- {err}" for err in validation_errors])
-                    instruction_text = f"The previous attempt failed validation. Please fix the following errors:\n{errors_text}\n\nProvide a corrected SIGMA rule that addresses all these issues."
-                    enrichment_prompt = format_prompt(
-                        "sigma_enrichment",
-                        rule_yaml=current_rule_yaml,
-                        article_title=article.title,
-                        article_url=article.canonical_url or 'N/A',
-                        user_instruction=instruction_text
-                    )
+                # Build validation prompt (first attempt) or feedback prompt (subsequent attempts)
+                try:
+                    if attempt == 1:
+                        # First attempt: Ask to validate and fix the existing rule
+                        validation_prompt = f"""Validate and fix the following SIGMA rule. Ensure it is syntactically valid YAML and structurally valid according to SIGMA specifications.
+
+Current Rule YAML:
+```yaml
+{current_rule_yaml}
+```
+
+**CRITICAL INSTRUCTIONS:**
+1. **Output ONLY YAML - NO NARRATIVE TEXT**: Your response must start immediately with `title:` - no explanations, no "Here's the rule:", no commentary of any kind.
+2. **Fix Any Validation Issues**: If the rule has syntax errors, structural issues, or missing required fields, fix them.
+3. **Maintain Detection Logic**: Keep the original detection intent, but fix any syntax/structure issues.
+4. **Required Structure**: Ensure your output includes ALL required fields:
+   - `title:` (required)
+   - `logsource:` with `category:` and `product:` (required)
+   - `detection:` with `selection:` and `condition:` (required)
+   - `level:` (recommended)
+   - `tags:` (recommended)
+
+**Output Format:**
+Your response must be ONLY the corrected SIGMA rule in clean YAML format:
+- NO markdown code blocks (no ```yaml or ```)
+- NO explanatory text before or after
+- Start immediately with `title:`
+- Use 2-space indentation
+- All field names lowercase
+
+**Now output ONLY the validated/corrected YAML starting with 'title:':"""
+                    else:
+                        # Subsequent attempts: Use sigma_feedback prompt (same as AI/ML Assistant modal)
+                        from src.utils.prompt_loader import format_prompt_async
+                        
+                        errors_text = "\n".join([f"- {err}" for err in validation_errors]) if validation_errors else "No valid SIGMA YAML detected. Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
+                        validation_prompt = await format_prompt_async(
+                            "sigma_feedback",
+                            validation_errors=errors_text,
+                            original_rule=previous_yaml_preview or "No YAML was detected in the previous attempt."
+                        )
+                except KeyError as e:
+                    error_msg = f"Prompt formatting error: Missing parameter {e}"
+                    logger.error(error_msg)
+                    conversation_log.append({
+                        'attempt': attempt,
+                        'messages': [
+                            {"role": "system", "content": system_message},
+                            {"role": "user", "content": f"Error building prompt: {error_msg}"}
+                        ],
+                        'llm_response': "",
+                        'validation': [],
+                        'all_valid': False,
+                        'error': error_msg
+                    })
+                    if attempt == max_attempts:
+                        break
+                    continue
+                except Exception as e:
+                    error_msg = f"Error building prompt: {str(e)}"
+                    logger.error(error_msg)
+                    conversation_log.append({
+                        'attempt': attempt,
+                        'messages': [
+                            {"role": "system", "content": system_message},
+                            {"role": "user", "content": f"Error building prompt: {error_msg}"}
+                        ],
+                        'llm_response': "",
+                        'validation': [],
+                        'all_valid': False,
+                        'error': error_msg
+                    })
+                    if attempt == max_attempts:
+                        break
+                    continue
                 
-                # Call OpenAI API to enrich/fix the rule
+                # Store messages for conversation log
+                attempt_messages = [
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": validation_prompt}
+                ]
+                
+                # Call provider API to enrich/fix the rule
                 async with httpx.AsyncClient() as client:
                     try:
-                        response = await client.post(
-                            "https://api.openai.com/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {api_key}",
-                                "Content-Type": "application/json",
-                            },
-                            json={
-                                "model": "gpt-4o-mini",
-                                "messages": [
-                                    {
-                                        "role": "system",
-                                        "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks.",
-                                    },
-                                    {"role": "user", "content": enrichment_prompt},
-                                ],
-                                "max_tokens": 4000,
-                                "temperature": 0.2,
-                            },
-                            timeout=120.0,
-                        )
+                        raw_response = None
+                        error_occurred = None
                         
-                        if response.status_code != 200:
-                            error_detail = f"OpenAI API error: {response.status_code}"
-                            if response.status_code == 401:
-                                error_detail = "OpenAI API key is invalid or expired. Please check your API key."
-                            elif response.status_code == 429:
-                                error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
-                            logger.error(f"OpenAI API error: {response.text}")
-                            raise HTTPException(status_code=response.status_code, detail=error_detail)
+                        if provider == "openai":
+                            # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
+                            is_newer_model = any(x in model.lower() for x in ['gpt-4.1', 'gpt-5', 'o1', 'o3', 'o4'])
+                            is_temperature_restricted = any(x in model.lower() for x in [
+                                'gpt-5.2', 'gpt-5.1', 'gpt-5-nano', 'gpt-5-mini', 'gpt-5-chat'
+                            ])
+                            
+                            payload = {
+                                "model": model,
+                                "messages": attempt_messages,
+                            }
+                            
+                            if not is_temperature_restricted:
+                                payload["temperature"] = 0.2
+                            
+                            if is_newer_model:
+                                payload["max_completion_tokens"] = 4000
+                            else:
+                                payload["max_tokens"] = 4000
+                            
+                            response = await client.post(
+                                "https://api.openai.com/v1/chat/completions",
+                                headers={
+                                    "Authorization": f"Bearer {api_key}",
+                                    "Content-Type": "application/json",
+                                },
+                                json=payload,
+                                timeout=120.0,
+                            )
+                            
+                            if response.status_code != 200:
+                                error_detail = f"OpenAI API error: {response.status_code}"
+                                if response.status_code == 401:
+                                    error_detail = "OpenAI API key is invalid or expired. Please check your API key."
+                                elif response.status_code == 429:
+                                    error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
+                                logger.error(f"OpenAI API error: {response.text}")
+                                error_occurred = error_detail
+                                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                            
+                            response_data = response.json()
+                            raw_response = response_data["choices"][0]["message"]["content"].strip()
+                            
+                        elif provider == "anthropic":
+                            response = await client.post(
+                                "https://api.anthropic.com/v1/messages",
+                                headers={
+                                    "x-api-key": api_key,
+                                    "Content-Type": "application/json",
+                                    "anthropic-version": "2023-06-01",
+                                },
+                                json={
+                                    "model": model,
+                                    "max_tokens": 4000,
+                                    "temperature": 0.2,
+                                    "system": system_message,
+                                    "messages": [{"role": "user", "content": enrichment_prompt}],
+                                },
+                                timeout=120.0,
+                            )
+                            
+                            if response.status_code != 200:
+                                error_detail = f"Anthropic API error: {response.status_code}"
+                                if response.status_code == 401:
+                                    error_detail = "Anthropic API key is invalid or expired. Please check your API key."
+                                elif response.status_code == 429:
+                                    error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
+                                logger.error(f"Anthropic API error: {response.text}")
+                                error_occurred = error_detail
+                                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                            
+                            response_data = response.json()
+                            content = response_data.get("content", [])
+                            raw_response = content[0].get("text", "").strip() if content else ""
+                            
+                        elif provider == "gemini":
+                            response = await client.post(
+                                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+                                headers={"Content-Type": "application/json"},
+                                json={
+                                    "contents": [{
+                                        "parts": [{"text": f"{system_message}\n\n{enrichment_prompt}"}]
+                                    }],
+                                    "generationConfig": {
+                                        "temperature": 0.2,
+                                        "maxOutputTokens": 4000,
+                                    }
+                                },
+                                timeout=120.0,
+                            )
+                            
+                            if response.status_code != 200:
+                                error_detail = f"Gemini API error: {response.status_code}"
+                                if response.status_code == 401:
+                                    error_detail = "Gemini API key is invalid or expired. Please check your API key."
+                                elif response.status_code == 429:
+                                    error_detail = "Gemini API rate limit exceeded. Please wait and try again."
+                                logger.error(f"Gemini API error: {response.text}")
+                                error_occurred = error_detail
+                                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                            
+                            response_data = response.json()
+                            candidates = response_data.get("candidates", [])
+                            if candidates and "content" in candidates[0]:
+                                parts = candidates[0]["content"].get("parts", [])
+                                if parts:
+                                    raw_response = parts[0].get("text", "").strip()
                         
-                        response_data = response.json()
-                        raw_response = response_data["choices"][0]["message"]["content"].strip()
+                        elif provider == "lmstudio":
+                            # LMStudio API (OpenAI-compatible, local)
+                            def _lmstudio_url_candidates():
+                                raw_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1").strip()
+                                if not raw_url:
+                                    raw_url = "http://localhost:1234/v1"
+                                normalized = raw_url.rstrip("/")
+                                candidates = [normalized]
+                                if not normalized.lower().endswith("/v1"):
+                                    candidates.append(f"{normalized}/v1")
+                                if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
+                                    docker_url = normalized.replace("localhost", "host.docker.internal").replace(
+                                        "127.0.0.1", "host.docker.internal"
+                                    )
+                                    if docker_url not in candidates:
+                                        candidates.append(docker_url)
+                                    if not docker_url.lower().endswith("/v1"):
+                                        docker_url_v1 = f"{docker_url}/v1"
+                                        if docker_url_v1 not in candidates:
+                                            candidates.append(docker_url_v1)
+                                seen = set()
+                                unique_candidates = []
+                                for candidate in candidates:
+                                    if candidate not in seen:
+                                        unique_candidates.append(candidate)
+                                        seen.add(candidate)
+                                return unique_candidates
+                            
+                            lmstudio_urls = _lmstudio_url_candidates()
+                            connect_timeout = 10.0
+                            read_timeout = 180.0
+                            last_error = None
+                            
+                            for idx, lmstudio_url in enumerate(lmstudio_urls):
+                                try:
+                                    base_url = lmstudio_url.rstrip('/')
+                                    if not base_url.endswith('/v1'):
+                                        if base_url.endswith('/v1/v1'):
+                                            base_url = base_url[:-3]
+                                        chat_url = f"{base_url}/v1/chat/completions"
+                                    else:
+                                        chat_url = f"{base_url}/chat/completions"
+                                    
+                                    response = await client.post(
+                                        chat_url,
+                                        headers={"Content-Type": "application/json"},
+                                        json={
+                                            "model": model,
+                                            "messages": attempt_messages,
+                                            "max_tokens": 4000,
+                                            "temperature": 0.2,
+                                            "stream": False,
+                                        },
+                                        timeout=httpx.Timeout(connect=connect_timeout, read=read_timeout, write=30.0, pool=10.0),
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        response_data = response.json()
+                                        if "choices" not in response_data or len(response_data["choices"]) == 0:
+                                            last_error = "No choices in LMStudio response"
+                                            if idx < len(lmstudio_urls) - 1:
+                                                continue
+                                            raise HTTPException(status_code=500, detail="LMStudio returned invalid response format")
+                                        message = response_data["choices"][0].get("message", {})
+                                        content = message.get("content", "")
+                                        raw_response = content.strip() if content else ""
+                                        if not raw_response:
+                                            last_error = "LMStudio returned empty response"
+                                            if idx < len(lmstudio_urls) - 1:
+                                                continue
+                                            raise HTTPException(status_code=503, detail="LMStudio returned empty response")
+                                        break
+                                    else:
+                                        last_error = f"HTTP {response.status_code}"
+                                        if response.status_code == 404:
+                                            if idx < len(lmstudio_urls) - 1:
+                                                continue
+                                        elif response.status_code == 503:
+                                            if idx < len(lmstudio_urls) - 1:
+                                                continue
+                                        if idx == len(lmstudio_urls) - 1:
+                                            raise HTTPException(status_code=response.status_code, detail=f"LMStudio API error: {last_error}")
+                                except Exception as e:
+                                    if idx == len(lmstudio_urls) - 1:
+                                        raise
+                                    continue
+                            
+                            if not raw_response:
+                                raise HTTPException(status_code=503, detail=f"LMStudio failed on all URLs: {last_error}")
+                        else:
+                            raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+                        
+                        if not raw_response:
+                            error_occurred = "Empty response from LLM"
+                            raise HTTPException(status_code=500, detail="LLM returned empty response")
                         
                         # Extract YAML from response (remove markdown code blocks if present)
                         enriched_yaml = raw_response
@@ -1073,6 +1643,33 @@ async def validate_rule(request: Request, queue_id: int):
                         
                         # Validate with pySIGMA
                         validation_result = validate_sigma_rule(enriched_yaml)
+                        attempt_validation_results = [validation_result]
+                        all_valid = validation_result.is_valid
+                        
+                        # Store validation result
+                        validation_results.append({
+                            'is_valid': validation_result.is_valid,
+                            'errors': validation_result.errors,
+                            'warnings': validation_result.warnings,
+                            'rule_index': 1
+                        })
+                        
+                        # Store conversation log entry
+                        conversation_log.append({
+                            'attempt': attempt,
+                            'messages': attempt_messages,
+                            'llm_response': raw_response if raw_response else "",
+                            'validation': [
+                                {
+                                    'is_valid': validation_result.is_valid,
+                                    'errors': validation_result.errors,
+                                    'warnings': validation_result.warnings,
+                                    'rule_index': 1
+                                }
+                            ],
+                            'all_valid': all_valid,
+                            'error': None
+                        })
                         
                         if validation_result.is_valid:
                             # Validation passed!
@@ -1082,21 +1679,65 @@ async def validate_rule(request: Request, queue_id: int):
                                 "validated_yaml": enriched_yaml,
                                 "raw_response": raw_response,
                                 "attempts": attempt,
-                                "message": f"Rule validated successfully after {attempt} attempt(s)"
+                                "message": f"Rule validated successfully after {attempt} attempt(s)",
+                                "conversation_log": conversation_log,
+                                "validation_results": validation_results
                             }
                         else:
                             # Validation failed, collect errors for next attempt
                             validation_errors = validation_result.errors
                             current_rule_yaml = enriched_yaml  # Use enriched version for next attempt
+                            # Update previous_yaml_preview for feedback prompt (same as AI/ML Assistant modal)
+                            if validation_result.content_preview:
+                                previous_yaml_preview = validation_result.content_preview
+                            else:
+                                previous_yaml_preview = enriched_yaml[:500] if enriched_yaml else ""
                             logger.warning(f"Validation failed on attempt {attempt}: {validation_errors}")
                             
-                    except httpx.TimeoutException:
-                        raise HTTPException(status_code=504, detail="Request timeout. Please try again.")
-                    except HTTPException:
-                        raise
+                    except httpx.TimeoutException as e:
+                        error_occurred = "Request timeout"
+                        conversation_log.append({
+                            'attempt': attempt,
+                            'messages': attempt_messages,
+                            'llm_response': "",
+                            'validation': [],
+                            'all_valid': False,
+                            'error': "Request timeout"
+                        })
+                        # Don't raise, continue to next attempt or return with conversation log
+                        if attempt == max_attempts:
+                            break  # Exit loop to return final result
+                        continue
+                    except HTTPException as e:
+                        if not error_occurred:
+                            error_occurred = f"HTTP error: {e.detail}"
+                        conversation_log.append({
+                            'attempt': attempt,
+                            'messages': attempt_messages,
+                            'llm_response': "",
+                            'validation': [],
+                            'all_valid': False,
+                            'error': error_occurred
+                        })
+                        # Don't raise, continue to next attempt or return with conversation log
+                        if attempt == max_attempts:
+                            break  # Exit loop to return final result
+                        continue
                     except Exception as e:
-                        logger.error(f"Error calling OpenAI API: {e}")
-                        raise HTTPException(status_code=500, detail=f"Error validating rule: {str(e)}")
+                        error_occurred = str(e)
+                        conversation_log.append({
+                            'attempt': attempt,
+                            'messages': attempt_messages,
+                            'llm_response': "",
+                            'validation': [],
+                            'all_valid': False,
+                            'error': str(e)
+                        })
+                        logger.error(f"Error calling {provider} API: {e}")
+                        # Don't raise, continue to next attempt or return with conversation log
+                        if attempt == max_attempts:
+                            break  # Exit loop to return final result
+                        continue
             
             # All attempts failed
             logger.error(f"Validation failed after {max_attempts} attempts for rule {queue_id}")
@@ -1105,16 +1746,40 @@ async def validate_rule(request: Request, queue_id: int):
                 "validated_yaml": enriched_yaml,  # Return last attempt's YAML
                 "errors": validation_errors,
                 "attempts": max_attempts,
-                "message": f"Validation failed after {max_attempts} attempts"
+                "message": f"Validation failed after {max_attempts} attempts",
+                "conversation_log": conversation_log,
+                "validation_results": validation_results
             }
             
         finally:
             db_session.close()
             
-    except HTTPException:
+    except HTTPException as e:
+        # If we have a conversation log, include it in the error response
+        if 'conversation_log' in locals():
+            return {
+                "success": False,
+                "validated_yaml": None,
+                "errors": [str(e.detail)],
+                "attempts": len(conversation_log) if 'conversation_log' in locals() else 0,
+                "message": str(e.detail),
+                "conversation_log": conversation_log if 'conversation_log' in locals() else [],
+                "validation_results": validation_results if 'validation_results' in locals() else []
+            }
         raise
     except Exception as e:
         logger.error(f"Error validating rule: {e}")
+        # Return error response with conversation log if available
+        if 'conversation_log' in locals():
+            return {
+                "success": False,
+                "validated_yaml": None,
+                "errors": [str(e)],
+                "attempts": len(conversation_log),
+                "message": f"Error validating rule: {str(e)}",
+                "conversation_log": conversation_log,
+                "validation_results": validation_results if 'validation_results' in locals() else []
+            }
         raise HTTPException(status_code=500, detail=str(e))
 
 

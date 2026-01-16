@@ -424,7 +424,6 @@ class TestDeduplicationService:
         mock_session.add.assert_called_once()
 
 
-@pytest.mark.asyncio
 class TestAsyncDeduplicationService:
     """Test AsyncDeduplicationService functionality."""
 

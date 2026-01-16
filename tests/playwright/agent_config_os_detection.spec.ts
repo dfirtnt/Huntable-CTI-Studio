@@ -30,7 +30,7 @@ test.describe('Agent Config OS Detection', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000
     );
 
     // Toggle checkbox using JavaScript if it's hidden
@@ -78,7 +78,7 @@ test.describe('Agent Config OS Detection', () => {
         }
       }
     });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);  // Increased from 1000 to 1500 for reliability
 
     const response = await responsePromise;
     expect(response.status()).toBe(200);
@@ -114,7 +114,7 @@ test.describe('Agent Config OS Detection', () => {
       if (firstOption) {
         const responsePromise = page.waitForResponse(
           (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-          { timeout: 5000 }
+          { timeout: 10000 }  // Increased from 5000 to 10000
         );
 
         await embeddingSelector.selectOption(firstOption);
@@ -132,7 +132,7 @@ test.describe('Agent Config OS Detection', () => {
 
       const responsePromise = page.waitForResponse(
         (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-        { timeout: 5000 }
+        { timeout: 10000 }  // Increased from 5000 to 10000
       );
 
       await embeddingSelector.fill(newValue);

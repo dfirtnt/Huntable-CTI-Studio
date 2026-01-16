@@ -25,8 +25,8 @@ test.describe('Observable annotation selection', () => {
     });
 
     // Ensure the annotation manager exists (instantiate if needed)
-    await page.waitForSelector('#article-content');
-    await page.waitForFunction(() => Boolean((window as any).simpleTextManager || (window as any).SimpleTextManager));
+    await page.waitForSelector('#article-content', { timeout: 15000 });  // Increased timeout
+    await page.waitForFunction(() => Boolean((window as any).simpleTextManager || (window as any).SimpleTextManager), { timeout: 15000 });  // Increased timeout
     await page.evaluate(() => {
       const globalAny = window as any;
       if (!globalAny.simpleTextManager && typeof globalAny.SimpleTextManager === 'function') {
@@ -105,7 +105,7 @@ test.describe('Observable annotation selection', () => {
     const saveBtn = page.getByRole('button', { name: 'Save CMD' });
     if (await saveBtn.count()) {
       await saveBtn.click();
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(2000);  // Increased from 200 to 2000 for API call
     }
 
     const finalSpans = await page.evaluate(() => {

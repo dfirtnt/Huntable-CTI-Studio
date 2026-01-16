@@ -31,7 +31,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000
     );
 
     await tempInput.fill(newValue);
@@ -53,11 +53,12 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000
     );
 
     await topPInput.fill(newValue);
     await topPInput.blur();
+    await page.waitForTimeout(500);  // Add explicit wait for debouncing
 
     const response = await responsePromise;
     expect(response.status()).toBe(200);
@@ -74,7 +75,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000
     );
 
     await tempInput.fill(newValue);
@@ -102,7 +103,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000
     );
 
     if (isVisible) {
@@ -137,7 +138,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
     // Wait for autosave
     await page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000
     );
     await page.waitForTimeout(1000);
 

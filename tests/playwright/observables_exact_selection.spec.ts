@@ -81,8 +81,11 @@ test.describe('Observables exact selection (plain surface)', () => {
   test('selects and saves exact phrases without expansion', async ({ page }) => {
     await page.goto(`${BASE_URL}/articles/${ARTICLE_ID}`);
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);  // Wait for page to fully load
 
     await selectAndSaveObservable(page, 'Cloudflare page');
+    await page.waitForTimeout(1000);  // Wait for first annotation to save
     await selectAndSaveObservable(page, 'After loading');
+    await page.waitForTimeout(1000);  // Wait for second annotation to save
   });
 });

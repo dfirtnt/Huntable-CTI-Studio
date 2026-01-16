@@ -45,7 +45,8 @@ class SigmaGenerationService:
         execution_id: Optional[int] = None,
         article_id: Optional[int] = None,
         qa_feedback: Optional[str] = None,
-        sigma_prompt_template: Optional[str] = None
+        sigma_prompt_template: Optional[str] = None,
+        sigma_system_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generate SIGMA rules from article content.
@@ -187,7 +188,8 @@ class SigmaGenerationService:
                         current_prompt,
                         provider=sigma_provider,
                         execution_id=execution_id,
-                        article_id=article_id
+                        article_id=article_id,
+                        system_prompt=sigma_system_prompt
                     )
                     
                     # Ensure we have a response (even if empty, store it as string)
@@ -362,7 +364,8 @@ class SigmaGenerationService:
         *,
         provider: str,
         execution_id: Optional[int] = None,
-        article_id: Optional[int] = None
+        article_id: Optional[int] = None,
+        system_prompt: Optional[str] = None
     ) -> str:
         raw_model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider, self.llm_service.lmstudio_model)
         
@@ -370,10 +373,14 @@ class SigmaGenerationService:
         # This allows the retry logic to try with the full model name (with prefix) if needed
         model_name = raw_model_name
 
+        # Use provided system prompt or fall back to default
+        default_system_prompt = "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\"."
+        system_content = system_prompt if system_prompt else default_system_prompt
+
         messages = [
             {
                 "role": "system",
-                "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\"."
+                "content": system_content
             },
             {
                 "role": "user",

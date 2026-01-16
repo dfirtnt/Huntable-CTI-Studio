@@ -357,6 +357,7 @@ class TestArticlesSorting:
             "title",
             "source_id",
             "threat_hunting_score",
+            "ml_hunt_score",
             "annotation_count",
             "word_count",
             "id"

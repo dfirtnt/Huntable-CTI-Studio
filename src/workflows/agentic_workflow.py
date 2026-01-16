@@ -1816,6 +1816,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             
             # Get agent prompt from database for SIGMA generation
             sigma_prompt_template = None
+            sigma_system_prompt = None
             agent_prompt = "Generate SIGMA detection rules from the article content following SIGMA rule format and validation requirements."
             if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
                 sigma_prompt_data = config_obj.agent_prompts["SigmaAgent"]
@@ -1823,7 +1824,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     sigma_prompt_template = sigma_prompt_data["prompt"]  # Use full prompt for generation
                     agent_prompt = sigma_prompt_template[:5000]  # Truncate for QA context
                     logger.info(f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (len={len(sigma_prompt_template)} chars)")
-                else:
+                if isinstance(sigma_prompt_data.get("system_prompt"), str):
+                    sigma_system_prompt = sigma_prompt_data["system_prompt"]
+                    logger.info(f"[Workflow {state['execution_id']}] Using database system prompt for SigmaAgent (len={len(sigma_system_prompt)} chars)")
+                if not isinstance(sigma_prompt_data.get("prompt"), str):
                     logger.warning(f"[Workflow {state['execution_id']}] SigmaAgent prompt in database is not a string, falling back to file")
             else:
                 logger.info(f"[Workflow {state['execution_id']}] No SigmaAgent prompt in database, using file-based prompt")
@@ -1874,7 +1878,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution_id=state['execution_id'],
                 article_id=state['article_id'],
                 qa_feedback=qa_feedback,
-                sigma_prompt_template=sigma_prompt_template  # Pass database prompt if available
+                sigma_prompt_template=sigma_prompt_template,  # Pass database prompt if available
+                sigma_system_prompt=sigma_system_prompt  # Pass database system prompt if available
             )
             
             sigma_rules = generation_result.get('rules', []) if generation_result else []
