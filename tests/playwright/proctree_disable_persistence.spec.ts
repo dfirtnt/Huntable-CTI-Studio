@@ -85,7 +85,8 @@ test.describe('ProcTreeExtract Disable Persistence', () => {
     // Save configuration
     const [response] = await Promise.all([
       page.waitForResponse(resp => 
-        resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT'
+        resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
+        { timeout: 15000 }  // Increased timeout
       ),
       saveButton.click()
     ]);

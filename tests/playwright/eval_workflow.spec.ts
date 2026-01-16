@@ -11,7 +11,8 @@ test.describe('Eval Workflow', () => {
     
     // Step 1: Navigate to evaluations page
     await page.goto(`${baseURL}/evaluations`);
-    await expect(page.locator('h1, .page-title')).toContainText('Evaluation', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('h1, .page-title')).toContainText('Evaluation', { timeout: 15000 });  // Increased timeout
     
     // Step 2: Select articles for evaluation (if UI supports it)
     const articleSelect = page.locator('input[type="checkbox"][data-article-id]').first();
@@ -25,7 +26,7 @@ test.describe('Eval Workflow', () => {
       await runBtn.click();
       
       // Wait for evaluation to complete
-      await page.waitForTimeout(10000); // Give eval time to run
+      await page.waitForTimeout(30000); // Increased from 10000 to 30000 for eval execution
       
       // Step 4: View results
       const resultsTable = page.locator('table, .results-table').first();

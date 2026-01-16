@@ -8,8 +8,7 @@ Current Rule YAML:
 Article Context:
 Title: {article_title}
 URL: {article_url}
-
-User Instruction: {user_instruction}
+{article_content_section}User Instruction: {user_instruction}
 
 SYSTEM (GPT-5*) — Modular SIGMA Rule Validator/Polisher (7 Toggles)
 

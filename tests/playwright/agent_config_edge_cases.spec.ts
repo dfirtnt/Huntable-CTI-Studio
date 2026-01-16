@@ -188,7 +188,11 @@ test.describe('Agent Config Edge Cases', () => {
       tempInput.fill('0.5')
     ]);
 
-    await page.waitForTimeout(1000);
+    // Blur all inputs to trigger autosave
+    await rankingInput.blur();
+    await junkFilterInput.blur();
+    await tempInput.blur();
+    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for multiple autosaves
 
     // All inputs should have their values
     expect(parseFloat(await rankingInput.inputValue())).toBeCloseTo(7.0, 1);

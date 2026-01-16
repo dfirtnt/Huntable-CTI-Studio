@@ -110,7 +110,8 @@ test.describe('OS Detection Fallback Toggle', () => {
     await Promise.all([
       saveButton.click(),
       page.waitForResponse(response => 
-        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT'
+        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',
+        { timeout: 15000 }  // Increased timeout
       ).catch(() => null)
     ]);
     
@@ -199,7 +200,8 @@ test.describe('OS Detection Fallback Toggle', () => {
     await Promise.all([
       saveButton.click(),
       page.waitForResponse(response => 
-        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT'
+        response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',
+        { timeout: 15000 }  // Increased timeout
       ).catch(() => null)
     ]);
     

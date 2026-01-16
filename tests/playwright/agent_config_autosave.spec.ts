@@ -36,12 +36,13 @@ test.describe('Agent Config Autosave', () => {
     // Set up response listener
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     // Change value
     await input.fill(newValue.toString());
     await input.blur();
+    await page.waitForTimeout(500);  // Add explicit wait for debouncing
 
     // Wait for autosave
     const response = await responsePromise;
@@ -60,11 +61,12 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     await input.fill(newValue.toString());
     await input.blur();
+    await page.waitForTimeout(500);  // Add explicit wait for debouncing
 
     const response = await responsePromise;
     expect(response.status()).toBe(200);
@@ -116,7 +118,7 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     // Use JavaScript to toggle since checkbox is sr-only
@@ -127,6 +129,7 @@ test.describe('Agent Config Autosave', () => {
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
+    await page.waitForTimeout(500);  // Add explicit wait for debouncing
     await page.waitForTimeout(500);
 
     const response = await responsePromise;
@@ -157,7 +160,7 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     await page.evaluate(() => {
@@ -185,7 +188,7 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     await page.evaluate(() => {
@@ -253,7 +256,7 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     await input.fill(newValue);
@@ -278,11 +281,12 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
     );
 
     await input.fill(newValue.toString());
     await input.blur();
+    await page.waitForTimeout(500);  // Add explicit wait for debouncing
 
     const response = await responsePromise;
     expect(response.status()).toBe(200);

@@ -311,6 +311,13 @@ async def articles_list(
                 else 0,
                 reverse=(sort_order == "desc"),
             )
+        elif sort_by == "ml_hunt_score":
+            filtered_articles.sort(
+                key=lambda x: float(x.article_metadata.get("ml_hunt_score", 0))
+                if x.article_metadata and x.article_metadata.get("ml_hunt_score") is not None
+                else 0,
+                reverse=(sort_order == "desc"),
+            )
         elif sort_by == "annotation_count":
             filtered_articles.sort(
                 key=lambda x: int(x.article_metadata.get("annotation_count", 0))

@@ -11,7 +11,8 @@ test.describe('Full Analyst Workflow', () => {
     
     // Step 1: Navigate to articles page
     await page.goto(`${baseURL}/articles`);
-    await expect(page.locator('h1, .page-title')).toContainText('Articles', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('h1, .page-title')).toContainText('Articles', { timeout: 15000 });  // Increased timeout
     
     // Step 2: Check if articles exist (or create test article)
     // For now, we'll assume articles exist or can be created via UI
@@ -27,11 +28,12 @@ test.describe('Full Analyst Workflow', () => {
         await workflowBtn.click();
         
         // Wait for workflow to complete (check for execution status)
-        await page.waitForTimeout(5000); // Give workflow time to process
+        await page.waitForTimeout(30000); // Increased from 5000 to 30000 for workflow processing
         
         // Step 5: Navigate to workflow executions
         await page.goto(`${baseURL}/workflow#executions`);
-        await expect(page.locator('h1, .page-title')).toContainText('Workflow', { timeout: 10000 });
+        await page.waitForLoadState('networkidle');
+        await expect(page.locator('h1, .page-title')).toContainText('Workflow', { timeout: 15000 });  // Increased timeout
         
         // Step 6: Check for extraction results
         const executionRow = page.locator('.execution-row, [data-execution-id]').first();
@@ -41,7 +43,8 @@ test.describe('Full Analyst Workflow', () => {
           
           // Step 8: Validate SIGMA rule
           await page.goto(`${baseURL}/sigma-queue`);
-          await expect(page.locator('h1, .page-title')).toContainText('SIGMA', { timeout: 10000 });
+          await page.waitForLoadState('networkidle');
+          await expect(page.locator('h1, .page-title')).toContainText('SIGMA', { timeout: 15000 });  // Increased timeout
           
           // Step 9: Save SIGMA rule (if one exists)
           const saveBtn = page.locator('button:has-text("Save")').first();

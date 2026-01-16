@@ -755,6 +755,8 @@ class TestRunner:
             # Get TEST_DATABASE_URL from environment (set earlier in setup)
             test_db_url = os.getenv("TEST_DATABASE_URL", "")
             docker_env_vars = ["-e", "APP_ENV=test"]
+            # Unset DATABASE_URL to prevent test guard from rejecting production DB
+            docker_env_vars.extend(["-e", "DATABASE_URL="])
             if test_db_url:
                 docker_env_vars.extend(["-e", f"TEST_DATABASE_URL={test_db_url}"])
             cmd = ["docker", "exec"] + docker_env_vars + ["cti_web"] + cmd

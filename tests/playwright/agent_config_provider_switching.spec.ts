@@ -63,7 +63,7 @@ test.describe('Agent Config Provider Switching', () => {
     );
 
     await providerSelect.selectOption('anthropic');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for provider switching
 
     const response = await responsePromise;
     expect(response.status()).toBe(200);

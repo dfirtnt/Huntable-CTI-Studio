@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+    <script src="/static/js/components/similarity-display.js"></script>
     <script>
         // Pre-set annotation mode attribute before paint to avoid flashes of the rich container
         (function() {
@@ -598,7 +599,7 @@
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Content Hash</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100 font-mono">{{ article.content_hash[:20] }}...</dd>
+                        <dd class="text-sm text-black font-mono">{{ article.content_hash[:20] }}...</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Authors</dt>
@@ -863,8 +864,27 @@ Return a JSON array of IOC objects with the following structure:
 
 
 
-    function showSigmaHelp() {
-        const promptContent = `Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.
+    async function showSigmaHelp() {
+        // Remove any existing help modal
+        const existingModal = document.getElementById('helpModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Find and hide the currently visible modal (the one that opened the help)
+        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal');
+        previousModalElement = null;
+        
+        visibleModals.forEach(modal => {
+            if (modal.style.display !== 'none' && modal.offsetParent !== null) {
+                modal.style.display = 'none';
+                previousModalElement = modal;
+            }
+        });
+        
+        // Fetch current prompts from API
+        let systemPrompt = "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\".";
+        let userPrompt = `Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.
 
 Threat Intel Input:
 - title: {title}
@@ -916,7 +936,140 @@ Behavioral Extraction Rules:
 
 Final Instruction:
 Generate all applicable SIGMA rules from the threat intelligence above.`;
-        showHelpModal('SIGMA Generation Prompt', promptContent);
+        
+        try {
+            const response = await fetch('/api/workflow/config/prompts');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.prompts && data.prompts.SigmaAgent) {
+                    const sigmaData = data.prompts.SigmaAgent;
+                    if (sigmaData.system_prompt) {
+                        systemPrompt = sigmaData.system_prompt;
+                    }
+                    if (sigmaData.prompt) {
+                        userPrompt = sigmaData.prompt;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to fetch prompts from database, using defaults:', error);
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'helpModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[9999]';
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeHelpModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeHelpModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-6 border w-11/12 max-w-6xl shadow-xl rounded-lg bg-slate-50 border-slate-200">
+                <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-200">
+                    <h3 class="text-xl font-semibold text-slate-800">🔍 SIGMA Generation Prompt</h3>
+                    <button onclick="closeHelpModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-5 text-sm text-slate-600 bg-slate-100 p-3 rounded-md border border-slate-200">
+                    <span class="font-semibold text-slate-700">Prompt Template:</span> Edit the System and User prompts below. Changes are saved to the workflow configuration.
+                </div>
+                
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">System Prompt</label>
+                        <textarea id="sigmaSystemPrompt" class="w-full h-32 p-3 border-2 border-slate-300 rounded-md font-mono text-sm bg-white text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors" style="resize: vertical;">${escapeHtml(systemPrompt)}</textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">User Prompt</label>
+                        <textarea id="sigmaUserPrompt" class="w-full h-96 p-3 border-2 border-slate-300 rounded-md font-mono text-sm bg-white text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors" style="resize: vertical;">${escapeHtml(userPrompt)}</textarea>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end space-x-3 pt-4 border-t border-slate-200">
+                    <button onclick="closeHelpModal()" class="px-5 py-2.5 border-2 border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100 hover:border-slate-400 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="saveSigmaPrompts()" class="px-5 py-2.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 shadow-sm hover:shadow transition-all">
+                        Save Prompts
+                    </button>
+                </div>
+                
+                <div id="sigmaPromptSaveStatus" class="mt-3 text-sm"></div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    async function saveSigmaPrompts() {
+        const systemPrompt = document.getElementById('sigmaSystemPrompt').value;
+        const userPrompt = document.getElementById('sigmaUserPrompt').value;
+        const statusDiv = document.getElementById('sigmaPromptSaveStatus');
+        
+        if (!systemPrompt.trim() || !userPrompt.trim()) {
+            statusDiv.innerHTML = '<span class="text-red-600">Both prompts are required.</span>';
+            return;
+        }
+        
+        statusDiv.innerHTML = '<span class="text-blue-600">Saving...</span>';
+        
+        try {
+            // First, get current config to preserve other settings
+            const getResponse = await fetch('/api/workflow/config');
+            if (!getResponse.ok) {
+                throw new Error('Failed to fetch current configuration');
+            }
+            
+            const currentConfig = await getResponse.json();
+            
+            // Update agent_prompts with new SigmaAgent prompts
+            const updatedAgentPrompts = currentConfig.agent_prompts || {};
+            updatedAgentPrompts.SigmaAgent = {
+                system_prompt: systemPrompt,
+                prompt: userPrompt
+            };
+            
+            // Update the config
+            const updateResponse = await fetch('/api/workflow/config', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    agent_prompts: updatedAgentPrompts
+                })
+            });
+            
+            if (updateResponse.ok) {
+                statusDiv.innerHTML = '<span class="text-green-600">✅ Prompts saved successfully!</span>';
+                setTimeout(() => {
+                    closeHelpModal();
+                }, 1500);
+            } else {
+                const errorData = await updateResponse.json();
+                throw new Error(errorData.detail || 'Failed to save prompts');
+            }
+        } catch (error) {
+            console.error('Error saving prompts:', error);
+            statusDiv.innerHTML = `<span class="text-red-600">Error: ${escapeHtml(error.message)}</span>`;
+        }
     }
 
     function showRankingHelp() {
@@ -7667,22 +7820,36 @@ Please provide a detailed analysis based on the article content and the user's s
                             </div>
                         ` : ''}
                         
-                        ${match.similarity_breakdown || match.atom_jaccard !== undefined ? `
-                            <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                                <div class="text-xs font-bold text-blue-900 mb-2">🔍 Behavioral Similarity Breakdown:</div>
-                                <div class="grid grid-cols-2 gap-1 text-xs">
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-700">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
-                                        <span class="font-medium text-blue-700">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-700">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
-                                        <span class="font-medium text-blue-700">${match.logic_shape_similarity === null || match.logic_shape_similarity === undefined || match.similarity_breakdown?.logic_shape_similarity === null || match.similarity_breakdown?.logic_shape_similarity === undefined ? 'N/A' : ((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1) + '%'}</span>
-                                    </div>
-                                    <div class="col-span-2 pt-1 border-t border-blue-200 flex justify-between">
-                                        <span class="text-gray-700 font-semibold">Weighted Total:</span>
-                                        <span class="font-medium text-blue-700">${similarityPercent}%</span>
-                                    </div>
+                        ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { mode: 'compact' }) : ''}
+                        
+                        ${(match.shared_atoms && match.shared_atoms.length > 0) || (match.added_atoms && match.added_atoms.length > 0) || (match.removed_atoms && match.removed_atoms.length > 0) || (match.filter_differences && match.filter_differences.length > 0) ? `
+                            <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded">
+                                <div class="text-xs font-bold text-gray-900 mb-2">📊 Explainability:</div>
+                                <div class="space-y-2 text-xs">
+                                    ${match.shared_atoms && match.shared_atoms.length > 0 ? `
+                                        <div>
+                                            <div class="font-medium text-gray-700 mb-1">Shared Atoms:</div>
+                                            <div class="bg-green-50 border border-green-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.shared_atoms.join('\n'))}</div>
+                                        </div>
+                                    ` : ''}
+                                    ${match.added_atoms && match.added_atoms.length > 0 ? `
+                                        <div>
+                                            <div class="font-medium text-gray-700 mb-1">Atoms in Current Rule (not in Similar Rule):</div>
+                                            <div class="bg-yellow-50 border border-yellow-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.added_atoms.join('\n'))}</div>
+                                        </div>
+                                    ` : ''}
+                                    ${match.removed_atoms && match.removed_atoms.length > 0 ? `
+                                        <div>
+                                            <div class="font-medium text-gray-700 mb-1">Atoms in Similar Rule (not in Current Rule):</div>
+                                            <div class="bg-orange-50 border border-orange-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.removed_atoms.join('\n'))}</div>
+                                        </div>
+                                    ` : ''}
+                                    ${match.filter_differences && match.filter_differences.length > 0 ? `
+                                        <div>
+                                            <div class="font-medium text-gray-700 mb-1">Filter Differences (NOT logic):</div>
+                                            <div class="bg-purple-50 border border-purple-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.filter_differences.join('\n'))}</div>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             </div>
                         ` : ''}

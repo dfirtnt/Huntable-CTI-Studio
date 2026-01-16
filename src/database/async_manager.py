@@ -773,6 +773,25 @@ class AsyncDatabaseManager:
                             query = query.order_by(desc(threat_score_expr))
                         else:
                             query = query.order_by(threat_score_expr)
+                    elif article_filter.sort_by == "ml_hunt_score":
+                        # Special handling for ml_hunt_score which is stored in metadata
+                        # Handle null values by using COALESCE to provide a default value
+                        ml_hunt_score_expr = func.cast(
+                            func.coalesce(
+                                func.cast(
+                                    ArticleTable.article_metadata[
+                                        "ml_hunt_score"
+                                    ],
+                                    String,
+                                ),
+                                "0",
+                            ),
+                            Numeric,
+                        )
+                        if article_filter.sort_order == "desc":
+                            query = query.order_by(desc(ml_hunt_score_expr))
+                        else:
+                            query = query.order_by(ml_hunt_score_expr)
                     elif article_filter.sort_by == "annotation_count":
                         # Sort by annotation count (simplified - no annotation count available)
                         # Default to threat_hunting_score sorting

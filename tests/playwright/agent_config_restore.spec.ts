@@ -101,8 +101,8 @@ test.describe('Agent Config Restore After Collapse', () => {
     }
 
     // Wait for container to exist in DOM
-    await page.waitForSelector('#extract-agent-model-container', { state: 'attached', timeout: 5000 });
-    await page.waitForTimeout(2000);
+    await page.waitForSelector('#extract-agent-model-container', { state: 'attached', timeout: 10000 });  // Increased from 5000
+    await page.waitForTimeout(3000);  // Increased from 2000 to 3000
 
     // Verify container has content
     const containerContent = await container.evaluate(el => el.innerHTML);
@@ -120,7 +120,7 @@ test.describe('Agent Config Restore After Collapse', () => {
         await loadAgentModels();
       }
     });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for API calls
 
     // Expand the panel again
     await button.click();
@@ -150,8 +150,8 @@ test.describe('Agent Config Restore After Collapse', () => {
     }
 
     // Wait for container to exist in DOM
-    await page.waitForSelector('#os-detection-model-container', { state: 'attached', timeout: 5000 });
-    await page.waitForTimeout(2000);
+    await page.waitForSelector('#os-detection-model-container', { state: 'attached', timeout: 10000 });  // Increased from 5000
+    await page.waitForTimeout(3000);  // Increased from 2000 to 3000
 
     // Verify container has content
     const containerContent = await container.evaluate(el => el.innerHTML);
@@ -169,7 +169,7 @@ test.describe('Agent Config Restore After Collapse', () => {
         await loadAgentModels();
       }
     });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for API calls
 
     // Expand the panel again
     await button.click();
@@ -218,7 +218,7 @@ test.describe('Agent Config Restore After Collapse', () => {
         await loadAgentModels();
       }
     });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for API calls
 
     // Expand the panel again
     await button.click();

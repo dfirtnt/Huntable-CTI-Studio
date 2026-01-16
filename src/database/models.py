@@ -815,3 +815,24 @@ class EnrichmentPromptVersionTable(Base):
     
     def __repr__(self):
         return f"<EnrichmentPromptVersion(id={self.id}, version={self.version}, created_at='{self.created_at}')>"
+
+
+class EnrichmentPresetTable(Base):
+    """Database table for enrichment presets (provider, model, prompts)."""
+    
+    __tablename__ = 'enrichment_presets'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    provider = Column(String(50), nullable=False)  # openai, anthropic, gemini, lmstudio
+    model = Column(String(255), nullable=False)
+    system_prompt = Column(Text, nullable=False)
+    user_instruction = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    
+    def __repr__(self):
+        return f"<EnrichmentPreset(id={self.id}, name='{self.name}', provider='{self.provider}', model='{self.model}')>"

@@ -1,26 +1,81 @@
 import pytest
-from playwright.sync_api import Page, expect
-import time
+import os
+import subprocess
+import sys
+
+# Try to import Playwright
+try:
+    from playwright.sync_api import Page, expect
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    # Create dummy types for skip conditions
+    Page = None
+    expect = None
+
+# Check if web server is accessible
+def check_web_server():
+    """Check if web server is accessible"""
+    import socket
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(('localhost', 8001))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+WEB_SERVER_AVAILABLE = check_web_server()
 
 # Mark all tests in this file as e2e tests (require web server + Playwright)
-pytestmark = pytest.mark.e2e
+# These tests will be skipped if Playwright browsers aren't installed (handled by pytest-playwright)
+# or if web server isn't available
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not available"),
+    pytest.mark.skipif(not WEB_SERVER_AVAILABLE, reason="Web server not accessible on localhost:8001")
+]
+
+# Hook to skip tests if Playwright browsers aren't installed
+def pytest_runtest_setup(item):
+    """Skip tests if Playwright browsers aren't installed"""
+    if "test_web_interface" in str(item.fspath):
+        # Check if we can actually use Playwright
+        if PLAYWRIGHT_AVAILABLE:
+            try:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    # Just check if we can get the browser type
+                    _ = p.chromium
+            except Exception as e:
+                if "Executable doesn't exist" in str(e) or "playwright install" in str(e).lower():
+                    pytest.skip(f"Playwright browsers not installed. Run 'playwright install'")
+                # Re-raise other exceptions
+                raise
 
 
 class TestCTIScraperWebInterface:
     """End-to-end tests for CTIScraper web interface"""
 
     @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
+    def setup(self, page):
         """Setup for each test"""
-        page.goto("http://localhost:8001")
-        page.wait_for_load_state("networkidle")
+        # Skip if Playwright browsers aren't installed (error will be caught by pytest-playwright)
+        try:
+            page.goto("http://localhost:8001")
+            page.wait_for_load_state("networkidle")
+        except Exception as e:
+            if "Executable doesn't exist" in str(e) or "playwright install" in str(e).lower():
+                pytest.skip(f"Playwright browsers not installed: {e}")
+            raise
 
-    def test_homepage_loads(self, page: Page):
+    def test_homepage_loads(self, page):
         """Test that the homepage loads successfully"""
         expect(page).to_have_title("Dashboard - CTI Scraper")
         expect(page.locator("h1").first).to_be_visible()
 
-    def test_navigation_menu(self, page: Page):
+    def test_navigation_menu(self, page):
         """Test navigation menu functionality"""
         # Check main navigation links
         expect(page.locator("nav")).to_be_visible()
@@ -30,7 +85,7 @@ class TestCTIScraperWebInterface:
         expect(page).to_have_url("http://localhost:8001/sources")
         expect(page.locator("text=🔗 Threat Intelligence Sources")).to_be_visible()
 
-    def test_sources_page(self, page: Page):
+    def test_sources_page(self, page):
         """Test sources page functionality"""
         page.goto("http://localhost:8001/sources")
         page.wait_for_load_state("networkidle")
@@ -44,7 +99,7 @@ class TestCTIScraperWebInterface:
         # Check source status indicators
         expect(page.locator(".status-indicator")).to_be_visible()
 
-    def test_articles_page(self, page: Page):
+    def test_articles_page(self, page):
         """Test articles page functionality"""
         page.goto("http://localhost:8001/articles")
         page.wait_for_load_state("networkidle")
@@ -55,7 +110,7 @@ class TestCTIScraperWebInterface:
         # Check for article content
         expect(page.locator(".article-title")).to_be_visible()
 
-    def test_api_endpoints(self, page: Page):
+    def test_api_endpoints(self, page):
         """Test API endpoints via browser"""
         # Test health endpoint
         response = page.request.get("http://localhost:8001/health")
@@ -67,7 +122,7 @@ class TestCTIScraperWebInterface:
         data = response.json()
         assert "sources" in data, "API response should contain 'sources' key"
 
-    def test_search_functionality(self, page: Page):
+    def test_search_functionality(self, page):
         """Test search functionality"""
         page.goto("http://localhost:8001/articles")
 
@@ -83,7 +138,7 @@ class TestCTIScraperWebInterface:
             # Check results
             expect(page.locator(".search-results")).to_be_visible()
 
-    def test_responsive_design(self, page: Page):
+    def test_responsive_design(self, page):
         """Test responsive design on mobile viewport"""
         page.set_viewport_size({"width": 375, "height": 667})  # iPhone SE
 
@@ -96,7 +151,7 @@ class TestCTIScraperWebInterface:
         page.goto("http://localhost:8001/sources")
         expect(page.locator("table")).to_be_visible()
 
-    def test_error_handling(self, page: Page):
+    def test_error_handling(self, page):
         """Test error handling for invalid routes"""
         # Test 404 page
         page.goto("http://localhost:8001/nonexistent-page")
@@ -104,7 +159,7 @@ class TestCTIScraperWebInterface:
         # Should show error page or redirect
         expect(page.locator("body")).to_be_visible()
 
-    def test_performance(self, page: Page):
+    def test_performance(self, page):
         """Test page load performance"""
         start_time = time.time()
         page.goto("http://localhost:8001")
@@ -129,7 +184,7 @@ class TestCTIScraperWebInterface:
         h1_count = page.locator("h1").count()
         assert h1_count == 1, f"Expected 1 h1, found {h1_count}"
 
-    def test_threat_hunting_scoring(self, page: Page):
+    def test_threat_hunting_scoring(self, page):
         """Test threat hunting scoring interface"""
         page.goto("http://localhost:8001/articles")
 
@@ -144,7 +199,7 @@ class TestCTIScraperWebInterface:
                 "Score should be numeric"
             )
 
-    def test_source_management(self, page: Page):
+    def test_source_management(self, page):
         """Test source management functionality"""
         page.goto("http://localhost:8001/sources")
 
@@ -156,7 +211,7 @@ class TestCTIScraperWebInterface:
         if status_indicators.count() > 0:
             expect(status_indicators.first()).to_be_visible()
 
-    def test_data_export(self, page: Page):
+    def test_data_export(self, page):
         """Test data export functionality"""
         page.goto("http://localhost:8001/articles")
 
