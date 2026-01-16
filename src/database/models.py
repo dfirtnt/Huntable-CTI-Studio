@@ -794,3 +794,24 @@ class EvalRunTable(Base):
     
     def __repr__(self):
         return f"<EvalRun(id={self.id}, status='{self.status}', completed_items={self.completed_items}/{self.total_items})>"
+
+
+class EnrichmentPromptVersionTable(Base):
+    """Database table for version control of enrichment prompts (system prompt and user instruction)."""
+    
+    __tablename__ = 'enrichment_prompt_versions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    system_prompt = Column(Text, nullable=False)
+    user_instruction = Column(Text, nullable=True)
+    version = Column(Integer, nullable=False, index=True)
+    
+    # Change tracking
+    change_description = Column(Text, nullable=True)  # Optional description of changes
+    changed_by = Column(String(255), nullable=True)  # Future: user who made the change
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    
+    def __repr__(self):
+        return f"<EnrichmentPromptVersion(id={self.id}, version={self.version}, created_at='{self.created_at}')>"

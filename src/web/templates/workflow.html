@@ -1601,9 +1601,19 @@
                         <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.</textarea>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            System Prompt:
-                        </label>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                System Prompt:
+                            </label>
+                            <div class="flex space-x-2">
+                                <button onclick="saveEnrichmentPrompt()" id="savePromptBtn" class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                                    💾 Save Prompt
+                                </button>
+                                <button onclick="showPromptHistory()" id="historyPromptBtn" class="px-3 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded-md">
+                                    📜 History
+                                </button>
+                            </div>
+                        </div>
                         <textarea id="enrichSystemPrompt" rows="30" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm">SYSTEM (GPT-5*) — Modular SIGMA Rule Validator/Polisher (7 Toggles)
 
 You are a SIGMA rule "validation + minimal-polish" agent. Your job is to ensure a provided draft SIGMA rule is:
@@ -1815,6 +1825,28 @@ END SYSTEM PROMPT</textarea>
                         </button>
                         <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                             Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Prompt History Modal -->
+        <div id="promptHistoryModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">📜 Prompt History</h3>
+                        <button onclick="closePromptHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            ✕
+                        </button>
+                    </div>
+                    <div id="promptHistoryList" class="space-y-3 max-h-[60vh] overflow-y-auto">
+                        <!-- History items will be populated here -->
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="closePromptHistoryModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                            Close
                         </button>
                     </div>
                 </div>
@@ -10828,7 +10860,7 @@ async function populateEnrichModelDropdown(provider) {
     }
 }
 
-function openEnrichModal() {
+async function openEnrichModal() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) return;
     
@@ -10838,8 +10870,9 @@ function openEnrichModal() {
     
     // Set original rule YAML
     document.getElementById('enrichOriginalRule').value = rule.rule_yaml;
-    document.getElementById('enrichInstruction').value = 'Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.';
-    document.getElementById('enrichSystemPrompt').value = `SYSTEM (GPT-5*) — Modular SIGMA Rule Validator/Polisher (7 Toggles)
+    
+    // Try to load latest saved prompt version
+    let defaultSystemPrompt = `SYSTEM (GPT-5*) — Modular SIGMA Rule Validator/Polisher (7 Toggles)
 
 You are a SIGMA rule "validation + minimal-polish" agent. Your job is to ensure a provided draft SIGMA rule is:
 - syntactically valid YAML and structurally valid Sigma,
@@ -10991,6 +11024,30 @@ STYLE AND FORMATTING RULES (SIGMA YAML)
   title, id, status, description, references, author, date, tags, logsource, detection, falsepositives, level
 
 END SYSTEM PROMPT`;
+    
+    let defaultUserInstruction = 'Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.';
+    
+    // Try to load latest saved prompt version
+    try {
+        const response = await fetch('/api/sigma-queue/prompt/latest');
+        const data = await response.json();
+        
+        if (data.success && data.system_prompt) {
+            // Load saved version
+            document.getElementById('enrichSystemPrompt').value = data.system_prompt;
+            document.getElementById('enrichInstruction').value = data.user_instruction || defaultUserInstruction;
+        } else {
+            // Use defaults if no saved version exists
+            document.getElementById('enrichSystemPrompt').value = defaultSystemPrompt;
+            document.getElementById('enrichInstruction').value = defaultUserInstruction;
+        }
+    } catch (error) {
+        console.error('Error loading latest prompt version:', error);
+        // Fall back to defaults on error
+        document.getElementById('enrichSystemPrompt').value = defaultSystemPrompt;
+        document.getElementById('enrichInstruction').value = defaultUserInstruction;
+    }
+    
     document.getElementById('enrichResult').classList.add('hidden');
     document.getElementById('enrichError').classList.add('hidden');
     document.getElementById('applyEnrichBtn').classList.add('hidden');
@@ -11031,6 +11088,125 @@ END SYSTEM PROMPT`;
 
 function closeEnrichModal() {
     document.getElementById('enrichModal').classList.add('hidden');
+}
+
+async function saveEnrichmentPrompt() {
+    const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
+    const userInstruction = document.getElementById('enrichInstruction').value.trim();
+    
+    if (!systemPrompt) {
+        alert('System prompt cannot be empty');
+        return;
+    }
+    
+    // Prompt for optional change description
+    const changeDescription = prompt('Enter a description for this version (optional):') || null;
+    
+    try {
+        const response = await fetch('/api/sigma-queue/prompt/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                system_prompt: systemPrompt,
+                user_instruction: userInstruction || null,
+                change_description: changeDescription
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to save prompt');
+        }
+        
+        alert(`✅ Prompt saved as version ${data.version}`);
+    } catch (error) {
+        console.error('Error saving prompt:', error);
+        alert(`Error saving prompt: ${error.message}`);
+    }
+}
+
+async function showPromptHistory() {
+    try {
+        const response = await fetch('/api/sigma-queue/prompt/history?limit=50');
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to load history');
+        }
+        
+        const historyList = document.getElementById('promptHistoryList');
+        historyList.innerHTML = '';
+        
+        if (data.history.length === 0) {
+            historyList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No saved versions yet.</p>';
+        } else {
+            data.history.forEach(version => {
+                const item = document.createElement('div');
+                item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+                
+                const date = new Date(version.created_at);
+                const dateStr = date.toLocaleString();
+                
+                item.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="font-semibold text-gray-900 dark:text-white">Version ${version.version}</span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">${dateStr}</span>
+                            </div>
+                            ${version.change_description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${version.change_description}</p>` : ''}
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                <div>System Prompt: ${version.system_prompt.length} chars</div>
+                                ${version.user_instruction ? `<div>User Instruction: ${version.user_instruction.length} chars</div>` : ''}
+                            </div>
+                        </div>
+                        <button onclick="loadPromptVersion(${version.id})" class="ml-4 px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                            Load
+                        </button>
+                    </div>
+                `;
+                
+                historyList.appendChild(item);
+            });
+        }
+        
+        document.getElementById('promptHistoryModal').classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading history:', error);
+        alert(`Error loading history: ${error.message}`);
+    }
+}
+
+function closePromptHistoryModal() {
+    document.getElementById('promptHistoryModal').classList.add('hidden');
+}
+
+async function loadPromptVersion(versionId) {
+    try {
+        const response = await fetch(`/api/sigma-queue/prompt/load/${versionId}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to load prompt version');
+        }
+        
+        // Load the prompt into the textareas
+        document.getElementById('enrichSystemPrompt').value = data.system_prompt;
+        if (data.user_instruction) {
+            document.getElementById('enrichInstruction').value = data.user_instruction;
+        }
+        
+        // Close history modal
+        closePromptHistoryModal();
+        
+        alert('✅ Prompt version loaded');
+    } catch (error) {
+        console.error('Error loading prompt version:', error);
+        alert(`Error loading prompt version: ${error.message}`);
+    }
 }
 
 async function enrichRule() {
