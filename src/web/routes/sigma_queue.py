@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from src.database.manager import DatabaseManager
-from src.database.models import SigmaRuleQueueTable, ArticleTable
+from src.database.models import SigmaRuleQueueTable, ArticleTable, EnrichmentPromptVersionTable
 from src.utils.prompt_loader import format_prompt
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_validator import validate_sigma_rule
@@ -65,6 +65,13 @@ class EnrichRuleRequest(BaseModel):
     current_rule_yaml: Optional[str] = None  # Optional current rule YAML for iterative enrichment
     provider: Optional[str] = None  # LLM provider (openai, anthropic, gemini)
     model: Optional[str] = None  # Model name
+
+
+class SavePromptRequest(BaseModel):
+    """Request model for saving a prompt version."""
+    system_prompt: str
+    user_instruction: Optional[str] = None
+    change_description: Optional[str] = None
 
 
 @router.get("/list", response_model=List[QueuedRuleResponse])
@@ -787,6 +794,177 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         logger.error(f"Error enriching rule: {e}", exc_info=True)
         error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.post("/prompt/save")
+async def save_prompt_version(save_request: SavePromptRequest):
+    """Save a new version of the enrichment prompt."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Get the latest version number
+            latest = db_session.query(EnrichmentPromptVersionTable).order_by(
+                EnrichmentPromptVersionTable.version.desc()
+            ).first()
+            
+            next_version = (latest.version + 1) if latest else 1
+            
+            # Create new version
+            prompt_version = EnrichmentPromptVersionTable(
+                system_prompt=save_request.system_prompt,
+                user_instruction=save_request.user_instruction,
+                version=next_version,
+                change_description=save_request.change_description
+            )
+            
+            db_session.add(prompt_version)
+            db_session.commit()
+            db_session.refresh(prompt_version)
+            
+            logger.info(f"Saved prompt version {next_version}")
+            
+            return {
+                "success": True,
+                "version": next_version,
+                "id": prompt_version.id,
+                "created_at": prompt_version.created_at.isoformat()
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error saving prompt version: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error saving prompt: {str(e)}")
+
+
+@router.get("/prompt/history")
+async def get_prompt_history(limit: int = 50):
+    """Get history of saved prompt versions."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            versions = db_session.query(EnrichmentPromptVersionTable).order_by(
+                EnrichmentPromptVersionTable.version.desc()
+            ).limit(limit).all()
+            
+            history = [
+                {
+                    "id": v.id,
+                    "version": v.version,
+                    "system_prompt": v.system_prompt,
+                    "user_instruction": v.user_instruction,
+                    "change_description": v.change_description,
+                    "created_at": v.created_at.isoformat()
+                }
+                for v in versions
+            ]
+            
+            return {
+                "success": True,
+                "history": history
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error getting prompt history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting history: {str(e)}")
+
+
+@router.get("/prompt/version/{version_id}")
+async def get_prompt_version(version_id: int):
+    """Get a specific prompt version by ID."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            version = db_session.query(EnrichmentPromptVersionTable).filter(
+                EnrichmentPromptVersionTable.id == version_id
+            ).first()
+            
+            if not version:
+                raise HTTPException(status_code=404, detail="Prompt version not found")
+            
+            return {
+                "success": True,
+                "id": version.id,
+                "version": version.version,
+                "system_prompt": version.system_prompt,
+                "user_instruction": version.user_instruction,
+                "change_description": version.change_description,
+                "created_at": version.created_at.isoformat()
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting prompt version: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting prompt version: {str(e)}")
+
+
+@router.get("/prompt/latest")
+async def get_latest_prompt_version():
+    """Get the latest saved prompt version."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            latest = db_session.query(EnrichmentPromptVersionTable).order_by(
+                EnrichmentPromptVersionTable.version.desc()
+            ).first()
+            
+            if not latest:
+                return {
+                    "success": False,
+                    "message": "No saved prompt versions found"
+                }
+            
+            return {
+                "success": True,
+                "system_prompt": latest.system_prompt,
+                "user_instruction": latest.user_instruction,
+                "version": latest.version,
+                "id": latest.id
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error getting latest prompt version: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting latest prompt version: {str(e)}")
+
+
+@router.get("/prompt/load/{version_id}")
+async def load_prompt_version(version_id: int):
+    """Load a specific prompt version (for rollback)."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            version = db_session.query(EnrichmentPromptVersionTable).filter(
+                EnrichmentPromptVersionTable.id == version_id
+            ).first()
+            
+            if not version:
+                raise HTTPException(status_code=404, detail="Prompt version not found")
+            
+            return {
+                "success": True,
+                "system_prompt": version.system_prompt,
+                "user_instruction": version.user_instruction
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error loading prompt version: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error loading prompt version: {str(e)}")
 
 
 @router.post("/{queue_id}/validate")
