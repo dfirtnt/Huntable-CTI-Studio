@@ -13,7 +13,7 @@
     </div>
 
     <!-- Configuration Form -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
         <form id="workflowConfigForm" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Min Hunt Score -->
@@ -110,7 +110,7 @@
     </div>
 
     <!-- Workflow Overview -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
             <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-600">
@@ -268,7 +268,7 @@ function showHelp(fieldName) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>

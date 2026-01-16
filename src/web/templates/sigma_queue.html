@@ -14,7 +14,7 @@
                 <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
                     🔄 Refresh
                 </button>
-                <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     📤 Submit PR
                 </button>
                 <select id="statusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
@@ -30,26 +30,26 @@
 
     <!-- Queue Statistics -->
     <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
-            <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="pendingCount">-</div>
+            <div class="text-2xl font-bold text-amber-400" id="pendingCount">-</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Approved</div>
-            <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="approvedCount">-</div>
+            <div class="text-2xl font-bold text-emerald-400" id="approvedCount">-</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
             <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Submitted</div>
             <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
         </div>
     </div>
 
     <!-- Queue Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
@@ -62,7 +62,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody id="queueTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody id="queueTableBody" class="bg-gray-800 divide-y divide-gray-700">
                 <tr>
                     <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
                 </tr>
@@ -71,33 +71,33 @@
     </div>
 
     <!-- Rule Preview Modal -->
-    <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
-                <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+    <div id="ruleModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-xl bg-gray-800 max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 pb-2 border-b border-gray-700">
+                <h3 class="text-xl font-bold text-gray-50">SIGMA Rule Preview</h3>
+                <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">✕</button>
             </div>
             <div class="space-y-4 max-h-[70vh] overflow-y-auto">
                 <div id="rulePreviewContent">
                     <!-- Content loaded dynamically -->
                 </div>
-            <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
-                <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+            <div id="actionButtons" class="flex space-x-4 pt-4 border-t border-gray-700 sticky bottom-0 bg-gray-800">
+                <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     ✅ Approve
                 </button>
-                <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     ❌ Reject
                 </button>
-                <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+                <button onclick="validateRule()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     ✓ Validate
                 </button>
-                <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+                <button onclick="openEnrichModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     ✨ Enrich
                 </button>
-                <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     🔍 Similarity Search
                 </button>
-                <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     Cancel
                 </button>
             </div>
@@ -107,8 +107,8 @@
 
     <!-- Enrich Rule Modal -->
     <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+        <div class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-xl bg-gray-800 max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 pb-2 border-b border-gray-700">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">✨ AI-Assisted Rule Enrichment</h3>
                 <div class="flex items-center gap-3">
                     <div id="llmProviderIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
@@ -135,7 +135,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Original Rule:
                     </label>
-                    <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
+                    <textarea id="enrichOriginalRule" readonly rows="15" class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
                 </div>
                 <div id="enrichLoading" class="hidden text-center py-4">
                     <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -157,11 +157,11 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900">
                                 <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2" id="enrichLeftLabel">Original Rule</h6>
-                                <pre id="enrichOriginalComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                <pre id="enrichOriginalComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
                             </div>
                             <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
                                 <h6 class="text-xs font-bold text-green-700 dark:text-green-300 mb-2" id="enrichRightLabel">Enriched Rule</h6>
-                                <pre id="enrichedComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                <pre id="enrichedComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
                             </div>
                         </div>
                     </div>
@@ -177,8 +177,8 @@
                     </div>
                 </div>
                 <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
-                    <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
-                    <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                    <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t border-gray-700 sticky bottom-0 bg-gray-800">
+                    <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
                         ✅ Apply Enriched Rule
                     </button>
                     <button onclick="enrichRule()" id="enrichBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
@@ -263,7 +263,7 @@ function renderQueue() {
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                     <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
                     ${rule.status === 'pending' ? `
-                        <button onclick="approveRule(${rule.id})" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
+                        <button onclick="approveRule(${rule.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">Approve</button>
                         <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
                     ` : ''}
                 </td>
@@ -404,7 +404,7 @@ function updateActionButtons() {
         `;
     } else {
         buttonContainer.innerHTML = `
-            <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+            <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
                 ✅ Approve
             </button>
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
@@ -602,7 +602,7 @@ async function validateRule() {
     loadingMsg.id = 'validationLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Validating rule with LLM + pySIGMA...</p>
@@ -638,19 +638,19 @@ async function validateRule() {
             resultContainer.innerHTML = `
                 <div class="flex items-start">
                     <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="h-5 w-5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
                     </div>
                     <div class="ml-3 flex-1">
-                        <h4 class="text-sm font-medium text-green-800 dark:text-green-200">
+                        <h4 class="text-sm font-medium text-emerald-400">
                             ✓ Validation Successful
                         </h4>
                         <p class="mt-1 text-sm text-green-700 dark:text-green-300">
                             Rule validated successfully after ${data.attempts} attempt(s). The validated rule has been enriched and passed pySIGMA validation.
                         </p>
                         <div class="mt-3">
-                            <button onclick="applyValidatedRule()" class="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md">
+                            <button onclick="applyValidatedRule()" class="px-3 py-1 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
                                 Apply Validated Rule
                             </button>
                         </div>
@@ -685,7 +685,7 @@ async function validateRule() {
                         ${data.validated_yaml ? `
                             <div class="mt-3">
                                 <p class="text-sm text-red-700 dark:text-red-300 mb-2">Last attempt's rule:</p>
-                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-red-200 dark:border-red-700 overflow-x-auto max-h-48 overflow-y-auto text-gray-900 dark:text-gray-100">${escapeHtml(data.validated_yaml)}</pre>
+                                <pre class="text-xs bg-[#0a0e1a] border border-red-500/30 p-2 rounded-lg overflow-x-auto max-h-48 overflow-y-auto text-gray-300">${escapeHtml(data.validated_yaml)}</pre>
                             </div>
                         ` : ''}
                     </div>
@@ -1318,7 +1318,7 @@ async function checkSimilarRulesForQueue() {
     loadingMsg.id = 'similarRulesLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
@@ -1603,7 +1603,7 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
     if (!matches || matches.length === 0) {
         matchesHtml = `
             <div class="text-center py-8">
-                <div class="w-16 h-16 mx-auto mb-4 text-green-500 dark:text-green-400 flex items-center justify-center">
+                <div class="w-16 h-16 mx-auto mb-4 text-emerald-400 flex items-center justify-center">
                     <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                     </svg>
@@ -1633,11 +1633,11 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
             let similarityColorClass = 'text-purple-600 dark:text-purple-400';
             let statusBadgeClass = 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900';
             if (coverageStatus === 'covered') {
-                similarityColorClass = 'text-green-600 dark:text-green-400';
-                statusBadgeClass = 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900';
+                similarityColorClass = 'text-emerald-400';
+                statusBadgeClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
             } else if (coverageStatus === 'extend') {
-                similarityColorClass = 'text-yellow-600 dark:text-yellow-400';
-                statusBadgeClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900';
+                similarityColorClass = 'text-amber-400';
+                statusBadgeClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/30';
             }
             
             // Escape rule_id for JavaScript
@@ -1667,7 +1667,7 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                     ${match.llm_explanation ? `
                         <div class="mt-3 p-2 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded">
                             <div class="text-xs font-bold text-green-900 dark:text-green-100 mb-1">🤖 LLM Explanation:</div>
-                            <div class="text-xs text-green-800 dark:text-green-200 italic">${escapeHtml(match.llm_explanation)}</div>
+                            <div class="text-xs text-emerald-400 italic">${escapeHtml(match.llm_explanation)}</div>
                         </div>
                     ` : ''}
                     
@@ -1754,13 +1754,13 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                                     <div>
                                         <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">📋 Logsource Comparison</h6>
                                         <div class="grid grid-cols-2 gap-4">
-                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900">
-                                                <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-2">Current Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${newRuleLogsourceJson}</pre>
+                                            <div class="border border-gray-700 rounded-lg p-2 bg-amber-500/10">
+                                                <h6 class="text-xs font-bold text-amber-400 mb-2">Current Rule</h6>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${newRuleLogsourceJson}</pre>
                                             </div>
-                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-blue-50 dark:bg-blue-900">
-                                                <h6 class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">Similar Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${logsourceJson}</pre>
+                                            <div class="border border-gray-700 rounded-lg p-2 bg-blue-500/10">
+                                                <h6 class="text-xs font-bold text-blue-400 mb-2">Similar Rule</h6>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${logsourceJson}</pre>
                                             </div>
                                         </div>
                                     </div>
@@ -1768,13 +1768,13 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
                                     <div>
                                         <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">🔍 Detection Comparison</h6>
                                         <div class="grid grid-cols-2 gap-4">
-                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900">
-                                                <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-2">Current Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${newRuleDetectionJson}</pre>
+                                            <div class="border border-gray-700 rounded-lg p-2 bg-amber-500/10">
+                                                <h6 class="text-xs font-bold text-amber-400 mb-2">Current Rule</h6>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${newRuleDetectionJson}</pre>
                                             </div>
-                                            <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-green-50 dark:bg-green-900">
-                                                <h6 class="text-xs font-bold text-green-900 dark:text-green-100 mb-2">Similar Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${detectionJson}</pre>
+                                            <div class="border border-gray-700 rounded-lg p-2 bg-emerald-500/10">
+                                                <h6 class="text-xs font-bold text-emerald-400 mb-2">Similar Rule</h6>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${detectionJson}</pre>
                                             </div>
                                         </div>
                                     </div>
@@ -1792,7 +1792,7 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
     }
     
     modal.innerHTML = `
-        <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300">
+        <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 max-w-6xl shadow-lg rounded-xl bg-gray-800 transition-all duration-300">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rules in SigmaHQ Repository</h3>
                 <div class="flex items-center space-x-2">
@@ -1846,7 +1846,7 @@ function toggleSimilarRulesModalExpand() {
     
     if (isSimilarRulesModalExpanded) {
         // Expand to full screen
-        modalContent.className = 'fixed inset-4 p-5 border shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300 flex flex-col';
+        modalContent.className = 'fixed inset-4 p-5 border border-gray-700 shadow-lg rounded-xl bg-gray-800 transition-all duration-300 flex flex-col';
         modalContent.style.top = '1rem';
         modalContent.style.left = '1rem';
         modalContent.style.right = '1rem';
@@ -1866,7 +1866,7 @@ function toggleSimilarRulesModalExpand() {
         }
     } else {
         // Return to normal size
-        modalContent.className = 'relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300';
+        modalContent.className = 'relative top-10 mx-auto p-5 border border-gray-700 w-11/12 max-w-6xl shadow-lg rounded-xl bg-gray-800 transition-all duration-300';
         modalContent.style.top = '';
         modalContent.style.left = '';
         modalContent.style.right = '';

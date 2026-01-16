@@ -119,25 +119,25 @@
                     <div class="mt-4">
                         <h5 class="font-medium mb-2">🎯 Predefined Intelligence Search Patterns:</h5>
                         <div class="space-y-2 text-xs">
-                            <div class="p-2 bg-white rounded border">
+                            <div class="p-2 bg-[#0a0e1a] border border-gray-700 rounded">
                                 <div class="font-medium" style="color: var(--color-text-primary);">High-Value Detection Content:</div>
-                                <code class="text-xs bg-gray-100 px-1 rounded">("sigma rule" OR "detection rule") AND ("parentimage" OR "commandline" OR "process chain")</code>
+                                <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">("sigma rule" OR "detection rule") AND ("parentimage" OR "commandline" OR "process chain")</code>
                                 <a href="/articles?search=%28%22sigma%20rule%22%20OR%20%22detection%20rule%22%29%20AND%20%28%22parentimage%22%20OR%20%22commandline%22%20OR%20%22process%20chain%22%29" 
                                    class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--color-bg-panel); color: var(--color-info);">
                                     Use This Search
                                 </a>
                             </div>
-                            <div class="p-2 bg-white rounded border">
+                            <div class="p-2 bg-[#0a0e1a] border border-gray-700 rounded">
                                 <div class="font-medium" style="color: var(--color-text-primary);">Technical Intelligence:</div>
-                                <code class="text-xs bg-gray-100 px-1 rounded">("mitre att&ck" OR "T[0-9]") AND ("registry run" OR "appdata" OR "suspicious path")</code>
+                                <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">("mitre att&ck" OR "T[0-9]") AND ("registry run" OR "appdata" OR "suspicious path")</code>
                                 <a href="/articles?search=%28%22mitre%20att%26ck%22%20OR%20%22T%5B0-9%5D%22%29%20AND%20%28%22registry%20run%22%20OR%20%22appdata%22%20OR%20%22suspicious%20path%22%29" 
                                    class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--color-bg-panel); color: var(--color-info);">
                                     Use This Search
                                 </a>
                             </div>
-                            <div class="p-2 bg-white rounded border">
+                            <div class="p-2 bg-[#0a0e1a] border border-gray-700 rounded">
                                 <div class="font-medium" style="color: var(--color-brand);">Actionable Intelligence Content:</div>
-                                <code class="text-xs bg-gray-100 px-1 rounded">("hunting" OR "detection") AND ("powershell" OR "cmd.exe" OR "process spawning")</code>
+                                <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">("hunting" OR "detection") AND ("powershell" OR "cmd.exe" OR "process spawning")</code>
                                 <a href="/articles?search=%28%22hunting%22%20OR%20%22detection%22%29%20AND%20%28%22powershell%22%20OR%20%22cmd.exe%22%20OR%20%22process%20spawning%22%29" 
                                    class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: rgba(139, 92, 246, 0.1); color: var(--color-brand);">
                                     Use This Search
@@ -480,7 +480,7 @@
                 <div class="flex items-center space-x-2">
                     {% if pagination.page > 1 %}
                     <a href="?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
-                       class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                       class="px-3 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Previous
                     </a>
                     {% endif %}
@@ -492,7 +492,7 @@
                         </span>
                         {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
                         <a href="?page={{ page_num }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
-                           class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                           class="px-3 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                             {{ page_num }}
                         </a>
                         {% elif page_num == 4 and pagination.page > 4 %}
@@ -504,7 +504,7 @@
 
                     {% if pagination.page < pagination.total_pages %}
                     <a href="?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}" 
-                       class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                       class="px-3 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Next
                     </a>
                     {% endif %}
@@ -523,9 +523,9 @@
         </div>
         
         <!-- Modal content -->
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] flex flex-col">
+        <div class="inline-block align-bottom bg-gray-800 border border-gray-700 rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] flex flex-col">
             <!-- Header -->
-            <div class="bg-white px-6 py-4 border-b border-gray-200 flex-shrink-0">
+            <div class="bg-gray-800 px-6 py-4 border-b border-gray-700 flex-shrink-0">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-medium text-gray-900" id="modalTitle">
                         Classify Article
@@ -539,7 +539,7 @@
             </div>
             
             <!-- Content -->
-            <div class="bg-white px-6 py-4 flex-1 overflow-y-auto">
+            <div class="bg-gray-800 px-6 py-4 flex-1 overflow-y-auto text-gray-300">
                 <div id="modalContent" class="space-y-4">
                     <!-- Loading state -->
                     <div id="modalLoading" class="text-center py-8">
@@ -565,7 +565,7 @@
                         </div>
                         
                         <!-- Current classification -->
-                        <div class="mb-4 p-3 bg-gray-50 rounded-md">
+                        <div class="mb-4 p-3 bg-[#0a0e1a] border border-gray-700 rounded-lg">
                             <h5 class="text-sm font-medium text-gray-900 mb-2">Current Classification:</h5>
                             <div id="currentClassification" class="text-sm text-gray-600">
                                 <!-- Will be populated by JavaScript -->
@@ -576,7 +576,7 @@
             </div>
             
             <!-- Fixed bottom section with classification controls -->
-            <div class="bg-white px-6 py-4 border-t border-gray-200 flex-shrink-0">
+            <div class="bg-gray-800 px-6 py-4 border-t border-gray-700 flex-shrink-0">
                 <div id="classificationControls" class="hidden">
                     <!-- Classification controls -->
                     <div class="space-y-4 p-4 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
@@ -752,7 +752,7 @@
         
         if (category === 'chosen') {
             classificationDiv.innerHTML = `
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                     ✅ Chosen
                 </span>
                 ${article.article_metadata?.training_reason ? `<div class="mt-1 text-xs text-gray-500">Reason: ${article.article_metadata.training_reason}</div>` : ''}

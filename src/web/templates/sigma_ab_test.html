@@ -11,7 +11,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Rule A Input -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Rule A</h2>
                 <button onclick="loadExample('a')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
@@ -27,7 +27,7 @@
         </div>
 
         <!-- Rule B Input -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Rule B</h2>
                 <button onclick="loadExample('b')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
@@ -44,7 +44,7 @@
     </div>
 
     <!-- Options -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Options</h3>
         <div class="space-y-4">
             <div class="flex items-center space-x-6">
@@ -74,7 +74,7 @@
 
     <!-- Results -->
     <div id="results" class="hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Results</h3>
             
             <!-- Overall Similarity & Novelty Classification -->
@@ -531,7 +531,7 @@ tags:
         // Create repository results section
         const repoResultsDiv = document.createElement('div');
         repoResultsDiv.id = 'repositoryResults';
-        repoResultsDiv.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6';
+        repoResultsDiv.className = 'bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6';
         repoResultsDiv.innerHTML = `
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Repository Comparison Results</h3>
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">

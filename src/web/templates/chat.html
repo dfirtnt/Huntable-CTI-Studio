@@ -522,7 +522,7 @@
                             <p className="text-xs text-gray-300">
                                 Ask questions about cybersecurity threats, malware, and security vulnerabilities
                             </p>
-                            <p className="text-xs text-green-400 mt-1">
+                            <p className="text-xs text-emerald-400 mt-1">
                                 ✅ AI-powered responses enabled
                             </p>
                         </div>
@@ -590,17 +590,43 @@
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-gray-900">
-                    {messages.map((message, index) => renderMessage(message, index))}
-                    
-                    {isLoading && (
-                        <div className="flex justify-start">
-                            <div className="bg-gray-800 text-gray-200 px-4 py-3 rounded-lg border border-gray-700">
-                                <div className="flex items-center space-x-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
-                                    <span>Searching threat intelligence database...</span>
-                                </div>
+                    {messages.length === 1 && !isLoading ? (
+                        <div className="text-center py-12">
+                            <div className="text-4xl mb-4">🔍</div>
+                            <h3 className="text-lg font-medium text-gray-50 mb-2">What would you like to find?</h3>
+                            <p className="text-gray-400 mb-6">Search across your threat intelligence articles</p>
+                            
+                            <div className="space-y-2 max-w-md mx-auto">
+                                <p className="text-sm text-gray-400 text-left">Try asking:</p>
+                                <button onClick={() => setInputMessage('Emotet delivery techniques')} 
+                                        className="block w-full text-left px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                    "Emotet delivery techniques"
+                                </button>
+                                <button onClick={() => setInputMessage('Living off the land binaries')}
+                                        className="block w-full text-left px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                    "Living off the land binaries"
+                                </button>
+                                <button onClick={() => setInputMessage('Recent APT campaigns')}
+                                        className="block w-full text-left px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                    "Recent APT campaigns"
+                                </button>
                             </div>
                         </div>
+                    ) : (
+                        <>
+                            {messages.map((message, index) => renderMessage(message, index))}
+                            
+                            {isLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-gray-800 text-gray-200 px-4 py-3 rounded-lg border border-gray-700">
+                                        <div className="flex items-center space-x-2">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
+                                            <span>Searching threat intelligence database...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                     
                     <div ref={messagesEndRef} />
