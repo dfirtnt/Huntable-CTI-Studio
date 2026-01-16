@@ -6728,6 +6728,41 @@ function savePreset() {
     }
 }
 
+// Helper function to extract error message from FastAPI error responses
+function extractErrorMessage(errorData, defaultMessage = 'Unknown error') {
+    if (!errorData) {
+        return defaultMessage;
+    }
+    
+    // Handle FastAPI validation error format (detail can be array or string)
+    if (errorData.detail) {
+        if (Array.isArray(errorData.detail)) {
+            // Format validation errors: "field: message"
+            return errorData.detail.map(err => {
+                if (typeof err === 'string') return err;
+                if (err.msg) return `${err.loc?.join('.') || 'field'}: ${err.msg}`;
+                return JSON.stringify(err);
+            }).join('; ');
+        }
+        if (typeof errorData.detail === 'string') {
+            return errorData.detail;
+        }
+        // If detail is an object, try to stringify it
+        return JSON.stringify(errorData.detail);
+    }
+    
+    // Fallback: try to stringify the whole object
+    if (typeof errorData === 'string') {
+        return errorData;
+    }
+    
+    try {
+        return JSON.stringify(errorData);
+    } catch {
+        return defaultMessage;
+    }
+}
+
 async function loadPreset(event) {
     const file = event.target.files[0];
     if (!file) {
@@ -6773,7 +6808,10 @@ async function loadPreset(event) {
         event.target.value = '';
     } catch (error) {
         console.error('Error loading preset:', error);
-        alert('❌ Error loading preset: ' + error.message);
+        const errorMessage = error instanceof Error ? error.message : 
+                           (typeof error === 'string' ? error : 
+                           (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert('❌ Error loading preset: ' + errorMessage);
         event.target.value = ''; // Reset file input
     }
 }
@@ -11961,7 +11999,7 @@ async function showPresetList() {
                             </div>
                         </div>
                         <div class="flex space-x-2 ml-4">
-                            <button onclick="loadPreset(${preset.id})" class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                            <button onclick="loadPresetById(${preset.id})" class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                                 Load
                             </button>
                             <button onclick="deletePreset(${preset.id}, '${escapeHtml(preset.name)}')" class="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md">
@@ -11976,7 +12014,10 @@ async function showPresetList() {
         }
     } catch (error) {
         console.error('Error loading presets:', error);
-        alert(`Error loading presets: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : 
+                           (typeof error === 'string' ? error : 
+                           (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading presets: ${errorMessage}`);
     }
 }
 
@@ -11984,13 +12025,27 @@ function closePresetListModal() {
     popModal(); // This will hide preset list modal and restore previous modal
 }
 
-async function loadPreset(presetId) {
+async function loadPresetById(presetId) {
     try {
-        const response = await fetch(`/api/sigma-queue/preset/${presetId}`);
-        const data = await response.json();
+        // Ensure presetId is an integer
+        const id = parseInt(presetId, 10);
+        if (isNaN(id)) {
+            throw new Error(`Invalid preset ID: ${presetId}`);
+        }
+        
+        const response = await fetch(`/api/sigma-queue/preset/${id}`);
+        
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            // If response is not JSON, use status text
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load preset'}`);
+        }
         
         if (!response.ok) {
-            throw new Error(data.detail || 'Failed to load preset');
+            const errorMsg = extractErrorMessage(data, `Failed to load preset (${response.status})`);
+            throw new Error(errorMsg);
         }
         
         // Load the preset into the form
@@ -12015,7 +12070,11 @@ async function loadPreset(presetId) {
         alert(`✅ Preset "${data.name}" loaded`);
     } catch (error) {
         console.error('Error loading preset:', error);
-        alert(`Error loading preset: ${error.message}`);
+        // Extract message safely - handle both Error objects and other types
+        const errorMessage = error instanceof Error ? error.message : 
+                           (typeof error === 'string' ? error : 
+                           (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading preset: ${errorMessage}`);
     }
 }
 
@@ -12025,14 +12084,26 @@ async function deletePreset(presetId, presetName) {
     }
     
     try {
-        const response = await fetch(`/api/sigma-queue/preset/${presetId}`, {
+        // Ensure presetId is an integer
+        const id = parseInt(presetId, 10);
+        if (isNaN(id)) {
+            throw new Error(`Invalid preset ID: ${presetId}`);
+        }
+        
+        const response = await fetch(`/api/sigma-queue/preset/${id}`, {
             method: 'DELETE'
         });
         
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to delete preset'}`);
+        }
         
         if (!response.ok) {
-            throw new Error(data.detail || 'Failed to delete preset');
+            const errorMsg = extractErrorMessage(data, `Failed to delete preset (${response.status})`);
+            throw new Error(errorMsg);
         }
         
         // Reload preset list
@@ -12041,7 +12112,10 @@ async function deletePreset(presetId, presetName) {
         alert(`✅ Preset "${presetName}" deleted`);
     } catch (error) {
         console.error('Error deleting preset:', error);
-        alert(`Error deleting preset: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : 
+                           (typeof error === 'string' ? error : 
+                           (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error deleting preset: ${errorMessage}`);
     }
 }
 
