@@ -11,16 +11,16 @@
                 <p class="text-gray-600 dark:text-gray-400">Monitor agentic workflow execution history and status</p>
             </div>
             <div class="flex space-x-4">
-                <button onclick="openExecuteModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                <button onclick="openExecuteModal()" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                     ▶️ Execute Workflow
                 </button>
-                <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                <button onclick="refreshExecutions()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                     🔄 Refresh
                 </button>
-                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md transition-colors border border-black" id="triggerStuckBtn">
+                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" id="triggerStuckBtn">
                     ⚡ Trigger Stuck
                 </button>
-                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
                     🧹 Cleanup Stale
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
@@ -36,26 +36,26 @@
 
     <!-- Statistics -->
     <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
             <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
             <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
-            <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="completedExecutions">-</div>
+            <div class="text-2xl font-bold text-emerald-400" id="completedExecutions">-</div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
             <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
         </div>
     </div>
 
     <!-- Executions Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
@@ -68,7 +68,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody id="executionsTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody id="executionsTableBody" class="bg-gray-800 divide-y divide-gray-700">
                 <tr>
                     <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
                 </tr>
@@ -77,8 +77,8 @@
     </div>
 
     <!-- Execute Workflow Modal -->
-    <div id="executeModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
+    <div id="executeModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border border-gray-700 w-11/12 md:w-1/2 shadow-lg rounded-xl bg-gray-800">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execute Workflow</h3>
                 <button onclick="closeExecuteModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
@@ -91,16 +91,16 @@
                     <input type="number" 
                            id="articleIdInput" 
                            min="1"
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                            placeholder="Enter article ID">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the ID of the article to process through the workflow</p>
                 </div>
                 <div id="executeError" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm text-red-700 dark:text-red-400"></div>
                 <div class="flex justify-end space-x-4">
-                    <button onclick="closeExecuteModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <button onclick="closeExecuteModal()" class="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Cancel
                     </button>
-                    <button onclick="executeWorkflow()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                    <button onclick="executeWorkflow()" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                         Execute
                     </button>
                 </div>
@@ -110,7 +110,7 @@
 
     <!-- Execution Detail Modal -->
     <div id="executionModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-xl bg-gray-800">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execution Details - Step-by-Step Inputs & Outputs</h3>
                 <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
@@ -135,7 +135,7 @@ function getStatusBadge(status) {
     const badges = {
         'pending': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-900 dark:text-white">Pending</span>',
         'running': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-white">Running</span>',
-        'completed': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-900 dark:bg-green-900 dark:text-white">Completed</span>',
+        'completed': '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Completed</span>',
         'failed': '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-900 dark:bg-red-900 dark:text-white">Failed</span>'
     };
     return badges[status] || '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100">' + status + '</span>';
@@ -196,8 +196,8 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-900 dark:text-white dark:hover:text-gray-300 mr-2">View</button>
-                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
-                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-white dark:hover:text-gray-300 mr-2">Retry</button>` : ''}
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
+                ${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">Retry</button>` : ''}
                 ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="cancelExecution(${exec.id})" class="text-red-600 hover:text-red-900 dark:text-white dark:hover:text-gray-300">Cancel</button>` : ''}
             </td>
         </tr>
@@ -271,7 +271,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-blue-100 dark:bg-blue-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-900/60">
                             Step 0: 🔍 Junk Filter
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -296,11 +296,11 @@ async function viewExecution(executionId) {
                     </details>
 
                     <!-- Step 1: Rank Article -->
-                    <details class="border border-green-200 dark:border-green-800 rounded-lg overflow-hidden" ${exec.ranking_score ? 'open' : ''}>
+                    <details class="border border-emerald-500/30 rounded-lg overflow-hidden" ${exec.ranking_score ? 'open' : ''}>
                         <summary class="bg-green-100 dark:bg-green-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-green-200 dark:hover:bg-green-900/60">
                             Step 1: 📊 LLM Ranking ${exec.ranking_score ? `(${exec.ranking_score.toFixed(1)}/10)` : ''}
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -322,7 +322,7 @@ async function viewExecution(executionId) {
                                             <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                                                 💭 Reasoning
                                             </summary>
-                                            <div class="p-3 bg-white dark:bg-gray-800">
+                                            <div class="p-3 bg-gray-800 border border-gray-700">
                                                 <pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">${exec.ranking_reasoning}</pre>
                                             </div>
                                         </details>
@@ -337,7 +337,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-yellow-100 dark:bg-yellow-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-yellow-200 dark:hover:bg-yellow-900/60">
                             Step 2: 🔬 Extract Agent ${exec.extraction_result ? `(${exec.extraction_result.discrete_huntables_count || 0} huntables)` : ''}
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -395,7 +395,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-cyan-100 dark:bg-cyan-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-cyan-200 dark:hover:bg-cyan-900/60">
                             🔬 Sub-Agents (Individual Extraction)
                         </summary>
-                        <div class="p-4 space-y-4 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-4 bg-gray-800 border border-gray-700">
                             ${(() => {
                                 const subresults = exec.extraction_result.subresults || {};
                                 // Sub-agents in workflow execution order
@@ -437,7 +437,7 @@ async function viewExecution(executionId) {
                                                 ${subAgent.icon} ${subAgent.display} <span class="text-gray-700 dark:text-gray-100">${count > 0 ? `(${count} items)` : '(0 items)'}</span>
                                                 ${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
                                             </summary>
-                                            <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                                            <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                                                 <div>
                                                     <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                                     <div class="mt-1 text-sm">
@@ -489,7 +489,7 @@ async function viewExecution(executionId) {
                                                             <strong class="text-gray-900 dark:text-white">QA Results (${subAgent.qaName}):</strong>
                                                             <div class="mt-2">
                                                                 <div class="flex items-center gap-2 mb-2">
-                                                                    <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : qaVerdict === 'fail' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'}">
+                                                                    <span class="px-2 py-1 rounded text-xs font-semibold ${qaVerdict === 'pass' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : qaVerdict === 'fail' ? 'bg-red-500/10 text-red-400 border border-red-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'}">
                                                                         ${qaVerdict === 'pass' ? '✅ PASS' : qaVerdict === 'fail' ? '❌ FAIL' : '⚠️ WARNING'}
                                                                     </span>
                                                                 </div>
@@ -523,7 +523,7 @@ async function viewExecution(executionId) {
                                             <summary class="bg-red-50 dark:bg-red-900/30 px-4 py-3 cursor-pointer font-medium text-red-900 dark:text-red-100">
                                                 ❌ ${subAgent.display} - Error: ${error.message}
                                             </summary>
-                                            <div class="p-4 bg-white dark:bg-gray-800">
+                                            <div class="p-4 bg-gray-800 border border-gray-700">
                                                 <pre class="text-xs text-red-600 dark:text-red-400">${error.stack || error.toString()}</pre>
                                             </div>
                                         </details>
@@ -545,7 +545,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-teal-100 dark:bg-teal-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-teal-200 dark:hover:bg-teal-900/60">
                             🎯 ExtractionSupervisorAgent (Aggregation)
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -567,7 +567,7 @@ async function viewExecution(executionId) {
                                     </div>
                                     ${exec.extraction_result.content ? `
                                         <details class="mt-2">
-                                            <summary class="cursor-pointer text-sm text-green-600 dark:text-white hover:underline">View Aggregated Content Summary</summary>
+                                            <summary class="cursor-pointer text-sm text-blue-400 hover:text-blue-300 hover:underline">View Aggregated Content Summary</summary>
                                             <div class="mt-2">${formatText(exec.extraction_result.content, 2000)}</div>
                                         </details>
                                     ` : ''}
@@ -582,7 +582,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-red-100 dark:bg-red-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-red-200 dark:hover:bg-red-900/60">
                             Step 3: ⚡ Generate SIGMA ${exec.sigma_rules ? `(${exec.sigma_rules.length} rules)` : '(0 rules)'}
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -614,7 +614,7 @@ async function viewExecution(executionId) {
                                             <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50">
                                                 Rule ${idx + 1}: ${ruleTitle}
                                             </summary>
-                                            <div class="p-4 bg-white dark:bg-gray-800 space-y-4">
+                                            <div class="p-4 bg-gray-800 border border-gray-700 space-y-4">
                                                 ${ruleDescription ? `
                                                     <div>
                                                         <strong class="text-gray-900 dark:text-white text-sm">Description:</strong>
@@ -698,12 +698,12 @@ async function viewExecution(executionId) {
                                         
                                         conversationLog.forEach((entry, idx) => {
                                             const attempt = entry.attempt || (idx + 1);
-                                            const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                                            const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
                                             const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
                                             
-                                            html += '<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
+                                            html += '<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
                                             html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + attemptBadgeColor + ' mr-2">' + attemptIcon + ' Attempt ' + attempt + '</span>';
-                                            html += entry.all_valid ? '<span class="text-xs text-green-600 dark:text-green-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">Has Validation Errors</span>';
+                                            html += entry.all_valid ? '<span class="text-xs text-emerald-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-400 font-semibold">Has Validation Errors</span>';
                                             html += '</div>';
                                             
                                             // Messages
@@ -716,7 +716,7 @@ async function viewExecution(executionId) {
                                                     const roleIcon = role === 'system' ? '⚙️' : '👤';
                                                     const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
                                                     html += '<details class="mb-2"><summary class="cursor-pointer text-xs ' + roleColor + ' font-medium">' + roleIcon + ' ' + (role === 'system' ? 'System Prompt' : 'User Prompt') + '</summary>';
-                                                    html += '<pre class="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + content + '</pre></details>';
+                                                    html += '<pre class="mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + content + '</pre></details>';
                                                 });
                                                 html += '</div>';
                                             }
@@ -724,8 +724,8 @@ async function viewExecution(executionId) {
                                             // LLM Response
                                             const llmResponse = String(entry.llm_response || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                             if (llmResponse) {
-                                                html += '<details class="mb-2"><summary class="cursor-pointer text-xs text-green-700 dark:text-green-400 font-medium">🤖 LLM Response</summary>';
-                                                html += '<pre class="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + llmResponse + '</pre></details>';
+                                                html += '<details class="mb-2"><summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 hover:underline font-medium">🤖 LLM Response</summary>';
+                                                html += '<pre class="mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + llmResponse + '</pre></details>';
                                             }
                                             
                                             // Validation results
@@ -734,9 +734,9 @@ async function viewExecution(executionId) {
                                                 html += '<div class="mb-2"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">pySigma Validation:</div>';
                                                 validation.forEach((vr, vrIdx) => {
                                                     const validationIcon = vr.is_valid ? '✅' : '❌';
-                                                    const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+                                                    const validationColor = vr.is_valid ? 'text-emerald-400' : 'text-red-400';
                                                     const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
-                                                    html += '<div class="p-2 bg-white dark:bg-gray-800 rounded border ' + borderColor + ' mb-1">';
+                                                    html += '<div class="p-2 bg-gray-800 border border-gray-700 rounded border ' + borderColor + ' mb-1">';
                                                     html += '<div class="flex items-center mb-1"><span class="text-xs font-semibold ' + validationColor + '">' + validationIcon + ' Rule ' + (vrIdx + 1) + ': ' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
                                                     if (vr.errors && vr.errors.length > 0) {
                                                         html += '<div class="text-xs mt-1"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
@@ -746,9 +746,9 @@ async function viewExecution(executionId) {
                                                         html += '</ul></div>';
                                                     }
                                                     if (vr.warnings && vr.warnings.length > 0) {
-                                                        html += '<div class="text-xs mt-1"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                        html += '<div class="text-xs mt-1"><strong class="text-amber-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
                                                         vr.warnings.forEach(w => {
-                                                            html += '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                            html += '<li class="text-amber-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
                                                         });
                                                         html += '</ul></div>';
                                                     }
@@ -772,8 +772,8 @@ async function viewExecution(executionId) {
                                             const validationIcon = vr.is_valid ? '✅' : '❌';
                                             const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
                                             const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
-                                            html += '<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ' + borderColor + '">';
-                                            html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + (vr.is_valid ? 'bg-green-500' : 'bg-red-500') + ' mr-2">' + validationIcon + ' Attempt ' + (idx + 1) + '</span>';
+                                            html += '<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ' + borderColor + '">';
+                                            html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + (vr.is_valid ? 'bg-emerald-500' : 'bg-red-500') + ' mr-2">' + validationIcon + ' Attempt ' + (idx + 1) + '</span>';
                                             html += '<span class="font-semibold ' + validationColor + ' text-xs">' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
                                             if (vr.errors && vr.errors.length > 0) {
                                                 html += '<div class="text-xs mt-2"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
@@ -783,9 +783,9 @@ async function viewExecution(executionId) {
                                                 html += '</ul></div>';
                                             }
                                             if (vr.warnings && vr.warnings.length > 0) {
-                                                html += '<div class="text-xs mt-2"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                html += '<div class="text-xs mt-2"><strong class="text-amber-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
                                                 vr.warnings.forEach(w => {
-                                                    html += '<li class="text-yellow-700 dark:text-yellow-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+                                                    html += '<li class="text-amber-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
                                                 });
                                                 html += '</ul></div>';
                                             }
@@ -806,7 +806,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-pink-100 dark:bg-pink-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-pink-200 dark:hover:bg-pink-900/60">
                             Step 4: 🔎 Similarity Search
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -826,7 +826,7 @@ async function viewExecution(executionId) {
                                             <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                                                 🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)
                                             </summary>
-                                            <div class="p-3 bg-white dark:bg-gray-800 max-h-96 overflow-y-auto space-y-3">
+                                            <div class="p-3 bg-gray-800 border border-gray-700 max-h-96 overflow-y-auto space-y-3">
                                                 ${exec.similarity_results.map((result, idx) => `
                                                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900">
                                                         <div class="mb-2">
@@ -839,7 +839,7 @@ async function viewExecution(executionId) {
                                                             return similarRules.length > 0 ? `
                                                             <div class="mt-2 space-y-2">
                                                                 ${similarRules.map((similarRule, ruleIdx) => `
-                                                                    <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
+                                                                    <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-gray-800 border border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
                                                                          onclick="showSimilarRuleDetails(${ruleIdx}, ${idx})" 
                                                                          data-rule-data='${JSON.stringify(similarRule).replace(/'/g, "&#39;")}'>
                                                                         <div class="flex items-start justify-between">
@@ -868,7 +868,7 @@ async function viewExecution(executionId) {
                                         </details>
                                     ` : `
                                         <div class="mt-1 text-sm">
-                                            <div class="text-green-600 dark:text-green-400">✅ Similarity search completed successfully</div>
+                                            <div class="text-emerald-400">✅ Similarity search completed successfully</div>
                                             <div>• Results: 0 (no similar rules found)</div>
                                         </div>
                                     `}
@@ -900,7 +900,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-purple-100 dark:bg-purple-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-purple-200 dark:hover:bg-purple-900/60">
                             Step 5: 📥 Queue Promotion
                         </summary>
-                        <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
@@ -914,7 +914,7 @@ async function viewExecution(executionId) {
                                 <div class="mt-1 text-sm">
                                     ${exec.queued_rules_count > 0 ? `
                                         <div>• Rules Queued: <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(exec.queued_rule_ids || [])})">${exec.queued_rules_count}</span></div>
-                                        <div class="text-green-600 dark:text-green-400 mt-1">✅ Rules queued for review</div>
+                                        <div class="text-emerald-400 mt-1">✅ Rules queued for review</div>
                                         ${(() => {
                                             const queuedRuleIds = Array.isArray(exec.queued_rule_ids) ? exec.queued_rule_ids : [];
                                             return queuedRuleIds.length > 0 ? `
@@ -955,11 +955,11 @@ async function viewExecution(executionId) {
                         <summary class="bg-indigo-100 dark:bg-indigo-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-indigo-200 dark:hover:bg-indigo-900/60">
                             🔍 QA Agent Results
                         </summary>
-                        <div class="p-4 space-y-4 bg-white dark:bg-gray-800">
+                        <div class="p-4 space-y-4 bg-gray-800 border border-gray-700">
                             ${Object.entries(exec.error_log.qa_results).map(([agentName, qaResult]) => {
                                 const verdict = qaResult.verdict || 'unknown';
                                 const verdictIcon = verdict === 'pass' ? '✅' : verdict === 'critical_failure' ? '❌' : '⚠️';
-                                const verdictBadgeClass = verdict === 'pass' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : 
+                                const verdictBadgeClass = verdict === 'pass' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 
                                                           verdict === 'critical_failure' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300' : 
                                                           'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300';
                                 const issues = qaResult.issues || [];
@@ -983,7 +983,7 @@ async function viewExecution(executionId) {
                                                 <div class="mt-2 space-y-2">
                                                     ${issues.map((issue, idx) => {
                                                         const severityBorderClass = issue.severity === 'high' ? 'border-red-500' : 
-                                                                                    issue.severity === 'medium' ? 'border-yellow-500' : 
+                                                                                    issue.severity === 'medium' ? 'border-amber-500' : 
                                                                                     'border-gray-500';
                                                         return `
                                                             <div class="border-l-4 ${severityBorderClass} pl-3 py-1 text-sm">
@@ -998,7 +998,7 @@ async function viewExecution(executionId) {
                                                 </div>
                                             </div>
                                         ` : `
-                                            <div class="text-sm text-green-600 dark:text-green-400">✅ No issues found</div>
+                                            <div class="text-sm text-emerald-400">✅ No issues found</div>
                                         `}
                                     </div>
                                 `;
@@ -1012,7 +1012,7 @@ async function viewExecution(executionId) {
                         <summary class="bg-gray-100 dark:bg-gray-700 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600">
                             ⚙️ Configuration Snapshot
                         </summary>
-                        <div class="p-4 bg-white dark:bg-gray-800">
+                        <div class="p-4 bg-gray-800 border border-gray-700">
                             ${formatJSON(exec.config_snapshot)}
                         </div>
                     </details>
@@ -1349,7 +1349,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         ` : '';
         
         modal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800" style="margin-bottom: 50px;">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700" style="margin-bottom: 50px;">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rule Details</h3>
                     <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -1481,7 +1481,7 @@ function openLiveExecutionView(executionId) {
                 <h2 class="text-xl font-bold text-white">📺 Live Execution View - Execution ${executionId}</h2>
                 <button onclick="closeLiveExecutionView()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
             </div>
-            <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-green-400 bg-black rounded m-4" style="min-height: 400px;">
+            <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-emerald-400 bg-black rounded m-4" style="min-height: 400px;">
                 <div class="text-gray-500">Connecting to execution stream...</div>
             </div>
             <div class="p-4 border-t border-gray-700 flex justify-between items-center">
@@ -1527,7 +1527,7 @@ function startLiveExecutionStream(executionId) {
     }
     
     // Append to output
-    function appendOutput(text, className = 'text-green-400') {
+    function appendOutput(text, className = 'text-emerald-400') {
         const line = document.createElement('div');
         line.className = className;
         line.textContent = `[${formatTime()}] ${text}`;
@@ -1537,7 +1537,7 @@ function startLiveExecutionStream(executionId) {
     
     // Handle connection open
     eventSource.onopen = () => {
-        appendOutput('✅ Connected to execution stream', 'text-green-400');
+        appendOutput('✅ Connected to execution stream', 'text-emerald-400');
         statusSpan.textContent = 'Status: Connected';
     };
     
@@ -1552,11 +1552,11 @@ function startLiveExecutionStream(executionId) {
                     break;
                     
                 case 'step_complete':
-                    appendOutput(`✅ Step Complete: ${data.step}`, 'text-green-400');
+                    appendOutput(`✅ Step Complete: ${data.step}`, 'text-emerald-400');
                     break;
                     
                 case 'status':
-                    appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
+                    appendOutput(`📊 Status: ${data.status}`, 'text-amber-400');
                     statusSpan.textContent = `Status: ${data.status}`;
                     break;
                     
@@ -1588,7 +1588,7 @@ function startLiveExecutionStream(executionId) {
                     const verdictIcon = data.verdict === 'pass' ? '✅' : data.verdict === 'critical_failure' ? '❌' : '⚠️';
                     const agentDisplayName = data.agent === 'extract_agent' ? 'Extraction Agent' : data.agent.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                     appendOutput(`\n${verdictIcon} QA Result - ${agentDisplayName}: ${data.verdict.toUpperCase()}`, 
-                        data.verdict === 'pass' ? 'text-green-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-yellow-400');
+                        data.verdict === 'pass' ? 'text-emerald-400' : data.verdict === 'critical_failure' ? 'text-red-400' : 'text-amber-400');
                     if (data.summary) {
                         const summaryPreview = data.summary.length > 200 ? data.summary.substring(0, 200) + '...' : data.summary;
                         appendOutput(`  Summary: ${summaryPreview}`, 'text-gray-300');
@@ -1617,7 +1617,7 @@ function startLiveExecutionStream(executionId) {
                     break;
                     
                 case 'ranking':
-                    appendOutput(`\n📊 Ranking Score: ${data.score}/10`, 'text-yellow-400');
+                    appendOutput(`\n📊 Ranking Score: ${data.score}/10`, 'text-amber-400');
                     if (data.reasoning) {
                         const reasoningPreview = data.reasoning.length > 500 ? data.reasoning.substring(0, 500) + '...' : data.reasoning;
                         appendOutput(`  Reasoning: ${reasoningPreview}`, 'text-gray-300');
@@ -1626,7 +1626,7 @@ function startLiveExecutionStream(executionId) {
                     
                 case 'complete':
                     appendOutput(`\n🏁 Execution ${data.status.toUpperCase()}`, 
-                        data.status === 'completed' ? 'text-green-400' : 'text-red-400');
+                        data.status === 'completed' ? 'text-emerald-400' : 'text-red-400');
                     if (data.error_message) {
                         appendOutput(`  Error: ${data.error_message}`, 'text-red-300');
                     }
@@ -1838,7 +1838,7 @@ function updateActionButtons() {
         `;
     } else {
         buttonContainer.innerHTML = `
-            <button onclick="approveQueuedRule(currentRuleId)" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+            <button onclick="approveQueuedRule(currentRuleId)" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                 ✅ Approve
             </button>
             <button onclick="rejectQueuedRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
@@ -1942,7 +1942,7 @@ async function checkSimilarRulesForQueuedRule() {
     loadingMsg.id = 'similarRulesLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
@@ -2032,8 +2032,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Rule Preview Modal -->
 <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
-        <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
+        <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
             <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
         </div>
@@ -2041,7 +2041,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div id="rulePreviewContent">
                 <!-- Content loaded dynamically -->
             </div>
-            <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+            <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-gray-800 border border-gray-700">
                 <!-- Buttons loaded dynamically by updateActionButtons() -->
             </div>
         </div>

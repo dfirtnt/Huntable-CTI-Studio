@@ -219,7 +219,7 @@
    SECTIONS OUTSIDE AGENTS-PANEL (Presets, Config Display, Overview)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Override bg-white dark:bg-gray-800 cards */
+/* Override bg-gray-800 border border-gray-700 cards */
 .dark #tab-content-config > .bg-white,
 .dark #tab-content-config .bg-white.dark\:bg-gray-800 {
     background: rgb(20, 28, 48) !important;
@@ -329,7 +329,7 @@
                                        step="0.05"
                                        required
                                        oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
                                 <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                             </div>
@@ -368,7 +368,7 @@
                                        step="1"
                                        required
                                        oninput="validateThreshold(this, 1, 3); autoSaveConfig()"
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Maximum number of times QA Agent will give feedback to counterpart agent (1-3)</p>
                                 <p id="qaMaxRetries-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                             </div>
@@ -397,7 +397,6 @@
                     <div data-collapsible-panel="rank-agent-configs-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Rank Agent Configs</h3>
-                            <span id="rank-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                             <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -415,7 +414,6 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span id="rank-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" 
                                                id="rank-agent-enabled" 
@@ -464,7 +462,7 @@
                                step="0.1"
                                            required
                                            oninput="validateThreshold(this, 0, 10); autoSaveConfig()"
-                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                     <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (0-10) to continue workflow</p>
                                     <p id="rankingThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                                 </div>
@@ -511,7 +509,7 @@
                             <select id="rankqa-provider"
                                     name="agent_models[RankAgentQA_provider]"
                                     onchange="onAgentProviderChange('rankqa')"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm">
                                 <option value="lmstudio">LMStudio (Local)</option>
                                 <option value="openai">OpenAI (Cloud)</option>
                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -523,14 +521,14 @@
                                 <select id="rankqa-model"
                                         name="agent_models[RankAgentQA]"
                                         onchange="autoSaveModelChange()"
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
+                                        class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
                                 </select>
                             </div>
                             <div data-agent-prefix="rankqa" data-provider="openai" class="hidden">
                                 <input type="text"
                                        id="rankqa-model-openai"
                                        name="agent_models[RankAgentQA]"
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
+                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
                                        placeholder="gpt-4o-mini"
                                        onchange="autoSaveModelChange()">
                             </div>
@@ -538,7 +536,7 @@
                                 <input type="text"
                                        id="rankqa-model-anthropic"
                                        name="agent_models[RankAgentQA]"
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
+                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
                                        placeholder="claude-sonnet-4-5"
                                        onchange="autoSaveModelChange()">
                             </div>
@@ -554,7 +552,7 @@
                                        step="0.1"
                                        value="0.1"
                                        onchange="autoSaveModelChange()"
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Temperature for QA evaluation (0.0-2.0, default: 0.1)</p>
                             </div>
                         </div>
@@ -593,7 +591,6 @@
                                     <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">CmdlineExtract (Command Line Extraction)</h4>
-                                            <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="cmdlineextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -607,7 +604,6 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    <span id="cmdlineextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
                                                         <input type="checkbox" id="toggle-cmdlineextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('CmdlineExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
@@ -631,7 +627,7 @@
                                             <select id="cmdlineextract-provider"
                                                     name="agent_models[CmdlineExtract_provider]"
                                                     onchange="onAgentProviderChange('cmdlineextract')"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -716,7 +712,7 @@
                                             <select id="cmdlineqa-provider"
                                                     name="agent_models[CmdLineQA_provider]"
                                                     onchange="onAgentProviderChange('cmdlineqa')"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -755,7 +751,7 @@
                                                            step="0.1"
                                                            value="0.1"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                                 <div class="flex-1">
                                                     <label for="cmdlineqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
@@ -767,7 +763,7 @@
                                                            step="0.01"
                                                            value="0.9"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                             </div>
                                         </div>
@@ -782,7 +778,6 @@
                                     <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">ProcTreeExtract (Process Lineage)</h4>
-                                            <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="proctreeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -796,7 +791,6 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    <span id="proctreeextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
                                                         <input type="checkbox" id="toggle-proctreeextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('ProcTreeExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
@@ -820,7 +814,7 @@
                                             <select id="proctreeextract-provider"
                                                     name="agent_models[ProcTreeExtract_provider]"
                                                     onchange="onAgentProviderChange('proctreeextract')"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -902,7 +896,7 @@
                                             <select id="proctreeqa-provider"
                                                     name="agent_models[ProcTreeQA_provider]"
                                                     onchange="onAgentProviderChange('proctreeqa')"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -940,7 +934,7 @@
                                                        step="0.1"
                                                        value="0.1"
                                                        onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                             </div>
                                             <div class="mt-2">
                                                 <label for="proctreeqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
@@ -952,7 +946,7 @@
                                                        step="0.01"
                                                        value="0.9"
                                                        onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                             </div>
                                         </div>
                                         <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
@@ -1002,7 +996,7 @@
                                             <select id="huntqueriesextract-provider"
                                                     name="agent_models[HuntQueriesExtract_provider]"
                                                     onchange="onAgentProviderChange('huntqueriesextract')"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -1084,7 +1078,7 @@
                                             <select id="huntqueriesqa-provider"
                                                     name="agent_models[HuntQueriesQA_provider]"
                                                     onchange="onAgentProviderChange('huntqueriesqa')"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -1122,7 +1116,7 @@
                                                        step="0.1"
                                                        value="0.1"
                                                        onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                             </div>
                                             <div class="mt-2">
                                                 <label for="huntqueriesqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
@@ -1134,7 +1128,7 @@
                                                        step="0.01"
                                                        value="0.9"
                                                        onchange="autoSaveModelChange()"
-                                                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                             </div>
                                         </div>
                                         <div id="huntqueriesextract-agent-qa-prompt-container" class="hidden"></div>
@@ -1178,8 +1172,8 @@
                                    max="1" 
                                    step="0.05"
                                    required
-                                   oninput="validateThreshold(this, 0, 1)"
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white">
+                                   oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
+                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
                             <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                         </div>
@@ -1226,7 +1220,7 @@
                 </div>
 
                 <!-- Preset Management -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
+                <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
                     <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">💾 Configuration Presets</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Save and load complete workflow configurations as local files.</p>
                     <div class="flex flex-wrap gap-3">
@@ -1283,7 +1277,7 @@
         </div>
 
         <!-- Workflow Overview -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6" style="background: rgb(15, 20, 35) !important; border: 1px solid rgba(139, 92, 246, 0.2) !important;">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6" style="background: rgb(15, 20, 35) !important; border: 1px solid rgba(139, 92, 246, 0.2) !important;">
             <h2 class="text-xl font-semibold" style="color: #f8fafc !important;">📊 Workflow Overview</h2>
             <div class="space-y-4">
                 <!-- Main Workflow Steps -->
@@ -1346,19 +1340,19 @@
     <div id="tab-content-executions" class="tab-content hidden">
         <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
             <div class="flex flex-wrap items-center gap-3">
-                <button onclick="refreshExecutions()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+                <button onclick="refreshExecutions()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                     🔄 Refresh
                 </button>
-                <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors">
+                <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                     ➕ Trigger Workflow
                 </button>
-                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" id="triggerStuckBtn">
+                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" id="triggerStuckBtn">
                     ⚡ Trigger Stuck
                 </button>
-                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
+                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
                     🧹 Cleanup Stale
                 </button>
-                <button onclick="cancelAllRunningExecutions()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors" title="Cancel all running or pending executions">
+                <button onclick="cancelAllRunningExecutions()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Cancel all running or pending executions">
                     🛑 Cancel All Running
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
@@ -1381,26 +1375,26 @@
 
         <!-- Statistics -->
         <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
                 <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
                 <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
-                <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="completedExecutions">-</div>
+                <div class="text-2xl font-bold text-emerald-400 dark:text-green-400" id="completedExecutions">-</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
                 <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
             </div>
         </div>
 
         <!-- Executions Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-x-auto">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr id="executionsHeaderRow">
@@ -1413,7 +1407,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="executionsTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="executionsTableBody" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                     <tr>
                         <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">Loading...</td>
                     </tr>
@@ -1422,12 +1416,12 @@
         </div>
 
         <!-- Execution Detail Modal -->
-        <div id="executionModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div id="executionModalContent" class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300">
+        <div id="executionModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+            <div id="executionModalContent" class="relative top-20 mx-auto p-5 border border-gray-700 w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-xl bg-gray-800 transition-all duration-300">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-gray-300">Execution Details</h3>
+                    <h3 class="text-xl font-bold text-gray-50">Execution Details</h3>
                     <div class="flex items-center gap-2">
-                        <button onclick="toggleModalFullscreen()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Toggle fullscreen">
+                        <button onclick="toggleModalFullscreen()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Toggle fullscreen">
                             <svg id="fullscreenIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
                             </svg>
@@ -1435,10 +1429,10 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6v12m12-12v12"/>
                             </svg>
                         </button>
-                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">✕</button>
                     </div>
                 </div>
-                <div id="executionDetailContent" class="space-y-4 max-h-[80vh] overflow-y-auto">
+                <div id="executionDetailContent" class="space-y-4 max-h-[80vh] overflow-y-auto text-gray-300">
                     <!-- Content loaded dynamically -->
                 </div>
             </div>
@@ -1446,7 +1440,7 @@
 
         <!-- Trigger Workflow Modal -->
         <div id="triggerWorkflowModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-gray-800 border border-gray-700">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-gray-300">Trigger Workflow</h3>
                     <button onclick="closeTriggerWorkflowModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -1486,7 +1480,7 @@
                 <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
                     🔄 Refresh
                 </button>
-                <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-emerald-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     📤 Submit PR
                 </button>
                 <select id="queueStatusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
@@ -1501,26 +1495,26 @@
 
         <!-- Queue Statistics -->
         <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-300">Pending Review</div>
-                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="pendingCount">-</div>
+                <div class="text-2xl font-bold text-amber-400 dark:text-yellow-400" id="pendingCount">-</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-300">Approved</div>
-                <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="approvedCount">-</div>
+                <div class="text-2xl font-bold text-emerald-400 dark:text-green-400" id="approvedCount">-</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-300">Rejected</div>
                 <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
             </div>
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
                 <div class="text-sm text-gray-600 dark:text-gray-300">Submitted</div>
                 <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
             </div>
         </div>
 
         <!-- Queue Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
@@ -1533,7 +1527,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="queueTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="queueTableBody" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                     <tr>
                         <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">Loading...</td>
                     </tr>
@@ -1543,8 +1537,8 @@
 
         <!-- Rule Preview Modal -->
         <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
-                <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
+                <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
                     <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
                 </div>
@@ -1552,7 +1546,7 @@
                     <div id="rulePreviewContent">
                         <!-- Content loaded dynamically -->
                     </div>
-                    <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
+                    <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-gray-800 border border-gray-700">
                         <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md">
                             ✅ Approve
                         </button>
@@ -1589,8 +1583,8 @@
 
         <!-- Enrich Rule Modal -->
         <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[60]">
-            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
-                <div class="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-2 border-b">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
+                <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white">✨ AI-Assisted Rule Enrichment</h3>
                     <div class="flex items-center gap-3">
                         <div class="flex items-center gap-2">
@@ -1600,7 +1594,7 @@
                             <select id="enrichModelSelect" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[200px]">
                                 <option value="">Select model...</option>
                             </select>
-                            <button onclick="saveEnrichmentPreset()" class="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md">
+                            <button onclick="saveEnrichmentPreset()" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-green-700 text-white rounded-md">
                                 💾 Save Preset
                             </button>
                             <button onclick="showPresetList()" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
@@ -1794,7 +1788,7 @@ END SYSTEM PROMPT</textarea>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Original Rule:
                         </label>
-                        <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
+                        <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-800 border border-gray-700 text-gray-900 dark:text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
                     </div>
                     <div id="enrichLoading" class="hidden text-center py-4">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -1816,16 +1810,16 @@ END SYSTEM PROMPT</textarea>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900">
                                     <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2" id="enrichLeftLabel">Original Rule</h6>
-                                    <pre id="enrichOriginalComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                    <pre id="enrichOriginalComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
                                 </div>
                                 <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
                                     <h6 class="text-xs font-bold text-green-700 dark:text-green-300 mb-2" id="enrichRightLabel">Enriched Rule</h6>
-                                    <pre id="enrichedComparison" class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                    <pre id="enrichedComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
                                 </div>
                             </div>
                         </div>
                         <div id="enrichDiffView" class="hidden mt-4">
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
                                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Results</h3>
                                 
                                 <!-- Overall Similarity & Novelty Classification -->
@@ -1906,8 +1900,8 @@ END SYSTEM PROMPT</textarea>
                         </div>
                     </div>
                     <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
-                    <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-800">
-                        <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                    <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-gray-800 border border-gray-700">
+                        <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-green-700 text-white rounded-md">
                             ✅ Apply Enriched Rule
                         </button>
                         <button onclick="enrichRule()" id="enrichBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
@@ -1926,7 +1920,7 @@ END SYSTEM PROMPT</textarea>
         
         <!-- Prompt History Modal -->
         <div id="promptHistoryModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white">📜 Prompt History</h3>
@@ -1948,7 +1942,7 @@ END SYSTEM PROMPT</textarea>
         
         <!-- Preset List Modal -->
         <div id="presetListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white">📋 Enrichment Presets</h3>
@@ -3148,7 +3142,7 @@ async function loadLMStudioModels() {
                     <p class="text-sm text-yellow-800 dark:text-yellow-300">
                         ⚠️ Could not load LMStudio models: ${data.message || 'Unknown error'}
                     </p>
-                    <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                    <p class="text-xs text-amber-400 dark:text-yellow-400 mt-2">
                         Make sure LMStudio is running and accessible at the configured URL.
                     </p>
                 </div>
@@ -3943,7 +3937,7 @@ function showPromptHistoryModal(agentName, versions) {
     modal.id = 'promptHistoryModal';
     modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
     modal.innerHTML = `
-        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white dark:bg-gray-800 max-h-[90vh]">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">📜 Version History: ${agentName}</h3>
                 <button onclick="closePromptHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -4652,7 +4646,9 @@ function renderAgentModels(lmstudioModels) {
         const currentModelFromConfig = agentModels['RankAgent'] || '';
         const currentModel = currentModelFromDOM || currentModelFromConfig;
         const currentTemperature = agentModels['RankAgent_temperature'] !== undefined ? agentModels['RankAgent_temperature'] : 0.0;
-        const currentTopP = agentModels['RankAgent_top_p'] !== undefined ? agentModels['RankAgent_top_p'] : 0.9;
+        // Clamp top_p to valid range (0-1) if it comes from config with invalid value
+        let currentTopP = agentModels['RankAgent_top_p'] !== undefined ? agentModels['RankAgent_top_p'] : 0.9;
+        currentTopP = Math.max(0, Math.min(1, currentTopP));
         // Get current provider from DOM first (preserves unsaved user selection), then fallback to config
         const rankProviderSelect = document.getElementById('rankagent-provider');
         const currentProviderFromDOM = rankProviderSelect?.value || '';
@@ -4931,7 +4927,9 @@ function renderAgentModels(lmstudioModels) {
     if (sigmaContainer) {
         const currentModel = agentModels['SigmaAgent'] || '';
         const currentTemperature = agentModels['SigmaAgent_temperature'] !== undefined ? agentModels['SigmaAgent_temperature'] : 0.0;
-        const currentTopP = agentModels['SigmaAgent_top_p'] !== undefined ? agentModels['SigmaAgent_top_p'] : 0.9;
+        // Clamp top_p to valid range (0-1) if it comes from config with invalid value
+        let currentTopP = agentModels['SigmaAgent_top_p'] !== undefined ? agentModels['SigmaAgent_top_p'] : 0.9;
+        currentTopP = Math.max(0, Math.min(1, currentTopP));
         const currentProvider = (agentModels && agentModels['SigmaAgent_provider']) || 'lmstudio';
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
@@ -5136,7 +5134,7 @@ function showTestModal(agentName, articleId) {
         testModal.id = 'test-subagent-modal';
         testModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden';
         testModal.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
                 <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg font-semibold text-gray-500 dark:text-gray-400" id="test-modal-title">Testing Agent</h3>
                     <button onclick="closeTestModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -6826,18 +6824,28 @@ async function applyPreset(preset) {
                     select.value = preset.agent_models[field.name];
                 }
                 
-                // Load QA temperature
+                // Load QA temperature (clamp to valid range 0-2)
                 const tempKey = `${field.name}_temperature`;
                 const tempInput = document.getElementById(field.tempId);
                 if (tempInput && preset.agent_models[tempKey] !== undefined) {
-                    tempInput.value = preset.agent_models[tempKey];
+                    const tempValue = preset.agent_models[tempKey];
+                    const clampedTemp = Math.max(0, Math.min(2, tempValue));
+                    tempInput.value = clampedTemp;
+                    if (tempValue !== clampedTemp) {
+                        console.warn(`Clamped ${tempKey} from ${tempValue} to ${clampedTemp}`);
+                    }
                 }
                 
-                // Load QA top_p
+                // Load QA top_p (clamp to valid range 0-1)
                 const topPKey = `${field.name}_top_p`;
                 const topPInput = document.getElementById(field.topPId);
                 if (topPInput && preset.agent_models[topPKey] !== undefined) {
-                    topPInput.value = preset.agent_models[topPKey];
+                    const topPValue = preset.agent_models[topPKey];
+                    const clampedTopP = Math.max(0, Math.min(1, topPValue));
+                    topPInput.value = clampedTopP;
+                    if (topPValue !== clampedTopP) {
+                        console.warn(`Clamped ${topPKey} from ${topPValue} to ${clampedTopP}`);
+                    }
                 }
             });
         }
@@ -7882,7 +7890,7 @@ function showGenerateCommandsModal() {
     modal.id = 'generateCommandsModal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Generate LMStudio Context Commands</h3>
                 <button onclick="closeGenerateCommandsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -7928,12 +7936,12 @@ function copyGeneratedCommands() {
         const button = event.target;
         const originalText = button.textContent;
         button.textContent = '✓ Copied!';
-        button.classList.add('bg-green-600', 'hover:bg-green-700');
+        button.classList.add('bg-emerald-600', 'hover:bg-green-700');
         button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
         
         setTimeout(() => {
             button.textContent = originalText;
-            button.classList.remove('bg-green-600', 'hover:bg-green-700');
+            button.classList.remove('bg-emerald-600', 'hover:bg-green-700');
             button.classList.add('bg-blue-600', 'hover:bg-blue-700');
         }, 2000);
     }
@@ -8362,6 +8370,33 @@ if (workflowConfigForm) {
         return;
     }
     
+    // Validate and clamp all number inputs with min/max attributes before submission
+    // This prevents HTML5 validation errors from blocking form submission
+    const numberInputs = workflowConfigForm.querySelectorAll('input[type="number"]');
+    let hasInvalidInputs = false;
+    numberInputs.forEach(input => {
+        const min = parseFloat(input.getAttribute('min'));
+        const max = parseFloat(input.getAttribute('max'));
+        if (!isNaN(min) || !isNaN(max)) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value)) {
+                let clampedValue = value;
+                if (!isNaN(min) && value < min) {
+                    clampedValue = min;
+                    hasInvalidInputs = true;
+                }
+                if (!isNaN(max) && value > max) {
+                    clampedValue = max;
+                    hasInvalidInputs = true;
+                }
+                if (clampedValue !== value) {
+                    input.value = clampedValue;
+                    console.warn(`Clamped ${input.name || input.id} from ${value} to ${clampedValue}`);
+                }
+            }
+        }
+    });
+    
     // Validate all thresholds before submission
     const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
     const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
@@ -8370,6 +8405,10 @@ if (workflowConfigForm) {
     if (!junkFilterValid || !rankingValid || !similarityValid) {
         alert('Please fix the validation errors before saving.');
         return;
+    }
+    
+    if (hasInvalidInputs) {
+        console.log('Some values were clamped to valid ranges. Saving with corrected values...');
     }
     
     // Collect QA enabled settings
@@ -8595,12 +8634,12 @@ if (workflowConfigForm) {
             // Show success state immediately (don't wait for reloads)
             saveButton.textContent = '✓ Saved!';
             saveButton.classList.remove('bg-purple-600', 'hover:bg-purple-700');
-            saveButton.classList.add('bg-green-600');
+            saveButton.classList.add('bg-emerald-600');
             
             // Restore button state after 2 seconds, regardless of reload status
             setTimeout(() => {
                 saveButton.textContent = originalButtonText;
-                saveButton.classList.remove('bg-green-600');
+                saveButton.classList.remove('bg-emerald-600');
                 saveButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
                 saveButton.disabled = false;
                 updateSaveButtonState();
@@ -8852,10 +8891,10 @@ function renderExecutions() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
-                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 mr-2" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
                 <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
                 ${exec.status === 'failed' ? `
-                    <button onclick="retryExecution(${exec.id}, false)" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry</button>
+                    <button onclick="retryExecution(${exec.id}, false)" class="text-emerald-400 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry</button>
                 ` : ''}
             </td>
         </tr>
@@ -9005,7 +9044,7 @@ async function viewExecution(executionId) {
                         <div><strong>Confidence:</strong> ${osConfidence}</div>
                         ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
                         <div><strong>Decision:</strong> ${isWindows ? '✅ Continue (Windows detected)' : '❌ Stop (Non-Windows OS)'}</div>
-                        ${!isWindows ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
+                        ${!isWindows ? '<div class="mt-2 text-amber-400 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
                     </div>`;
                 } else if (!osDetectionResult) {
                     // No OS detection data stored - could be legacy execution
@@ -9095,7 +9134,7 @@ async function viewExecution(executionId) {
                         <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
                         <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
                         <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
-                    </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-yellow-600 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
+                    </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-amber-400 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
                     details: rankingDetails
                 });
             }
@@ -9279,7 +9318,7 @@ async function viewExecution(executionId) {
                             <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm ${isProcessLineage ? 'process-lineage-extraction' : ''}" ${subAgentStyle}>
                                 ${subAgent.icon} ${subAgent.display} <span class="text-white dark:text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
                             </summary>
-                            <div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                            <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                                 <div>
                                     <strong class="text-gray-600 dark:text-gray-300 text-sm">Inputs:</strong>
                                     <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
@@ -9318,7 +9357,7 @@ async function viewExecution(executionId) {
                     });
                     
                     // ExtractionSupervisorAgent: Aggregation
-                    const supervisorDetails = `<div class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                    const supervisorDetails = `<div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                         <div>
                             <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
                             <div class="mt-1 text-xs" style="color: #ffffff !important;">
@@ -9382,7 +9421,7 @@ async function viewExecution(executionId) {
                                     <summary class="cursor-pointer text-xs !text-white dark:!text-white" style="color: white !important;">View ${validationResults.length} validation result(s)</summary>
                                     <div class="mt-1 space-y-1 font-mono text-xs text-gray-900 dark:text-white">
                                         ${validationResults.map((vr, idx) => `
-                                            <div class="p-1 bg-white dark:bg-gray-800 rounded">
+                                            <div class="p-1 bg-gray-800 border border-gray-700 rounded">
                                                 <div><strong>Attempt ${idx + 1}:</strong> ${vr.is_valid ? '✅ Valid' : '❌ Invalid'}</div>
                                                 ${vr.errors && vr.errors.length > 0 ? `
                                                     <div class="ml-2 text-red-600 dark:text-red-400">
@@ -9423,7 +9462,7 @@ async function viewExecution(executionId) {
                             <div id="log-${exec.id}" class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                             ${conversationLog.map((entry, idx) => {
                                 const attempt = entry.attempt || (idx + 1);
-                                const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                                const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
                                 const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
                                 
                                 // Format messages
@@ -9467,7 +9506,7 @@ async function viewExecution(executionId) {
                                 const validationHtml = validation.map((v, vIdx) => {
                                     const errs = (v.errors || []).map(e => `<li class="text-red-700 dark:text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
                                     const warns = (v.warnings || []).map(w => `<li class="text-yellow-700 dark:text-yellow-400 text-xs">${String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
-                                    return `<div class="mb-2 p-2 bg-white dark:bg-gray-800 rounded border ${hasErrors ? 'border-red-300 dark:border-red-700' : 'border-green-300 dark:border-green-700'}">
+                                    return `<div class="mb-2 p-2 bg-gray-800 border border-gray-700 rounded border ${hasErrors ? 'border-red-300 dark:border-red-700' : 'border-green-300 dark:border-green-700'}">
                                         <div class="flex items-center mb-1">
                                             <span class="mr-2">${validationIcon}</span>
                                             <span class="font-semibold ${validationColor} text-xs">Rule ${v.rule_index || vIdx + 1}: ${v.is_valid ? 'Valid' : 'Invalid'}</span>
@@ -9477,10 +9516,10 @@ async function viewExecution(executionId) {
                                     </div>`;
                                 }).join('');
                                 
-                                return `<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ${idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700'}">
+                                return `<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ${idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700'}">
                                     <div class="flex items-center mb-2">
                                         <span class="px-2 py-1 rounded text-xs font-semibold text-white ${attemptBadgeColor} mr-2">${attemptIcon} Attempt ${attempt}</span>
-                                        ${entry.all_valid ? '<span class="text-xs text-green-600 dark:text-green-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">Has Validation Errors</span>'}
+                                        ${entry.all_valid ? '<span class="text-xs text-emerald-400 dark:text-green-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">Has Validation Errors</span>'}
                                     </div>
                                     <div class="mb-3">
                                         <div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">Messages:</div>
@@ -9519,9 +9558,9 @@ async function viewExecution(executionId) {
                                     const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
                                     const errs = (vr.errors || []).map(e => `<li class="text-red-700 dark:text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
                                     const warns = (vr.warnings || []).map(w => `<li class="text-yellow-700 dark:text-yellow-400 text-xs">${String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
-                                    return `<div class="p-3 bg-white dark:bg-gray-800 rounded-lg border-2 ${borderColor}">
+                                    return `<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ${borderColor}">
                                         <div class="flex items-center mb-2">
-                                            <span class="px-2 py-1 rounded text-xs font-semibold text-white ${vr.is_valid ? 'bg-green-500' : 'bg-red-500'} mr-2">${validationIcon} Attempt ${idx + 1}</span>
+                                            <span class="px-2 py-1 rounded text-xs font-semibold text-white ${vr.is_valid ? 'bg-emerald-500' : 'bg-red-500'} mr-2">${validationIcon} Attempt ${idx + 1}</span>
                                             <span class="font-semibold ${validationColor} text-xs">${vr.is_valid ? 'Valid' : 'Invalid'}</span>
                                         </div>
                                         ${errs ? `<div class="text-xs mt-2"><strong class="text-red-700 dark:text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">${errs}</ul></div>` : ''}
@@ -9549,7 +9588,7 @@ async function viewExecution(executionId) {
                         <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50 text-sm" style="color: #ffffff !important;">
                             Rule ${idx + 1}: ${ruleTitle}
                         </summary>
-                        <div class="p-4 bg-white dark:bg-gray-800 space-y-4">
+                        <div class="p-4 bg-gray-800 border border-gray-700 space-y-4">
                             ${ruleDescription ? `
                                 <div>
                                     <strong class="text-gray-900 dark:text-white text-sm">Description:</strong>
@@ -9644,7 +9683,7 @@ async function viewExecution(executionId) {
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Rules Generated:</strong> ${exec.sigma_rules.length}</div>
                         ${exec.sigma_rules.length === 0 ? `<div class="text-orange-600 dark:text-orange-400">⚠️ No rules generated</div>${errorDetails}` : ''}
-                        ${exec.sigma_rules.length > 0 ? `<div class="text-green-600 dark:text-green-400">✅ ${exec.sigma_rules.length} rule(s) generated successfully</div>` : ''}
+                        ${exec.sigma_rules.length > 0 ? `<div class="text-emerald-400 dark:text-green-400">✅ ${exec.sigma_rules.length} rule(s) generated successfully</div>` : ''}
                     </div>`,
                     details: step3Details
                 });
@@ -9657,7 +9696,7 @@ async function viewExecution(executionId) {
                     <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100 font-medium" style="color: #ffffff !important;">🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs space-y-3">
                         ${exec.similarity_results.map((result, idx) => `
-                            <div class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                            <div class="mb-3 p-3 bg-gray-800 border border-gray-700 rounded border border-gray-200 dark:border-gray-700">
                                 <div class="mb-2">
                                     <div class="font-semibold text-gray-900 dark:text-white">Generated Rule ${idx + 1}: ${result.rule_title || 'Untitled'}</div>
                                     <div class="text-gray-600 dark:text-gray-400">Max Similarity: ${((result.max_similarity || 0) * 100).toFixed(1)}%</div>
@@ -9773,7 +9812,7 @@ async function viewExecution(executionId) {
                         }
                     }
                 } else {
-                    queueMessage = '<div class="text-green-600 dark:text-green-400">✅ Rules queued for review</div>';
+                    queueMessage = '<div class="text-emerald-400 dark:text-green-400">✅ Rules queued for review</div>';
                 }
             } else {
                 queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (no rules generated)</div>';
@@ -10329,7 +10368,7 @@ function renderQueue() {
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                     <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
                     ${rule.status === 'pending' ? `
-                        <button onclick="approveRule(${rule.id})" class="text-green-600 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
+                        <button onclick="approveRule(${rule.id})" class="text-emerald-400 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
                         <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
                     ` : ''}
                 </td>
@@ -10787,7 +10826,7 @@ async function validateRule() {
     loadingMsg.id = 'validationLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Validating rule with LLM + pySIGMA...</p>
@@ -10900,7 +10939,7 @@ function showValidationConversationModal(data, provider, model) {
         
         validationResults.forEach((result, index) => {
             const statusIcon = result.is_valid ? '✅' : '❌';
-            const statusColor = result.is_valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+            const statusColor = result.is_valid ? 'text-emerald-400 dark:text-green-400' : 'text-red-600 dark:text-red-400';
             const statusText = result.is_valid ? 'Valid' : 'Invalid';
             const ruleIndex = result.rule_index !== undefined ? result.rule_index : (index + 1);
             
@@ -10921,7 +10960,7 @@ function showValidationConversationModal(data, provider, model) {
             }
             
             if (result.warnings && result.warnings.length > 0) {
-                validationStatusHtml += `<div class="text-sm text-yellow-600 dark:text-yellow-400 mb-1">`;
+                validationStatusHtml += `<div class="text-sm text-amber-400 dark:text-yellow-400 mb-1">`;
                 validationStatusHtml += `<strong>Warnings:</strong><ul class="list-disc list-inside ml-2">`;
                 result.warnings.forEach(warning => {
                     const escapedWarning = String(warning).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -10957,7 +10996,7 @@ function showValidationConversationModal(data, provider, model) {
     }
     
     modal.innerHTML = `
-        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Validation Results</h3>
                 <button onclick="closeValidationConversationModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -11023,7 +11062,7 @@ function showValidationConversationModal(data, provider, model) {
             <div class="mt-4 flex justify-between items-center">
                 <div class="flex space-x-2">
                     ${success && validatedYaml ? `
-                    <button onclick="applyValidatedRuleFromModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                    <button onclick="applyValidatedRuleFromModal()" class="px-4 py-2 bg-emerald-600 hover:bg-green-700 text-white rounded-md">
                         ✅ Apply Validated Rule
                     </button>
                     ` : ''}
@@ -11067,7 +11106,7 @@ function showValidationConversationModal(data, provider, model) {
             } else {
                 container.innerHTML = convo.map((entry, idx) => {
                     const attempt = entry.attempt || (idx + 1);
-                    const attemptBadgeColor = idx === convo.length - 1 ? 'bg-green-500' : 'bg-blue-500';
+                    const attemptBadgeColor = idx === convo.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
                     const attemptIcon = idx === convo.length - 1 ? '✅' : '🔄';
                     
                     // Format the messages (system + user prompts)
@@ -11111,7 +11150,7 @@ function showValidationConversationModal(data, provider, model) {
                         const errsHtml = errs ? '<div class="mt-2"><strong class="text-sm text-red-800 dark:text-red-300">Errors:</strong><ul class="list-disc ml-5 mt-1">' + errs + '</ul></div>' : '';
                         const warnsHtml = warns ? '<div class="mt-2"><strong class="text-sm text-yellow-800 dark:text-yellow-300">Warnings:</strong><ul class="list-disc ml-5 mt-1">' + warns + '</ul></div>' : '';
                         
-                        return '<div class="mb-3 p-3 bg-white dark:bg-gray-800 border ' + borderClass + ' rounded">' +
+                        return '<div class="mb-3 p-3 bg-gray-800 border border-gray-700 border ' + borderClass + ' rounded">' +
                             '<div class="flex items-center justify-between mb-2">' +
                                 '<span class="font-semibold text-sm text-gray-900 dark:text-white">Rule #' + (vIdx + 1) + '</span>' +
                                 statusBadge +
@@ -12025,7 +12064,7 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
         diffView.classList.remove('hidden');
         diffView.innerHTML = `<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div class="flex items-center">
-                <span class="text-yellow-600 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
+                <span class="text-amber-400 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
                 <span class="text-yellow-800 dark:text-yellow-200">Original rule is empty. Cannot compare.</span>
             </div>
         </div>`;
@@ -12036,7 +12075,7 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
         diffView.classList.remove('hidden');
         diffView.innerHTML = `<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div class="flex items-center">
-                <span class="text-yellow-600 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
+                <span class="text-amber-400 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
                 <span class="text-yellow-800 dark:text-yellow-200">Enriched rule is empty. Cannot compare.</span>
             </div>
         </div>`;
@@ -12097,7 +12136,7 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
             const errorMsg = error.message || 'Failed to compare rules';
             const isValidationError = errorMsg.includes('validation') || errorMsg.includes('Invalid YAML') || errorMsg.includes('Rule') || errorMsg.includes('validation');
             
-            diffView.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            diffView.innerHTML = `<div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Error</h3>
                 <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                     <div class="flex items-start">
@@ -12763,7 +12802,7 @@ async function checkSimilarRulesForQueue() {
     loadingMsg.id = 'similarRulesLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-6">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
@@ -13070,11 +13109,11 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
             let similarityColorClass = 'text-purple-600 dark:text-purple-400';
             let statusBadgeClass = 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900';
             if (coverageStatus === 'covered') {
-                similarityColorClass = 'text-green-600 dark:text-green-400';
-                statusBadgeClass = 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900';
+                similarityColorClass = 'text-emerald-400 dark:text-green-400';
+                statusBadgeClass = 'text-emerald-400 dark:text-green-400 bg-green-100 dark:bg-green-900';
             } else if (coverageStatus === 'extend') {
-                similarityColorClass = 'text-yellow-600 dark:text-yellow-400';
-                statusBadgeClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900';
+                similarityColorClass = 'text-amber-400 dark:text-yellow-400';
+                statusBadgeClass = 'text-amber-400 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900';
             }
             
             // Escape logsource and detection for safe JSON display
@@ -13209,11 +13248,11 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
                                         <div class="grid grid-cols-2 gap-4">
                                             <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900">
                                                 <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-2">Current Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${newRuleLogsourceJson}</pre>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${newRuleLogsourceJson}</pre>
                                             </div>
                                             <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-blue-50 dark:bg-blue-900">
                                                 <h6 class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">Similar Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${logsourceJson}</pre>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${logsourceJson}</pre>
                                             </div>
                                         </div>
                                     </div>
@@ -13223,11 +13262,11 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
                                         <div class="grid grid-cols-2 gap-4">
                                             <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-yellow-50 dark:bg-yellow-900">
                                                 <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-2">Current Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${newRuleDetectionJson}</pre>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${newRuleDetectionJson}</pre>
                                             </div>
                                             <div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-green-50 dark:bg-green-900">
                                                 <h6 class="text-xs font-bold text-green-900 dark:text-green-100 mb-2">Similar Rule</h6>
-                                                <pre class="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${detectionJson}</pre>
+                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${detectionJson}</pre>
                                             </div>
                                         </div>
                                     </div>
@@ -13245,7 +13284,7 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], as
     }
     
     modal.innerHTML = `
-        <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300">
+        <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-gray-800 border border-gray-700 transition-all duration-300">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rules in SigmaHQ Repository</h3>
                 <div class="flex items-center space-x-2">
@@ -13299,7 +13338,7 @@ function toggleSimilarRulesModalExpand() {
     
     if (isSimilarRulesModalExpanded) {
         // Expand to full screen
-        modalContent.className = 'fixed inset-4 p-5 border shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300 flex flex-col';
+        modalContent.className = 'fixed inset-4 p-5 border shadow-lg rounded-md bg-gray-800 border border-gray-700 transition-all duration-300 flex flex-col';
         modalContent.style.top = '1rem';
         modalContent.style.left = '1rem';
         modalContent.style.right = '1rem';
@@ -13319,7 +13358,7 @@ function toggleSimilarRulesModalExpand() {
         }
     } else {
         // Return to normal size
-        modalContent.className = 'relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white dark:bg-gray-800 transition-all duration-300';
+        modalContent.className = 'relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-gray-800 border border-gray-700 transition-all duration-300';
         modalContent.style.top = '';
         modalContent.style.left = '';
         modalContent.style.right = '';
@@ -13786,7 +13825,7 @@ function showHelp(fieldName) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     modal.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
@@ -13880,7 +13919,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         ` : '';
         
         modal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800" style="margin-bottom: 50px;">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700" style="margin-bottom: 50px;">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rule Details</h3>
                     <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">

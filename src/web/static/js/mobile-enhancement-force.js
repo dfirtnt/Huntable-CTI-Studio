@@ -37,7 +37,13 @@
         if (!document.getElementById('mobile-annotation-instructions')) {
             const instructions = document.createElement('div');
             instructions.id = 'mobile-annotation-instructions';
-            instructions.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800';
+            instructions.className = 'rounded-lg p-4 mb-4 text-sm font-mono';
+            instructions.style.backgroundColor = 'rgba(201, 189, 182, 1)';
+            instructions.style.borderColor = 'rgba(29, 22, 22, 1)';
+            instructions.style.borderWidth = '1px';
+            instructions.style.borderStyle = 'solid';
+            instructions.style.boxShadow = '0px 4px 12px 0px rgba(0, 0, 0, 0.15)';
+            instructions.style.color = '#ffffff';
             instructions.innerHTML = `
                 <div class="flex items-start space-x-2">
                     <span class="text-lg">📱</span>
