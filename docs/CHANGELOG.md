@@ -59,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Article Detail Page UI Improvements** (2026-01-15): Fixed mobile annotation instructions overlap and button positioning
+  - Removed "Mobile Annotation" instructions banner that was cluttering the article detail page
+  - Added top padding (pt-20) to article-content divs to prevent button overlap with article text
+  - Applied padding fix to both article-content and article-content-plain elements
+
 ### Added
 - **SIGMA PR Submission Feature with GitHub Integration** (2026-01-15): Complete GitHub PR submission system for approved SIGMA rules
   - SigmaPRService for submitting approved rules via GitHub PRs
