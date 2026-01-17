@@ -278,41 +278,56 @@ function updateSimilarityDisplay(data, options = {}) {
     const prefix = options.prefix || '';
     const normalized = normalizeSimilarityData(data);
     
-    const similarity = normalized.similarity;
+    // Helper to build element ID with proper camelCase handling
+    const getId = (name) => {
+        if (!prefix) return name;
+        // Capitalize first letter of element name when prefix is present
+        return prefix + name.charAt(0).toUpperCase() + name.slice(1);
+    };
+    
+    // Debug: Log what we're looking for
+    if (typeof console !== 'undefined' && console.log) {
+        console.log('updateSimilarityDisplay called with prefix:', prefix);
+        console.log('Normalized data:', normalized);
+        console.log('Looking for element:', getId('overallSimilarity'));
+    }
+    
+    const similarity = normalized.similarity || 0;
     const similarityPercent = (similarity * 100).toFixed(1);
-    const noveltyLabel = normalized.novelty_label;
-    const noveltyScore = (normalized.novelty_score * 100).toFixed(1);
-    const atomJaccard = normalized.atom_jaccard;
+    const noveltyLabel = normalized.novelty_label || 'NOVEL';
+    const noveltyScore = (normalized.novelty_score || 0) * 100;
+    const noveltyScorePercent = noveltyScore.toFixed(1);
+    const atomJaccard = normalized.atom_jaccard || 0;
     const atomJaccardPercent = (atomJaccard * 100).toFixed(1);
     const logicShape = normalized.logic_shape_similarity;
     const hasLogicShape = logicShape !== null && logicShape !== undefined;
     
     // Update overall similarity
-    const overallEl = document.getElementById(`${prefix}overallSimilarity`);
+    const overallEl = document.getElementById(getId('overallSimilarity'));
     if (overallEl) overallEl.textContent = `${similarityPercent}%`;
     
     // Update similarity bar
-    const barEl = document.getElementById(`${prefix}similarityBar`);
+    const barEl = document.getElementById(getId('similarityBar'));
     if (barEl) barEl.style.width = `${similarityPercent}%`;
     
     // Update novelty label
-    const labelEl = document.getElementById(`${prefix}noveltyLabel`);
+    const labelEl = document.getElementById(getId('noveltyLabel'));
     if (labelEl) {
         labelEl.textContent = noveltyLabel;
         labelEl.className = getNoveltyLabelClasses(noveltyLabel);
     }
     
     // Update novelty score
-    const scoreEl = document.getElementById(`${prefix}noveltyScore`);
-    if (scoreEl) scoreEl.textContent = `${noveltyScore}%`;
+    const scoreEl = document.getElementById(getId('noveltyScore'));
+    if (scoreEl) scoreEl.textContent = `${noveltyScorePercent}%`;
     
     // Update atom jaccard
-    const atomEl = document.getElementById(`${prefix}atomJaccard`);
+    const atomEl = document.getElementById(getId('atomJaccard'));
     if (atomEl) atomEl.textContent = `${atomJaccardPercent}%`;
     
     // Update logic shape
-    const logicEl = document.getElementById(`${prefix}logicShape`);
-    const logicNAEl = document.getElementById(`${prefix}logicShapeNA`);
+    const logicEl = document.getElementById(getId('logicShape'));
+    const logicNAEl = document.getElementById(getId('logicShapeNA'));
     if (logicEl) {
         if (hasLogicShape) {
             logicEl.textContent = `${(logicShape * 100).toFixed(1)}%`;
@@ -326,52 +341,52 @@ function updateSimilarityDisplay(data, options = {}) {
     }
     
     // Update weighted total
-    const totalEl = document.getElementById(`${prefix}weightedTotal`);
+    const totalEl = document.getElementById(getId('weightedTotal'));
     if (totalEl) totalEl.textContent = `${similarityPercent}%`;
     
     // Update explainability sections
     if (normalized.shared_atoms && normalized.shared_atoms.length > 0) {
-        const sharedSection = document.getElementById(`${prefix}sharedAtomsSection`);
-        const sharedContent = document.getElementById(`${prefix}sharedAtoms`);
+        const sharedSection = document.getElementById(getId('sharedAtomsSection'));
+        const sharedContent = document.getElementById(getId('sharedAtoms'));
         if (sharedSection) sharedSection.classList.remove('hidden');
         if (sharedContent) sharedContent.textContent = normalized.shared_atoms.join('\n');
     } else {
-        const sharedSection = document.getElementById(`${prefix}sharedAtomsSection`);
+        const sharedSection = document.getElementById(getId('sharedAtomsSection'));
         if (sharedSection) sharedSection.classList.add('hidden');
     }
     
     if (normalized.added_atoms && normalized.added_atoms.length > 0) {
-        const addedSection = document.getElementById(`${prefix}addedAtomsSection`);
-        const addedContent = document.getElementById(`${prefix}addedAtoms`);
+        const addedSection = document.getElementById(getId('addedAtomsSection'));
+        const addedContent = document.getElementById(getId('addedAtoms'));
         if (addedSection) addedSection.classList.remove('hidden');
         if (addedContent) addedContent.textContent = normalized.added_atoms.join('\n');
     } else {
-        const addedSection = document.getElementById(`${prefix}addedAtomsSection`);
+        const addedSection = document.getElementById(getId('addedAtomsSection'));
         if (addedSection) addedSection.classList.add('hidden');
     }
     
     if (normalized.removed_atoms && normalized.removed_atoms.length > 0) {
-        const removedSection = document.getElementById(`${prefix}removedAtomsSection`);
-        const removedContent = document.getElementById(`${prefix}removedAtoms`);
+        const removedSection = document.getElementById(getId('removedAtomsSection'));
+        const removedContent = document.getElementById(getId('removedAtoms'));
         if (removedSection) removedSection.classList.remove('hidden');
         if (removedContent) removedContent.textContent = normalized.removed_atoms.join('\n');
     } else {
-        const removedSection = document.getElementById(`${prefix}removedAtomsSection`);
+        const removedSection = document.getElementById(getId('removedAtomsSection'));
         if (removedSection) removedSection.classList.add('hidden');
     }
     
     if (normalized.filter_differences && normalized.filter_differences.length > 0) {
-        const filterSection = document.getElementById(`${prefix}filterDifferencesSection`);
-        const filterContent = document.getElementById(`${prefix}filterDifferences`);
+        const filterSection = document.getElementById(getId('filterDifferencesSection'));
+        const filterContent = document.getElementById(getId('filterDifferences'));
         if (filterSection) filterSection.classList.remove('hidden');
         if (filterContent) filterContent.textContent = normalized.filter_differences.join('\n');
     } else {
-        const filterSection = document.getElementById(`${prefix}filterDifferencesSection`);
+        const filterSection = document.getElementById(getId('filterDifferencesSection'));
         if (filterSection) filterSection.classList.add('hidden');
     }
     
     // Show explainability section if any content exists
-    const explainSection = document.getElementById(`${prefix}explainabilitySection`);
+    const explainSection = document.getElementById(getId('explainabilitySection'));
     if (explainSection) {
         const hasContent = (normalized.shared_atoms && normalized.shared_atoms.length > 0) ||
                           (normalized.added_atoms && normalized.added_atoms.length > 0) ||

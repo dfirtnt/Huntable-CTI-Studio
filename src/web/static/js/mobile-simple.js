@@ -18,34 +18,6 @@ function addMobileEnhancements() {
     const contentElement = document.getElementById('article-content');
     if (!contentElement) return;
     
-    // Add mobile instructions
-    if (!document.getElementById('mobile-annotation-instructions')) {
-        const instructions = document.createElement('div');
-        instructions.id = 'mobile-annotation-instructions';
-        instructions.className = 'rounded-lg p-4 mb-4 text-sm font-mono';
-        instructions.style.backgroundColor = 'rgba(201, 189, 182, 1)';
-        instructions.style.borderColor = 'rgba(29, 22, 22, 1)';
-        instructions.style.borderWidth = '1px';
-        instructions.style.borderStyle = 'solid';
-        instructions.style.boxShadow = '0px 4px 12px 0px rgba(0, 0, 0, 0.15)';
-        instructions.style.color = '#ffffff';
-        instructions.innerHTML = `
-            <div class="flex items-start space-x-2">
-                <span class="text-lg">📱</span>
-                <div>
-                    <strong>Mobile Annotation:</strong> 
-                    <span class="block mt-1">
-                        • <strong>Select any text</strong> - existing system works on mobile<br>
-                        • <strong>Use expand buttons</strong> to reach 1000 characters<br>
-                        • <strong>Perfect for ML training</strong>
-                    </span>
-                </div>
-            </div>
-        `;
-        
-        contentElement.parentNode.insertBefore(instructions, contentElement);
-    }
-    
     // Add mobile-specific CSS
     if (!document.getElementById('mobile-enhancement-styles')) {
         const styles = document.createElement('style');

@@ -92,52 +92,6 @@ function enhanceExistingAnnotationSystem() {
 }
 
 function addMobileInstructions() {
-    // Check if instructions already exist
-    if (document.getElementById('mobile-annotation-instructions')) {
-        return;
-    }
-    
-    // Create mobile instructions banner
-    const instructions = document.createElement('div');
-    instructions.id = 'mobile-annotation-instructions';
-    instructions.className = 'rounded-lg p-4 mb-4 text-sm font-mono';
-    instructions.style.backgroundColor = 'rgba(201, 189, 182, 1)';
-    instructions.style.borderColor = 'rgba(29, 22, 22, 1)';
-    instructions.style.borderWidth = '1px';
-    instructions.style.borderStyle = 'solid';
-    instructions.style.boxShadow = '0px 4px 12px 0px rgba(0, 0, 0, 0.15)';
-    instructions.style.color = '#ffffff';
-    instructions.innerHTML = `
-        <div class="flex items-start space-x-2">
-            <span class="text-lg">📱</span>
-            <div>
-                <strong>Mobile Annotation:</strong> 
-                <span class="block mt-1">
-                    • <strong>Select any text</strong> - automatically expands to 1000 chars<br>
-                    • <strong>Long press</strong> on text for quick annotation<br>
-                    • <strong>Tap annotations</strong> to remove them<br>
-                    • <strong>Perfect for ML training</strong> with optimal text length
-                </span>
-            </div>
-        </div>
-    `;
-    
-    // Insert after article header
-    const articleContent = document.getElementById('article-content');
-    if (articleContent && articleContent.parentNode) {
-        articleContent.parentNode.insertBefore(instructions, articleContent);
-    }
-    
-    // Auto-hide after 10 seconds
-    setTimeout(() => {
-        if (instructions.parentNode) {
-            instructions.style.opacity = '0';
-            instructions.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => {
-                if (instructions.parentNode) {
-                    instructions.parentNode.removeChild(instructions);
-                }
-            }, 500);
-        }
-    }, 10000);
+    // Instructions removed - no longer displayed
+    return;
 }
