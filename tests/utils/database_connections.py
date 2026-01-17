@@ -297,11 +297,19 @@ class TestRedisManager:
         logger.info("Test Redis teardown completed")
     
     async def _clear_test_database(self):
-        """Clear test Redis database."""
+        """Clear test Redis database. Refuses to flush db 0 to avoid production data."""
         try:
+            db_index = getattr(self.config, "redis_db", 0)
+            if db_index == 0:
+                raise RuntimeError(
+                    "Refuse to flush Redis db 0 to avoid production data. "
+                    "Use a dedicated REDIS_TEST_DB (e.g. 15) for tests."
+                )
             client = self.redis_manager.client
             await client.flushdb()
-            logger.info(f"Cleared Redis database {self.config.redis_db}")
+            logger.info(f"Cleared Redis database {db_index}")
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f"Failed to clear Redis database: {e}")
             raise

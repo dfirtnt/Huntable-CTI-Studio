@@ -19,6 +19,18 @@
 - **[E2E Tests](e2e/README.md)** - End-to-end workflow testing
 - **[Integration Tests](integration/README.md)** - System integration testing
 
+## No production data changes
+
+**Tests must never change production data.** Safeguards:
+
+| Guard | Purpose |
+|-------|---------|
+| **APP_ENV=test** | Required; `assert_test_environment` enforces at pytest bootstrap |
+| **TEST_DATABASE_URL** | Required; must contain `test` in DB name. Never use `DATABASE_URL` for tests |
+| **Integration DB** | `tests/integration/conftest.py` uses `TEST_DATABASE_URL` only (default: `cti_scraper_test` on port 5433) |
+| **Redis** | Integration uses `REDIS_TEST_DB` (default 15). `flushdb` is never run on db 0 |
+| **run_tests.py** | For integration/API/UI/E2E, run via `python3 run_tests.py <type>` so `APP_ENV=test` and `TEST_DATABASE_URL` are set. Do not run API/UI/E2E against an app using production `DATABASE_URL` |
+
 ## 🎯 Start Here
 
 ### First Time? (5 minutes)

@@ -56,13 +56,21 @@ def celery_worker_available():
 
 @pytest_asyncio.fixture(scope="session")
 async def test_database_with_rollback(celery_worker_available):
-    """Test database fixture with transaction rollback for isolation."""
+    """Test database fixture with transaction rollback for isolation.
+    Uses TEST_DATABASE_URL only. Never DATABASE_URL (production guard).
+    """
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.orm import sessionmaker
     import os
     
-    # Database URL from environment
-    db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test")
+    # TEST_DATABASE_URL only — never DATABASE_URL to avoid production
+    _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
+    db_url = os.getenv("TEST_DATABASE_URL", _default)
+    if "test" not in db_url.lower():
+        raise RuntimeError(
+            f"Integration tests must use a test database (name contains 'test'). "
+            f"Got: {db_url[:60]}... Use TEST_DATABASE_URL."
+        )
     
     engine = create_async_engine(
         db_url,
@@ -93,9 +101,9 @@ def test_database_manager(test_database_with_rollback):
         async def get_session(self):
             yield test_database_with_rollback
             
-    # Create manager with test session
-    # Use a valid URL to avoid init errors, though we'll override the session
-    db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test")
+    # TEST_DATABASE_URL only — never DATABASE_URL to avoid production
+    _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
+    db_url = os.getenv("TEST_DATABASE_URL", _default)
     print(f"DEBUG: Creating TestAsyncDatabaseManager with {db_url}")
     manager = TestAsyncDatabaseManager(database_url=db_url)
     print(f"DEBUG: Manager type: {type(manager)}")
@@ -292,21 +300,24 @@ def chunk_feedback_test_data():
 
 @pytest.fixture
 async def test_redis_client():
-    """Test Redis client fixture."""
+    """Test Redis client fixture.
+    Uses REDIS_TEST_DB (default 15). Never flushdb — production must not use db 15.
+    """
     import redis.asyncio as redis
     import os
     
+    # Dedicated test DB index; production must not use REDIS_TEST_DB
+    db_index = int(os.getenv("REDIS_TEST_DB", "15"))
     client = await redis.Redis(
         host=os.getenv("REDIS_HOST", "localhost"),
         port=int(os.getenv("REDIS_PORT", "6379")),
-        db=int(os.getenv("REDIS_DB", "1")),  # Use different DB for tests
+        db=db_index,
         decode_responses=True
     )
     
     yield client
     
-    # Cleanup test data
-    await client.flushdb()
+    # Do not flushdb — would wipe all keys; use key-prefix cleanup in tests if needed
     await client.close()
 
 
