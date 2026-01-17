@@ -1975,6 +1975,7 @@ END SYSTEM PROMPT</textarea>
 
 </div>
 
+<script src="/static/js/components/similarity-display.js"></script>
 <script>
 // Helper function to parse UTC timestamp and convert to local time
 function parseUTCDate(timestamp) {
@@ -11433,6 +11434,7 @@ function resetQualityReviewCard() {
 }
 
 let enrichProviderCatalog = {};
+let enrichmentPresetRestoredThisSession = false;
 
 async function loadEnrichProviderModelCatalog() {
     try {
@@ -11805,12 +11807,9 @@ END SYSTEM PROMPT`;
     const rawResponseText = document.getElementById('rawResponseText');
     if (rawResponseText) rawResponseText.textContent = '';
     
-    // Update LLM provider indicator
-    // Load provider/model catalog and populate dropdowns
-    loadEnrichProviderModelCatalog();
-    
-    // Show modal
-    // Modal is already shown by pushModal in openEnrichModal
+    // Load provider/model catalog and populate dropdowns, then restore last preset if any
+    await loadEnrichProviderModelCatalog();
+    await restoreLastEnrichmentPreset();
 }
 
 function closeEnrichModal() {
@@ -12083,7 +12082,8 @@ function closePresetListModal() {
     popModal(); // This will hide preset list modal and restore previous modal
 }
 
-async function loadPresetById(presetId) {
+async function loadPresetById(presetId, opts = {}) {
+    const { silent = false } = opts;
     try {
         // Ensure presetId is an integer
         const id = parseInt(presetId, 10);
@@ -12122,13 +12122,15 @@ async function loadPresetById(presetId) {
             document.getElementById('enrichInstruction').value = '';
         }
         
-        // Close preset modal
-        closePresetListModal();
+        localStorage.setItem('enrichmentLastPresetId', String(id));
         
-        alert(`✅ Preset "${data.name}" loaded`);
+        if (!silent) {
+            closePresetListModal();
+            alert(`✅ Preset "${data.name}" loaded`);
+        }
     } catch (error) {
         console.error('Error loading preset:', error);
-        // Extract message safely - handle both Error objects and other types
+        if (silent) throw error;
         const errorMessage = error instanceof Error ? error.message : 
                            (typeof error === 'string' ? error : 
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -12164,6 +12166,10 @@ async function deletePreset(presetId, presetName) {
             throw new Error(errorMsg);
         }
         
+        if (localStorage.getItem('enrichmentLastPresetId') === String(id)) {
+            localStorage.removeItem('enrichmentLastPresetId');
+        }
+        
         // Reload preset list
         await showPresetList();
         
@@ -12174,6 +12180,24 @@ async function deletePreset(presetId, presetName) {
                            (typeof error === 'string' ? error : 
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
         alert(`Error deleting preset: ${errorMessage}`);
+    }
+}
+
+async function restoreLastEnrichmentPreset() {
+    if (enrichmentPresetRestoredThisSession) return;
+    const raw = localStorage.getItem('enrichmentLastPresetId');
+    if (!raw) return;
+    const id = parseInt(raw, 10);
+    if (isNaN(id)) {
+        localStorage.removeItem('enrichmentLastPresetId');
+        return;
+    }
+    if (!document.getElementById('enrichProviderSelect')) return;
+    try {
+        await loadPresetById(id, { silent: true });
+        enrichmentPresetRestoredThisSession = true;
+    } catch (e) {
+        localStorage.removeItem('enrichmentLastPresetId');
     }
 }
 
@@ -12254,6 +12278,16 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
         
         if (!data.success) {
             throw new Error(data.error || data.detail || 'Comparison returned unsuccessful result');
+        }
+        
+        // Ensure diffView is visible and structure is preserved
+        diffView.classList.remove('hidden');
+        
+        // Verify the HTML structure exists before updating
+        const testEl = document.getElementById('enrichOverallSimilarity');
+        if (!testEl) {
+            console.error('enrichDiffView structure missing - elements not found');
+            throw new Error('Comparison view structure not found in DOM');
         }
         
         // Display results using standardized similarity display component
