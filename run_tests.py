@@ -610,18 +610,20 @@ class TestRunner:
             return False
 
     def _requires_docker(self, test_type: TestType) -> bool:
-        """Determine if a test type requires Docker execution."""
-        # Test types that require Docker (full application stack)
+        """Determine if a test type requires Docker execution.
+        
+        Most tests can run on the host and connect to test containers via exposed ports:
+        - Database: localhost:5433
+        - Redis: localhost:6380
+        - Web server: localhost:8001 (if running)
+        
+        Only tests that truly need Docker environment should run there.
+        """
+        # Test types that require Docker execution (very few)
+        # Most tests can run on host and connect to containers via exposed ports
         docker_required = {
-            TestType.API,  # Needs running web server
-            TestType.INTEGRATION,  # Needs database, Redis, full stack
-            TestType.UI,  # Needs Playwright + running web server
-            TestType.E2E,  # Needs full application stack
-            TestType.AI,  # May need external services
-            TestType.AI_UI,  # Needs UI + AI services
-            TestType.AI_INTEGRATION,  # Needs integration environment
-            TestType.ALL,  # Full test suite
-            TestType.COVERAGE,  # Coverage requires full environment
+            # Only add test types here if they truly need Docker environment
+            # (e.g., testing Docker-specific behavior, internal container networking)
         }
 
         return test_type in docker_required

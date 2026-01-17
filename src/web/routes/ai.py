@@ -3321,7 +3321,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     return result["choices"][0]["message"]["content"]
 
         # Log final results
-        if validation_results and all(result.is_valid for result in validation_results):
+        if validation_results and all(result.get('is_valid', False) for result in validation_results):
             logger.info(
                 f"SIGMA generation completed successfully after {len(conversation_log)} attempts"
             )

@@ -325,9 +325,16 @@ async def playwright_context():
 @pytest_asyncio.fixture(scope="session")
 async def browser(playwright_context, browser_type_launch_args):
     """Browser instance for session-scoped tests"""
-    browser = await playwright_context.chromium.launch(**browser_type_launch_args)
-    yield browser
-    await browser.close()
+    try:
+        browser = await playwright_context.chromium.launch(**browser_type_launch_args)
+        yield browser
+        await browser.close()
+    except Exception as e:
+        error_str = str(e)
+        if "Executable doesn't exist" in error_str or "playwright install" in error_str.lower():
+            pytest.skip("Playwright browsers not installed. Run 'playwright install' in Docker container")
+        # Re-raise other exceptions
+        raise
 
 
 @pytest_asyncio.fixture(scope="session")

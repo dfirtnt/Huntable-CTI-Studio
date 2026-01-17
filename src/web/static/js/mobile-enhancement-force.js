@@ -33,34 +33,7 @@
             return;
         }
         
-        // Add mobile instructions
-        if (!document.getElementById('mobile-annotation-instructions')) {
-            const instructions = document.createElement('div');
-            instructions.id = 'mobile-annotation-instructions';
-            instructions.className = 'rounded-lg p-4 mb-4 text-sm font-mono';
-            instructions.style.backgroundColor = 'rgba(201, 189, 182, 1)';
-            instructions.style.borderColor = 'rgba(29, 22, 22, 1)';
-            instructions.style.borderWidth = '1px';
-            instructions.style.borderStyle = 'solid';
-            instructions.style.boxShadow = '0px 4px 12px 0px rgba(0, 0, 0, 0.15)';
-            instructions.style.color = '#ffffff';
-            instructions.innerHTML = `
-                <div class="flex items-start space-x-2">
-                    <span class="text-lg">📱</span>
-                    <div>
-                        <strong>Mobile Annotation (Enhanced):</strong> 
-                        <span class="block mt-1">
-                            • <strong>Select any text</strong> - auto-expands to 1000 chars<br>
-                            • <strong>Long press</strong> for quick annotation<br>
-                            • <strong>Perfect for ML training</strong>
-                        </span>
-                    </div>
-                </div>
-            `;
-            
-            articleContent.parentNode.insertBefore(instructions, articleContent);
-            console.log('✅ Mobile instructions added');
-        }
+        // Mobile instructions removed - no longer displayed
         
         // Enhance text selection with auto-expansion
         let originalMouseUp = null;

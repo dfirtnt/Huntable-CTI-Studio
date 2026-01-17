@@ -1444,7 +1444,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 }
                 return;
             }
-            element.style.backgroundColor = '#fef3c7';
+            element.style.backgroundColor = '#c9c7c9';
             element.style.border = '1px solid #f59e0b';
             element.style.color = '#000000';
         });
@@ -2888,7 +2888,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         border: 1px solid #16a34a;
                     }
                     .char-counter.short {
-                        background: #fef3c7;
+                        background: #c9c7c9;
                         color: #92400e;
                         border: 1px solid #f59e0b;
                     }
@@ -2904,7 +2904,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         border-left: 4px solid;
                     }
                     .length-guidance.short {
-                        background: #fef3c7;
+                        background: #c9c7c9;
                         color: #92400e;
                         border-left-color: #f59e0b;
                     }
@@ -3025,7 +3025,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .char-counter.short {
-                        background: #fef3c7;
+                        background: #c9c7c9;
                         color: #d97706;
                         border: 1px solid #f59e0b;
                     }
@@ -3056,7 +3056,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .length-guidance.short {
-                        background: #fef3c7;
+                        background: #c9c7c9;
                         color: #d97706;
                         border: 1px solid #f59e0b;
                     }
@@ -3335,7 +3335,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .char-counter.short {
-                        background: #fef3c7;
+                        background: #c9c7c9;
                         color: #92400e;
                         border: 1px solid #f59e0b;
                     }
@@ -3366,7 +3366,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .length-guidance.short {
-                        background: #fef3c7;
+                        background: #c9c7c9;
                         color: #92400e;
                         border-left-color: #f59e0b;
                     }
@@ -4902,7 +4902,7 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
-        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center';
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -5209,7 +5209,7 @@ Please provide a detailed analysis based on the article content and the user's s
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
         
         const typeText = operationData.typeText;
         const typeIcon = operationData.typeIcon;
@@ -5275,7 +5275,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     : 'Extracting indicators of compromise';
 
         loadingModal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md mx-4">
                 <div class="mt-3 text-center">
                     <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-500/20">
                         <svg class="animate-spin h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -6002,7 +6002,7 @@ Please provide a detailed analysis based on the article content and the user's s
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
         
         // Track if request has started
         let requestStarted = false;
@@ -6050,7 +6050,7 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEsc);
         
         loadingModal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100">
                         <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -7142,7 +7142,7 @@ Please provide a detailed analysis based on the article content and the user's s
         // Show loading indicator
         const loadingModal = document.createElement('div');
         loadingModal.id = 'osDetectionLoadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
         
         // Track if request has started
         let osRequestStarted = false;
@@ -7190,7 +7190,7 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleOsEsc);
         
         loadingModal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">💻 Detecting Operating System</h3>
                     <div class="flex justify-center items-center">
@@ -7252,7 +7252,7 @@ Please provide a detailed analysis based on the article content and the user's s
             // Show results modal
             const resultModal = document.createElement('div');
             resultModal.id = 'osDetectionResultModal';
-            resultModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+            resultModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
             
             const osLabel = result.operating_system || 'Unknown';
             const method = result.method || 'unknown';
@@ -7288,7 +7288,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             resultModal.innerHTML = `
-                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900">💻 OS Detection Result</h3>
                         <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
@@ -7377,9 +7377,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Show error modal
             const errorModal = document.createElement('div');
             errorModal.id = 'osDetectionErrorModal';
-            errorModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+            errorModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
             errorModal.innerHTML = `
-                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-red-600">❌ OS Detection Error</h3>
                         <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
@@ -7414,9 +7414,9 @@ Please provide a detailed analysis based on the article content and the user's s
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
         loadingModal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <h3 class="text-lg font-medium text-gray-900 mb-2">Extracting IOCs with CTI-BERT</h3>
@@ -8885,9 +8885,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
         // Show loading modal
         const loadingModal = document.createElement('div');
         loadingModal.id = 'chunkDebugLoadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
         loadingModal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3 text-center">
                     <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
                         <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
