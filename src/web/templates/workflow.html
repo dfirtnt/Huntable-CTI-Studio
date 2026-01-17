@@ -397,6 +397,7 @@
                     <div data-collapsible-panel="rank-agent-configs-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Rank Agent Configs</h3>
+                            <span id="rank-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                             <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
                         <span id="rank-agent-configs-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -414,6 +415,7 @@
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
+                                    <span id="rank-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" 
                                                id="rank-agent-enabled" 
@@ -484,14 +486,17 @@
                                         Enable QA validation using the configured QA retry limit (default 5, max 20)
                                     </p>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" 
-                                           id="qa-rankagent" 
-                                           name="qa_enabled[RankAgent]"
-                                           class="sr-only peer" 
-                                           onchange="updateQABadge('rank-agent'); autoSaveConfig();">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                                </label>
+                                <div class="flex items-center gap-2">
+                                    <span id="rank-qa-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Disabled</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" 
+                                               id="qa-rankagent" 
+                                               name="qa_enabled[RankAgent]"
+                                               class="sr-only peer" 
+                                               onchange="updateRankQAEnabledBadge(); updateQABadge('rank-agent'); autoSaveConfig();">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         <div id="rank-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
@@ -591,6 +596,7 @@
                                     <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">CmdlineExtract (Command Line Extraction)</h4>
+                                            <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="cmdlineextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -604,6 +610,7 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
                                                 </div>
                                                 <div class="flex items-center gap-2">
+                                                    <span id="cmdlineextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
                                                         <input type="checkbox" id="toggle-cmdlineextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('CmdlineExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
@@ -778,6 +785,7 @@
                                     <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
                                         <div class="flex items-center gap-3">
                                             <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">ProcTreeExtract (Process Lineage)</h4>
+                                            <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
                                         <span id="proctreeextract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -791,6 +799,7 @@
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip this sub-agent (outputs 0 observables)</p>
                                                 </div>
                                                 <div class="flex items-center gap-2">
+                                                    <span id="proctreeextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
                                                         <input type="checkbox" id="toggle-proctreeextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('ProcTreeExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
@@ -6366,8 +6375,9 @@ function updateRankQAState(restoreFromConfig = false) {
             labelWrapper.classList.remove('cursor-pointer');
         }
         
-        // Update badge
+        // Update badges
         updateQABadge('rank-agent');
+        updateRankQAEnabledBadge();
         
         // Force browser to recognize the checked state
         void rankQACheckbox.offsetHeight;
@@ -6398,8 +6408,9 @@ function updateRankQAState(restoreFromConfig = false) {
             labelWrapper.classList.add('cursor-pointer');
         }
         
-        // Update badge
+        // Update badges
         updateQABadge('rank-agent');
+        updateRankQAEnabledBadge();
         
         // Force browser to recognize the checked state
         void rankQACheckbox.offsetHeight;
@@ -6467,6 +6478,20 @@ function updateRankEnabledBadge() {
             badge.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
         }
     });
+}
+
+function updateRankQAEnabledBadge() {
+    const checkbox = document.getElementById('qa-rankagent');
+    const enabled = checkbox ? checkbox.checked : false;
+    const badge = document.getElementById('rank-qa-agent-enabled-badge');
+    if (!badge) return;
+    badge.textContent = enabled ? 'Enabled' : 'Disabled';
+    badge.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200', 'bg-gray-200', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
+    if (enabled) {
+        badge.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+    } else {
+        badge.classList.add('bg-gray-200', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
+    }
 }
 
 function syncExtractAgentTogglesFromConfig(suppressEvents = false) {
@@ -7676,13 +7701,16 @@ function orderModelsByWorkflow(models) {
         'OS Fallback'
     ];
     
-    // Define which agents are sub-agents (should be indented)
-    // Includes the three extract sub-agents and all QA agents
-    const subAgents = new Set([
+    // Define first-level sub-agents (indent level 1)
+    const firstLevelSubAgents = new Set([
         'CmdlineExtract',
         'ProcTreeExtract',
         'HuntQueriesExtract',
-        'RankAgentQA',
+        'RankAgentQA'  // RankAgentQA is under Rank, so first level
+    ]);
+    
+    // Define second-level sub-agents (indent level 2) - QA agents under Extract
+    const secondLevelSubAgents = new Set([
         'CmdLineQA',
         'ProcTreeQA',
         'HuntQueriesQA'
@@ -7699,10 +7727,19 @@ function orderModelsByWorkflow(models) {
         const orderA = orderMap.get(a.agent) ?? 999;
         const orderB = orderMap.get(b.agent) ?? 999;
         return orderA - orderB;
-    }).map(model => ({
-        ...model,
-        indent: subAgents.has(model.agent)
-    }));
+    }).map(model => {
+        let indentLevel = 0;
+        if (secondLevelSubAgents.has(model.agent)) {
+            indentLevel = 2;  // Second indent for QA agents under Extract
+        } else if (firstLevelSubAgents.has(model.agent)) {
+            indentLevel = 1;  // First indent for extract agents and RankAgentQA
+        }
+        return {
+            ...model,
+            indent: indentLevel > 0,
+            indentLevel: indentLevel
+        };
+    });
 }
 
 // Function to update the config display with current UI state
@@ -7724,6 +7761,7 @@ function updateConfigDisplay() {
         return {
         text: `${m.agent}: ${m.model} (${m.provider})`,
             indent: m.indent,
+            indentLevel: m.indentLevel || (m.indent ? 1 : 0),
             enabled: enabled,
             badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
         };
@@ -7777,6 +7815,7 @@ function updateConfigDisplay() {
             modelsList.push({ 
                 text: `RankAgentQA: ${agentModels.RankAgentQA} (${provider})`, 
                 indent: true,
+                indentLevel: 1,
                 badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
             });
         }
@@ -7809,6 +7848,7 @@ function updateConfigDisplay() {
                 modelsList.push({ 
                     text: `${agent}: ${agentModels[modelKey]} (${provider})`, 
                     indent: true,
+                    indentLevel: 1,
                     badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
                 });
             }
@@ -7824,6 +7864,7 @@ function updateConfigDisplay() {
                 modelsList.push({ 
                     text: `${qaKey}: ${agentModels[qaKey]} (${provider})`, 
                     indent: true,
+                    indentLevel: 2,
                     badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
                 });
             }
@@ -7855,7 +7896,15 @@ function updateConfigDisplay() {
     }
     
     const modelsHtml = selectedModels.length > 0 
-        ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs ${m.indent ? 'ml-6' : ''}">${m.text}${m.badge || ''}</li>`).join('')}</ul></div>`
+        ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => {
+            let indentClass = '';
+            if (m.indentLevel === 2) {
+                indentClass = 'ml-12';  // Second indent for QA agents under Extract
+            } else if (m.indentLevel === 1) {
+                indentClass = 'ml-6';   // First indent for extract agents
+            }
+            return `<li class="text-xs ${indentClass}">${m.text}${m.badge || ''}</li>`;
+        }).join('')}</ul></div>`
         : '';
     
     configDisplay.innerHTML = `
@@ -8628,11 +8677,20 @@ if (workflowConfigForm) {
                 const orderedModels = orderModelsByWorkflow(uiModels);
                 const selectedModels = orderedModels.map(m => ({
                     text: `${m.agent}: ${m.model} (${m.provider})`,
-                    indent: m.indent
+                    indent: m.indent,
+                    indentLevel: m.indentLevel || (m.indent ? 1 : 0)
                 }));
                 
                 const modelsHtml = selectedModels.length > 0 
-                    ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => `<li class="text-xs ${m.indent ? 'ml-6' : ''}">${m.text}</li>`).join('')}</ul></div>`
+                    ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => {
+                        let indentClass = '';
+                        if (m.indentLevel === 2) {
+                            indentClass = 'ml-12';  // Second indent for QA agents under Extract
+                        } else if (m.indentLevel === 1) {
+                            indentClass = 'ml-6';   // First indent for extract agents
+                        }
+                        return `<li class="text-xs ${indentClass}">${m.text}</li>`;
+                    }).join('')}</ul></div>`
                     : '';
                 
                 configDisplay.innerHTML = `
