@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from src.database.manager import DatabaseManager
-from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable
+from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable, WorkflowConfigPresetTable
 from src.services.sigma_generation_service import SigmaGenerationService
 
 logger = logging.getLogger(__name__)
@@ -67,6 +67,13 @@ class AgentPromptUpdate(BaseModel):
 class RollbackRequest(BaseModel):
     """Request model for rolling back agent prompts."""
     version_id: int
+
+
+class SaveConfigPresetRequest(BaseModel):
+    """Request model for saving a workflow config preset."""
+    name: str
+    description: Optional[str] = None
+    config: Dict[str, Any]
 
 
 @router.get("/config", response_model=WorkflowConfigResponse)
@@ -348,6 +355,133 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/preset/save")
+async def save_config_preset(save_request: SaveConfigPresetRequest):
+    """Save or update a workflow config preset (upsert by name)."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            existing = db_session.query(WorkflowConfigPresetTable).filter(
+                WorkflowConfigPresetTable.name == save_request.name
+            ).first()
+            if existing:
+                existing.description = save_request.description
+                existing.config_json = save_request.config
+                db_session.commit()
+                db_session.refresh(existing)
+                return {
+                    "success": True,
+                    "id": existing.id,
+                    "message": "Preset updated",
+                    "created_at": existing.created_at.isoformat(),
+                    "updated_at": existing.updated_at.isoformat(),
+                }
+            preset = WorkflowConfigPresetTable(
+                name=save_request.name,
+                description=save_request.description,
+                config_json=save_request.config,
+            )
+            db_session.add(preset)
+            db_session.commit()
+            db_session.refresh(preset)
+            return {
+                "success": True,
+                "id": preset.id,
+                "message": "Preset saved",
+                "created_at": preset.created_at.isoformat(),
+                "updated_at": preset.updated_at.isoformat(),
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error saving config preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/preset/list")
+async def list_config_presets(request: Request):
+    """List workflow config presets (id, name, description, created_at, updated_at; no config_json)."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            presets = db_session.query(WorkflowConfigPresetTable).order_by(
+                WorkflowConfigPresetTable.name.asc()
+            ).all()
+            preset_list = [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "created_at": p.created_at.isoformat(),
+                    "updated_at": p.updated_at.isoformat(),
+                }
+                for p in presets
+            ]
+            return {"success": True, "presets": preset_list}
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error listing config presets: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/preset/{preset_id}")
+async def get_config_preset(request: Request, preset_id: int):
+    """Get a workflow config preset by id; merge config_json into response for applyPreset."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            row = db_session.query(WorkflowConfigPresetTable).filter(
+                WorkflowConfigPresetTable.id == preset_id
+            ).first()
+            if not row:
+                raise HTTPException(status_code=404, detail="Preset not found")
+            out = {
+                "success": True,
+                "id": row.id,
+                "name": row.name,
+                "description": row.description,
+                "created_at": row.created_at.isoformat(),
+                "updated_at": row.updated_at.isoformat(),
+            }
+            out.update(row.config_json or {})
+            return out
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting config preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/config/preset/{preset_id}")
+async def delete_config_preset(request: Request, preset_id: int):
+    """Delete a workflow config preset by id."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            row = db_session.query(WorkflowConfigPresetTable).filter(
+                WorkflowConfigPresetTable.id == preset_id
+            ).first()
+            if not row:
+                raise HTTPException(status_code=404, detail="Preset not found")
+            db_session.delete(row)
+            db_session.commit()
+            return {"success": True, "message": "Preset deleted"}
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting config preset: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

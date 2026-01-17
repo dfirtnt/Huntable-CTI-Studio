@@ -1231,21 +1231,13 @@
                 <!-- Preset Management -->
                 <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
                     <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">💾 Configuration Presets</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Save and load complete workflow configurations as local files.</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Save and load presets from the server. Export to or import from local JSON files.</p>
                     <div class="flex flex-wrap gap-3">
-                        <button type="button" 
-                                onclick="savePreset()" 
-                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">
-                            💾 Save Preset
-                        </button>
-                        <label for="load-preset-input" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium cursor-pointer">
-                            📂 Load Preset
-                        </label>
-                        <input type="file" 
-                               id="load-preset-input" 
-                               accept=".json" 
-                               class="hidden" 
-                               onchange="loadPreset(event)">
+                        <button type="button" onclick="saveConfigPreset()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">💾 Save Preset</button>
+                        <button type="button" onclick="showConfigPresetList()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium">📂 Load Preset</button>
+                        <button type="button" onclick="exportPresetToFile()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium">📤 Export Preset</button>
+                        <label for="import-preset-input" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium cursor-pointer">📥 Import Preset</label>
+                        <input type="file" id="import-preset-input" accept=".json" class="hidden" onchange="importPresetFromFile(event)">
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
                         Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, sigma content source settings, and agent prompts.
@@ -1283,6 +1275,24 @@
                     </div>
                 </div>
             </form>
+        </div>
+
+        <!-- Config Preset List Modal -->
+        <div id="configPresetListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">📋 Configuration Presets</h3>
+                        <button type="button" onclick="closeConfigPresetListModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+                    </div>
+                    <div id="configPresetList" class="space-y-3 max-h-[60vh] overflow-y-auto">
+                        <!-- Preset items will be populated here -->
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="closeConfigPresetListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Workflow Overview -->
@@ -6722,7 +6732,7 @@ function getFullPresetState() {
     return preset;
 }
 
-function savePreset() {
+function exportPresetToFile() {
     try {
         const preset = getFullPresetState();
         
@@ -6789,7 +6799,7 @@ function extractErrorMessage(errorData, defaultMessage = 'Unknown error') {
     }
 }
 
-async function loadPreset(event) {
+async function importPresetFromFile(event) {
     const file = event.target.files[0];
     if (!file) {
         return;
@@ -6839,6 +6849,148 @@ async function loadPreset(event) {
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
         alert('❌ Error loading preset: ' + errorMessage);
         event.target.value = ''; // Reset file input
+    }
+}
+
+function closeConfigPresetListModal() {
+    popModal();
+}
+
+async function refreshConfigPresetList() {
+    try {
+        const response = await fetch('/api/workflow/config/preset/list');
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load presets'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to load presets (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        const listEl = document.getElementById('configPresetList');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        if (!data.presets || data.presets.length === 0) {
+            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No presets saved yet.</p>';
+            return;
+        }
+        data.presets.forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+            const dateStr = new Date(p.updated_at).toLocaleString();
+            item.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="font-semibold text-gray-900 dark:text-white">${escapeHtml(p.name)}</span>
+                        </div>
+                        ${p.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(p.description)}</p>` : ''}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${dateStr}</div>
+                    </div>
+                    <div class="flex space-x-2 ml-4">
+                        <button type="button" onclick="loadConfigPresetById(${p.id})" class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">Load</button>
+                        <button type="button" onclick="deleteConfigPreset(${p.id}, '${String(p.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" class="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md">Delete</button>
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error refreshing config preset list:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading presets: ${errorMessage}`);
+    }
+}
+
+async function showConfigPresetList() {
+    try {
+        pushModal('configPresetListModal', true);
+        await refreshConfigPresetList();
+    } catch (error) {
+        console.error('Error showing config preset list:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading presets: ${errorMessage}`);
+    }
+}
+
+async function saveConfigPreset() {
+    try {
+        const preset = getFullPresetState();
+        const name = prompt('Enter a name for this preset:', 'workflow-preset-' + new Date().toISOString().split('T')[0]);
+        if (!name) return;
+        const description = prompt('Enter a description (optional):') || null;
+        const response = await fetch('/api/workflow/config/preset/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description, config: preset })
+        });
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to save preset'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to save preset (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        alert(data.message || 'Preset saved');
+    } catch (error) {
+        console.error('Error saving config preset:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error saving preset: ${errorMessage}`);
+    }
+}
+
+async function loadConfigPresetById(presetId) {
+    try {
+        const id = parseInt(presetId, 10);
+        if (isNaN(id)) throw new Error(`Invalid preset ID: ${presetId}`);
+        const response = await fetch(`/api/workflow/config/preset/${id}`);
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load preset'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to load preset (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        await applyPreset(data);
+        closeConfigPresetListModal();
+        alert('Preset loaded');
+    } catch (error) {
+        console.error('Error loading config preset:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading preset: ${errorMessage}`);
+    }
+}
+
+async function deleteConfigPreset(presetId, name) {
+    try {
+        const id = parseInt(presetId, 10);
+        if (isNaN(id)) throw new Error(`Invalid preset ID: ${presetId}`);
+        if (!confirm(`Delete preset "${name}"?`)) return;
+        const response = await fetch(`/api/workflow/config/preset/${id}`, { method: 'DELETE' });
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to delete preset'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to delete preset (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        await refreshConfigPresetList();
+        alert(`Preset "${name}" deleted`);
+    } catch (error) {
+        console.error('Error deleting config preset:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error deleting preset: ${errorMessage}`);
     }
 }
 
@@ -12918,6 +13070,13 @@ document.addEventListener('keydown', function(e) {
         const presetListModal = document.getElementById('presetListModal');
         if (presetListModal && !presetListModal.classList.contains('hidden')) {
             closePresetListModal();
+            e.stopPropagation();
+            return;
+        }
+        
+        const configPresetListModal = document.getElementById('configPresetListModal');
+        if (configPresetListModal && !configPresetListModal.classList.contains('hidden')) {
+            closeConfigPresetListModal();
             e.stopPropagation();
             return;
         }

@@ -836,3 +836,21 @@ class EnrichmentPresetTable(Base):
     
     def __repr__(self):
         return f"<EnrichmentPreset(id={self.id}, name='{self.name}', provider='{self.provider}', model='{self.model}')>"
+
+
+class WorkflowConfigPresetTable(Base):
+    """Database table for workflow configuration presets (thresholds, agent models, QA toggles, etc.)."""
+
+    __tablename__ = 'workflow_config_presets'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    config_json = Column(JSONB, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<WorkflowConfigPreset(id={self.id}, name='{self.name}')>"
