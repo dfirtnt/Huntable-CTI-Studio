@@ -458,7 +458,11 @@ async function toggleSourceStatus(sourceId) {
 function showModal(title, content) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('modalContent').innerHTML = content;
-    document.getElementById('resultModal').classList.remove('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.open('resultModal');
+    } else {
+        document.getElementById('resultModal').classList.remove('hidden');
+    }
 }
 
 function showLoadingModal(title, message) {
@@ -466,28 +470,12 @@ function showLoadingModal(title, message) {
 }
 
 function closeModal() {
-    document.getElementById('resultModal').classList.add('hidden');
-}
-
-// Close modal when clicking outside
-const resultModal = document.getElementById('resultModal');
-if (resultModal) {
-    resultModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeModal();
-        }
-    });
-}
-
-// Close modal with ESC key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('resultModal');
-        if (modal && !modal.classList.contains('hidden')) {
-            closeModal();
-        }
+    if (window.ModalManager) {
+        window.ModalManager.close('resultModal');
+    } else {
+        document.getElementById('resultModal').classList.add('hidden');
     }
-});
+}
 </script>
 
 <!-- Source Configuration Modal -->
@@ -568,30 +556,40 @@ function openSourceConfig(sourceId, currentDays, currentCheckFrequencyMinutes, c
     document.getElementById('configLookbackDays').value = currentDays;
     document.getElementById('configCheckFrequency').value = currentCheckFrequencyMinutes;
     document.getElementById('configMinContentLength').value = currentMinLength;
-    document.getElementById('sourceConfigModal').classList.remove('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.open('sourceConfigModal');
+    } else {
+        document.getElementById('sourceConfigModal').classList.remove('hidden');
+    }
 }
 
 function closeSourceConfig() {
-    document.getElementById('sourceConfigModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('sourceConfigModal');
+    } else {
+        document.getElementById('sourceConfigModal').classList.add('hidden');
+    }
     currentSourceId = null;
 }
 
-// Close source config modal when clicking outside
-const sourceConfigModalClick = document.getElementById('sourceConfigModal');
-if (sourceConfigModalClick) {
-    sourceConfigModalClick.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeSourceConfig();
-        }
-    });
-}
-
-// Close source config modal with ESC key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('sourceConfigModal');
-        if (modal && !modal.classList.contains('hidden')) {
-            closeSourceConfig();
+// Register modals with ModalManager on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.ModalManager) {
+        // Register resultModal (no inputs)
+        window.ModalManager.register('resultModal', {
+            hasInput: false,
+            isDynamic: false
+        });
+        
+        // Register sourceConfigModal (has inputs)
+        const sourceConfigModal = document.getElementById('sourceConfigModal');
+        if (sourceConfigModal) {
+            const submitBtn = document.getElementById('saveSourceConfigBtn');
+            window.ModalManager.register('sourceConfigModal', {
+                hasInput: true,
+                submitButton: submitBtn,
+                isDynamic: false
+            });
         }
     }
 });

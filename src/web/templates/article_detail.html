@@ -817,12 +817,28 @@
     // Global help functions - must be defined at top level for onclick handlers
     let previousModalElement = null;
     
-    function showHelpModal(title, promptContent, modelInfo = null) {
-        // Remove any existing help modal
-        const existingModal = document.getElementById('helpModal');
+    // Helper function to clean up existing modal before creating new one
+    async function cleanupExistingModal(modalId) {
+        const existingModal = document.getElementById(modalId);
         if (existingModal) {
+            // Remove from ModalManager stack if present
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes(modalId)) {
+                    const index = stack.indexOf(modalId);
+                    stack.splice(index, 1);
+                }
+            }
+            // Remove from DOM
             existingModal.remove();
+            // Small delay to ensure cleanup completes
+            await new Promise(resolve => setTimeout(resolve, 10));
         }
+    }
+    
+    async function showHelpModal(title, promptContent, modelInfo = null) {
+        // Remove any existing help modal
+        await cleanupExistingModal('helpModal');
         
         // Find and hide the currently visible modal (the one that opened the help)
         const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal');
@@ -839,21 +855,22 @@
         modal.id = 'helpModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999]';
         
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeHelpModal();
-            }
-        });
+        document.body.appendChild(modal);
         
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeHelpModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('helpModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('helpModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
         
         modal.innerHTML = `
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
@@ -879,14 +896,16 @@
                 </div>
             </div>
         `;
-        
-        document.body.appendChild(modal);
     }
     
     function closeHelpModal() {
-        const modal = document.getElementById('helpModal');
-        if (modal) {
-            modal.remove();
+        if (window.ModalManager) {
+            window.ModalManager.close('helpModal');
+        } else {
+            const modal = document.getElementById('helpModal');
+            if (modal) {
+                modal.remove();
+            }
         }
         
         // Restore the previously hidden modal
@@ -4898,27 +4917,27 @@ Please provide a detailed analysis based on the article content and the user's s
             console.log('Failed to fetch fresh data, using template data:', error);
         }
         
-
+        // Remove any existing modal first (direct removal to avoid ModalManager interference)
+        const existingModal = document.getElementById('aiAssistantModal');
+        if (existingModal) {
+            // Remove from ModalManager stack if present
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes('aiAssistantModal')) {
+                    const index = stack.indexOf('aiAssistantModal');
+                    stack.splice(index, 1);
+                }
+            }
+            // Remove from DOM
+            existingModal.remove();
+        }
+        
+        // Small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 10));
         
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center';
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeAIAssistantModal();
-            }
-        });
-        
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeAIAssistantModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
         
         // Determine if there is existing generated content to display/regenerate
         const hasExisting = hasSigmaRules || hasRanking;
@@ -5008,7 +5027,26 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
             </div>
         `;
+        
+        // Append modal to body
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible (not hidden)
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            // Small delay to let mutation observer settle
+            setTimeout(() => {
+                window.ModalManager.register('aiAssistantModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('aiAssistantModal');
+                // Ensure it's visible
+                modal.classList.remove('hidden');
+            }, 50);
+        }
         
         // If LMStudio and model name wasn't fetched yet, update it asynchronously
         if (aiModel === 'lmstudio' && !lmstudioModelName) {
@@ -5029,9 +5067,13 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     function closeAIAssistantModal() {
-        const modal = document.getElementById('aiAssistantModal');
-        if (modal) {
-            modal.remove();
+        if (window.ModalManager) {
+            window.ModalManager.close('aiAssistantModal');
+        } else {
+            const modal = document.getElementById('aiAssistantModal');
+            if (modal) {
+                modal.remove();
+            }
         }
     }
     
@@ -5848,8 +5890,9 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEscape);
     }
     
-    function showCustomPromptModal() {
+    async function showCustomPromptModal() {
         closeAIAssistantModal();
+        await cleanupExistingModal('customPromptModal');
         
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -5948,6 +5991,23 @@ Please provide a detailed analysis based on the article content and the user's s
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                const submitBtn = modal.querySelector('button[onclick*="generateCustomPrompt"]');
+                window.ModalManager.register('customPromptModal', {
+                    isDynamic: true,
+                    hasInput: true,
+                    submitButton: submitBtn
+                });
+                window.ModalManager.open('customPromptModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
         
         // Add Cmd/Ctrl+Enter key handler to textarea
         const textarea = document.getElementById('customPrompt');
@@ -6144,7 +6204,9 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function showCustomResponseModal(response, originalPrompt, data = null) {
+    async function showCustomResponseModal(response, originalPrompt, data = null) {
+        await cleanupExistingModal('customResponseModal');
+        
         const modal = document.createElement('div');
         modal.id = 'customResponseModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
@@ -6216,6 +6278,21 @@ Please provide a detailed analysis based on the article content and the user's s
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('customResponseModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('customResponseModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     }
     
     function closeCustomResponseModal() {
@@ -6317,6 +6394,21 @@ Please provide a detailed analysis based on the article content and the user's s
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('customPromptHistoryModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('customPromptHistoryModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     }
     
     function closeCustomPromptHistoryModal() {
@@ -6344,9 +6436,10 @@ Please provide a detailed analysis based on the article content and the user's s
     // Store generated rules globally for easy access
     let currentGeneratedSigmaRules = [];
     
-    function showSigmaRulesModal(sigmaRules, data) {
+    async function showSigmaRulesModal(sigmaRules, data) {
         // Remove any existing modal
         closeSigmaRulesModal();
+        await cleanupExistingModal('sigmaRulesModal');
         
         // Store generated rules globally
         if (sigmaRules && Array.isArray(sigmaRules)) {
@@ -6577,6 +6670,21 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('sigmaRulesModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('sigmaRulesModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
 
         // Check if article has embeddings and enable/disable buttons
         const checkBtn = document.getElementById('checkSimilarRulesBtn');
@@ -6783,9 +6891,10 @@ Please provide a detailed analysis based on the article content and the user's s
     
 
     
-    function showIOCsModal(iocsJson, data) {
+    async function showIOCsModal(iocsJson, data) {
         // Remove any existing modal
         closeIOCsModal();
+        await cleanupExistingModal('iocsModal');
         
         const modal = document.createElement('div');
         modal.id = 'iocsModal';
@@ -6962,6 +7071,21 @@ Please provide a detailed analysis based on the article content and the user's s
         
         document.body.appendChild(modal);
         
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('iocsModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('iocsModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+        
         // Add toggle functionality for IOC LLM log
         const iocLlmToggleButton = document.getElementById('toggleIocLlmLog');
         const iocLlmLogContent = document.getElementById('iocLlmLogContent');
@@ -6998,8 +7122,10 @@ Please provide a detailed analysis based on the article content and the user's s
             .replace(/>/g, '&gt;');
     }
 
-    function showCommandLinesModal(commandLines = [], metadata = {}) {
+    async function showCommandLinesModal(commandLines = [], metadata = {}) {
         closeCommandLinesModal();
+        await cleanupExistingModal('commandLinesModal');
+        
         const modal = document.createElement('div');
         modal.id = 'commandLinesModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
@@ -7091,6 +7217,22 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
 
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('commandLinesModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('commandLinesModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+        
         window.latestCommandLines = { command_lines: commandLines, metadata };
     }
 
@@ -7466,9 +7608,10 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function showCTIBERTIOCsModal(iocsData, resultData) {
+    async function showCTIBERTIOCsModal(iocsData, resultData) {
         // Remove any existing modal
         closeCTIBERTIOCsModal();
+        await cleanupExistingModal('ctibertIOCsModal');
         
         const modal = document.createElement('div');
         modal.id = 'ctibertIOCsModal';
@@ -7585,6 +7728,21 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('ctibertIOCsModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('ctibertIOCsModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     }
     
     function closeCTIBERTIOCsModal() {
@@ -7605,9 +7763,10 @@ Please provide a detailed analysis based on the article content and the user's s
               'This method complements the standard IOC extraction by leveraging domain-specific language understanding.');
     }
     
-    function showGPT4oRankingModal(analysis, data) {
+    async function showGPT4oRankingModal(analysis, data) {
         // Remove any existing modal
         closeGPT4oRankingModal();
+        await cleanupExistingModal('gpt4oRankingModal');
         
         const modal = document.createElement('div');
         modal.id = 'gpt4oRankingModal';
@@ -7685,6 +7844,21 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('gpt4oRankingModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('gpt4oRankingModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     }
     
     function closeGPT4oRankingModal() {
@@ -7866,9 +8040,10 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
+    async function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
         // Remove any existing modal
         closeSimilarRulesModal();
+        await cleanupExistingModal('similarRulesModal');
         
         const modal = document.createElement('div');
         modal.id = 'similarRulesModal';
@@ -8127,6 +8302,21 @@ Please provide a detailed analysis based on the article content and the user's s
         `;
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('similarRulesModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('similarRulesModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     }
     
     function closeSimilarRulesModal() {
@@ -8355,6 +8545,21 @@ ${JSON.stringify(rule.logsource, null, 2)}
         `;
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('sigmaRuleDetailsModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('sigmaRuleDetailsModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     }
     
     function closeSigmaRuleDetailsModal() {
@@ -9154,28 +9359,21 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
             // Create modal
             const modal = document.createElement('div');
+            // Clean up existing modal
+            const existingModal = document.getElementById('chunkDebugModal');
+            if (existingModal) {
+                if (window.ModalManager) {
+                    const stack = window.ModalManager.getStack();
+                    while (stack.includes('chunkDebugModal')) {
+                        const index = stack.indexOf('chunkDebugModal');
+                        stack.splice(index, 1);
+                    }
+                }
+                existingModal.remove();
+            }
+            
             modal.id = 'chunkDebugModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
-            
-            // Add click outside to close
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    if (typeof closeChunkDebugModal === 'function') {
-                        closeChunkDebugModal();
-                    }
-                }
-            });
-            
-            // Add ESC key to close
-            const handleEsc = function(e) {
-                if (e.key === 'Escape') {
-                    if (typeof closeChunkDebugModal === 'function') {
-                        closeChunkDebugModal();
-                    }
-                    document.removeEventListener('keydown', handleEsc);
-                }
-            };
-            document.addEventListener('keydown', handleEsc);
             
             // Generate chunk visualization
             let chunkVisualization = '';
@@ -9370,9 +9568,24 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     </button>
                 </div>
             </div>
-        `;
+            `;
             
             document.body.appendChild(modal);
+            
+            // Ensure modal is visible
+            modal.classList.remove('hidden');
+            
+            // Register and open with ModalManager
+            if (window.ModalManager) {
+                setTimeout(() => {
+                    window.ModalManager.register('chunkDebugModal', {
+                        isDynamic: true,
+                        hasInput: false
+                    });
+                    window.ModalManager.open('chunkDebugModal');
+                    modal.classList.remove('hidden');
+                }, 50);
+            }
             
             // Store debug data globally for filtering
             window.chunkDebugData = data;
@@ -10131,6 +10344,19 @@ ${JSON.stringify(rule.logsource, null, 2)}
     }
     
     function displayComparisonModal(comparison, version) {
+        // Clean up existing modal
+        const existingModal = document.getElementById('comparisonModal');
+        if (existingModal) {
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes('comparisonModal')) {
+                    const index = stack.indexOf('comparisonModal');
+                    stack.splice(index, 1);
+                }
+            }
+            existingModal.remove();
+        }
+        
         // Create modal HTML
         const modalHTML = `
             <div id="comparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -10250,27 +10476,24 @@ ${JSON.stringify(rule.logsource, null, 2)}
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         
-        // Close modal when clicking outside
+        // Get modal element
         const comparisonModal = document.getElementById('comparisonModal');
         if (comparisonModal) {
-            comparisonModal.addEventListener('click', function(e) {
-                if (e.target === comparisonModal) {
-                    closeComparisonModal();
-                }
-            });
-        }
-        
-        // Add ESC key handler to close comparison modal
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('comparisonModal');
-                if (modal) {
-                    closeComparisonModal();
-                    document.removeEventListener('keydown', handleEsc);
-                }
+            // Ensure modal is visible
+            comparisonModal.classList.remove('hidden');
+            
+            // Register and open with ModalManager
+            if (window.ModalManager) {
+                setTimeout(() => {
+                    window.ModalManager.register('comparisonModal', {
+                        isDynamic: true,
+                        hasInput: false
+                    });
+                    window.ModalManager.open('comparisonModal');
+                    comparisonModal.classList.remove('hidden');
+                }, 50);
             }
-        };
-        document.addEventListener('keydown', handleEsc);
+        }
     }
     
     function closeComparisonModal() {

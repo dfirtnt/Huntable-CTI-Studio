@@ -128,8 +128,16 @@ async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncCli
         port = test_environment_config.test_port
     base_url = f"http://127.0.0.1:{port}"
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
-    async with httpx.AsyncClient(base_url=base_url, timeout=timeout) as client:
+    client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
+    try:
         yield client
+    finally:
+        # Manually close the client to avoid event loop closure issues
+        try:
+            await client.aclose()
+        except RuntimeError:
+            # Event loop already closed, ignore
+            pass
 
 
 @pytest.fixture

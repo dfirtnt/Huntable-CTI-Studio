@@ -1099,39 +1099,50 @@ async function retryExecution(executionId) {
 }
 
 function closeModal() {
-    document.getElementById('executionModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('executionModal');
+    } else {
+        document.getElementById('executionModal').classList.add('hidden');
+    }
 }
 
-// Close modal when clicking outside
-const executionModal = document.getElementById('executionModal');
-if (executionModal) {
-    executionModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeModal();
-        }
-    });
+function closeExecuteModal() {
+    if (window.ModalManager) {
+        window.ModalManager.close('executeModal');
+    } else {
+        document.getElementById('executeModal').classList.add('hidden');
+    }
+    document.getElementById('articleIdInput').value = '';
+    document.getElementById('executeError').classList.add('hidden');
 }
 
-const executeModal = document.getElementById('executeModal');
-if (executeModal) {
-    executeModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeExecuteModal();
-        }
-    });
-}
-
-// Close modal with ESC key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
+// Register modals with ModalManager on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.ModalManager) {
         const executionModal = document.getElementById('executionModal');
-        const executeModal = document.getElementById('executeModal');
-        
-        if (executionModal && !executionModal.classList.contains('hidden')) {
-            closeModal();
+        if (executionModal) {
+            window.ModalManager.register('executionModal', {
+                hasInput: false,
+                isDynamic: false
+            });
         }
-        if (executeModal && !executeModal.classList.contains('hidden')) {
-            closeExecuteModal();
+        
+        const executeModal = document.getElementById('executeModal');
+        if (executeModal) {
+            const submitBtn = executeModal.querySelector('button[onclick*="executeWorkflow"]');
+            window.ModalManager.register('executeModal', {
+                hasInput: true,
+                submitButton: submitBtn,
+                isDynamic: false
+            });
+        }
+        
+        const ruleModal = document.getElementById('ruleModal');
+        if (ruleModal) {
+            window.ModalManager.register('ruleModal', {
+                hasInput: false,
+                isDynamic: false
+            });
         }
     }
 });
@@ -1237,11 +1248,7 @@ function openExecuteModal() {
     }, 10);
 }
 
-function closeExecuteModal() {
-    document.getElementById('executeModal').classList.add('hidden');
-    document.getElementById('articleIdInput').value = '';
-    document.getElementById('executeError').classList.add('hidden');
-}
+// closeExecuteModal moved above
 
 async function executeWorkflow() {
     const articleId = document.getElementById('articleIdInput').value.trim();
@@ -1312,6 +1319,13 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         // Remove any existing modal
         const existingModal = document.getElementById('similarRuleModal');
         if (existingModal) {
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes('similarRuleModal')) {
+                    const index = stack.indexOf('similarRuleModal');
+                    stack.splice(index, 1);
+                }
+            }
             existingModal.remove();
         }
         
@@ -1431,6 +1445,21 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         document.addEventListener('keydown', handleEsc);
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('similarRuleModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('similarRuleModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
     } catch (error) {
         console.error('Error parsing rule data:', error);
         alert('Error displaying rule details');
@@ -1438,9 +1467,13 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
 }
 
 function closeSimilarRuleModal() {
-    const modal = document.getElementById('similarRuleModal');
-    if (modal) {
-        modal.remove();
+    if (window.ModalManager) {
+        window.ModalManager.close('similarRuleModal');
+    } else {
+        const modal = document.getElementById('similarRuleModal');
+        if (modal) {
+            modal.remove();
+        }
     }
 }
 
@@ -1468,8 +1501,22 @@ function highlightQueuedRule(ruleId) {
 let liveExecutionEventSource = null;
 let liveExecutionId = null;
 
-function openLiveExecutionView(executionId) {
+async function openLiveExecutionView(executionId) {
     liveExecutionId = executionId;
+    
+    // Clean up existing modal
+    const existingModal = document.getElementById('liveExecutionModal');
+    if (existingModal) {
+        if (window.ModalManager) {
+            const stack = window.ModalManager.getStack();
+            while (stack.includes('liveExecutionModal')) {
+                const index = stack.indexOf('liveExecutionModal');
+                stack.splice(index, 1);
+            }
+        }
+        existingModal.remove();
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
     
     // Create modal
     const modal = document.createElement('div');
@@ -1494,6 +1541,21 @@ function openLiveExecutionView(executionId) {
     `;
     document.body.appendChild(modal);
     
+    // Ensure modal is visible
+    modal.classList.remove('hidden');
+    
+    // Register and open with ModalManager
+    if (window.ModalManager) {
+        setTimeout(() => {
+            window.ModalManager.register('liveExecutionModal', {
+                isDynamic: true,
+                hasInput: false
+            });
+            window.ModalManager.open('liveExecutionModal');
+            modal.classList.remove('hidden');
+        }, 50);
+    }
+    
     // Start SSE connection
     startLiveExecutionStream(executionId);
 }
@@ -1503,9 +1565,13 @@ function closeLiveExecutionView() {
         liveExecutionEventSource.close();
         liveExecutionEventSource = null;
     }
-    const modal = document.getElementById('liveExecutionModal');
-    if (modal) {
-        modal.remove();
+    if (window.ModalManager) {
+        window.ModalManager.close('liveExecutionModal');
+    } else {
+        const modal = document.getElementById('liveExecutionModal');
+        if (modal) {
+            modal.remove();
+        }
     }
     liveExecutionId = null;
 }
@@ -1999,35 +2065,17 @@ async function checkSimilarRulesForQueuedRule() {
 }
 
 function closeRuleModal() {
-    document.getElementById('ruleModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('ruleModal');
+    } else {
+        document.getElementById('ruleModal').classList.add('hidden');
+    }
     currentRuleId = null;
     currentQueuedRule = null;
     isEditMode = false;
     originalYaml = '';
     editedYaml = '';
 }
-
-// Add click outside to close
-document.addEventListener('DOMContentLoaded', function() {
-    const ruleModal = document.getElementById('ruleModal');
-    if (ruleModal) {
-        ruleModal.addEventListener('click', function(e) {
-            if (e.target === ruleModal) {
-                closeRuleModal();
-            }
-        });
-    }
-    
-    // Add ESC key to close
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            const modal = document.getElementById('ruleModal');
-            if (modal && !modal.classList.contains('hidden')) {
-                closeRuleModal();
-            }
-        }
-    });
-});
 </script>
 
 <!-- Rule Preview Modal -->
