@@ -184,9 +184,11 @@ def check_all_sources(self):
                     }
 
                 # Initialize processor for deduplication
+                # Use source's lookback_days if available, otherwise default to 90
+                max_age_days = getattr(source, 'lookback_days', None) or 90
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
-                    max_age_days=90,
+                    max_age_days=max_age_days,
                     enable_content_enhancement=True,
                 )
 
@@ -487,9 +489,11 @@ def check_source(self, source_identifier: str):
                 )
 
                 # Initialize processor for deduplication
+                # Use source's lookback_days if available, otherwise default to 90
+                max_age_days = getattr(source, 'lookback_days', None) or 90
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
-                    max_age_days=90,
+                    max_age_days=max_age_days,
                     enable_content_enhancement=True,
                 )
 
@@ -1051,9 +1055,11 @@ def collect_from_source(self, source_id: int):
                 )
 
                 # Initialize processor for deduplication
+                # Use source's lookback_days if available, otherwise default to 90
+                max_age_days = getattr(source, 'lookback_days', None) or 90
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
-                    max_age_days=90,
+                    max_age_days=max_age_days,
                     enable_content_enhancement=True,
                 )
 
@@ -1069,15 +1075,27 @@ def collect_from_source(self, source_id: int):
                     try:
                         # Fetch articles using hierarchical strategy
                         fetch_result = await fetcher.fetch_source(source)
+                        
+                        # Extract RSS parsing stats if available
+                        rss_parsing_stats = getattr(fetch_result, 'rss_parsing_stats', {})
+                        
+                        # Filter out dummy articles created just to carry stats
+                        real_articles = [
+                            a for a in fetch_result.articles 
+                            if not (
+                                (hasattr(a, 'article_metadata') and a.article_metadata and a.article_metadata.get('is_dummy', False)) or
+                                (hasattr(a, 'metadata') and a.metadata and a.metadata.get('is_dummy', False))
+                            )
+                        ] if fetch_result.articles else []
 
-                        if fetch_result.success and fetch_result.articles:
+                        if fetch_result.success and real_articles:
                             logger.info(
-                                f"  ✓ {source.name}: {len(fetch_result.articles)} articles collected via {fetch_result.method}"
+                                f"  ✓ {source.name}: {len(real_articles)} articles collected via {fetch_result.method}"
                             )
 
                             # Process articles through deduplication
                             dedup_result = await processor.process_articles(
-                                fetch_result.articles, existing_hashes
+                                real_articles, existing_hashes
                             )
 
                             # Save deduplicated articles using sync database manager
@@ -1116,14 +1134,32 @@ def collect_from_source(self, source_id: int):
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
+                            
+                            # Extract detailed filtering stats
+                            filter_stats = dedup_result.stats if hasattr(dedup_result, 'stats') else {}
+                            quality_filtered = filter_stats.get('quality_filtered', 0)
+                            hash_duplicates = filter_stats.get('hash_duplicates', 0)
+                            url_duplicates = filter_stats.get('url_duplicates', 0)
+                            similarity_duplicates = filter_stats.get('similarity_duplicates', 0)
+                            validation_failures = filter_stats.get('validation_failures', 0)
 
                             logger.info(
                                 f"    - Collected: {len(fetch_result.articles)} articles"
                             )
                             logger.info(f"    - Saved: {saved_count} new articles")
                             logger.info(
-                                f"    - Duplicates filtered: {duplicates_filtered} articles"
+                                f"    - Total filtered: {filtered_count} articles"
                             )
+                            if quality_filtered > 0:
+                                logger.info(f"      • Quality filtered: {quality_filtered}")
+                            if hash_duplicates > 0:
+                                logger.info(f"      • Hash duplicates: {hash_duplicates}")
+                            if url_duplicates > 0:
+                                logger.info(f"      • URL duplicates: {url_duplicates}")
+                            if similarity_duplicates > 0:
+                                logger.info(f"      • Similarity duplicates: {similarity_duplicates}")
+                            if validation_failures > 0:
+                                logger.info(f"      • Validation failures: {validation_failures}")
 
                             collection_success = True
 
@@ -1131,12 +1167,20 @@ def collect_from_source(self, source_id: int):
                                 "status": "success",
                                 "source_id": source_id,
                                 "source_name": source.name,
-                                "articles_collected": len(fetch_result.articles),
+                                "articles_collected": len(real_articles),
                                 "articles_saved": saved_count,
                                 "articles_filtered": filtered_count,
+                                "filter_details": {
+                                    "quality_filtered": quality_filtered,
+                                    "hash_duplicates": hash_duplicates,
+                                    "url_duplicates": url_duplicates,
+                                    "similarity_duplicates": similarity_duplicates,
+                                    "validation_failures": validation_failures,
+                                },
+                                "rss_parsing_stats": rss_parsing_stats,
                                 "method": fetch_result.method,
                                 "response_time": fetch_result.response_time,
-                                "message": f"Collected {len(fetch_result.articles)} articles via {fetch_result.method}, saved {saved_count} after deduplication",
+                                "message": f"Collected {len(real_articles)} articles via {fetch_result.method}, saved {saved_count} after deduplication",
                             }
                         else:
                             logger.info(f"  ✓ {source.name}: 0 articles found")
@@ -1151,6 +1195,7 @@ def collect_from_source(self, source_id: int):
                                 "articles_collected": 0,
                                 "articles_saved": 0,
                                 "articles_filtered": 0,
+                                "rss_parsing_stats": rss_parsing_stats,
                                 "method": fetch_result.method
                                 if fetch_result
                                 else "none",

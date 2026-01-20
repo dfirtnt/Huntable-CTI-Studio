@@ -777,12 +777,13 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".post-author"]
     description: "In-depth security research and vulnerability analysis - updated to new Assetnote location with modern discovery"
 
-  # NCSC UK (No RSS - Web Scraping Only)
+  # NCSC UK - Reports via RSS, News/Blog via Web Scraping
   - id: "ncsc_uk"
     name: "NCSC UK"
     url: "https://www.ncsc.gov.uk/news"
-    rss_url: null  # RSS feed not available - web scraping only
+    rss_url: "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"  # Reports RSS feed
     check_frequency: 3600  # 1 hour
+    lookback_days: 180  # 6 months
     active: true
     config:
       allow: ["ncsc.gov.uk"]
@@ -793,14 +794,14 @@ sources:
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
-      min_content_length: 500
+      min_content_length: 100  # RSS descriptions are short (~100-200 chars), site is JS-rendered
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
-      rss_only: false  # Force web scraping since no RSS
+      rss_only: true  # Site is JavaScript-rendered (React), scraping returns empty HTML
       discovery:
         strategies:
           - sitemap:
               urls: ["https://www.ncsc.gov.uk/sitemap.xml"]
-              url_patterns: ["https://www.ncsc.gov.uk/news/*", "https://www.ncsc.gov.uk/blog-post/*"]
+              url_patterns: ["https://www.ncsc.gov.uk/news/*", "https://www.ncsc.gov.uk/blog-post/*", "https://www.ncsc.gov.uk/report/*"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -809,8 +810,7 @@ sources:
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-      min_content_length: 2000
-    description: "UK National Cyber Security Centre official advisories and guidance (Web scraping only - RSS feed unavailable)"
+    description: "UK National Cyber Security Centre official advisories and guidance (Reports via RSS feed - site is JS-rendered)"
 
   # US-CERT
   - id: "us_cert"

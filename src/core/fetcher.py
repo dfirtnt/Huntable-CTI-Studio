@@ -24,7 +24,8 @@ class FetchResult:
         method: str,
         success: bool = True,
         error: Optional[str] = None,
-        response_time: float = 0.0
+        response_time: float = 0.0,
+        rss_parsing_stats: Optional[Dict[str, Any]] = None
     ):
         self.source = source
         self.articles = articles
@@ -32,6 +33,7 @@ class FetchResult:
         self.success = success
         self.error = error
         self.response_time = response_time
+        self.rss_parsing_stats = rss_parsing_stats or {}
         self.timestamp = datetime.now()
     
     def __str__(self):
@@ -119,20 +121,32 @@ class ContentFetcher:
                     logger.debug(f"Attempting RSS fetch for {source.name}")
                     articles = await self.rss_parser.parse_feed(source)
                     
+                    # Extract RSS parsing stats from first article if available
+                    rss_stats = {}
+                    if articles and len(articles) > 0:
+                        # Try to get stats from article_metadata (correct field name for ArticleCreate)
+                        first_article = articles[0]
+                        if hasattr(first_article, 'article_metadata') and first_article.article_metadata:
+                            rss_stats = first_article.article_metadata.get('rss_parsing_stats', {})
+                        elif hasattr(first_article, 'metadata') and first_article.metadata:
+                            rss_stats = first_article.metadata.get('rss_parsing_stats', {})
+                    
+                    response_time = (datetime.now() - start_time).total_seconds()
+                    
                     if articles:
-                        response_time = (datetime.now() - start_time).total_seconds()
                         self._update_stats('rss_successes', len(articles), response_time, True)
-                        
-                        logger.info(f"RSS fetch successful for {source.name}: {len(articles)} articles")
-                        return FetchResult(
-                            source=source,
-                            articles=articles,
-                            method="rss",
-                            success=True,
-                            response_time=response_time
-                        )
+                        logger.info(f"RSS fetch successful for {source.name}: {len(articles)} articles (RSS stats: {rss_stats})")
                     else:
                         logger.warning(f"RSS feed returned no articles for {source.name}")
+                    
+                    return FetchResult(
+                        source=source,
+                        articles=articles,
+                        method="rss",
+                        success=True,
+                        response_time=response_time,
+                        rss_parsing_stats=rss_stats
+                    )
                         
                 except Exception as e:
                     logger.warning(f"RSS fetch failed for {source.name}: {e}")

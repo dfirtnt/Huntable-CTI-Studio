@@ -898,11 +898,32 @@ function collectFromSource(sourceId) {
     const statusText = document.getElementById('collectionStatusText');
     const terminalOutput = document.getElementById('terminalOutput');
     const terminalContent = document.getElementById('terminalContent');
+    
+    // Validate required elements exist
+    if (!statusDiv || !statusText || !terminalOutput || !terminalContent) {
+        console.error('Collection status elements not found in DOM');
+        showNotification('Collection UI elements not found. Please refresh the page.', 'error');
+        return;
+    }
+    
     const spinner = statusDiv.querySelector('.animate-spin');
     
     // Get source name from the button's parent container
     const button = document.querySelector(`button[onclick="collectFromSource(${sourceId})"]`);
-    const sourceCard = button.closest('.bg-white');
+    if (!button) {
+        console.error(`Button for source ${sourceId} not found`);
+        showNotification('Source button not found. Please refresh the page.', 'error');
+        return;
+    }
+    
+    // Find the source card - use bg-gray-800 which is the actual class, or find parent container
+    const sourceCard = button.closest('.bg-gray-800') || button.closest('[class*="rounded-lg"]');
+    if (!sourceCard) {
+        console.error(`Source card not found for source ${sourceId}`);
+        showNotification('Source card not found. Please refresh the page.', 'error');
+        return;
+    }
+    
     // Find the h4 with the source name that contains the correct source_id in the href
     const sourceNameLink = sourceCard.querySelector(`h4 a[href="/articles?source_id=${sourceId}"]`);
     const sourceName = sourceNameLink ? sourceNameLink.textContent.trim() : 'Unknown Source';
@@ -936,7 +957,9 @@ function collectFromSource(sourceId) {
     .catch(error => {
         console.error('Error starting collection:', error);
         statusText.textContent = 'Collection failed to start';
-        spinner.classList.add('hidden');
+        if (spinner) {
+            spinner.classList.add('hidden');
+        }
         showNotification('Failed to start collection: ' + error.message, 'error');
         
         // Hide status after delay
@@ -969,15 +992,82 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                     break;
                 case 'SUCCESS':
                     logEntry += `✅ Collection completed successfully!`;
-                    if (data.result && data.result.articles_collected) {
+                    if (data.result && data.result.articles_collected !== undefined) {
                         logEntry += ` Collected ${data.result.articles_collected} articles.`;
                     }
                     if (data.result && data.result.articles_saved !== undefined) {
                         logEntry += ` Saved ${data.result.articles_saved} new articles.`;
                     }
                     if (data.result && data.result.articles_filtered !== undefined) {
-                        logEntry += ` Filtered ${data.result.articles_filtered} duplicates.`;
+                        const filtered = data.result.articles_filtered;
+                        logEntry += ` Filtered ${filtered} articles.`;
+                        
+                        // Add detailed filtering breakdown
+                        if (data.result.filter_details && filtered > 0) {
+                            const details = data.result.filter_details;
+                            const detailParts = [];
+                            
+                            if (details.quality_filtered > 0) {
+                                detailParts.push(`Quality filtered: ${details.quality_filtered}`);
+                            }
+                            if (details.hash_duplicates > 0) {
+                                detailParts.push(`Hash duplicates: ${details.hash_duplicates}`);
+                            }
+                            if (details.url_duplicates > 0) {
+                                detailParts.push(`URL duplicates: ${details.url_duplicates}`);
+                            }
+                            if (details.similarity_duplicates > 0) {
+                                detailParts.push(`Similarity duplicates: ${details.similarity_duplicates}`);
+                            }
+                            if (details.validation_failures > 0) {
+                                detailParts.push(`Validation failures: ${details.validation_failures}`);
+                            }
+                            
+                            if (detailParts.length > 0) {
+                                // Create a detail log entry
+                                const detailLogDiv = document.createElement('div');
+                                detailLogDiv.className = 'text-gray-400 text-xs ml-4 mt-1';
+                                detailLogDiv.textContent = `  └─ ${detailParts.join(' | ')}`;
+                                terminalContent.appendChild(detailLogDiv);
+                            }
+                        }
                     }
+                    
+                    // Add RSS parsing statistics if available (always show for context)
+                    if (data.result && data.result.rss_parsing_stats && Object.keys(data.result.rss_parsing_stats).length > 0) {
+                        const rssStats = data.result.rss_parsing_stats;
+                        const rssParts = [];
+                        
+                        // Always show total entries and parsed count for context
+                        if (rssStats.total_entries !== undefined && rssStats.total_entries > 0) {
+                            rssParts.push(`Total entries: ${rssStats.total_entries}`);
+                        }
+                        if (rssStats.parsed_successfully !== undefined) {
+                            rssParts.push(`Parsed: ${rssStats.parsed_successfully}`);
+                        }
+                        
+                        // Show filtering breakdown if any filtering occurred
+                        if (rssStats.filtered_url_regex > 0) {
+                            rssParts.push(`URL regex filtered: ${rssStats.filtered_url_regex}`);
+                        }
+                        if (rssStats.filtered_title > 0) {
+                            rssParts.push(`Title filtered: ${rssStats.filtered_title}`);
+                        }
+                        if (rssStats.filtered_content > 0) {
+                            rssParts.push(`Content filtered: ${rssStats.filtered_content}`);
+                        }
+                        if (rssStats.parse_errors > 0) {
+                            rssParts.push(`Parse errors: ${rssStats.parse_errors}`);
+                        }
+                        
+                        if (rssParts.length > 0) {
+                            const rssLogDiv = document.createElement('div');
+                            rssLogDiv.className = 'text-yellow-400 text-xs ml-4 mt-2';
+                            rssLogDiv.textContent = `RSS Parsing: ${rssParts.join(' | ')}`;
+                            terminalContent.appendChild(rssLogDiv);
+                        }
+                    }
+                    
                     statusText.textContent = `Collection completed successfully for ${sourceName}!`;
                     spinner.classList.add('hidden');
                     clearInterval(pollInterval);

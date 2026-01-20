@@ -60,24 +60,119 @@ class RSSParser:
                     f"Feed parsing warning for {source.name}: {feed_data.bozo_exception}"
                 )
 
-            # Extract articles
+            # Extract articles with statistics tracking
             articles = []
+            stats = {
+                'total_entries': len(feed_data.entries),
+                'parsed_successfully': 0,
+                'filtered_url_regex': 0,
+                'filtered_title': 0,
+                'filtered_content': 0,
+                'parse_errors': 0,
+            }
+            
             for entry in feed_data.entries:
                 try:
-                    article = await self._parse_entry(entry, source)
+                    article, filter_reason = await self._parse_entry_with_stats(entry, source)
                     if article:
                         articles.append(article)
+                        stats['parsed_successfully'] += 1
+                    else:
+                        # Track why it was filtered
+                        if filter_reason == 'url_regex':
+                            stats['filtered_url_regex'] += 1
+                        elif filter_reason == 'title':
+                            stats['filtered_title'] += 1
+                        elif filter_reason == 'content':
+                            stats['filtered_content'] += 1
                 except Exception as e:
                     logger.error(f"Failed to parse entry in {source.name}: {e}")
+                    stats['parse_errors'] += 1
                     continue
 
-            logger.info(f"Extracted {len(articles)} articles from {source.name}")
+            logger.info(f"Extracted {len(articles)} articles from {source.name} (stats: {stats})")
+            
+            # Store stats in articles article_metadata for later retrieval (even if empty)
+            for article in articles:
+                if not hasattr(article, 'article_metadata') or not article.article_metadata:
+                    article.article_metadata = {}
+                article.article_metadata['rss_parsing_stats'] = stats
+            
+            # If no articles, create a dummy article just to carry stats
+            if not articles and stats['total_entries'] > 0:
+                # Create a temporary article just to carry stats metadata
+                # This will be filtered out later but allows stats to be passed through
+                from src.models.article import ArticleCreate
+                dummy_article = ArticleCreate(
+                    source_id=source.id,
+                    url="",
+                    canonical_url="",
+                    title="",
+                    published_at=datetime.now(),
+                    content="",
+                    article_metadata={'rss_parsing_stats': stats, 'is_dummy': True}
+                )
+                articles.append(dummy_article)
+            
             return articles
 
         except Exception as e:
             logger.error(f"Failed to parse RSS feed for {source.name}: {e}")
             raise
 
+    async def _parse_entry_with_stats(self, entry: Any, source: Source) -> tuple[Optional[ArticleCreate], Optional[str]]:
+        """
+        Parse entry with statistics tracking.
+        Returns (article, filter_reason) where filter_reason is None if article was created,
+        or 'url_regex', 'title', 'content' if filtered.
+        """
+        article = await self._parse_entry(entry, source)
+        if article:
+            return article, None
+        
+        # Determine why it was filtered (check in order)
+        url = self._extract_url(entry)
+        title = self._extract_title(entry)
+        
+        if url and title:
+            # Check URL regex filtering
+            if hasattr(source, "config") and source.config:
+                config_dict = source.config
+                if isinstance(config_dict, dict):
+                    post_url_patterns = config_dict.get("post_url_regex", [])
+                elif hasattr(config_dict, "post_url_regex"):
+                    post_url_patterns = getattr(config_dict, "post_url_regex", [])
+                elif hasattr(config_dict, "model_dump"):
+                    config_dict_dump = config_dict.model_dump()
+                    post_url_patterns = config_dict_dump.get("post_url_regex", [])
+                elif hasattr(config_dict, "dict"):
+                    config_dict_dump = config_dict.dict()
+                    post_url_patterns = config_dict_dump.get("post_url_regex", [])
+                else:
+                    post_url_patterns = []
+                
+                if post_url_patterns:
+                    import re
+                    matched = False
+                    for pattern in post_url_patterns:
+                        try:
+                            pattern_normalized = pattern.replace('\\\\.', '\\.')
+                            compiled_pattern = re.compile(pattern_normalized)
+                            if compiled_pattern.match(url):
+                                matched = True
+                                break
+                        except re.error:
+                            continue
+                    if not matched:
+                        return None, 'url_regex'
+            
+            # Check title filtering
+            if self._should_filter_title(title, source.config if hasattr(source, "config") else None):
+                return None, 'title'
+        
+        # Otherwise likely content extraction failure
+        return None, 'content'
+    
     async def _parse_entry(self, entry: Any, source: Source) -> Optional[ArticleCreate]:
         """
         Parse individual RSS entry into ArticleCreate.
@@ -100,6 +195,47 @@ class RSSParser:
                     f"Skipping entry with missing title or URL in {source.name}"
                 )
                 return None
+
+            # Filter URLs by post_url_regex pattern if configured
+            if hasattr(source, "config") and source.config:
+                config_dict = source.config
+                if isinstance(config_dict, dict):
+                    post_url_patterns = config_dict.get("post_url_regex", [])
+                elif hasattr(config_dict, "post_url_regex"):
+                    post_url_patterns = getattr(config_dict, "post_url_regex", [])
+                elif hasattr(config_dict, "model_dump"):
+                    config_dict_dump = config_dict.model_dump()
+                    post_url_patterns = config_dict_dump.get("post_url_regex", [])
+                elif hasattr(config_dict, "dict"):
+                    config_dict_dump = config_dict.dict()
+                    post_url_patterns = config_dict_dump.get("post_url_regex", [])
+                else:
+                    post_url_patterns = []
+                
+                if post_url_patterns:
+                    import re
+                    matched = False
+                    logger.info(f"Checking URL {url} against patterns {post_url_patterns} for {source.name}")
+                    for pattern in post_url_patterns:
+                        try:
+                            # Handle escaped backslashes in patterns (from JSON storage)
+                            pattern_normalized = pattern.replace('\\\\.', '\\.')
+                            compiled_pattern = re.compile(pattern_normalized)
+                            if compiled_pattern.match(url):
+                                matched = True
+                                logger.info(f"✅ RSS URL {url} matched pattern {pattern_normalized}")
+                                break
+                            else:
+                                logger.debug(f"❌ RSS URL {url} did NOT match pattern {pattern_normalized}")
+                        except re.error as e:
+                            logger.warning(f"Invalid regex pattern '{pattern}' for {source.name}: {e}")
+                            continue
+                    
+                    if not matched:
+                        logger.warning(f"RSS URL {url} filtered out by pattern check (patterns: {post_url_patterns})")
+                        return None
+                else:
+                    logger.debug(f"No post_url_regex patterns configured for {source.name}, skipping URL filtering")
 
             # Filter out articles based on title keywords
             if self._should_filter_title(
@@ -131,6 +267,9 @@ class RSSParser:
                 if hasattr(entry, "_used_modern_fallback")
                 else "rss",
             }
+            
+            # Add RSS parsing stats to metadata (will be stored in article_metadata)
+            # Stats are added later in parse_feed after all entries are processed
 
             # Quality scoring removed
             # metadata['quality_score'] = quality_score
@@ -407,9 +546,14 @@ class RSSParser:
         # If RSS-only mode is enabled, use RSS content regardless of length
         if rss_only:
             if content:
+                text_length = len(ContentCleaner.html_to_text(content).strip())
                 logger.info(
-                    f"RSS-only mode enabled for {source.name}, using RSS content: {len(ContentCleaner.html_to_text(content).strip())} chars"
+                    f"RSS-only mode enabled for {source.name}, using RSS content: {text_length} chars (min: {source_min_length})"
                 )
+                if text_length < source_min_length:
+                    logger.warning(
+                        f"RSS content length {text_length} < min {source_min_length}, but RSS-only mode enabled - using anyway"
+                    )
                 return ContentCleaner.clean_html(content)
             else:
                 logger.warning(
