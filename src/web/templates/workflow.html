@@ -3952,7 +3952,21 @@ async function showPromptHistory(agentName) {
     }
 }
 
-function showPromptHistoryModal(agentName, versions) {
+async function showPromptHistoryModal(agentName, versions) {
+    // Clean up existing modal
+    const existingModal = document.getElementById('promptHistoryModal');
+    if (existingModal) {
+        if (window.ModalManager) {
+            const stack = window.ModalManager.getStack();
+            while (stack.includes('promptHistoryModal')) {
+                const index = stack.indexOf('promptHistoryModal');
+                stack.splice(index, 1);
+            }
+        }
+        existingModal.remove();
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
     const modal = document.createElement('div');
     modal.id = 'promptHistoryModal';
     modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
@@ -4033,27 +4047,30 @@ function showPromptHistoryModal(agentName, versions) {
     `;
     document.body.appendChild(modal);
     
-    // Add click outside to close
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            closePromptHistoryModal();
-        }
-    });
+    // Ensure modal is visible
+    modal.classList.remove('hidden');
     
-    // Add ESC key to close
-    const handleEsc = function(e) {
-        if (e.key === 'Escape') {
-            closePromptHistoryModal();
-            document.removeEventListener('keydown', handleEsc);
-        }
-    };
-    document.addEventListener('keydown', handleEsc);
+    // Register and open with ModalManager
+    if (window.ModalManager) {
+        setTimeout(() => {
+            window.ModalManager.register('promptHistoryModal', {
+                isDynamic: true,
+                hasInput: false
+            });
+            window.ModalManager.open('promptHistoryModal');
+            modal.classList.remove('hidden');
+        }, 50);
+    }
 }
 
 function closePromptHistoryModal() {
-    const modal = document.getElementById('promptHistoryModal');
-    if (modal) {
-        modal.remove();
+    if (window.ModalManager) {
+        window.ModalManager.close('promptHistoryModal');
+    } else {
+        const modal = document.getElementById('promptHistoryModal');
+        if (modal) {
+            modal.remove();
+        }
     }
 }
 
@@ -5202,7 +5219,9 @@ function showTestModal(agentName, articleId) {
 }
 
 function closeTestModal() {
-    if (testModal) {
+    if (window.ModalManager && testModal && testModal.id) {
+        window.ModalManager.close(testModal.id);
+    } else if (testModal) {
         testModal.classList.add('hidden');
     }
 }
@@ -8073,7 +8092,21 @@ function updateConfigDisplay() {
 }
 
 // Generate LMStudio context window commands
-function showGenerateCommandsModal() {
+async function showGenerateCommandsModal() {
+    // Clean up existing modal
+    const existingModal = document.getElementById('generateCommandsModal');
+    if (existingModal) {
+        if (window.ModalManager) {
+            const stack = window.ModalManager.getStack();
+            while (stack.includes('generateCommandsModal')) {
+                const index = stack.indexOf('generateCommandsModal');
+                stack.splice(index, 1);
+            }
+        }
+        existingModal.remove();
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
     // Get all selected models
     const uiModels = getAllSelectedModelsWithProviders();
     
@@ -8160,9 +8193,13 @@ function showGenerateCommandsModal() {
 }
 
 function closeGenerateCommandsModal() {
-    const modal = document.getElementById('generateCommandsModal');
-    if (modal) {
-        modal.remove();
+    if (window.ModalManager) {
+        window.ModalManager.close('generateCommandsModal');
+    } else {
+        const modal = document.getElementById('generateCommandsModal');
+        if (modal) {
+            modal.remove();
+        }
     }
 }
 
@@ -10232,7 +10269,11 @@ async function debugInAgentChat(executionId) {
 }
 
 function closeModal() {
-    document.getElementById('executionModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('executionModal');
+    } else {
+        document.getElementById('executionModal').classList.add('hidden');
+    }
     // Reset fullscreen state when closing
     const modalContent = document.getElementById('executionModalContent');
     if (modalContent) {
@@ -10329,7 +10370,11 @@ function showTriggerWorkflowModal() {
 }
 
 function closeTriggerWorkflowModal() {
-    document.getElementById('triggerWorkflowModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('triggerWorkflowModal');
+    } else {
+        document.getElementById('triggerWorkflowModal').classList.add('hidden');
+    }
     document.getElementById('triggerArticleId').value = '';
     document.getElementById('triggerWorkflowMessage').classList.add('hidden');
 }
@@ -10998,13 +11043,12 @@ async function submitPR() {
 }
 
 function closeRuleModal() {
-    // Remove from stack
-    const index = modalStack.indexOf('ruleModal');
-    if (index > -1) {
-        modalStack.splice(index, 1);
+    if (window.ModalManager) {
+        window.ModalManager.close('ruleModal');
+    } else {
+        document.getElementById('ruleModal').classList.add('hidden');
     }
     
-    document.getElementById('ruleModal').classList.add('hidden');
     currentRuleId = null;
     isEditMode = false;
     originalYaml = '';
@@ -11154,23 +11198,49 @@ async function validateRule() {
     }
 }
 
-function showValidationConversationModal(data, provider, model) {
+async function showValidationConversationModal(data, provider, model) {
     // Remove any existing modal
     closeValidationConversationModal();
+    
+    // Clean up existing modal properly
+    const existingModal = document.getElementById('validationConversationModal');
+    if (existingModal) {
+        if (window.ModalManager) {
+            const stack = window.ModalManager.getStack();
+            while (stack.includes('validationConversationModal')) {
+                const index = stack.indexOf('validationConversationModal');
+                stack.splice(index, 1);
+            }
+        }
+        existingModal.remove();
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
     
     const modal = document.createElement('div');
     modal.id = 'validationConversationModal';
     modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[65]';
     
-    // Push to modal stack (will hide previous modal)
-    pushModal('validationConversationModal', true);
+    document.body.appendChild(modal);
     
-    // Add click outside to close
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            closeValidationConversationModal();
-        }
-    });
+    // Ensure modal is visible
+    modal.classList.remove('hidden');
+    
+    // Register with ModalManager
+    if (window.ModalManager) {
+        setTimeout(() => {
+            const submitBtn = modal.querySelector('button[onclick*="applyValidatedRuleFromModal"]');
+            window.ModalManager.register('validationConversationModal', {
+                isDynamic: true,
+                hasInput: false,
+                submitButton: submitBtn
+            });
+            window.ModalManager.open('validationConversationModal', true);
+            modal.classList.remove('hidden');
+        }, 50);
+    } else {
+        // Fallback to old system
+        pushModal('validationConversationModal', true);
+    }
     
     const success = data.success || false;
     const validatedYaml = data.validated_yaml || '';
@@ -11462,25 +11532,13 @@ function showValidationConversationModal(data, provider, model) {
 }
 
 function closeValidationConversationModal() {
-    const modal = document.getElementById('validationConversationModal');
-    if (modal) {
-        // Remove from stack and restore previous modal
-        const index = modalStack.indexOf('validationConversationModal');
-        if (index > -1) {
-            modalStack.splice(index, 1);
-            
-            // Restore previous modal if any
-            if (modalStack.length > 0) {
-                const previousModalId = modalStack[modalStack.length - 1];
-                const previousModal = document.getElementById(previousModalId);
-                if (previousModal) {
-                    previousModal.classList.remove('hidden');
-                }
-            }
+    if (window.ModalManager) {
+        window.ModalManager.close('validationConversationModal');
+    } else {
+        const modal = document.getElementById('validationConversationModal');
+        if (modal) {
+            modal.remove();
         }
-        
-        // Remove modal element
-        modal.remove();
     }
 }
 
@@ -11965,33 +12023,12 @@ END SYSTEM PROMPT`;
 }
 
 function closeEnrichModal() {
-    const enrichModal = document.getElementById('enrichModal');
-    if (!enrichModal) return;
-    
-    // Hide enrich modal
-    enrichModal.classList.add('hidden');
-    
-    // Remove from stack if present
-    const enrichIndex = modalStack.indexOf('enrichModal');
-    if (enrichIndex > -1) {
-        modalStack.splice(enrichIndex, 1);
-    }
-    
-    // Always restore rule modal - enrich modal is always opened from rule modal
-    const ruleModal = document.getElementById('ruleModal');
-    if (ruleModal) {
-        // Show rule modal
-        ruleModal.classList.remove('hidden');
-        // Ensure it's in the stack
-        if (!modalStack.includes('ruleModal')) {
-            modalStack.push('ruleModal');
-        }
-    } else if (modalStack.length > 0) {
-        // Rule modal doesn't exist, restore whatever is in the stack
-        const previousModalId = modalStack[modalStack.length - 1];
-        const previousModal = document.getElementById(previousModalId);
-        if (previousModal) {
-            previousModal.classList.remove('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('enrichModal');
+    } else {
+        const enrichModal = document.getElementById('enrichModal');
+        if (enrichModal) {
+            enrichModal.classList.add('hidden');
         }
     }
 }
@@ -12087,9 +12124,7 @@ async function showPromptHistory() {
     }
 }
 
-function closePromptHistoryModal() {
-    popModal(); // This will hide prompt history modal and restore previous modal
-}
+// closePromptHistoryModal already defined above
 
 async function loadPromptVersion(versionId) {
     try {
@@ -12231,7 +12266,11 @@ async function showPresetList() {
 }
 
 function closePresetListModal() {
-    popModal(); // This will hide preset list modal and restore previous modal
+    if (window.ModalManager) {
+        window.ModalManager.close('presetListModal');
+    } else {
+        popModal();
+    }
 }
 
 async function loadPresetById(presetId, opts = {}) {
@@ -12988,124 +13027,63 @@ if (ruleModal) {
     });
 }
 
-// Modal stack management
-const modalStack = [];
-
+// Modal stack management - use unified ModalManager
+// Legacy compatibility functions
 function pushModal(modalId, hidePrevious = true) {
-    const modal = document.getElementById(modalId);
-    if (!modal) return;
-    
-    // Hide previous modal if requested
-    if (hidePrevious && modalStack.length > 0) {
-        const previousModalId = modalStack[modalStack.length - 1];
-        const previousModal = document.getElementById(previousModalId);
-        if (previousModal) {
-            previousModal.classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.open(modalId, hidePrevious);
+    } else {
+        // Fallback if ModalManager not loaded
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('hidden');
         }
     }
-    
-    // Add to stack and show
-    modalStack.push(modalId);
-    modal.classList.remove('hidden');
 }
 
 function popModal() {
-    if (modalStack.length === 0) return null;
-    
-    const currentModalId = modalStack.pop();
-    const currentModal = document.getElementById(currentModalId);
-    if (currentModal) {
-        // Remove modal if it's dynamically created
-        const dynamicModals = ['validationConversationModal', 'similarRulesModal', 'similarRuleModal'];
-        if (dynamicModals.includes(currentModalId)) {
-            currentModal.remove();
-        } else {
-            currentModal.classList.add('hidden');
-        }
+    if (window.ModalManager) {
+        window.ModalManager.closeTop();
+        return window.ModalManager.getStack().length > 0 ? window.ModalManager.getStack()[window.ModalManager.getStack().length - 1] : null;
     }
-    
-    // Restore previous modal
-    if (modalStack.length > 0) {
-        const previousModalId = modalStack[modalStack.length - 1];
-        const previousModal = document.getElementById(previousModalId);
-        if (previousModal) {
-            previousModal.classList.remove('hidden');
-        }
-    }
-    
-    return currentModalId;
+    return null;
 }
 
 function isModalOpen(modalId) {
-    return modalStack.includes(modalId);
+    if (window.ModalManager) {
+        return window.ModalManager.getStack().includes(modalId);
+    }
+    const modal = document.getElementById(modalId);
+    return modal && !modal.classList.contains('hidden');
 }
 
-// Unified ESC key handler - closes topmost modal
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        // Check for dynamically created modals first (they're always on top)
-        const validationModal = document.getElementById('validationConversationModal');
-        if (validationModal && validationModal.parentNode) {
-            closeValidationConversationModal();
-            e.stopPropagation();
-            return;
-        }
+// Register modals with ModalManager on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.ModalManager) {
+        // Register static modals
+        const staticModals = [
+            'configPresetListModal',
+            'executionModal',
+            'triggerWorkflowModal',
+            'ruleModal',
+            'enrichModal',
+            'promptHistoryModal',
+            'presetListModal'
+        ];
         
-        // Check similar rule detail modal (highest z-index, dynamically created)
-        const similarRuleModal = document.getElementById('similarRuleModal');
-        if (similarRuleModal && similarRuleModal.parentNode) {
-            closeSimilarRuleModal();
-            e.stopPropagation();
-            return;
-        }
-        
-        // Check prompt history/preset modals (highest z-index)
-        const promptHistoryModal = document.getElementById('promptHistoryModal');
-        if (promptHistoryModal && !promptHistoryModal.classList.contains('hidden')) {
-            closePromptHistoryModal();
-            e.stopPropagation();
-            return;
-        }
-        
-        const presetListModal = document.getElementById('presetListModal');
-        if (presetListModal && !presetListModal.classList.contains('hidden')) {
-            closePresetListModal();
-            e.stopPropagation();
-            return;
-        }
-        
-        const configPresetListModal = document.getElementById('configPresetListModal');
-        if (configPresetListModal && !configPresetListModal.classList.contains('hidden')) {
-            closeConfigPresetListModal();
-            e.stopPropagation();
-            return;
-        }
-        
-        // Check similarity rules modal (dynamically created)
-        const similarRulesModal = document.getElementById('similarRulesModal');
-        if (similarRulesModal && similarRulesModal.parentNode) {
-            closeSimilarRulesModal();
-            e.stopPropagation();
-            return;
-        }
-        
-        // Check enrich modal first (it's on top)
-        const enrichModal = document.getElementById('enrichModal');
-        if (enrichModal && !enrichModal.classList.contains('hidden')) {
-            closeEnrichModal();
-            e.stopPropagation();
-            e.preventDefault();
-            return;
-        }
-        
-        // Check rule modal (only if enrich modal is not open)
-        const ruleModal = document.getElementById('ruleModal');
-        if (ruleModal && !ruleModal.classList.contains('hidden')) {
-            closeRuleModal();
-            e.stopPropagation();
-            e.preventDefault();
-            return;
-        }
+        staticModals.forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                const hasInput = modal.querySelector('input, textarea, select') !== null;
+                const submitBtn = modal.querySelector('button[type="submit"], button.bg-purple-500, button.bg-purple-600, button.bg-emerald-600');
+                
+                window.ModalManager.register(modalId, {
+                    hasInput: hasInput,
+                    submitButton: submitBtn,
+                    isDynamic: false
+                });
+            }
+        });
     }
 });
 
@@ -13380,16 +13358,46 @@ async function checkSimilarRulesForQueue() {
     }
 }
 
-function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], assessmentMethod = null) {
+async function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], assessmentMethod = null) {
     // Remove any existing modal
     closeSimilarRulesModal();
+    
+    // Clean up existing modal properly
+    const existingModal = document.getElementById('similarRulesModal');
+    if (existingModal) {
+        if (window.ModalManager) {
+            const stack = window.ModalManager.getStack();
+            while (stack.includes('similarRulesModal')) {
+                const index = stack.indexOf('similarRulesModal');
+                stack.splice(index, 1);
+            }
+        }
+        existingModal.remove();
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
     
     const modal = document.createElement('div');
     modal.id = 'similarRulesModal';
     modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[65]';
     
+    document.body.appendChild(modal);
+    
+    // Ensure modal is visible
+    modal.classList.remove('hidden');
+    
     // Push to modal stack (will hide previous modal)
-    pushModal('similarRulesModal', true);
+    if (window.ModalManager) {
+        setTimeout(() => {
+            window.ModalManager.register('similarRulesModal', {
+                isDynamic: true,
+                hasInput: false
+            });
+            window.ModalManager.open('similarRulesModal', true);
+            modal.classList.remove('hidden');
+        }, 50);
+    } else {
+        pushModal('similarRulesModal', true);
+    }
     
     // Add click outside to close
     modal.addEventListener('click', function(e) {
@@ -13705,26 +13713,15 @@ function toggleSimilarRulesModalExpand() {
 }
 
 function closeSimilarRulesModal() {
-    const modal = document.getElementById('similarRulesModal');
-    if (modal) {
-        // Remove from stack and restore previous modal
-        const index = modalStack.indexOf('similarRulesModal');
-        if (index > -1) {
-            modalStack.splice(index, 1);
-            
-            // Restore previous modal if any
-            if (modalStack.length > 0) {
-                const previousModalId = modalStack[modalStack.length - 1];
-                const previousModal = document.getElementById(previousModalId);
-                if (previousModal) {
-                    previousModal.classList.remove('hidden');
-                }
-            }
+    if (window.ModalManager) {
+        window.ModalManager.close('similarRulesModal');
+    } else {
+        const modal = document.getElementById('similarRulesModal');
+        if (modal) {
+            modal.remove();
         }
-        
-        modal.remove();
-        isSimilarRulesModalExpanded = false;
     }
+    isSimilarRulesModalExpanded = false;
 }
 
 function toggleRuleDetails(detailsId, iconId) {
@@ -14204,6 +14201,13 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         // Remove any existing modal
         const existingModal = document.getElementById('similarRuleModal');
         if (existingModal) {
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes('similarRuleModal')) {
+                    const index = stack.indexOf('similarRuleModal');
+                    stack.splice(index, 1);
+                }
+            }
             existingModal.remove();
         }
         
@@ -14211,9 +14215,6 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         const modal = document.createElement('div');
         modal.id = 'similarRuleModal';
         modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]';
-        
-        // Push to modal stack (will hide previous modal)
-        pushModal('similarRuleModal', true);
         
         // Format tags
         const tagsHtml = ruleData.tags && ruleData.tags.length > 0 ? `
@@ -14317,6 +14318,42 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         // ESC key handled by unified handler
         
         document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('similarRuleModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('similarRuleModal', true);
+                modal.classList.remove('hidden');
+            }, 50);
+        } else {
+            // Fallback to old system
+            pushModal('similarRuleModal', true);
+        }
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('similarRuleModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('similarRuleModal', true);
+                modal.classList.remove('hidden');
+            }, 50);
+        } else {
+            // Fallback to old system
+            pushModal('similarRuleModal', true);
+        }
     } catch (error) {
         console.error('Error parsing rule data:', error);
         alert('Error displaying rule details');
@@ -14324,24 +14361,13 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
 }
 
 function closeSimilarRuleModal() {
-    const modal = document.getElementById('similarRuleModal');
-    if (modal) {
-        // Remove from stack and restore previous modal
-        const index = modalStack.indexOf('similarRuleModal');
-        if (index > -1) {
-            modalStack.splice(index, 1);
-            
-            // Restore previous modal if any
-            if (modalStack.length > 0) {
-                const previousModalId = modalStack[modalStack.length - 1];
-                const previousModal = document.getElementById(previousModalId);
-                if (previousModal) {
-                    previousModal.classList.remove('hidden');
-                }
-            }
+    if (window.ModalManager) {
+        window.ModalManager.close('similarRuleModal');
+    } else {
+        const modal = document.getElementById('similarRuleModal');
+        if (modal) {
+            modal.remove();
         }
-        
-        modal.remove();
     }
 }
 

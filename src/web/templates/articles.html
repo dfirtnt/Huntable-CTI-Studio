@@ -661,8 +661,12 @@
         currentArticleId = articleId;
         
         // Show modal
-        const modal = document.getElementById('classificationModal');
-        modal.classList.remove('hidden');
+        if (window.ModalManager) {
+            window.ModalManager.open('classificationModal');
+        } else {
+            const modal = document.getElementById('classificationModal');
+            modal.classList.remove('hidden');
+        }
         
         // Show loading state
         document.getElementById('modalLoading').classList.remove('hidden');
@@ -676,25 +680,38 @@
     }
     
     function closeClassificationModal() {
-        const modal = document.getElementById('classificationModal');
-        modal.classList.add('hidden');
+        if (window.ModalManager) {
+            window.ModalManager.close('classificationModal');
+        } else {
+            const modal = document.getElementById('classificationModal');
+            modal.classList.add('hidden');
+        }
         currentArticleId = null;
         currentArticleData = null;
     }
     
-    // Close classification modal when clicking outside
-    document.getElementById('classificationModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeClassificationModal();
-        }
-    });
-    
-    // Close classification modal with ESC key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            const modal = document.getElementById('classificationModal');
-            if (modal && !modal.classList.contains('hidden')) {
-                closeClassificationModal();
+    // Register modal with ModalManager on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.ModalManager) {
+            const classificationModal = document.getElementById('classificationModal');
+            if (classificationModal) {
+                const hasInput = classificationModal.querySelector('input, textarea, select') !== null;
+                let submitBtn = classificationModal.querySelector('button[type="submit"]');
+                if (!submitBtn) {
+                    const buttons = classificationModal.querySelectorAll('button');
+                    for (const btn of buttons) {
+                        const text = btn.textContent.trim().toLowerCase();
+                        if (text.includes('save') || text.includes('classify')) {
+                            submitBtn = btn;
+                            break;
+                        }
+                    }
+                }
+                window.ModalManager.register('classificationModal', {
+                    hasInput: hasInput,
+                    submitButton: submitBtn,
+                    isDynamic: false
+                });
             }
         }
     });

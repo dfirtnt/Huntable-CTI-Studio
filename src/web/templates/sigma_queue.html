@@ -550,7 +550,11 @@ async function submitPR() {
 }
 
 function closeRuleModal() {
-    document.getElementById('ruleModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('ruleModal');
+    } else {
+        document.getElementById('ruleModal').classList.add('hidden');
+    }
     currentRuleId = null;
     isEditMode = false;
     originalYaml = '';
@@ -876,7 +880,11 @@ function openEnrichModal() {
 }
 
 function closeEnrichModal() {
-    document.getElementById('enrichModal').classList.add('hidden');
+    if (window.ModalManager) {
+        window.ModalManager.close('enrichModal');
+    } else {
+        document.getElementById('enrichModal').classList.add('hidden');
+    }
 }
 
 async function enrichRule() {
@@ -1573,9 +1581,23 @@ async function checkSimilarRulesForQueue() {
     }
 }
 
-function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
+async function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
     // Remove any existing modal
     closeSimilarRulesModal();
+    
+    // Clean up existing modal properly
+    const existingModal = document.getElementById('similarRulesModal');
+    if (existingModal) {
+        if (window.ModalManager) {
+            const stack = window.ModalManager.getStack();
+            while (stack.includes('similarRulesModal')) {
+                const index = stack.indexOf('similarRulesModal');
+                stack.splice(index, 1);
+            }
+        }
+        existingModal.remove();
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
     
     const modal = document.createElement('div');
     modal.id = 'similarRulesModal';
@@ -1832,6 +1854,21 @@ function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
     `;
     
     document.body.appendChild(modal);
+    
+    // Ensure modal is visible
+    modal.classList.remove('hidden');
+    
+    // Register and open with ModalManager
+    if (window.ModalManager) {
+        setTimeout(() => {
+            window.ModalManager.register('similarRulesModal', {
+                isDynamic: true,
+                hasInput: false
+            });
+            window.ModalManager.open('similarRulesModal');
+            modal.classList.remove('hidden');
+        }, 50);
+    }
 }
 
 function toggleSimilarRulesModalExpand() {
@@ -1888,11 +1925,15 @@ function toggleSimilarRulesModalExpand() {
 }
 
 function closeSimilarRulesModal() {
-    const modal = document.getElementById('similarRulesModal');
-    if (modal) {
-        modal.remove();
-        isSimilarRulesModalExpanded = false;
+    if (window.ModalManager) {
+        window.ModalManager.close('similarRulesModal');
+    } else {
+        const modal = document.getElementById('similarRulesModal');
+        if (modal) {
+            modal.remove();
+        }
     }
+    isSimilarRulesModalExpanded = false;
 }
 
 function toggleRuleDetails(detailsId, iconId) {

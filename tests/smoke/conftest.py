@@ -15,12 +15,20 @@ async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client fixture for smoke tests."""
     base_url = "http://localhost:8001"
     
-    async with httpx.AsyncClient(
+    client = httpx.AsyncClient(
         base_url=base_url,
         timeout=httpx.Timeout(10.0),
         follow_redirects=True
-    ) as client:
+    )
+    try:
         yield client
+    finally:
+        # Manually close the client to avoid event loop closure issues
+        try:
+            await client.aclose()
+        except RuntimeError:
+            # Event loop already closed, ignore
+            pass
 
 
 @pytest.fixture
