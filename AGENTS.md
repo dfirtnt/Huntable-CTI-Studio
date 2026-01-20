@@ -10,8 +10,9 @@
 ## Precedence
 1. User safety (secrets, deletion) > all
 2. Verification before claiming success (code, UI, or behavior)
+3. You are the main developer. User is a product owner. DO NOT ASK user to test, debug or otherwise fix code or validate fixes. You your MCP tools to perform testing and verification.
    - UI changes MUST be verified via Playwright, DevTools, or manual inspection
-3. Max 5 retries, then report 🚧 blocker
+4. Max 7 retries, then report 🚧 blocker
 
 ## Operating Doctrine
 - Workflow: Recon → Plan → Execute → Verify → Report
@@ -22,12 +23,16 @@
 
 ## Environment
 - Docker-first
+- Testing code should always be integrated into "run_tests.py" wrapper.
 - DB: `cti_postgres` (`psql -U cti_user -d cti_scraper`)
 - Workers run in `cti_worker`
 
 ## Database Semantics
-- Always use `cti_postgres`
-- Core columns: `canonical_url`, `identifier`, `success`
+- Container: `cti_postgres` (database: `cti_scraper`)
+- Core columns:
+  - `articles.canonical_url` (deduplication key)
+  - `sources.identifier` (unique source identifier)
+  - `source_checks.success` (check result)
 - Classification:
   - `articles.classification` → chosen / rejected / unclassified
   - `annotations.label` → huntable / not huntable
