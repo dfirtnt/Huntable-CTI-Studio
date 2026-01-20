@@ -14,6 +14,7 @@ from src.core.rss_parser import RSSParser, FeedValidator
 from src.models.article import ArticleCreate
 from src.models.source import Source
 from src.utils.http import HTTPClient
+from tests.utils.async_mocks import AsyncMockHTTPClient, create_async_mock_response, create_time_struct_time
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -25,10 +26,23 @@ class TestRSSParser:
     @pytest.fixture
     def mock_http_client(self):
         """Mock HTTP client for testing."""
-        client = Mock(spec=HTTPClient)
-        client.get = AsyncMock()
-        client.configure_source_robots = Mock()
-        client.get_text_with_encoding_fallback = Mock(return_value="<html>Test content</html>")
+        client = AsyncMockHTTPClient()
+        # Ensure get returns proper async response
+        mock_response = create_async_mock_response(
+            text="""<?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+            <channel>
+                <title>Test Feed</title>
+                <item>
+                    <title>Test Article Title</title>
+                    <link>https://example.com/article1</link>
+                    <description><p>Test article content</p></description>
+                    <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+                </item>
+            </channel>
+        </rss>"""
+        )
+        client.get.return_value = mock_response
         return client
 
     @pytest.fixture
@@ -50,8 +64,7 @@ class TestRSSParser:
     def sample_feed_entry(self):
         """Sample RSS feed entry."""
         # Use SimpleNamespace to avoid Mock comparison issues
-        import time
-        parsed_date = time.struct_time((2024, 1, 1, 12, 0, 0, 0, 1, -1))
+        parsed_date = create_time_struct_time(2024, 1, 1, 12, 0, 0)
         long_content = "<p>Test article content with <strong>HTML</strong> tags. " * 100
         
         entry = SimpleNamespace(
@@ -78,22 +91,9 @@ class TestRSSParser:
     @pytest.mark.asyncio
     async def test_parse_feed_success(self, mock_http_client, sample_source, sample_feed_entry):
         """Test successful RSS feed parsing."""
-        # Mock HTTP response
-        mock_response = Mock()
-        mock_response.text = """<?xml version="1.0" encoding="UTF-8"?>
-        <rss version="2.0">
-            <channel>
-                <title>Test Feed</title>
-                <item>
-                    <title>Test Article Title</title>
-                    <link>https://example.com/article1</link>
-                    <description><p>Test article content</p></description>
-                    <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
-                </item>
-            </channel>
-        </rss>"""
-        mock_response.raise_for_status = Mock()
-        mock_http_client.get.return_value = mock_response
+        # Mock HTTP response (already set up in fixture, but ensure raise_for_status is async)
+        mock_response = mock_http_client.get.return_value
+        mock_response.raise_for_status = AsyncMock()
 
         # Mock feedparser
         with patch('src.core.rss_parser.feedparser') as mock_feedparser, \
@@ -127,7 +127,8 @@ class TestRSSParser:
     @pytest.mark.asyncio
     async def test_parse_feed_http_error(self, mock_http_client, sample_source):
         """Test handling of HTTP errors during feed parsing."""
-        mock_http_client.get.side_effect = Exception("HTTP Error")
+        # Make get() raise an exception
+        mock_http_client.get = AsyncMock(side_effect=Exception("HTTP Error"))
         
         parser = RSSParser(mock_http_client)
         
@@ -137,9 +138,8 @@ class TestRSSParser:
     @pytest.mark.asyncio
     async def test_parse_feed_bozo_warning(self, mock_http_client, sample_source, sample_feed_entry):
         """Test handling of feed parsing warnings (bozo)."""
-        mock_response = Mock()
-        mock_response.text = "Invalid RSS content"
-        mock_response.raise_for_status = Mock()
+        mock_response = create_async_mock_response(text="Invalid RSS content")
+        mock_response.raise_for_status = AsyncMock()
         mock_http_client.get.return_value = mock_response
 
         with patch('src.core.rss_parser.feedparser') as mock_feedparser:

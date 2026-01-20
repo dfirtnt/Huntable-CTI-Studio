@@ -114,8 +114,49 @@ class AsyncMockContentProcessor:
         self.extract_metadata = Mock()
 
 
+class AsyncMockDatabaseManager:
+    """Mock async database manager with proper async context manager support."""
+    
+    def __init__(self, **kwargs):
+        self._mock = Mock(**kwargs)
+        self.engine = AsyncMock()
+        self.AsyncSessionLocal = AsyncMock()
+        
+        # Configure async context manager for get_session()
+        self.get_session = AsyncMock()
+        self._session_mock = AsyncMockSession()
+        self.get_session.return_value.__aenter__ = AsyncMock(return_value=self._session_mock)
+        self.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+        
+        # Configure async methods
+        self.create_tables = AsyncMock()
+        self.get_database_stats = AsyncMock()
+        self.create_source = AsyncMock()
+        self.get_source_by_id = AsyncMock()
+        self.update_source = AsyncMock()
+        self.delete_source = AsyncMock()
+        self.list_sources = AsyncMock()
+        self.create_article = AsyncMock()
+        self.get_article_by_id = AsyncMock()
+        self.update_article = AsyncMock()
+        self.delete_article = AsyncMock()
+        self.list_articles = AsyncMock()
+        self.create_annotation = AsyncMock()
+        self.get_annotation_by_id = AsyncMock()
+        self.update_annotation = AsyncMock()
+        self.delete_annotation = AsyncMock()
+        self.list_annotations = AsyncMock()
+        
+        # Configure engine methods
+        self.engine.begin = AsyncMock()
+        self.engine.begin.return_value.__aenter__ = AsyncMock(return_value=self.engine.begin.return_value)
+        self.engine.begin.return_value.__aexit__ = AsyncMock(return_value=None)
+        self.engine.connect = AsyncMock()
+        self.engine.dispose = AsyncMock()
+
+
 class AsyncMockFeedParser:
-    """Mock async feed parser."""
+    """Mock async feed parser with proper feedparser response structure."""
     
     def __init__(self, **kwargs):
         self._mock = Mock(**kwargs)
@@ -125,9 +166,59 @@ class AsyncMockFeedParser:
         self.validate_feed = AsyncMock()
         self.extract_entries = AsyncMock()
         
-        # Configure sync methods
+        # Configure sync methods (feedparser.parse() is sync)
         self.parse = Mock()
         self.validate = Mock()
+        
+        # Configure default parse response structure
+        self._setup_default_parse_response()
+    
+    def _setup_default_parse_response(self):
+        """Setup default feedparser.parse() response structure."""
+        mock_feed_data = Mock()
+        mock_feed_data.bozo = False
+        mock_feed_data.bozo_exception = None
+        mock_feed_data.entries = []
+        mock_feed_data.feed = Mock()
+        mock_feed_data.feed.title = "Test Feed"
+        mock_feed_data.feed.link = "https://example.com"
+        mock_feed_data.feed.description = "Test feed description"
+        mock_feed_data.feed.language = "en"
+        
+        self.parse.return_value = mock_feed_data
+
+
+class AsyncMockBeautifulSoup:
+    """Mock BeautifulSoup for HTML parsing."""
+    
+    def __init__(self, html_content: str = "<html><body>Test</body></html>", **kwargs):
+        self._mock = Mock(**kwargs)
+        self.html_content = html_content
+        
+        # Configure BeautifulSoup-like methods
+        self.find = Mock()
+        self.find_all = Mock(return_value=[])
+        self.select = Mock(return_value=[])
+        self.select_one = Mock(return_value=None)
+        self.get_text = Mock(return_value="Test content")
+        self.prettify = Mock(return_value=html_content)
+        
+        # Configure JSON-LD extraction
+        self.find_all.return_value = []
+        
+        # Setup default find behavior
+        self._setup_default_find()
+    
+    def _setup_default_find(self):
+        """Setup default find() behavior."""
+        # Mock common tag finds
+        mock_tag = Mock()
+        mock_tag.get_text.return_value = "Test content"
+        mock_tag.get.return_value = None
+        mock_tag.attrs = {}
+        
+        self.find.return_value = mock_tag
+        self.select_one.return_value = mock_tag
 
 
 def create_async_mock_response(
@@ -273,6 +364,18 @@ def async_mock_feed_parser():
     return AsyncMockFeedParser()
 
 
+@pytest.fixture
+def async_mock_database_manager():
+    """Fixture for async database manager mock."""
+    return AsyncMockDatabaseManager()
+
+
+@pytest.fixture
+def async_mock_beautiful_soup():
+    """Fixture for BeautifulSoup mock."""
+    return AsyncMockBeautifulSoup()
+
+
 # Utility functions for common async mock patterns
 def mock_async_method(mock_obj, method_name: str, return_value: Any = None, side_effect: Any = None):
     """Helper to mock an async method on an object."""
@@ -299,3 +402,129 @@ def create_async_mock_with_context_manager(**kwargs):
     """Create a mock object with async context manager support."""
     mock_obj = Mock(**kwargs)
     return mock_async_context_manager(mock_obj)
+
+
+def setup_query_chain(mock_query, return_value=None):
+    """
+    Setup a mock query chain (filter, order_by, limit, offset, etc.).
+    
+    Args:
+        mock_query: Mock query object
+        return_value: Value to return from final query methods (first, all, count, etc.)
+    
+    Returns:
+        Configured mock query object
+    """
+    if return_value is None:
+        return_value = []
+    
+    # Make query chainable
+    mock_query.filter = Mock(return_value=mock_query)
+    mock_query.filter_by = Mock(return_value=mock_query)
+    mock_query.order_by = Mock(return_value=mock_query)
+    mock_query.limit = Mock(return_value=mock_query)
+    mock_query.offset = Mock(return_value=mock_query)
+    mock_query.join = Mock(return_value=mock_query)
+    mock_query.outerjoin = Mock(return_value=mock_query)
+    
+    # Configure final methods
+    if isinstance(return_value, list):
+        mock_query.all = Mock(return_value=return_value)
+        mock_query.first = Mock(return_value=return_value[0] if return_value else None)
+        mock_query.count = Mock(return_value=len(return_value))
+    elif isinstance(return_value, int):
+        mock_query.count = Mock(return_value=return_value)
+        mock_query.first = Mock(return_value=None)
+        mock_query.all = Mock(return_value=[])
+    else:
+        mock_query.first = Mock(return_value=return_value)
+        mock_query.all = Mock(return_value=[return_value] if return_value else [])
+        mock_query.count = Mock(return_value=1 if return_value else 0)
+    
+    return mock_query
+
+
+def setup_async_query_chain(mock_query, return_value=None):
+    """
+    Setup an async mock query chain with AsyncMock methods.
+    
+    Args:
+        mock_query: Mock query object
+        return_value: Value to return from final query methods
+    
+    Returns:
+        Configured mock query object
+    """
+    if return_value is None:
+        return_value = []
+    
+    # Make query chainable
+    mock_query.filter = Mock(return_value=mock_query)
+    mock_query.filter_by = Mock(return_value=mock_query)
+    mock_query.order_by = Mock(return_value=mock_query)
+    mock_query.limit = Mock(return_value=mock_query)
+    mock_query.offset = Mock(return_value=mock_query)
+    mock_query.join = Mock(return_value=mock_query)
+    mock_query.outerjoin = Mock(return_value=mock_query)
+    
+    # Configure async final methods
+    if isinstance(return_value, list):
+        mock_query.all = AsyncMock(return_value=return_value)
+        mock_query.first = AsyncMock(return_value=return_value[0] if return_value else None)
+        mock_query.count = AsyncMock(return_value=len(return_value))
+    elif isinstance(return_value, int):
+        mock_query.count = AsyncMock(return_value=return_value)
+        mock_query.first = AsyncMock(return_value=None)
+        mock_query.all = AsyncMock(return_value=[])
+    else:
+        mock_query.first = AsyncMock(return_value=return_value)
+        mock_query.all = AsyncMock(return_value=[return_value] if return_value else [])
+        mock_query.count = AsyncMock(return_value=1 if return_value else 0)
+    
+    return mock_query
+
+
+def setup_transaction_mock(mock_session):
+    """
+    Setup transaction handling mocks for async session.
+    
+    Args:
+        mock_session: Mock async session
+    
+    Returns:
+        Configured mock session
+    """
+    # Transaction methods
+    mock_session.begin = AsyncMock()
+    mock_session.begin.return_value.__aenter__ = AsyncMock(return_value=mock_session.begin.return_value)
+    mock_session.begin.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Commit and rollback
+    mock_session.commit = AsyncMock()
+    mock_session.rollback = AsyncMock()
+    mock_session.flush = AsyncMock()
+    
+    return mock_session
+
+
+def create_time_struct_time(year=2024, month=1, day=1, hour=12, minute=0, second=0):
+    """
+    Create a mock time.struct_time object for date parsing.
+    
+    Args:
+        year, month, day, hour, minute, second: Time components
+    
+    Returns:
+        Mock struct_time object
+    """
+    parsed_date = Mock()
+    parsed_date.tm_year = year
+    parsed_date.tm_mon = month
+    parsed_date.tm_mday = day
+    parsed_date.tm_hour = hour
+    parsed_date.tm_min = minute
+    parsed_date.tm_sec = second
+    parsed_date.tm_wday = 0  # Monday
+    parsed_date.tm_yday = 1
+    parsed_date.tm_isdst = -1
+    return parsed_date
