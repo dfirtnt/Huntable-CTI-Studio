@@ -418,5 +418,13 @@ class TestUserWorkflows:
 @pytest_asyncio.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for testing."""
-    async with httpx.AsyncClient(base_url=BASE_URL, timeout=TEST_TIMEOUT) as client:
+    client = httpx.AsyncClient(base_url=BASE_URL, timeout=TEST_TIMEOUT)
+    try:
         yield client
+    finally:
+        # Manually close the client to avoid event loop closure issues
+        try:
+            await client.aclose()
+        except RuntimeError:
+            # Event loop already closed, ignore
+            pass
