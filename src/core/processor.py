@@ -384,6 +384,7 @@ class ContentProcessor:
                 'darkreading.com': 500,      # Dark Reading articles
                 'bleepingcomputer.com': 400, # BleepingComputer news
                 'securityweek.com': 400,     # Security Week news
+                'ncsc.gov.uk': 100,          # NCSC RSS descriptions are short, site is JS-rendered
             }
             
             # Check for exact domain match first
