@@ -430,9 +430,15 @@ class TestAsyncDeduplicationService:
     @pytest.fixture
     def mock_async_session(self):
         """Create mock async database session."""
-        session = AsyncMock()
+        from tests.utils.async_mocks import AsyncMockSession, setup_transaction_mock
+        session = AsyncMockSession()
+        setup_transaction_mock(session)
+        
+        # Configure async query execution
         session.execute = AsyncMock()
-        session.add = AsyncMock()
+        session.scalar = AsyncMock()
+        session.scalars = AsyncMock()
+        session.add = Mock()  # add is sync
         session.flush = AsyncMock()
         return session
 
@@ -475,7 +481,7 @@ class TestAsyncDeduplicationService:
         
         # Mock query result - result.first() returns a tuple (article,) or None
         result_mock = Mock()
-        result_mock.first.return_value = (existing_article,)  # Tuple with article
+        result_mock.first = AsyncMock(return_value=(existing_article,))  # Tuple with article
         mock_async_session.execute.return_value = result_mock
         
         is_duplicate, found_article = await async_deduplication_service.check_exact_duplicates(sample_article)
@@ -492,9 +498,9 @@ class TestAsyncDeduplicationService:
         
         # Mock query result - first call returns None (URL check), second returns article (hash check)
         result_mock1 = Mock()
-        result_mock1.first.return_value = None  # No match by URL
+        result_mock1.first = AsyncMock(return_value=None)  # No match by URL
         result_mock2 = Mock()
-        result_mock2.first.return_value = (existing_article,)  # Match by hash
+        result_mock2.first = AsyncMock(return_value=(existing_article,))  # Match by hash
         mock_async_session.execute.side_effect = [result_mock1, result_mock2]
         
         is_duplicate, found_article = await async_deduplication_service.check_exact_duplicates(sample_article)
@@ -507,7 +513,7 @@ class TestAsyncDeduplicationService:
         """Test exact duplicate checking with no duplicates."""
         # Mock no existing articles - both URL and hash checks return None
         result_mock = Mock()
-        result_mock.first.return_value = None  # No match
+        result_mock.first = AsyncMock(return_value=None)  # No match
         mock_async_session.execute.return_value = result_mock
         
         is_duplicate, found_article = await async_deduplication_service.check_exact_duplicates(sample_article)
@@ -530,7 +536,7 @@ class TestAsyncDeduplicationService:
         # Mock query result - scalars().all() returns list of articles
         result_mock = Mock()
         scalars_mock = Mock()
-        scalars_mock.all.return_value = [similar_article1, similar_article2]
+        scalars_mock.all = AsyncMock(return_value=[similar_article1, similar_article2])
         result_mock.scalars.return_value = scalars_mock
         mock_async_session.execute.return_value = result_mock
         
@@ -557,7 +563,7 @@ class TestAsyncDeduplicationService:
         # Mock query result - scalars().all() returns list
         result_mock = Mock()
         scalars_mock = Mock()
-        scalars_mock.all.return_value = [similar_article1, similar_article2]
+        scalars_mock.all = AsyncMock(return_value=[similar_article1, similar_article2])
         result_mock.scalars.return_value = scalars_mock
         mock_async_session.execute.return_value = result_mock
         

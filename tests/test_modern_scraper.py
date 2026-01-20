@@ -16,6 +16,7 @@ from src.core.modern_scraper import (
 from src.models.article import ArticleCreate
 from src.models.source import Source
 from src.utils.http import HTTPClient
+from tests.utils.async_mocks import AsyncMockHTTPClient, AsyncMockBeautifulSoup, create_async_mock_response
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -28,8 +29,7 @@ class TestURLDiscovery:
     @pytest.fixture
     def mock_http_client(self):
         """Create mock HTTP client."""
-        client = Mock(spec=HTTPClient)
-        client.get = AsyncMock()
+        client = AsyncMockHTTPClient()
         return client
 
     @pytest.fixture
@@ -67,8 +67,7 @@ class TestURLDiscovery:
     async def test_discover_urls_listing_strategy(self, url_discovery, sample_source, mock_http_client):
         """Test URL discovery using listing strategy."""
         # Mock HTTP response
-        mock_response = Mock()
-        mock_response.text = """
+        html_content = """
         <html>
             <body>
                 <a href="/article1" class="article-link">Article 1</a>
@@ -77,6 +76,7 @@ class TestURLDiscovery:
             </body>
         </html>
         """
+        mock_response = create_async_mock_response(text=html_content)
         mock_http_client.get.return_value = mock_response
 
         urls = await url_discovery.discover_urls(sample_source)
@@ -112,8 +112,7 @@ class TestURLDiscovery:
         )
 
         # Mock sitemap response
-        mock_response = Mock()
-        mock_response.text = """
+        sitemap_xml = """
         <?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
             <url>
@@ -126,6 +125,7 @@ class TestURLDiscovery:
             </url>
         </urlset>
         """
+        mock_response = create_async_mock_response(text=sitemap_xml)
         mock_http_client.get.return_value = mock_response
 
         urls = await url_discovery.discover_urls(source)
@@ -157,7 +157,7 @@ class TestURLDiscovery:
     async def test_discover_urls_strategy_failure(self, url_discovery, sample_source, mock_http_client):
         """Test URL discovery with strategy failure."""
         # Mock HTTP error
-        mock_http_client.get.side_effect = Exception("HTTP Error")
+        mock_http_client.get = AsyncMock(side_effect=Exception("HTTP Error"))
 
         urls = await url_discovery.discover_urls(sample_source)
 
@@ -192,8 +192,7 @@ class TestURLDiscovery:
         )
 
         # Mock HTTP response
-        mock_response = Mock()
-        mock_response.text = """
+        html_content = """
         <html>
             <body>
                 <a href="/article/1">Article 1</a>
@@ -204,6 +203,7 @@ class TestURLDiscovery:
             </body>
         </html>
         """
+        mock_response = create_async_mock_response(text=html_content)
         mock_http_client.get.return_value = mock_response
 
         urls = await url_discovery.discover_urls(source)
@@ -443,10 +443,9 @@ class TestModernScraper:
     async def test_extract_article_success(self, modern_scraper, sample_source, mock_http_client):
         """Test successful article extraction."""
         # Mock HTTP response with text content
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.text = '<html><body><h1>Test Article</h1><article>This is test content.</article></body></html>'
-        mock_response.raise_for_status = Mock()
+        html_content = '<html><body><h1>Test Article</h1><article>This is test content.</article></body></html>'
+        mock_response = create_async_mock_response(text=html_content, status_code=200)
+        mock_response.raise_for_status = AsyncMock()
         mock_http_client.get.return_value = mock_response
 
         # Mock structured data extraction
@@ -468,8 +467,7 @@ class TestModernScraper:
     async def test_extract_article_not_modified(self, modern_scraper, sample_source, mock_http_client):
         """Test article extraction with 304 Not Modified."""
         # Mock HTTP response
-        mock_response = Mock()
-        mock_response.status_code = 304
+        mock_response = create_async_mock_response(status_code=304)
         mock_http_client.get.return_value = mock_response
 
         article = await modern_scraper._extract_article('https://example.com/article', sample_source)
@@ -492,10 +490,9 @@ class TestModernScraper:
     async def test_extract_article_jsonld_preference(self, modern_scraper, sample_source, mock_http_client):
         """Test article extraction with JSON-LD preference."""
         # Mock HTTP response with text content
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.text = '<html><head><script type="application/ld+json">{"@type":"Article","headline":"JSON-LD Article","articleBody":"JSON-LD content"}</script></head><body></body></html>'
-        mock_response.raise_for_status = Mock()
+        html_content = '<html><head><script type="application/ld+json">{"@type":"Article","headline":"JSON-LD Article","articleBody":"JSON-LD content"}</script></head><body></body></html>'
+        mock_response = create_async_mock_response(text=html_content, status_code=200)
+        mock_response.raise_for_status = AsyncMock()
         mock_http_client.get.return_value = mock_response
 
         # Mock JSON-LD data

@@ -3,15 +3,16 @@ Tests for database modules in src/database/.
 """
 
 import pytest
-
-# DISABLED: These tests require database access and may modify production data.
-# No isolated test environment available.
-pytestmark = pytest.mark.skip(reason="Disabled to prevent database access/modification. No isolated test environment available.")
-
 from unittest.mock import Mock, patch, AsyncMock
+from contextlib import asynccontextmanager
+
 from src.database.manager import DatabaseManager
 from src.database.async_manager import AsyncDatabaseManager
 from src.database.models import ArticleTable, SourceTable
+from tests.utils.async_mocks import AsyncMockSession, AsyncMockDatabaseManager, setup_transaction_mock
+
+# Mark all tests in this file as unit tests (they use mocks, no real DB)
+pytestmark = pytest.mark.unit
 
 
 class TestDatabaseManager:
@@ -101,6 +102,22 @@ class TestDatabaseManager:
 
 class TestAsyncDatabaseManager:
     """Test the AsyncDatabaseManager class."""
+    
+    @pytest.fixture
+    def mock_db_manager(self):
+        """Create properly configured async database manager mock."""
+        manager = AsyncMockDatabaseManager()
+        
+        # Setup get_session to return async context manager
+        mock_session = AsyncMockSession()
+        setup_transaction_mock(mock_session)
+        
+        @asynccontextmanager
+        async def get_session():
+            yield mock_session
+        
+        manager.get_session = get_session
+        return manager
     
     @pytest.mark.asyncio
     async def test_async_connection_string(self):

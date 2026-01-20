@@ -230,21 +230,18 @@ async def test_redis_client(test_environment_config):
 # Mock Fixtures for Database and Service Testing
 @pytest.fixture
 def mock_async_session():
-    """Create a properly configured async database session mock."""
-    session = AsyncMock()
-    session.__aenter__ = AsyncMock(return_value=session)
-    session.__aexit__ = AsyncMock(return_value=None)
+    """Create a properly configured async database session mock with query chain support."""
+    from tests.utils.async_mocks import AsyncMockSession, setup_transaction_mock, setup_async_query_chain
+    
+    session = AsyncMockSession()
+    setup_transaction_mock(session)
+    
+    # Configure async query execution
     session.execute = AsyncMock()
-    session.commit = AsyncMock()
-    session.rollback = AsyncMock()
-    session.close = AsyncMock()
-    session.add = MagicMock()
-    session.delete = MagicMock()
-    session.merge = MagicMock()
-    session.refresh = AsyncMock()
     session.scalar = AsyncMock()
     session.scalars = AsyncMock()
     session.get = AsyncMock()
+    
     return session
 
 
@@ -253,9 +250,11 @@ def mock_async_engine():
     """Create a properly configured async database engine mock."""
     engine = AsyncMock()
     engine.begin = AsyncMock()
-    engine.__aenter__ = AsyncMock(return_value=engine)
-    engine.__aexit__ = AsyncMock(return_value=None)
+    engine.begin.return_value.__aenter__ = AsyncMock(return_value=engine.begin.return_value)
+    engine.begin.return_value.__aexit__ = AsyncMock(return_value=None)
     engine.connect = AsyncMock()
+    engine.connect.return_value.__aenter__ = AsyncMock(return_value=engine.connect.return_value)
+    engine.connect.return_value.__aexit__ = AsyncMock(return_value=None)
     engine.dispose = AsyncMock()
     return engine
 
@@ -263,6 +262,8 @@ def mock_async_engine():
 @pytest.fixture
 def mock_async_http_client():
     """Create a properly configured async HTTP client mock."""
+    from tests.utils.async_mocks import AsyncMockHTTPClient
+    return AsyncMockHTTPClient()
     client = AsyncMock()
     client.get = AsyncMock()
     client.post = AsyncMock()
