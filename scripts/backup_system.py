@@ -208,7 +208,11 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
         backup_result = create_backup(str(backup_dir))
 
         if not backup_result or not backup_result.get("success"):
-            raise RuntimeError("Database backup failed using existing backup logic")
+            # Preserve original error if available
+            error_msg = "Database backup failed using existing backup logic"
+            if backup_result and "error" in backup_result:
+                error_msg = f"{error_msg}: {backup_result['error']}"
+            raise RuntimeError(error_msg)
 
         # Get backup info from the result
         backup_filename = backup_result["metadata"]["backup_filename"]
@@ -294,13 +298,16 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
         # Clean up partial backup if it exists
         if "backup_filepath" in locals() and backup_filepath.exists():
             backup_filepath.unlink()
+        # Preserve original error message instead of nesting
+        if "Database backup failed" in str(e):
+            raise  # Re-raise to avoid double-wrapping
         raise RuntimeError(f"Database backup failed: {e}")
 
 
 def backup_directory(
-    source_dir: Path, backup_dir: Path, component_name: str, ignore_patterns: List[str]
+    source_dir: Path, backup_dir: Path, component_name: str, ignore_patterns: List[str], respect_gitignore: bool = True
 ) -> Dict[str, Any]:
-    """Backup a directory with .gitignore respect."""
+    """Backup a directory with optional .gitignore respect."""
     print(f"📁 Backing up {component_name}...")
 
     if not source_dir.exists():
@@ -325,18 +332,19 @@ def backup_directory(
         for root, dirs, files in os.walk(source_dir):
             root_path = Path(root)
 
-            # Filter out ignored directories
-            dirs[:] = [
-                d
-                for d in dirs
-                if not should_ignore_path(root_path / d, ignore_patterns)
-            ]
+            # Filter out ignored directories (if respecting .gitignore)
+            if respect_gitignore:
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if not should_ignore_path(root_path / d, ignore_patterns)
+                ]
 
             for file in files:
                 file_path = root_path / file
 
-                # Skip ignored files
-                if should_ignore_path(file_path, ignore_patterns):
+                # Skip ignored files (if respecting .gitignore)
+                if respect_gitignore and should_ignore_path(file_path, ignore_patterns):
                     continue
 
                 # Calculate relative path for backup
@@ -514,12 +522,15 @@ def create_system_backup(
             # Submit directory backups
             dir_futures = {}
             for component_name, source_dir in backup_components:
+                # Models should be backed up even if in .gitignore
+                respect_gitignore = component_name != "models"
                 future = executor.submit(
                     backup_directory,
                     source_dir,
                     backup_path,
                     component_name,
                     ignore_patterns,
+                    respect_gitignore,
                 )
                 dir_futures[component_name] = future
 
