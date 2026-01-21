@@ -272,35 +272,21 @@ class TestBackupConfiguration:
 
 
 class TestAIMLConfiguration:
-    """Test AI/ML Assistant configuration."""
+    """DEPRECATED: Test AI/ML Assistant configuration - removed."""
     
     @pytest.mark.ui
     @pytest.mark.settings
+    @pytest.mark.skip(reason="AI/ML Assistant Configuration section has been deprecated")
     def test_ai_model_selection_dropdown(self, page: Page):
-        """Test AI model selection dropdown."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
-        
-        # Verify AI model dropdown
-        ai_model = page.locator("#aiModel")
-        expect(ai_model).to_be_visible()
-        
-        # Verify options
-        options = ai_model.locator("option")
-        expect(options.first).to_have_text("OpenAI → GPT-4o-mini")
+        """Test AI model selection dropdown - DEPRECATED."""
+        pytest.skip("AI/ML Assistant Configuration section removed")
     
     @pytest.mark.ui
     @pytest.mark.settings
+    @pytest.mark.skip(reason="AI/ML Assistant Configuration section has been deprecated")
     def test_lmstudio_model_section_visibility(self, page: Page):
-        """Test LMStudio model section visibility toggle."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
-        
-        # Find LMStudio section
-        lmstudio_section = page.locator("#lmstudioModelSection")
-        expect(lmstudio_section).to_be_visible()
+        """Test LMStudio model section visibility toggle - DEPRECATED."""
+        pytest.skip("AI/ML Assistant Configuration section removed")
         
         # Verify it's hidden initially (display: none)
         display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")

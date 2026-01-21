@@ -686,12 +686,16 @@ class TestRunner:
                 TestType.E2E: ["tests/e2e/"],
                 TestType.PERFORMANCE: ["tests/", "-m", "performance"],
                 TestType.AI: [
-                    "tests/ui/test_ai_assistant_ui.py",
+                    # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
                     "tests/integration/test_ai_*.py",
                     "-m",
                     "ai",
                 ],
-                TestType.AI_UI: ["tests/ui/test_ai_assistant_ui.py", "-m", "ui and ai"],
+                TestType.AI_UI: [
+                    # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
+                    "-m",
+                    "ui and ai",
+                ],
                 TestType.AI_INTEGRATION: [
                     "tests/integration/test_ai_*.py",
                     "-m",
@@ -1558,7 +1562,7 @@ class TestRunner:
             ("ui", "Web interface tests (~5m)"),
             ("e2e", "End-to-end tests (~3m)"),
             ("performance", "Performance tests (~2m)"),
-            ("ai", "AI Assistant tests (~3m)"),
+            ("ai", "AI tests (~3m)"),  # Note: AI Assistant UI tests removed
             ("ai-ui", "AI UI tests only (~1m)"),
             ("ai-integration", "AI integration tests (~2m)"),
             ("all", "Complete test suite (~8m)"),
@@ -1609,7 +1613,7 @@ Test Types:
   ui           Web interface tests (~5m) - May need containers
   e2e          End-to-end tests (~3m) - STATEFUL (auto-starts test containers)
   performance  Performance tests (~2m) - May need containers
-  ai           AI Assistant tests (~3m) - LIMITED (external APIs skipped)
+  ai           AI tests (~3m) - LIMITED (external APIs skipped, AI Assistant UI tests removed)
   ai-ui        AI UI tests only (~1m) - May need containers
   ai-integration AI integration tests (~2m) - STATEFUL (auto-starts test containers)
   all          Complete test suite (~8m) - STATEFUL (auto-starts test containers)

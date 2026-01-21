@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Test runner for AI Assistant Priority 1 tests.
-Runs the new AI Assistant tests with proper configuration and reporting.
+Test runner for AI Assistant Priority 1 tests - DEPRECATED.
+AI Assistant modal has been removed. This file is kept for reference only.
 """
 import sys
 import os
@@ -20,10 +20,15 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
     # Base pytest command
     cmd = ["python3", "-m", "pytest"]
     
+    # DEPRECATED: AI Assistant UI tests removed
+    print("⚠️  WARNING: AI Assistant tests are deprecated. The AI Assistant modal has been removed.")
+    print("   This test runner is kept for reference only.")
+    return True
+    
     # Add test files based on type
     if test_type == "ui":
         cmd.extend([
-            "tests/ui/test_ai_assistant_ui.py",
+            # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED
             "-m", "ui and ai"
         ])
     elif test_type == "integration":
@@ -34,7 +39,7 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
         ])
     elif test_type == "all":
         cmd.extend([
-            "tests/ui/test_ai_assistant_ui.py",
+            # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED
             "tests/integration/test_ai_cross_model_integration.py",
             "tests/integration/test_ai_real_api_integration.py",
             "-m", "ai"

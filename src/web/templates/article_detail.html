@@ -360,26 +360,11 @@
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
 
-                    <div class="relative inline-block" id="aiAssistantWrapper">
-                        <button id="aiAssistantBtn" onclick="showAIAssistant()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                            <span class="mr-2">🤖</span>
-                            AL/ML Assistant
-                        </button>
-                        <div id="aiAssistantPopover" class="absolute z-10 top-full left-0 mt-2 hidden w-64">
-                            <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3 shadow-lg">
-                                <div class="flex items-start">
-                                    <span class="mr-2 mt-0.5">⚠️</span>
-                                    <div>
-                                        <div class="font-medium">Article too large for AI processing</div>
-                                        <div class="text-xs text-amber-600 mt-1" id="popoverContent">
-                                            Loading...
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <button onclick="showChunkDebugModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                        <span class="mr-2">🔍</span>
+                        Junk Filter Tuning
+                    </button>
 
                     <button onclick="deleteArticle({{ article.id }})" 
                             class="inline-flex items-center px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500/10 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -841,7 +826,7 @@
         await cleanupExistingModal('helpModal');
         
         // Find and hide the currently visible modal (the one that opened the help)
-        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal');
+        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal');
         previousModalElement = null;
         
         visibleModals.forEach(modal => {
@@ -977,7 +962,7 @@ Return a JSON array of IOC objects with the following structure:
         }
         
         // Find and hide the currently visible modal (the one that opened the help)
-        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal, #customPromptModal');
+        const visibleModals = document.querySelectorAll('#iocsModal, #sigmaRulesModal, #gpt4oRankingModal');
         previousModalElement = null;
         
         visibleModals.forEach(modal => {
@@ -4854,7 +4839,8 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    // AL/ML Assistant Functions
+    // AL/ML Assistant Functions - DEPRECATED AND REMOVED
+    /*
     async function showAIAssistant() {
         // Get AI model from settings
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -5011,12 +4997,6 @@ Please provide a detailed analysis based on the article content and the user's s
                                 <span class="mr-2">🔍</span>
                                 Junk Filter Tuning
                             </button>
-                            
-                            <button onclick="generateAIAnalysis('cmdlines')" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                                <span class="mr-2">🧾</span>
-                                Extract CMDlines with CTI-BERT
-                            </button>
 
                             <button onclick="closeAIAssistantModal()" 
                                     class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-400 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors">
@@ -5065,23 +5045,34 @@ Please provide a detailed analysis based on the article content and the user's s
                 });
         }
     }
+    */
     
-    function closeAIAssistantModal() {
-        if (window.ModalManager) {
-            window.ModalManager.close('aiAssistantModal');
-        } else {
-            const modal = document.getElementById('aiAssistantModal');
-            if (modal) {
-                modal.remove();
-            }
-        }
+    // Removed: closeAIAssistantModal, generateAIAnalysis, showCustomPromptModal, closeCustomPromptModal, generateCustomPrompt, showCustomResponseModal, closeCustomResponseModal functions
+    
+    // Stub functions to prevent errors from remaining onclick handlers
+    function showAIAssistant() {
+        console.warn('AI Assistant modal has been deprecated');
     }
     
-
+    function closeAIAssistantModal() {
+        // No-op
+    }
     
+    function generateAIAnalysis() {
+        console.warn('generateAIAnalysis has been deprecated');
+    }
+    
+    function showCustomPromptModal() {
+        console.warn('Custom prompt modal has been deprecated');
+    }
+    
+    function closeCustomPromptModal() {
+        // No-op
+    }
+    
+    /*
+    // Original generateAIAnalysis function (commented out)
     async function generateAIAnalysis(type, forceRegenerate = false, useLLMValidation = false) {
-        closeAIAssistantModal();
-        
         // Check for existing content first (unless force regenerate)
         if (!forceRegenerate) {
             if (type === 'sigma' && (window.latestSigmaData || {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }})) {
@@ -5101,16 +5092,6 @@ Please provide a detailed analysis based on the article content and the user's s
                 return;
             }
             
-            if (type === 'cmdlines' && (window.latestCommandLines || {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }})) {
-                const templateCmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
-                const cmdlineData = window.latestCommandLines || templateCmdlineData;
-                console.log('Using command line data:', window.latestCommandLines ? 'from window.latestCommandLines' : 'from page template');
-                if (cmdlineData) {
-                    showCommandLinesModal(cmdlineData.command_lines, cmdlineData);
-                    return;
-                }
-            }
-
             
             
             if (type === 'ranking' && {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }}) {
@@ -5226,17 +5207,13 @@ Please provide a detailed analysis based on the article content and the user's s
                         ? aiModel === 'chatgpt'
                             ? 'GPT4o Ranking'
                             : 'Local AI Ranking'
-                        : type === 'cmdlines'
-                            ? 'Command Lines'
-                            : 'IOCs',
+                        : 'IOCs',
             typeIcon:
                 type === 'sigma'
                     ? '🔍'
                     : type === 'ranking'
                         ? '📊'
-                        : type === 'cmdlines'
-                            ? '💻'
-                            : '🔍',
+                        : '🔍',
             articleId: articleId,
             articleTitle: {{ article.title | tojson }},
             startedAt: Date.now(),
@@ -5312,9 +5289,7 @@ Please provide a detailed analysis based on the article content and the user's s
             ? 'Creating detection rules'
             : type === 'ranking'
                 ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI')
-                : type === 'cmdlines'
-                    ? 'Extracting command lines with CMDCaliper'
-                    : 'Extracting indicators of compromise';
+                : 'Extracting indicators of compromise';
 
         loadingModal.innerHTML = `
             <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md mx-4">
@@ -5360,9 +5335,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 ? 'generate-sigma'
                 : type === 'ranking'
                     ? 'rank-with-gpt4o'
-                    : type === 'cmdlines'
-                        ? 'extract-command-lines'
-                        : 'extract-iocs';
+                    : 'extract-iocs';
             
             // Prepare request body
             const requestBody = {
@@ -5398,7 +5371,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Add optimization options for ranking, sigma, observables, and IOC extraction with LLM validation
             // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
-            const shouldShowOptimization = (type === 'ranking' || type === 'sigma' || type === 'cmdlines');
+            const shouldShowOptimization = (type === 'ranking' || type === 'sigma');
             
             console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
             
@@ -5518,11 +5491,6 @@ Please provide a detailed analysis based on the article content and the user's s
                     // Automatically show the new rules
                     setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
                 }
-                else if (type === 'cmdlines' && data.command_lines) {
-                    window.latestCommandLines = data;
-                    console.log('✅ Updated window.latestCommandLines with new command-line results');
-                    setTimeout(() => showCommandLinesModal(data.command_lines, data), 500);
-                }
             } else {
                 const error = await response.json();
                 console.log('API Error:', error);
@@ -5552,6 +5520,7 @@ Please provide a detailed analysis based on the article content and the user's s
             document.removeEventListener('keydown', handleEsc);
         }
     }
+    */
     
     // Enhanced GPT4o Ranking Function with Content Filtering
     async function rankWithGPT4o() {
@@ -5890,8 +5859,10 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEscape);
     }
     
+    // Removed: showCustomPromptModal, closeCustomPromptModal, generateCustomPrompt, showCustomResponseModal, closeCustomResponseModal functions
+    /*
     async function showCustomPromptModal() {
-        closeAIAssistantModal();
+        // DEPRECATED
         await cleanupExistingModal('customPromptModal');
         
         // Get AI model from settings
@@ -6023,6 +5994,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
+    /*
     function closeCustomPromptModal() {
         const modal = document.getElementById('customPromptModal');
         if (modal) {
@@ -6301,9 +6273,11 @@ Please provide a detailed analysis based on the article content and the user's s
             modal.remove();
         }
     }
+    */
     
+    // Removed: showCustomPromptHistory function (depended on custom prompt modal)
     function showCustomPromptHistory() {
-        closeCustomPromptModal();
+        // DEPRECATED - Custom prompt modal removed
         
         const modal = document.createElement('div');
         modal.id = 'customPromptHistoryModal';
@@ -7121,8 +7095,6 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
 
-    let commandLinesEscHandler = null;
-
     function escapeHtml(value) {
         if (value === undefined || value === null) {
             return '';
@@ -7134,133 +7106,8 @@ Please provide a detailed analysis based on the article content and the user's s
             .replace(/>/g, '&gt;');
     }
 
-    async function showCommandLinesModal(commandLines = [], metadata = {}) {
-        closeCommandLinesModal();
-        await cleanupExistingModal('commandLinesModal');
-        
-        const modal = document.createElement('div');
-        modal.id = 'commandLinesModal';
-        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeCommandLinesModal();
-            }
-        });
-
-        commandLinesEscHandler = function(e) {
-            if (e.key === 'Escape') {
-                closeCommandLinesModal();
-            }
-        };
-        document.addEventListener('keydown', commandLinesEscHandler);
-
-        const extractedAt = metadata?.extracted_at
-            ? new Date(metadata.extracted_at).toLocaleString()
-            : 'Unknown';
-        const filterInfo = metadata?.content_filtering || { enabled: false };
-        const filterSummary = filterInfo.enabled
-            ? `${filterInfo.chunks_removed || 0} chunks removed, ${filterInfo.tokens_saved || 0} tokens saved${filterInfo.cost_savings ? `, ≈$${filterInfo.cost_savings.toFixed(4)} saved` : ''}`
-            : 'Content filtering disabled';
-        const entriesHtml = Array.isArray(commandLines) && commandLines.length > 0
-            ? commandLines.map((entry, index) => `
-                <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
-                    <div class="flex items-center justify-between text-xs text-gray-500 uppercase">
-                        <span>Command ${index + 1}</span>
-                        <span>${((entry?.score || 0) * 100).toFixed(1)}%</span>
-                    </div>
-                    <pre class="text-sm font-mono text-gray-900 break-words bg-gray-50 px-2 py-1 rounded">${escapeHtml(entry?.text)}</pre>
-                    ${entry?.context ? `<div class="text-xs text-gray-600 italic">${escapeHtml(entry.context)}</div>` : ''}
-                </div>
-            `).join('')
-            : '<div class="text-sm text-gray-500 text-center py-8">No command lines detected.</div>';
-
-        const similarityPercent = ((metadata?.similarity_threshold || 0) * 100).toFixed(1);
-        const minConfidence = (metadata?.min_confidence ?? 0.7).toFixed(2);
-
-        modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
-                <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <h3 class="text-lg font-medium text-gray-900">🧾 Command Line Extraction</h3>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Extracted at ${extractedAt}
-                            ${metadata?.cached ? '<span class="text-blue-600"> (Cached)</span>' : ''}
-                        </p>
-                    </div>
-                    <button onclick="closeCommandLinesModal()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-600 mb-4">
-                    <div>
-                        <div class="text-[11px] uppercase text-gray-400">Similarity</div>
-                        <div class="font-semibold text-gray-900">${similarityPercent}%</div>
-                    </div>
-                    <div>
-                        <div class="text-[11px] uppercase text-gray-400">Filter confidence</div>
-                        <div class="font-semibold text-gray-900">${minConfidence}</div>
-                    </div>
-                    <div>
-                        <div class="text-[11px] uppercase text-gray-400">Filtering</div>
-                        <div class="font-semibold text-gray-900">${filterInfo.enabled ? 'Enabled' : 'Disabled'}</div>
-                    </div>
-                </div>
-
-                <div class="space-y-3">
-                    ${entriesHtml}
-                </div>
-
-                <div class="mt-6 border-t border-gray-200 pt-4 text-xs text-gray-600">
-                    ${filterSummary}
-                </div>
-
-                <div class="mt-6 flex justify-end gap-3">
-                    <button onclick="regenerateCommandLines()" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
-                        🔄 Regenerate
-                    </button>
-                    <button onclick="closeCommandLinesModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-        
-        // Ensure modal is visible
-        modal.classList.remove('hidden');
-        
-        // Register and open with ModalManager
-        if (window.ModalManager) {
-            setTimeout(() => {
-                window.ModalManager.register('commandLinesModal', {
-                    isDynamic: true,
-                    hasInput: false
-                });
-                window.ModalManager.open('commandLinesModal');
-                modal.classList.remove('hidden');
-            }, 50);
-        }
-        
-        window.latestCommandLines = { command_lines: commandLines, metadata };
-    }
-
-    function closeCommandLinesModal() {
-        const modal = document.getElementById('commandLinesModal');
-        if (modal) {
-            modal.remove();
-        }
-        if (commandLinesEscHandler) {
-            document.removeEventListener('keydown', commandLinesEscHandler);
-            commandLinesEscHandler = null;
-        }
-    }
-    
     async function detectOS() {
-        closeAIAssistantModal();
+        // closeAIAssistantModal(); // DEPRECATED
         
         const articleId = {{ article.id|default(0)|int }};
         
@@ -7561,7 +7408,7 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     async function extractIOCsCTIBERT() {
-        closeAIAssistantModal();
+        // closeAIAssistantModal(); // DEPRECATED
         
         const articleId = {{ article.id|default(0)|int }};
         
@@ -7881,11 +7728,8 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     function regenerateSigmaRules() {
-        // Close current modal
-        closeSigmaRulesModal();
-        
-        // Call generateAIAnalysis with force regeneration
-        generateAIAnalysis('sigma', true);
+        // DEPRECATED: AI Assistant modal removed
+        showNotification('SIGMA rule regeneration is no longer available. The AI Assistant modal has been deprecated.', 'info');
     }
     
     async function checkSimilarSigmaRules(force = false) {
@@ -8721,24 +8565,15 @@ ${JSON.stringify(rule.logsource, null, 2)}
         const llmValidationToggle = document.getElementById('llmValidationToggle');
         const useLLMValidation = llmValidationToggle ? llmValidationToggle.checked : false;
         
-        // Close current modal
+        // DEPRECATED: AI Assistant modal removed
         closeIOCsModal();
-        
-        // Call generateAIAnalysis with force regeneration and LLM validation setting
-        generateAIAnalysis('iocs', true, useLLMValidation);
+        showNotification('IOC regeneration is no longer available. The AI Assistant modal has been deprecated.', 'info');
     }
 
-    function regenerateCommandLines() {
-        closeCommandLinesModal();
-        generateAIAnalysis('cmdlines', true);
-    }
-    
     function regenerateGPT4oRanking() {
-        // Close current modal
+        // DEPRECATED: AI Assistant modal removed
         closeGPT4oRankingModal();
-        
-        // Call generateAIAnalysis with force regeneration
-        generateAIAnalysis('ranking', true);
+        showNotification('Ranking regeneration is no longer available. The AI Assistant modal has been deprecated.', 'info');
     }
     
     // Text annotation system now handled by LayeredTextManager
@@ -8892,82 +8727,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     })
                     .catch(error => {
                         console.error('Error fetching article data for IOCs:', error);
-                    });
-            }
-        } else if (hash === 'cmdlines') {
-            console.log('Processing cmdlines hash...');
-
-            const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id|default(0)|int }};
-
-            if (currentArticleId == templateArticleId) {
-                const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
-                console.log('Has cmdlines (template):', hasCmdlines);
-
-                if (hasCmdlines) {
-                    const cmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
-                    console.log('Command lines data (template):', cmdlineData);
-
-                    if (cmdlineData) {
-                        console.log('Auto-opening Command Lines modal from URL fragment (template)');
-                        setTimeout(() => showCommandLinesModal(cmdlineData.command_lines, cmdlineData), 500);
-                    }
-                } else {
-                    console.log('No command lines found in template data');
-                }
-            } else {
-                console.log('Different article, fetching command line data via API...');
-                fetch(`/api/articles/${currentArticleId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Fetched article data for command lines:', data);
-                        if (data.article_metadata && data.article_metadata.extracted_command_lines) {
-                            console.log('Auto-opening Command Lines modal from URL fragment (API)');
-                            setTimeout(() => showCommandLinesModal(data.article_metadata.extracted_command_lines.command_lines, data.article_metadata.extracted_command_lines), 500);
-                        } else {
-                            console.log('No command lines found for this article');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching article data for command lines:', error);
-                    });
-            }
-        } else if (hash === 'cmdlines') {
-            console.log('Processing cmdlines hash...');
-
-            const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id|default(0)|int }};
-
-            if (currentArticleId == templateArticleId) {
-                const hasCmdlines = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'false' }};
-                console.log('Has cmdlines (template):', hasCmdlines);
-
-                if (hasCmdlines) {
-                    const cmdlineData = {{ article.article_metadata.get('extracted_command_lines') | tojson if article.article_metadata and article.article_metadata.get('extracted_command_lines') else 'null' }};
-                    console.log('Command lines data (template):', cmdlineData);
-
-                    if (cmdlineData) {
-                        console.log('Auto-opening Command Lines modal from URL fragment (template)');
-                        setTimeout(() => showCommandLinesModal(cmdlineData.command_lines, cmdlineData), 500);
-                    }
-                } else {
-                    console.log('No command lines found in template data');
-                }
-            } else {
-                console.log('Different article, fetching command line data via API...');
-                fetch(`/api/articles/${currentArticleId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Fetched article data for command lines:', data);
-                        if (data.article_metadata && data.article_metadata.extracted_command_lines) {
-                            console.log('Auto-opening Command Lines modal from URL fragment (API)');
-                            setTimeout(() => showCommandLinesModal(data.article_metadata.extracted_command_lines.command_lines, data.article_metadata.extracted_command_lines), 500);
-                        } else {
-                            console.log('No command lines found for this article');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching article data for command lines:', error);
                     });
             }
         } else if (hash === 'ranking') {
@@ -9206,7 +8965,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
     
     // Chunk Debug Modal Functions
     async function showChunkDebugModal() {
-        closeAIAssistantModal();
+        // closeAIAssistantModal(); // DEPRECATED
         
         // Show loading modal
         const loadingModal = document.createElement('div');
@@ -9696,6 +9455,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
             // Ensure modal is visible
             modal.classList.remove('hidden');
             
+            // Add Esc key handler to close modal
+            const handleEscKey = (event) => {
+                if (event.key === 'Escape' || event.keyCode === 27) {
+                    closeChunkDebugModal();
+                }
+            };
+            document.addEventListener('keydown', handleEscKey);
+            // Store handler reference for cleanup
+            modal._escKeyHandler = handleEscKey;
+            
             // Register and open with ModalManager
             if (window.ModalManager) {
                 setTimeout(() => {
@@ -10037,6 +9806,11 @@ ${JSON.stringify(rule.logsource, null, 2)}
     function closeChunkDebugModal() {
         const modal = document.getElementById('chunkDebugModal');
         if (modal) {
+            // Remove Esc key handler if it exists
+            if (modal._escKeyHandler) {
+                document.removeEventListener('keydown', modal._escKeyHandler);
+                delete modal._escKeyHandler;
+            }
             modal.remove();
         }
         // Clear global data
@@ -10373,11 +10147,8 @@ ${JSON.stringify(rule.logsource, null, 2)}
     //     }
     // }
 
-    // Check AL/ML Assistant button state on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        checkAIAssistantButtonState();
-    });
-    
+    // Removed: checkAIAssistantButtonState function and DOMContentLoaded listener (AI Assistant button removed)
+    /*
     function checkAIAssistantButtonState() {
         const button = document.getElementById('aiAssistantBtn');
         if (!button) return;
@@ -10423,6 +10194,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
         }
     }
+    */
     
     // Model Comparison Modal Functions
     async function showComparisonModal() {

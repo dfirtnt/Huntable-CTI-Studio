@@ -71,7 +71,7 @@
 
 | File | Tests | Status | Description |
 |------|-------|--------|-------------|
-| `test_ai_assistant_ui.py` | 17 | ✅ Passing | AI Assistant interface |
+| ~~`test_ai_assistant_ui.py`~~ | 17 | 🗑️ DEPRECATED | AI Assistant interface (modal removed) |
 | `test_analytics_pages_ui.py` | 11 | ✅ Passing | Analytics dashboard pages (Hunt Metrics, Scraper Metrics, ML Comparison) |
 | `test_analytics_ui.py` | 20 | ✅ Passing | Analytics main page and navigation |
 | `test_article_interactions_ui.py` | 10 | ✅ Passing | Article list interactions and detail page |
@@ -105,7 +105,7 @@
 |------|-------|--------|-------------|
 | `test_agentic_workflow_comprehensive.py` | 10+ | ✅ Passing | Full agentic workflow simulation (Chat -> Queue) |
 | `test_ai_api.py` | 10+ | ✅ Passing | AI API integration |
-| `test_ai_assistant.py` | 10+ | ✅ Passing | AI Assistant integration |
+| `test_ai_assistant.py` | 10+ | ✅ Passing | AI integration (not modal-specific) |
 | `test_ai_cross_model_integration.py` | 11 | ✅ Passing | Cross-model AI integration |
 | `test_ai_real_api_integration.py` | 10 | ✅ Passing | Real AI API integration |
 | `test_analytics_integration.py` | 10+ | ✅ Passing | Analytics integration |
@@ -152,7 +152,7 @@
 |------|-------|--------|-------------|
 | `test_accessibility.py` | 7 | ✅ Passing | Accessibility testing |
 | `test_advanced_search_workflow.py` | 6 | ✅ Passing | Advanced search workflow |
-| `test_ai_assistant_workflow.py` | 9 | ✅ Passing | AI Assistant workflow |
+| ~~`test_ai_assistant_workflow.py`~~ | 9 | 🗑️ DEPRECATED | AI Assistant workflow (modal removed) |
 | `test_analytics_workflow.py` | 4 | ✅ Passing | Analytics workflow |
 | `test_annotation_workflow.py` | 8 | ✅ Passing | Annotation workflow |
 | `test_article_classification_workflow.py` | 6 | ✅ Passing | Article classification workflow |
@@ -203,14 +203,14 @@
 ## 🎯 Test Status Summary
 
 ### ✅ Fully Functional (900+ tests)
-- **AI Assistant Tests**: 36 tests (Priority 1 implementation)
+- ~~**AI Assistant UI Tests**: 36 tests (DEPRECATED - modal removed)~~
 - **Core Functionality**: 222 tests (previously fixed)
 - **Service/Utility Tests**: 142 tests (chunk analysis, prompt loader, query safety, simhash, model evaluation)
 - **Playwright Tests**: 13 tests (help buttons, SIGMA generation, workflow tabs)
 - **UI Tests**: 383+ tests (analytics, dashboard, diags, help, IOC, jobs, mobile, navigation, ollama, PDF, RAG, settings, sources, workflows, modal interactions - all working)
 - **Integration Tests**: 200+ tests (agentic workflow, AI, analytics, annotation, backup, Celery, content pipeline, error recovery, export, GPT-4o, huntable probability, lightweight, mobile, Ollama, RAG, retraining, scoring, SIGMA, source health/management, summarization, system - all working)
 - **API Tests**: 123+ tests (analytics, annotations, dashboard, endpoints, extract observables, LMStudio, ML feedback, Ollama, RAG, sorting - all working)
-- **E2E Tests**: 120+ tests (accessibility, advanced search, AI assistant, analytics, annotation, article classification/navigation, backup, error handling, ML feedback/hunt comparison, mobile annotation, multi-browser, PDF upload, performance, RAG chat, settings, source management, web interface - all working)
+- **E2E Tests**: 120+ tests (accessibility, advanced search, analytics, annotation, article classification/navigation, backup, error handling, ML feedback/hunt comparison, mobile annotation, multi-browser, PDF upload, performance, RAG chat, settings, source management, web interface - all working)
 - **CLI Tests**: 20+ tests (backup, embed, rescore commands - all working)
 - **Utils Tests**: 10+ tests (environment, failure analyzer, isolation, output formatter - all working)
 - **Workflows Tests**: 10+ tests (LangGraph server - all working)
@@ -238,7 +238,7 @@ Tests requiring async mock configuration fixes:
 ### Specialized Runners
 | Runner | Purpose | Tests | Status |
 |--------|---------|-------|--------|
-| `run_ai_tests.py` | AI Assistant Priority 1 tests | 36 | ✅ Active |
+| `run_ai_tests.py` | AI Assistant Priority 1 tests | 36 | 🗑️ DEPRECATED |
 | `run_lightweight_tests.py` | Lightweight integration tests | 12 | ✅ Active |
 
 ### Standard Runners
@@ -256,7 +256,7 @@ python3 -m pytest tests/ -m "e2e" -v
 ## 📊 Coverage Analysis
 
 ### High Coverage Areas (90%+)
-- **AI Assistant Features**: 95% coverage
+- ~~**AI Assistant UI Features**: 95% coverage (DEPRECATED - modal removed)~~
 - **Content Filtering**: 90% coverage
 - **SIGMA Validation**: 95% coverage
 - **Threat Hunting Scoring**: 100% coverage

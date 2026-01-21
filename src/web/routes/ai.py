@@ -2410,145 +2410,6 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{article_id}/extract-command-lines")
-async def api_extract_command_lines(article_id: int, request: Request):
-    """Extract command lines using CMDCaliper embeddings with optional content filtering."""
-    try:
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-
-        body = await request.json()
-        optimization_options = body.get("optimization_options") or {}
-        try:
-            use_filtering = bool(
-                body.get("use_filtering", optimization_options.get("useFiltering", True))
-            )
-            min_confidence = float(
-                body.get("min_confidence", optimization_options.get("minConfidence", 0.7))
-            )
-            similarity_threshold = float(body.get("similarity_threshold", 0.2))
-            max_results = int(body.get("max_results", 20))
-            max_candidates = int(body.get("max_candidates", 200))
-        except (ValueError, TypeError) as exc:
-            logger.warning("Invalid command extraction params: %s", exc)
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid extraction parameters (min_confidence, similarity_threshold, max_results, max_candidates)",
-            )
-
-        max_results = max(1, min(max_results, 40))
-        max_candidates = max(max_results, min(max_candidates, 320))
-
-        force_regenerate = bool(body.get("force_regenerate", False))
-        store_chunk_analysis = bool(body.get("store_chunk_analysis", False))
-
-        existing_metadata = (
-            article.article_metadata.get("extracted_command_lines")
-            if article.article_metadata
-            else None
-        )
-
-        if (
-            existing_metadata
-            and not force_regenerate
-            and existing_metadata.get("content_hash") == article.content_hash
-            and existing_metadata.get("similarity_threshold") == similarity_threshold
-            and existing_metadata.get("min_confidence") == min_confidence
-        ):
-            return {
-                "success": bool(existing_metadata.get("command_lines")),
-                "command_lines": existing_metadata.get("command_lines", []),
-                "count": len(existing_metadata.get("command_lines", [])),
-                "content_filtering": existing_metadata.get(
-                    "content_filtering", {"enabled": False}
-                ),
-                "similarity_threshold": similarity_threshold,
-                "min_confidence": min_confidence,
-                "cached": True,
-                "extracted_at": existing_metadata.get("extracted_at"),
-            }
-
-        content_to_use = article.content or ""
-        content_filter_metadata: Dict[str, Any] = {"enabled": False}
-        if use_filtering:
-            try:
-                optimization_result = await optimize_article_content(
-                    content=article.content,
-                    min_confidence=min_confidence,
-                    article_metadata=article.article_metadata,
-                    content_hash=article.content_hash,
-                    article_id=article.id,
-                    store_analysis=store_chunk_analysis,
-                )
-                if optimization_result.get("success") and optimization_result.get(
-                    "filtered_content"
-                ):
-                    content_to_use = optimization_result["filtered_content"]
-                content_filter_metadata = {
-                    "enabled": bool(optimization_result.get("success")),
-                    "min_confidence": min_confidence,
-                    "tokens_saved": optimization_result.get("tokens_saved"),
-                    "cost_savings": optimization_result.get("cost_savings"),
-                    "chunks_removed": optimization_result.get("chunks_removed"),
-                    "chunks_kept": optimization_result.get("chunks_kept"),
-                    "cached": optimization_result.get("cached", False),
-                }
-            except Exception as exc:
-                logger.warning("Command line content filtering failed: %s", exc)
-        hf_token = await _get_hf_token()
-        if not hf_token:
-            raise HTTPException(
-                status_code=400,
-                detail="Hugging Face token not configured. Please add it in Settings.",
-            )
-        command_line_caliper_extractor.set_auth_token(hf_token)
-
-        command_lines = command_line_caliper_extractor.extract(
-            content_to_use,
-            similarity_threshold=similarity_threshold,
-            max_results=max_results,
-            max_candidates=max_candidates,
-        )
-
-        metadata_payload = {
-            "command_lines": command_lines,
-            "count": len(command_lines),
-            "extracted_at": datetime.now().isoformat(),
-            "content_filtering": content_filter_metadata,
-            "content_hash": article.content_hash,
-            "similarity_threshold": similarity_threshold,
-            "min_confidence": min_confidence,
-            "max_results": max_results,
-            "max_candidates": max_candidates,
-            "source": "cmdcaliper",
-        }
-        current_metadata = article.article_metadata or {}
-        current_metadata["extracted_command_lines"] = metadata_payload
-
-        from src.models.article import ArticleUpdate
-
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-
-        return {
-            "success": len(command_lines) > 0,
-            "command_lines": command_lines,
-            "count": len(command_lines),
-            "content_filtering": content_filter_metadata,
-            "similarity_threshold": similarity_threshold,
-            "min_confidence": min_confidence,
-            "cached": False,
-            "extracted_at": metadata_payload["extracted_at"],
-        }
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Command line extraction error: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
 @router.post("/{article_id}/extract-iocs-ctibert")
 async def api_extract_iocs_ctibert(article_id: int, request: Request):
     """Extract IOCs using CTI-BERT Named Entity Recognition."""
@@ -3966,9 +3827,11 @@ async def api_get_sigma_rule_details(rule_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# DEPRECATED: Custom prompt endpoint removed (AI/ML Assistant modal deprecated)
+"""
 @router.post("/{article_id}/custom-prompt")
 async def api_custom_prompt(article_id: int, request: Request):
-    """Process a custom AI prompt for an article."""
+    \"\"\"Process a custom AI prompt for an article.\"\"\"
     try:
         # Get the article
         article = await async_db_manager.get_article(article_id)
@@ -4013,7 +3876,7 @@ async def api_custom_prompt(article_id: int, request: Request):
         source_name = source.name if source else f"Source {article.source_id}"
 
         # Create the full prompt with article context
-        full_prompt = f"""Article Title: {article.title}
+        full_prompt = f\"\"\"Article Title: {article.title}
 Source: {source_name}
 URL: {article.canonical_url or "N/A"}
 
@@ -4022,7 +3885,7 @@ Article Content:
 
 User Request: {prompt}
 
-Please provide a detailed analysis based on the article content and the user's request."""
+Please provide a detailed analysis based on the article content and the user's request.\"\"\"
 
         # Call the appropriate AI API
         if ai_model == "anthropic":
@@ -4189,3 +4052,4 @@ Please provide a detailed analysis based on the article content and the user's r
     except Exception as e:
         logger.error(f"Custom prompt error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+"""

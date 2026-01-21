@@ -300,7 +300,7 @@ class TestDashboardFlows:
 
     @pytest.mark.ui
     def test_agents_navigation_to_workflow_page(self, page: Page):
-        """Test that the Agents button navigates to the workflow/AI assistant page."""
+        """Test that the Agents button navigates to the workflow page."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
 
@@ -326,9 +326,9 @@ class TestDashboardFlows:
         expect(page).to_have_url(re.compile(rf"{base_url}/workflow(#.*)?$"))
 
         # Verify the workflow page loaded with expected content
-        # Look for workflow-related content (AI Assistant, agents, etc.)
+        # Look for workflow-related content (agents, etc.)
         workflow_indicators = page.locator(
-            "text=Workflow, text=AI Assistant, text=Agent, text=🤖, h1, h2"
+            "text=Workflow, text=Agent, text=🤖, h1, h2"
         )
 
         # At minimum, verify the page loaded (should have some heading or content)
@@ -396,64 +396,7 @@ class TestArticlesFlows:
         if next_button.count() > 0:
             expect(next_button).to_be_visible()
 
-    @pytest.mark.ui
-    def test_article_ai_assistant_button_functionality(self, page: Page):
-        """Test that the AL/ML Assistant button works on article pages."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-
-        # Navigate directly to an article page (using a known article ID)
-        page.goto(f"{base_url}/articles/2175")
-
-        # Wait for article page to load
-        page.wait_for_load_state("networkidle")
-
-        # Verify we're on an article page
-        expect(page).to_have_url(re.compile(rf"{base_url}/articles/\d+"))
-
-        # Find the AL/ML Assistant button
-        ai_assistant_button = page.locator(
-            "button:has-text('AL/ML Assistant'), button:has-text('AI/ML Assistant')"
-        )
-
-        # Check if the button exists
-        if ai_assistant_button.count() == 0:
-            pytest.skip("AL/ML Assistant button not found on article page")
-
-        expect(ai_assistant_button).to_be_visible()
-
-        # Click the AL/ML Assistant button
-        ai_assistant_button.click()
-
-        # Wait for the AI Assistant modal to appear
-        page.wait_for_timeout(1000)
-
-        # Verify the modal opened (look for common modal indicators)
-        modal_selectors = [
-            "#aiAssistantModal",
-            ".modal",
-            "[role='dialog']",
-            "text=AI Assistant",
-            "text=AL/ML Assistant",
-        ]
-
-        modal_found = False
-        for selector in modal_selectors:
-            elements = page.locator(selector)
-            if elements.count() > 0 and elements.nth(0).is_visible():
-                modal_found = True
-                break
-
-        assert modal_found, "AI Assistant modal should open after clicking the button"
-
-        # Verify the modal has expected content (buttons, text areas, etc.)
-        modal_content = page.locator("#aiAssistantModal, .modal, [role='dialog']")
-        if modal_content.count() > 0:
-            # Check for common AI assistant elements
-            assistant_elements = modal_content.locator(
-                "button, textarea, select, input"
-            )
-            if assistant_elements.count() > 0:
-                expect(assistant_elements.nth(0)).to_be_visible()
+    # DEPRECATED: test_article_ai_assistant_button_functionality removed (AI/ML Assistant modal deprecated)
 
 
 class TestSourcesFlows:
