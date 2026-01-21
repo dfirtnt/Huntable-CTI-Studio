@@ -168,9 +168,6 @@ datasets/
 !presets/**/*.json
 *.parquet
 
-# Documentation builds
-docs/_build/
-site/
 
 # MacOS
 .AppleDouble
