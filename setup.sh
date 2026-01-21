@@ -165,8 +165,11 @@ configure_database() {
     
     # Check if .env exists
     if [[ -f ".env" ]]; then
-        if ! prompt_yes_no ".env file exists. Overwrite it?" "no"; then
+        print_warning "⚠️  Existing .env file found with default passwords (not secure for production)"
+        if ! prompt_yes_no ".env file exists. Overwrite it with new secure passwords?" "no"; then
             print_status "Using existing .env file"
+            print_warning "⚠️  Remember to update passwords in .env file for production use"
+            SKIP_ENV_CREATION=true
             return 0
         fi
     fi
@@ -409,6 +412,8 @@ setup_automated_backups() {
 verify_installation() {
     print_header "Verifying Installation"
     
+    local verification_failed=false
+    
     # Check if services are running
     print_status "Checking service health..."
     
@@ -416,14 +421,16 @@ verify_installation() {
     if $DOCKER_CMD exec cti_postgres pg_isready -U cti_user -d cti_scraper &> /dev/null; then
         print_status "✅ PostgreSQL is healthy"
     else
-        print_warning "⚠️  PostgreSQL is not ready yet"
+        print_error "❌ PostgreSQL is not ready"
+        verification_failed=true
     fi
     
     # Check Redis
     if $DOCKER_CMD exec cti_redis redis-cli ping &> /dev/null; then
         print_status "✅ Redis is healthy"
     else
-        print_warning "⚠️  Redis is not ready yet"
+        print_error "❌ Redis is not ready"
+        verification_failed=true
     fi
     
     # Check Web service with retries
@@ -440,19 +447,59 @@ verify_installation() {
     if [ "$web_ready" = true ]; then
         print_status "✅ Web service is healthy"
     else
-        print_warning "⚠️  Web service is not ready yet"
-        print_status "Check logs with: docker logs cti_web"
+        print_error "❌ Web service is not ready"
+        print_status "Check logs with: $DOCKER_CMD logs cti_web"
+        verification_failed=true
     fi
     
-    print_status "Installation verification complete!"
+    # Check worker containers for crash/restart loops
+    print_status "Checking worker containers..."
+    local worker_containers=("cti_worker" "cti_workflow_worker" "cti_scheduler")
+    for container in "${worker_containers[@]}"; do
+        local status=$($DOCKER_CMD inspect --format='{{.State.Status}}' "$container" 2>/dev/null)
+        local restart_count=$($DOCKER_CMD inspect --format='{{.RestartCount}}' "$container" 2>/dev/null)
+        
+        if [[ "$status" == "running" ]]; then
+            if [[ "$restart_count" -gt 5 ]]; then
+                print_error "❌ $container is restarting repeatedly (restart count: $restart_count)"
+                print_status "Check logs with: $DOCKER_CMD logs $container"
+                verification_failed=true
+            else
+                print_status "✅ $container is running"
+            fi
+        elif [[ "$status" == "restarting" ]]; then
+            print_error "❌ $container is in restart loop"
+            print_status "Check logs with: $DOCKER_CMD logs $container"
+            verification_failed=true
+        elif [[ -z "$status" ]]; then
+            print_warning "⚠️  $container not found (may not be started yet)"
+        else
+            print_warning "⚠️  $container status: $status"
+        fi
+    done
+    
+    if [ "$verification_failed" = true ]; then
+        print_error "Installation verification failed. Some services are not healthy."
+        return 1
+    else
+        print_status "Installation verification complete!"
+        return 0
+    fi
 }
 
 # Function to show post-installation information
 show_post_install_info() {
+    local setup_success=$1
+    
     print_header "Setup Complete!"
     
     echo ""
-    echo "🎉 CTI Scraper has been successfully set up!"
+    if [ "$setup_success" = true ]; then
+        echo "🎉 CTI Scraper has been successfully set up!"
+    else
+        echo "⚠️  CTI Scraper setup completed with warnings/errors."
+        echo "   Please review the verification output above and check container logs."
+    fi
     echo ""
     echo "📋 Service Information:"
     echo "   • Web Interface: http://localhost:8001"
@@ -549,6 +596,9 @@ main() {
     # Check prerequisites
     check_prerequisites
     
+    # Initialize SKIP_ENV_CREATION flag
+    SKIP_ENV_CREATION=false
+    
     # Interactive configuration (unless --non-interactive)
     if [[ "$NON_INTERACTIVE" == "false" ]]; then
         echo ""
@@ -563,8 +613,10 @@ main() {
         SECRET_KEY=$(generate_password 32)
     fi
     
-    # Create .env file from configuration
-    create_env_file
+    # Create .env file from configuration (unless user chose to keep existing)
+    if [[ "$SKIP_ENV_CREATION" != "true" ]]; then
+        create_env_file
+    fi
     
     # Setup environment
     setup_environment
@@ -580,10 +632,20 @@ main() {
     fi
     
     # Verify installation
-    verify_installation
+    local setup_success=false
+    if verify_installation; then
+        setup_success=true
+    else
+        setup_success=false
+    fi
     
     # Show post-installation information
-    show_post_install_info
+    show_post_install_info "$setup_success"
+    
+    # Exit with appropriate code
+    if [ "$setup_success" = false ]; then
+        exit 1
+    fi
 }
 
 # Run main function
