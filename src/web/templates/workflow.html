@@ -10683,24 +10683,6 @@ function renderQueue() {
         `;
     }).join('');
     
-    // Check if we need to scroll to a specific queue item
-    const hash = window.location.hash;
-    const queueMatch = hash.match(/^#queue-(\d+)$/);
-    if (queueMatch) {
-        const queueId = parseInt(queueMatch[1]);
-        setTimeout(() => {
-            const row = document.getElementById(`queue-row-${queueId}`);
-            if (row) {
-                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Highlight the row briefly
-                row.classList.add('bg-yellow-100', 'dark:bg-yellow-900');
-                setTimeout(() => {
-                    row.classList.remove('bg-yellow-100', 'dark:bg-yellow-900');
-                }, 2000);
-            }
-        }, 100);
-    }
-    
     // Check if we need to trigger preview from URL parameter after rendering
     checkAndTriggerPreview();
 }
@@ -14655,9 +14637,6 @@ function initializeTabs() {
         }
         if (hash && ['config', 'executions', 'queue'].includes(hash)) {
             switchTab(hash);
-        } else if (hash && hash.startsWith('queue-')) {
-            // Handle queue with specific ID (e.g., queue-123)
-            switchTab('queue');
         } else {
             // Default to config tab
             switchTab('config');
@@ -14676,9 +14655,6 @@ function initializeTabs() {
         switchTab('executions');
     } else if (hash && ['config', 'executions', 'queue'].includes(hash)) {
         switchTab(hash);
-    } else if (hash && hash.startsWith('queue-')) {
-        // Handle queue with specific ID (e.g., queue-123)
-        switchTab('queue');
     } else {
         // Default to config tab
         switchTab('config');
