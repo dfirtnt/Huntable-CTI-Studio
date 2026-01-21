@@ -59,6 +59,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Restore from Backup Feature** (2026-01-15): Added restore functionality to settings page
+  - Restore from Backup button in Backup Actions section
+  - Modal dialog with backup selection UI
+  - Support for both system and database backup restoration
+  - Snapshot creation option in restore flow
+  - `/api/backup/restore` endpoint for backup restoration
+  - Progress indicators and error handling
+
 ### Fixed
 - **Article Detail Page UI Improvements** (2026-01-15): Fixed mobile annotation instructions overlap and button positioning
   - Removed "Mobile Annotation" instructions banner that was cluttering the article detail page
