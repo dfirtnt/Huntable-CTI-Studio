@@ -1029,12 +1029,8 @@ async function viewExecution(executionId) {
                     link.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (window.previewQueuedRule) {
-                            window.previewQueuedRule(ruleId);
-                        } else {
-                            console.error('previewQueuedRule function not found');
-                            alert('Preview function not available. Please refresh the page.');
-                        }
+                        // Navigate to queue page with previewId parameter to auto-open preview modal
+                        window.location.href = `/workflow?previewId=${ruleId}#queue`;
                     });
                 });
             }, 100);

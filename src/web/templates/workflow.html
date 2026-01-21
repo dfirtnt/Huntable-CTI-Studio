@@ -14438,8 +14438,8 @@ function navigateToQueuedRules(executionId, ruleIds) {
 
 // Highlight a specific queued rule (called from link click)
 function highlightQueuedRule(ruleId) {
-    sessionStorage.setItem('highlightQueuedRules', JSON.stringify([ruleId]));
-    window.location.href = '/workflow#queue';
+    // Navigate to queue page with previewId parameter to auto-open preview modal
+    window.location.href = `/workflow?previewId=${ruleId}#queue`;
 }
 
 // Live execution view with SSE streaming
