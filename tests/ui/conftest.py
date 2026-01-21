@@ -49,8 +49,8 @@ def check_playwright_browsers():
 # Hook to skip tests at collection time if Playwright browsers aren't installed
 def pytest_collection_modifyitems(config, items):
     """Skip UI tests if Playwright browsers aren't installed"""
-    # Lazy check - only check when we have UI tests
-    ui_tests = [item for item in items if item.get_closest_marker("ui")]
+    # Lazy check - only check when we have UI tests (including ui_smoke)
+    ui_tests = [item for item in items if item.get_closest_marker("ui") or item.get_closest_marker("ui_smoke")]
     if not ui_tests:
         return
     
