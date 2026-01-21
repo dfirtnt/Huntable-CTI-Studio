@@ -1083,7 +1083,7 @@ Generate all applicable SIGMA rules from the threat intelligence above.`;
         modal.innerHTML = `
             <div class="relative top-10 mx-auto p-6 border w-11/12 max-w-6xl shadow-xl rounded-lg bg-gray-800 dark:bg-gray-900 border-gray-700 dark:border-gray-600">
                 <div class="flex justify-between items-center mb-5 pb-3 border-b border-gray-700 dark:border-gray-600">
-                    <h3 class="text-xl font-semibold text-gray-100 dark:text-white">🔍 SIGMA Generation Prompt</h3>
+                    <h3 class="text-xl font-semibold text-gray-100 dark:text-white">🔍 One Shot - SIGMA Generation Prompt</h3>
                     <button onclick="closeHelpModal()" class="text-gray-400 dark:text-gray-500 hover:text-gray-200 dark:hover:text-gray-300 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -6563,7 +6563,7 @@ Please provide a detailed analysis based on the article content and the user's s
         modal.innerHTML = `
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: rgba(134, 153, 177, 1);">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">🔍 SIGMA Detection Rules</h3>
+                    <h3 class="text-lg font-medium text-gray-900">🔍 One Shot - SIGMA Detection Rules</h3>
                     <div class="flex items-center space-x-2">
                         <button onclick="showSigmaHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
                             <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6660,6 +6660,12 @@ Please provide a detailed analysis based on the article content and the user's s
                                 disabled>
                             🧬 Embed Article
                         </button>
+                        <button id="sendToQueueBtn" onclick="sendRuleToQueue()" 
+                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Send generated rule to SIGMA Queue for review"
+                                disabled>
+                            📋 Send to Queue
+                        </button>
                     </div>
                     <button onclick="closeSigmaRulesModal()" 
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
@@ -6689,7 +6695,13 @@ Please provide a detailed analysis based on the article content and the user's s
         // Check if article has embeddings and enable/disable buttons
         const checkBtn = document.getElementById('checkSimilarRulesBtn');
         const embedBtn = document.getElementById('embedArticleBtn');
+        const queueBtn = document.getElementById('sendToQueueBtn');
         const articleId = {{ article.id|default(0)|int }};
+        
+        // Enable queue button if rules are available
+        if (queueBtn && currentGeneratedSigmaRules && currentGeneratedSigmaRules.length > 0) {
+            queueBtn.disabled = false;
+        }
         
         // Fetch embedding status from API
         fetch(`/api/articles/${articleId}`)
@@ -8040,6 +8052,142 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
+    async function sendRuleToQueue() {
+        const queueBtn = document.getElementById('sendToQueueBtn');
+        const articleId = {{ article.id|default(0)|int }};
+        
+        // Get the generated rules
+        let generatedRules = currentGeneratedSigmaRules;
+        
+        // Try to get from modal data attribute if not available
+        if (generatedRules.length === 0) {
+            const sigmaRulesModal = document.getElementById('sigmaRulesModal');
+            if (sigmaRulesModal) {
+                try {
+                    const modalRules = sigmaRulesModal.dataset.generatedRules;
+                    if (modalRules) {
+                        generatedRules = JSON.parse(modalRules);
+                    }
+                } catch (e) {
+                    console.warn('Could not parse modal data', e);
+                }
+            }
+        }
+        
+        // If not found, fetch from article metadata
+        if (generatedRules.length === 0) {
+            try {
+                const articleResponse = await fetch(`/api/articles/${articleId}`);
+                if (articleResponse.ok) {
+                    const articleData = await articleResponse.json();
+                    if (articleData.article_metadata?.sigma_rules?.rules) {
+                        generatedRules = articleData.article_metadata.sigma_rules.rules;
+                        currentGeneratedSigmaRules = generatedRules;
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch article metadata', e);
+            }
+        }
+        
+        if (generatedRules.length === 0) {
+            showNotification('No generated SIGMA rules found. Please generate rules first.', 'error');
+            return;
+        }
+        
+        // Get the first rule (or handle multiple rules)
+        const rule = generatedRules[0];
+        
+        // Extract rule data - handle different formats
+        let ruleYaml = null;
+        let ruleJson = null;
+        let ruleMetadata = null;
+        
+        if (typeof rule === 'string') {
+            // Rule is already YAML string
+            ruleYaml = rule;
+        } else if (rule.content) {
+            // Rule has a content field with YAML
+            ruleYaml = rule.content;
+            ruleMetadata = {
+                title: rule.title,
+                description: rule.description,
+                tags: rule.tags || [],
+                level: rule.level,
+                status: rule.status || 'experimental'
+            };
+        } else if (typeof rule === 'object') {
+            // Rule is an object - send as JSON, backend will convert to YAML
+            ruleJson = rule;
+            ruleMetadata = {
+                title: rule.title,
+                description: rule.description,
+                tags: rule.tags || [],
+                level: rule.level,
+                status: rule.status || 'experimental'
+            };
+        } else {
+            showNotification('Invalid rule format. Cannot send to queue.', 'error');
+            return;
+        }
+        
+        // Show loading state
+        if (queueBtn) {
+            queueBtn.disabled = true;
+            queueBtn.textContent = '⏳ Sending...';
+        }
+        
+        try {
+            const requestBody = {
+                article_id: articleId,
+                rule_metadata: ruleMetadata
+            };
+            
+            if (ruleYaml) {
+                requestBody.rule_yaml = ruleYaml;
+            } else if (ruleJson) {
+                requestBody.rule_json = ruleJson;
+            }
+            
+            const response = await fetch('/api/sigma-queue/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification(`✓ Rule added to SIGMA Queue (ID: ${data.queue_id})`, 'success');
+                if (queueBtn) {
+                    queueBtn.textContent = '✓ Queued';
+                    queueBtn.disabled = true;
+                }
+                
+                // Redirect to the queue page with previewId parameter to auto-open preview modal
+                // Query parameters must come before the hash in URLs
+                window.location.href = `/workflow?previewId=${data.queue_id}#queue`;
+            } else {
+                throw new Error(data.message || 'Failed to add rule to queue');
+            }
+        } catch (error) {
+            console.error('Error sending rule to queue:', error);
+            showNotification('Error: ' + error.message, 'error');
+            
+            if (queueBtn) {
+                queueBtn.disabled = false;
+                queueBtn.textContent = '📋 Send to Queue';
+            }
+        }
+    }
+    
     async function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
         // Remove any existing modal
         closeSimilarRulesModal();
@@ -8148,39 +8296,12 @@ Please provide a detailed analysis based on the article content and the user's s
                             </div>
                         ` : ''}
                         
-                        ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { mode: 'compact' }) : ''}
-                        
-                        ${(match.shared_atoms && match.shared_atoms.length > 0) || (match.added_atoms && match.added_atoms.length > 0) || (match.removed_atoms && match.removed_atoms.length > 0) || (match.filter_differences && match.filter_differences.length > 0) ? `
-                            <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded">
-                                <div class="text-xs font-bold text-gray-900 mb-2">📊 Explainability:</div>
-                                <div class="space-y-2 text-xs">
-                                    ${match.shared_atoms && match.shared_atoms.length > 0 ? `
-                                        <div>
-                                            <div class="font-medium text-gray-700 mb-1">Shared Atoms:</div>
-                                            <div class="bg-green-50 border border-green-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.shared_atoms.join('\n'))}</div>
-                                        </div>
-                                    ` : ''}
-                                    ${match.added_atoms && match.added_atoms.length > 0 ? `
-                                        <div>
-                                            <div class="font-medium text-gray-700 mb-1">Atoms in Current Rule (not in Similar Rule):</div>
-                                            <div class="bg-yellow-50 border border-yellow-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.added_atoms.join('\n'))}</div>
-                                        </div>
-                                    ` : ''}
-                                    ${match.removed_atoms && match.removed_atoms.length > 0 ? `
-                                        <div>
-                                            <div class="font-medium text-gray-700 mb-1">Atoms in Similar Rule (not in Current Rule):</div>
-                                            <div class="bg-orange-50 border border-orange-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.removed_atoms.join('\n'))}</div>
-                                        </div>
-                                    ` : ''}
-                                    ${match.filter_differences && match.filter_differences.length > 0 ? `
-                                        <div>
-                                            <div class="font-medium text-gray-700 mb-1">Filter Differences (NOT logic):</div>
-                                            <div class="bg-purple-50 border border-purple-200 rounded p-2 font-mono text-gray-900 whitespace-pre-wrap">${escapeHtml(match.filter_differences.join('\n'))}</div>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        ` : ''}
+                        ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { 
+                            mode: 'compact', 
+                            includeExplainability: true,
+                            ruleALabel: 'Current Rule',
+                            ruleBLabel: 'Similar Rule'
+                        }) : ''}
                         
                         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                             <div><span class="font-medium">Rule ID:</span> <code class="text-xs bg-gray-100 px-1 rounded">${match.rule_id || 'N/A'}</code></div>
