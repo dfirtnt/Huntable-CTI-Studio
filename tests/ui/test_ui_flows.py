@@ -16,8 +16,7 @@ pytestmark = pytest.mark.skip(reason="UI flow tests disabled in this environment
 class TestDashboardFlows:
     """Test dashboard user flows."""
 
-    @pytest.mark.ui
-    @pytest.mark.smoke
+    @pytest.mark.ui_smoke
     def test_dashboard_navigation(self, page: Page):
         """Test navigation between dashboard sections."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -343,8 +342,7 @@ class TestDashboardFlows:
 class TestArticlesFlows:
     """Test article browsing and viewing flows."""
 
-    @pytest.mark.ui
-    @pytest.mark.smoke
+    @pytest.mark.ui_smoke
     def test_articles_listing(self, page: Page):
         """Test articles listing page functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -461,8 +459,7 @@ class TestArticlesFlows:
 class TestSourcesFlows:
     """Test source management flows."""
 
-    @pytest.mark.ui
-    @pytest.mark.smoke
+    @pytest.mark.ui_smoke
     def test_sources_management(self, page: Page):
         """Test source management functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -575,8 +572,7 @@ class TestErrorHandling:
 class TestQuickActionsFlows:
     """Test quick action button flows."""
 
-    @pytest.mark.ui
-    @pytest.mark.smoke
+    @pytest.mark.ui_smoke
     def test_rescore_all_articles_button(self, page: Page):
         """Test the rescore all articles button functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

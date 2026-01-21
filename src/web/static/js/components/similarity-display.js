@@ -119,6 +119,9 @@ function renderSimilarityDisplay(data, options = {}) {
     const mode = options.mode || 'full';
     const prefix = options.prefix || '';
     const containerId = options.containerId;
+    const ruleALabel = options.ruleALabel || 'Rule A';
+    const ruleBLabel = options.ruleBLabel || 'Rule B';
+    const includeExplainability = options.includeExplainability !== false; // Default true for full mode, can be enabled for compact
     
     // Normalize data
     const normalized = normalizeSimilarityData(data);
@@ -194,16 +197,16 @@ function renderSimilarityDisplay(data, options = {}) {
                         <div id="${prefix}sharedAtoms" class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100">${escapeHtml(normalized.shared_atoms.join('\n'))}</div>
                     </div>
                     ` : `<div id="${prefix}sharedAtomsSection" class="hidden"></div>`}
-                    ${normalized.added_atoms.length > 0 ? `
+                    ${normalized.removed_atoms.length > 0 ? `
                     <div id="${prefix}addedAtomsSection">
-                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in Rule A (not in Rule B):</h5>
-                        <div id="${prefix}addedAtoms" class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100">${escapeHtml(normalized.added_atoms.join('\n'))}</div>
+                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in ${ruleALabel} (not in ${ruleBLabel}):</h5>
+                        <div id="${prefix}addedAtoms" class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100">${escapeHtml(normalized.removed_atoms.join('\n'))}</div>
                     </div>
                     ` : `<div id="${prefix}addedAtomsSection" class="hidden"></div>`}
-                    ${normalized.removed_atoms.length > 0 ? `
+                    ${normalized.added_atoms.length > 0 ? `
                     <div id="${prefix}removedAtomsSection">
-                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in Rule B (not in Rule A):</h5>
-                        <div id="${prefix}removedAtoms" class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100">${escapeHtml(normalized.removed_atoms.join('\n'))}</div>
+                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in ${ruleBLabel} (not in ${ruleALabel}):</h5>
+                        <div id="${prefix}removedAtoms" class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100">${escapeHtml(normalized.added_atoms.join('\n'))}</div>
                     </div>
                     ` : `<div id="${prefix}removedAtomsSection" class="hidden"></div>`}
                     ${normalized.filter_differences.length > 0 ? `
@@ -216,7 +219,39 @@ function renderSimilarityDisplay(data, options = {}) {
             </div>
         `;
     } else if (mode === 'compact') {
-        // Compact mode: Similarity %, breakdown grid, no explainability
+        // Compact mode: Similarity %, breakdown grid, optionally explainability
+        const explainabilityHtml = includeExplainability && (normalized.shared_atoms.length > 0 || normalized.added_atoms.length > 0 || normalized.removed_atoms.length > 0 || normalized.filter_differences.length > 0) ? `
+            <div class="mt-3 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded">
+                <div class="text-xs font-bold text-gray-900 dark:text-gray-100 mb-2">📊 Explainability:</div>
+                <div class="space-y-2 text-xs">
+                    ${normalized.shared_atoms.length > 0 ? `
+                        <div>
+                            <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Shared Atoms:</div>
+                            <div class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(normalized.shared_atoms.join('\n'))}</div>
+                        </div>
+                    ` : ''}
+                    ${normalized.removed_atoms.length > 0 ? `
+                        <div>
+                            <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Atoms in ${ruleALabel} (not in ${ruleBLabel}):</div>
+                            <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(normalized.removed_atoms.join('\n'))}</div>
+                        </div>
+                    ` : ''}
+                    ${normalized.added_atoms.length > 0 ? `
+                        <div>
+                            <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Atoms in ${ruleBLabel} (not in ${ruleALabel}):</div>
+                            <div class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(normalized.added_atoms.join('\n'))}</div>
+                        </div>
+                    ` : ''}
+                    ${normalized.filter_differences.length > 0 ? `
+                        <div>
+                            <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Differences (NOT logic):</div>
+                            <div class="bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(normalized.filter_differences.join('\n'))}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        ` : '';
+        
         html = `
             <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded">
                 <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
@@ -235,6 +270,7 @@ function renderSimilarityDisplay(data, options = {}) {
                     </div>
                 </div>
             </div>
+            ${explainabilityHtml}
         `;
     } else {
         // Minimal mode: Just similarity % and label
@@ -355,21 +391,21 @@ function updateSimilarityDisplay(data, options = {}) {
         if (sharedSection) sharedSection.classList.add('hidden');
     }
     
-    if (normalized.added_atoms && normalized.added_atoms.length > 0) {
+    if (normalized.removed_atoms && normalized.removed_atoms.length > 0) {
         const addedSection = document.getElementById(getId('addedAtomsSection'));
         const addedContent = document.getElementById(getId('addedAtoms'));
         if (addedSection) addedSection.classList.remove('hidden');
-        if (addedContent) addedContent.textContent = normalized.added_atoms.join('\n');
+        if (addedContent) addedContent.textContent = normalized.removed_atoms.join('\n');
     } else {
         const addedSection = document.getElementById(getId('addedAtomsSection'));
         if (addedSection) addedSection.classList.add('hidden');
     }
     
-    if (normalized.removed_atoms && normalized.removed_atoms.length > 0) {
+    if (normalized.added_atoms && normalized.added_atoms.length > 0) {
         const removedSection = document.getElementById(getId('removedAtomsSection'));
         const removedContent = document.getElementById(getId('removedAtoms'));
         if (removedSection) removedSection.classList.remove('hidden');
-        if (removedContent) removedContent.textContent = normalized.removed_atoms.join('\n');
+        if (removedContent) removedContent.textContent = normalized.added_atoms.join('\n');
     } else {
         const removedSection = document.getElementById(getId('removedAtomsSection'));
         if (removedSection) removedSection.classList.add('hidden');

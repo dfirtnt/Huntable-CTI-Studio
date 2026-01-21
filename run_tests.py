@@ -727,9 +727,10 @@ class TestRunner:
 
         # Always exclude infrastructure and production data tests by default
         default_excludes = ["infrastructure", "prod_data", "production_data"]
-        # Keep smoke fast and under 2 minutes per test by avoiding UI/slow markers
+        # Keep smoke fast and under 30 seconds total - exclude UI tests that require browsers
+        # UI tests can hang if browsers aren't installed, so exclude them from smoke for speed
         if self.config.test_type == TestType.SMOKE:
-            default_excludes.extend(["ui", "slow"])
+            default_excludes.extend(["slow", "ui", "ui_smoke"])
         # For unit tests, exclude integration/api/ui/e2e/performance but don't require unit marker
         elif self.config.test_type == TestType.UNIT:
             default_excludes.extend(["integration", "api", "ui", "e2e", "performance", "smoke"])

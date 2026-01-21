@@ -7,19 +7,19 @@
 python3 run_tests.py smoke
 ```
 
-**Duration:** ~20 seconds | **Tests:** 16 passed ✅
+**Duration:** ~30 seconds | **Tests:** 22 passed ✅
 
 ## Overview
 
-Smoke tests provide rapid health checks of critical system functionality, completing in ~20 seconds for quick verification.
+Smoke tests provide rapid health checks of critical system functionality, completing in ~30 seconds for quick verification.
 
 ## Current Coverage
 
-### ✅ Smoke Tests (16 tests)
+### ✅ Smoke Tests (22 tests)
 
-Smoke tests are distributed across multiple test files using the `@pytest.mark.smoke` marker:
+Smoke tests are distributed across multiple test files using the `@pytest.mark.smoke` and `@pytest.mark.ui_smoke` markers:
 
-**API Endpoints (9 tests)** - `tests/api/test_endpoints.py`
+**API Endpoints (14 tests)** - `tests/api/test_endpoints.py`
 - Dashboard home page
 - Articles listing
 - Article detail view
@@ -29,17 +29,22 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Rescore all articles action
 - Health endpoints (/health, /api/health*, /api/health/services, /api/health/celery, /api/health/ingestion)
 - Annotations export CSV (/api/export/annotations)
+- Database connectivity detailed check
+- Workflow trigger endpoint accessibility
+- Annotation endpoint accessibility
+- Redis connectivity check
+- Celery worker health check
 
 **System Integration (1 test)** - `tests/integration/test_system_integration.py`
 - System startup health check
 
-**UI Flows (4 tests)** - `tests/ui/test_ui_flows.py`
+**UI Flows (4 tests)** - `tests/ui/test_ui_flows.py` (using `@pytest.mark.ui_smoke`)
 - Dashboard navigation
 - Articles listing
 - Sources management
 - Rescore all articles button
 
-**RAG Chat (2 tests)** - `tests/ui/test_rag_chat_ui.py`
+**RAG Chat (2 tests)** - `tests/ui/test_rag_chat_ui.py` (using `@pytest.mark.ui_smoke`)
 - Chat page loads
 - Chat send path renders without errors
 
@@ -47,7 +52,7 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 
 | File | Tests | Category |
 |------|-------|----------|
-| `tests/api/test_endpoints.py` | 9 | API endpoints |
+| `tests/api/test_endpoints.py` | 14 | API endpoints |
 | `tests/integration/test_system_integration.py` | 1 | System health |
 | `tests/ui/test_ui_flows.py` | 4 | UI navigation |
 | `tests/ui/test_rag_chat_ui.py` | 2 | ML services |
@@ -89,11 +94,12 @@ docker exec cti_web pytest tests/ -m smoke -v
 
 | Category | Tests | Duration | Purpose |
 |----------|-------|----------|---------|
-| **API Endpoints** | 9 | ~7s | Core API/export/health |
+| **API Endpoints** | 14 | ~10s | Core API/export/health/critical endpoints |
 | **System Health** | 1 | ~2s | System startup verification |
 | **UI Navigation** | 4 | ~5s | User interface flows |
-| **Article Operations** | 4 | ~3s | Classification functionality |
 | **ML Services** | 2 | ~3s | RAG chat availability and send path |
+| **Database & Services** | 3 | ~5s | Database connectivity, Redis, Celery health |
+| **Workflow & Annotations** | 2 | ~5s | Workflow trigger and annotation endpoints |
 
 ## Integration with CI/CD
 

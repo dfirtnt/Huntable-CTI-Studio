@@ -92,6 +92,107 @@ class SavePresetRequest(BaseModel):
     user_instruction: Optional[str] = None
 
 
+class AddRuleToQueueRequest(BaseModel):
+    """Request model for adding a rule to the queue."""
+    article_id: int
+    rule_yaml: Optional[str] = None  # YAML string
+    rule_json: Optional[Dict[str, Any]] = None  # JSON object (will be converted to YAML)
+    rule_metadata: Optional[Dict[str, Any]] = None
+
+
+@router.post("/add")
+async def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
+    """Add a SIGMA rule to the queue."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        
+        try:
+            # Verify article exists
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail="Article not found")
+            
+            # Get rule YAML - either from rule_yaml or convert from rule_json
+            rule_yaml = add_request.rule_yaml
+            if not rule_yaml and add_request.rule_json:
+                # Convert JSON to YAML
+                rule_yaml = yaml.dump(add_request.rule_json, default_flow_style=False, sort_keys=False)
+            
+            if not rule_yaml:
+                raise HTTPException(status_code=400, detail="Either rule_yaml or rule_json must be provided")
+            
+            # Parse rule YAML to extract metadata if not provided
+            rule_metadata = add_request.rule_metadata
+            if not rule_metadata:
+                try:
+                    rule_dict = yaml.safe_load(rule_yaml) if rule_yaml else {}
+                    rule_metadata = {
+                        'title': rule_dict.get('title'),
+                        'description': rule_dict.get('description'),
+                        'tags': rule_dict.get('tags', []),
+                        'level': rule_dict.get('level'),
+                        'status': rule_dict.get('status', 'experimental')
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to parse rule YAML for metadata: {e}")
+                    rule_metadata = {}
+            
+            # Calculate similarity scores if possible
+            similarity_scores = None
+            max_similarity = None
+            try:
+                matching_service = SigmaMatchingService(db_session)
+                rule_dict = yaml.safe_load(rule_yaml) if rule_yaml else {}
+                if rule_dict and rule_dict.get('title') and rule_dict.get('detection'):
+                    normalized_rule = {
+                        'title': rule_dict.get('title', ''),
+                        'description': rule_dict.get('description', ''),
+                        'tags': rule_dict.get('tags', []),
+                        'logsource': rule_dict.get('logsource', {}),
+                        'detection': rule_dict.get('detection', {}),
+                        'level': rule_dict.get('level'),
+                        'status': rule_dict.get('status', 'experimental'),
+                    }
+                    similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                        proposed_rule=normalized_rule,
+                        threshold=0.0,
+                    )
+                    similarity_scores = similar_matches[:10] if similar_matches else []
+                    max_similarity = max([m.get('similarity', 0.0) for m in similar_matches], default=0.0) if similar_matches else 0.0
+            except Exception as e:
+                logger.warning(f"Failed to calculate similarity scores: {e}")
+            
+            # Create queue entry
+            queue_entry = SigmaRuleQueueTable(
+                article_id=add_request.article_id,
+                workflow_execution_id=None,  # Not from workflow execution
+                rule_yaml=rule_yaml,
+                rule_metadata=rule_metadata,
+                similarity_scores=similarity_scores,
+                max_similarity=max_similarity,
+                status='pending'
+            )
+            db_session.add(queue_entry)
+            db_session.commit()
+            
+            logger.info(f"Added rule to queue: queue_id={queue_entry.id}, article_id={add_request.article_id}")
+            
+            return {
+                "success": True,
+                "queue_id": queue_entry.id,
+                "message": "Rule added to queue successfully"
+            }
+        finally:
+            db_session.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding rule to queue: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/list", response_model=List[QueuedRuleResponse])
 async def list_queued_rules(request: Request, status: Optional[str] = None, limit: int = 50):
     """List queued SIGMA rules."""

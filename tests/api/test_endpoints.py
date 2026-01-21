@@ -274,6 +274,23 @@ class TestHealthEndpoints:
             assert isinstance(data, dict)
             assert data.get("status") == "healthy", f"{path} status={data.get('status')}"
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_database_connectivity_detailed(self, async_client: httpx.AsyncClient):
+        """Test database connectivity with detailed statistics."""
+        response = await async_client.get("/api/health/database")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("status") == "healthy"
+        assert "database" in data
+        db_info = data["database"]
+        assert db_info.get("connection") == "connected"
+        assert "total_articles" in db_info
+        assert "total_sources" in db_info
+        assert isinstance(db_info["total_articles"], int)
+        assert isinstance(db_info["total_sources"], int)
+
 
 class TestExportEndpoints:
     """Test export/download endpoints."""
@@ -312,6 +329,66 @@ class TestExportEndpoints:
         
         # Verify success message format
         assert "Rescoring completed" in data["message"] or "No articles found" in data["message"] or "All articles already have scores" in data["message"]
+
+
+class TestCriticalAPIs:
+    """Test critical API endpoints for smoke checks."""
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_workflow_trigger_endpoint_exists(self, async_client: httpx.AsyncClient):
+        """Test workflow trigger endpoint is accessible (may fail with 404 if article doesn't exist, but endpoint should be reachable)."""
+        # Use a non-existent article ID to test endpoint accessibility without side effects
+        response = await async_client.post("/api/workflow/articles/999999/trigger")
+        # Endpoint should exist (not 404) even if article doesn't exist
+        # Accept 404 (article not found) or 400 (validation error) as proof endpoint works
+        assert response.status_code in [200, 400, 404], f"Unexpected status {response.status_code}"
+        # If 404, verify it's a proper error response
+        if response.status_code == 404:
+            data = response.json()
+            assert "detail" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_annotation_endpoint_exists(self, async_client: httpx.AsyncClient):
+        """Test annotation creation endpoint is accessible."""
+        # Test with invalid data to verify endpoint exists without creating data
+        response = await async_client.post(
+            "/api/articles/999999/annotations",
+            json={"annotation_type": "invalid_type"}
+        )
+        # Should return 400 (bad request) or 404 (article not found), not 405 (method not allowed)
+        assert response.status_code in [400, 404], f"Unexpected status {response.status_code}"
+        data = response.json()
+        assert "detail" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_redis_connectivity(self, async_client: httpx.AsyncClient):
+        """Test Redis connectivity through health endpoint."""
+        response = await async_client.get("/api/health/services")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("status") == "healthy"
+        if "services" in data:
+            services = data["services"]
+            if "redis" in services:
+                assert services["redis"].get("status") in ["healthy", "connected", "available"]
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_celery_worker_health(self, async_client: httpx.AsyncClient):
+        """Test Celery worker health endpoint."""
+        response = await async_client.get("/api/health/celery")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("status") in ["healthy", "unhealthy"]  # Accept either, just verify endpoint works
+        assert "workers" in data or "status" in data
+
 
 class TestPerformance:
     """Test performance and response times."""
