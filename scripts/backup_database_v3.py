@@ -52,7 +52,7 @@ def get_database_stats():
             f"PGPASSWORD={DB_CONFIG['password']}",
             "cti_postgres",
             "psql",
-            f"-h{DB_CONFIG['host']}",
+            "-hlocalhost",  # Use localhost when inside container
             f"-p{DB_CONFIG['port']}",
             f"-U{DB_CONFIG['user']}",
             f"-d{DB_CONFIG['database']}",
@@ -106,8 +106,9 @@ def create_backup(backup_dir: Optional[str] = None):
         logger.info("Getting database statistics...")
         stats = get_database_stats()
         if not stats:
-            logger.error("Failed to get database statistics")
-            return None
+            error_msg = "Failed to get database statistics - check database connection"
+            logger.error(error_msg)
+            return {"success": False, "error": error_msg}
 
         logger.info(
             f"Database contains: {stats['articles']} articles, {stats['sources']} sources, {stats['tables']} tables"
@@ -132,7 +133,7 @@ def create_backup(backup_dir: Optional[str] = None):
             f"PGPASSWORD={DB_CONFIG['password']}",
             "cti_postgres",
             "pg_dump",
-            f"-h{DB_CONFIG['host']}",
+            "-hlocalhost",  # Use localhost when inside container
             f"-p{DB_CONFIG['port']}",
             f"-U{DB_CONFIG['user']}",
             f"-d{DB_CONFIG['database']}",
@@ -156,12 +157,14 @@ def create_backup(backup_dir: Optional[str] = None):
             )
 
         if result.returncode != 0:
-            logger.error(f"pg_dump failed with return code {result.returncode}")
-            logger.error(f"stderr: {result.stderr}")
+            error_msg = f"pg_dump failed with return code {result.returncode}"
+            if result.stderr:
+                error_msg += f": {result.stderr}"
+            logger.error(error_msg)
             # Clean up failed backup file
             if backup_path.exists():
                 backup_path.unlink()
-            return None
+            return {"success": False, "error": error_msg}
 
         # Get backup file size
         backup_size = backup_path.stat().st_size
@@ -169,8 +172,11 @@ def create_backup(backup_dir: Optional[str] = None):
 
         # Verify backup was created successfully
         if not backup_path.exists() or backup_size == 0:
-            logger.error("Backup file was not created or is empty")
-            return None
+            error_msg = "Backup file was not created or is empty"
+            logger.error(error_msg)
+            if backup_path.exists():
+                backup_path.unlink()
+            return {"success": False, "error": error_msg}
 
         # Create metadata file
         metadata = {
@@ -199,11 +205,13 @@ def create_backup(backup_dir: Optional[str] = None):
         }
 
     except subprocess.TimeoutExpired:
-        logger.error("Backup timed out after 5 minutes")
-        return None
+        error_msg = "Backup timed out after 5 minutes"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
     except Exception as e:
-        logger.error(f"Backup failed: {e}")
-        return None
+        error_msg = f"Backup failed: {e}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
 
 
 def main():
