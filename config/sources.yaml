@@ -448,35 +448,35 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Network detection and response (NDR) blog with threat hunting, detection engineering, and threat intelligence research"
 
-  # Sekoia.io Threat Research & Intelligence (RSS-Only)
-  - id: "sekoia_io_blog"
-    name: "Sekoia.io Threat Research & Intelligence"
-    url: "https://blog.sekoia.io/category/threat-research/"
-    rss_url: null  # Disable RSS, use web scraping only
-    check_frequency: 1800  # 30 minutes
-    active: true
-    config:
-      allow: ["blog.sekoia.io"]
-      post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
-      robots:
-        enabled: true  # Enable robots.txt checking for web scraping
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        respect_delay: true
-        max_requests_per_minute: 10  # Respectful rate limiting
-        crawl_delay: 1.0
-      min_content_length: 100  # Very low threshold for RSS summaries
-      min_word_count: 1       # Very low word count for RSS summaries
-      title_filter_keywords: ["newsletter", "subscription", "contact"]
-      rss_only: true   # Use RSS parsing with lenient filters
-      extract:
-        prefer_jsonld: true  # Enable JSON-LD extraction for WordPress sites
-        title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".entry-title"]
-        date_selectors:
-          - "meta[property='article:published_time']::attr(content)"
-          - "time[datetime]::attr(datetime)"
-          - ".entry-date"
-        body_selectors: [".entry-content", "article", ".post-content", ".content"]
-        author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".entry-author"]
+   # Sekoia.io Threat Research & Intelligence (RSS-Only)
+   - id: "sekoia_io_blog"
+     name: "Sekoia.io Threat Research & Intelligence"
+     url: "https://blog.sekoia.io/category/threat-research/"
+     rss_url: null  # Disable RSS, use web scraping only
+     check_frequency: 1800  # 30 minutes
+     active: true
+     config:
+       allow: ["blog.sekoia.io"]
+       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
+       robots:
+         enabled: true  # Enable robots.txt checking for web scraping
+         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+         respect_delay: true
+         max_requests_per_minute: 10  # Respectful rate limiting
+         crawl_delay: 1.0
+       min_content_length: 100  # Very low threshold for RSS summaries
+       min_word_count: 1       # Very low word count for RSS summaries
+       title_filter_keywords: ["newsletter", "subscription", "contact"]
+       rss_only: true   # Use RSS parsing with lenient filters
+       extract:
+         prefer_jsonld: true  # Enable JSON-LD extraction for WordPress sites
+         title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".entry-title"]
+         date_selectors:
+           - "meta[property='article:published_time']::attr(content)"
+           - "time[datetime]::attr(datetime)"
+           - ".entry-date"
+         body_selectors: [".entry-content", "article", ".post-content", ".content"]
+         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".entry-author"]
     description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering (RSS-only to bypass anti-bot protection)"
 
   # Check Point Research
@@ -777,13 +777,12 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".post-author"]
     description: "In-depth security research and vulnerability analysis - updated to new Assetnote location with modern discovery"
 
-  # NCSC UK - Reports via RSS, News/Blog via Web Scraping
+  # NCSC UK (No RSS - Web Scraping Only)
   - id: "ncsc_uk"
     name: "NCSC UK"
     url: "https://www.ncsc.gov.uk/news"
-    rss_url: "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"  # Reports RSS feed
+    rss_url: null  # RSS feed not available - web scraping only
     check_frequency: 3600  # 1 hour
-    lookback_days: 180  # 6 months
     active: true
     config:
       allow: ["ncsc.gov.uk"]
@@ -794,14 +793,14 @@ sources:
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
-      min_content_length: 100  # RSS descriptions are short (~100-200 chars), site is JS-rendered
+      min_content_length: 500
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
-      rss_only: true  # Site is JavaScript-rendered (React), scraping returns empty HTML
+      rss_only: false  # Force web scraping since no RSS
       discovery:
         strategies:
           - sitemap:
               urls: ["https://www.ncsc.gov.uk/sitemap.xml"]
-              url_patterns: ["https://www.ncsc.gov.uk/news/*", "https://www.ncsc.gov.uk/blog-post/*", "https://www.ncsc.gov.uk/report/*"]
+              url_patterns: ["https://www.ncsc.gov.uk/news/*", "https://www.ncsc.gov.uk/blog-post/*"]
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
@@ -810,7 +809,8 @@ sources:
           - "time[datetime]::attr(datetime)"
         body_selectors: ["article", "main", ".content", ".post-content", ".news-content"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
-    description: "UK National Cyber Security Centre official advisories and guidance (Reports via RSS feed - site is JS-rendered)"
+      min_content_length: 2000
+    description: "UK National Cyber Security Centre official advisories and guidance (Web scraping only - RSS feed unavailable)"
 
   # US-CERT
   - id: "us_cert"
