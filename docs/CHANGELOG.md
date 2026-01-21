@@ -59,6 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Workflow UI Button Label** (2026-01-21): Updated "Generate Commands" button to "Generate LMStudio Commands" for clarity
+- **Modal Management Improvements** (2026-01-21): Enhanced prompt history modal cleanup and registration
+  - Improved modal close handling through ModalManager
+  - Better timing for modal registration and cleanup
+  - Removed promptHistoryModal from hardcoded modal list (now dynamic)
+
 ### Added
 - **Restore from Backup Feature** (2026-01-15): Added restore functionality to settings page
   - Restore from Backup button in Backup Actions section
