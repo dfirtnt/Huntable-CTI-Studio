@@ -29,7 +29,7 @@ enable_utc = True
 
 # Worker settings
 worker_prefetch_multiplier = 1
-worker_max_tasks_per_child = 1000
+worker_max_tasks_per_child = int(os.getenv('CELERY_MAX_TASKS_PER_CHILD', '50'))  # Configurable, default 50 to prevent memory leaks
 worker_disable_rate_limits = False
 
 # Task routing
@@ -90,7 +90,7 @@ task_ignore_result = False
 task_store_errors_even_if_ignored = True
 
 # Result backend settings
-result_expires = 3600  # 1 hour
+result_expires = 1800  # 30 minutes (reduced to free memory faster)
 result_persistent = True
 
 # Monitoring
@@ -108,7 +108,7 @@ worker_redirect_stdouts_level = 'INFO'
 
 # Performance
 worker_prefetch_multiplier = 1
-worker_max_tasks_per_child = 1000
+worker_max_tasks_per_child = int(os.getenv('CELERY_MAX_TASKS_PER_CHILD', '50'))  # Configurable, default 50 to prevent memory leaks
 worker_disable_rate_limits = False
 
 # Error handling
