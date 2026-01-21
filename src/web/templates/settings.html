@@ -268,7 +268,9 @@
              </div>
          </div>
 
-        <!-- AI Model Configuration -->
+        <!-- AI Model Configuration - DEPRECATED: AI/ML Assistant modal removed -->
+        <!-- Removed entire AI/ML Assistant Configuration section -->
+        <!--
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
             <div class="flex items-center justify-between cursor-pointer" onclick="toggleAIModelConfig()">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🤖 AL/ML Assistant Configuration</h2>
@@ -442,6 +444,7 @@
 
             </div>
         </div>
+        -->
 
         <!-- Agentic Workflow Configuration -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
@@ -1658,19 +1661,7 @@
         }
     }
 
-    // Toggle AI model configuration section
-    function toggleAIModelConfig() {
-        const content = document.getElementById('aiModelConfigContent');
-        const chevron = document.getElementById('aiModelConfigChevron');
-
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            content.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
+    // Removed: toggleAIModelConfig function (AI/ML Assistant Configuration section removed)
 
     // Toggle agentic workflow configuration section
     function toggleAgenticWorkflowConfig() {

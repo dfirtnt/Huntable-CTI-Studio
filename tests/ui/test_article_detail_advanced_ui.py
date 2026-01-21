@@ -120,10 +120,10 @@ class TestArticleDetailSigmaGeneration:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
             
-            # Find AI Assistant button (opens modal with SIGMA option)
-            ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
-            if ai_btn.count() > 0:
-                expect(ai_btn.first).to_be_visible()
+            # DEPRECATED: AI Assistant button removed
+            # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
+            # if ai_btn.count() > 0:
+            #     expect(ai_btn.first).to_be_visible()
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -517,20 +517,20 @@ class TestArticleDetailAdvancedFeatures:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
             
-            # Find AI Assistant button
-            ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
-            if ai_btn.count() > 0:
-                ai_btn.first.click()
-                page.wait_for_timeout(500)
-                
-                # Verify modal opens
-                ai_modal = page.locator("text=AL/ML Assistant, text=AI/ML Assistant")
-                expect(ai_modal).to_be_visible()
-                
-                # Find SIGMA generation button in modal
-                sigma_btn = page.locator("button:has-text('Generate SIGMA'), button:has-text('SIGMA Rules')")
-                if sigma_btn.count() > 0:
-                    expect(sigma_btn.first).to_be_visible()
+            # DEPRECATED: AI Assistant button and modal removed
+            # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
+            # if ai_btn.count() > 0:
+            #     ai_btn.first.click()
+            #     page.wait_for_timeout(500)
+            #     
+            #     # Verify modal opens
+            #     ai_modal = page.locator("text=AL/ML Assistant, text=AI/ML Assistant")
+            #     expect(ai_modal).to_be_visible()
+            #     
+            #     # Find SIGMA generation button in modal
+            #     sigma_btn = page.locator("button:has-text('Generate SIGMA'), button:has-text('SIGMA Rules')")
+            #     if sigma_btn.count() > 0:
+            #         expect(sigma_btn.first).to_be_visible()
     
     @pytest.mark.ui
     @pytest.mark.articles

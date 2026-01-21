@@ -445,7 +445,7 @@ def pytest_configure(config):
     
     # Register custom markers to satisfy strict marker checks
     config.addinivalue_line("markers", "ui: UI tests")
-    config.addinivalue_line("markers", "ai: AI assistant and summarization tests")
+    config.addinivalue_line("markers", "ai: AI integration tests (AI Assistant UI deprecated)")
     config.addinivalue_line("markers", "e2e: End-to-end tests using Playwright")
     config.addinivalue_line("markers", "unit: Unit tests")
     config.addinivalue_line("markers", "integration: Integration tests")
