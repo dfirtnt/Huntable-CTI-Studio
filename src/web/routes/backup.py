@@ -190,3 +190,83 @@ async def api_backup_status():
         logger.error("Backup status error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+
+@router.post("/restore")
+async def api_restore_backup(request: Request):
+    """API endpoint for restoring from a backup."""
+    try:
+        payload = await request.json()
+        backup_name = payload.get("backup_name")
+        if not backup_name:
+            raise HTTPException(status_code=400, detail="backup_name is required")
+        
+        backup_dir = payload.get("backup_dir", "backups")
+        components = payload.get("components")
+        force = payload.get("force", False)
+        no_snapshot = payload.get("no_snapshot", False)
+
+        project_root = Path(__file__).parent.parent.parent.parent
+        
+        # Determine which restore script to use
+        backup_path = Path(backup_name)
+        if not backup_path.is_absolute():
+            backup_path = Path(backup_dir) / backup_name
+        
+        # Check if it's a system backup directory
+        if backup_path.is_dir() and backup_name.startswith('system_backup_'):
+            script_path = project_root / 'scripts' / 'restore_system.py'
+            if not script_path.exists():
+                raise HTTPException(status_code=500, detail="System restore script not found")
+            
+            cmd = [sys.executable, str(script_path), backup_name, '--backup-dir', backup_dir]
+            
+            if components:
+                cmd.extend(['--components', components])
+            # Always pass --force when called from API to skip interactive confirmation
+            # (user already confirmed in UI). Note: --force also skips snapshot creation.
+            cmd.append('--force')
+            # If user explicitly wants to skip snapshot, add --no-snapshot
+            # (though --force already prevents snapshot, this is for clarity)
+            if no_snapshot:
+                cmd.append('--no-snapshot')
+        else:
+            # Use legacy database restore script
+            script_path = project_root / 'scripts' / 'restore_database.py'
+            if not script_path.exists():
+                raise HTTPException(status_code=500, detail="Database restore script not found")
+            
+            cmd = [sys.executable, str(script_path), str(backup_path)]
+            
+            # Always pass --force when called from API to skip interactive confirmation
+            cmd.append('--force')
+            if no_snapshot:
+                cmd.append('--no-snapshot')
+
+        result = subprocess.run(
+            cmd,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=600,  # Restore can take longer
+            check=False,
+        )
+
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "message": "Restore completed successfully",
+                "output": result.stdout,
+            }
+
+        raise HTTPException(
+            status_code=500, detail=f"Restore failed: {result.stderr or result.stdout}"
+        )
+
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(status_code=500, detail="Restore timed out") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Restore error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
