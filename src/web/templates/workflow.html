@@ -2069,6 +2069,10 @@ function switchTab(tab) {
             loadExecutions().catch(err => console.error('Error loading executions:', err));
     } else if (tab === 'queue') {
             loadQueue().catch(err => console.error('Error loading queue:', err));
+            // Check URL parameter on tab switch (in case data is already loaded)
+            setTimeout(() => {
+                checkAndTriggerPreview();
+            }, 500);
         }
     } catch (error) {
         console.error(`Error loading tab ${tab}:`, error);
@@ -10593,6 +10597,7 @@ let currentEnrichedYaml = null; // Track current enriched state for iterative en
 let enrichIteration = 0; // Track number of enrichment iterations
 let originalYaml = '';
 let editedYaml = '';
+let pendingPreviewId = null; // Track previewId from URL while data loads
 
 function getQueueStatusBadge(status) {
     const badges = {
@@ -10615,6 +10620,8 @@ async function loadQueue() {
             queue = await response.json();
             renderQueue();
             updateQueueStats();
+            // Check if we need to trigger preview from URL parameter
+            checkAndTriggerPreview();
         } else {
             console.error('Failed to load queue:', response.status, response.statusText);
             const tbody = document.getElementById('queueTableBody');
@@ -10640,6 +10647,8 @@ function renderQueue() {
     
     if (queue.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        // Check if we need to trigger preview from URL parameter even with empty queue
+        checkAndTriggerPreview();
         return;
     }
     
@@ -10648,7 +10657,7 @@ function renderQueue() {
         const title = metadata.title || 'Untitled Rule';
         
         return `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <tr id="queue-row-${rule.id}" class="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
                 <td class="px-6 py-4 text-sm">
                     <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
@@ -10673,6 +10682,27 @@ function renderQueue() {
             </tr>
         `;
     }).join('');
+    
+    // Check if we need to scroll to a specific queue item
+    const hash = window.location.hash;
+    const queueMatch = hash.match(/^#queue-(\d+)$/);
+    if (queueMatch) {
+        const queueId = parseInt(queueMatch[1]);
+        setTimeout(() => {
+            const row = document.getElementById(`queue-row-${queueId}`);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Highlight the row briefly
+                row.classList.add('bg-yellow-100', 'dark:bg-yellow-900');
+                setTimeout(() => {
+                    row.classList.remove('bg-yellow-100', 'dark:bg-yellow-900');
+                }, 2000);
+            }
+        }, 100);
+    }
+    
+    // Check if we need to trigger preview from URL parameter after rendering
+    checkAndTriggerPreview();
 }
 
 function updateQueueStats() {
@@ -10707,6 +10737,9 @@ function previewRule(ruleId) {
     originalYaml = rule.rule_yaml;
     editedYaml = rule.rule_yaml;
     resetQualityReviewCard();
+    
+    // Update URL with previewId parameter
+    updateURLParameter('previewId', ruleId);
     
     renderRulePreview(rule);
     pushModal('ruleModal', false); // Don't hide previous, rule modal is base level
@@ -11058,6 +11091,9 @@ function closeRuleModal() {
     originalYaml = '';
     editedYaml = '';
     resetQualityReviewCard();
+    // Remove previewId from URL
+    removeURLParameter('previewId');
+    pendingPreviewId = null;
     // Clear validation results if any
     const validationResult = document.getElementById('validationResult');
     if (validationResult) {
@@ -13482,57 +13518,12 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
                         </div>
                     ` : ''}
                     
-                    ${match.similarity_breakdown || match.atom_jaccard !== undefined ? `
-                        <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded">
-                            <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
-                            <div class="grid grid-cols-2 gap-1 text-xs">
-                                <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${((match.atom_jaccard || match.similarity_breakdown?.atom_jaccard || 0) * 100).toFixed(1)}%</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${match.logic_shape_similarity === null || match.logic_shape_similarity === undefined || match.similarity_breakdown?.logic_shape_similarity === null || match.similarity_breakdown?.logic_shape_similarity === undefined ? 'N/A' : ((match.logic_shape_similarity || match.similarity_breakdown?.logic_shape_similarity || 0) * 100).toFixed(1) + '%'}</span>
-                                </div>
-                                <div class="col-span-2 pt-1 border-t border-blue-200 dark:border-blue-700 flex justify-between">
-                                    <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
-                                    <span class="font-medium text-blue-700 dark:text-blue-300">${similarityPercent}%</span>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${(match.shared_atoms && match.shared_atoms.length > 0) || (match.added_atoms && match.added_atoms.length > 0) || (match.removed_atoms && match.removed_atoms.length > 0) || (match.filter_differences && match.filter_differences.length > 0) ? `
-                        <div class="mt-3 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded">
-                            <div class="text-xs font-bold text-gray-900 dark:text-gray-100 mb-2">📊 Explainability:</div>
-                            <div class="space-y-2 text-xs">
-                                ${match.shared_atoms && match.shared_atoms.length > 0 ? `
-                                    <div>
-                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Shared Atoms:</div>
-                                        <div class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.shared_atoms.join('\n'))}</div>
-                                    </div>
-                                ` : ''}
-                                ${match.added_atoms && match.added_atoms.length > 0 ? `
-                                    <div>
-                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Atoms in Current Rule (not in Similar Rule):</div>
-                                        <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.added_atoms.join('\n'))}</div>
-                                    </div>
-                                ` : ''}
-                                ${match.removed_atoms && match.removed_atoms.length > 0 ? `
-                                    <div>
-                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Atoms in Similar Rule (not in Current Rule):</div>
-                                        <div class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.removed_atoms.join('\n'))}</div>
-                                    </div>
-                                ` : ''}
-                                ${match.filter_differences && match.filter_differences.length > 0 ? `
-                                    <div>
-                                        <div class="font-medium text-gray-700 dark:text-gray-300 mb-1">Filter Differences (NOT logic):</div>
-                                        <div class="bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded p-2 font-mono text-gray-900 dark:text-gray-100 whitespace-pre-wrap">${escapeHtml(match.filter_differences.join('\n'))}</div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    ` : ''}
+                    ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { 
+                        mode: 'compact', 
+                        includeExplainability: true,
+                        ruleALabel: 'Current Rule',
+                        ruleBLabel: 'Similar Rule'
+                    }) : ''}
                     
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                         <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-gray-100">${escapeHtml(match.rule_id || 'N/A')}</code></div>
@@ -13761,6 +13752,62 @@ function filterQueue() {
 }
 
 // Hash normalization will happen in DOMContentLoaded
+
+// URL parameter utilities for deep-linking
+function getURLParameter(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+}
+
+function updateURLParameter(name, value) {
+    const url = new URL(window.location);
+    url.searchParams.set(name, value);
+    window.history.replaceState({}, '', url);
+}
+
+function removeURLParameter(name) {
+    const url = new URL(window.location);
+    url.searchParams.delete(name);
+    window.history.replaceState({}, '', url);
+}
+
+// Check URL for previewId and trigger preview if data is loaded
+function checkAndTriggerPreview() {
+    const previewId = getURLParameter('previewId');
+    if (!previewId) {
+        pendingPreviewId = null;
+        return;
+    }
+    
+    const ruleId = parseInt(previewId, 10);
+    if (isNaN(ruleId)) {
+        removeURLParameter('previewId');
+        pendingPreviewId = null;
+        return;
+    }
+    
+    // Check if rule exists in loaded queue
+    const rule = queue.find(r => r.id === ruleId);
+    if (rule) {
+        // Rule found, trigger preview
+        pendingPreviewId = null;
+        // Use setTimeout to ensure modal can be opened (avoid race conditions)
+        setTimeout(() => {
+            previewRule(ruleId);
+        }, 100);
+    } else {
+        // Rule not found yet, store for later
+        pendingPreviewId = ruleId;
+    }
+}
+
+// Listen for URL changes (back/forward navigation)
+window.addEventListener('popstate', function(event) {
+    // Only check if we're on the queue tab
+    if (currentTab === 'queue') {
+        checkAndTriggerPreview();
+    }
+});
 
 // Auto-refresh active tab
 setInterval(() => {
@@ -14608,6 +14655,9 @@ function initializeTabs() {
         }
         if (hash && ['config', 'executions', 'queue'].includes(hash)) {
             switchTab(hash);
+        } else if (hash && hash.startsWith('queue-')) {
+            // Handle queue with specific ID (e.g., queue-123)
+            switchTab('queue');
         } else {
             // Default to config tab
             switchTab('config');
@@ -14626,6 +14676,9 @@ function initializeTabs() {
         switchTab('executions');
     } else if (hash && ['config', 'executions', 'queue'].includes(hash)) {
         switchTab(hash);
+    } else if (hash && hash.startsWith('queue-')) {
+        // Handle queue with specific ID (e.g., queue-123)
+        switchTab('queue');
     } else {
         // Default to config tab
         switchTab('config');
