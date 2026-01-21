@@ -1258,7 +1258,7 @@
                     <button type="button" 
                             onclick="showGenerateCommandsModal()" 
                             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
-                        🔧 Generate Commands
+                        🔧 Generate LMStudio Commands
                     </button>
                     <div class="flex space-x-4">
                         <button type="button" 
@@ -3965,14 +3965,11 @@ async function showPromptHistoryModal(agentName, versions) {
     const existingModal = document.getElementById('promptHistoryModal');
     if (existingModal) {
         if (window.ModalManager) {
-            const stack = window.ModalManager.getStack();
-            while (stack.includes('promptHistoryModal')) {
-                const index = stack.indexOf('promptHistoryModal');
-                stack.splice(index, 1);
-            }
+            // Properly close modal through ModalManager to unregister handlers
+            window.ModalManager.close('promptHistoryModal');
         }
         existingModal.remove();
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 50));
     }
     
     const modal = document.createElement('div');
@@ -4061,13 +4058,14 @@ async function showPromptHistoryModal(agentName, versions) {
     // Register and open with ModalManager
     if (window.ModalManager) {
         setTimeout(() => {
+            // Register the new dynamic modal (will update registration if already exists)
             window.ModalManager.register('promptHistoryModal', {
                 isDynamic: true,
                 hasInput: false
             });
             window.ModalManager.open('promptHistoryModal');
             modal.classList.remove('hidden');
-        }, 50);
+        }, 100);
     }
 }
 
@@ -13089,7 +13087,6 @@ document.addEventListener('DOMContentLoaded', function() {
             'triggerWorkflowModal',
             'ruleModal',
             'enrichModal',
-            'promptHistoryModal',
             'presetListModal'
         ];
         
