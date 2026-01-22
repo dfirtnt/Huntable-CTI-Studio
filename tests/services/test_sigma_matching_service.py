@@ -42,7 +42,9 @@ class TestSigmaMatchingService:
         """Create SigmaMatchingService instance with mocked dependencies."""
         with patch('src.services.sigma_matching_service.EmbeddingService', return_value=mock_embedding_service), \
              patch('src.services.sigma_matching_service.LMStudioEmbeddingClient', return_value=mock_sigma_embedding_client):
-            return SigmaMatchingService(mock_db_session)
+            service = SigmaMatchingService(mock_db_session)
+            service.db = mock_db_session  # Ensure db is set correctly
+            return service
 
     @pytest.fixture
     def sample_article(self):
@@ -188,19 +190,19 @@ class TestSigmaMatchingService:
         chunk2.perfect_discriminators_found = []
         chunk2.lolbas_matches_found = []
         
-        # Mock chunk query
+        # Mock chunk query chain: query(Model).filter_by(...).all()
+        mock_filter_by_result = Mock()
+        mock_filter_by_result.all.return_value = [chunk1, chunk2]
         mock_chunk_query = Mock()
-        mock_chunk_query.filter_by.return_value.all.return_value = [chunk1, chunk2]
+        mock_chunk_query.filter_by.return_value = mock_filter_by_result
         mock_db_session.query.return_value = mock_chunk_query
         
-        # Mock embedding generation
-        with patch.object(service.embedding_service, 'generate_embedding') as mock_embed:
-            mock_embed.return_value = [0.2] * 768
+        # Mock embedding generation - synchronous method (not async)
+        with patch.object(service.embedding_service, 'generate_embedding', new=Mock(return_value=[0.2] * 768)) as mock_embed:
             
-            # Mock database execute
-            mock_result = Mock()
-            mock_row = Mock()
-            mock_row.__getitem__.side_effect = lambda idx: [
+            # Mock database execute - result should be iterable
+            # The execute method returns a result object that can be iterated
+            mock_row = tuple([
                 sample_sigma_rule['id'],
                 sample_sigma_rule['rule_id'],
                 sample_sigma_rule['title'],
@@ -211,11 +213,25 @@ class TestSigmaMatchingService:
                 sample_sigma_rule['level'],
                 sample_sigma_rule['status'],
                 sample_sigma_rule['file_path'],
-                0.90  # signature_sim
-            ][idx]
-            mock_result.__iter__.return_value = [mock_row]
-            mock_db_session.execute.return_value = mock_result
+                0.90  # signature_sim - high enough to pass threshold * weight (0.0 * 0.874 = 0.0)
+            ])
+            # Create a result object that is iterable - use a list that can be iterated
+            mock_result_rows = [mock_row]
             
+            # Mock execute to return the result - ensure service.db.execute works
+            def mock_execute(query, params=None):
+                # Return an object that can be iterated
+                class MockResult:
+                    def __iter__(self):
+                        return iter(mock_result_rows)
+                return MockResult()
+            
+            # Set execute on the db session that service uses
+            mock_db_session.execute = Mock(side_effect=mock_execute)
+            # Also ensure service.db points to mock_db_session
+            service.db = mock_db_session
+            
+            # Use threshold=0.0 to ensure all matches pass
             matches = service.match_chunks_to_rules(article_id=1, threshold=0.0, limit_per_chunk=5)
             
             assert len(matches) > 0

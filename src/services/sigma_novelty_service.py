@@ -149,12 +149,26 @@ class SigmaNoveltyService:
             # Step 4: Compute similarity metrics for each candidate
             matches = []
             for candidate in candidates:
+                # Check for exact hash match first (duplicate detection)
+                is_exact_match = isinstance(candidate, dict) and candidate.get('exact_hash_match', False)
+                
                 # Parse candidate rule if needed
                 if isinstance(candidate, dict):
                     candidate_canonical = self.build_canonical_rule(candidate)
                 else:
                     # Assume it's already a CanonicalRule
                     candidate_canonical = candidate
+                
+                # If exact hash match, short-circuit to duplicate (skip similarity computation)
+                if is_exact_match:
+                    matches.append({
+                        'rule_id': candidate.get('rule_id', '') if isinstance(candidate, dict) else '',
+                        'exact_hash_match': True,
+                        'similarity': 1.0,
+                        'atom_jaccard': 1.0,
+                        'logic_shape_similarity': 1.0
+                    })
+                    continue
                 
                 # Compute metrics
                 atom_jaccard = self.compute_atom_jaccard(
@@ -201,10 +215,6 @@ class SigmaNoveltyService:
                         'similarity': weighted_sim,
                         **explainability
                     }
-                    
-                    # Preserve exact_hash_match flag if present (for duplicate detection)
-                    if isinstance(candidate, dict) and candidate.get('exact_hash_match'):
-                        match_dict['exact_hash_match'] = True
                     
                     matches.append(match_dict)
             

@@ -65,6 +65,7 @@ class TestDatabaseManager:
         """Test getting article count."""
         # Test model structure
         from src.database.models import ArticleTable
+        from datetime import datetime
         
         # Create a mock article
         article = ArticleTable(
@@ -72,7 +73,7 @@ class TestDatabaseManager:
             content="Test content",
             canonical_url="https://example.com",
             source_id=1,
-            published_at="2024-01-01T00:00:00Z",
+            published_at=datetime.now(),
             content_hash="test_hash"
         )
         
@@ -198,7 +199,7 @@ class TestAsyncDatabaseManager:
         
         assert article_data.title == 'Test Article'
         assert article_data.content == 'Test content'
-        assert article_data.url == 'https://example.com/article'
+        assert article_data.canonical_url == 'https://example.com/article'
         assert article_data.source_id == 1
     
     @pytest.mark.asyncio
@@ -254,6 +255,7 @@ class TestDatabaseModels:
     
     def test_article_relationships(self):
         """Test Article model relationships."""
+        from datetime import datetime
         source = SourceTable(
             name='Test Source',
             url='https://example.com/feed.xml',
@@ -264,9 +266,9 @@ class TestDatabaseModels:
         article = ArticleTable(
             title='Test Article',
             content='Test content',
-            url='https://example.com/article',
+            canonical_url='https://example.com/article',
             source=source,
-            published_at='2024-01-01T00:00:00Z'
+            published_at=datetime.now()
         )
         
         assert article.source == source
@@ -274,13 +276,14 @@ class TestDatabaseModels:
     
     def test_model_validation(self):
         """Test model validation."""
+        from datetime import datetime
         # Test Article with required fields
         article = ArticleTable(
             title='Test Article',
             content='Test content',
             canonical_url='https://example.com/article',
             source_id=1,
-            published_at='2024-01-01T00:00:00Z',
+            published_at=datetime.now(),
             content_hash='test_hash'
         )
         
@@ -292,12 +295,12 @@ class TestDatabaseModels:
         source = SourceTable(
             name='Test Source',
             url='https://example.com/feed.xml',
-            type='rss'
+            identifier='test-source'
         )
         
         assert source.name is not None
         assert source.url is not None
-        assert source.type is not None
+        assert source.identifier is not None
 
 
 if __name__ == "__main__":

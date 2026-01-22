@@ -53,10 +53,10 @@ class TestSigmaNoveltyService:
 
     def test_assess_novelty_duplicate_rule(self, service, sample_rule):
         """Test novelty assessment for duplicate rule."""
-        # Mock retrieve_candidates to return exact match
+        # Mock retrieve_candidates to return exact match with exact_hash_match flag
         exact_hash = service.generate_exact_hash(service.build_canonical_rule(sample_rule))
         service.retrieve_candidates = Mock(return_value=[
-            {'exact_hash': exact_hash, 'rule_id': 'existing-rule-123'}
+            {'exact_hash': exact_hash, 'rule_id': 'existing-rule-123', 'exact_hash_match': True}
         ])
         
         result = service.assess_novelty(sample_rule, threshold=0.7)

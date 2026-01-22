@@ -299,7 +299,7 @@ class SigmaAgentEvaluator(BaseAgentEvaluator):
         novelty_scores = [
             e.get('novelty', {}).get('novelty_score')
             for e in evaluations
-            if e.get('novelty', {}).get('novelty_score') is not None
+            if e.get('novelty') and isinstance(e.get('novelty'), dict) and e.get('novelty', {}).get('novelty_score') is not None
         ]
         
         metrics = {

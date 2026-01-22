@@ -44,8 +44,11 @@ class TestSigmaAgentEvaluator:
         """Create mock behavioral normalizer."""
         normalizer = Mock()
         normalizer.extract_behavioral_core = Mock(return_value=BehavioralCore(
-            behaviors=[],
-            logsource={'category': 'process_creation', 'product': 'windows'}
+            behavior_selectors=[],
+            commandlines=[],
+            process_chains=[],
+            core_hash="test-hash",
+            selector_count=0
         ))
         return normalizer
 
@@ -68,7 +71,9 @@ class TestSigmaAgentEvaluator:
         scorer = Mock()
         scorer.score_rule = Mock(return_value=HuntabilityScore(
             score=85.0,
-            factors={}
+            false_positive_risk="low",
+            coverage_notes="Good coverage",
+            breakdown={}
         ))
         return scorer
 
@@ -77,8 +82,12 @@ class TestSigmaAgentEvaluator:
         """Create mock stability tester."""
         tester = Mock()
         tester.test_stability = AsyncMock(return_value=StabilityResult(
-            variance=0.1,
-            is_stable=True
+            unique_hashes=1,
+            semantic_variance=0.1,
+            selectors_variance=0.05,
+            stability_score=0.9,
+            hash_consistency=1.0,
+            core_hashes=["test-hash"]
         ))
         return tester
 
@@ -86,10 +95,12 @@ class TestSigmaAgentEvaluator:
     def mock_novelty_detector(self):
         """Create mock novelty detector."""
         detector = Mock()
-        detector.detect_novelty = AsyncMock(return_value=NoveltyResult(
-            is_novel=True,
-            similarity_scores={}
-        ))
+        detector.detect_novelty = AsyncMock(return_value={
+            'novelty_label': 'NOVEL',
+            'novelty_score': 1.0,
+            'logsource_key': '',
+            'top_matches': []
+        })
         return detector
 
     @pytest.fixture
@@ -151,7 +162,7 @@ level: medium
         )
         
         assert 'structural_validation' in result
-        assert 'semantic_equivalence' in result
+        assert 'semantic_comparison' in result  # Changed from semantic_equivalence
         assert 'huntability_score' in result
         assert 'stability' in result
         assert 'novelty' in result
@@ -161,7 +172,14 @@ level: medium
                                                            mock_validator, mock_normalizer):
         """Test evaluation with validation failure."""
         mock_validator.validate.return_value = ExtendedValidationResult(
-            is_valid=False,
+            pySigma_passed=False,
+            pySigma_errors=['Missing required field: detection'],
+            telemetry_feasible=False,
+            condition_valid=False,
+            pattern_safe=False,
+            ioc_leakage=False,
+            field_conformance=False,
+            final_pass=False,
             errors=['Missing required field: detection'],
             warnings=[]
         )
@@ -172,10 +190,10 @@ level: medium
             article_id=1
         )
         
-        assert result['structural_validation']['is_valid'] is False
+        assert result['structural_validation']['final_pass'] is False
 
     @pytest.mark.asyncio
-    async def test_evaluate_dataset(self, evaluator, tmp_path):
+    async def test_evaluate_dataset(self, evaluator, tmp_path, sample_rule):
         """Test dataset evaluation."""
         # Create test dataset file
         test_data = [
@@ -183,7 +201,8 @@ level: medium
                 'article_id': 1,
                 'expected_sigma_rules': [],
                 'reference_rules': [sample_rule],
-                'generated_rule': sample_rule
+                'generated_rule': sample_rule,
+                'article': {'id': 1, 'title': 'Test Article'}  # Add article data
             }
         ]
         
@@ -200,7 +219,7 @@ level: medium
             generate_rule_func=mock_generate_rule
         )
         
-        assert 'results' in result or 'metrics' in result
+        assert 'total_articles' in result or 'valid_results' in result  # Returns metrics dict, not results
 
     def test_calculate_metrics(self, evaluator):
         """Test metrics calculation."""
@@ -219,5 +238,5 @@ level: medium
         
         metrics = evaluator.calculate_metrics()
         
-        assert 'total_examples' in metrics
-        assert 'valid_rules' in metrics or 'validation_rate' in metrics
+        assert 'total_articles' in metrics  # Changed from total_examples
+        assert 'valid_rules' in metrics or 'validation_rate' in metrics or 'structural_validation_pass_rate' in metrics
