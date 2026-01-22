@@ -413,7 +413,7 @@ session_id = f"workflow_exec_{execution.id}"
 agent_chat_url = f"{langfuse_host}/project/{project_id}/sessions/{session_id}"
 ```
 
-**Example URL**: `https://us.cloud.langfuse.com/project/cmhk4f8nr02m9ad07cq29m3be/sessions/workflow_exec_86`
+**Example URL**: `https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86`
 
 ### Viewing Traces
 

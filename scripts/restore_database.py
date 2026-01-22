@@ -201,11 +201,23 @@ def restore_database(
         copy_cmd = ["docker", "cp", temp_path, f"cti_postgres:/tmp/restore.sql"]
         subprocess.run(copy_cmd, check=True)
 
+        # Terminate all active connections to the database before dropping
+        print("🔌 Terminating active database connections...")
+        terminate_cmd = get_docker_exec_cmd(
+            "cti_postgres",
+            f"psql -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} -d postgres -c \"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_CONFIG['database']}' AND pid <> pg_backend_pid();\"",
+        )
+        result = subprocess.run(terminate_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"⚠️  Warning: Some connections may not have been terminated: {result.stderr}")
+        else:
+            print("✅ Active connections terminated")
+
         # Drop and recreate database
         print("🗑️  Dropping existing database...")
         drop_cmd = get_docker_exec_cmd(
             "cti_postgres",
-            f"psql -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} -c 'DROP DATABASE IF EXISTS {DB_CONFIG['database']};'",
+            f"psql -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} -d postgres -c 'DROP DATABASE IF EXISTS {DB_CONFIG['database']};'",
         )
         subprocess.run(drop_cmd, check=True)
 

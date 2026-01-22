@@ -41,7 +41,7 @@ https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_{execu
 
 **Example**: For execution #86, the session URL is:
 ```
-https://us.cloud.langfuse.com/project/cmhk4f8nr02m9ad07cq29m3be/sessions/workflow_exec_86
+https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86
 ```
 
 ### Session Structure
@@ -128,7 +128,7 @@ LangFuse configuration is set via environment variables:
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_HOST=https://us.cloud.langfuse.com
-LANGFUSE_PROJECT_ID=cmhk4f8nr02m9ad07cq29m3be
+LANGFUSE_PROJECT_ID=your-project-id
 ```
 
 ### Code References
