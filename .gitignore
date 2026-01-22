@@ -153,8 +153,6 @@ config/production.yaml
 config/secrets.yaml
 
 # AI/ML models
-models/
-*.pkl
 *.joblib
 *.h5
 *.onnx
