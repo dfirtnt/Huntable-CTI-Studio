@@ -117,7 +117,7 @@ async def api_dashboard_data():
             recent_articles_query = """
                 SELECT created_at, title 
                 FROM articles 
-                WHERE created_at > NOW() - INTERVAL '24 hours'
+                WHERE created_at > NOW() - INTERVAL '72 hours'
                 ORDER BY created_at DESC 
                 LIMIT 3
             """
@@ -125,7 +125,7 @@ async def api_dashboard_data():
                 SELECT check_time, success, method, articles_found, s.name as source_name
                 FROM source_checks sc
                 JOIN sources s ON sc.source_id = s.id
-                WHERE check_time > NOW() - INTERVAL '24 hours'
+                WHERE check_time > NOW() - INTERVAL '72 hours'
                 ORDER BY check_time DESC 
                 LIMIT 3
             """
