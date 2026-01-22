@@ -284,20 +284,116 @@
     }
 
     /**
+     * Get computed z-index of an element
+     */
+    function getZIndex(element) {
+        let zIndex = 0;
+        let el = element;
+        while (el && el !== document.body) {
+            const style = window.getComputedStyle(el);
+            const z = parseInt(style.zIndex, 10);
+            if (!isNaN(z) && z > 0) {
+                zIndex = z;
+                break;
+            }
+            el = el.parentElement;
+        }
+        return zIndex;
+    }
+
+    /**
+     * Get DOM order of element (position in document)
+     */
+    function getDOMOrder(element) {
+        const allElements = document.querySelectorAll('*');
+        for (let i = 0; i < allElements.length; i++) {
+            if (allElements[i] === element) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Find all visible modals on the page
+     * @returns {Array<Object>} Array of visible modal objects with id, element, zIndex, domOrder
+     */
+    function findVisibleModals() {
+        const visibleModals = [];
+        // Check registered modals first
+        modalRegistry.forEach((config, modalId) => {
+            const modal = config.element;
+            if (modal && !modal.classList.contains('hidden') && 
+                (modal.classList.contains('fixed') || modal.style.position === 'fixed')) {
+                visibleModals.push({ 
+                    id: modalId, 
+                    element: modal, 
+                    zIndex: getZIndex(modal), 
+                    domOrder: getDOMOrder(modal) 
+                });
+            }
+        });
+        
+        // Also check for any unregistered modals that match common patterns
+        const allModals = document.querySelectorAll('[id$="Modal"], [id*="modal"][class*="fixed"], [id*="Modal"][class*="fixed"]');
+        allModals.forEach(modal => {
+            if (!modal.classList.contains('hidden') && 
+                (modal.classList.contains('fixed') || modal.style.position === 'fixed') &&
+                !visibleModals.find(m => m.element === modal)) {
+                visibleModals.push({ 
+                    id: modal.id || null, 
+                    element: modal, 
+                    zIndex: getZIndex(modal), 
+                    domOrder: getDOMOrder(modal) 
+                });
+            }
+        });
+        
+        // Sort by z-index (highest first), then by DOM order (last = topmost)
+        visibleModals.sort((a, b) => {
+            if (b.zIndex !== a.zIndex) {
+                return b.zIndex - a.zIndex;
+            }
+            return b.domOrder - a.domOrder;
+        });
+        return visibleModals;
+    }
+
+    /**
      * Close topmost modal (used by Escape key)
      */
     function closeTopModal() {
-        if (modalStack.length === 0) return;
-
-        const topModalId = modalStack[modalStack.length - 1];
-        closeModal(topModalId);
+        // First try stack
+        if (modalStack.length > 0) {
+            const topModalId = modalStack[modalStack.length - 1];
+            closeModal(topModalId);
+            return;
+        }
+        
+        // If stack is empty, find visible modals and close the topmost one
+        const visibleModals = findVisibleModals();
+        if (visibleModals.length > 0) {
+            const topModal = visibleModals[0];
+            if (topModal.id) {
+                // Register if not registered
+                if (!modalRegistry.has(topModal.id)) {
+                    registerModal(topModal.id, { isDynamic: false });
+                }
+                closeModal(topModal.id);
+            } else {
+                // No ID - just hide it
+                topModal.element.classList.add('hidden');
+            }
+        }
     }
 
     /**
      * Check if any modal is open
      */
     function isAnyModalOpen() {
-        return modalStack.length > 0;
+        if (modalStack.length > 0) return true;
+        // Also check for visible modals that might not be in stack
+        return findVisibleModals().length > 0;
     }
 
     /**
@@ -310,10 +406,33 @@
     // Global Escape key handler (only register once)
     if (!window._modalManagerEscHandlerRegistered) {
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && isAnyModalOpen()) {
-                e.preventDefault();
-                e.stopPropagation();
-                closeTopModal();
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                const visibleModals = findVisibleModals();
+                
+                if (visibleModals.length > 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Get the topmost visible modal
+                    const topModal = visibleModals[0];
+                    
+                    // If it's in the stack, use closeTopModal
+                    if (topModal.id && modalStack.includes(topModal.id)) {
+                        closeTopModal();
+                    } else {
+                        // Modal not in stack - close it directly
+                        if (topModal.id) {
+                            // Try to register and close properly
+                            if (!modalRegistry.has(topModal.id)) {
+                                registerModal(topModal.id, { isDynamic: false });
+                            }
+                            closeModal(topModal.id);
+                        } else {
+                            // No ID - just hide it
+                            topModal.element.classList.add('hidden');
+                        }
+                    }
+                }
             }
         }, true); // Use capture phase to handle before other handlers
         window._modalManagerEscHandlerRegistered = true;

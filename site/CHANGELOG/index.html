@@ -1,0 +1,4327 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern docs for the Huntable CTI Studio (CTIScraper)">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Changelog - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#changelog" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Changelog
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/run_locally/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run locally
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/add_feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/extract_observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/generate_sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/evaluate_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/qa_loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/TECHNICAL_READOUT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Readout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/DEVELOPMENT_SETUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/PORT_CONFIGURATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/WEB_APP_TESTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/DATABASE_QUERY_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/CONTENT_FILTERING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/OS_DETECTION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#500-callisto-2026-01-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [5.0.0 "Callisto"] - 2026-01-15
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[5.0.0 &#34;Callisto&#34;] - 2026-01-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Unreleased]
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[Unreleased]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#current-status-next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Status &amp; Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#improved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Improved
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#400-kepler-2025-11-04" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [4.0.0 "Kepler"] - 2025-11-04
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[4.0.0 &#34;Kepler&#34;] - 2025-11-04">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#300-copernicus-2025-10-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [3.0.0 "Copernicus"] - 2025-10-28
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[3.0.0 &#34;Copernicus&#34;] - 2025-10-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#technical-details_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Unreleased]
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[Unreleased]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#technical-details_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#technical-details_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#previous-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Previous Releases]
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[Previous Releases]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#removed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added-previous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added (Previous)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#200-tycho-2025-08-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [2.0.0 "Tycho"] - 2025-08-28
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[2.0.0 &#34;Tycho&#34;] - 2025-08-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#123-2024-12-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.2.3] - 2024-12-10
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.2.3] - 2024-12-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#122-2024-11-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.2.2] - 2024-11-25
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.2.2] - 2024-11-25">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#121-2024-11-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.2.1] - 2024-11-15
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.2.1] - 2024-11-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#120-2024-10-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.2.0] - 2024-10-30
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.2.0] - 2024-10-30">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#110-2024-09-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.1.0] - 2024-09-15
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.1.0] - 2024-09-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#100-2024-08-01" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.0.0] - 2024-08-01
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.0.0] - 2024-08-01">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-guides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Guides
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration Guides">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-1x-to-20" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from 1.x to 2.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-11-to-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from 1.1 to 1.2
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release Notes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release Notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-200" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version 2.0.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-123" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version 1.2.3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version 1.0.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Support
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="changelog">Changelog</h1>
+<p>All notable changes to CTI Scraper will be documented in this file.</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
+and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="500-callisto-2026-01-15">[5.0.0 "Callisto"] - 2026-01-15</h2>
+<h3 id="added">Added</h3>
+<ul>
+<li><strong>Stabilized Agentic Workflow and Evaluation Datasets</strong>: Production-ready agentic workflow system with comprehensive evaluation framework</li>
+<li>Complete evaluation dataset management for testing and validation</li>
+<li>Stable workflow execution with improved error handling and retry logic</li>
+<li>Enhanced evaluation metrics and reporting</li>
+<li><strong>Advanced SIGMA Rule Similarity Searching</strong>: Enhanced similarity search algorithm for SIGMA rule matching</li>
+<li>Behavioral novelty assessment combining atom Jaccard (70%) and logic shape similarity (30%)</li>
+<li>Improved detection predicate overlap analysis</li>
+<li>Structural similarity matching for detection logic patterns</li>
+<li>Service mismatch and filter difference penalties for accurate matching</li>
+<li><strong>AI-Assisted SIGMA Rule Editing and Enrichment</strong>: Intelligent rule improvement system</li>
+<li>AI-powered rule enrichment with context-aware improvements</li>
+<li>Iterative rule editing with LLM feedback</li>
+<li>Article context integration for better rule quality</li>
+<li>Support for multiple LLM providers (OpenAI, Anthropic, Claude, LMStudio)</li>
+<li>Raw LLM response display for transparency</li>
+<li>Provider indicator badges in enrichment interface</li>
+<li><strong>GitHub SIGMA Rule Repository Integration</strong>: Complete GitHub integration for rule submission</li>
+<li>Automated PR creation for approved SIGMA rules</li>
+<li>SigmaPRService for repository management</li>
+<li>Configurable repository paths and authentication</li>
+<li>Branch creation, commit, and PR automation</li>
+<li>GitHub PR Configuration in Settings page</li>
+<li>Submit PR functionality from SIGMA Queue interface</li>
+<li>Docker volume mounting for repository access</li>
+</ul>
+<h3 id="changed">Changed</h3>
+<ul>
+<li><strong>SIGMA Similarity Algorithm</strong>: Replaced cosine similarity with behavioral novelty assessment</li>
+<li>Atom Jaccard measures overlap of detection predicates (field/operator/value combinations)</li>
+<li>Logic shape similarity measures structural similarity of detection logic (AND/OR/NOT patterns)</li>
+<li>Updated similarity threshold help text to explain new algorithm components</li>
+<li><strong>Agentic Workflow Stability</strong>: Improved workflow reliability and error recovery</li>
+<li>Enhanced checkpointing and state management</li>
+<li>Better retry logic for failed steps</li>
+<li>Improved evaluation dataset handling</li>
+</ul>
+<h3 id="fixed">Fixed</h3>
+<ul>
+<li><strong>Rule Enrichment Modal</strong>: Fixed enrichment interface issues</li>
+<li>Improved provider detection and display</li>
+<li>Better error handling for enrichment failures</li>
+<li>Enhanced raw response display</li>
+<li><strong>LMStudio Integration</strong>: Fixed LMStudio enrichment functionality</li>
+<li>Fixed syntax error in sigma_queue.py (duplicate else clause)</li>
+<li>Fixed prompt template KeyError by escaping JSON braces in sigma_enrichment.txt</li>
+<li>Added empty response handling for LMStudio API calls</li>
+<li>Improved error sanitization for HTTPException details</li>
+<li>Enhanced LMStudio URL fallback logic and connection error handling</li>
+<li>Added finish_reason logging for debugging empty responses</li>
+<li>Verified LMStudio connectivity and model availability</li>
+</ul>
+<h2 id="unreleased">[Unreleased]</h2>
+<h3 id="fixed_1">Fixed</h3>
+<ul>
+<li><strong>Article Detail Page UI Improvements</strong> (2026-01-15): Fixed mobile annotation instructions overlap and button positioning</li>
+<li>Removed "Mobile Annotation" instructions banner that was cluttering the article detail page</li>
+<li>Added top padding (pt-20) to article-content divs to prevent button overlap with article text</li>
+<li>Applied padding fix to both article-content and article-content-plain elements</li>
+</ul>
+<h3 id="added_1">Added</h3>
+<ul>
+<li><strong>SIGMA PR Submission Feature with GitHub Integration</strong> (2026-01-15): Complete GitHub PR submission system for approved SIGMA rules</li>
+<li>SigmaPRService for submitting approved rules via GitHub PRs</li>
+<li>Auto-stash uncommitted changes before PR creation</li>
+<li>Configure Git remote authentication with GitHub token</li>
+<li>GitHub PR Configuration section in Settings page</li>
+<li>Submit PR button on SIGMA Queue pages</li>
+<li>Mount SIGMA repository as Docker volume</li>
+<li>Support configurable repo path, token, and Git credentials via UI</li>
+<li>Handles branch creation, commit, and PR creation with error handling</li>
+<li><strong>Repository Comparison in A/B Test</strong> (2026-01-14): Added repository comparison functionality to SIGMA A/B test interface</li>
+<li>Compare generated rules against external repository rules</li>
+<li>Enhanced similarity search with repository context</li>
+<li>Improved rule matching accuracy</li>
+<li><strong>Raw LLM Response Display</strong> (2026-01-14): Added collapsible section in enrichment modal to show complete raw LLM response</li>
+<li>Raw response displayed below enriched rule YAML in collapsible panel</li>
+<li>Shows unprocessed LLM output before markdown code block removal</li>
+<li>Toggle button with proper ARIA attributes for accessibility</li>
+<li>Available in both SIGMA queue and workflow execution views</li>
+<li><strong>LLM Provider Indicator</strong> (2026-01-14): Added provider indicator badge in enrichment modal header</li>
+<li>Displays current LLM provider (OpenAI, Claude, Gemini, LMStudio) with icon</li>
+<li>Dynamically detects provider from workflow config or settings</li>
+<li>Updates automatically when modal opens</li>
+<li><strong>Rule Validation Feature</strong> (2026-01-14): Added LLM + pySIGMA validation for queued rules</li>
+<li>Validation button in rule preview modal</li>
+<li>Combines LLM-based rule improvement with pySIGMA validation</li>
+<li>Up to 3 retry attempts with error feedback</li>
+<li>Success/failure indicators with detailed error messages</li>
+<li>Apply validated rule button to update rule YAML</li>
+<li><strong>QA Top_P Parameter Support</strong> (2026-01-14): Added top_p (top-p sampling) parameter for all QA agents</li>
+<li>Top_P input fields for RankAgentQA, CmdLineQA, ProcTreeQA, HuntQueriesQA</li>
+<li>Values saved to workflow config and persist across saves</li>
+<li>Applied to all QA agent LLM calls</li>
+</ul>
+<h3 id="changed_1">Changed</h3>
+<ul>
+<li><strong>Preset System QA Top_P Values</strong> (2026-01-14): Updated preset system to include QA top_p values</li>
+<li>Presets now configure top_p for all QA agents</li>
+<li>Consistent QA behavior across preset configurations</li>
+<li><strong>Workflow Help Text</strong> (2026-01-14): Updated workflow help text to mention 'Use Full Article Content' option</li>
+<li>Clarified when full article content is used in workflow execution</li>
+<li>Improved user guidance for content selection</li>
+<li><strong>Button Text Updates</strong> (2026-01-14): Updated button labels for clarity</li>
+<li>'Cosign Similarity Search' and 'Check Similar Rules' → 'Similarity Search'</li>
+<li>More intuitive button naming for similarity search functionality</li>
+<li><strong>Collapsible Panel Initialization</strong> (2026-01-14): Improved collapsible panel initialization with requestAnimationFrame</li>
+<li>Uses double requestAnimationFrame to ensure DOM is fully updated before initialization</li>
+<li>Clears initialization markers on re-render to prevent duplicate handlers</li>
+<li>Better handling of dynamically added content (QA prompts, agent configs)</li>
+<li>Prevents panel toggle issues after config changes</li>
+</ul>
+<h3 id="removed">Removed</h3>
+<ul>
+<li><strong>SIGMA QA Agent Toggle</strong> (2026-01-14): Removed SIGMA QA agent toggle and configuration</li>
+<li>QA validation not applicable for SIGMA rule generation</li>
+<li>Removed QA toggle, model selector, and badge from SIGMA Agent panel</li>
+<li>Removed JavaScript references to SIGMA QA functionality</li>
+<li>SIGMA Agent now runs without QA validation</li>
+</ul>
+<h3 id="fixed_2">Fixed</h3>
+<ul>
+<li><strong>Rule Preview Modal from Execution View</strong> (2026-01-15): Fixed rule preview modal opening from execution view</li>
+<li>Changed 'View Queued Rule' links in execution modal to open rule preview modal</li>
+<li>Replaced navigation to /workflow#queue with previewQueuedRule() function call</li>
+<li>Added full rule preview modal with edit, approve, reject, enrich, and similarity search</li>
+<li>Implemented event listeners attached after modal content insertion</li>
+<li>Made previewQueuedRule globally accessible via window object</li>
+<li>Modal matches SIGMA Queue preview functionality</li>
+<li><strong>Workflow Config Page Model Selection Resets</strong> (2026-01-15): Fixed model selection dropdowns resetting to default when provider changes</li>
+<li>Rank Agent model selection now preserves user selection across provider changes</li>
+<li>Extract Agent (Supervisor) model selection now preserves user selection across provider changes</li>
+<li>CmdlineExtract Agent model selection now preserves user selection across provider changes</li>
+<li>All model dropdowns now read current DOM value first, then fallback to config</li>
+<li>Prevents loss of unsaved model selections during UI re-renders</li>
+<li><strong>LM Studio Error Message Display</strong> (2026-01-14): Fixed incorrect LM Studio availability warning appearing when OpenAI or Anthropic is selected</li>
+<li>Error message now only displays when LM Studio is actually selected as the provider</li>
+<li>Fixed for both Rank Agent and Extract Agent model selectors</li>
+<li>Provider state now read from DOM to update dynamically when provider changes</li>
+<li><strong>Live Execution View QA Results</strong> (2026-01-14): Fixed confusing QA result display issues</li>
+<li>Fixed QA results showing "QA failed without feedback" when verdict is "PASS"</li>
+<li>QA results with "pass" verdict now correctly show "QA passed successfully" summary</li>
+<li>Fixed duplicate QA results appearing for same agent (CmdlineExtract + CmdLineQA)</li>
+<li>Improved QA result deduplication by tracking mapped agent names</li>
+<li>QA results now include step context to show which workflow step they belong to</li>
+<li><strong>Live Execution View Step Progression</strong> (2026-01-14): Fixed misleading step progression display</li>
+<li>Added step completion tracking for extract_agent node</li>
+<li>Step completion events now emitted when steps finish</li>
+<li>LLM interactions and QA results include step context to clarify which step they belong to</li>
+<li>Fixed ranking score appearing after extract_agent step change (now appears immediately when available)</li>
+<li><strong>Workflow Config Selected Models Display</strong> (2026-01-14): Fixed Rank Agent not appearing in Selected Models list</li>
+<li>Fixed provider-agnostic model retrieval using <code>getActiveAgentModelValue()</code> instead of direct DOM access</li>
+<li>Rank Agent now appears correctly for all providers (LMStudio, OpenAI, Anthropic)</li>
+<li>Also fixed Extract and SIGMA agents to use same provider-agnostic approach</li>
+<li><strong>Article Detail Page JavaScript Errors</strong> (2026-01-14): Fixed critical JavaScript syntax error and function availability issues</li>
+<li>Fixed unclosed template string in <code>displaySigmaRuleDetails</code> function causing "Unexpected token ';'" syntax error</li>
+<li>Moved critical functions (<code>setAnnotationMode</code>, <code>copyArticleContentToClipboard</code>) to early script block for immediate availability</li>
+<li>Fixed JavaScript else block alignment in <code>navigateToNextUnclassified</code> function</li>
+<li>Changed article content background from <code>dark:bg-gray-950</code> to <code>dark:bg-gray-800</code> for better visibility</li>
+<li>All buttons and annotation capabilities now working correctly</li>
+<li>Resolved all "Uncaught ReferenceError" and "Uncaught SyntaxError" console errors</li>
+<li><strong>Database Restore with pgvector Extension</strong> (2026-01-14): Fixed restore operations to automatically enable pgvector extension for SIGMA similarity search</li>
+<li>Restore scripts now explicitly enable pgvector extension after database creation</li>
+<li>Ensures vector embeddings and similarity search features work correctly after restore</li>
+<li>Updated both <code>restore_database.py</code> and <code>restore_system.py</code> scripts</li>
+<li>Added verification steps in backup/restore documentation</li>
+</ul>
+<h3 id="added_2">Added</h3>
+<ul>
+<li><strong>Queued Rule Preview Modal</strong> (2026-01-14): Added comprehensive rule preview and management from execution view</li>
+<li>Modal displays queued SIGMA rule details including YAML, similarity scores, and metadata</li>
+<li>Inline YAML editing with save functionality via PUT <code>/api/sigma-queue/{id}/yaml</code></li>
+<li>Approve/reject actions with review notes support</li>
+<li>Similarity search integration with loading indicators</li>
+<li>Improved event listener attachment for dynamically rendered rule links</li>
+<li>Modal accessible from execution detail view queued rules list</li>
+<li><strong>Live Execution View Step Context</strong> (2026-01-14): Enhanced event display with workflow step context</li>
+<li>LLM interactions now show which workflow step they belong to (e.g., <code>[extract_agent]</code>)</li>
+<li>QA results include step context for better event grouping</li>
+<li>Step completion events displayed when steps finish</li>
+<li>Better visibility into execution flow and event ordering</li>
+<li><strong>Agent Status Indicators</strong> (2026-01-14): Added enabled/disabled badges to Selected Models list in workflow config</li>
+<li>Green "Enabled" badge for active agents</li>
+<li>Gray "Disabled" badge for inactive agents</li>
+<li>Status reflects Rank Agent toggle, Extract sub-agent toggles, and QA agent checkboxes</li>
+<li>Badges support dark mode styling</li>
+<li><strong>OS Detection Fallback in Selected Models</strong> (2026-01-14): Added OS Detection Fallback to Selected Models list</li>
+<li>Appears when fallback model is configured and toggle is enabled</li>
+<li>Uses provider-agnostic model retrieval for all providers</li>
+<li>Displays with "Enabled" badge when configured</li>
+<li><strong>Bulk Proctree Eval Update Script</strong> (2026-01-12): Added <code>scripts/update_proctree_expected_counts.py</code> for bulk updating process_lineage expected counts from YAML config</li>
+<li>Updates all SubagentEvaluationTable records matching articles in config</li>
+<li>Recalculates scores for completed evaluations</li>
+<li>Supports both article_id and URL-based lookups</li>
+</ul>
+<h3 id="changed_2">Changed</h3>
+<ul>
+<li><strong>SIGMA Similarity Algorithm</strong> (2026-01-14): Replaced cosine similarity with behavioral novelty assessment for SIGMA rule similarity search</li>
+<li>Similarity now calculated as weighted combination: 70% atom Jaccard + 30% logic shape similarity</li>
+<li>Atom Jaccard measures overlap of detection predicates (field/operator/value combinations)</li>
+<li>Logic shape similarity measures structural similarity of detection logic (AND/OR/NOT patterns)</li>
+<li>Service mismatches and filter differences apply penalties that reduce similarity</li>
+<li>Updated similarity threshold help text to explain new algorithm components</li>
+<li>Removed embedding model selector from workflow config (no longer needed for similarity search)</li>
+<li>Backend still accepts <code>SigmaEmbeddingModel</code> for backward compatibility but UI no longer sends it</li>
+<li><strong>Proctree Eval Expected Counts</strong> (2026-01-12): Updated process_lineage expected counts in <code>config/eval_articles.yaml</code></li>
+<li>Article 68: 2 → 1</li>
+<li>Article 62: Added (4)</li>
+<li>Article 762: 7 → 2</li>
+<li>Articles 985-989: Added (0, 1, 0, 0, 0)</li>
+<li>Article 1523: 4 → 2</li>
+<li>Updated 309 SubagentEvaluationTable records with new expected counts</li>
+<li>Recalculated scores for all completed evaluations</li>
+<li><strong>Top_P Control for All Agents</strong> (2026-01-07): Added per-agent Top_P (top-p sampling) parameter control</li>
+<li>Top_P input fields for all agents: RankAgent, ExtractAgent, SigmaAgent, all sub-agents (CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract), and all QA agents</li>
+<li>Top_P values are saved to workflow config and persist across saves</li>
+<li>Top_P values are read from config and passed to LMStudio API calls</li>
+<li>Test functions now use Top_P from saved config (requires save before testing)</li>
+<li>Added debug logging for Top_P values throughout the pipeline</li>
+<li>Type conversion handles JSONB string/number values correctly</li>
+<li>Active Workflow Config panel displays Top_P for selected agent</li>
+<li><strong>Clickable Eval Results</strong> (2026-01-02): Added clickable result cells in evaluation results table</li>
+<li>Click any completed result to view extracted commandlines in a modal</li>
+<li>Modal displays all commandlines with numbered list and article link</li>
+<li>API endpoint: <code>/api/evaluations/execution/{execution_id}/commandlines</code></li>
+<li><strong>Sticky Expected Column</strong> (2026-01-02): Made "Expected" column sticky in pivot view for better visibility</li>
+<li><strong>Auto-scroll to Latest</strong> (2026-01-02): Results table now auto-scrolls to show latest config versions on load</li>
+<li><strong>Aggregate Eval Scoring</strong> (2025-12-27): Added comprehensive aggregate scoring per workflow config version</li>
+<li>Mean Score: Average deviation across all eval articles</li>
+<li>Mean Absolute Error (MAE): Average absolute deviation</li>
+<li>Mean Squared Error (MSE): Squared deviation metric</li>
+<li>Perfect Match Percentage: % of articles with exact match (score = 0)</li>
+<li>Score Distribution: Breakdown of scores by range (0, ±1-2, ±3+)</li>
+<li>API endpoint: <code>/api/evaluations/subagent-eval-aggregate</code> with config version grouping</li>
+<li>UI display: "Aggregate Scores by Config Version" section in agent evals page</li>
+<li>Color-coded MAE display (green/yellow/red based on threshold)</li>
+<li><strong>Comprehensive Source Coverage</strong> (2025-12-26): 11+ major security sources now operational for threat intelligence collection</li>
+<li><strong>Subagent Evaluation System</strong> (2025-12-26): Complete evaluation framework for testing extractor subagents</li>
+<li>Evaluation articles stored in <code>config/eval_articles.yaml</code> with expected observable counts</li>
+<li><code>SubagentEvaluationTable</code> database table for tracking evaluation results</li>
+<li>UI at <code>/mlops/agent-evals</code> for running and viewing evaluations</li>
+<li>Scoring system: perfect score is 0 (exact match), shows deviation from expected count</li>
+<li>Color-coded results: green (0), yellow (±1-2), red (±3+)</li>
+<li><strong>Eval Workflow Optimizations</strong> (2025-12-26): </li>
+<li>Skip OS Detection, Rank Agent, and SIGMA generation for eval runs to save time</li>
+<li>Filter out SigmaAgent models during eval runs to prevent loading unnecessary 30b model</li>
+<li>Eval runs terminate after extractor agent completes</li>
+<li><strong>Clear Pending Records</strong> (2025-12-26): Added button to delete pending evaluation records from UI</li>
+<li><strong>OS Detection fallback LLM</strong> (2025-12-18): Now supports cloud providers (OpenAI, Anthropic)</li>
+<li><strong>Provider selector</strong> (2025-12-18): Added for OS Detection fallback model configuration</li>
+<li><strong>Fallback model</strong> (2025-12-18): Respects provider selection and uses appropriate input type</li>
+<li><strong>Current Configuration display</strong> (2025-12-18): Now shows selected models with their providers (filtered by enabled status)</li>
+</ul>
+<h3 id="changed_3">Changed</h3>
+<ul>
+<li><strong>Eval Articles Config</strong> (2026-01-02): Updated <code>config/eval_articles.yaml</code> with 13 articles for cmdline extractor</li>
+<li>Added new articles: Trustwave/LevelBlue, Fortinet Darkcloud, Recorded Future, Elastic RONINGLOADER</li>
+<li>Updated expected counts based on actual extraction results</li>
+<li>Fixed Trustwave→LevelBlue URL redirect issue (article ID 1474)</li>
+<li><strong>Expected Counts</strong> (2026-01-02): Updated Recorded Future article expected count from 0 to 2 (actual: 6 found, but 2 expected after review)</li>
+<li><strong>Test Architecture</strong> (2026-01-02): All "Test with Custom ArticleID" buttons now dispatch to worker tasks</li>
+<li>Maintains separation: web server handles requests, worker handles LLM processing</li>
+<li>Test tasks load prompts from database (same source as UI)</li>
+<li>Consistent with production workflow architecture</li>
+<li><strong>Prompt Loading</strong> (2026-01-02): Test tasks now use active prompts from database instead of files</li>
+<li>Matches exactly what's shown in UI</li>
+<li>All test buttons use same prompt source as production</li>
+<li><strong>Eval Articles</strong> (2025-12-27): Removed BleepingComputer article from cmdline extractor eval set (reduced from 9 to 8 articles)</li>
+<li><strong>Collapsible Panels Refactor</strong> (2025-12-16): Refactored all collapsible panels to use global <code>initCollapsiblePanels()</code> system in base.html</li>
+<li>Entire panel header is now clickable (not just caret icon)</li>
+<li>Added keyboard support (Enter/Space) and proper ARIA attributes for accessibility</li>
+<li>Updated panels: articles.html (filters), workflow.html (12 panels), article_detail.html (keyword matches), diags.html (job history), scraper_metrics.html (source performance), hunt_metrics.html (keyword analysis)</li>
+</ul>
+<h3 id="fixed_3">Fixed</h3>
+<ul>
+<li><strong>Top_P Parameter Handling</strong> (2026-01-07): Fixed Top_P values not being passed correctly to LMStudio</li>
+<li>Added explicit float conversion for Top_P values from JSONB config (handles string/number types)</li>
+<li>Fixed test functions to read and pass Top_P from config</li>
+<li>Fixed Rank Agent test to override top_p_rank after LLMService initialization</li>
+<li>Ensured Top_P is always sent as float to LMStudio API payload</li>
+<li>Fixed Top_P collection in collectAllAgentConfigs() and form submit handlers</li>
+<li><strong>Test Endpoint Refactoring</strong> (2026-01-02): Moved test agent endpoints to Celery worker tasks for proper separation of concerns</li>
+<li>Test tasks now run in <code>cti_workflow_worker</code> instead of <code>cti_web</code> container</li>
+<li>Added async task status polling endpoint <code>/api/workflow/config/test-status/{task_id}</code></li>
+<li>UI now polls for test results instead of blocking</li>
+<li><strong>Prompt Testing Script</strong> (2026-01-02): Added flexible script for testing prompts against LMStudio models</li>
+<li><code>scripts/test_prompt_with_models.py</code>: Test prompts with wildcard model selection</li>
+<li>Supports single/multiple articles, all eval articles, multiple models</li>
+<li>Tab-completable model selection with wildcard support</li>
+<li>Results saved to JSON file</li>
+<li><strong>Shared Prompt Parsing</strong> (2026-01-02): Added <code>parse_prompt_from_config()</code> helper with JSON repair logic</li>
+<li>Handles malformed JSON from UI edits</li>
+<li>Used by all test tasks for consistency</li>
+<li><strong>JSON Parsing</strong> (2026-01-02): Added repair logic for malformed JSON in database prompts</li>
+<li>Handles unquoted string values in <code>user_template</code> field</li>
+<li>Provides clear error messages when repair fails</li>
+<li><strong>Eval Workflow Boolean Handling</strong> (2025-12-27): Fixed skip flags (skip_os_detection, skip_rank_agent, skip_sigma_generation) to handle both boolean and string "true"/"false" values from JSONB config_snapshot</li>
+<li><strong>Eval Workflow Execution</strong> (2025-12-27): Fixed eval workflows not skipping OS detection due to string boolean values in config_snapshot</li>
+<li><strong>Config Snapshot Parsing</strong> (2025-12-27): Added JSONB parsing fallback for config_snapshot when it's not already a dict</li>
+<li><strong>Source Configuration Fixes</strong> (2025-12-26): Resolved RSS and web scraping issues for multiple CTI sources</li>
+<li>Sekoia.io: Switched to web scraping with proper article discovery</li>
+<li>VMRay Blog: RSS URL corrected, quality filters adjusted</li>
+<li>Splunk Security Blog: Web scraping configuration updated</li>
+<li>Assetnote Research: Switched from broken RSS to web scraping</li>
+<li>CrowdStrike Intelligence Blog: Web scraping selectors improved</li>
+<li>Corelight Bright Ideas Blog: Atlas framework selectors added</li>
+<li>Group-IB Threat Intelligence: RSS URL corrected</li>
+<li>Red Canary Blog: RSS quality filters optimized</li>
+<li><strong>RSS Parser Enhancements</strong> (2025-12-26): Improved quality filtering for RSS-only sources with configurable word/content limits</li>
+<li><strong>Dashboard Metrics</strong> (2025-12-26): Excluded manual source from failing sources metrics to show accurate CTI source health</li>
+<li><strong>API Improvements</strong> (2025-12-26): Failing sources API now filters out system-generated manual source</li>
+<li><strong>Eval System Fixes</strong> (2025-12-26): Fixed config merge to preserve nested dicts (agent_models, agent_prompts, qa_enabled) when merging config_snapshot</li>
+<li><strong>Eval Record Updates</strong> (2025-12-26): Fixed eval records not updating when workflow execution status is already 'completed'</li>
+<li><strong>API Endpoint Bug</strong> (2025-12-26): Fixed indentation bug in subagent-eval-results endpoint that caused incorrect result filtering</li>
+<li><strong>Model provider dropdowns</strong> (2025-12-18): In workflow configuration now respect Settings selection</li>
+<li><strong>Deselected providers</strong> (2025-12-18): In AL/ML Assistant Configuration no longer appear in agent workflow config page</li>
+<li><strong>Provider options</strong> (2025-12-18): Are dynamically filtered based on <code>WORKFLOW_*_ENABLED</code> settings from <code>/api/settings</code></li>
+<li><strong>LMStudio Context Window Commands panel</strong> (2025-12-18): Now hidden when no LMStudio providers are selected in workflow config</li>
+<li><strong>LMStudio Context Window Commands panel visibility</strong> (2025-12-18): Now checks for actual model selection (not just provider)</li>
+<li><strong>Model dropdowns</strong> (2025-12-18): Now only show models from selected provider (LMStudio dropdowns only contain LMStudio models)</li>
+<li><strong>Model fields</strong> (2025-12-18): Are cleared when provider changes to prevent cross-provider model selection</li>
+<li><strong>Sub-agent and QA agent model dropdowns</strong> (2025-12-18): Check provider before populating</li>
+<li><strong>OS Detection fallback</strong> (2025-12-18): Now persists correctly (only saves when toggle is checked)</li>
+<li><strong>LMStudio model selection</strong> (2025-12-18): Fixed being cleared unnecessarily when provider dropdowns refresh</li>
+<li><strong>Selected Models display</strong> (2025-12-18): Now filters by QA enabled status (Rank/Extract/SIGMA only show if QA enabled)</li>
+<li><strong>LangFuse Session Tracking</strong>: Fixed workflow debug links to properly associate traces with sessions in LangFuse</li>
+<li>Corrected trace ID storage: now uses 32-character <code>trace_id</code> instead of 16-character span <code>id</code></li>
+<li>Added explicit <code>span.update_trace(session_id=...)</code> call required for LangFuse 3.x OpenTelemetry integration</li>
+<li>Session pages now properly display all workflow traces grouped by execution</li>
+<li>Debug buttons now link directly to session view: <code>sessions/workflow_exec_{execution_id}</code></li>
+<li>Added comprehensive LangFuse debugging documentation to <code>DEBUGGING_TOOLS_GUIDE.md</code> and <code>WORKFLOW_DATA_FLOW.md</code></li>
+<li><strong>Articles Page Dark Mode</strong>: Darkened filter panel, dropdowns, article cards, and button bar using CSS variables (<code>--color-bg-card</code>, <code>--color-bg-panel</code>)</li>
+</ul>
+<h3 id="changed_4">Changed</h3>
+<ul>
+<li>
+<p><strong>Fixed Navigation Bar</strong>: Top navigation bar is now fixed/sticky and remains visible when scrolling down pages.</p>
+</li>
+<li>
+<p><strong>Complete Icon System Redesign</strong>: Replaced all emoji icons with custom SVG icons matching a cohesive design system</p>
+</li>
+<li><strong>Brand Logo</strong>: H monogram with shield outline and crosshair elements (38px in nav, deep navy background #1a1a2e)</li>
+<li><strong>Navigation Icons</strong>: Created 7 custom icons (Articles, Sources, Analytics, MLOps, Diags, Agents, Settings) at 23px</li>
+<li><strong>Page Title Icons</strong>: All destination pages now use matching 63px icons in page headers</li>
+<li><strong>Design System</strong>: Deep navy backgrounds with purple/white theme (#8B5CF6, #A78BFA, #C4B5FD) for consistent brand identity</li>
+<li><strong>Icon Concepts</strong>: Articles (document with text lines), Sources (hub with connected nodes), Analytics (bar chart with trend), MLOps (neural network), Diags (hexagonal diagnostic frame), Agents (central hub with nodes), Settings (gear with 8 teeth)</li>
+</ul>
+<h3 id="fixed_4">Fixed</h3>
+<ul>
+<li><strong>Annotation Usage Immutability</strong>: Enforced usage field immutability in <code>AsyncDatabaseManager.update_annotation()</code> to prevent modification of annotation usage (train/eval/gold) after creation. Service layer now raises <code>ValueError</code> if usage change is attempted, which is converted to 422 HTTP response at API layer.</li>
+</ul>
+<h3 id="changed_5">Changed</h3>
+<ul>
+<li>Smoke runner now excludes <code>ui</code>/<code>slow</code> markers by default and enforces subprocess timeouts without relying on pytest-timeout.</li>
+<li>Pytest config registers all UI markers and uses function-scoped asyncio loops to prevent teardown loop reuse errors; warnings from pydantic v2 deprecations are silenced in tests.</li>
+<li>Langfuse trace handling caches session trace IDs and persists them into workflow execution logs for direct trace URLs; Langfuse trace links now include session filters plus search metadata.</li>
+<li>Langfuse spans now prefer <code>span.id</code> when present, log missing trace IDs, and log persisted trace IDs for executions.</li>
+<li>SQLAlchemy models now import <code>declarative_base</code> from <code>sqlalchemy.orm</code>.</li>
+<li>Misc workflow UI and test updates, including model provider/debug link fixes.</li>
+<li>Workflow debug info now returns direct Langfuse trace URLs with host/project metadata to avoid search-only links.</li>
+<li>Workflow LLM provider enable flags now default to enabled when a key is present, with env fallbacks.</li>
+<li>Documentation true-up: README and docs index now match current compose services, ports (8001/2024/8888), and LMStudio defaults; Getting Started and Docker Architecture aligned to pgvector Postgres + containerized CLI; port guide updated and run_cli.sh now passes args directly to <code>python -m src.cli.main</code>.</li>
+<li>Settings: hid Gemini workflow provider and API key UI until workflow support is implemented.</li>
+</ul>
+<h3 id="fixed_5">Fixed</h3>
+<ul>
+<li><strong>LMStudio Model Display &amp; RAG Results</strong>: LMStudio responses now report the actual model returned by the API (e.g., DeepSeek variants) and Sigma similarity search uses typed vector bindings to avoid asyncpg syntax errors; vector indexes rebuilt to allow embedding writes and restore RAG retrieval.</li>
+<li><strong>Chunk Debug Gaps</strong>: <code>ContentFilter.chunk_content</code> now advances the next chunk start based on the previous chunk end minus the configured overlap (and always moves forward when a chunk is shorter than the overlap), so sentence-boundary trimming cannot skip characters and the chunk debugger never shows gaps.</li>
+<li>Workflow debug modal normalizes Langfuse links to direct <code>/traces/{id}</code> targets, preventing <code>?search</code> regressions.</li>
+</ul>
+<h3 id="security">Security</h3>
+<ul>
+<li><strong>API Key Exposure</strong>: Removed scripts containing hardcoded API keys from version control</li>
+<li><code>scripts/eval_observables_count_multiple_models.py</code> and <code>scripts/get_full_extract_results.py</code></li>
+<li>Added to .gitignore to prevent future commits</li>
+<li>Scripts remain on disk for local development but are no longer tracked</li>
+</ul>
+<h3 id="changed_6">Changed</h3>
+<ul>
+<li><strong>Navigation Bar Alignment</strong>: Centered primary navigation links with balanced spacing while retaining the brand anchor.</li>
+<li><strong>Dashboard Header</strong>: Removed the “Huntable CTI Studio &amp; Workbench” title for a leaner landing header.</li>
+<li><strong>Articles Page Filters</strong>: Filters panel is now collapsible with state persistence; removed classification filter to streamline search inputs.</li>
+<li><strong>Articles Page UI Simplification</strong>: Removed classification filter, bulk classification actions, and classification display badges to streamline article management.</li>
+<li><strong>Article Detail Page UI Cleanup</strong>: Consolidated action buttons layout and removed observables help modal for streamlined interface.</li>
+<li><strong>Sources Page UI Cleanup</strong>: Removed quality metrics display sections (total articles, rejected/chosen/unclassified counts, average hunt scores) to simplify source cards.</li>
+<li><strong>Settings Page</strong>: Removed Ollama model references (llama3.2:1b, tinyllama:1.1b) from recommended models list</li>
+<li><strong>Scraper Metrics Page</strong>: Removed "Article Ingestion Analytics" section to streamline the interface</li>
+<li>
+<p><strong>Workflow Executions Retry UI</strong>: Default retry action remains async and is labeled “Retry”; synchronous “Retry (Wait)” is now hidden unless Debug mode is enabled on the Executions tab.</p>
+</li>
+<li>
+<p><strong>Settings Page UI Cleanup</strong>: Moved Langfuse Configuration into Agentic Workflow Configuration panel, removed API Configuration panel, and removed SIGMA Rule Configuration panel</p>
+</li>
+<li><strong>Workflow Configuration Page</strong>: Removed all recommendation statements from help modals</li>
+<li><strong>Agent Workflow Pages</strong>: Removed all "🧪 Test with Article 2155" buttons and all recommendation statements</li>
+</ul>
+<h3 id="fixed_6">Fixed</h3>
+<ul>
+<li><strong>Backup System Critical Bug</strong>: Fixed automated system backup failures that were creating empty backup files</li>
+<li>Root cause: Hardcoded <code>/app/backups</code> path didn't exist in containers</li>
+<li>Solution: Made backup directory configurable and added proper Docker exec calls</li>
+<li>Result: System backups now create valid database backups with actual data</li>
+<li><strong>Sources Page Conflicting Metrics</strong>: Fixed sources showing "0 articles collected" while displaying quality metrics</li>
+<li>Root cause: Article counting query filtered <code>archived == false</code> but articles had <code>archived = NULL</code></li>
+<li>Solution: Updated query to count articles where <code>archived IS NULL OR archived = false</code></li>
+<li>Result: Sources now display accurate article counts matching their quality metrics</li>
+<li><strong>Database Restore Functionality</strong>: Fixed restore script to work with Docker containers</li>
+<li>Added proper environment variable passing and host specifications</li>
+<li>Restore operations now work correctly with containerized database</li>
+</ul>
+<h3 id="added_3">Added</h3>
+<ul>
+<li><strong>Provider Model Catalog Service</strong>: Added <code>config/provider_model_catalog.json</code>, <code>src/services/provider_model_catalog.py</code>, and <code>scripts/maintenance/update_provider_model_catalogs.py</code> to centrally manage OpenAI/Anthropic/Gemini curated model lists with both CLI and API accessors.</li>
+<li><strong>UI Tests for Dashboard Functionality</strong>: Added comprehensive UI tests for dashboard features</li>
+<li><code>test_article_volume_charts_display</code>: Verifies Article Volume section displays daily and hourly charts with proper canvas dimensions</li>
+<li><code>test_high_score_articles_section_display</code>: Tests High-Score Articles section shows 10 cards with proper navigation links</li>
+<li><code>test_copy_urls_button_functionality</code>: Validates Copy URLs button copies article URLs to clipboard with success notifications</li>
+<li><code>test_run_health_checks_navigation_and_execution</code>: Tests Run Health Checks button navigation and automatic/manual check execution</li>
+<li><code>test_agents_navigation_to_workflow_page</code>: Verifies Agents button navigates to workflow/AI assistant page</li>
+<li><code>test_article_ai_assistant_button_functionality</code>: Tests AL/ML Assistant button on article pages opens modal correctly</li>
+<li><strong>OS Detection Agent OS Selection</strong>: Added OS selection checkboxes to OS Detection Agent configuration</li>
+<li>Options: Windows, Linux, MacOS, Network, Other, All</li>
+<li>Windows enabled by default; other options disabled (stub implementation)</li>
+<li>Selections stored in <code>agent_models.OSDetectionAgent_selected_os</code> array</li>
+<li>Auto-saves when OS selection changes</li>
+<li><strong>QA Max Retries Configuration</strong>: Added <code>qa_max_retries</code> field to workflow configuration</li>
+<li>Configurable maximum QA retry attempts (1-20, default: 5)</li>
+<li>Added database migration script <code>scripts/migrate_add_qa_max_retries.sh</code></li>
+<li>UI field in QA Settings panel on workflow config page</li>
+<li><strong>PDF Upload Manual Source</strong>: Added automatic creation of manual source for PDF uploads</li>
+<li>Previously failed with "Manual source not found in database" error</li>
+<li>Now creates manual source on-demand if it doesn't exist</li>
+<li>Added <code>scripts/ensure_manual_source.py</code> utility script</li>
+</ul>
+<h3 id="changed_7">Changed</h3>
+<ul>
+<li><strong>Provider Test Buttons Refresh Models</strong>: Settings “Test API Key” buttons now call provider model listings (OpenAI, Anthropic, Gemini), persist refreshed catalogs, and update Workflow dropdowns instantly via <code>/api/provider-model-catalog</code> with local caching.</li>
+<li><strong>Merged Health Checks and Diagnostics Pages</strong>: Combined <code>/health-checks</code> and <code>/diags</code> into single comprehensive diagnostics page</li>
+<li>New page at <code>/diags</code> includes all job monitoring, health checks, and ingestion analytics</li>
+<li>Removed redundant <code>/health-checks</code> page and route</li>
+<li>Updated dashboard navigation to use merged diagnostics page</li>
+</ul>
+<h3 id="removed_1">Removed</h3>
+<ul>
+<li><strong>Workflow Executions Visualization Panel</strong>: Removed the LangGraph state machine panel and toggle from the Executions tab (UI and tests).</li>
+<li><strong>Evaluations UI</strong>: Removed the Evaluations navigation entry and disabled evaluation UI routes.</li>
+<li><strong>Complete Ollama Integration Removal</strong>: Removed all Ollama code, references, and documentation</li>
+<li>Removed Ollama Docker service and configuration</li>
+<li>Removed Ollama API endpoints and health checks</li>
+<li>Removed Ollama UI options from settings and article detail pages</li>
+<li>Removed Ollama methods from LLM generation service</li>
+<li>Removed Ollama test files and test references</li>
+<li>Cleaned up all Ollama environment variables and configurations</li>
+<li>Updated available AI models to exclude Ollama options</li>
+</ul>
+<h3 id="fixed_7">Fixed</h3>
+<ul>
+<li><strong>Web Server Import Error</strong>: Fixed ImportError preventing web application startup</li>
+<li>Removed non-existent <code>test_scrape</code> module from route imports in <code>src/web/routes/__init__.py</code></li>
+<li>Removed <code>test_scrape.router</code> registration that was causing circular import error</li>
+<li>Web container now starts successfully and serves requests on port 8001</li>
+<li><strong>Database Migration</strong>: Fixed missing <code>qa_max_retries</code> column in <code>agentic_workflow_config</code> table</li>
+<li>Created migration to add column with default value of 5</li>
+<li>Resolved SQL errors when querying workflow configuration</li>
+<li><strong>Test Infrastructure Cleanup</strong>: Added skip decorators to tests requiring separate infrastructure</li>
+<li>Skipped external API integration tests (<code>test_ai_real_api_integration.py</code>) that make real calls to OpenAI/Anthropic/Ollama</li>
+<li>Skipped workflow execution tests (<code>workflow_executions.spec.ts</code>) requiring Celery workers</li>
+<li>Skipped workflow save button tests (<code>workflow_save_button.spec.ts</code>) requiring isolated config environment</li>
+<li>Prevents production data modification and external API costs in single-instance setup</li>
+<li><strong>Test Runner Help Documentation</strong>: Updated <code>run_tests.py</code> help output to clearly indicate test safety for single-instance environments</li>
+<li>Added "SAFE for single-instance" labels to tests that can run without external infrastructure</li>
+<li>Added "LIMITED" labels to tests with some functionality skipped due to infrastructure requirements</li>
+<li>Updated examples to recommend safe test types for single-instance usage</li>
+<li><strong>Transparent Docker Auto-Selection</strong>: Added automatic Docker/localhost context selection based on test requirements</li>
+<li>New <code>--context auto</code> option (now default) automatically chooses execution environment</li>
+<li>UI/API/integration tests automatically run in Docker containers</li>
+<li>Unit/smoke tests run locally when dependencies are available</li>
+<li>Eliminates need for users to manually specify <code>--docker</code> for different test types</li>
+</ul>
+<h3 id="added_4">Added</h3>
+<ul>
+<li><strong>File Organization Structure</strong>: Implemented standardized file organization for temporary scripts, reports, and utilities</li>
+<li>Created directory structure: <code>utils/temp/</code> (temporary scripts), <code>scripts/</code> (reusable utilities), <code>outputs/</code> (reports/exports/benchmarks)</li>
+<li>Moved 84 temporary scripts from root level to appropriate directories</li>
+<li>Updated <code>.gitignore</code> to properly handle temporary files while tracking <code>utils/temp/</code> scripts</li>
+<li>Added file organization guidelines to <code>CONTRIBUTING.md</code> and <code>AGENTS.md</code></li>
+<li>Organized scripts by purpose: <code>scripts/maintenance/</code> (fix scripts), <code>scripts/testing/</code>, <code>scripts/analysis/</code></li>
+</ul>
+<h3 id="fixed_8">Fixed</h3>
+<ul>
+<li><strong>Documentation: LangGraph Debug Button Behavior</strong>: Corrected documentation to accurately reflect debug button functionality</li>
+<li>Fixed <code>docs/LANGGRAPH_INTEGRATION.md</code> and <code>docs/LANGGRAPH_QUICKSTART.md</code> to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI</li>
+<li>Clarified that step-into debugging requires manual setup with LangSmith Studio or Local Agent Chat UI</li>
+<li>Updated API response example to show actual LangFuse trace URL format</li>
+<li>Added notes about trace availability (only exists if execution ran with LangFuse tracing enabled)</li>
+<li><strong>Browser Extension Manual Source Creation</strong>: Fixed duplicate key violations when creating manual source from browser extension</li>
+<li>Changed manual source lookup from name-based (<code>LIKE '%manual%'</code>) to identifier-based (<code>identifier='manual'</code>) to match unique constraint</li>
+<li>Implemented atomic <code>INSERT ... ON CONFLICT DO NOTHING</code> pattern using PostgreSQL's native upsert for race condition handling</li>
+<li>Added proper <code>IntegrityError</code> handling for both identifier conflicts and primary key sequence issues</li>
+<li>Fixed missing required database fields (<code>consecutive_failures</code>, <code>total_articles</code>, <code>average_response_time</code>, <code>created_at</code>, <code>updated_at</code>) in manual source creation</li>
+<li>Added retry logic with fresh session queries to handle concurrent requests</li>
+<li>Applied same fix to PDF upload endpoint for consistency</li>
+<li>Fixed PostgreSQL sequence sync issue that was causing primary key conflicts</li>
+</ul>
+<h3 id="added_5">Added</h3>
+<ul>
+<li><strong>LMStudio Context Window Command Generator</strong>: Added button on workflow config page to generate terminal commands for setting context windows</li>
+<li>Collects all selected LLM models from workflow configuration</li>
+<li>Excludes BERT and text encoder models (embedding models)</li>
+<li>Generates commands using <code>scripts/set_lmstudio_context.sh</code> script</li>
+<li>Includes unload command to clear existing models before loading</li>
+<li>Commands displayed in modal with copy-to-clipboard functionality</li>
+<li>Configurable context length (default: 16384 tokens)</li>
+</ul>
+<h3 id="fixed_9">Fixed</h3>
+<ul>
+<li><strong>Disabled Sub-Agents Execution</strong>: Fixed issue where disabled sub-agents were still being executed</li>
+<li>Added disabled agents check to <code>langgraph_server.py</code> workflow execution path</li>
+<li>Fixed duplicate try block that was preventing disabled check from working</li>
+<li>Disabled agents now properly skipped with empty results instead of executing</li>
+<li>Added comprehensive logging to track disabled agent configuration reading</li>
+<li><strong>Workflow Config UI Improvements</strong>:</li>
+<li>Made all agent prompts collapsible and collapsed by default on workflow config page</li>
+<li>Fixed model display mismatch where dropdown selection didn't match prompt display</li>
+<li>Prompts now read current model from dropdown instead of cached config value</li>
+<li>Model updates immediately refresh prompt displays</li>
+<li><strong>LMStudio Context Script</strong>: Updated <code>set_lmstudio_context.sh</code> to only unload specific model being loaded</li>
+<li>Prevents unloading all models when loading multiple models sequentially</li>
+<li>Checks if model is already loaded and unloads only that specific instance</li>
+<li>Handles model identifiers with suffixes (e.g., <code>:2</code>, <code>:3</code>) correctly</li>
+<li>Allows multiple models to remain loaded simultaneously</li>
+<li><strong>QA Agent Toggle Logic</strong>: QA Agents can no longer be enabled when their corresponding subagent is disabled</li>
+<li>Added <code>updateQAStateForSubagent()</code> function to sync QA checkbox state with subagent enabled status</li>
+<li>QA checkboxes are automatically disabled and unchecked when subagent is disabled</li>
+<li>Visual feedback added with opacity and cursor styling for disabled QA toggles</li>
+<li>Logic applies on page load, config sync, and manual toggle changes</li>
+</ul>
+<h3 id="added_6">Added</h3>
+<ul>
+<li><strong>Comprehensive UI Test Coverage</strong>: Added 17 new comprehensive UI test files covering all major pages (544 tests total)</li>
+<li><code>test_workflow_comprehensive_ui.py</code>: 89 tests for workflow configuration, executions, and queue management</li>
+<li><code>test_articles_advanced_ui.py</code>: 74 tests for advanced search, filtering, sorting, pagination, bulk actions, and classification modal</li>
+<li><code>test_article_detail_advanced_ui.py</code>: 21 tests for article detail page features</li>
+<li><code>test_analytics_comprehensive_ui.py</code>: 47 tests for analytics pages (main, scraper metrics, hunt metrics)</li>
+<li><code>test_sources_comprehensive_ui.py</code>: 39 tests for source management, configuration, and adhoc scraping</li>
+<li><code>test_settings_comprehensive_ui.py</code>: 39 tests for backup, AI/ML config, API config, and data export</li>
+<li><code>test_chat_comprehensive_ui.py</code>: 57 tests for RAG chat interface, message display, article/rule results, YAML modal</li>
+<li><code>test_dashboard_comprehensive_ui.py</code>: 37 tests for dashboard widgets, charts, and quick actions</li>
+<li><code>test_pdf_upload_advanced_ui.py</code>: 19 tests for PDF upload functionality</li>
+<li><code>test_health_checks_advanced_ui.py</code>: 20 tests for health check monitoring</li>
+<li><code>test_diagnostics_advanced_ui.py</code>: 21 tests for system diagnostics page</li>
+<li><code>test_jobs_advanced_ui.py</code>: 19 tests for job monitoring</li>
+<li><code>test_cross_page_navigation_ui.py</code>: 15 tests for navigation and deep linking</li>
+<li><code>test_error_handling_comprehensive_ui.py</code>: 16 tests for error scenarios</li>
+<li><code>test_accessibility_comprehensive_ui.py</code>: 22 tests for keyboard navigation, ARIA, and screen reader compatibility</li>
+<li><code>test_performance_comprehensive_ui.py</code>: 18 tests for page load and rendering performance</li>
+<li><code>test_mobile_responsiveness_ui.py</code>: 30 tests for mobile layout and touch interactions</li>
+<li>All tests integrated into pytest suite and run via <code>run_tests.py ui</code> wrapper</li>
+<li>Tests follow existing patterns and use Playwright with pytest fixtures</li>
+<li><strong>Subagent Evaluation Pages</strong>: Added dedicated evaluation pages for ExtractAgent subagents</li>
+<li>Created subagent evaluation pages at <code>/evaluations/ExtractAgent/{subagent_name}</code> for CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, and RegExtract</li>
+<li>Added subagent links section on ExtractAgent evaluation page with cards for each subagent</li>
+<li>Subagent pages show purpose, evaluation history, and link back to parent agent</li>
+<li><strong>SIGMA Test Pages Navigation</strong>: Moved SIGMA A/B Test and SIGMA Similarity Test links from main navigation to Evaluations page</li>
+<li>Links now appear as cards on the Evaluations page alongside agent evaluation cards</li>
+<li>Removed from main navigation bar for cleaner interface</li>
+<li><strong>Generator Error Handling</strong>: Enhanced Langfuse trace cleanup to suppress generator protocol errors</li>
+<li>Generator errors during Langfuse cleanup no longer fail workflows</li>
+<li>Added comprehensive error suppression in trace context managers</li>
+<li>Generator errors are logged as warnings but don't propagate as workflow failures</li>
+<li><strong>LMStudio Error Message Formatting</strong>: Improved error message display for context length issues</li>
+<li>Context length errors now show formatted messages instead of raw JSON</li>
+<li>Error detection distinguishes between genuine "busy" conditions and other errors</li>
+<li>Better user experience with actionable error messages</li>
+<li><strong>Playwright Test for Error Messages</strong>: Added test to verify error message formatting</li>
+<li>Tests verify formatted error messages are displayed correctly</li>
+<li>
+<p>Ensures "busy" errors don't appear for context length issues</p>
+</li>
+<li>
+<p><strong>Workflow Executions observability toggle</strong>: Added toggle for showing extract observable counts in the executions table</p>
+</li>
+<li>Execution API now exposes an <code>extraction_counts</code> map populated from <code>extraction_result.subresults</code> or the merged observable list, covering Cmdline, ProcTree, Reg, Signature, and EventID sub-agents</li>
+<li>The toggle inserts CmdLine#/ProcTree#/Reg#/Signature#/EventID# columns immediately after the ranking score so teams can quickly see which telemetry families produced observables</li>
+</ul>
+<h3 id="fixed_10">Fixed</h3>
+<ul>
+<li><strong>ML Comparison Chart Enhancements</strong>: Added zoom and scroll controls for evaluation metrics chart</li>
+<li>Horizontal scrolling to view all model version history</li>
+<li>Zoom in/out controls with preset levels (5, 10, 15, 20, 30, 50, all versions)</li>
+<li>Fixed legend and chart title remain centered during scroll/zoom operations</li>
+<li>Default view shows latest models with ability to scroll left for history</li>
+<li><strong>Enhanced Backup/Restore Verification</strong>: Comprehensive verification for critical configuration data</li>
+<li>Backup metadata now tracks ML model versions, agent configs, and source configurations</li>
+<li>Restore verification checks all critical tables (ml_model_versions, agentic_workflow_config, agent_prompt_versions, app_settings, sources, source_checks)</li>
+<li>Verification compares restored counts against backup metadata for data integrity confirmation</li>
+<li>Added documentation for source configuration precedence (database vs. YAML)</li>
+<li><strong>Source Configuration Precedence</strong>: Database values now take precedence over sources.yaml after initial setup</li>
+<li>Application only syncs from sources.yaml for brand new builds (&lt; 5 sources)</li>
+<li>Restored database configurations are preserved and not overwritten by sources.yaml on container rebuilds</li>
+<li>Added DISABLE_SOURCE_AUTO_SYNC environment variable to disable YAML sync entirely</li>
+<li>Database is authoritative source for source settings (active status, lookback_days, check_frequency) after initial setup</li>
+</ul>
+<h3 id="fixed_11">Fixed</h3>
+<ul>
+<li><strong>Generator Errors Failing Workflows</strong>: Fixed "generator didn't stop after throw()" errors causing workflow failures</li>
+<li>Generator errors from Langfuse cleanup are now suppressed and logged as warnings</li>
+<li>Workflows complete successfully even when Langfuse trace cleanup encounters generator protocol issues</li>
+<li>Fixed error handling in ranking node to detect and suppress generator errors</li>
+<li><strong>LMStudio "Busy" False Positives</strong>: Fixed incorrect "busy" error detection for context length issues</li>
+<li>Error detection now distinguishes between genuine connection failures and context length errors</li>
+<li>Context length errors show appropriate error messages instead of misleading "busy" messages</li>
+<li>Improved error detection logic to check for chained exceptions and prioritize original errors</li>
+<li><strong>Context Length Configuration</strong>: Fixed context length mismatch causing 400 errors</li>
+<li>Updated LMStudio context length override from 16384 to 4096 to match actual configured value</li>
+<li>Content truncation now works correctly with actual context length</li>
+<li>Ranking tests now succeed without context length errors</li>
+<li><strong>Test Article IDs</strong>: Updated all test buttons to use article 2155 instead of 1427</li>
+<li>RankAgent test button updated</li>
+<li>All sub-agent test buttons (CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract) updated</li>
+<li>Playwright test updated to use article 2155</li>
+<li><strong>OS Detection Display Logic</strong>: Fixed workflow continuation display when OS is detected as Windows</li>
+<li>UI now correctly shows "Continue" when Windows is detected even if initial detection was "Unknown"</li>
+<li>Fixed OS detection threshold logic to use 50% similarity with clear winner detection</li>
+<li>Workflow state correctly reflects continuation decision</li>
+<li><strong>Redis Validation Blocking Smoke Tests</strong>: Made Redis validation non-blocking for smoke tests</li>
+<li>Smoke tests now execute even if Redis connection fails</li>
+<li>Redis validation failures logged as warnings but don't block test execution</li>
+<li>Fixed smoke test path to use <code>tests/smoke/</code> directory instead of marker-based discovery</li>
+<li><strong>IndentationError in ContentFilter</strong>: Fixed critical syntax error preventing web service startup</li>
+<li>Corrected indentation of sklearn imports in try/except block</li>
+<li>Web container now starts successfully and serves requests</li>
+<li><strong>Workflow Configuration Section Order</strong>: Reordered configuration panels to match workflow execution</li>
+<li>OS Detection Agent panel now appears before Junk Filter panel</li>
+<li>UI order now matches actual workflow step sequence (Step 0: OS Detection → Step 1: Junk Filter)</li>
+<li><strong>Workflow Order in Configuration UI</strong>: Fixed workflow overview to show correct 7-step order</li>
+<li>Added OS Detection as Step 0 (was missing)</li>
+<li>Renumbered all subsequent steps: Junk Filter (1), LLM Ranking (2), Extract Agent (3), Generate SIGMA (4), Similarity Search (5), Queue (6)</li>
+<li>Updated step count from 6 to 7 steps in description</li>
+<li>Workflow execution order matches UI display</li>
+<li><strong>Duplicate Placeholder Options in Model Selectors</strong>: Fixed duplicate placeholder options in all agent model selector dropdowns</li>
+<li>Removed hardcoded placeholder options that conflicted with <code>buildOptions()</code> function</li>
+<li>Fixed Rank Agent model selector duplicate placeholder</li>
+<li>Fixed all 6 QA model selectors (Rank QA, CmdLine QA, Sig QA, EventCode QA, ProcTree QA, Reg QA)</li>
+<li>All dropdowns now display single placeholder option correctly</li>
+<li><strong>Duplicate Model Entries in Dropdowns</strong>: Fixed duplicate model entries (e.g., "Mistral7" and "Mistral7:2") in all model selector dropdowns</li>
+<li>Added normalization to remove numbered suffixes (<code>:2</code>, <code>:3</code>, etc.) from model IDs</li>
+<li>Deduplication now prefers base model names (without suffix) over numbered instances</li>
+<li>Applied to all dropdowns: Rank Agent, Extract Agent, Sigma Agent, OS Detection fallback, all sub-agents, and all QA model selectors</li>
+<li><strong>LLMService Context Length Detection</strong>: Improved context length handling to trust detected values when reasonable</li>
+<li>Now uses model-specific context limits based on model size (1B: 2048, 3B: 4096, 7B/8B: 8192, 13B/14B: 16384, 32B: 32768)</li>
+<li>Trusts detected context when between 4096 and model max (with 10% safety margin)</li>
+<li>Only uses very conservative caps when detection is unreliable or too small</li>
+<li>Respects environment variable overrides completely</li>
+<li>Fixes issue where models loaded with 16384 context were only using 1536 tokens</li>
+<li>Added Playwright tests to verify no duplicate models appear in dropdowns</li>
+<li><strong>LLMService Context Length NameError</strong>: Fixed <code>NameError: name 'MAX_SAFE_CONTEXT_NORMAL' is not defined</code> in Rank Agent testing</li>
+<li>Removed all references to <code>MAX_SAFE_CONTEXT_NORMAL</code> and <code>MAX_SAFE_CONTEXT_REASONING</code> constants</li>
+<li>Updated <code>rank_article</code>, <code>extract_behaviors</code>, and <code>extract_observables</code> methods to use consistent model-specific context detection</li>
+<li>Fixed logger statements to use new context detection variables</li>
+<li>All methods now use the same improved context length logic</li>
+</ul>
+<h3 id="added_7">Added</h3>
+<ul>
+<li><strong>Help Circles for All Agents</strong>: Contextual help buttons with detailed information for all agent and sub-agent model selectors</li>
+<li>Help circles added to Rank Agent, Extract Agent, SIGMA Agent, and OS Detection Agent model selectors</li>
+<li>Help circles added to all sub-agents: CmdlineExtract, SigExtract, EventCodeExtract, ProcTreeExtract, RegExtract</li>
+<li>Comprehensive help text explaining each agent's purpose, configuration options, and recommendations</li>
+<li>Consistent help UI pattern matching Junk Filter Threshold help button</li>
+<li><strong>OS Detection Fallback Model Toggle</strong>: Added toggle button to enable/disable fallback model selection for OS Detection Agent</li>
+<li>Toggle switch positioned next to "Fallback Model (Optional)" label</li>
+<li>When disabled, fallback model dropdown is disabled and value is cleared</li>
+<li>When enabled, user can select a custom fallback LLM model</li>
+<li>Toggle state persists with workflow configuration</li>
+<li>Matches existing toggle UI pattern used for QA agents</li>
+<li><strong>Workflow Model Loader</strong>: Added <code>utils/load_workflow_models.py</code> utility script</li>
+<li>Reads active workflow configuration from database</li>
+<li>Loads all configured models with 16384 context tokens</li>
+<li>Verifies each model can be loaded before workflow execution</li>
+<li>Helps prevent context length errors in production workflows</li>
+<li><strong>Workflow Context Fix Documentation</strong>: Added <code>docs/WORKFLOW_CONTEXT_FIX.md</code></li>
+<li>Troubleshooting guide for context length errors</li>
+<li>Instructions for loading models with proper context</li>
+<li>Prevention strategies and troubleshooting tips</li>
+</ul>
+<h3 id="changed_8">Changed</h3>
+<ul>
+<li><strong>Test Wrapper Configuration</strong>: Updated test runner to exclude infrastructure and production data tests by default</li>
+<li><code>run_tests.py</code> now automatically excludes <code>infrastructure</code>, <code>prod_data</code>, and <code>production_data</code> markers</li>
+<li><code>conftest.py</code> auto-skips infrastructure and production data tests during collection</li>
+<li>Added <code>prod_data</code> and <code>production_data</code> markers to <code>pytest.ini</code></li>
+<li>Tests requiring test infrastructure or production data access are now skipped automatically</li>
+<li><strong>Workflow Configuration UI Reorganization</strong>: Improved organization and accessibility of workflow configuration</li>
+<li>Converted "Other Thresholds" section to collapsible "Junk Filter" dropdown panel at top of configuration</li>
+<li>Moved Similarity Threshold from "Other Thresholds" to SIGMA Agent panel (under SIGMA Agent model selector)</li>
+<li>Moved QA model selectors from Extract Agent panel to their respective sub-agent panels:<ul>
+<li>CmdLine QA Model → CmdlineExtract sub-agent panel</li>
+<li>Sig QA Model → SigExtract sub-agent panel</li>
+<li>EventCode QA Model → EventCodeExtract sub-agent panel</li>
+<li>ProcTree QA Model → ProcTreeExtract sub-agent panel</li>
+<li>Reg QA Model → RegExtract sub-agent panel</li>
+</ul>
+</li>
+<li>Improved UI consistency with agent panel collapsible pattern</li>
+<li><strong>Source health checks</strong>: <code>check_all_sources</code> now uses the hierarchical <code>ContentFetcher</code> (RSS → modern scraping → legacy) with safer bookkeeping for articles/errors, improving health metrics and logging across all sources.</li>
+<li><strong>Source scraping configs</strong>: Updated selectors and discovery for Assetnote Research (verified RSS URL and Webflow containers), Picus Security Blog (HubSpot body selectors), and Splunk Security Blog (AEM containers) to improve extraction coverage.</li>
+</ul>
+<h3 id="current-status-next-steps">Current Status &amp; Next Steps</h3>
+<ul>
+<li>Assetnote, Picus, and Splunk remain failing due to JS-rendered/anti-bot content; selectors are in place but static fetch still returns empty. Next steps: add headless/JS-capable fetch (Playwright) or alternative article API path; retest and adjust min_content_length as needed.</li>
+<li>Group-IB, NCSC UK, MSRC: still blocked (403/SPA/placeholder feeds). Next steps: investigate API/back-end endpoints or headless rendering; consider temporary deactivation if access remains blocked.</li>
+</ul>
+<h3 id="removed_2">Removed</h3>
+<ul>
+<li><strong>OS Detection QA Agent</strong>: Removed QA validation system for OS Detection Agent</li>
+<li>Removed QA retry loop and evaluation logic from OS Detection workflow node</li>
+<li>Removed OS Detection QA toggle, model selector, and badge from UI</li>
+<li>Removed JavaScript references to OS Detection QA functionality</li>
+<li>OS Detection now runs without QA validation (single-pass detection)</li>
+<li><strong>Description Field</strong>: Removed optional description textarea from workflow configuration form</li>
+<li>Removed description field from workflow.html and workflow_config.html</li>
+<li>Removed JavaScript references to description field</li>
+<li>Backend continues to use default description values when not provided</li>
+</ul>
+<h3 id="fixed_12">Fixed</h3>
+<ul>
+<li><strong>QA Agent Indentation Error</strong>: Fixed syntax error in qa_agent_service.py</li>
+<li>Corrected indentation of code block inside <code>with trace_llm_call()</code> statement</li>
+<li>Resolved "expected an indented block after 'with' statement" error</li>
+</ul>
+<h3 id="improved">Improved</h3>
+<ul>
+<li><strong>LMStudio Busy Error Handling</strong>: Enhanced error messages and user experience when LMStudio is busy or unavailable</li>
+<li>Updated LangFuse client to provide informative error messages when generator errors occur (often indicates LMStudio busy)</li>
+<li>Enhanced test agent endpoints (<code>test-subagent</code>, <code>test-rankagent</code>) to detect LMStudio busy conditions</li>
+<li>Added user-friendly error messages with retry options in test agent modal</li>
+<li>Frontend now shows "Wait and Retry" button when LMStudio is detected as busy</li>
+<li>Improved error detection for timeout, connection, and overload scenarios</li>
+</ul>
+<h3 id="added_8">Added</h3>
+<ul>
+<li><strong>Workflow Agent Config Subpages Test</strong>: Playwright test suite to verify workflow agent configuration subpages remain visible</li>
+<li>TypeScript Playwright test (<code>tests/playwright/workflow_tabs.spec.ts</code>) with 10 test cases</li>
+<li>Python pytest wrapper (<code>tests/ui/test_workflow_tabs_ui.py</code>) integrated into UI test suite</li>
+<li>Verifies all three subpages (Configuration, Executions, SIGMA Queue) are accessible and functional</li>
+<li>Tests tab navigation, hash URL routing, and content visibility</li>
+<li>Prevents regression where tabs disappear after UI changes</li>
+<li><strong>Modal Interactions UI Test</strong>: Comprehensive test suite for modal behavior (<code>tests/ui/test_modal_interactions_ui.py</code>)</li>
+<li>20 test cases covering Escape key closing, click-outside closing, and Cmd/Ctrl+Enter submission</li>
+<li>Tests all modals: result, source config, execution, trigger workflow, rule, classification, custom prompt, help</li>
+<li>Ensures consistent modal UX across the application</li>
+<li><strong>Comprehensive Test Documentation Update</strong>: Complete audit and update of test inventory</li>
+<li>Updated <code>tests/TEST_INDEX.md</code> with all 100+ test files across 9 categories</li>
+<li>Documented 28 UI test files (383+ tests), 12 API test files (123+ tests), 19 E2E test files (120+ tests), 25 integration test files (200+ tests)</li>
+<li>Added CLI tests (3 files), Utils tests (4 files), Workflows tests (1 file), and Smoke tests (2 files)</li>
+<li>Updated test statistics: 1200+ total tests, 900+ active tests (75%+), 205 skipped (~17%), 32 failing (~3%)</li>
+<li>Updated <code>tests/TESTING.md</code> and <code>tests/README.md</code> to reflect comprehensive test coverage</li>
+<li><strong>Agentic Workflow Test Coverage</strong>: Comprehensive integration tests for the agentic workflow and LangGraph server</li>
+<li><strong>LangGraph Server Tests</strong>: <code>tests/workflows/test_langgraph_server.py</code> covering chat logic, input parsing, and node transitions</li>
+<li><strong>Comprehensive Integration Test</strong>: <code>tests/integration/test_agentic_workflow_comprehensive.py</code> simulating full "happy path" run with Article 1427</li>
+<li><strong>Full Workflow Simulation</strong>: Verifies end-to-end flow: Chat -&gt; ID Parse -&gt; OS Detect -&gt; Junk Filter -&gt; Rank -&gt; Extract -&gt; Sigma -&gt; Queue</li>
+<li><strong>State Verification</strong>: Ensures correct state transitions and database updates at each step</li>
+<li><strong>OS Detection Agent</strong>: Operating system detection for threat intelligence articles</li>
+<li>Embedding-based detection using CTI-BERT or SEC-BERT models</li>
+<li>Configurable embedding model selection (CTI-BERT, SEC-BERT)</li>
+<li>Configurable LLM fallback model for low-confidence cases</li>
+<li>Integration into agentic workflow (Step 1.5, after ranking, before extraction)</li>
+<li>Workflow continues only if Windows detected; otherwise gracefully terminates</li>
+<li>AI/ML Assistant modal with OS detection functionality</li>
+<li>Manual testing script: <code>test_os_detection_manual.py</code></li>
+<li><strong>SpaCy-Based Sentence Splitting</strong>: Improved sentence boundary detection for content chunking</li>
+<li>Replaced regex-based sentence splitting with SpaCy's sentencizer component</li>
+<li>Better handling of abbreviations (Dr., CVE-, IOC, APT, etc.) and technical content</li>
+<li>Improved chunk boundaries: 100% sentence boundary accuracy (up from 75%)</li>
+<li>Eliminated mid-sentence breaks and fragmented sentences</li>
+<li>Applied to <code>ContentCleaner.extract_summary()</code>, <code>ContentFilter.chunk_content()</code>, and chat sentence extraction</li>
+<li>Fallback to regex if SpaCy unavailable for backward compatibility</li>
+<li><strong>SIGMA A/B Testing Interface</strong>: Interactive web UI for comparing SIGMA rule similarity search logic</li>
+<li>Side-by-side rule comparison with real-time YAML validation</li>
+<li>Separate embedding and LLM model selection dropdowns</li>
+<li>Detailed similarity breakdown by section (Title, Description, Tags, Signature)</li>
+<li>LLM reranking with explanation and model attribution</li>
+<li>Semantic overlap analysis showing literal detection value matches</li>
+<li>Debug view showing exact embedding text used for comparison</li>
+<li>LocalStorage persistence for Rule A and Rule B textareas</li>
+<li>Combined Signature segment (logsource + detection) for improved similarity matching</li>
+<li><strong>Enhanced SIGMA Similarity Search</strong>: Improved embedding-based similarity calculation</li>
+<li>Removed "Title: " prefix from title embeddings to focus on semantic content</li>
+<li>Combined logsource and detection into single "Signature" segment (87.4% weight)</li>
+<li>Updated similarity weights: Title 4.2%, Description 4.2%, Tags 4.2%, Signature 87.4%</li>
+<li><strong>LMStudio Model Selection</strong>: Database-driven model selection for embedding and LLM operations</li>
+<li>Embedding model dropdown filtered to only show embedding models</li>
+<li>LLM model dropdown filtered to only show chat models</li>
+<li>Model selection persists through Settings page configuration</li>
+</ul>
+<h3 id="changed_9">Changed</h3>
+<ul>
+<li><strong>OS Detection Similarity Logic</strong>: Improved decision-making for embedding-based OS detection</li>
+<li>High confidence (&gt;0.8): Prefer top OS unless gap to second is &lt; 0.5%</li>
+<li>Prevents false "multiple" classifications when one OS is clearly dominant</li>
+<li>Updated SEC-BERT model name: <code>nlpaueb/sec-bert-base</code> (was incorrect placeholder)</li>
+<li>Suppressed harmless transformers warnings about uninitialized pooler weights</li>
+<li><strong>SIGMA Title Embeddings</strong>: Removed "Title: " prefix to improve semantic similarity accuracy</li>
+<li><strong>SIGMA Section Embeddings</strong>: Combined logsource, detection_structure, and detection_fields into single "Signature" segment</li>
+<li><strong>Similarity Calculation</strong>: Updated weights to reflect combined Signature segment</li>
+</ul>
+<h3 id="fixed_13">Fixed</h3>
+<ul>
+<li><strong>LLM Model Dropdown</strong>: Fixed duplicate ID conflict causing dropdown to stop working</li>
+<li><strong>Embedding Model Selection</strong>: Fixed similarity search to use selected embedding model instead of default</li>
+<li><strong>LLM Reranking Model</strong>: Fixed to use selected LLM model from dropdown instead of default</li>
+</ul>
+<h2 id="400-kepler-2025-11-04">[4.0.0 "Kepler"] - 2025-11-04</h2>
+<h3 id="added_9">Added</h3>
+<ul>
+<li><strong>Agentic Workflow System</strong>: Complete LangGraph-based workflow orchestration for automated threat intelligence processing</li>
+<li><strong>6-Step Automated Pipeline</strong>: Junk Filter → LLM Ranking → Extract Agent → SIGMA Generation → Similarity Search → Queue Promotion</li>
+<li><strong>LangGraph State Machine</strong>: Stateful workflow execution with conditional routing and error handling</li>
+<li><strong>Workflow Configuration</strong>: Configurable thresholds (min_hunt_score, ranking_threshold, similarity_threshold, junk_filter_threshold)</li>
+<li><strong>Execution Tracking</strong>: Complete audit trail with <code>agentic_workflow_executions</code> table tracking status, steps, and results</li>
+<li><strong>State Management</strong>: TypedDict-based state management with intermediate results stored at each step</li>
+<li><strong>Conditional Logic</strong>: Smart routing based on LLM ranking scores (threshold-based continue/stop)</li>
+<li><strong>LangFuse Integration</strong>: Full observability and tracing for workflow execution and LLM calls</li>
+<li><strong>Celery Integration</strong>: Asynchronous workflow execution via Celery workers</li>
+<li><strong>Workflow Trigger Service</strong>: Automated triggering for high-scoring articles</li>
+<li><strong>API Endpoints</strong>: <code>/api/workflow/trigger</code>, <code>/api/workflow/executions</code>, <code>/api/workflow/config</code></li>
+<li><strong>Workflow UI</strong>: Complete web interface for monitoring executions, configuring thresholds, and triggering workflows</li>
+<li><strong>Extract Agent</strong>: Specialized agent for extracting telemetry-aware attacker behaviors and observables</li>
+<li><strong>Rank Agent</strong>: LLM-based scoring agent for SIGMA huntability assessment</li>
+<li><strong>Sigma Agent</strong>: Automated SIGMA rule generation with validation and retry logic</li>
+<li><strong>Similarity Integration</strong>: Automatic similarity matching against existing SigmaHQ rules</li>
+<li><strong>Queue Management</strong>: Automatic promotion of unique rules to review queue</li>
+<li><strong>Agent Prompt Version Control</strong>: Complete version control system for agent prompts with history tracking and rollback</li>
+<li>Prompts are viewable and editable from workflow config page (<code>/workflow#config</code>)</li>
+<li>Prompts start as read-only with Edit button to enable editing</li>
+<li>Version history modal shows all previous versions with timestamps and change descriptions</li>
+<li>Rollback functionality to restore any previous prompt version</li>
+<li>Change descriptions optional field when saving prompt updates</li>
+<li>Database table <code>agent_prompt_versions</code> tracks all prompt changes with workflow config version linking</li>
+<li>API endpoints: <code>/api/workflow/config/prompts/{agent_name}/versions</code> (GET), <code>/api/workflow/config/prompts/{agent_name}/rollback</code> (POST)</li>
+<li><strong>Database Schema Migration</strong>: Migration script to fix <code>agent_prompt_versions</code> table schema alignment with SQLAlchemy model</li>
+<li>Renamed columns: <code>prompt_text</code> → <code>prompt</code>, <code>version_number</code> → <code>version</code>, <code>config_version_id</code> → <code>workflow_config_version</code></li>
+<li>Added missing <code>instructions</code> column for ExtractAgent instructions template support</li>
+<li>Updated column types and indexes to match model expectations</li>
+<li><strong>RAG (Retrieval-Augmented Generation) System</strong>: Complete conversational AI implementation</li>
+<li>Multi-Provider LLM Integration: OpenAI GPT-4o, Anthropic Claude, and Ollama support</li>
+<li>Conversational Context: Multi-turn conversation support with context memory</li>
+<li>Synthesized Responses: LLM-generated analysis instead of raw article excerpts</li>
+<li>Vector Embeddings: Sentence Transformers (all-mpnet-base-v2) for semantic similarity search</li>
+<li>RAG Generation Service: <code>src/services/llm_generation_service.py</code> for response synthesis</li>
+<li>Auto-Fallback System: Graceful degradation between LLM providers</li>
+<li>RAG Chat API: <code>POST /api/chat/rag</code> endpoint with conversation history</li>
+<li>Frontend RAG Controls: LLM provider selection and synthesis toggle</li>
+<li>Professional System Prompt: Cybersecurity analyst persona for threat intelligence analysis</li>
+<li>Source Attribution: All responses include relevance scores and source citations</li>
+<li>RAG Documentation: Comprehensive RAG system documentation in <code>docs/RAG_SYSTEM.md</code></li>
+<li><strong>Allure Reports Integration</strong>: Rich visual test analytics with pie charts, bar charts, and trend graphs</li>
+<li>Dedicated Allure Container: Containerized Allure Reports server for reliable access</li>
+<li>Interactive Test Dashboard: Step-by-step test visualization for debugging and analysis</li>
+<li>Enhanced Test Reporting: Comprehensive test execution reports with ML/AI debugging capabilities</li>
+<li>Visual Test Tracking: Professional test reporting system for development and CI/CD pipelines</li>
+<li>Allure Management Script: <code>./manage_allure.sh</code> for easy container management</li>
+<li><strong>Unified Testing Interface</strong>: New <code>run_tests.py</code> for standardized test execution</li>
+<li>Docker Testing Support: Added <code>--docker</code> flag for containerized test execution</li>
+<li>Virtual Environment Documentation: Comprehensive guide for <code>venv-test</code>, <code>venv-lg</code>, and <code>venv-ml</code></li>
+<li>Testing Workflow Guide: Complete documentation for different execution contexts and test categories</li>
+<li><strong>Comprehensive Test Suite</strong>: Fixed 5 high-priority test modules with 195 new passing tests</li>
+<li>ContentFilter Tests: ML-based filtering, cost optimization, and quality scoring (25 tests)</li>
+<li>SigmaValidator Tests: SIGMA rule validation, error handling, and batch processing (50 tests)</li>
+<li>SourceManager Tests: Source configuration management and validation (35 tests)</li>
+<li>ContentCleaner Tests: HTML cleaning, text processing, and metadata extraction (30 tests)</li>
+<li>HTTPClient Tests: Rate limiting, async handling, and request configuration (38/39 tests)</li>
+<li>Supporting Classes: FilterResult, FilterConfig, ValidationError, SigmaRule, SourceConfig, ContentExtractor, TextNormalizer, RateLimiter</li>
+<li>Dependencies: Added scikit-learn and pandas for ML-based content filtering</li>
+<li>Test Documentation: Updated SKIPPED_TESTS.md with current test status and progress tracking</li>
+<li>Test Coverage: Dramatically improved from 27 to 222 passing tests (722% increase)</li>
+<li>Test Infrastructure: Enhanced test reliability and maintainability with comprehensive supporting classes</li>
+</ul>
+<h3 id="changed_10">Changed</h3>
+<ul>
+<li><strong>Workflow Config UI</strong>: Enhanced agent prompts section with edit/view toggle and version history access</li>
+<li><strong>Prompt Update API</strong>: Now saves version history automatically on each prompt update</li>
+<li><strong>Version History Modal</strong>: Improved text readability with larger font sizes, better contrast, and enhanced formatting</li>
+<li>Font size increased from <code>text-xs</code> to <code>text-sm</code></li>
+<li>Added borders and improved padding for better visual separation</li>
+<li>Increased max height for better content visibility</li>
+<li>Enhanced line spacing and word wrapping</li>
+<li><strong>RAG Architecture</strong>: Upgraded from template-only to full LLM synthesis</li>
+<li><strong>API Response Format</strong>: Enhanced with LLM provider and synthesis status</li>
+<li><strong>Frontend Configuration</strong>: Added LLM provider selection and synthesis controls</li>
+<li><strong>Documentation</strong>: Updated README, API endpoints, and Docker architecture docs</li>
+</ul>
+<h3 id="fixed_14">Fixed</h3>
+<ul>
+<li><strong>Database Schema Mismatch</strong>: Fixed <code>agent_prompt_versions</code> table column names to match SQLAlchemy model</li>
+<li><strong>Version History Display</strong>: Improved readability of prompt and instructions text in version history modal</li>
+<li><strong>Database Migration</strong>: Created migration script <code>20250130_fix_agent_prompt_versions_schema.sql</code> for schema alignment</li>
+<li><strong>SIGMA Generation Quality Restoration</strong>: Fixed deteriorated SIGMA rule generation that was producing malformed rules</li>
+<li>Reverted uncommitted prompt simplification in <code>src/prompts/sigma_generation.txt</code> that removed critical guidance</li>
+<li>Restored detailed SIGMA Rule Requirements and Rule Guidelines explaining separation of detection vs tags</li>
+<li>Fixed LMStudio model configuration mismatch (1B → 8B model) in <code>.env</code> and <code>docker-compose.yml</code></li>
+<li>Implemented dynamic context window sizing based on model size (1B: 2.2K, 3B: 10.4K, 8B: 26.8K chars)</li>
+<li>Optimized retry prompts to remove wasteful article content repetition (~500 token savings per retry)</li>
+<li>Fixed issue where MITRE ATT&amp;CK tags were incorrectly placed in detection/selection fields</li>
+<li>Temperature correctly set to 0.2 for deterministic SIGMA YAML generation</li>
+<li><strong>OpenAI API Integration</strong>: Proper API key handling and error fallback</li>
+<li><strong>Conversation Context</strong>: Fixed context truncation and memory management</li>
+<li><strong>Response Quality</strong>: Improved synthesis quality with professional formatting</li>
+<li><strong>Test Suite Reliability</strong>: Fixed 5 major test modules with comprehensive supporting class implementations</li>
+<li><strong>ContentFilter Logic</strong>: Fixed ML-based filtering, cost optimization, and quality scoring algorithms</li>
+<li><strong>SigmaValidator Logic</strong>: Fixed rule validation, error handling, and batch processing</li>
+<li><strong>SourceManager Logic</strong>: Fixed source configuration management and validation error handling</li>
+<li><strong>ContentCleaner Logic</strong>: Fixed HTML cleaning, Unicode normalization, and text processing</li>
+<li><strong>HTTPClient Logic</strong>: Fixed rate limiting, async/await issues, and request configuration</li>
+</ul>
+<h3 id="security_1">Security</h3>
+<ul>
+<li>None (security hardening was completed in previous versions)</li>
+</ul>
+<h3 id="removed_3">Removed</h3>
+<ul>
+<li><strong>Redundant UI Cleanup</strong>: Removed redundant "Save Configuration" button from settings page</li>
+</ul>
+<h3 id="technical-details">Technical Details</h3>
+<ul>
+<li><strong>Database Migration</strong>: PostgreSQL migration script updates table schema while preserving existing data</li>
+<li><strong>Version Control</strong>: Each prompt update creates a new version linked to workflow config version</li>
+<li><strong>UI Improvements</strong>: Enhanced modal display with better typography and spacing</li>
+<li><strong>Embedding Model</strong>: all-mpnet-base-v2 (768-dimensional vectors)</li>
+<li><strong>Vector Storage</strong>: PostgreSQL with pgvector extension</li>
+<li><strong>Context Management</strong>: Last 4 conversation turns for LLM context</li>
+<li><strong>Response Times</strong>: 3-5 seconds (OpenAI), 4-6 seconds (Claude), 10-30 seconds (Ollama)</li>
+<li><strong>Fallback Strategy</strong>: Template → Ollama → Claude → OpenAI priority order</li>
+<li><strong>Workflow Architecture</strong>: LangGraph state machine with PostgreSQL checkpointing</li>
+<li><strong>Agent System</strong>: Extract Agent, Rank Agent, and Sigma Agent orchestrated via LangGraph</li>
+<li><strong>Observability</strong>: LangFuse integration for workflow and LLM call tracing</li>
+</ul>
+<h2 id="300-copernicus-2025-10-28">[3.0.0 "Copernicus"] - 2025-10-28</h2>
+<h3 id="added_10">Added</h3>
+<ul>
+<li><strong>SIGMA Rule Similarity Search</strong>: Advanced similarity matching between generated SIGMA rules and existing SigmaHQ rules</li>
+<li><strong>Weighted Hybrid Embeddings</strong>: Enhanced embedding strategy combining title, description, tags, logsource, and detection logic</li>
+<li><strong>Interactive Similar Rules Modal</strong>: UI modal showing similar SIGMA rules with coverage status (covered/extend/new)</li>
+<li><strong>Embed Article Button</strong>: One-click embedding generation for articles with async Celery task processing</li>
+<li><strong>Coverage Classification</strong>: Automatic classification of rule matches as "covered", "extend", or "new"</li>
+<li><strong>Article Embedding Status</strong>: Real-time tracking of article embedding status with disabled button tooltips</li>
+<li><strong>Enhanced Sigma Generation</strong>: Added MITRE ATT&amp;CK technique extraction and tagging to SIGMA rule generation</li>
+<li><strong>PostgreSQL Vector Index</strong>: Efficient vector similarity search using pgvector extension</li>
+</ul>
+<h3 id="changed_11">Changed</h3>
+<ul>
+<li><strong>Embedding Model</strong>: Enhanced to use all-mpnet-base-v2 (768-dimensional vectors)</li>
+<li><strong>Sigma Sync Service</strong>: Updated to generate weighted hybrid embeddings for better semantic matching</li>
+<li><strong>Article Detail UI</strong>: Enhanced modal with dynamic button states based on embedding status</li>
+<li><strong>Sigma Matching Service</strong>: Improved similarity search with proper SQL parameter binding</li>
+</ul>
+<h3 id="fixed_15">Fixed</h3>
+<ul>
+<li><strong>SQL Syntax Errors</strong>: Fixed mixing SQLAlchemy named parameters with psycopg2 format</li>
+<li><strong>PostgreSQL Index Size</strong>: Removed B-tree index on embedding column exceeding size limits</li>
+<li><strong>Pydantic Model</strong>: Added embedding, embedding_model, and embedded_at fields to Article model</li>
+<li><strong>NumPy Array Truth Value</strong>: Fixed ambiguous truth value when checking embedding existence</li>
+<li><strong>Article Embedding API</strong>: Proper handling of list-like embeddings with length validation</li>
+</ul>
+<h3 id="technical-details_1">Technical Details</h3>
+<ul>
+<li><strong>Vector Similarity</strong>: Cosine similarity with configurable threshold (default 0.7)</li>
+<li><strong>API Endpoints</strong>: <code>/api/articles/{id}/embed</code>, <code>/api/sigma/matches/{article_id}</code>, <code>/api/generate-sigma</code></li>
+<li><strong>Async Processing</strong>: Celery workers for background embedding generation</li>
+<li><strong>Database</strong>: Article and Sigma rule embeddings stored in PostgreSQL with pgvector</li>
+</ul>
+<h2 id="unreleased_1">[Unreleased]</h2>
+<h3 id="fixed_16">Fixed</h3>
+<ul>
+<li><strong>Navigation UI</strong>: Removed vertical divider borders between navigation items that were overlapping text</li>
+<li><strong>SIGMA Generation Quality Restoration</strong>: Fixed deteriorated SIGMA rule generation that was producing malformed rules</li>
+<li>Reverted uncommitted prompt simplification in <code>src/prompts/sigma_generation.txt</code> that removed critical guidance</li>
+<li>Restored detailed SIGMA Rule Requirements and Rule Guidelines explaining separation of detection vs tags</li>
+<li>Fixed LMStudio model configuration mismatch (1B → 8B model) in <code>.env</code> and <code>docker-compose.yml</code></li>
+<li>Implemented dynamic context window sizing based on model size (1B: 2.2K, 3B: 10.4K, 8B: 26.8K chars)</li>
+<li>Optimized retry prompts to remove wasteful article content repetition (~500 token savings per retry)</li>
+<li>Fixed issue where MITRE ATT&amp;CK tags were incorrectly placed in detection/selection fields</li>
+<li>Temperature correctly set to 0.2 for deterministic SIGMA YAML generation</li>
+</ul>
+<h3 id="added_11">Added</h3>
+<ul>
+<li><strong>Full GitHub Hygiene Audit (LG)</strong>: Comprehensive security and quality audit completed</li>
+<li><strong>Dependency Security</strong>: All 269 dependencies audited with pip-audit - no CVE vulnerabilities found</li>
+<li><strong>Enhanced Security Posture</strong>: Comprehensive .gitignore, secure env configuration, proper credential handling</li>
+<li><strong>RAG (Retrieval-Augmented Generation) System</strong>: Complete conversational AI implementation</li>
+<li><strong>Multi-Provider LLM Integration</strong>: OpenAI GPT-4o, Anthropic Claude, and Ollama support</li>
+<li><strong>Conversational Context</strong>: Multi-turn conversation support with context memory</li>
+<li><strong>Synthesized Responses</strong>: LLM-generated analysis instead of raw article excerpts</li>
+<li><strong>Vector Embeddings</strong>: Sentence Transformers (all-mpnet-base-v2) for semantic similarity search</li>
+<li><strong>RAG Generation Service</strong>: <code>src/services/llm_generation_service.py</code> for response synthesis</li>
+<li><strong>Auto-Fallback System</strong>: Graceful degradation between LLM providers</li>
+<li><strong>RAG Chat API</strong>: <code>POST /api/chat/rag</code> endpoint with conversation history</li>
+<li><strong>Frontend RAG Controls</strong>: LLM provider selection and synthesis toggle</li>
+<li><strong>Professional System Prompt</strong>: Cybersecurity analyst persona for threat intelligence analysis</li>
+<li><strong>Source Attribution</strong>: All responses include relevance scores and source citations</li>
+<li><strong>RAG Documentation</strong>: Comprehensive RAG system documentation in <code>docs/RAG_SYSTEM.md</code></li>
+</ul>
+<h3 id="changed_12">Changed</h3>
+<ul>
+<li><strong>RAG Architecture</strong>: Upgraded from template-only to full LLM synthesis</li>
+<li><strong>API Response Format</strong>: Enhanced with LLM provider and synthesis status</li>
+<li><strong>Frontend Configuration</strong>: Added LLM provider selection and synthesis controls</li>
+<li><strong>Documentation</strong>: Updated README, API endpoints, and Docker architecture docs</li>
+</ul>
+<h3 id="fixed_17">Fixed</h3>
+<ul>
+<li><strong>OpenAI API Integration</strong>: Proper API key handling and error fallback</li>
+<li><strong>Conversation Context</strong>: Fixed context truncation and memory management</li>
+<li><strong>Response Quality</strong>: Improved synthesis quality with professional formatting</li>
+</ul>
+<h3 id="technical-details_2">Technical Details</h3>
+<ul>
+<li><strong>Embedding Model</strong>: all-mpnet-base-v2 (768-dimensional vectors)</li>
+<li><strong>Vector Storage</strong>: PostgreSQL with pgvector extension</li>
+<li><strong>Context Management</strong>: Last 4 conversation turns for LLM context</li>
+<li><strong>Response Times</strong>: 3-5 seconds (OpenAI), 4-6 seconds (Claude), 10-30 seconds (Ollama)</li>
+<li><strong>Fallback Strategy</strong>: Template → Ollama → Claude → OpenAI priority order</li>
+</ul>
+<h3 id="added_12">Added</h3>
+<ul>
+<li><strong>Allure Reports Integration</strong>: Rich visual test analytics with pie charts, bar charts, and trend graphs</li>
+<li><strong>Dedicated Allure Container</strong>: Containerized Allure Reports server for reliable access</li>
+<li><strong>Interactive Test Dashboard</strong>: Step-by-step test visualization for debugging and analysis</li>
+<li><strong>Enhanced Test Reporting</strong>: Comprehensive test execution reports with ML/AI debugging capabilities</li>
+<li><strong>Visual Test Tracking</strong>: Professional test reporting system for development and CI/CD pipelines</li>
+<li><strong>Allure Management Script</strong>: <code>./manage_allure.sh</code> for easy container management</li>
+<li><strong>Database-Based Training System</strong>: Refactored ML training from CSV to PostgreSQL database storage</li>
+<li><strong>Chunk Classification Feedback Table</strong>: New database table for storing user feedback on ML predictions</li>
+<li><strong>Auto-Expand Annotation UI</strong>: Automatic 1000-character text selection for optimal training data</li>
+<li><strong>Length Validation</strong>: Frontend and backend validation for 950-1050 character annotations</li>
+<li><strong>Training Data Migration</strong>: Script to migrate existing CSV feedback to database</li>
+<li><strong>Enhanced API Endpoints</strong>: Updated retraining API with database integration and proper version tracking</li>
+<li><strong>Usage Tracking</strong>: <code>used_for_training</code> flag to prevent duplicate data usage</li>
+<li><strong>Real-Time Feedback Count</strong>: API endpoint showing available training samples from database</li>
+</ul>
+<h3 id="changed_13">Changed</h3>
+<ul>
+<li><strong>Training Data Source</strong>: Now uses database tables instead of CSV files</li>
+<li><strong>Annotation Requirements</strong>: Enforces 950-1050 character length for training data quality</li>
+<li><strong>Retraining Workflow</strong>: Synchronous execution with complete results returned</li>
+<li><strong>Model Version Display</strong>: Shows proper version numbers and training sample counts</li>
+<li><strong>Error Handling</strong>: Improved error messages for missing training data</li>
+</ul>
+<h3 id="fixed_18">Fixed</h3>
+<ul>
+<li><strong>JavaScript Infinite Loops</strong>: Fixed auto-expand functionality causing repeated errors</li>
+<li><strong>Modal Recreation Issues</strong>: Prevented infinite loops in annotation modal updates</li>
+<li><strong>API Response Format</strong>: Consistent response structure for retraining endpoints</li>
+<li><strong>Training Sample Counting</strong>: Accurate count of available feedback and annotations</li>
+<li><strong>Version Information Display</strong>: Proper model version and accuracy reporting</li>
+</ul>
+<h3 id="technical-details_3">Technical Details</h3>
+<ul>
+<li><strong>Database Schema</strong>: Added <code>chunk_classification_feedback</code> table with proper indexes</li>
+<li><strong>API Updates</strong>: Modified <code>/api/model/retrain</code> and <code>/api/model/feedback-count</code> endpoints</li>
+<li><strong>UI Improvements</strong>: Streamlined annotation modal without manual adjustment controls</li>
+<li><strong>Test Updates</strong>: Updated unit tests for database-based training system</li>
+<li><strong>Documentation</strong>: Added comprehensive database training system documentation</li>
+</ul>
+<h3 id="added_13">Added</h3>
+<ul>
+<li><strong>Chunk Deduplication System</strong>: Database unique constraint prevents duplicate chunk storage</li>
+<li><strong>Chunk Analysis Tests</strong>: Comprehensive test suite verifying deduplication and data integrity</li>
+<li><strong>ML-Powered Content Filtering</strong>: Machine learning model for automated chunk classification with RandomForest</li>
+<li><strong>Interactive Feedback System</strong>: User feedback collection for continuous model improvement and retraining</li>
+<li><strong>Model Versioning System</strong>: Track model performance changes with database-backed version history</li>
+<li><strong>Confidence Tracking</strong>: Huntable probability tracking for consistent before/after comparisons</li>
+<li><strong>Model Comparison Interface</strong>: Visual comparison of model versions showing confidence improvements</li>
+<li><strong>Feedback Impact Analysis</strong>: Modal showing how user feedback improved model confidence on specific chunks</li>
+<li><strong>Automated Model Retraining</strong>: One-click model retraining with user feedback integration</li>
+<li><strong>ML Feedback API Endpoints</strong>: RESTful APIs for model versioning, comparison, and feedback analysis</li>
+<li><strong>Essential Regression Tests</strong>: 3 critical tests for ML feedback features to prevent breakage</li>
+<li><strong>Automated Backup System</strong>: Daily backup scheduling with cron jobs (2:00 AM daily, 3:00 AM weekly cleanup)</li>
+<li><strong>Backup Retention Policy</strong>: 7 daily + 4 weekly + 3 monthly backups with 50GB max size limit</li>
+<li><strong>Intelligent Backup Detection</strong>: API automatically detects automated backups by analyzing backup frequency</li>
+<li><strong>Backup System Integration</strong>: Fixed database backup integration using existing backup_database_v3.py</li>
+<li><strong>Backup Verification</strong>: Added comprehensive backup testing with test database restore validation</li>
+<li><strong>Security Hardening</strong>: Removed hardcoded credentials and moved to environment variables</li>
+<li><strong>Enhanced .gitignore</strong>: Added comprehensive .gitignore with Docker and security exclusions</li>
+<li><strong>Environment Variables</strong>: Updated docker-compose.yml to use environment variables for credentials</li>
+<li><strong>Backup Status API</strong>: Fixed backup status parsing to show accurate size and last backup information</li>
+<li><strong>Redundant UI Cleanup</strong>: Removed redundant "Save Configuration" button from settings page</li>
+</ul>
+<h3 id="fixed_19">Fixed</h3>
+<ul>
+<li><strong>Chunk Analysis Duplicates</strong>: Fixed bug where chunks were stored twice (duplicate entries) for same article/model</li>
+<li><strong>ML Prediction Optimization</strong>: Eliminated redundant <code>predict_huntability()</code> calls (50% reduction from 2x to 1x per chunk)</li>
+<li><strong>List Backups API</strong>: Fixed parsing to show all numbered backups (1-10) instead of just the first one</li>
+<li><strong>Backup List Display</strong>: Corrected multi-line backup entry parsing to extract names and sizes properly</li>
+<li><strong>Database Backup</strong>: Fixed database backup to include actual data (1,187 articles, 35 sources)</li>
+<li><strong>Backup Size Display</strong>: Corrected backup size display from 29.9 GB to actual 0.03 GB</li>
+<li><strong>Volume Mount</strong>: Added scripts volume mount to Docker web container</li>
+<li><strong>API Arguments</strong>: Removed invalid --type argument from backup API calls</li>
+<li><strong>Status Parsing</strong>: Fixed backup status parsing to extract correct backup names and sizes</li>
+<li><strong>Container Permissions</strong>: Resolved Docker socket permission issues for backup operations</li>
+</ul>
+<h3 id="security_2">Security</h3>
+<ul>
+<li><strong>Credential Removal</strong>: Removed hardcoded passwords from docker-compose.yml and backup scripts</li>
+<li><strong>Environment Variables</strong>: All sensitive configuration now uses environment variables</li>
+<li><strong>Security Scanning</strong>: Comprehensive security audit with no critical vulnerabilities found</li>
+<li><strong>Dependency Updates</strong>: All dependencies verified secure with latest versions</li>
+<li><strong>Threshold Selector</strong>: Added confidence threshold slider to Chunk Debug modal with 3 preset levels (0.5, 0.7, 0.8)</li>
+<li><strong>Real-time Threshold Updates</strong>: Implemented dynamic threshold changes with immediate API calls and UI updates</li>
+<li><strong>User Feedback System</strong>: Added feedback mechanism to Chunk Debug modal for ML model improvement</li>
+<li><strong>Model Retraining</strong>: Added retraining button to update ML model using collected user feedback</li>
+<li><strong>Enhanced Statistics Cards</strong>: Added unique IDs to statistics cards for reliable real-time updates</li>
+<li><strong>Dynamic Chunk Visualization</strong>: Updated chunk visualization to reflect threshold changes in real-time</li>
+<li><strong>Article Detail Page Readability</strong>: Enhanced article content readability with black text for maximum contrast</li>
+<li><strong>Dark Mode Support</strong>: Improved dark mode support for keyword highlights and user annotations</li>
+<li><strong>Enhanced Annotation System</strong>: Updated JavaScript annotation classes for consistent dark mode styling</li>
+<li><strong>LLM Integration</strong>: Added LLM integration with template fallback for RAG chat responses</li>
+<li><strong>Ollama Parallelism</strong>: Increased Ollama parallelism to handle multiple concurrent AI endpoints</li>
+</ul>
+<h3 id="changed_14">Changed</h3>
+<ul>
+<li><strong>Chunk Debug Modal</strong>: Enhanced with threshold selector, real-time updates, and user feedback system</li>
+<li><strong>ML Model Integration</strong>: Improved model loading and retraining capabilities with user feedback</li>
+<li><strong>Statistics Display</strong>: Fixed statistics cards to update dynamically with threshold changes</li>
+<li><strong>Chunk Visualization</strong>: Updated to reflect threshold changes in real-time</li>
+<li><strong>Keyword Highlighting</strong>: Updated <code>highlight_keywords</code> filter to support dark mode with proper contrast</li>
+<li><strong>User Annotations</strong>: Enhanced annotation spans with dark mode classes for better visibility</li>
+<li><strong>Content Display</strong>: Improved article content text contrast and readability across themes</li>
+<li><strong>Chat Interface</strong>: Updated UI message from "LLM disabled" to "AI-powered responses enabled"</li>
+<li><strong>Ollama Configuration</strong>: Increased <code>OLLAMA_NUM_PARALLEL</code> from 1 to 3 and <code>OLLAMA_MAX_LOADED_MODELS</code> from 1 to 2</li>
+</ul>
+<h3 id="fixed_20">Fixed</h3>
+<ul>
+<li><strong>Statistics Cards</strong>: Fixed statistics cards not updating when threshold slider changes</li>
+<li><strong>Chunk Visualization</strong>: Fixed chunk visualization not reflecting threshold changes</li>
+<li><strong>Threshold Selector</strong>: Fixed null reference errors in threshold update functions</li>
+<li><strong>Readability Issues</strong>: Resolved low contrast issues in article detail page content display</li>
+<li><strong>Dark Mode Compatibility</strong>: Fixed keyword highlights and annotations to work properly in dark mode</li>
+<li><strong>Visual Consistency</strong>: Ensured consistent styling across light and dark themes</li>
+<li><strong>LLM Resource Contention</strong>: Fixed Ollama timeout issues caused by multiple AI endpoints competing for resources</li>
+<li><strong>Chat Interface Status</strong>: Removed hardcoded "LLM disabled" message and implemented proper status display</li>
+</ul>
+<h2 id="previous-releases">[Previous Releases]</h2>
+<ul>
+<li><strong>SIGMA Conversation Log</strong>: Enhanced SIGMA rule generation UI to display the full back-and-forth conversation between LLM and pySigma validator</li>
+<li>Shows each attempt with prompts, LLM responses, and validation results</li>
+<li>Collapsible sections for long content to improve readability</li>
+<li>Color-coded validation feedback (green for valid, red for invalid)</li>
+<li>Visual indicators for retry attempts vs. final attempt</li>
+<li>Detailed error and warning messages from pySigma validator</li>
+<li><strong>Unified Testing Interface</strong>: New <code>run_tests.py</code> for standardized test execution</li>
+<li><strong>Docker Testing Support</strong>: Added <code>--docker</code> flag for containerized test execution</li>
+<li><strong>Virtual Environment Documentation</strong>: Comprehensive guide for <code>venv-test</code>, <code>venv-lg</code>, and <code>venv-ml</code></li>
+<li><strong>Testing Workflow Guide</strong>: Complete documentation for different execution contexts and test categories</li>
+<li><strong>Comprehensive Test Suite</strong>: Fixed 5 high-priority test modules with 195 new passing tests</li>
+<li><strong>ContentFilter Tests</strong>: ML-based filtering, cost optimization, and quality scoring (25 tests)</li>
+<li><strong>SigmaValidator Tests</strong>: SIGMA rule validation, error handling, and batch processing (50 tests)</li>
+<li><strong>SourceManager Tests</strong>: Source configuration management and validation (35 tests)</li>
+<li><strong>ContentCleaner Tests</strong>: HTML cleaning, text processing, and metadata extraction (30 tests)</li>
+<li><strong>HTTPClient Tests</strong>: Rate limiting, async handling, and request configuration (38/39 tests)</li>
+<li><strong>Supporting Classes</strong>: FilterResult, FilterConfig, ValidationError, SigmaRule, SourceConfig, ContentExtractor, TextNormalizer, RateLimiter</li>
+<li><strong>Dependencies</strong>: Added scikit-learn and pandas for ML-based content filtering</li>
+<li><strong>Test Documentation</strong>: Updated SKIPPED_TESTS.md with current test status and progress tracking</li>
+</ul>
+<h3 id="removed_4">Removed</h3>
+<ul>
+<li><strong>Vestigial Fields</strong>: Removed unused <code>tier</code> and <code>weight</code> fields from source management (all sources had identical default values, no logic utilized these fields)</li>
+</ul>
+<h3 id="added-previous">Added (Previous)</h3>
+<ul>
+<li><strong>Source Config Workspace</strong>: Interactive tab for editing source metadata, filtering, crawlers, and selectors with local regex testing</li>
+<li><strong>SIGMA Rule Generation</strong>: AI-powered detection rule generation from threat intelligence articles</li>
+<li><strong>pySIGMA Validation</strong>: Automatic validation of generated SIGMA rules for compliance</li>
+<li><strong>Iterative Rule Fixing</strong>: Automatic retry mechanism with error feedback (up to 3 attempts)</li>
+<li><strong>Rule Metadata Storage</strong>: Complete audit trail of generation attempts and validation results</li>
+<li><strong>Source Management Enhancements</strong>: Individual source refresh and check frequency configuration</li>
+<li><strong>CISA Analysis Reports</strong>: New threat intelligence source for CISA cybersecurity advisories</li>
+<li><strong>Group-IB Threat Intelligence</strong>: Content-filtered source for threat intelligence research</li>
+<li><strong>Non-English Word Analysis</strong>: Advanced keyword analysis for threat hunting discriminators</li>
+<li><strong>Enhanced Keyword Lists</strong>: Updated perfect and good discriminators based on analysis</li>
+<li><strong>Performance Optimizations</strong>: Faster LLM model (Phi-3 Mini) for database queries</li>
+<li>GitHub Actions CI/CD pipeline with security scanning</li>
+<li>Comprehensive security policy and contributing guidelines</li>
+<li>Enhanced .gitignore with security-focused patterns</li>
+<li>Environment variable configuration template</li>
+<li>Automated dependency vulnerability scanning</li>
+</ul>
+<h3 id="changed_15">Changed</h3>
+<ul>
+<li><strong>Test Coverage</strong>: Dramatically improved from 27 to 222 passing tests (722% increase)</li>
+<li><strong>Test Infrastructure</strong>: Enhanced test reliability and maintainability with comprehensive supporting classes</li>
+<li><strong>Database Chatbot</strong>: Switched from Mistral 7B to Phi-3 Mini for faster query processing</li>
+<li><strong>Keyword Scoring</strong>: Enhanced threat hunting discriminators based on non-English word analysis</li>
+<li><strong>Source Configuration</strong>: Improved content filtering and threat intelligence focus</li>
+<li>Updated all dependencies to latest secure versions</li>
+<li>Removed hardcoded credentials from configuration</li>
+<li>Improved code documentation and type hints</li>
+<li>Enhanced security practices and guidelines</li>
+</ul>
+<h3 id="fixed_21">Fixed</h3>
+<ul>
+<li><strong>Test Suite Reliability</strong>: Fixed 5 major test modules with comprehensive supporting class implementations</li>
+<li><strong>ContentFilter Logic</strong>: Fixed ML-based filtering, cost optimization, and quality scoring algorithms</li>
+<li><strong>SigmaValidator Logic</strong>: Fixed rule validation, error handling, and batch processing</li>
+<li><strong>SourceManager Logic</strong>: Fixed source configuration management and validation error handling</li>
+<li><strong>ContentCleaner Logic</strong>: Fixed HTML cleaning, Unicode normalization, and text processing</li>
+<li><strong>HTTPClient Logic</strong>: Fixed rate limiting, async/await issues, and request configuration</li>
+<li><strong>Iteration Counter Bug</strong>: Fixed off-by-one error in SIGMA rule generation attempt counting</li>
+<li><strong>SQL Query Safety</strong>: Enhanced query validation and safety checks</li>
+<li><strong>Content Filtering</strong>: Improved non-English word detection and filtering</li>
+<li><strong>Documentation Accuracy</strong>: Fixed README.md to accurately reflect disabled readability scoring feature</li>
+<li>Fixed potential SQL injection vulnerabilities</li>
+<li>Updated cryptography library to latest version</li>
+<li>Removed debug prints and sensitive TODOs</li>
+<li>Implemented proper environment variable handling</li>
+</ul>
+<h3 id="security_3">Security</h3>
+<ul>
+<li>Enhanced input validation for SIGMA rule generation</li>
+<li>Improved query safety validation for database chatbot</li>
+<li>Updated cryptography library to latest version</li>
+<li>Removed debug prints and sensitive TODOs</li>
+<li>Implemented proper environment variable handling</li>
+</ul>
+<h2 id="200-tycho-2025-08-28">[2.0.0 "Tycho"] - 2025-08-28</h2>
+<h3 id="added_14">Added</h3>
+<ul>
+<li><strong>PostgreSQL Database</strong>: Replaced SQLite with production-grade PostgreSQL</li>
+<li><strong>Async/Await Support</strong>: Full async support with FastAPI and SQLAlchemy</li>
+<li><strong>Connection Pooling</strong>: Efficient database connection management</li>
+<li><strong>Background Tasks</strong>: Celery worker system for async operations</li>
+<li><strong>Redis Caching</strong>: High-performance caching and message queuing</li>
+<li><strong>Docker Containerization</strong>: Production-ready container orchestration</li>
+<li><strong>Content Quality Assessment</strong>: LLM-based quality scoring system</li>
+<li><strong>TTP Extraction Engine</strong>: Advanced threat technique detection</li>
+<li><strong>Modern Web Interface</strong>: HTMX-powered dynamic UI</li>
+</ul>
+<h3 id="changed_16">Changed</h3>
+<ul>
+<li><strong>Architecture</strong>: Complete rewrite with modern async architecture</li>
+<li><strong>Performance</strong>: 10x improvement in concurrent operations</li>
+<li><strong>Scalability</strong>: Horizontal scaling support</li>
+<li><strong>Security</strong>: Enhanced security features and practices</li>
+<li><strong>Monitoring</strong>: Built-in health checks and metrics</li>
+</ul>
+<h3 id="deprecated">Deprecated</h3>
+<ul>
+<li>SQLite database support</li>
+<li>Old CLI interface</li>
+<li>Legacy web interface</li>
+</ul>
+<h3 id="removed_5">Removed</h3>
+<ul>
+<li>Old architecture components</li>
+<li>Deprecated APIs and endpoints</li>
+<li>Legacy configuration formats</li>
+</ul>
+<h3 id="fixed_22">Fixed</h3>
+<ul>
+<li>Database locking issues</li>
+<li>Memory leaks in long-running processes</li>
+<li>Connection timeout problems</li>
+<li>Rate limiting inconsistencies</li>
+</ul>
+<h3 id="security_4">Security</h3>
+<ul>
+<li>Input validation for all endpoints</li>
+<li>SQL injection protection</li>
+<li>XSS protection</li>
+<li>Rate limiting implementation</li>
+<li>CORS configuration</li>
+<li>Environment variable configuration</li>
+</ul>
+<h2 id="123-2024-12-10">[1.2.3] - 2024-12-10</h2>
+<h3 id="fixed_23">Fixed</h3>
+<ul>
+<li>SQL injection vulnerability in search functionality</li>
+<li>Memory leak in RSS parsing</li>
+<li>Connection timeout issues</li>
+<li>Rate limiting bypass</li>
+</ul>
+<h3 id="security_5">Security</h3>
+<ul>
+<li>Updated dependencies with security patches</li>
+<li>Enhanced input validation</li>
+<li>Improved error handling</li>
+</ul>
+<h2 id="122-2024-11-25">[1.2.2] - 2024-11-25</h2>
+<h3 id="added_15">Added</h3>
+<ul>
+<li>Enhanced logging system</li>
+<li>Better error reporting</li>
+<li>Configuration validation</li>
+</ul>
+<h3 id="fixed_24">Fixed</h3>
+<ul>
+<li>RSS feed parsing issues</li>
+<li>Database connection problems</li>
+<li>Memory usage optimization</li>
+</ul>
+<h2 id="121-2024-11-15">[1.2.1] - 2024-11-15</h2>
+<h3 id="added_16">Added</h3>
+<ul>
+<li>Content deduplication</li>
+<li>Source health monitoring</li>
+<li>Basic web interface</li>
+</ul>
+<h3 id="changed_17">Changed</h3>
+<ul>
+<li>Improved RSS parsing accuracy</li>
+<li>Better error handling</li>
+<li>Enhanced logging</li>
+</ul>
+<h3 id="fixed_25">Fixed</h3>
+<ul>
+<li>Memory leaks in content processing</li>
+<li>Database connection issues</li>
+<li>File handling problems</li>
+</ul>
+<h2 id="120-2024-10-30">[1.2.0] - 2024-10-30</h2>
+<h3 id="added_17">Added</h3>
+<ul>
+<li>RSS feed support</li>
+<li>Content extraction</li>
+<li>Basic database storage</li>
+<li>CLI interface</li>
+</ul>
+<h3 id="changed_18">Changed</h3>
+<ul>
+<li>Improved content parsing</li>
+<li>Better source management</li>
+<li>Enhanced error handling</li>
+</ul>
+<h2 id="110-2024-09-15">[1.1.0] - 2024-09-15</h2>
+<h3 id="added_18">Added</h3>
+<ul>
+<li>Basic web scraping functionality</li>
+<li>Source configuration</li>
+<li>Simple data storage</li>
+</ul>
+<h3 id="changed_19">Changed</h3>
+<ul>
+<li>Improved performance</li>
+<li>Better error handling</li>
+</ul>
+<h2 id="100-2024-08-01">[1.0.0] - 2024-08-01</h2>
+<h3 id="added_19">Added</h3>
+<ul>
+<li>Initial release</li>
+<li>Basic web scraping</li>
+<li>Simple data collection</li>
+<li>Basic CLI interface</li>
+</ul>
+<hr />
+<h2 id="migration-guides">Migration Guides</h2>
+<h3 id="upgrading-from-1x-to-20">Upgrading from 1.x to 2.0</h3>
+<ol>
+<li><strong>Database Migration</strong>: Export data from SQLite and import to PostgreSQL</li>
+<li><strong>Configuration</strong>: Update to new environment variable format</li>
+<li><strong>Dependencies</strong>: Install new requirements</li>
+<li><strong>Docker</strong>: Use new docker-compose configuration</li>
+</ol>
+<h3 id="upgrading-from-11-to-12">Upgrading from 1.1 to 1.2</h3>
+<ol>
+<li><strong>Database</strong>: Backup existing data</li>
+<li><strong>Configuration</strong>: Update RSS feed configurations</li>
+<li><strong>Dependencies</strong>: Update to latest versions</li>
+</ol>
+<hr />
+<h2 id="release-notes">Release Notes</h2>
+<h3 id="version-200">Version 2.0.0</h3>
+<p>This is a major release with significant architectural improvements. The new async architecture provides better performance, scalability, and reliability. The addition of PostgreSQL, Redis, and Docker makes CTI Scraper production-ready.</p>
+<h3 id="version-123">Version 1.2.3</h3>
+<p>Security-focused release addressing critical vulnerabilities and improving overall stability.</p>
+<h3 id="version-100">Version 1.0.0</h3>
+<p>Initial release with basic functionality for web scraping and data collection.</p>
+<hr />
+<h2 id="support">Support</h2>
+<p>For support and questions:
+- <strong>Issues</strong>: GitHub issue tracker
+- <strong>Documentation</strong>: Project README and docs
+- <strong>Security</strong>: See SECURITY.md for security issues</p>
+<hr />
+<p><strong>Note</strong>: This changelog follows the Keep a Changelog format. All dates are in YYYY-MM-DD format.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

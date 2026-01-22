@@ -1,0 +1,2458 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern docs for the Huntable CTI Studio (CTIScraper)">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Workflow Data Flow Architecture - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#workflow-data-flow-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Workflow Data Flow Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/run_locally/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run locally
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/add_feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/extract_observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/generate_sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/evaluate_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/qa_loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/TECHNICAL_READOUT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Readout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/DEVELOPMENT_SETUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/PORT_CONFIGURATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/WEB_APP_TESTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/DATABASE_QUERY_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/CONTENT_FILTERING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/OS_DETECTION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-storage-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Storage Locations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Storage Locations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-in-memory-storage-temporary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. In-Memory Storage (Temporary)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-database-storage-persistent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Database Storage (Persistent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extraction-agent-data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extraction Agent Data Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Extraction Agent Data Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-sub-agent-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Sub-Agent Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-supervisor-aggregation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Supervisor Aggregation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-database-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Database Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-sigma-agent-consumption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: SIGMA Agent Consumption
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#celery-vs-direct-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Celery vs Direct Execution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Celery vs Direct Execution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#same-workflow-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Same Workflow Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Points
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#langfuse-trace-creation-and-session-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LangFuse Trace Creation and Session Tracking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LangFuse Trace Creation and Session Tracking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trace-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trace Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-association" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session Association
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trace Storage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debug-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debug Links
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewing-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Viewing Traces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#execution-methods-celery-langgraph-state-machine-vs-direct-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution Methods: Celery (LangGraph state machine) vs Direct Testing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution Methods: Celery (LangGraph state machine) vs Direct Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-celery-background-langgraph-state-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Celery (Background + LangGraph state machine)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-direct-execution-testing-single-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Direct Execution (Testing - Single Agent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comparison-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison Table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-choose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Choose
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="workflow-data-flow-architecture">Workflow Data Flow Architecture</h1>
+<p>This document details how data flows through the agentic workflow, including memory storage, database persistence, and supervisor aggregation.</p>
+<h2 id="overview">Overview</h2>
+<p>The agentic workflow processes articles through multiple steps, with data stored in both <strong>memory</strong> (during execution) and <strong>database</strong> (for persistence). This document explains the data flow from sub-agent extraction through supervisor aggregation to SIGMA generation.</p>
+<h2 id="data-storage-locations">Data Storage Locations</h2>
+<h3 id="1-in-memory-storage-temporary">1. In-Memory Storage (Temporary)</h3>
+<p>During workflow execution, data is stored in the workflow state dictionary:</p>
+<pre><code class="language-python">state = {
+    'extraction_result': {...},  # Aggregated results
+    'subresults': {...},         # Individual sub-agent outputs
+    ...
+}
+</code></pre>
+<p><strong>Characteristics:</strong>
+- <strong>Lifetime</strong>: Exists only during workflow execution
+- <strong>Purpose</strong>: Fast access for next workflow steps
+- <strong>Location</strong>: Python process memory (LangGraph state)
+- <strong>Cleared</strong>: When workflow completes or fails</p>
+<h3 id="2-database-storage-persistent">2. Database Storage (Persistent)</h3>
+<p>Results are persisted to PostgreSQL in JSONB format:</p>
+<p><strong>Table</strong>: <code>agentic_workflow_executions</code><br />
+<strong>Column</strong>: <code>extraction_result</code> (JSONB)</p>
+<p><strong>Characteristics:</strong>
+- <strong>Lifetime</strong>: Permanent (until deleted)
+- <strong>Purpose</strong>: Audit trail, debugging, historical analysis
+- <strong>Location</strong>: PostgreSQL database
+- <strong>Format</strong>: JSONB (binary JSON, queryable)</p>
+<h2 id="extraction-agent-data-flow">Extraction Agent Data Flow</h2>
+<h3 id="step-1-sub-agent-execution">Step 1: Sub-Agent Execution</h3>
+<p>Each sub-agent (CmdlineExtract, HuntQueriesExtract, etc.) runs and produces results:</p>
+<pre><code class="language-python"># Sub-agents run sequentially
+subresults = {
+    &quot;cmdline&quot;: {
+        &quot;items&quot;: [...],      # Extracted command lines
+        &quot;count&quot;: 4,
+        &quot;raw&quot;: {...}         # Full CmdlineExtract output including qa_corrections
+    },
+    &quot;sigma_queries&quot;: {...},
+    &quot;event_ids&quot;: {...},
+    &quot;process_lineage&quot;: {...},
+    &quot;registry_keys&quot;: {...}
+}
+</code></pre>
+<p><strong>Storage</strong>: In-memory <code>subresults</code> dictionary</p>
+<h3 id="step-2-supervisor-aggregation">Step 2: Supervisor Aggregation</h3>
+<p>The supervisor agent collects all sub-agent outputs and normalizes them before merging. Each item is tagged with its source level and a lightweight summary is appended for SIGMA input.</p>
+<pre><code class="language-python"># Supervisor aggregation (lines 1641-1679 in agentic_workflow.py)
+all_observables = []
+content_summary = []
+
+for cat, data in subresults.items():
+    items = data.get(&quot;items&quot;, [])
+    if items is None:
+        items = []
+    elif not isinstance(items, list):
+        items = [items]
+
+    if not items:
+        continue
+
+    content_summary.append(f&quot;Extracted {cat.replace('_', ' ').title()}:&quot;)
+    for item in items:
+        normalized_value = item
+        if isinstance(item, dict):
+            normalized_value = item.get(&quot;value&quot;, item)
+
+        all_observables.append({
+            &quot;type&quot;: cat,
+            &quot;value&quot;: normalized_value,
+            &quot;original_data&quot;: item if isinstance(item, dict) else None,
+            &quot;source&quot;: &quot;supervisor_aggregation&quot;
+        })
+        content_summary.append(f&quot;- {json.dumps(item, indent=None) if isinstance(item, dict) else item}&quot;)
+    content_summary.append(&quot;&quot;)
+
+extraction_result = {
+    &quot;observables&quot;: all_observables,
+    &quot;summary&quot;: {
+        &quot;count&quot;: len(all_observables),
+        &quot;source_url&quot;: article.canonical_url,
+        &quot;platforms_detected&quot;: [&quot;Windows&quot;]
+    },
+    &quot;discrete_huntables_count&quot;: len(all_observables),
+    &quot;subresults&quot;: subresults,
+    &quot;content&quot;: &quot;\n&quot;.join(content_summary) if content_summary else &quot;&quot;,
+    &quot;raw_response&quot;: json.dumps(subresults, indent=2)
+}
+</code></pre>
+<p><strong>Storage</strong>: 
+- In-memory: <code>state['extraction_result']</code>
+- Database: <code>execution.extraction_result</code> (JSONB)</p>
+<h3 id="step-3-database-persistence">Step 3: Database Persistence</h3>
+<p>The execution row is updated with both the extracted conversation log and the aggregated result before committing:</p>
+<pre><code class="language-python"># Lines 1718-1741 in agentic_workflow.py
+if execution:
+    execution.error_log = execution.error_log or {}
+    execution.error_log['extract_agent'] = {
+        'conversation_log': conversation_log,
+        'sub_agents_run': sub_agents_run,
+        'sub_agents_disabled': disabled_sub_agents,
+        'completed': True,
+        'completed_at': datetime.now().isoformat()
+    }
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(execution, 'error_log')
+    db_session.commit()
+
+    execution.extraction_result = extraction_result
+    db_session.commit()
+</code></pre>
+<p><strong>Database Structure:</strong></p>
+<pre><code class="language-json">{
+  &quot;observables&quot;: [...],
+  &quot;summary&quot;: {...},
+  &quot;discrete_huntables_count&quot;: 4,
+  &quot;subresults&quot;: {
+    &quot;cmdline&quot;: {
+      &quot;items&quot;: [&quot;e.exe -d=\&quot;E:\\\&quot;&quot;, ...],
+      &quot;count&quot;: 4,
+      &quot;raw&quot;: {
+        &quot;cmdline_items&quot;: [...],
+        &quot;count&quot;: 4,
+        &quot;qa_corrections&quot;: {...}
+      }
+    },
+    ...
+  },
+  &quot;content&quot;: &quot;Extracted Command Line:\n- e.exe -d=\&quot;E:\\\&quot;\n...&quot;,
+  &quot;raw_response&quot;: &quot;...&quot;
+}
+</code></pre>
+<h3 id="step-4-sigma-agent-consumption">Step 4: SIGMA Agent Consumption</h3>
+<p>The SIGMA node reads the in-memory <code>extraction_result</code> and picks the best content before calling the SigmaGenerationService:</p>
+<pre><code class="language-python"># Lines 1832-1859 in agentic_workflow.py
+sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
+extraction_result = state.get('extraction_result', {})
+content_to_use = None
+
+if sigma_fallback_enabled:
+    content_to_use = filtered_content
+    logger.info(f&quot;[Workflow {state['execution_id']}] Using filtered article content ({len(filtered_content)} chars) for SIGMA generation&quot;)
+elif extraction_result and extraction_result.get('discrete_huntables_count', 0) &gt; 0:
+    extracted_content = extraction_result.get('content', '')
+    if extracted_content and len(extracted_content) &gt; 100:
+        content_to_use = extracted_content
+        logger.info(f&quot;[Workflow {state['execution_id']}] Using extracted content ({len(extracted_content)} chars) for SIGMA generation&quot;)
+    else:
+        logger.warning(f&quot;[Workflow {state['execution_id']}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content&quot;)
+
+if content_to_use is None:
+    logger.warning(f&quot;[Workflow {state['execution_id']}] No extraction result or filtered content toggle disabled. Skipping SIGMA generation.&quot;)
+    return {
+        **state,
+        'sigma_rules': [],
+        'current_step': 'generate_sigma',
+        'status': state.get('status', 'running'),
+        'termination_reason': TERMINATION_REASON_NO_SIGMA_RULES,
+        'termination_details': {
+            'reason': 'No extraction result or filtered content disabled',
+            'discrete_huntables_count': extraction_result.get('discrete_huntables_count', 0) if extraction_result else 0,
+            'sigma_fallback_enabled': sigma_fallback_enabled
+        }
+    }
+</code></pre>
+<p><strong>Content Selection Priority:</strong>
+1. <strong>Filtered article content</strong> (if <code>sigma_fallback_enabled = True</code>) - always used when enabled
+2. <strong>Extracted content</strong> (if <code>discrete_huntables_count &gt; 0</code>, content length &gt; 100, and toggle is disabled)
+3. <strong>Skip SIGMA generation</strong> (if fallback disabled and no extraction results)</p>
+<p><em>Note: <code>sigma_fallback_enabled</code> defaults to <code>False</code>, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag.</em></p>
+<p><em>Note: <code>sigma_fallback_enabled</code> defaults to <code>False</code>, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag.</em></p>
+<p><strong>Why memory?</strong>
+- Faster access (no database query)
+- Workflow is sequential (extraction → SIGMA within the same execution)
+- Database is for persistence/audit, not execution logic</p>
+<p><strong>Important:</strong> When every sub-agent returns zero items and fallback is disabled, SIGMA generation returns early with <code>termination_reason: 'no_sigma_rules'</code>.</p>
+<h2 id="celery-vs-direct-execution">Celery vs Direct Execution</h2>
+<h3 id="same-workflow-implementation">Same Workflow Implementation</h3>
+<p>Both execution paths use the <strong>same workflow code</strong>:</p>
+<p><strong>Celery Path:</strong></p>
+<pre><code>trigger_agentic_workflow() (Celery task)
+  → run_workflow()
+    → create_agentic_workflow()
+      → extract_agent_node()  # Same supervisor aggregation
+</code></pre>
+<p><strong>Direct Path:</strong></p>
+<pre><code>API endpoint / workflow trigger
+  → run_workflow()
+    → create_agentic_workflow()
+      → extract_agent_node()  # Same supervisor aggregation
+</code></pre>
+<p><strong>Difference:</strong>
+- <strong>Trigger</strong>: Background worker (Celery) vs synchronous (direct)
+- <strong>Execution</strong>: Same workflow logic, same data flow
+- <strong>Storage</strong>: Same memory → database pattern</p>
+<h2 id="data-flow-diagram">Data Flow Diagram</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                    Sub-Agent Execution                       │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+    │Cmdline   │  │Sig       │  │Event     │  │Proc      │  ...
+    │Extract   │  │Extract   │  │Extract   │  │Extract   │
+    └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+         │             │             │             │
+         └─────────────┴─────────────┴─────────────┘
+                          │
+                          ▼
+         ┌──────────────────────────────┐
+         │  subresults (in memory)      │
+         │  {                            │
+         │    &quot;cmdline&quot;: {...},          │
+         │    &quot;sigma_queries&quot;: {...},    │
+         │    ...                        │
+         │  }                            │
+         └──────────────┬─────────────────┘
+                        │
+                        ▼
+         ┌──────────────────────────────┐
+         │  Supervisor Aggregation      │
+         │  • Merge all items           │
+         │  • Create content summary    │
+         │  • Build extraction_result   │
+         └──────────────┬───────────────┘
+                        │
+                        ├──────────────────────┐
+                        │                      │
+                        ▼                      ▼
+         ┌──────────────────────┐  ┌──────────────────────┐
+         │  Memory Storage      │  │  Database Storage   │
+         │  state[              │  │  execution.         │
+         │    'extraction_      │  │    extraction_      │
+         │     result'          │  │    result (JSONB)   │
+         │  ]                   │  │                     │
+         └──────────┬───────────┘  └──────────────────────┘
+                    │
+                    │ (Used by SIGMA agent)
+                    ▼
+         ┌──────────────────────────────┐
+         │  SIGMA Generation            │
+         │  Reads:                      │
+         │  extraction_result['content']│
+         │  (from memory)                │
+         └──────────────────────────────┘
+</code></pre>
+<h2 id="key-points">Key Points</h2>
+<ol>
+<li>
+<p><strong>Sub-agents → Supervisor</strong>: All sub-agent results collected in <code>subresults</code> dictionary (memory)</p>
+</li>
+<li>
+<p><strong>Supervisor Aggregation</strong>: Creates unified <code>extraction_result</code> with:</p>
+</li>
+<li><code>observables</code>: Merged list of all items</li>
+<li><code>content</code>: Text summary for SIGMA agent</li>
+<li>
+<p><code>subresults</code>: Detailed breakdown preserved</p>
+</li>
+<li>
+<p><strong>Dual Storage</strong>:</p>
+</li>
+<li><strong>Memory</strong>: For workflow execution (fast, temporary)</li>
+<li>
+<p><strong>Database</strong>: For persistence (audit, debugging)</p>
+</li>
+<li>
+<p><strong>SIGMA Agent</strong>: Reads from memory (<code>state['extraction_result']['content']</code>), not database</p>
+</li>
+<li>
+<p><strong>Celery vs Direct</strong>: Same workflow code, same data flow, different trigger mechanism</p>
+</li>
+</ol>
+<h2 id="database-schema">Database Schema</h2>
+<p><strong>Table</strong>: <code>agentic_workflow_executions</code></p>
+<pre><code class="language-sql">CREATE TABLE agentic_workflow_executions (
+    id SERIAL PRIMARY KEY,
+    article_id INTEGER REFERENCES articles(id),
+    status VARCHAR(50),
+    current_step VARCHAR(50),
+    extraction_result JSONB,  -- Stores full extraction_result structure
+    ...
+);
+</code></pre>
+<p><strong>Querying Extraction Results:</strong></p>
+<pre><code class="language-sql">-- Get extraction results for an article
+SELECT extraction_result 
+FROM agentic_workflow_executions 
+WHERE article_id = 1427 
+  AND status = 'completed';
+
+-- Query specific sub-agent results
+SELECT extraction_result-&gt;'subresults'-&gt;'cmdline'-&gt;&gt;'count' as cmdline_count
+FROM agentic_workflow_executions
+WHERE article_id = 1427;
+</code></pre>
+<h2 id="langfuse-trace-creation-and-session-tracking">LangFuse Trace Creation and Session Tracking</h2>
+<p>Every workflow execution creates a LangFuse trace with session tracking for debugging and monitoring.</p>
+<h3 id="trace-lifecycle">Trace Lifecycle</h3>
+<ol>
+<li><strong>Session Creation</strong>: Each execution creates a session with ID format <code>workflow_exec_{execution_id}</code></li>
+<li><strong>Trace Creation</strong>: A trace is created with a 32-character trace ID</li>
+<li><strong>Span Recording</strong>: Individual workflow steps are recorded as spans within the trace</li>
+<li><strong>Trace Flush</strong>: Traces are flushed at execution completion or error</li>
+</ol>
+<h3 id="implementation">Implementation</h3>
+<p>The LangFuse integration is implemented in <code>src/utils/langfuse_client.py</code> using the LangFuse OpenTelemetry SDK:</p>
+<pre><code class="language-python">from langfuse.types import TraceContext
+
+# Create trace context with session_id
+trace_context = TraceContext(
+    session_id=f&quot;workflow_exec_{execution_id}&quot;,
+    user_id=f&quot;article_{article_id}&quot;,
+)
+
+# Start trace as current span
+span_cm = client.start_as_current_span(
+    trace_context=trace_context,
+    name=f&quot;agentic_workflow_execution_{execution_id}&quot;,
+    input={&quot;execution_id&quot;: execution_id, &quot;article_id&quot;: article_id},
+    metadata={&quot;workflow_type&quot;: &quot;agentic_workflow&quot;, ...}
+)
+span = span_cm.__enter__()
+
+# Explicitly associate with session (required in LangFuse 3.x)
+span.update_trace(session_id=session_id)
+
+# Store trace_id (32 chars) for debug links
+trace_id = span.trace_id
+</code></pre>
+<h3 id="session-association">Session Association</h3>
+<p>In LangFuse 3.x with OpenTelemetry, two steps are required to associate a trace with a session:</p>
+<ol>
+<li><strong>Pass session_id in TraceContext</strong>: This provides context during span creation</li>
+<li><strong>Call span.update_trace()</strong>: This explicitly associates the trace with the session</li>
+</ol>
+<p>Without the explicit <code>update_trace()</code> call, the session view in LangFuse will be empty even though traces exist.</p>
+<h3 id="trace-storage">Trace Storage</h3>
+<p>The trace ID is stored in the database for debug link generation:</p>
+<pre><code class="language-python"># In agentic_workflow.py
+trace_id_value = getattr(trace, &quot;trace_id&quot;, None) or getattr(trace, &quot;id&quot;, None)
+execution.trace_id = trace_id_value  # 32-char trace ID, not 16-char span ID
+db_session.commit()
+</code></pre>
+<p><strong>Important</strong>: Store the <code>trace_id</code> (32 characters), not the span <code>id</code> (16 characters). The span ID is insufficient for LangFuse trace lookups.</p>
+<h3 id="debug-links">Debug Links</h3>
+<p>Debug buttons in the UI generate LangFuse session URLs:</p>
+<pre><code class="language-python"># In workflow_executions.py
+session_id = f&quot;workflow_exec_{execution.id}&quot;
+agent_chat_url = f&quot;{langfuse_host}/project/{project_id}/sessions/{session_id}&quot;
+</code></pre>
+<p><strong>Example URL</strong>: <code>https://us.cloud.langfuse.com/project/cmhk4f8nr02m9ad07cq29m3be/sessions/workflow_exec_86</code></p>
+<h3 id="viewing-traces">Viewing Traces</h3>
+<ul>
+<li><strong>Session View</strong> (recommended): Shows all traces for an execution grouped together</li>
+<li><strong>Trace View</strong>: Shows individual trace details with spans, inputs, outputs, and token usage</li>
+</ul>
+<p>See <a href="../DEBUGGING_TOOLS_GUIDE/#langfuse-workflow-debugging">DEBUGGING_TOOLS_GUIDE.md</a> for detailed debugging instructions.</p>
+<h2 id="execution-methods-celery-langgraph-state-machine-vs-direct-testing">Execution Methods: Celery (LangGraph state machine) vs Direct Testing</h2>
+<p>All workflow executions run the same LangGraph state machine (<code>src/workflows/agentic_workflow.py</code>); Celery and the direct API simply differ in how they trigger that graph.</p>
+<h3 id="1-celery-background-langgraph-state-machine">1. Celery (Background + LangGraph state machine)</h3>
+<p><strong>When Used:</strong>
+- "Send to Workflow" button on the article page (default)
+- Automated high-hunt-score triggers, scheduled jobs, and the executions retry endpoint</p>
+<p><strong>Flow:</strong></p>
+<pre><code>User action / automated trigger
+  → WorkflowTriggerService.trigger_workflow()
+    → trigger_agentic_workflow.delay(article_id)  # Celery task
+      → run_workflow() (LangGraph state machine)
+</code></pre>
+<p><strong>Characteristics:</strong>
+- ✅ <strong>Production ready</strong>: Queues work, scales across workers
+- ✅ <strong>Tracing</strong>: LangFuse traces are emitted when configured
+- ✅ <strong>Background</strong>: UI gets an immediate acknowledgement
+- ⚠️ <strong>Debugger friendly via LangFuse</strong>: No embedded http debugger, lean on trace views</p>
+<p><strong>Code references:</strong>
+- <code>src/services/workflow_trigger_service.py:120-165</code> (creates execution + dispatches Celery)
+- <code>src/worker/celery_app.py:637-679</code> (<code>trigger_agentic_workflow</code> task)
+- <code>src/web/routes/workflow_executions.py:1046-1105</code> (<code>/api/workflow/articles/{article_id}/trigger</code>)
+- <code>src/web/routes/workflow_executions.py:694-770</code> (<code>/api/workflow/executions/{execution_id}/retry</code>)</p>
+<p><strong>Note:</strong> The UI still appends <code>use_langgraph_server</code> query flags for compatibility, but the backend ignores that parameter—the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.</p>
+<h3 id="2-direct-execution-testing-single-agent">2. Direct Execution (Testing - Single Agent)</h3>
+<p><strong>When Used:</strong>
+- Workflow config UI's "Test with Article" button
+- Direct API calls to <code>POST /api/workflow/config/test-subagent</code></p>
+<p><strong>Flow:</strong></p>
+<pre><code>Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent() → immediate result
+</code></pre>
+<p><strong>Characteristics:</strong>
+- ✅ <strong>Immediate feedback</strong>: Synchronous execution
+- ✅ <strong>Isolated</strong>: Only a single agent runs (no Sigma or similarity stages)
+- ⚠️ <strong>No persistence</strong>: Execution records are not written
+- ⚠️ <strong>No LangFuse traces</strong>: Runs in-process, no background worker</p>
+<p><strong>Code references:</strong>
+- <code>src/web/routes/workflow_config.py:579-680</code>
+- <code>src/web/templates/workflow.html:2051-2087</code></p>
+<h3 id="comparison-table">Comparison Table</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Celery (LangGraph state machine)</th>
+<th>Direct Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Use Case</strong></td>
+<td>Production workflows</td>
+<td>Prompt/agent testing</td>
+</tr>
+<tr>
+<td><strong>Execution</strong></td>
+<td>Background async</td>
+<td>Synchronous</td>
+</tr>
+<tr>
+<td><strong>Speed</strong></td>
+<td>Fast (queued)</td>
+<td>Fastest</td>
+</tr>
+<tr>
+<td><strong>Debugging</strong></td>
+<td>LangFuse trace views</td>
+<td>Console logs</td>
+</tr>
+<tr>
+<td><strong>Traces</strong></td>
+<td>Optional (LangFuse)</td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong>Persistence</strong></td>
+<td>Execution DB records</td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td>Full extraction → Sigma → similarity</td>
+<td>Single agent</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-to-choose">How to Choose</h3>
+<ul>
+<li><strong>Production runs</strong>: Use the Celery path (article page buttons, automated triggers, retries)</li>
+<li><strong>Debugging/replays</strong>: Trigger a retry and inspect the LangFuse trace (the task still runs via Celery)</li>
+<li><strong>Agent/prompt testing</strong>: Use the direct endpoint in the workflow config UI</li>
+</ul>
+<h2 id="code-references">Code References</h2>
+<ul>
+<li><strong>Sub-agent execution</strong>: <code>src/workflows/agentic_workflow.py:859-1110</code></li>
+<li><strong>Supervisor aggregation</strong>: <code>src/workflows/agentic_workflow.py:1641-1680</code></li>
+<li><strong>Database persistence</strong>: <code>src/workflows/agentic_workflow.py:1695-1744</code></li>
+<li><strong>SIGMA consumption</strong>: <code>src/workflows/agentic_workflow.py:1772-1860</code></li>
+<li><strong>Celery trigger task</strong>: <code>src/worker/celery_app.py:637-679</code></li>
+<li><strong>Workflow trigger service</strong>: <code>src/services/workflow_trigger_service.py:120-165</code></li>
+<li><strong>Retry execution trigger</strong>: <code>src/web/routes/workflow_executions.py:694-770</code></li>
+<li><strong>Manual trigger endpoint</strong>: <code>src/web/routes/workflow_executions.py:1046-1105</code></li>
+<li><strong>Direct test trigger</strong>: <code>src/web/routes/workflow_config.py:579-680</code></li>
+<li><strong>Database model</strong>: <code>src/database/models.py:479-515</code></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
