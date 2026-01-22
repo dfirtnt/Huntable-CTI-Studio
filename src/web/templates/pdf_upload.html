@@ -5,7 +5,16 @@
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-6">📄 Upload PDF Report</h1>
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-bold text-gray-900">📄 Upload PDF Report</h1>
+            <button id="close-btn" type="button" 
+                    class="text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded-lg p-2 transition-colors"
+                    aria-label="Close">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
 
         <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <div class="mb-4">
@@ -39,6 +48,13 @@
 
             <p class="text-xs text-gray-500">Maximum file size: 50MB</p>
             <p class="text-xs text-gray-500">Supported format: PDF only</p>
+        </div>
+
+        <div class="mt-6 flex justify-end space-x-3">
+            <button id="cancel-btn" type="button" 
+                    class="inline-flex items-center px-4 py-2 border border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                Cancel
+            </button>
         </div>
 
         <div id="upload-status" class="mt-4 hidden">
@@ -99,6 +115,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const uploadError = document.getElementById('upload-error');
     const successDetails = document.getElementById('success-details');
     const errorDetails = document.getElementById('error-details');
+    const closeBtn = document.getElementById('close-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+
+    // Close/navigate back function
+    function closePage() {
+        window.location.href = '/articles';
+    }
+
+    // Close button handler
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closePage);
+    }
+
+    // Cancel button handler
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closePage);
+    }
+
+    // Esc key handler
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !uploadStatus.classList.contains('hidden')) {
+            // Don't close if upload is in progress
+            return;
+        }
+        if (e.key === 'Escape') {
+            closePage();
+        }
+    });
 
     // Handle file selection
     fileInput.addEventListener('change', function(e) {
