@@ -1485,7 +1485,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         temperature=float(agent_temperature),
                         top_p=float(agent_top_p) if agent_top_p is not None else None,
                         qa_model_override=qa_model_override,
-                        use_hybrid_extractor=False,  # UI-triggered workflows use prompt from config
                         provider=agent_provider  # Pass provider from config
                     )
                     

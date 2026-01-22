@@ -411,7 +411,6 @@ class EvalRunner:
             execution_id=None,
             model_name=prompt_config.get("model"),
             temperature=0.0,
-            use_hybrid_extractor=False,  # Force LLM usage for consistency
             provider=cmdline_provider  # Pass provider from snapshot config
         )
         

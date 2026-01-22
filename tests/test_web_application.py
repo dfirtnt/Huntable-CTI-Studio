@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 BASE_URL = "http://localhost:8001"
 TEST_TIMEOUT = 10.0  # Reduced from 30.0 to prevent hanging tests
 
+@pytest.mark.api
 class TestCoreRoutes:
     """Test core application routes and pages."""
     
@@ -49,6 +50,7 @@ class TestCoreRoutes:
         assert "status" in data
         assert data["status"] == "healthy"
 
+@pytest.mark.api
 class TestArticlePages:
     """Test article-related pages and functionality."""
     
@@ -83,6 +85,7 @@ class TestArticlePages:
         response = await async_client.get("/articles/999999")
         assert response.status_code in [404, 500]
 
+@pytest.mark.api
 class TestAPIEndpoints:
     """Test all API endpoints."""
     
@@ -147,6 +150,7 @@ class TestAPIEndpoints:
             # If no sources exist, that's also valid
             assert response.status_code in [404, 500]
 
+@pytest.mark.api
 class TestSourceManagement:
     """Test source management functionality."""
     
@@ -218,6 +222,7 @@ class TestSourceManagement:
             # The response should contain information about the toggle operation
             assert "source_name" in data or "message" in data
 
+@pytest.mark.api
 class TestUIComponents:
     """Test UI components and rendering."""
     
@@ -265,6 +270,7 @@ class TestUIComponents:
             # Check for chart containers (may not be present if no data)
             assert len(response.text) > 100  # Page has content
 
+@pytest.mark.api
 class TestErrorHandling:
     """Test error handling and edge cases."""
     
@@ -297,6 +303,7 @@ class TestErrorHandling:
             # Should handle safely
             assert response.status_code in [200, 400, 500]
 
+@pytest.mark.api
 class TestDataConsistency:
     """Test data consistency across endpoints."""
     
@@ -335,6 +342,7 @@ class TestDataConsistency:
             # Should have at least one source
             assert len(api_data["sources"]) > 0
 
+@pytest.mark.api
 class TestPerformance:
     """Test application performance."""
     
@@ -368,6 +376,7 @@ class TestPerformance:
         for response in responses:
             assert response.status_code == 200
 
+@pytest.mark.api
 class TestUserWorkflows:
     """Test complete user workflows."""
     

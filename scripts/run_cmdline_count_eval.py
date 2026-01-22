@@ -116,7 +116,6 @@ def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version:
         execution_id=None,
         model_name=model,
         temperature=0.0,
-        use_hybrid_extractor=False,  # Force LLM usage
         provider=provider  # Pass provider from config or inferred
     )
     
