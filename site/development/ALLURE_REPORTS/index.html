@@ -1,0 +1,2584 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern docs for the Huntable CTI Studio (CTIScraper)">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Allure Reports Integration Guide - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#allure-reports-integration-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Allure Reports Integration Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/run_locally/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run locally
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/add_feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/extract_observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/generate_sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/evaluate_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/qa_loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/TECHNICAL_READOUT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Readout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPMENT_SETUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PORT_CONFIGURATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../WEB_APP_TESTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATABASE_QUERY_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/CONTENT_FILTERING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/OS_DETECTION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#interactive-test-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🎯 Interactive Test Reports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctiscraper-specific-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔍 CTIScraper-Specific Benefits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-tests-with-allure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Tests with Allure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Tests with Allure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-standard-test-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Standard Test Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-manual-test-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Manual Test Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewing-allure-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Viewing Allure Reports
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Viewing Allure Reports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-generate-report-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Generate Report Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-containerized-reports-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Containerized Reports (Recommended)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-serve-interactive-reports-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Serve Interactive Reports (Host)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-generate-static-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Generate Static Reports
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Output Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allure-results-directory-allure-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allure Results Directory (allure-results/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-data-points-captured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Data Points Captured
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ctiscraper-specific-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CTIScraper-Specific Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CTIScraper-Specific Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-mlai-test-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. ML/AI Test Visualization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-ui-test-screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. UI Test Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-threat-intelligence-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Threat Intelligence Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-existing-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with Existing Tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with Existing Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#complementary-reporting-ecosystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complementary Reporting Ecosystem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage Patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cicd-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD Integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI/CD Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#github-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docker-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker Environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#custom-attachments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Attachments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-categorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Categorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-decorators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step Decorators
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-test-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Test Organization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-mlai-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. ML/AI Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-ui-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. UI Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-integration-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Integration Testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-allure-command-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Allure Command Not Found
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-empty-allure-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Empty Allure Results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-report-generation-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Report Generation Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Considerations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#report-size-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Report Size Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cicd-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI/CD Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-enhancements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future Enhancements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="allure-reports-integration-guide">Allure Reports Integration Guide</h1>
+<h2 id="overview">Overview</h2>
+<p>CTIScraper now includes Allure Reports integration for comprehensive test visualization and debugging. Allure provides interactive, step-by-step test execution reports that are particularly valuable for ML/AI testing, UI testing, and complex integration scenarios.</p>
+<h2 id="features">Features</h2>
+<h3 id="interactive-test-reports">🎯 <strong>Interactive Test Reports</strong></h3>
+<ul>
+<li><strong>Step-by-step visualization</strong>: See exactly what each test does</li>
+<li><strong>Rich attachments</strong>: Screenshots, logs, and custom data</li>
+<li><strong>Historical tracking</strong>: Compare test results over time</li>
+<li><strong>Filtering and search</strong>: Find specific tests or failures quickly</li>
+</ul>
+<h3 id="ctiscraper-specific-benefits">🔍 <strong>CTIScraper-Specific Benefits</strong></h3>
+<ul>
+<li><strong>ML/AI Debugging</strong>: Visualize AI inference steps and confidence scores</li>
+<li><strong>UI Test Screenshots</strong>: Automatic Playwright screenshot capture on failures</li>
+<li><strong>Threat Intelligence Context</strong>: Step-by-step IOC extraction and threat hunting</li>
+<li><strong>Integration Testing</strong>: Detailed API call sequences and database operations</li>
+</ul>
+<h2 id="setup">Setup</h2>
+<h3 id="dependencies">Dependencies</h3>
+<p>Allure is automatically installed with test dependencies:</p>
+<pre><code class="language-bash">allure-pytest&gt;=2.13.0
+</code></pre>
+<h3 id="configuration">Configuration</h3>
+<p>Allure is enabled by default in <code>pytest.ini</code>:</p>
+<pre><code class="language-ini">addopts = 
+    --alluredir=allure-results
+</code></pre>
+<h2 id="usage">Usage</h2>
+<h3 id="running-tests-with-allure">Running Tests with Allure</h3>
+<h4 id="1-standard-test-execution">1. Standard Test Execution</h4>
+<pre><code class="language-bash"># Run all tests with Allure reports
+python run_tests.py --all
+
+# Run specific test categories
+python run_tests.py --unit
+python run_tests.py --integration
+python run_tests.py --ui
+</code></pre>
+<h4 id="2-manual-test-execution">2. Manual Test Execution</h4>
+<pre><code class="language-bash"># Run tests with Allure results
+python -m pytest tests/ -v --alluredir=allure-results
+
+# Run specific test file
+python -m pytest tests/test_utils.py -v --alluredir=allure-results
+</code></pre>
+<h3 id="viewing-allure-reports">Viewing Allure Reports</h3>
+<h4 id="1-generate-report-data">1. Generate Report Data</h4>
+<pre><code class="language-bash"># Run tests to generate Allure results
+python run_tests.py --all
+</code></pre>
+<h4 id="2-containerized-reports-recommended">2. Containerized Reports (Recommended)</h4>
+<pre><code class="language-bash"># Start dedicated Allure container
+./manage_allure.sh start
+
+# Stop container
+./manage_allure.sh stop
+
+# View logs
+./manage_allure.sh logs
+
+# Check status
+./manage_allure.sh status
+</code></pre>
+<p>Access reports at: <code>http://localhost:8080</code></p>
+<h4 id="3-serve-interactive-reports-host">3. Serve Interactive Reports (Host)</h4>
+<pre><code class="language-bash"># Install Allure commandline tool (one-time setup)
+# macOS: brew install allure
+# Linux: See https://docs.qameta.io/allure/#_installing_a_commandline
+
+# Serve reports locally
+allure serve allure-results
+</code></pre>
+<p>This will:
+- Generate HTML reports from JSON data
+- Start a local web server
+- Open the report in your browser (typically <code>http://localhost:random-port</code>)</p>
+<h4 id="4-generate-static-reports">4. Generate Static Reports</h4>
+<pre><code class="language-bash"># Generate static HTML report
+allure generate allure-results --clean -o allure-report
+
+# Open static report
+allure open allure-report
+</code></pre>
+<h2 id="output-structure">Output Structure</h2>
+<h3 id="allure-results-directory-allure-results">Allure Results Directory (<code>allure-results/</code>)</h3>
+<p>Contains detailed test execution data in JSON format:</p>
+<pre><code>allure-results/
+├── *.json                    # Individual test results
+├── *.json                    # Test containers and fixtures
+└── attachments/              # Screenshots, logs, custom data
+</code></pre>
+<h3 id="key-data-points-captured">Key Data Points Captured</h3>
+<ul>
+<li><strong>Test metadata</strong>: Name, description, status, duration</li>
+<li><strong>Test steps</strong>: Detailed execution steps</li>
+<li><strong>Attachments</strong>: Screenshots, logs, custom files</li>
+<li><strong>Labels</strong>: Test categories, suites, packages</li>
+<li><strong>Parameters</strong>: Test parameters and environment info</li>
+<li><strong>History</strong>: Test execution history and trends</li>
+</ul>
+<h2 id="ctiscraper-specific-features">CTIScraper-Specific Features</h2>
+<h3 id="1-mlai-test-visualization">1. ML/AI Test Visualization</h3>
+<p>Perfect for debugging AI inference and ML feedback tests:</p>
+<pre><code class="language-python">import allure
+
+@allure.step(&quot;AI Model Inference&quot;)
+def test_ai_inference():
+    with allure.step(&quot;Load model&quot;):
+        model = load_ai_model()
+
+    with allure.step(&quot;Process input&quot;):
+        result = model.predict(test_data)
+
+    with allure.step(&quot;Validate confidence&quot;):
+        assert result.confidence &gt; 0.8
+</code></pre>
+<h3 id="2-ui-test-screenshots">2. UI Test Screenshots</h3>
+<p>Automatic screenshot capture for Playwright tests:</p>
+<pre><code class="language-python">import allure
+from playwright.sync_api import Page
+
+def test_ui_functionality(page: Page):
+    with allure.step(&quot;Navigate to dashboard&quot;):
+        page.goto(&quot;/dashboard&quot;)
+        allure.attach(page.screenshot(), name=&quot;Dashboard&quot;, attachment_type=allure.attachment_type.PNG)
+
+    with allure.step(&quot;Verify elements&quot;):
+        assert page.locator(&quot;.status-indicator&quot;).is_visible()
+</code></pre>
+<h3 id="3-threat-intelligence-context">3. Threat Intelligence Context</h3>
+<p>Rich visualization for IOC extraction and threat hunting:</p>
+<pre><code class="language-python">import allure
+
+@allure.step(&quot;IOC Extraction&quot;)
+def test_ioc_extraction():
+    with allure.step(&quot;Extract IPs&quot;):
+        ips = extract_ips(sample_text)
+        allure.attach(str(ips), name=&quot;Extracted IPs&quot;, attachment_type=allure.attachment_type.TEXT)
+
+    with allure.step(&quot;Validate extraction&quot;):
+        assert len(ips) &gt; 0
+</code></pre>
+<h2 id="integration-with-existing-tools">Integration with Existing Tools</h2>
+<h3 id="complementary-reporting-ecosystem">Complementary Reporting Ecosystem</h3>
+<p>Allure works alongside existing CTIScraper reporting tools:</p>
+<ul>
+<li><strong>Duration Insights</strong>: Performance analysis and bottleneck identification</li>
+<li><strong>Coverage Reports</strong>: Code coverage analysis</li>
+<li><strong>HTML Reports</strong>: Basic test execution reports</li>
+<li><strong>Allure Reports</strong>: Detailed step-by-step visualization</li>
+</ul>
+<h3 id="usage-patterns">Usage Patterns</h3>
+<ul>
+<li><strong>Performance Analysis</strong>: Use duration insights for slow test identification</li>
+<li><strong>Detailed Debugging</strong>: Use Allure for step-by-step failure analysis</li>
+<li><strong>Coverage Analysis</strong>: Use coverage reports for code quality metrics</li>
+<li><strong>Quick Overview</strong>: Use HTML reports for basic test status</li>
+</ul>
+<h2 id="cicd-integration">CI/CD Integration</h2>
+<h3 id="github-actions">GitHub Actions</h3>
+<p>Allure reports are automatically integrated into the CI/CD pipeline:</p>
+<pre><code class="language-yaml">- name: Run Tests with Allure
+  run: |
+    python run_tests.py --all
+
+- name: Generate Allure Report
+  run: |
+    allure generate allure-results --clean -o allure-report
+
+- name: Upload Allure Report
+  uses: actions/upload-artifact@v3
+  with:
+    name: allure-report
+    path: allure-report/
+</code></pre>
+<h3 id="docker-environment">Docker Environment</h3>
+<pre><code class="language-bash"># Run tests in Docker with Allure
+docker exec cti_web python -m pytest tests/ --alluredir=allure-results
+
+# Serve reports locally
+allure serve allure-results
+</code></pre>
+<h2 id="advanced-features">Advanced Features</h2>
+<h3 id="custom-attachments">Custom Attachments</h3>
+<p>Add custom data to test reports:</p>
+<pre><code class="language-python">import allure
+import json
+
+def test_with_custom_data():
+    # Attach JSON data
+    data = {&quot;confidence&quot;: 0.95, &quot;model&quot;: &quot;gpt-4&quot;}
+    allure.attach(json.dumps(data, indent=2), name=&quot;Model Results&quot;, attachment_type=allure.attachment_type.JSON)
+
+    # Attach text data
+    allure.attach(&quot;Test execution log&quot;, name=&quot;Execution Log&quot;, attachment_type=allure.attachment_type.TEXT)
+</code></pre>
+<h3 id="test-categorization">Test Categorization</h3>
+<p>Organize tests with labels:</p>
+<pre><code class="language-python">import allure
+import pytest
+
+@pytest.mark.allure_label(&quot;component&quot;, &quot;ml&quot;)
+@pytest.mark.allure_label(&quot;severity&quot;, &quot;critical&quot;)
+def test_ml_inference():
+    pass
+</code></pre>
+<h3 id="step-decorators">Step Decorators</h3>
+<p>Add detailed step information:</p>
+<pre><code class="language-python">import allure
+
+@allure.step(&quot;Process threat intelligence data&quot;)
+def process_threat_data(data):
+    with allure.step(&quot;Validate input&quot;):
+        validate_input(data)
+
+    with allure.step(&quot;Extract IOCs&quot;):
+        iocs = extract_iocs(data)
+
+    return iocs
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-test-organization">1. Test Organization</h3>
+<ul>
+<li>Use descriptive test names and step descriptions</li>
+<li>Group related tests with appropriate labels</li>
+<li>Add meaningful attachments for debugging</li>
+</ul>
+<h3 id="2-mlai-testing">2. ML/AI Testing</h3>
+<ul>
+<li>Capture model confidence scores</li>
+<li>Attach input/output data for debugging</li>
+<li>Visualize inference steps clearly</li>
+</ul>
+<h3 id="3-ui-testing">3. UI Testing</h3>
+<ul>
+<li>Take screenshots at key interaction points</li>
+<li>Capture browser console logs</li>
+<li>Document user workflow steps</li>
+</ul>
+<h3 id="4-integration-testing">4. Integration Testing</h3>
+<ul>
+<li>Show API call sequences</li>
+<li>Capture request/response data</li>
+<li>Document database operations</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<h4 id="1-allure-command-not-found">1. Allure Command Not Found</h4>
+<pre><code class="language-bash"># Install Allure commandline tool
+# macOS
+brew install allure
+
+# Linux
+wget https://github.com/allure-framework/allure2/releases/download/2.24.1/allure-2.24.1.tgz
+tar -zxf allure-2.24.1.tgz
+sudo mv allure-2.24.1 /opt/allure
+sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+</code></pre>
+<h4 id="2-empty-allure-results">2. Empty Allure Results</h4>
+<pre><code class="language-bash"># Ensure tests are run with --alluredir flag
+python -m pytest tests/ --alluredir=allure-results
+
+# Check if allure-results directory exists
+ls -la allure-results/
+</code></pre>
+<h4 id="3-report-generation-issues">3. Report Generation Issues</h4>
+<pre><code class="language-bash"># Clean previous results
+rm -rf allure-results/ allure-report/
+
+# Regenerate reports
+python run_tests.py --all
+allure generate allure-results --clean -o allure-report
+</code></pre>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<h3 id="report-size-management">Report Size Management</h3>
+<ul>
+<li>Allure reports can grow large with many tests</li>
+<li>Consider archiving old reports</li>
+<li>Use <code>--clean</code> flag when generating reports</li>
+</ul>
+<h3 id="cicd-optimization">CI/CD Optimization</h3>
+<ul>
+<li>Generate reports only for failed tests in CI</li>
+<li>Use static reports for artifact storage</li>
+<li>Consider report caching for large test suites</li>
+</ul>
+<h2 id="future-enhancements">Future Enhancements</h2>
+<ul>
+<li><strong>Real-time Reporting</strong>: Live test execution monitoring</li>
+<li><strong>Custom Dashboards</strong>: CTIScraper-specific metrics</li>
+<li><strong>Integration with Monitoring</strong>: Connect with external monitoring tools</li>
+<li><strong>Advanced Filtering</strong>: Custom test categorization and filtering</li>
+</ul>
+<h2 id="summary">Summary</h2>
+<p>Allure Reports provide CTIScraper with:
+- <strong>Enhanced Debugging</strong>: Step-by-step test visualization
+- <strong>ML/AI Focus</strong>: Perfect for AI inference debugging
+- <strong>UI Testing</strong>: Automatic screenshot capture
+- <strong>Threat Intelligence</strong>: Rich context for security testing
+- <strong>Integration</strong>: Seamless CI/CD pipeline integration</p>
+<p>The combination of Allure Reports with Duration Insights creates a comprehensive testing ecosystem that provides both performance analysis and detailed debugging capabilities.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
