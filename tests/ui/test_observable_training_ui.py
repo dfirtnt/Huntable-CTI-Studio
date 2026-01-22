@@ -1,5 +1,8 @@
 """
 Playwright smoke tests for the observable training dashboard.
+
+DEPRECATED: HuggingFace connections/API keys and training are no longer used.
+These tests are deprecated and will be removed in a future release.
 """
 
 import os
@@ -8,9 +11,13 @@ from playwright.sync_api import Page, expect
 
 
 class TestObservableTrainingUI:
-    """UI tests for /observables-training."""
+    """UI tests for /observables-training.
+    
+    DEPRECATED: Training functionality is no longer used.
+    """
 
     @pytest.mark.ui
+    @pytest.mark.skip(reason="DEPRECATED: Training functionality no longer used")
     def test_observable_training_page_loads(self, page: Page):
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/observables-training")

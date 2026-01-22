@@ -673,6 +673,8 @@ class TestRunner:
                 ],  # Restrict to tests/ directory to avoid collection errors
                 TestType.UNIT: [
                     "tests/",
+                    "--ignore=tests/test_web_application.py",  # Exclude web app tests (require running server)
+                    "--ignore=tests/ui/",  # Exclude UI tests (require browser/Playwright)
                     "-m",
                     "not (smoke or integration or api or ui or e2e or performance or infrastructure or prod_data or production_data)",
                 ],
@@ -737,7 +739,7 @@ class TestRunner:
             default_excludes.extend(["slow", "ui", "ui_smoke"])
         # For unit tests, exclude integration/api/ui/e2e/performance but don't require unit marker
         elif self.config.test_type == TestType.UNIT:
-            default_excludes.extend(["integration", "api", "ui", "e2e", "performance", "smoke"])
+            default_excludes.extend(["integration", "api", "ui", "ui_smoke", "e2e", "performance", "smoke"])
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:
