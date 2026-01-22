@@ -77,7 +77,7 @@ async function selectAndSaveObservable(page, phrase: string) {
   expect(found.end_position - found.start_position).toBe(phrase.length);
 }
 
-test.describe('Observables exact selection (plain surface)', () => {
+test.describe.skip('Observables exact selection (plain surface)', () => {
   test('selects and saves exact phrases without expansion', async ({ page }) => {
     await page.goto(`${BASE_URL}/articles/${ARTICLE_ID}`);
     await page.waitForLoadState('networkidle');

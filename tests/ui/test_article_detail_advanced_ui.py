@@ -207,6 +207,7 @@ class TestArticleDetailObservables:
 
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="Observables mode is inactive - planned for future release")
     def test_observable_annotation_creation_and_review(self, page: Page):
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         api_flags = {"annotation": False, "review": False}

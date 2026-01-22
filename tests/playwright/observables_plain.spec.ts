@@ -60,7 +60,7 @@ async function selectPhrase(page, phrase: string) {
   await page.getByRole('button', { name: 'Save CMD' }).click();
 }
 
-test.describe('Observables plain selection', () => {
+test.describe.skip('Observables plain selection', () => {
   test('saves exact highlighted text on article 658', async ({ page }) => {
     await page.goto(`${BASE}/articles/658`);
     await page.waitForLoadState('networkidle');

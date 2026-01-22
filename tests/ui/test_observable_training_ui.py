@@ -16,5 +16,10 @@ class TestObservableTrainingUI:
         page.goto(f"{base_url}/observables-training")
         page.wait_for_load_state("networkidle")
 
+        # Verify inactive notice is present
+        inactive_notice = page.locator("text=Feature Inactive - Planned for Future Release")
+        expect(inactive_notice).to_be_visible()
+        
+        # Original heading should still be present
         heading = page.locator("text=Observable Extractor Training")
         expect(heading).to_be_visible()
