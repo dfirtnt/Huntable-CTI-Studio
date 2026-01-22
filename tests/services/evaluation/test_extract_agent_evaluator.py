@@ -35,7 +35,7 @@ class TestExtractAgentEvaluator:
         }
 
     @pytest.mark.asyncio
-    async def test_evaluate_dataset_success(self, evaluator, tmp_path):
+    async def test_evaluate_dataset_success(self, evaluator, tmp_path, sample_extraction_result):
         """Test successful dataset evaluation."""
         test_data = [
             {
@@ -65,7 +65,7 @@ class TestExtractAgentEvaluator:
             
             assert 'results' in result or 'metrics' in result
 
-    def test_calculate_metrics(self, evaluator):
+    def test_calculate_metrics(self, evaluator, sample_extraction_result):
         """Test metrics calculation."""
         evaluator.results = [
             {

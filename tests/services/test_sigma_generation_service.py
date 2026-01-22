@@ -71,7 +71,7 @@ level: medium
             }
             
             # Mock prompt loading
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = f"Generate SIGMA rule for: {sample_article_data['title']}"
                 
                 # Mock LLM service call
@@ -125,7 +125,7 @@ level: low
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = "Generate SIGMA rule"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
@@ -179,7 +179,7 @@ level: low
                 'tokens_saved': 500
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = f"Generate rule for: {optimized_content}"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
@@ -255,7 +255,7 @@ level: low
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 # Return a prompt longer than context window
                 long_prompt = "Generate rule: " + long_content
                 mock_prompt.return_value = long_prompt
@@ -298,7 +298,7 @@ level: low
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = "Generate rule"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
@@ -336,7 +336,7 @@ level: low
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = "Generate rule"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
@@ -376,7 +376,7 @@ level: low
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = "Generate rule"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
@@ -412,7 +412,7 @@ level: low
                 'error': 'Optimization failed'
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = "Generate rule"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
@@ -450,7 +450,7 @@ level: low
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = None  # Simulate prompt loading failure
                 
                 with pytest.raises(ValueError, match="Failed to load SIGMA generation prompt"):
@@ -498,7 +498,7 @@ level: medium
                 'tokens_saved': 0
             }
             
-            with patch('src.services.sigma_generation_service.format_prompt_async') as mock_prompt:
+            with patch('src.utils.prompt_loader.format_prompt_async') as mock_prompt:
                 mock_prompt.return_value = "Generate rules"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:

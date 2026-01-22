@@ -22,6 +22,23 @@ from tests.utils.async_mocks import AsyncMockHTTPClient, AsyncMockBeautifulSoup,
 pytestmark = pytest.mark.unit
 
 
+def create_test_source(**kwargs) -> Source:
+    """Helper to create a Source with all required fields."""
+    now = datetime.now()
+    defaults = {
+        "check_frequency": 3600,
+        "lookback_days": 180,
+        "consecutive_failures": 0,
+        "total_articles": 0,
+        "average_response_time": 0.0,
+        "created_at": now,
+        "updated_at": now,
+        "config": {}
+    }
+    defaults.update(kwargs)
+    return Source(**defaults)
+
+
 @pytest.mark.asyncio
 class TestURLDiscovery:
     """Test URLDiscovery functionality."""
@@ -40,14 +57,12 @@ class TestURLDiscovery:
     @pytest.fixture
     def sample_source(self):
         """Create sample source for testing."""
-        return Source(
+        return create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
             active=True,
             config={
                 'discovery': {
@@ -89,14 +104,12 @@ class TestURLDiscovery:
     @pytest.mark.asyncio
     async def test_discover_urls_sitemap_strategy(self, url_discovery, mock_http_client):
         """Test URL discovery using sitemap strategy."""
-        source = Source(
+        source = create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
             active=True,
             config={
                 'discovery': {
@@ -137,16 +150,13 @@ class TestURLDiscovery:
     @pytest.mark.asyncio
     async def test_discover_urls_no_strategies(self, url_discovery, mock_http_client):
         """Test URL discovery with no strategies configured."""
-        source = Source(
+        source = create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
-            active=True,
-            config={}
+            active=True
         )
 
         urls = await url_discovery.discover_urls(source)
@@ -166,14 +176,12 @@ class TestURLDiscovery:
     @pytest.mark.asyncio
     async def test_discover_urls_scope_filtering(self, url_discovery, mock_http_client):
         """Test URL discovery with scope filtering."""
-        source = Source(
+        source = create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
             active=True,
             config={
                 'discovery': {
@@ -383,14 +391,12 @@ class TestModernScraper:
     @pytest.fixture
     def sample_source(self):
         """Create sample source for testing."""
-        return Source(
+        return create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
             active=True,
             config={
                 'discovery': {
@@ -630,14 +636,12 @@ class TestLegacyScraper:
     @pytest.fixture
     def sample_source(self):
         """Create sample source for testing."""
-        return Source(
+        return create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
             active=True,
             config={'content_selector': 'article'}
         )

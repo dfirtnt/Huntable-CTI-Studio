@@ -135,6 +135,10 @@ class SigmaMatchingService:
             import json
             matches = []
             for row in rows:
+                # Enforce limit - stop if we've reached the limit
+                if len(matches) >= limit:
+                    break
+                    
                 signature_sim = float(row[10]) if row[10] is not None else 0.0
                 # For articles, similarity is primarily signature-based (detection logic)
                 # Apply signature weight directly

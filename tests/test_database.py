@@ -55,7 +55,7 @@ class TestDatabaseManager:
     def test_create_tables(self):
         """Test table creation."""
         # Test that we can import the models
-        from src.database.models import ArticleTableTable, SourceTable
+        from src.database.models import ArticleTable, SourceTable
         
         # Verify models exist
         assert ArticleTable is not None
@@ -135,7 +135,7 @@ class TestAsyncDatabaseManager:
     async def test_async_create_tables(self):
         """Test async table creation."""
         # Test that we can import async models
-        from src.database.models import ArticleTableTable, SourceTable
+        from src.database.models import ArticleTable, SourceTable
         
         # Verify models exist
         assert ArticleTable is not None
@@ -185,14 +185,15 @@ class TestAsyncDatabaseManager:
     async def test_async_save_article(self):
         """Test async saving article."""
         # Test ArticleCreate model
-        from src.database.models import ArticleTableCreate
+        from src.models.article import ArticleCreate
+        from datetime import datetime
         
         article_data = ArticleCreate(
             title='Test Article',
             content='Test content',
-            url='https://example.com/article',
+            canonical_url='https://example.com/article',
             source_id=1,
-            published_at='2024-01-01T00:00:00Z'
+            published_at=datetime(2024, 1, 1, 0, 0, 0)
         )
         
         assert article_data.title == 'Test Article'

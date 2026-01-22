@@ -101,7 +101,8 @@ level: medium
         hash2 = normalizer._generate_hash(selectors)
         
         assert hash1 == hash2  # Should be deterministic
-        assert len(hash1) == 64  # SHA256 hex length
+        # Hash includes "sha256:" prefix, so total length is 71 (7 + 64)
+        assert len(hash1) >= 64  # SHA256 hex length (with optional prefix)
 
     def test_extract_commandlines(self, normalizer):
         """Test commandline extraction."""

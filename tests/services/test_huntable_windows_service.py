@@ -39,43 +39,51 @@ class TestHuntableWindowsService:
         """Test successful Windows huntable detection."""
         article_content = "powershell.exe -Command 'schtasks /create /tn test'"
         
-        result = service.detect_windows_huntable(article_content)
+        result = service.detect_windows_huntables(article_content)
         
         assert isinstance(result, dict)
-        assert 'is_huntable' in result
-        assert isinstance(result['is_huntable'], bool)
+        assert 'has_windows_huntables' in result
+        assert isinstance(result['has_windows_huntables'], bool)
 
     def test_detect_windows_huntable_with_perfect_discriminators(self, service):
         """Test detection with perfect discriminators."""
         article_content = "rundll32.exe executed with suspicious parameters"
         
-        result = service.detect_windows_huntable(article_content)
+        result = service.detect_windows_huntables(article_content)
         
-        assert result['is_huntable'] is True
+        assert result['has_windows_huntables'] is True
 
     def test_detect_windows_huntable_no_model_fallback(self, service_no_model):
         """Test fallback behavior when model not available."""
         article_content = "powershell.exe -Command 'test'"
         
-        result = service_no_model.detect_windows_huntable(article_content)
+        result = service_no_model.detect_windows_huntables(article_content)
         
         # Should fall back to rule-based check
         assert isinstance(result, dict)
-        assert 'is_huntable' in result
+        assert 'has_windows_huntables' in result
 
     def test_check_perfect_discriminators(self, service):
         """Test perfect discriminator checking."""
         content_with_discriminators = "powershell.exe -encodedcommand base64"
         
-        has_discriminators = service._check_perfect_discriminators(content_with_discriminators)
+        result = service.check_perfect_discriminators(content_with_discriminators)
         
-        assert isinstance(has_discriminators, bool)
+        assert isinstance(result, dict)
+        assert 'has_windows_huntables' in result
+        assert isinstance(result['has_windows_huntables'], bool)
 
-    def test_extract_lolbas_keywords(self, service):
-        """Test LOLBAS keyword extraction."""
-        content = "powershell.exe rundll32.exe wmic.exe"
+    def test_extract_keyword_features(self, service):
+        """Test keyword feature extraction."""
+        article_metadata = {
+            'content': 'powershell.exe rundll32.exe wmic.exe',
+            'lolbas_matches': ['powershell.exe', 'rundll32.exe'],
+            'perfect_keyword_matches': ['powershell.exe'],
+            'good_keyword_matches': ['wmic.exe']
+        }
         
-        keywords = service._extract_lolbas_keywords(content)
+        features = service._extract_keyword_features(article_metadata)
         
-        assert isinstance(keywords, list)
-        assert len(keywords) > 0
+        import numpy as np
+        assert isinstance(features, np.ndarray)
+        assert len(features) > 0

@@ -18,11 +18,25 @@ class TestSourceManager:
     def test_get_active_sources(self):
         """Test getting active sources."""
         from src.models.source import Source
+        from datetime import datetime
         
-        # Create mock sources
-        active_source1 = Source(id=1, name='Active Source', url='https://example.com', identifier='active-1', active=True)
-        inactive_source = Source(id=2, name='Inactive Source', url='https://example.com', identifier='inactive', active=False)
-        active_source2 = Source(id=3, name='Another Active', url='https://example.com', identifier='active-2', active=True)
+        now = datetime.now()
+        # Create mock sources with all required fields
+        active_source1 = Source(
+            id=1, name='Active Source', url='https://example.com', identifier='active-1', active=True,
+            check_frequency=3600, lookback_days=180, consecutive_failures=0, total_articles=0,
+            average_response_time=0.0, created_at=now, updated_at=now, config={}
+        )
+        inactive_source = Source(
+            id=2, name='Inactive Source', url='https://example.com', identifier='inactive', active=False,
+            check_frequency=3600, lookback_days=180, consecutive_failures=0, total_articles=0,
+            average_response_time=0.0, created_at=now, updated_at=now, config={}
+        )
+        active_source2 = Source(
+            id=3, name='Another Active', url='https://example.com', identifier='active-2', active=True,
+            check_frequency=3600, lookback_days=180, consecutive_failures=0, total_articles=0,
+            average_response_time=0.0, created_at=now, updated_at=now, config={}
+        )
         
         sources = [active_source1, inactive_source, active_source2]
         

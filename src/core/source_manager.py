@@ -600,7 +600,10 @@ class SourceManager:
         if identifier in self._sources:
             raise ValueError(f"Source with identifier '{identifier}' already exists")
         
-        # Create source object
+        from datetime import datetime
+        now = datetime.now()
+        
+        # Create source object with all required fields
         source = Source(
             id=len(self._sources) + 1,
             identifier=identifier,
@@ -610,7 +613,12 @@ class SourceManager:
             check_frequency=source_data.get('check_frequency', 3600),
             lookback_days=source_data.get('lookback_days', 180),
             active=source_data.get('active', True),
-            config=source_data.get('config', {})
+            config=source_data.get('config', {}),
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=now,
+            updated_at=now
         )
         
         self._sources[identifier] = source

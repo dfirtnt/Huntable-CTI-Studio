@@ -21,10 +21,10 @@ Test Infrastructure:
 - Test containers auto-started for stateful tests (integration, e2e, all)
   * Postgres:5433, Redis:6380, Web:8002 (isolated from production ports)
   * Ephemeral containers (no named volumes, data destroyed on removal)
-- Failure reports automatically generated:
-  * test-results/failures.log - Text summary of all failures
-  * test-results/junit.xml - Machine-readable XML format
-  * test-results/report.html - Interactive HTML report (if pytest-html available)
+- Failure reports automatically generated (with timestamps to preserve history):
+  * test-results/failures_YYYYMMDD_HHMMSS.log - Text summary of all failures
+  * test-results/junit_YYYYMMDD_HHMMSS.xml - Machine-readable XML format
+  * test-results/report_YYYYMMDD_HHMMSS.html - Interactive HTML report (if pytest-html available)
   * allure-results/ - Allure report data (use 'allure serve allure-results')
 - Progress indicators show category-by-category execution in real-time
 
@@ -166,6 +166,9 @@ class TestRunner:
     def __init__(self, config: TestConfig):
         self.config = config
         self.start_time = time.time()
+        # Generate timestamp for result filenames (filesystem-safe format)
+        from datetime import datetime
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.results = {}
         self.environment_manager = None
         self.test_groups_executed = []  # Track which test groups were run
@@ -840,7 +843,8 @@ class TestRunner:
 
         # Add JUnit XML report for CI/CD and failure analysis
         # Note: test-results directory is created before this method is called
-        cmd.extend(["--junit-xml=test-results/junit.xml"])
+        # Include timestamp to preserve historical results
+        cmd.extend([f"--junit-xml=test-results/junit_{self.timestamp}.xml"])
         
         # Add HTML report (only if pytest-html is installed)
         # NOTE: Disabled by default due to FileNotFoundError issues with pytest-html
@@ -855,7 +859,7 @@ class TestRunner:
         #     if result.returncode == 0:
         #         test_results_dir = Path("test-results")
         #         if test_results_dir.exists():
-        #             cmd.extend(["--html=test-results/report.html", "--self-contained-html"])
+        #             cmd.extend([f"--html=test-results/report_{self.timestamp}.html", "--self-contained-html"])
         # except Exception:
         #     pass
 
@@ -1060,8 +1064,9 @@ class TestRunner:
                 if pytest_counts.get("total", 0) > 0:
                     print(f"   Passed: {pytest_counts.get('passed', 0)} | Failed: {pytest_counts.get('failed', 0)} | Skipped: {pytest_counts.get('skipped', 0)}")
                 if not pytest_success:
-                    print(f"   📄 Failure details saved to: test-results/failures.log")
-                    print(f"   📊 HTML report: test-results/report.html")
+                    print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
+                    print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
+                    print(f"   📈 JUnit XML: test-results/junit_{self.timestamp}.xml")
                     print(f"   📈 Allure report: allure serve allure-results")
                 print("=" * 80)
 
@@ -1237,7 +1242,8 @@ class TestRunner:
         test_results_dir = Path("test-results")
         test_results_dir.mkdir(exist_ok=True)
         
-        failure_log_path = test_results_dir / "failures.log"
+        # Include timestamp to preserve historical results
+        failure_log_path = test_results_dir / f"failures_{self.timestamp}.log"
         
         with open(failure_log_path, "w") as f:
             f.write("=" * 80 + "\n")
@@ -1625,7 +1631,7 @@ Test Infrastructure:
   - Test containers (Postgres:5433, Redis:6380) auto-started for stateful tests
   - Environment guards enforce APP_ENV=test and TEST_DATABASE_URL
   - Cloud LLM API keys blocked by default (set ALLOW_CLOUD_LLM_IN_TESTS=true to allow)
-  - Failure reports: test-results/failures.log, test-results/junit.xml, test-results/report.html
+  - Failure reports (timestamped): test-results/failures_YYYYMMDD_HHMMSS.log, test-results/junit_YYYYMMDD_HHMMSS.xml, test-results/report_YYYYMMDD_HHMMSS.html
   - Progress indicators show category-by-category execution
 
 Examples:
