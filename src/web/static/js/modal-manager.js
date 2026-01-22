@@ -30,13 +30,10 @@
             return;
         }
 
-        // If already registered, remove old handlers first
-        if (modalRegistry.has(modalId)) {
-            const oldConfig = modalRegistry.get(modalId);
-            // Remove old event listeners by cloning the modal (removes all listeners)
-            // Actually, we'll just update the config since we can't easily remove listeners
-            // But we should prevent duplicate registration
-            console.warn(`Modal ${modalId} already registered, updating registration`);
+        // If already registered, silently skip to prevent duplicate registration warnings
+        // Only update if explicitly requested via options.forceUpdate
+        if (modalRegistry.has(modalId) && !options.forceUpdate) {
+            return;
         }
 
         const config = {

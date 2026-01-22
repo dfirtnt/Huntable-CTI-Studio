@@ -1755,6 +1755,9 @@ class AsyncDatabaseManager:
         """Create a new annotation."""
         try:
             async with self.get_session() as session:
+                # Get used_for_training from annotation_data if it exists, otherwise default to False
+                used_for_training = getattr(annotation_data, 'used_for_training', False)
+                
                 db_annotation = ArticleAnnotationTable(
                     article_id=annotation_data.article_id,
                     user_id=None,  # Set to None for now
@@ -1766,7 +1769,7 @@ class AsyncDatabaseManager:
                     context_after=annotation_data.context_after,
                     confidence_score=annotation_data.confidence_score,
                     usage=annotation_data.usage,
-                    used_for_training=annotation_data.used_for_training,
+                    used_for_training=used_for_training,
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
                 )
@@ -1781,8 +1784,8 @@ class AsyncDatabaseManager:
                 return self._db_annotation_to_model(db_annotation)
 
         except Exception as e:
-            logger.error(f"Failed to create annotation: {e}")
-            return None
+            logger.error(f"Failed to create annotation: {e}", exc_info=True)
+            raise  # Re-raise to get better error messages
 
     async def get_annotation(self, annotation_id: int) -> Optional[ArticleAnnotation]:
         """Get a specific annotation by ID."""

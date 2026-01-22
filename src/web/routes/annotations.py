@@ -85,9 +85,13 @@ async def create_annotation(article_id: int, annotation_data: dict):
             usage=usage,
         )
 
-        annotation = await async_db_manager.create_annotation(annotation_create)
-        if not annotation:
-            raise HTTPException(status_code=500, detail="Failed to create annotation")
+        try:
+            annotation = await async_db_manager.create_annotation(annotation_create)
+            if not annotation:
+                raise HTTPException(status_code=500, detail="Failed to create annotation")
+        except Exception as db_exc:
+            logger.error(f"Database error creating annotation: {db_exc}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to create annotation: {str(db_exc)}")
 
         try:
             annotations = await async_db_manager.get_article_annotations(article_id)

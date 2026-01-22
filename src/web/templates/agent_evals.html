@@ -1812,6 +1812,17 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
 
 // Also listen for changes to hunt query feature selection
 document.addEventListener('DOMContentLoaded', () => {
+    // Register modals with ModalManager
+    if (window.ModalManager) {
+        const commandlinesModal = document.getElementById('commandlinesModal');
+        if (commandlinesModal) {
+            window.ModalManager.register('commandlinesModal', {
+                isDynamic: false,
+                hasInput: false
+            });
+        }
+    }
+    
     // Auto-load previous results on page load after config is loaded
     loadActiveConfig().then(() => {
         loadPreviousResults();
@@ -1884,8 +1895,17 @@ async function showCommandlines(executionId, articleUrl, count) {
     const modal = document.getElementById('commandlinesModal');
     const content = document.getElementById('commandlinesContent');
     
-    // Show modal
-    modal.classList.remove('hidden');
+    // Register and open with ModalManager
+    if (window.ModalManager) {
+        window.ModalManager.register('commandlinesModal', {
+            isDynamic: false,
+            hasInput: false
+        });
+        window.ModalManager.open('commandlinesModal');
+    } else {
+        modal.classList.remove('hidden');
+    }
+    
     content.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading commandlines...</p>';
     
     try {
@@ -2176,6 +2196,15 @@ async function exportCmdlineEvalBundle(executionId) {
 
 // Close modal
 function closeCommandlinesModal() {
+    if (window.ModalManager) {
+        window.ModalManager.close('commandlinesModal');
+    } else {
+        const modal = document.getElementById('commandlinesModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+}
     const modal = document.getElementById('commandlinesModal');
     modal.classList.add('hidden');
 }

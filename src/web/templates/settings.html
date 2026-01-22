@@ -1601,6 +1601,17 @@
 
     // Event listeners
     document.addEventListener('DOMContentLoaded', function() {
+        // Register modals with ModalManager
+        if (window.ModalManager) {
+            const restoreBackupModal = document.getElementById('restoreBackupModal');
+            if (restoreBackupModal) {
+                window.ModalManager.register('restoreBackupModal', {
+                    isDynamic: false,
+                    hasInput: false
+                });
+            }
+        }
+        
         loadSettings().catch(function(err) {
             console.error('Error loading settings:', err);
         });
@@ -1911,7 +1922,16 @@
         confirmRestoreBtn.disabled = true;
         backupList.innerHTML = '<div class="text-center text-gray-500 py-4">Loading backups...</div>';
         
-        modal.classList.remove('hidden');
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            window.ModalManager.register('restoreBackupModal', {
+                isDynamic: false,
+                hasInput: false
+            });
+            window.ModalManager.open('restoreBackupModal');
+        } else {
+            modal.classList.remove('hidden');
+        }
         
         // Load backups
         try {
@@ -1961,8 +1981,12 @@
     }
     
     function closeRestoreModalFunc() {
-        const modal = document.getElementById('restoreBackupModal');
-        modal.classList.add('hidden');
+        if (window.ModalManager) {
+            window.ModalManager.close('restoreBackupModal');
+        } else {
+            const modal = document.getElementById('restoreBackupModal');
+            modal.classList.add('hidden');
+        }
         selectedBackupName = null;
     }
     

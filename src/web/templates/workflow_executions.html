@@ -1233,7 +1233,13 @@ function openExecuteModal() {
     const modal = document.getElementById('executeModal');
     const input = document.getElementById('articleIdInput');
     
-    modal.classList.remove('hidden');
+    // Register and open with ModalManager
+    if (window.ModalManager) {
+        window.ModalManager.open('executeModal');
+    } else {
+        modal.classList.remove('hidden');
+    }
+    
     input.value = '';
     document.getElementById('executeError').classList.add('hidden');
     
