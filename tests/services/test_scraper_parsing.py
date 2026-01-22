@@ -67,12 +67,22 @@ class TestScraperParsing:
         
         # Create mock source with config to allow modern scraping
         from src.models.source import Source
+        from datetime import datetime
+        
+        now = datetime.now()
         source = Source(
             id=1,
             identifier="test_source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
+            check_frequency=3600,
+            lookback_days=180,
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=now,
+            updated_at=now,
             config={"rss_only": False}  # Allow modern scraping fallback
         )
         

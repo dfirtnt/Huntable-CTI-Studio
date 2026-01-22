@@ -26,7 +26,14 @@ class TestSigmaAgentEvaluator:
         """Create mock extended validator."""
         validator = Mock()
         validator.validate = Mock(return_value=ExtendedValidationResult(
-            is_valid=True,
+            pySigma_passed=True,
+            pySigma_errors=[],
+            telemetry_feasible=True,
+            condition_valid=True,
+            pattern_safe=True,
+            ioc_leakage=False,
+            field_conformance=True,
+            final_pass=True,
             errors=[],
             warnings=[]
         ))

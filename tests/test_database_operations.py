@@ -21,6 +21,42 @@ from tests.utils.async_mocks import AsyncMockSession, AsyncMockDatabaseManager, 
 pytestmark = pytest.mark.unit
 
 
+def create_test_source(**kwargs) -> Source:
+    """Helper to create a Source with all required fields."""
+    now = datetime.now()
+    defaults = {
+        "check_frequency": 3600,
+        "lookback_days": 180,
+        "consecutive_failures": 0,
+        "total_articles": 0,
+        "average_response_time": 0.0,
+        "created_at": now,
+        "updated_at": now,
+        "config": {}
+    }
+    defaults.update(kwargs)
+    return Source(**defaults)
+
+
+def create_test_article(**kwargs) -> Article:
+    """Helper to create an Article with all required fields."""
+    now = datetime.now()
+    defaults = {
+        "url": kwargs.get("canonical_url", "https://example.com/article"),
+        "word_count": len(kwargs.get("content", "").split()) if kwargs.get("content") else 0,
+        "processing_status": "processed",
+        "authors": [],
+        "tags": [],
+        "article_metadata": {},
+        "collected_at": now,
+        "discovered_at": now,
+        "created_at": now,
+        "updated_at": now
+    }
+    defaults.update(kwargs)
+    return Article(**defaults)
+
+
 class TestAsyncDatabaseManager:
     """Test AsyncDatabaseManager functionality."""
 
@@ -54,6 +90,7 @@ class TestAsyncDatabaseManager:
     @pytest.fixture
     def sample_source_data(self):
         """Sample source data for testing."""
+        now = datetime.now()
         return {
             "id": 1,
             "identifier": "test-source-123",
@@ -63,7 +100,12 @@ class TestAsyncDatabaseManager:
             "check_frequency": 3600,
             "lookback_days": 180,
             "active": True,
-            "config": {"test": "config"}
+            "config": {"test": "config"},
+            "consecutive_failures": 0,
+            "total_articles": 0,
+            "average_response_time": 0.0,
+            "created_at": now,
+            "updated_at": now
         }
 
     @pytest.fixture
@@ -74,6 +116,7 @@ class TestAsyncDatabaseManager:
             "title": "Test Article",
             "content": "Test article content",
             "canonical_url": "https://example.com/article",
+            "url": "https://example.com/article",  # Required alias field
             "published_at": now,
             "source_id": 1,
             "content_hash": "test-hash-1234567890abcdef",
@@ -81,6 +124,8 @@ class TestAsyncDatabaseManager:
             "tags": ["test", "article"],
             "summary": "Test article summary",
             "article_metadata": {"test": "metadata"},
+            "word_count": 3,  # Required field
+            "processing_status": "processed",  # Required field
             "collected_at": now,
             "discovered_at": now,
             "created_at": now,
@@ -131,6 +176,7 @@ class TestAsyncDatabaseManager:
     async def test_get_source_by_id(self, mock_db_manager):
         """Test getting a source by ID."""
         source_id = 1
+        now = datetime.now()
         expected_source = Source(
             id=source_id,
             identifier="test-source-123",
@@ -140,7 +186,12 @@ class TestAsyncDatabaseManager:
             check_frequency=3600,
             lookback_days=180,
             active=True,
-            config={"test": "config"}
+            config={"test": "config"},
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=now,
+            updated_at=now
         )
         
         # Mock the database manager method
@@ -183,27 +234,22 @@ class TestAsyncDatabaseManager:
     async def test_list_sources(self, mock_db_manager):
         """Test listing sources with filters."""
         expected_sources = [
-            Source(
+            create_test_source(
                 id=1,
                 identifier="source-1",
                 name="Source 1",
                 url="https://example1.com",
                 rss_url="https://example1.com/rss",
-                check_frequency=3600,
-                lookback_days=180,
-                active=True,
-                config={}
+                active=True
             ),
-            Source(
+            create_test_source(
                 id=2,
                 identifier="source-2",
                 name="Source 2",
                 url="https://example2.com",
                 rss_url="https://example2.com/rss",
                 check_frequency=7200,
-                lookback_days=180,
-                active=False,
-                config={}
+                active=False
             )
         ]
         
@@ -221,7 +267,7 @@ class TestAsyncDatabaseManager:
         """Test creating a new article."""
         # Mock the database manager method
         article_create = ArticleCreate(**sample_article_data)
-        created_article = Article(id=1, **sample_article_data)
+        created_article = create_test_article(id=1, **sample_article_data)
         mock_db_manager.create_article = AsyncMock(return_value=created_article)
         
         result = await mock_db_manager.create_article(article_create)
@@ -234,18 +280,14 @@ class TestAsyncDatabaseManager:
     async def test_get_article_by_id(self, mock_db_manager):
         """Test getting an article by ID."""
         article_id = 1
-        expected_article = Article(
+        expected_article = create_test_article(
             id=article_id,
             title="Test Article",
             content="Test content",
             canonical_url="https://example.com/article",
             published_at=datetime.now(),
             source_id=1,
-            content_hash="test-hash-123",
-            collected_at=datetime.now(),
-            discovered_at=datetime.now(),
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            content_hash="test-hash-123"
         )
         
         # Mock the database manager method
@@ -263,7 +305,7 @@ class TestAsyncDatabaseManager:
         update_data = {"title": "Updated Article Title", "content": "Updated content"}
         
         # Mock the database manager method
-        updated_article = Article(id=article_id, **{**sample_article_data, **update_data})
+        updated_article = create_test_article(id=article_id, **{**sample_article_data, **update_data})
         mock_db_manager.update_article = AsyncMock(return_value=updated_article)
         
         article_update = ArticleUpdate(**update_data)
@@ -288,31 +330,23 @@ class TestAsyncDatabaseManager:
     async def test_list_articles(self, mock_db_manager):
         """Test listing articles with filters."""
         expected_articles = [
-            Article(
+            create_test_article(
                 id=1,
                 title="Article 1",
                 content="Content 1",
                 canonical_url="https://example.com/article1",
                 published_at=datetime.now(),
                 source_id=1,
-                content_hash="test-hash-1",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                content_hash="test-hash-1"
             ),
-            Article(
+            create_test_article(
                 id=2,
                 title="Article 2",
                 content="Content 2",
                 canonical_url="https://example.com/article2",
                 published_at=datetime.now(),
                 source_id=2,
-                content_hash="test-hash-2",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                content_hash="test-hash-2"
             )
         ]
         
@@ -448,31 +482,23 @@ class TestAsyncDatabaseManager:
         """Test getting articles by source ID."""
         source_id = 1
         expected_articles = [
-            Article(
+            create_test_article(
                 id=1,
                 title="Article 1",
                 content="Content 1",
                 canonical_url="https://example.com/article1",
                 published_at=datetime.now(),
                 source_id=source_id,
-                content_hash="test-hash-1",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                content_hash="test-hash-1"
             ),
-            Article(
+            create_test_article(
                 id=2,
                 title="Article 2",
                 content="Content 2",
                 canonical_url="https://example.com/article2",
                 published_at=datetime.now(),
                 source_id=source_id,
-                content_hash="test-hash-2",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                content_hash="test-hash-2"
             )
         ]
         
@@ -536,18 +562,14 @@ class TestAsyncDatabaseManager:
         """Test searching articles by content."""
         search_query = "threat intelligence"
         expected_articles = [
-            Article(
+            create_test_article(
                 id=1,
                 title="Threat Intelligence Report",
                 content="This article contains threat intelligence information",
                 canonical_url="https://example.com/article1",
                 published_at=datetime.now(),
                 source_id=1,
-                content_hash="test-hash-1",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                content_hash="test-hash-1"
             )
         ]
         
@@ -609,7 +631,7 @@ class TestAsyncDatabaseManager:
         ]
         
         # Mock the database manager method
-        created_articles = [Article(id=i+1, **data) for i, data in enumerate(articles_data)]
+        created_articles = [create_test_article(id=i+1, **data) for i, data in enumerate(articles_data)]
         mock_db_manager.bulk_create_articles = AsyncMock(return_value=created_articles)
         
         article_creates = [ArticleCreate(**data) for data in articles_data]
@@ -629,31 +651,23 @@ class TestAsyncDatabaseManager:
         # Mock the database manager method
         now = datetime.now()
         updated_articles = [
-            Article(
+            create_test_article(
                 id=1, 
                 title="Updated Article 1",
                 source_id=1,
                 canonical_url="https://example.com/article1",
                 published_at=now,
                 content="Content 1",
-                content_hash="test-hash-1",
-                collected_at=now,
-                discovered_at=now,
-                created_at=now,
-                updated_at=now
+                content_hash="test-hash-1"
             ),
-            Article(
+            create_test_article(
                 id=2, 
                 title="Updated Article 2",
                 source_id=1,
                 canonical_url="https://example.com/article2",
                 published_at=now,
                 content="Content 2",
-                content_hash="test-hash-2",
-                collected_at=now,
-                discovered_at=now,
-                created_at=now,
-                updated_at=now
+                content_hash="test-hash-2"
             )
         ]
         mock_db_manager.bulk_update_articles = AsyncMock(return_value=updated_articles)

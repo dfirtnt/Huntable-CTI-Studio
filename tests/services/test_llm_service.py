@@ -16,9 +16,17 @@ class TestLLMService:
     @pytest.fixture
     def service(self):
         """Create LLMService instance with mocked dependencies."""
+        config_models = {
+            "RankAgent": "gpt-4",
+            "RankAgent_provider": "openai",
+            "ExtractAgent": "gpt-4",
+            "ExtractAgent_provider": "openai",
+            "SigmaAgent": "gpt-4",
+            "SigmaAgent_provider": "openai"
+        }
         with patch('src.services.llm_service.DatabaseManager') as mock_db:
             mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
-            return LLMService()
+            return LLMService(config_models=config_models)
 
     @pytest.fixture
     def service_with_config(self):

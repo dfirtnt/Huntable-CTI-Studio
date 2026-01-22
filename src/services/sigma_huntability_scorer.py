@@ -71,7 +71,7 @@ class SigmaHuntabilityScorer:
             )
         
         detection = rule_data.get('detection', {})
-        if not isinstance(detection, dict):
+        if not isinstance(detection, dict) or not detection:
             return HuntabilityScore(
                 score=0.0,
                 false_positive_risk="high",

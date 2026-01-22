@@ -20,6 +20,23 @@ from tests.utils.async_mocks import AsyncMockHTTPClient, create_async_mock_respo
 pytestmark = pytest.mark.unit
 
 
+def create_test_source(**kwargs) -> Source:
+    """Helper to create a Source with all required fields."""
+    now = datetime.now()
+    defaults = {
+        "check_frequency": 3600,
+        "lookback_days": 180,
+        "consecutive_failures": 0,
+        "total_articles": 0,
+        "average_response_time": 0.0,
+        "created_at": now,
+        "updated_at": now,
+        "config": {}
+    }
+    defaults.update(kwargs)
+    return Source(**defaults)
+
+
 class TestRSSParser:
     """Test RSS parser functionality."""
 
@@ -48,16 +65,13 @@ class TestRSSParser:
     @pytest.fixture
     def sample_source(self):
         """Sample source for testing."""
-        return Source(
+        return create_test_source(
             id=1,
             identifier="test-source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
-            active=True,
-            config={}
+            active=True
         )
 
     @pytest.fixture

@@ -194,13 +194,19 @@ class SigmaNoveltyService:
                         canonical_rule, candidate_canonical, candidate
                     )
                     
-                    matches.append({
+                    match_dict = {
                         'rule_id': candidate.get('rule_id', '') if isinstance(candidate, dict) else '',
                         'atom_jaccard': atom_jaccard,
                         'logic_shape_similarity': logic_similarity,
                         'similarity': weighted_sim,
                         **explainability
-                    })
+                    }
+                    
+                    # Preserve exact_hash_match flag if present (for duplicate detection)
+                    if isinstance(candidate, dict) and candidate.get('exact_hash_match'):
+                        match_dict['exact_hash_match'] = True
+                    
+                    matches.append(match_dict)
             
             # Sort by similarity (descending)
             matches.sort(key=lambda x: x['similarity'], reverse=True)
@@ -1134,6 +1140,39 @@ class SigmaNoveltyService:
             count = 1 + self._count_operators(logic['NOT'])
         
         return count
+    
+    def compute_similarity_metrics(
+        self,
+        rule1: CanonicalRule,
+        rule2: CanonicalRule
+    ) -> Dict[str, Any]:
+        """
+        Compute similarity metrics between two canonical rules.
+        
+        Args:
+            rule1: First canonical rule
+            rule2: Second canonical rule
+            
+        Returns:
+            Dictionary with similarity metrics
+        """
+        atom_jaccard = self.compute_atom_jaccard(rule1, rule2)
+        logic_similarity = self.compute_logic_shape_similarity(rule1, rule2)
+        
+        # Check logsource match
+        logsource_match = (
+            rule1.logsource.get('product') == rule2.logsource.get('product') and
+            rule1.logsource.get('category') == rule2.logsource.get('category')
+        )
+        
+        return {
+            'atom_overlap': atom_jaccard,
+            'logic_similarity': logic_similarity,
+            'logsource_match': logsource_match,
+            'weighted_similarity': self.compute_weighted_similarity(
+                atom_jaccard, logic_similarity
+            )
+        }
     
     def compute_weighted_similarity(
         self,
