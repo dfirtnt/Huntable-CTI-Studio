@@ -1,4 +1,9 @@
-"""Tests for embedding service functionality."""
+"""Tests for embedding service functionality.
+
+DEPRECATED: HuggingFace connections/API keys and training are no longer used.
+These tests are deprecated and will be removed in a future release.
+The EmbeddingService uses SentenceTransformer models from HuggingFace.
+"""
 
 import pytest
 import numpy as np
@@ -8,11 +13,15 @@ from typing import List
 from src.services.embedding_service import EmbeddingService
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
-pytestmark = pytest.mark.unit
+# DEPRECATED: Tests for HuggingFace-dependent functionality
+pytestmark = [pytest.mark.unit, pytest.mark.skip(reason="DEPRECATED: EmbeddingService uses HuggingFace models")]
 
 
 class TestEmbeddingService:
-    """Test EmbeddingService functionality."""
+    """Test EmbeddingService functionality.
+    
+    DEPRECATED: EmbeddingService uses SentenceTransformer models from HuggingFace.
+    """
 
     @pytest.fixture
     def mock_sentence_transformer(self):

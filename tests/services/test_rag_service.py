@@ -1,4 +1,9 @@
-"""Tests for RAG service functionality."""
+"""Tests for RAG service functionality.
+
+DEPRECATED: HuggingFace connections/API keys and training are no longer used.
+These tests are deprecated and will be removed in a future release.
+RAGService depends on EmbeddingService which uses HuggingFace models.
+"""
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
@@ -7,11 +12,15 @@ from typing import Dict, Any, List
 from src.services.rag_service import RAGService
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
-pytestmark = pytest.mark.unit
+# DEPRECATED: Tests for HuggingFace-dependent functionality
+pytestmark = [pytest.mark.unit, pytest.mark.skip(reason="DEPRECATED: RAGService depends on HuggingFace models")]
 
 
 class TestRAGService:
-    """Test RAGService functionality."""
+    """Test RAGService functionality.
+    
+    DEPRECATED: RAGService depends on EmbeddingService which uses HuggingFace models.
+    """
 
     @pytest.fixture
     def mock_embedding_service(self):

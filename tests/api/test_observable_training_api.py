@@ -1,5 +1,8 @@
 """
 API tests for observable extractor training endpoints.
+
+DEPRECATED: HuggingFace connections/API keys and training are no longer used.
+These tests are deprecated and will be removed in a future release.
 """
 
 import pytest
@@ -7,10 +10,14 @@ import httpx
 
 
 class TestObservableTrainingSummary:
-    """Tests for /api/observables/training/summary."""
+    """Tests for /api/observables/training/summary.
+    
+    DEPRECATED: Training functionality is no longer used.
+    """
 
     @pytest.mark.api
     @pytest.mark.asyncio
+    @pytest.mark.skip(reason="DEPRECATED: Training functionality no longer used")
     async def test_summary_endpoint(self, async_client: httpx.AsyncClient, monkeypatch):
         async def fake_summary():
             return {
@@ -58,12 +65,14 @@ class TestObservableTrainingSummary:
 
 
 class TestObservableTrainingRun:
-    """Tests for /api/observables/training/run."""
+    """Tests for /api/observables/training/run.
+    
+    DEPRECATED: Training functionality is no longer used.
+    """
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="Mock setup issue with Celery task fallback - needs investigation")
+    @pytest.mark.skip(reason="DEPRECATED: Training functionality no longer used")
     async def test_training_endpoint_fallback(self, async_client: httpx.AsyncClient, monkeypatch):
         class FailingTask:
             def delay(self, observable_type=None):
