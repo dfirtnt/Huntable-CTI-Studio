@@ -1,8 +1,8 @@
 """Tests for embedding service functionality.
 
-DEPRECATED: HuggingFace connections/API keys and training are no longer used.
-These tests are deprecated and will be removed in a future release.
-The EmbeddingService uses SentenceTransformer models from HuggingFace.
+SKIPPED: EmbeddingService uses Sentence Transformers models.
+Models are downloaded from HuggingFace Hub (public repository) but run locally - no API keys needed.
+Tests are skipped because model loading/download is slow for unit tests.
 """
 
 import pytest
@@ -13,14 +13,16 @@ from typing import List
 from src.services.embedding_service import EmbeddingService
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
-# DEPRECATED: Tests for HuggingFace-dependent functionality
-pytestmark = [pytest.mark.unit, pytest.mark.skip(reason="DEPRECATED: EmbeddingService uses HuggingFace models")]
+# SKIPPED: Model loading is slow for unit tests (models run locally, downloaded from HuggingFace Hub)
+pytestmark = [pytest.mark.unit, pytest.mark.skip(reason="SKIPPED: EmbeddingService requires Sentence Transformers model loading (slow for unit tests)")]
 
 
 class TestEmbeddingService:
     """Test EmbeddingService functionality.
     
-    DEPRECATED: EmbeddingService uses SentenceTransformer models from HuggingFace.
+    SKIPPED: EmbeddingService uses Sentence Transformers models.
+    Models are downloaded from HuggingFace Hub but run locally - no API keys or connections needed.
+    Tests are skipped because model loading is slow for unit tests.
     """
 
     @pytest.fixture
