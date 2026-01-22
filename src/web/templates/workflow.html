@@ -1649,7 +1649,7 @@
                                 <button onclick="saveEnrichmentPrompt()" id="savePromptBtn" class="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                                     💾 Save Prompt
                                 </button>
-                                <button onclick="showPromptHistory()" id="historyPromptBtn" class="px-3 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded-md">
+                                <button onclick="showSigmaPromptHistory()" id="historyPromptBtn" class="px-3 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded-md">
                                     📜 History
                                 </button>
                             </div>
@@ -5203,12 +5203,13 @@ function showTestModal(agentName, articleId) {
         `;
         document.body.appendChild(testModal);
         
-        // Close on escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !testModal.classList.contains('hidden')) {
-                closeTestModal();
-            }
-        });
+        // Register with ModalManager for proper Escape key handling
+        if (window.ModalManager) {
+            window.ModalManager.register('test-subagent-modal', {
+                isDynamic: true,
+                hasInput: false
+            });
+        }
         
         // Close on backdrop click
         testModal.addEventListener('click', (e) => {
@@ -5221,7 +5222,13 @@ function showTestModal(agentName, articleId) {
     document.getElementById('test-modal-title').textContent = `Testing ${agentName} on Article ${articleId}`;
     document.getElementById('test-modal-progress').classList.remove('hidden');
     document.getElementById('test-modal-results').classList.add('hidden');
-    testModal.classList.remove('hidden');
+    
+    // Open via ModalManager for proper stack management
+    if (window.ModalManager) {
+        window.ModalManager.open('test-subagent-modal');
+    } else {
+        testModal.classList.remove('hidden');
+    }
 }
 
 function closeTestModal() {
@@ -12091,7 +12098,7 @@ async function saveEnrichmentPrompt() {
     }
 }
 
-async function showPromptHistory() {
+async function showSigmaPromptHistory() {
     try {
         const response = await fetch('/api/sigma-queue/prompt/history?limit=50');
         const data = await response.json();

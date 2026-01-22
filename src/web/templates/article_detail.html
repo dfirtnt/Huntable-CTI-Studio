@@ -542,13 +542,18 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-3 mt-4 relative z-10">
                         <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                            <button id="annotation-mode-huntability" onclick="setAnnotationMode('huntability')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto; color: rgba(196, 171, 171, 1); background-color: var(--color-border);">
+                            <button id="annotation-mode-huntability" disabled class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60 relative z-10" style="pointer-events: none;">
                                 Huntability Mode
                             </button>
+                            <!-- INACTIVE: Observables Mode - Planned for future release -->
+                            <!--
                             <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto;">
                                 Observables Mode
                             </button>
+                            -->
                         </div>
+                        <!-- INACTIVE: Observable Type Picker - Planned for future release -->
+                        <!--
                         <div id="observable-type-picker" class="hidden items-center gap-2">
                             <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Observable Type:</span>
                             <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
@@ -577,6 +582,7 @@
                         <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-[#4b4e77] text-white rounded-lg hover:bg-[#7C3AED] transition-colors" onclick="markObservablesReviewed({{ article.id }})">
                             Reviewed (No Observables)
                         </button>
+                        -->
                     </div>
                 </div>
                 <div class="prose max-w-none relative">
@@ -2809,6 +2815,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
 
             const modal = document.createElement('div');
+            modal.id = 'annotationObservableModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
             this.currentModal = modal; // Store reference for reliable closing
 
@@ -2819,16 +2826,6 @@ Please provide a detailed analysis based on the article content and the user's s
                     this.closeModal();
                 }
             }.bind(this));
-
-            const handleEsc = function(e) {
-                if (e.key === 'Escape') {
-                    // Clear pending selection on ESC (user cancelled)
-                    this.pendingObservableSelection = null;
-                    this.closeModal();
-                    document.removeEventListener('keydown', handleEsc);
-                }
-            }.bind(this);
-            document.addEventListener('keydown', handleEsc);
 
             modal.innerHTML = `
                 <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4">
@@ -2858,6 +2855,56 @@ Please provide a detailed analysis based on the article content and the user's s
 
             const saveBtn = modal.querySelector('#observable-save-btn');
             const cancelBtn = modal.querySelector('#observable-cancel-btn');
+            
+            // Register with ModalManager and make Escape trigger Cancel button
+            if (window.ModalManager) {
+                // Register modal with ModalManager
+                window.ModalManager.register('annotationObservableModal', {
+                    isDynamic: true,
+                    hasInput: false,
+                    onClose: () => {
+                        // Clear pending selection on close
+                        this.pendingObservableSelection = null;
+                        this.closeModal();
+                    }
+                });
+                
+                // Open modal via ModalManager
+                window.ModalManager.open('annotationObservableModal');
+                
+                // Add Escape handler that triggers Cancel button (only if this is the topmost modal)
+                const modalEscHandler = function(e) {
+                    if ((e.key === 'Escape' || e.keyCode === 27) && 
+                        modal && !modal.classList.contains('hidden')) {
+                        // Check if this is the topmost modal
+                        if (window.ModalManager) {
+                            const stack = window.ModalManager.getStack();
+                            const isTopmost = stack.length > 0 && stack[stack.length - 1] === 'annotationObservableModal';
+                            if (!isTopmost) {
+                                // Not topmost, let ModalManager handle it
+                                return;
+                            }
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Trigger Cancel button click (equivalent to clicking Cancel)
+                        if (cancelBtn) {
+                            cancelBtn.click();
+                        } else {
+                            // Clear pending selection on ESC (user cancelled)
+                            this.pendingObservableSelection = null;
+                            this.closeModal();
+                        }
+                        return false;
+                    }
+                }.bind(this);
+                
+                // Use capture phase with higher priority (runs before ModalManager's handler)
+                document.addEventListener('keydown', modalEscHandler, true);
+                
+                // Store handler reference for cleanup
+                modal._annotationEscHandler = modalEscHandler;
+            }
 
             if (saveBtn) {
                 saveBtn.addEventListener('click', async () => {
@@ -2939,6 +2986,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Create modal for classification
             const modal = document.createElement('div');
+            modal.id = 'annotationClassificationModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
             this.currentModal = modal; // Store reference for reliable closing
             
@@ -2948,15 +2996,6 @@ Please provide a detailed analysis based on the article content and the user's s
                     this.closeModal();
                 }
             }.bind(this));
-            
-            // Add ESC key to close
-            const handleEsc = function(e) {
-                if (e.key === 'Escape') {
-                    this.closeModal();
-                    document.removeEventListener('keydown', handleEsc);
-                }
-            }.bind(this);
-            document.addEventListener('keydown', handleEsc);
             
             // Calculate character count and length guidance
             const charCount = expandedText.length;
@@ -3005,6 +3044,55 @@ Please provide a detailed analysis based on the article content and the user's s
             `;
             
             document.body.appendChild(modal);
+            
+            // Register with ModalManager and make Escape trigger Cancel button
+            if (window.ModalManager) {
+                // Get cancel button reference
+                const cancelBtn = modal.querySelector('#cancel-btn');
+                
+                // Register modal with ModalManager
+                window.ModalManager.register('annotationClassificationModal', {
+                    isDynamic: true,
+                    hasInput: false,
+                    onClose: () => {
+                        this.closeModal();
+                    }
+                });
+                
+                // Open modal via ModalManager
+                window.ModalManager.open('annotationClassificationModal');
+                
+                // Add Escape handler that triggers Cancel button (only if this is the topmost modal)
+                const modalEscHandler = function(e) {
+                    if ((e.key === 'Escape' || e.keyCode === 27) && 
+                        modal && !modal.classList.contains('hidden')) {
+                        // Check if this is the topmost modal
+                        if (window.ModalManager) {
+                            const stack = window.ModalManager.getStack();
+                            const isTopmost = stack.length > 0 && stack[stack.length - 1] === 'annotationClassificationModal';
+                            if (!isTopmost) {
+                                // Not topmost, let ModalManager handle it
+                                return;
+                            }
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Trigger Cancel button click (equivalent to clicking Cancel)
+                        if (cancelBtn) {
+                            cancelBtn.click();
+                        } else {
+                            this.closeModal();
+                        }
+                        return false;
+                    }
+                }.bind(this);
+                
+                // Use capture phase with higher priority (runs before ModalManager's handler)
+                document.addEventListener('keydown', modalEscHandler, true);
+                
+                // Store handler reference for cleanup
+                modal._annotationEscHandler = modalEscHandler;
+            }
             
             // Add touch event handlers for mobile
             addMobileModalHandlers(modal, expandedStart, expandedEnd);
@@ -3691,6 +3779,21 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         closeModal() {
+            // Remove Escape handler if it exists
+            if (this.currentModal && this.currentModal._annotationEscHandler) {
+                document.removeEventListener('keydown', this.currentModal._annotationEscHandler, true);
+                delete this.currentModal._annotationEscHandler;
+            }
+            
+            // Close via ModalManager if registered
+            if (this.currentModal && window.ModalManager) {
+                if (this.currentModal.id === 'annotationClassificationModal') {
+                    window.ModalManager.close('annotationClassificationModal');
+                } else if (this.currentModal.id === 'annotationObservableModal') {
+                    window.ModalManager.close('annotationObservableModal');
+                }
+            }
+            
             // First try to use stored modal reference (most reliable)
             if (this.currentModal && this.currentModal.parentNode) {
                 this.currentModal.remove();
@@ -3773,7 +3876,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     payload.usage = usage;
                 }
 
-                const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
+                const response = await fetch(`/api/articles/${this.articleId}/annotations`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -8997,6 +9100,23 @@ ${JSON.stringify(rule.logsource, null, 2)}
         `;
         document.body.appendChild(loadingModal);
         
+        // Register with ModalManager for proper Escape key handling
+        if (window.ModalManager) {
+            window.ModalManager.register('chunkDebugLoadingModal', {
+                forceUpdate: true,
+                isDynamic: true,
+                hasInput: false,
+                onClose: () => {
+                    // ESC just closes the modal, operation continues in background
+                    const modal = document.getElementById('chunkDebugLoadingModal');
+                    if (modal && modal.parentNode) {
+                        modal.remove();
+                    }
+                }
+            });
+            window.ModalManager.open('chunkDebugLoadingModal');
+        }
+        
         // Track if request has started
         let chunkRequestStarted = false;
         
@@ -9013,34 +9133,28 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
             const modal = document.getElementById('chunkDebugLoadingModal');
             if (modal && modal.parentNode) {
-                modal.remove();
+                if (window.ModalManager) {
+                    window.ModalManager.close('chunkDebugLoadingModal');
+                } else {
+                    modal.remove();
+                }
             }
-            document.removeEventListener('keydown', handleChunkEsc);
         };
         
         // Close modal when clicking outside (dismiss without cancelling)
         loadingModal.addEventListener('click', function(e) {
             if (e.target === loadingModal) {
-                const modal = document.getElementById('chunkDebugLoadingModal');
-                if (modal && modal.parentNode) {
-                    modal.remove();
+                // ESC just closes the modal, operation continues in background
+                if (window.ModalManager) {
+                    window.ModalManager.close('chunkDebugLoadingModal');
+                } else {
+                    const modal = document.getElementById('chunkDebugLoadingModal');
+                    if (modal && modal.parentNode) {
+                        modal.remove();
+                    }
                 }
-                document.removeEventListener('keydown', handleChunkEsc);
             }
         });
-        
-        // Add ESC key handler to close loading modal (dismiss without cancelling)
-        const handleChunkEsc = function(e) {
-            if (e.key === 'Escape') {
-                // ESC just closes the modal, operation continues in background
-                const modal = document.getElementById('chunkDebugLoadingModal');
-                if (modal && modal.parentNode) {
-                    modal.remove();
-                }
-                document.removeEventListener('keydown', handleChunkEsc);
-            }
-        };
-        document.addEventListener('keydown', handleChunkEsc);
         
         // Wire up cancel button
         const cancelBtnChunk = loadingModal.querySelector('#cancelBtnChunk');
@@ -9071,11 +9185,14 @@ ${JSON.stringify(rule.logsource, null, 2)}
             // Race between fetch and timeout
             const debugData = await Promise.race([fetchPromise, timeoutPromise]);
             
-            // Remove loading modal and clean up ESC handler
+            // Remove loading modal
             if (loadingModal && loadingModal.parentNode) {
-                loadingModal.remove();
+                if (window.ModalManager) {
+                    window.ModalManager.close('chunkDebugLoadingModal');
+                } else {
+                    loadingModal.remove();
+                }
             }
-            document.removeEventListener('keydown', handleChunkEsc);
             
             // Show truncation warnings if any
             if (debugData.warnings && Array.isArray(debugData.warnings) && debugData.warnings.length > 0) {
@@ -9094,9 +9211,12 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 return; // Already handled in handleChunkCancel
             }
             if (loadingModal && loadingModal.parentNode) {
-                loadingModal.remove();
+                if (window.ModalManager) {
+                    window.ModalManager.close('chunkDebugLoadingModal');
+                } else {
+                    loadingModal.remove();
+                }
             }
-            document.removeEventListener('keydown', handleChunkEsc);
             
             if (error.message.includes('timed out')) {
                 showNotification('Chunk debug analysis timed out after 180 seconds. Showing partial results.', 'warning');
@@ -9243,13 +9363,10 @@ ${JSON.stringify(rule.logsource, null, 2)}
             const existingModal = document.getElementById('chunkDebugModal');
             if (existingModal) {
                 if (window.ModalManager) {
-                    const stack = window.ModalManager.getStack();
-                    while (stack.includes('chunkDebugModal')) {
-                        const index = stack.indexOf('chunkDebugModal');
-                        stack.splice(index, 1);
-                    }
+                    window.ModalManager.close('chunkDebugModal');
+                } else {
+                    existingModal.remove();
                 }
-                existingModal.remove();
             }
             
             modal.id = 'chunkDebugModal';
@@ -9452,29 +9569,21 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             document.body.appendChild(modal);
             
-            // Ensure modal is visible
+            // Ensure modal is visible first (no 'hidden' class)
             modal.classList.remove('hidden');
             
-            // Add Esc key handler to close modal
-            const handleEscKey = (event) => {
-                if (event.key === 'Escape' || event.keyCode === 27) {
-                    closeChunkDebugModal();
-                }
-            };
-            document.addEventListener('keydown', handleEscKey);
-            // Store handler reference for cleanup
-            modal._escKeyHandler = handleEscKey;
-            
-            // Register and open with ModalManager
+            // Register and open with ModalManager immediately
             if (window.ModalManager) {
-                setTimeout(() => {
-                    window.ModalManager.register('chunkDebugModal', {
-                        isDynamic: true,
-                        hasInput: false
-                    });
-                    window.ModalManager.open('chunkDebugModal');
-                    modal.classList.remove('hidden');
-                }, 50);
+                // Ensure modal is registered first
+                window.ModalManager.register('chunkDebugModal', {
+                    forceUpdate: true,
+                    isDynamic: true,
+                    hasInput: false
+                });
+                // Open modal (this will add to stack and ensure visibility)
+                window.ModalManager.open('chunkDebugModal');
+                // Double-check modal is visible
+                modal.classList.remove('hidden');
             }
             
             // Store debug data globally for filtering
@@ -9806,12 +9915,17 @@ ${JSON.stringify(rule.logsource, null, 2)}
     function closeChunkDebugModal() {
         const modal = document.getElementById('chunkDebugModal');
         if (modal) {
-            // Remove Esc key handler if it exists
-            if (modal._escKeyHandler) {
-                document.removeEventListener('keydown', modal._escKeyHandler);
-                delete modal._escKeyHandler;
+            // Use ModalManager if available
+            if (window.ModalManager) {
+                window.ModalManager.close('chunkDebugModal');
+            } else {
+                // Fallback: remove Esc key handler if it exists
+                if (modal._escKeyHandler) {
+                    document.removeEventListener('keydown', modal._escKeyHandler);
+                    delete modal._escKeyHandler;
+                }
+                modal.remove();
             }
-            modal.remove();
         }
         // Clear global data
         window.chunkDebugData = null;
@@ -10390,6 +10504,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
     }
     
     function closeComparisonModal() {
+        if (window.ModalManager) {
+            window.ModalManager.close('comparisonModal');
+        }
         const modal = document.getElementById('comparisonModal');
         if (modal) {
             modal.remove();
@@ -10542,30 +10659,32 @@ ${JSON.stringify(rule.logsource, null, 2)}
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         
-        // Close modal when clicking outside
+        // Register and open with ModalManager
         const feedbackComparisonModal = document.getElementById('feedbackComparisonModal');
         if (feedbackComparisonModal) {
+            if (window.ModalManager) {
+                setTimeout(() => {
+                    window.ModalManager.register('feedbackComparisonModal', {
+                        isDynamic: true,
+                        hasInput: false
+                    });
+                    window.ModalManager.open('feedbackComparisonModal');
+                }, 50);
+            }
+            
+            // Close modal when clicking outside
             feedbackComparisonModal.addEventListener('click', function(e) {
                 if (e.target === feedbackComparisonModal) {
                     closeFeedbackComparisonModal();
                 }
             });
         }
-        
-        // Add ESC key handler to close feedback comparison modal
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('feedbackComparisonModal');
-                if (modal) {
-                    closeFeedbackComparisonModal();
-                    document.removeEventListener('keydown', handleEsc);
-                }
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
     }
     
     function closeFeedbackComparisonModal() {
+        if (window.ModalManager) {
+            window.ModalManager.close('feedbackComparisonModal');
+        }
         const modal = document.getElementById('feedbackComparisonModal');
         if (modal) {
             modal.remove();

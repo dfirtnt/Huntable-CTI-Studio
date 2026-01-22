@@ -17,13 +17,6 @@
     .mlops-subtitle {
         color: #8B92A0;
     }
-    .mlops-checklist {
-        border-left: 3px solid #7C3AED;
-        padding-left: 16px;
-    }
-    .mlops-gear-icon {
-        color: #7C3AED;
-    }
     .btn-blue {
         background-color: #3B82F6;
         transition: all 0.2s ease;
@@ -83,7 +76,8 @@
             </a>
         </div>
 
-        <!-- Observable Training -->
+        <!-- INACTIVE: Observable Training - Planned for future release -->
+        <!--
         <div class="mlops-card rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
             <div class="flex items-center mb-4">
                 <div class="bg-purple-500/10 p-3 rounded-lg mr-4">
@@ -105,6 +99,7 @@
                 </svg>
             </a>
         </div>
+        -->
 
         <!-- Agent Evaluations -->
         <div class="mlops-card rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
@@ -127,17 +122,6 @@
                 </svg>
             </a>
         </div>
-    </div>
-
-    <div class="mt-12 mlops-card mlops-checklist rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            <span class="mlops-gear-icon">⚙️</span> Operational Checklist
-        </h2>
-        <ul class="space-y-3 mlops-desc-text">
-            <li>• Backfill ML vs Hunt comparisons after ingesting large backlogs.</li>
-            <li>• Schedule observable extractor retraining after labeling new CMD/process samples.</li>
-            <li>• Watch for drift flags in the comparison dashboard to catch degraded classifiers early.</li>
-        </ul>
     </div>
 </div>
 </div>
