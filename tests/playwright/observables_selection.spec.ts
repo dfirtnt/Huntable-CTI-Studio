@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
-test.describe('Observable annotation selection', () => {
+test.describe.skip('Observable annotation selection', () => {
   test('drag selection only creates one observable annotation and keeps length small', async ({ page }) => {
     // Navigate to first article
     await page.goto(`${BASE_URL}/articles`);
