@@ -42,7 +42,7 @@ class TestSigmaSemanticScorer:
     @pytest.fixture
     def scorer_with_embeddings(self, mock_embedding_service):
         """Create scorer with embedding-based comparison."""
-        with patch('src.services.sigma_semantic_scorer.EmbeddingService', return_value=mock_embedding_service):
+        with patch('src.services.embedding_service.EmbeddingService', return_value=mock_embedding_service):
             return SigmaSemanticScorer(use_llm_judge=False)
 
     @pytest.fixture

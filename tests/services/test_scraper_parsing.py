@@ -10,6 +10,25 @@ from unittest.mock import AsyncMock, Mock, patch
 from src.core.rss_parser import RSSParser
 from src.core.processor import ContentProcessor
 from src.utils.http import HTTPClient
+from src.models.source import Source
+from datetime import datetime
+
+def create_test_source(**kwargs):
+    """Helper to create test Source with all required fields."""
+    now = datetime.now()
+    defaults = {
+        'check_frequency': 3600,
+        'lookback_days': 180,
+        'consecutive_failures': 0,
+        'total_articles': 0,
+        'average_response_time': 0.0,
+        'created_at': now,
+        'updated_at': now,
+        'active': True,
+        'config': {}
+    }
+    defaults.update(kwargs)
+    return Source(**defaults)
 
 # Mark all tests in this file as unit tests (use fixtures/mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -66,23 +85,13 @@ class TestScraperParsing:
         parser = RSSParser(mock_http_client)
         
         # Create mock source with config to allow modern scraping
-        from src.models.source import Source
-        from datetime import datetime
-        
-        now = datetime.now()
-        source = Source(
+        source = create_test_source(
             id=1,
             identifier="test_source",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
-            check_frequency=3600,
-            lookback_days=180,
-            consecutive_failures=0,
-            total_articles=0,
-            average_response_time=0.0,
-            created_at=now,
-            updated_at=now,
+            active=True,
             config={"rss_only": False}  # Allow modern scraping fallback
         )
         

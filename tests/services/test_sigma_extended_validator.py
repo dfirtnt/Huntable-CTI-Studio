@@ -39,7 +39,8 @@ level: medium
 
     def test_validate_success(self, validator, sample_rule):
         """Test successful validation."""
-        with patch('src.services.sigma_extended_validator.validate_sigma_rule') as mock_validate:
+        with patch('src.services.sigma_extended_validator.validate_sigma_rule') as mock_validate, \
+             patch('src.services.sigma_extended_validator.PYSIGMA_AVAILABLE', False):
             mock_validate.return_value = Mock(
                 is_valid=True,
                 errors=[],
@@ -80,7 +81,7 @@ level: medium
             }
         }
         
-        feasible = validator._check_telemetry_feasibility(rule_data)
+        feasible = validator._check_telemetry_feasibility(rule_data, errors=[], warnings=[])
         
         assert isinstance(feasible, bool)
 
@@ -96,7 +97,7 @@ level: medium
             }
         }
         
-        has_leakage = validator._check_ioc_leakage(rule_with_ioc)
+        has_leakage = validator._check_ioc_leakage(rule_with_ioc, errors=[], warnings=[])
         
         assert isinstance(has_leakage, bool)
 
@@ -116,7 +117,7 @@ level: medium
             }
         }
         
-        conformant = validator._check_field_conformance(rule_data)
+        conformant = validator._check_field_conformance(rule_data, errors=[], warnings=[])
         
         assert isinstance(conformant, bool)
 
@@ -129,6 +130,6 @@ level: medium
             'condition': 'selection'
         }
         
-        safe = validator._check_pattern_safety(detection)
+        safe = validator._check_pattern_safety(detection, errors=[], warnings=[])
         
         assert isinstance(safe, bool)

@@ -105,7 +105,8 @@ class SigmaGenerationService:
                     url=url or 'N/A',
                     content=content_to_analyze
                 )
-                logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
+                if sigma_prompt and isinstance(sigma_prompt, str):
+                    logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
             
             # Ensure we have a valid prompt
             if not sigma_prompt or not isinstance(sigma_prompt, str):
@@ -351,6 +352,8 @@ class SigmaGenerationService:
             }
             
         except Exception as e:
+            if isinstance(e, ValueError):
+                raise
             logger.error(f"Error generating SIGMA rules: {e}")
             return {
                 'rules': [],

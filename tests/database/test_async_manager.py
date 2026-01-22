@@ -94,6 +94,18 @@ class TestAsyncDatabaseManager:
     @pytest.mark.asyncio
     async def test_create_tables(self, manager, mock_engine):
         """Test table creation."""
+        # Mock engine.begin() to return an async context manager
+        from contextlib import asynccontextmanager
+        
+        @asynccontextmanager
+        async def mock_begin():
+            conn = AsyncMock()
+            conn.run_sync = AsyncMock()
+            yield conn
+        
+        # Replace the mock_engine.begin with our async context manager
+        mock_engine.begin = Mock(return_value=mock_begin())
+        
         await manager.create_tables()
         
         mock_engine.begin.assert_called()
