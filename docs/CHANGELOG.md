@@ -59,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **MLOps Operational Checklist Panel** (2026-01-21): Removed Operational Checklist panel from MLOps page
+  - Removed checklist UI component and associated CSS classes
+  - Cleaned up unused `.mlops-checklist` and `.mlops-gear-icon` styles
+
 ### Changed
 - **Workflow UI Button Label** (2026-01-21): Updated "Generate Commands" button to "Generate LMStudio Commands" for clarity
 - **Modal Management Improvements** (2026-01-21): Enhanced prompt history modal cleanup and registration
