@@ -6,14 +6,13 @@
 <div class="min-h-screen">
     <!-- Page Header -->
     <div class="mb-8">
-        <p class="text-gray-600 dark:text-gray-400">A Tactical CTI -> Hunt Engineering Workbench</p>
         <div class="mt-2 text-sm text-gray-500 dark:text-gray-500">
             Last updated: <span id="last-updated">{{ current_time }}</span>
         </div>
     </div>
 
     <!-- 3x3 Grid Layout -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         
         <!-- 1. Article Ingestion Health Card -->
         <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
