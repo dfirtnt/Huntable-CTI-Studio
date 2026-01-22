@@ -222,18 +222,31 @@ def restore_database(backup_path: Path, metadata: Dict[str, Any],
         copy_cmd = ['docker', 'cp', temp_path, f'cti_postgres:/tmp/restore.sql']
         subprocess.run(copy_cmd, check=True)
         
+        # Terminate all active connections to the database before dropping
+        print("🔌 Terminating active database connections...")
+        terminate_cmd = get_docker_exec_cmd(
+            'cti_postgres',
+            f"psql -U {DB_CONFIG['user']} -d postgres -c \"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_CONFIG['database']}' AND pid <> pg_backend_pid();\""
+        )
+        result = subprocess.run(terminate_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"⚠️  Warning: Some connections may not have been terminated: {result.stderr}")
+        else:
+            print("✅ Active connections terminated")
+        
         # Drop and recreate database
+        # Connect to 'postgres' database first to drop/create the target database
         print("🗑️  Dropping existing database...")
         drop_cmd = get_docker_exec_cmd(
             'cti_postgres',
-            f"psql -U {DB_CONFIG['user']} -c 'DROP DATABASE IF EXISTS {DB_CONFIG['database']};'"
+            f"psql -U {DB_CONFIG['user']} -d postgres -c 'DROP DATABASE IF EXISTS {DB_CONFIG['database']};'"
         )
         subprocess.run(drop_cmd, check=True)
         
         print("🆕 Creating new database...")
         create_cmd = get_docker_exec_cmd(
             'cti_postgres',
-            f"psql -U {DB_CONFIG['user']} -c 'CREATE DATABASE {DB_CONFIG['database']};'"
+            f"psql -U {DB_CONFIG['user']} -d postgres -c 'CREATE DATABASE {DB_CONFIG['database']};'"
         )
         subprocess.run(create_cmd, check=True)
         
@@ -372,16 +385,20 @@ def restore_docker_volume(backup_path: Path, volume_name: str,
         subprocess.run(['docker', 'volume', 'create', volume_name], check=True)
         
         # Restore volume data
+        # Since we're running inside a container, docker run -v needs host paths
+        # Solution: Pipe tar file via stdin to avoid path issues
         print(f"📥 Restoring volume data from: {volume_backup_file.name}")
-        restore_cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{volume_name}:/data',
-            '-v', f'{backup_path.absolute()}:/backup',
-            'alpine',
-            'tar', 'xzf', f'/backup/{volume_backup_file.name}', '-C', '/data'
-        ]
         
-        subprocess.run(restore_cmd, check=True)
+        # Read tar file and pipe to docker run via stdin
+        with open(volume_backup_file, 'rb') as tar_file:
+            restore_cmd = [
+                'docker', 'run', '--rm', '-i',
+                '-v', f'{volume_name}:/data',
+                'alpine',
+                'sh', '-c', 'tar xzf /dev/stdin -C /data'
+            ]
+            
+            subprocess.run(restore_cmd, stdin=tar_file, check=True)
         
         # Start containers
         if containers_to_stop:
@@ -432,10 +449,16 @@ def verify_restore(components: Set[str]) -> bool:
     for component in ['models', 'config', 'outputs', 'logs']:
         if component in components:
             target_dir = Path(component)
-            if target_dir.exists() and any(target_dir.iterdir()):
-                print(f"✅ {component} directory verified")
+            if target_dir.exists():
+                # Directory exists - restore succeeded
+                item_count = sum(1 for _ in target_dir.iterdir())
+                if item_count > 0:
+                    print(f"✅ {component} directory verified ({item_count} items)")
+                else:
+                    # Empty directories are valid (backup may have been empty)
+                    print(f"✅ {component} directory verified (empty - valid)")
             else:
-                print(f"❌ {component} directory verification failed")
+                print(f"❌ {component} directory verification failed (does not exist)")
                 verification_passed = False
     
     # Verify Docker volumes

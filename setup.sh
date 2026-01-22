@@ -7,9 +7,9 @@
 # This script provides an interactive guided setup for CTI Scraper, including:
 #
 # Features:
-# - Interactive LLM configuration (LM Studio, OpenAI, Anthropic)
+# - Interactive LLM configuration (LM Studio)
 # - Secure password generation for PostgreSQL and Redis
-# - Optional API key configuration
+# - API keys can be configured in .env file after setup
 # - Automated backup setup
 # - Health verification
 #
@@ -130,8 +130,20 @@ configure_llm() {
     echo "  3. Anthropic Claude API - Cloud-based Claude models"
     echo ""
     
+    # Check if running on Intel Mac (LM Studio requires Apple Silicon)
+    IS_INTEL_MAC=false
+    if [[ "$(uname)" == "Darwin" ]]; then
+        if [[ "$(uname -m)" == "x86_64" ]]; then
+            IS_INTEL_MAC=true
+        fi
+    fi
+    
     # Prompt for LM Studio
-    if prompt_yes_no "Do you want to use LM Studio for local LLM?" "no"; then
+    if [[ "$IS_INTEL_MAC" == "true" ]]; then
+        print_warning "LM Studio is not compatible with Intel-based Macs (requires Apple Silicon)"
+        print_warning "Skipping LM Studio configuration. Use OpenAI or Anthropic APIs instead."
+        USE_LMSTUDIO=false
+    elif prompt_yes_no "Do you want to use LM Studio for local LLM?" "no"; then
         USE_LMSTUDIO=true
         print_status "LM Studio will be enabled (ensure it's running on port 1234)"
     else
@@ -139,27 +151,10 @@ configure_llm() {
         print_warning "LM Studio will be disabled"
     fi
     
-    # Prompt for OpenAI API
-    if prompt_yes_no "Do you want to configure OpenAI API?" "no"; then
-        OPENAI_API_KEY=""
-        prompt_input "Enter OpenAI API key: " "" "OPENAI_API_KEY" "true"
-        if [[ -z "$OPENAI_API_KEY" ]]; then
-            print_warning "OpenAI API key not provided, API will not be used"
-        else
-            print_status "OpenAI API configured"
-        fi
-    fi
-    
-    # Prompt for Anthropic API
-    if prompt_yes_no "Do you want to configure Anthropic Claude API?" "no"; then
-        ANTHROPIC_API_KEY=""
-        prompt_input "Enter Anthropic API key: " "" "ANTHROPIC_API_KEY" "true"
-        if [[ -z "$ANTHROPIC_API_KEY" ]]; then
-            print_warning "Anthropic API key not provided, API will not be used"
-        else
-            print_status "Anthropic API configured"
-        fi
-    fi
+    # Note: API keys can be added to .env file later
+    OPENAI_API_KEY=""
+    ANTHROPIC_API_KEY=""
+    print_status "API keys can be configured later in the .env file if needed"
 }
 
 # Function to prompt for database passwords
@@ -170,8 +165,11 @@ configure_database() {
     
     # Check if .env exists
     if [[ -f ".env" ]]; then
-        if ! prompt_yes_no ".env file exists. Overwrite it?" "no"; then
+        print_warning "⚠️  Existing .env file found with default passwords (not secure for production)"
+        if ! prompt_yes_no ".env file exists. Overwrite it with new secure passwords?" "no"; then
             print_status "Using existing .env file"
+            print_warning "⚠️  Remember to update passwords in .env file for production use"
+            SKIP_ENV_CREATION=true
             return 0
         fi
     fi
@@ -211,13 +209,17 @@ configure_database() {
 create_env_file() {
     print_header "Creating Environment Configuration"
     
-    if [[ ! -f "env.example" ]]; then
-        print_error "env.example not found!"
+    if [[ ! -f ".env.example" ]] && [[ ! -f "env.example" ]]; then
+        print_error ".env.example or env.example not found!"
         return 1
     fi
     
-    # Copy template
-    cp env.example .env
+    # Copy template (prefer .env.example, fallback to env.example)
+    if [[ -f ".env.example" ]]; then
+        cp .env.example .env
+    else
+        cp env.example .env
+    fi
     
     # Replace passwords
     if [[ "$(uname)" == "Darwin" ]]; then
@@ -260,21 +262,34 @@ check_directory() {
 check_prerequisites() {
     print_header "Checking Prerequisites"
     
-    # Check Docker
-    if ! command -v docker &> /dev/null; then
-        print_error "Docker is not installed. Please install Docker first."
+    # Check Docker - try PATH first, then common macOS Docker Desktop locations
+    DOCKER_CMD=""
+    if command -v docker &> /dev/null; then
+        DOCKER_CMD="docker"
+    elif [ -f "/Applications/Docker.app/Contents/Resources/bin/docker" ]; then
+        DOCKER_CMD="/Applications/Docker.app/Contents/Resources/bin/docker"
+        export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
+        print_status "Found Docker at /Applications/Docker.app/Contents/Resources/bin/docker"
+    else
+        print_error "Docker executable not found in PATH."
+        print_error "Please ensure Docker Desktop is installed and the Docker executable is in your PATH."
+        print_error "Verify Docker is accessible by running: docker --version"
         exit 1
     fi
     
-    # Check Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
+    # Check Docker Compose (support both v1 and v2)
+    if command -v docker-compose &> /dev/null; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+    elif $DOCKER_CMD compose version &> /dev/null; then
+        DOCKER_COMPOSE_CMD="$DOCKER_CMD compose"
+    else
         print_error "Docker Compose is not installed. Please install Docker Compose first."
         exit 1
     fi
     
     # Check if Docker is running
-    if ! docker info &> /dev/null; then
-        print_error "Docker is not running. Please start Docker first."
+    if ! $DOCKER_CMD info &> /dev/null; then
+        print_error "Docker is not running. Please start Docker Desktop first."
         exit 1
     fi
     
@@ -323,17 +338,17 @@ start_services() {
     
     # Build and start Docker services
     print_status "Building Docker images..."
-    docker-compose build
+    $DOCKER_COMPOSE_CMD build
     
     # Start services
     print_status "Starting services..."
-    docker-compose up -d
+    $DOCKER_COMPOSE_CMD up -d
     
     # Wait for postgres to be healthy
     print_status "Waiting for PostgreSQL to be ready..."
     sleep 10
     for i in {1..30}; do
-        if docker exec cti_postgres pg_isready -U cti_user -d cti_scraper >/dev/null 2>&1; then
+        if $DOCKER_CMD exec cti_postgres pg_isready -U cti_user -d cti_scraper >/dev/null 2>&1; then
             break
         fi
         sleep 1
@@ -341,11 +356,11 @@ start_services() {
     
     # Enable pgvector extension in postgres
     print_status "Enabling pgvector extension..."
-    docker exec cti_postgres psql -U cti_user -d cti_scraper -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>&1 | grep -v "already exists" || true
+    $DOCKER_CMD exec cti_postgres psql -U cti_user -d cti_scraper -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>&1 | grep -v "already exists" || true
     
     # Restart app containers to ensure they connect properly
     print_status "Restarting application containers..."
-    docker-compose restart web worker scheduler
+    $DOCKER_COMPOSE_CMD restart web worker scheduler
     
     # Wait for services to be fully healthy
     print_status "Waiting for services to be healthy..."
@@ -353,7 +368,7 @@ start_services() {
     
     # Check service status
     print_status "Service status:"
-    docker-compose ps
+    $DOCKER_COMPOSE_CMD ps
     
     print_status "Services started successfully!"
     
@@ -397,21 +412,25 @@ setup_automated_backups() {
 verify_installation() {
     print_header "Verifying Installation"
     
+    local verification_failed=false
+    
     # Check if services are running
     print_status "Checking service health..."
     
     # Check PostgreSQL
-    if docker exec cti_postgres pg_isready -U cti_user -d cti_scraper &> /dev/null; then
+    if $DOCKER_CMD exec cti_postgres pg_isready -U cti_user -d cti_scraper &> /dev/null; then
         print_status "✅ PostgreSQL is healthy"
     else
-        print_warning "⚠️  PostgreSQL is not ready yet"
+        print_error "❌ PostgreSQL is not ready"
+        verification_failed=true
     fi
     
     # Check Redis
-    if docker exec cti_redis redis-cli ping &> /dev/null; then
+    if $DOCKER_CMD exec cti_redis redis-cli ping &> /dev/null; then
         print_status "✅ Redis is healthy"
     else
-        print_warning "⚠️  Redis is not ready yet"
+        print_error "❌ Redis is not ready"
+        verification_failed=true
     fi
     
     # Check Web service with retries
@@ -428,19 +447,59 @@ verify_installation() {
     if [ "$web_ready" = true ]; then
         print_status "✅ Web service is healthy"
     else
-        print_warning "⚠️  Web service is not ready yet"
-        print_status "Check logs with: docker logs cti_web"
+        print_error "❌ Web service is not ready"
+        print_status "Check logs with: $DOCKER_CMD logs cti_web"
+        verification_failed=true
     fi
     
-    print_status "Installation verification complete!"
+    # Check worker containers for crash/restart loops
+    print_status "Checking worker containers..."
+    local worker_containers=("cti_worker" "cti_workflow_worker" "cti_scheduler")
+    for container in "${worker_containers[@]}"; do
+        local status=$($DOCKER_CMD inspect --format='{{.State.Status}}' "$container" 2>/dev/null)
+        local restart_count=$($DOCKER_CMD inspect --format='{{.RestartCount}}' "$container" 2>/dev/null)
+        
+        if [[ "$status" == "running" ]]; then
+            if [[ "$restart_count" -gt 5 ]]; then
+                print_error "❌ $container is restarting repeatedly (restart count: $restart_count)"
+                print_status "Check logs with: $DOCKER_CMD logs $container"
+                verification_failed=true
+            else
+                print_status "✅ $container is running"
+            fi
+        elif [[ "$status" == "restarting" ]]; then
+            print_error "❌ $container is in restart loop"
+            print_status "Check logs with: $DOCKER_CMD logs $container"
+            verification_failed=true
+        elif [[ -z "$status" ]]; then
+            print_warning "⚠️  $container not found (may not be started yet)"
+        else
+            print_warning "⚠️  $container status: $status"
+        fi
+    done
+    
+    if [ "$verification_failed" = true ]; then
+        print_error "Installation verification failed. Some services are not healthy."
+        return 1
+    else
+        print_status "Installation verification complete!"
+        return 0
+    fi
 }
 
 # Function to show post-installation information
 show_post_install_info() {
+    local setup_success=$1
+    
     print_header "Setup Complete!"
     
     echo ""
-    echo "🎉 CTI Scraper has been successfully set up!"
+    if [ "$setup_success" = true ]; then
+        echo "🎉 CTI Scraper has been successfully set up!"
+    else
+        echo "⚠️  CTI Scraper setup completed with warnings/errors."
+        echo "   Please review the verification output above and check container logs."
+    fi
     echo ""
     echo "📋 Service Information:"
     echo "   • Web Interface: http://localhost:8001"
@@ -452,13 +511,7 @@ show_post_install_info() {
         echo "   • LM Studio: Connect to http://host.docker.internal:1234"
     fi
     
-    if [[ -n "$OPENAI_API_KEY" ]]; then
-        echo "   • OpenAI API: Configured"
-    fi
-    
-    if [[ -n "$ANTHROPIC_API_KEY" ]]; then
-        echo "   • Anthropic Claude API: Configured"
-    fi
+    echo "   • API Keys: Can be added to .env file later (OpenAI, Anthropic)"
     
     echo ""
     echo "🔧 Management Commands:"
@@ -482,8 +535,9 @@ show_post_install_info() {
         echo "   1. Access web interface: http://localhost:8001"
     fi
     
-    echo "   2. Verify automated backups are working"
-    echo "   3. Configure your sources in config/sources.yaml"
+    echo "   2. Configure API keys in .env file if needed (OpenAI, Anthropic)"
+    echo "   3. Verify automated backups are working"
+    echo "   4. Configure your sources in config/sources.yaml"
     echo ""
 }
 
@@ -542,6 +596,9 @@ main() {
     # Check prerequisites
     check_prerequisites
     
+    # Initialize SKIP_ENV_CREATION flag
+    SKIP_ENV_CREATION=false
+    
     # Interactive configuration (unless --non-interactive)
     if [[ "$NON_INTERACTIVE" == "false" ]]; then
         echo ""
@@ -556,8 +613,10 @@ main() {
         SECRET_KEY=$(generate_password 32)
     fi
     
-    # Create .env file from configuration
-    create_env_file
+    # Create .env file from configuration (unless user chose to keep existing)
+    if [[ "$SKIP_ENV_CREATION" != "true" ]]; then
+        create_env_file
+    fi
     
     # Setup environment
     setup_environment
@@ -573,10 +632,20 @@ main() {
     fi
     
     # Verify installation
-    verify_installation
+    local setup_success=false
+    if verify_installation; then
+        setup_success=true
+    else
+        setup_success=false
+    fi
     
     # Show post-installation information
-    show_post_install_info
+    show_post_install_info "$setup_success"
+    
+    # Exit with appropriate code
+    if [ "$setup_success" = false ]; then
+        exit 1
+    fi
 }
 
 # Run main function

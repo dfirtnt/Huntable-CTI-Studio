@@ -105,7 +105,11 @@ celery_app.autodiscover_tasks()
 # Ensure local task modules are registered
 import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
-import src.worker.tasks.test_agents  # noqa: E402,F401
+# Optional: test_agents module (only used in test endpoints)
+try:
+    import src.worker.tasks.test_agents  # noqa: E402,F401
+except ImportError:
+    pass  # test_agents is optional
 
 
 # Define periodic tasks

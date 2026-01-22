@@ -82,8 +82,11 @@ RUN pip install --no-cache-dir pip-audit==2.9.0 safety==3.2.0
 # Copy project
 COPY . .
 
-# Create non-root user
+# Create non-root user and add to root group for socket access
+# Docker socket is root:root (GID 0) on macOS Docker Desktop
+# Adding user to root group (GID 0) to access the socket
 RUN useradd --create-home --shell /bin/bash cti_user \
+    && usermod -aG root cti_user \
     && chown -R cti_user:cti_user /app
 USER cti_user
 
