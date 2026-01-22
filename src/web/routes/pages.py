@@ -230,6 +230,7 @@ async def articles_list(
     source: Optional[str] = None,
     source_id: Optional[int] = None,
     threat_hunting_range: Optional[str] = None,
+    ml_hunt_range: Optional[str] = None,
     per_page: Optional[int] = 100,
     page: Optional[int] = 1,
     sort_by: str = "published_at",
@@ -299,6 +300,22 @@ async def articles_list(
                         if article.article_metadata
                         and min_score
                         <= article.article_metadata.get("threat_hunting_score", 0)
+                        <= max_score
+                    ]
+            except (ValueError, TypeError):
+                pass
+
+        if ml_hunt_range:
+            try:
+                if "-" in ml_hunt_range:
+                    min_score, max_score = map(float, ml_hunt_range.split("-"))
+                    filtered_articles = [
+                        article
+                        for article in filtered_articles
+                        if article.article_metadata
+                        and article.article_metadata.get("ml_hunt_score") is not None
+                        and min_score
+                        <= article.article_metadata.get("ml_hunt_score", 0)
                         <= max_score
                     ]
             except (ValueError, TypeError):
@@ -394,6 +411,7 @@ async def articles_list(
             "source": source or "",
             "source_id": source_id,
             "threat_hunting_range": threat_hunting_range or "",
+            "ml_hunt_range": ml_hunt_range or "",
             "sort_by": sort_by,
             "sort_order": sort_order,
             "title_only": title_only,

@@ -28,7 +28,7 @@
                 </svg>
             </span>
         </div>
-        <div id="filters-content" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
+        <div id="filters-content" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range or filters.title_only else 'false' }}">
         <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
@@ -65,7 +65,7 @@
             </div>
             
             <!-- Filter Controls Row -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             
             <!-- Search -->
             <div>
@@ -192,6 +192,22 @@
                     <option value="60-100" {% if filters.threat_hunting_range == "60-100" %}selected{% endif %}>⭐ High Quality (60+)</option>
                 </select>
             </div>
+
+            <!-- MLHuntScore Range -->
+            <div>
+                <label for="ml_hunt_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">MLHunt Score</label>
+                <select name="ml_hunt_range" id="ml_hunt_range" 
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                    <option value="">All Scores</option>
+                    <option value="80-100" {% if filters.ml_hunt_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
+                    <option value="60-79" {% if filters.ml_hunt_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
+                    <option value="40-59" {% if filters.ml_hunt_range == "40-59" %}selected{% endif %}>🟠 Fair (40-59)</option>
+                    <option value="20-39" {% if filters.ml_hunt_range == "20-39" %}selected{% endif %}>🔴 Poor (20-39)</option>
+                    <option value="0-19" {% if filters.ml_hunt_range == "0-19" %}selected{% endif %}>⚫ Very Poor (0-19)</option>
+                    <option value="30-100" {% if filters.ml_hunt_range == "30-100" %}selected{% endif %}>📈 Good & Above (30+)</option>
+                    <option value="60-100" {% if filters.ml_hunt_range == "60-100" %}selected{% endif %}>⭐ High Quality (60+)</option>
+                </select>
+            </div>
             </div>
         </form>
 
@@ -219,13 +235,14 @@
         </div>
 
         <!-- Filter Summary -->
-        {% if filters.search or filters.source or filters.threat_hunting_range %}
+        {% if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range %}
         <div class="mt-4 p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
             <p class="text-sm" style="color: var(--color-text-secondary);">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
                 {% if filters.threat_hunting_range %}RegexHuntScore: {{ filters.threat_hunting_range }}{% endif %}
+                {% if filters.ml_hunt_range %}MLHunt Score: {{ filters.ml_hunt_range }}{% endif %}
                 <a href="/articles" class="ml-2 underline" style="color: var(--color-info);">Clear all</a>
             </p>
         </div>
@@ -946,6 +963,7 @@
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
             threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
+            ml_hunt_range: document.getElementById('ml_hunt_range')?.value || '',
             per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
@@ -1001,6 +1019,7 @@
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
             threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
+            ml_hunt_range: document.getElementById('ml_hunt_range')?.value || '',
             per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
@@ -1039,6 +1058,9 @@
                 }
                 if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
                     document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
+                }
+                if (settings.ml_hunt_range && document.getElementById('ml_hunt_range')) {
+                    document.getElementById('ml_hunt_range').value = settings.ml_hunt_range;
                 }
                 if (settings.per_page && document.getElementById('per_page')) {
                     document.getElementById('per_page').value = settings.per_page;
@@ -1110,7 +1132,7 @@
         updateDefaultFiltersIndicator();
         
         // Save settings when form elements change
-    const formElements = ['search', 'source', 'threat_hunting_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
+    const formElements = ['search', 'source', 'threat_hunting_range', 'ml_hunt_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
         formElements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
