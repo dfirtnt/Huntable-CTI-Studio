@@ -59,6 +59,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Observables Mode Disabled** (2026-01-22): Disabled Observables annotation mode, marked as inactive for future release
+  - Hidden Observables Mode button in article detail page (preserved in comments)
+  - Disabled Huntability Mode button (non-clickable)
+  - Hidden Observable Training card from MLOps page (preserved in comments)
+  - Added inactive notice banner to Observable Training page
+  - All observables code preserved with "INACTIVE: Planned for future release" comments
+  - Huntability annotation system remains fully functional
+- **Annotation Creation Fix** (2026-01-22): Fixed annotation creation API errors
+  - Fixed URL template syntax in JavaScript (changed `{{ article.id }}` to `${this.articleId}`)
+  - Fixed missing `used_for_training` field handling in database manager
+  - Improved error handling to surface actual database errors instead of generic messages
+
 ### Removed
 - **MLOps Operational Checklist Panel** (2026-01-21): Removed Operational Checklist panel from MLOps page
   - Removed checklist UI component and associated CSS classes
