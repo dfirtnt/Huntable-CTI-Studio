@@ -226,7 +226,6 @@ async def get_raw_llm_response(
             execution_id=None,
             model_name=prompt_config.get("model"),
             temperature=0.0,
-            use_hybrid_extractor=False,  # Force LLM usage to get raw response
             provider=provider  # Pass provider from config
         )
         

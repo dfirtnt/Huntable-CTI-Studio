@@ -6,7 +6,6 @@ import pytest
 from unittest.mock import Mock, patch
 from src.utils.search_parser import BooleanSearchParser
 from src.utils.content import ContentCleaner
-from src.utils.ioc_extractor import HybridIOCExtractor
 from src.utils.simhash import SimHash
 
 
@@ -136,54 +135,6 @@ class TestContentCleaner:
         assert "This is paragraph content." in text
         assert "More content here." in text
         assert "<html>" not in text
-
-
-class TestHybridIOCExtractor:
-    """Test the HybridIOCExtractor utility."""
-    
-    def test_extract_ips(self):
-        """Test IP address extraction."""
-        extractor = HybridIOCExtractor()
-        
-        text = "The attacker used IP 192.168.1.100 and 10.0.0.1 for the attack."
-        iocs = extractor.extract_raw_iocs(text)
-        
-        assert "192.168.1.100" in iocs.get("ip", [])
-        assert "10.0.0.1" in iocs.get("ip", [])
-    
-    def test_extract_domains(self):
-        """Test domain extraction."""
-        extractor = HybridIOCExtractor()
-        
-        text = "Malicious domains: evil.com, bad-site.org, and suspicious.net"
-        iocs = extractor.extract_raw_iocs(text)
-        
-        # Note: Domain extraction may not work with this specific text format
-        # Test with a URL format that should work
-        text2 = "Visit https://evil.com for more info"
-        iocs2 = extractor.extract_raw_iocs(text2)
-        # Should extract domain from URL
-        assert "evil.com" in iocs2.get("domain", [])
-    
-    def test_extract_hashes(self):
-        """Test hash extraction."""
-        extractor = HybridIOCExtractor()
-        
-        text = "MD5: 5d41402abc4b2a76b9719d911017c592, SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        iocs = extractor.extract_raw_iocs(text)
-        
-        assert "5d41402abc4b2a76b9719d911017c592" in iocs.get("file_hash", [])
-        assert "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" in iocs.get("file_hash", [])
-    
-    def test_extract_urls(self):
-        """Test URL extraction."""
-        extractor = HybridIOCExtractor()
-        
-        text = "Check these URLs: https://evil.com/malware.exe and http://bad-site.org/payload"
-        iocs = extractor.extract_raw_iocs(text)
-        
-        assert "https://evil.com/malware.exe" in iocs.get("url", [])
-        assert "http://bad-site.org/payload" in iocs.get("url", [])
 
 
 class TestSimHash:

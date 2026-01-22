@@ -2713,7 +2713,6 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         temperature: float = 0.0,
         top_p: Optional[float] = None,
         qa_model_override: Optional[str] = None,
-        use_hybrid_extractor: Optional[bool] = None,
         provider: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -2727,8 +2726,6 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             prompt_config: Extraction prompt configuration
             qa_prompt_config: QA prompt configuration (optional)
             max_retries: Max QA retries
-            use_hybrid_extractor: If False, skip hybrid extractor and use LLM prompt. 
-                                 If None, use env var USE_HYBRID_CMDLINE_EXTRACTOR (default: True)
             provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
                      If None, uses self.provider_extract (from ExtractAgent_provider)
             
@@ -2750,26 +2747,6 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             raise ValueError(error_msg)
         logger.debug(f"{agent_name} prompt_config keys: {list(prompt_config.keys())}")
 
-        # Determine if hybrid extractor should be used
-        should_use_hybrid = use_hybrid_extractor
-        if should_use_hybrid is None:
-            # Default to env var behavior for backward compatibility
-            should_use_hybrid = os.getenv("USE_HYBRID_CMDLINE_EXTRACTOR", "true").lower() in {"1", "true", "yes"}
-
-        if agent_name == "CmdlineExtract" and should_use_hybrid:
-            logger.info("Using hybrid command-line extractor pipeline for CmdlineExtract")
-            try:
-                from src.extractors.hybrid_cmdline_extractor import extract_commands
-
-                hybrid_result = extract_commands(content)
-                # Align with existing workflow expectations
-                hybrid_result["items"] = hybrid_result.get("cmdline_items", [])
-                if hybrid_result.get("count", 0) > 0 or hybrid_result["items"]:
-                    return hybrid_result
-                logger.info("Hybrid extractor returned 0 items; falling back to LLM extractor")
-            except Exception as exc:
-                logger.error("Hybrid command-line extractor failed, falling back to LLM: %s", exc)
-        
         current_try = 0
         feedback = ""
         last_result = {"items": [], "count": 0}
