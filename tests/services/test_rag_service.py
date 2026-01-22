@@ -1,8 +1,8 @@
 """Tests for RAG service functionality.
 
-DEPRECATED: HuggingFace connections/API keys and training are no longer used.
-These tests are deprecated and will be removed in a future release.
-RAGService depends on EmbeddingService which uses HuggingFace models.
+SKIPPED: RAGService depends on EmbeddingService which uses Sentence Transformers models.
+Models are downloaded from HuggingFace Hub (public repository) but run locally - no API keys needed.
+Tests are skipped because model loading/download is slow for unit tests.
 """
 
 import pytest
@@ -12,14 +12,16 @@ from typing import Dict, Any, List
 from src.services.rag_service import RAGService
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
-# DEPRECATED: Tests for HuggingFace-dependent functionality
-pytestmark = [pytest.mark.unit, pytest.mark.skip(reason="DEPRECATED: RAGService depends on HuggingFace models")]
+# SKIPPED: Model loading is slow for unit tests (models run locally, downloaded from HuggingFace Hub)
+pytestmark = [pytest.mark.unit, pytest.mark.skip(reason="SKIPPED: RAGService requires Sentence Transformers model loading (slow for unit tests)")]
 
 
 class TestRAGService:
     """Test RAGService functionality.
     
-    DEPRECATED: RAGService depends on EmbeddingService which uses HuggingFace models.
+    SKIPPED: RAGService depends on EmbeddingService which uses Sentence Transformers models.
+    Models are downloaded from HuggingFace Hub but run locally - no API keys or connections needed.
+    Tests are skipped because model loading is slow for unit tests.
     """
 
     @pytest.fixture
