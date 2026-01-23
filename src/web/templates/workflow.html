@@ -2528,17 +2528,30 @@ function setAgentModel(agentPrefix, model, provider = null) {
     if (!config) return false;
     
     const actualProvider = provider || getAgentProvider(agentPrefix);
+    const val = (model || '').toString().trim();
     
     if (actualProvider === 'lmstudio') {
         const select = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
         if (select) {
-            select.value = model || '';
+            if (select.tagName === 'SELECT' && val && ![...select.options].some(o => o.value === val)) {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                select.appendChild(opt);
+            }
+            select.value = val;
             return true;
         }
     } else {
-        const input = document.getElementById(`${agentPrefix}-model-${actualProvider}`);
-        if (input) {
-            input.value = model || '';
+        const el = document.getElementById(`${agentPrefix}-model-${actualProvider}`);
+        if (el) {
+            if (el.tagName === 'SELECT' && val && ![...el.options].some(o => o.value === val)) {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                el.appendChild(opt);
+            }
+            el.value = val;
             return true;
         }
     }
@@ -2596,44 +2609,42 @@ function collectAllAgentConfigs(models = null) {
 
 /**
  * Unified function to apply agent provider/model values from config
+ * Sets agentModels so provider-change rebuilds (e.g. renderSubAgentCommercialInputs) see preset
+ * values. Applies provider first, then refreshAllProviderBlocks, then model—so model is not
+ * overwritten by rebuilds. setAgentModel adds missing <option> when preset model is not in catalog.
  */
 function applyAgentConfigs(models = null) {
     const agentModelsData = models || agentModels || {};
     
+    // So provider-change handlers and refreshAllProviderBlocks see preset when rebuilding inputs
+    if (models && typeof models === 'object' && Object.keys(models).length > 0) {
+        agentModels = { ...models };
+    }
+    
+    // 1) Set provider, temperature, top_p only (provider change can rebuild model selects)
     Object.values(AGENT_CONFIG).forEach(config => {
-        // Get provider from config
         const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
-        
-        // Set provider in DOM
         setAgentProvider(config.prefix, provider);
         
-        // Get model from config
-        const model = agentModelsData[config.modelKey] || '';
-        
-        // Set model in DOM (respects provider)
-        if (model) {
-            setAgentModel(config.prefix, model, provider);
-        }
-        
-        // Set temperature if applicable
         if (config.temperatureKey && agentModelsData[config.temperatureKey] !== undefined) {
             const tempInput = document.getElementById(`${config.prefix}-temperature`);
-            if (tempInput) {
-                tempInput.value = agentModelsData[config.temperatureKey];
-            }
+            if (tempInput) tempInput.value = agentModelsData[config.temperatureKey];
         }
-        
-        // Set top_p if applicable
         if (config.topPKey && agentModelsData[config.topPKey] !== undefined) {
             const topPInput = document.getElementById(`${config.prefix}-top-p`);
-            if (topPInput) {
-                topPInput.value = agentModelsData[config.topPKey];
-            }
+            if (topPInput) topPInput.value = agentModelsData[config.topPKey];
         }
     });
     
-    // Update provider visibility for all agents
+    // 2) Refresh visibility and rebuild provider-specific blocks (can overwrite model fields)
     refreshAllProviderBlocks();
+    
+    // 3) Set model after rebuilds so preset provider+model are not overwritten
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
+        const model = agentModelsData[config.modelKey] || '';
+        if (model) setAgentModel(config.prefix, model, provider);
+    });
 }
 
 /**
