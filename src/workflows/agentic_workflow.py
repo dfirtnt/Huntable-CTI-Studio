@@ -927,6 +927,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # For eval runs, exclude SigmaAgent to avoid loading the SIGMA model unnecessarily
             # For subagent evals, only include models for the agent being evaluated
             agent_models = config_obj.agent_models if config_obj else None
+            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, 'qa_max_retries') else 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
                 config_snapshot = execution.config_snapshot if execution else {}
@@ -1479,7 +1480,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
                         qa_prompt_config=qa_config if qa_enabled else None,
-                        max_retries=5 if qa_enabled else 1,
+                        max_retries=max_qa_retries if qa_enabled else 1,
                         execution_id=state['execution_id'],
                         model_name=agent_model,
                         temperature=float(agent_temperature),
