@@ -42,8 +42,18 @@ logger = logging.getLogger(__name__)
 def get_database_stats():
     """Get database statistics using psql via docker"""
     try:
+        # Check if docker container is running first
+        check_cmd = ["docker", "ps", "--filter", "name=cti_postgres", "--format", "{{.Names}}"]
+        check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=5)
+        if check_result.returncode != 0 or "cti_postgres" not in check_result.stdout:
+            logger.warning("Docker container cti_postgres not found or not running")
+            return None
+
         env = os.environ.copy()
         env["PGPASSWORD"] = DB_CONFIG["password"]
+
+        # Use single-line SQL to avoid multiline string issues
+        sql_query = "SELECT (SELECT COUNT(*) FROM articles) as articles, (SELECT COUNT(*) FROM sources) as sources, (SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public') as tables;"
 
         cmd = [
             "docker",
@@ -58,12 +68,7 @@ def get_database_stats():
             f"-d{DB_CONFIG['database']}",
             "-t",  # tuples only
             "-c",
-            """
-            SELECT
-                (SELECT COUNT(*) FROM articles) as articles,
-                (SELECT COUNT(*) FROM sources) as sources,
-                (SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public') as tables;
-            """,
+            sql_query,
         ]
 
         result = subprocess.run(
@@ -71,22 +76,33 @@ def get_database_stats():
         )
 
         if result.returncode != 0:
-            logger.error(f"Failed to get database stats: {result.stderr}")
+            logger.warning(f"Failed to get database stats (return code {result.returncode}): {result.stderr}")
             return None
 
         # Parse the result
         output = result.stdout.strip()
-        parts = output.split("|")
+        # Handle multiple lines (psql might output extra blank lines)
+        lines = [line for line in output.split("\n") if line.strip()]
+        if not lines:
+            logger.warning("No output from database stats query")
+            return None
+        
+        # Use the first non-empty line
+        parts = lines[0].split("|")
         if len(parts) >= 3:
             return {
                 "articles": int(parts[0].strip()),
                 "sources": int(parts[1].strip()),
                 "tables": int(parts[2].strip()),
             }
+        logger.warning(f"Unexpected output format from stats query: {output}")
         return None
 
+    except subprocess.TimeoutExpired:
+        logger.warning("Database stats query timed out")
+        return None
     except Exception as e:
-        logger.error(f"Error getting database stats: {e}")
+        logger.warning(f"Error getting database stats: {e}")
         return None
 
 
@@ -102,17 +118,16 @@ def create_backup(backup_dir: Optional[str] = None):
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Get pre-backup statistics
+        # Get pre-backup statistics (non-blocking - proceed even if stats fail)
         logger.info("Getting database statistics...")
         stats = get_database_stats()
-        if not stats:
-            error_msg = "Failed to get database statistics - check database connection"
-            logger.error(error_msg)
-            return {"success": False, "error": error_msg}
-
-        logger.info(
-            f"Database contains: {stats['articles']} articles, {stats['sources']} sources, {stats['tables']} tables"
-        )
+        if stats:
+            logger.info(
+                f"Database contains: {stats['articles']} articles, {stats['sources']} sources, {stats['tables']} tables"
+            )
+        else:
+            logger.warning("Failed to get database statistics - proceeding with backup anyway")
+            stats = None
 
         # Create backup filename
         backup_filename = f"cti_scraper_backup_{timestamp}.sql"
@@ -184,7 +199,7 @@ def create_backup(backup_dir: Optional[str] = None):
             "timestamp": timestamp,
             "created_at": datetime.now().isoformat(),
             "database": DB_CONFIG["database"],
-            "statistics": stats,
+            "statistics": stats if stats else {},
             "backup_size_bytes": backup_size,
             "backup_method": "pg_dump",
             "version": "3.0",

@@ -128,6 +128,23 @@ async def api_backup_status():
     try:
         project_root = Path(__file__).parent.parent.parent.parent
 
+        # Check for automated backups by looking for cron jobs
+        automated = False
+        try:
+            crontab_result = subprocess.run(
+                ["crontab", "-l"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if crontab_result.returncode == 0 and "scripts/backup_restore.sh" in crontab_result.stdout:
+                automated = True
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            # crontab not available or timed out - assume not automated
+            pass
+
+        # Get backup statistics
         result = subprocess.run(
             [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
             cwd=str(project_root),
@@ -142,37 +159,43 @@ async def api_backup_status():
                 status_code=500, detail=f"Failed to get backup status: {result.stderr}"
             )
 
-        automated = False
         total_backups = 0
         total_size_gb = 0.0
         last_backup = None
 
         lines = result.stdout.split("\n")
         for line in lines:
-            if "Automated backups" in line:
-                automated = "enabled" in line.lower()
-            if "Total backups" in line:
+            if "Total backups:" in line:
                 try:
                     total_backups = int(line.split(":")[1].strip())
                 except (ValueError, IndexError):
                     total_backups = 0
-            if "Total backup size" in line:
+            if "Total size:" in line:
                 size_str = line.split(":")[1].strip()
-                if "GB" in size_str and "(" in size_str:
-                    import re
-
-                    match = re.search(r"\(([0-9.]+)\\s*GB\\)", size_str)
-                    if match:
-                        total_size_gb = float(match.group(1))
+                # Try to extract GB value from format like "1168.26 MB (1.14 GB)"
+                import re
+                # Look for GB value in parentheses first
+                gb_match = re.search(r"\(([0-9.]+)\s*GB\)", size_str)
+                if gb_match:
+                    total_size_gb = float(gb_match.group(1))
+                # Otherwise, convert MB to GB
                 elif "MB" in size_str:
                     try:
-                        total_size_gb = float(size_str.split()[0].replace("MB", "")) / 1024
-                    except ValueError:
+                        mb_match = re.search(r"([0-9.]+)\s*MB", size_str)
+                        if mb_match:
+                            total_size_gb = float(mb_match.group(1)) / 1024
+                        else:
+                            # Fallback: try to extract first number
+                            total_size_gb = float(size_str.split()[0].replace("MB", "")) / 1024
+                    except (ValueError, IndexError):
                         total_size_gb = 0.0
             if "Recent Backups" in line:
+                # Find the first backup entry (starts with number and dot, may have leading spaces)
                 for next_line in lines[lines.index(line) + 1 :]:
-                    if next_line.strip() and next_line.strip().startswith("1."):
-                        parts = next_line.strip().split(".", 1)
+                    stripped = next_line.strip()
+                    # Match lines like " 1. backup_name" or "1. backup_name"
+                    if stripped and re.match(r"^\d+\.", stripped):
+                        parts = stripped.split(".", 1)
                         if len(parts) >= 2:
                             last_backup = parts[1].strip()
                         break
