@@ -1246,12 +1246,7 @@
 
 
                 <!-- Current Config Display -->
-                <div id="currentConfig" class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;" style="background: rgb(26, 34, 56) !important; border-color: rgba(99, 102, 241, 0.12) !important;">
-                    <p class="text-sm font-medium" style="color: #cbd5e1 !important;">Current Configuration:</p>
-                    <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-300">
-                        Loading...
-                    </div>
-                </div>
+                {% include 'components/workflow_config_snippet.html' %}
 
                 <!-- Buttons -->
                 <div class="flex justify-between items-center">
@@ -1992,18 +1987,6 @@ END SYSTEM PROMPT</textarea>
 <script src="/static/js/components/similarity-display.js"></script>
 <script>
 // Helper function to parse UTC timestamp and convert to local time
-function parseUTCDate(timestamp) {
-    if (!timestamp) return new Date();
-    
-    let timestampStr = String(timestamp);
-    // If timestamp doesn't have timezone info, assume it's UTC and append 'Z'
-    if (!timestampStr.endsWith('Z') && !timestampStr.match(/[+-]\d{2}:\d{2}$/)) {
-        timestampStr = timestampStr + 'Z';
-    }
-    // Convert UTC to local time
-    return new Date(timestampStr);
-}
-
 // Tab Management
 let currentTab = 'config';
 
@@ -7773,7 +7756,8 @@ function getAllSelectedModelsWithProviders() {
     const qaCheckboxes = {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
-        'ProcTreeExtract': document.getElementById('qa-proctreeextract')
+        'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
+        'HuntQueriesExtract': document.getElementById('qa-huntqueriesextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
@@ -7827,17 +7811,14 @@ function getAllSelectedModelsWithProviders() {
     ];
     
     subAgents.forEach(subAgent => {
-        // Skip if agent is disabled
-        if (disabled.has(subAgent.name)) return;
-        
         const modelInfo = getModelWithProvider(subAgent.prefix, subAgent.providerId, subAgent.name);
         if (modelInfo) {
-            modelInfo.enabled = true; // Sub-agents shown here are enabled (disabled ones are filtered out)
+            modelInfo.enabled = !disabled.has(subAgent.name);
             selectedModels.push(modelInfo);
         }
     });
     
-    // QA agents - only show if corresponding agent is enabled AND QA is enabled
+    // QA agents - only show if model exists (show enabled/disabled state)
     const qaAgents = [
         { name: 'CmdLineQA', prefix: 'cmdlineqa', providerId: 'cmdlineqa-provider', subAgent: 'CmdlineExtract' },
         { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' },
@@ -7847,13 +7828,12 @@ function getAllSelectedModelsWithProviders() {
     
     qaAgents.forEach(qaAgent => {
         let isQAEnabled = false;
-        // For sub-agent QA: check if sub-agent is enabled (QA enabled check removed - show if model exists)
+        // For sub-agent QA: check if sub-agent is enabled
         if (qaAgent.subAgent) {
-            if (disabled.has(qaAgent.subAgent)) return; // Sub-agent is disabled
             // Check QA enabled state for sub-agent QA
             isQAEnabled = qaEnabled[qaAgent.subAgent] || false;
         } else {
-            // For RankAgentQA: check if RankAgent is enabled (QA enabled check removed)
+            // For RankAgentQA: check if RankAgent is enabled
             const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
             if (!rankAgentEnabled) return;
             // Check QA enabled state for RankAgent
@@ -7880,239 +7860,13 @@ function getAllSelectedModelsWithProviders() {
     return selectedModels;
 }
 
-// Function to order models by workflow execution order and mark sub-agents for indentation
-function orderModelsByWorkflow(models) {
-    // Define workflow execution order with QA agents immediately after their corresponding agents
-    const workflowOrder = [
-        'Rank',
-        'RankAgentQA',  // QA right after Rank
-        'Extract',
-        'CmdlineExtract',
-        'CmdLineQA',  // QA right after CmdlineExtract
-        'ProcTreeExtract',
-        'ProcTreeQA',  // QA right after ProcTreeExtract
-        'HuntQueriesExtract',
-        'HuntQueriesQA',  // QA right after HuntQueriesExtract
-        'SIGMA',
-        'OS Fallback'
-    ];
-    
-    // Define first-level sub-agents (indent level 1)
-    const firstLevelSubAgents = new Set([
-        'CmdlineExtract',
-        'ProcTreeExtract',
-        'HuntQueriesExtract',
-        'RankAgentQA'  // RankAgentQA is under Rank, so first level
-    ]);
-    
-    // Define second-level sub-agents (indent level 2) - QA agents under Extract
-    const secondLevelSubAgents = new Set([
-        'CmdLineQA',
-        'ProcTreeQA',
-        'HuntQueriesQA'
-    ]);
-    
-    // Create a map for quick lookup
-    const orderMap = new Map();
-    workflowOrder.forEach((agent, index) => {
-        orderMap.set(agent, index);
-    });
-    
-    // Sort models by workflow order
-    return models.sort((a, b) => {
-        const orderA = orderMap.get(a.agent) ?? 999;
-        const orderB = orderMap.get(b.agent) ?? 999;
-        return orderA - orderB;
-    }).map(model => {
-        let indentLevel = 0;
-        if (secondLevelSubAgents.has(model.agent)) {
-            indentLevel = 2;  // Second indent for QA agents under Extract
-        } else if (firstLevelSubAgents.has(model.agent)) {
-            indentLevel = 1;  // First indent for extract agents and RankAgentQA
-        }
-        return {
-            ...model,
-            indent: indentLevel > 0,
-            indentLevel: indentLevel
-        };
-    });
-}
-
 // Function to update the config display with current UI state
 function updateConfigDisplay() {
-    const configDisplay = document.getElementById('configDisplay');
-    if (!configDisplay || !currentConfig) return;
-    
-    // Build selected models summary from UI state (not just saved config)
-    // This ensures we show all models currently selected in the UI
-    let uiModels = getAllSelectedModelsWithProviders();
-    // Order models by workflow execution order and add indentation for sub-agents
-    const orderedModels = orderModelsByWorkflow(uiModels);
-    let selectedModels = orderedModels.map(m => {
-        const enabled = m.enabled !== undefined ? m.enabled : true; // Default to enabled if not specified
-        const badgeClass = enabled 
-            ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-            : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-        const badgeText = enabled ? 'Enabled' : 'Disabled';
-        return {
-        text: `${m.agent}: ${m.model} (${m.provider})`,
-            indent: m.indent,
-            indentLevel: m.indentLevel || (m.indent ? 1 : 0),
-            enabled: enabled,
-            badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
-        };
-    });
-    
-    // Fallback: if UI doesn't have models yet, read from saved config
-    if (selectedModels.length === 0 && currentConfig.agent_models) {
-        const agentModels = currentConfig.agent_models;
-        const modelsList = [];
-        
-        // Map agent model keys to display names
-        const agentMap = {
-            'RankAgent': 'Rank',
-            'ExtractAgent': 'Extract',
-            'SigmaAgent': 'SIGMA',
-            'CmdlineExtract_model': 'CmdlineExtract',
-            'ProcTreeExtract_model': 'ProcTreeExtract',
-            'RankAgentQA': 'RankAgentQA',
-            'CmdlineExtractQA': 'CmdLineQA',
-            'ProcTreeExtractQA': 'ProcTreeQA'
-        };
-        
-        // Get disabled extract agents
-        const disabled = typeof disabledExtractAgents !== 'undefined' ? disabledExtractAgents : new Set();
-        const qaEnabled = currentConfig.qa_enabled || {};
-        
-        // Order: Rank -> RankAgentQA -> Extract -> Sub-agents (indented) -> SIGMA
-        // 1. Rank Agent
-        if (agentModels.RankAgent) {
-            const provider = agentModels.RankAgent_provider || 'lmstudio';
-            const rankEnabled = currentConfig.rank_agent_enabled !== false; // Default to enabled
-            const badgeClass = rankEnabled 
-                ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-            const badgeText = rankEnabled ? 'Enabled' : 'Disabled';
-            modelsList.push({ 
-                text: `Rank: ${agentModels.RankAgent} (${provider})`, 
-                indent: false,
-                badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
-            });
-        }
-        
-        // 2. RankAgentQA (if configured) - indented as sub-bullet
-        if (agentModels.RankAgentQA) {
-            const provider = agentModels.RankAgentQA_provider || 'lmstudio';
-            const rankQAEnabled = qaEnabled['RankAgent'] || false;
-            const badgeClass = rankQAEnabled 
-                ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-            const badgeText = rankQAEnabled ? 'Enabled' : 'Disabled';
-            modelsList.push({ 
-                text: `RankAgentQA: ${agentModels.RankAgentQA} (${provider})`, 
-                indent: true,
-                indentLevel: 1,
-                badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
-            });
-        }
-        
-        // 3. Extract Agent (supervisor)
-        if (agentModels.ExtractAgent) {
-            const provider = agentModels.ExtractAgent_provider || 'lmstudio';
-            const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-            modelsList.push({ 
-                text: `Extract: ${agentModels.ExtractAgent} (${provider})`, 
-                indent: false,
-                badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
-            });
-        }
-        
-        // 4. Extract Sub-agents (indented) - in workflow order
-        const subAgentOrder = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
-        const qaAgentMap = {
-            'CmdlineExtract': 'CmdLineQA',
-            'ProcTreeExtract': 'ProcTreeQA',
-            'HuntQueriesExtract': 'HuntQueriesQA'
-        };
-        
-        subAgentOrder.forEach(agent => {
-            if (disabled.has(agent)) return;
-            const modelKey = `${agent}_model`;
-            if (agentModels[modelKey]) {
-                const provider = agentModels[`${agent}_provider`] || 'lmstudio';
-                const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-                modelsList.push({ 
-                    text: `${agent}: ${agentModels[modelKey]} (${provider})`, 
-                    indent: true,
-                    indentLevel: 1,
-                    badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
-                });
-            }
-            // Show QA agent if model is configured (immediately after sub-agent)
-            const qaKey = qaAgentMap[agent];
-            if (qaKey && agentModels[qaKey]) {
-                const provider = agentModels[`${qaKey}_provider`] || 'lmstudio';
-                const qaEnabledForAgent = qaEnabled[agent] || false;
-                const badgeClass = qaEnabledForAgent 
-                    ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-                const badgeText = qaEnabledForAgent ? 'Enabled' : 'Disabled';
-                modelsList.push({ 
-                    text: `${qaKey}: ${agentModels[qaKey]} (${provider})`, 
-                    indent: true,
-                    indentLevel: 2,
-                    badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
-                });
-            }
+    if (typeof renderWorkflowConfigDisplay === 'function') {
+        renderWorkflowConfigDisplay(currentConfig, {
+            uiModels: typeof getAllSelectedModelsWithProviders === 'function' ? getAllSelectedModelsWithProviders() : []
         });
-        
-        // 5. SIGMA Agent
-        if (agentModels.SigmaAgent) {
-            const provider = agentModels.SigmaAgent_provider || 'lmstudio';
-            const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-            modelsList.push({ 
-                text: `SIGMA: ${agentModels.SigmaAgent} (${provider})`, 
-                indent: false,
-                badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
-            });
-        }
-        
-        // 6. OS Detection Fallback (if configured - presence of model indicates enabled)
-        if (agentModels.OSDetectionAgent_fallback) {
-            const provider = agentModels.OSDetectionAgent_fallback_provider || 'lmstudio';
-            const badgeClass = 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-            modelsList.push({ 
-                text: `OS Fallback: ${agentModels.OSDetectionAgent_fallback} (${provider})`, 
-                indent: false,
-                badge: `<span class="${badgeClass} ml-1.5">Enabled</span>`
-            });
-        }
-        
-        selectedModels = modelsList;
     }
-    
-    const modelsHtml = selectedModels.length > 0 
-        ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => {
-            let indentClass = '';
-            if (m.indentLevel === 2) {
-                indentClass = 'ml-12';  // Second indent for QA agents under Extract
-            } else if (m.indentLevel === 1) {
-                indentClass = 'ml-6';   // First indent for extract agents
-            }
-            return `<li class="text-xs ${indentClass}">${m.text}${m.badge || ''}</li>`;
-        }).join('')}</ul></div>`
-        : '';
-    
-    configDisplay.innerHTML = `
-        <div class="space-y-1">
-            <p><strong>Version:</strong> ${currentConfig.version || 'N/A'}</p>
-            <p><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold || 'N/A'}</p>
-            <p><strong>Junk Filter Threshold:</strong> ${currentConfig.junk_filter_threshold || 'N/A'}</p>
-            <p><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold || 'N/A'}</p>
-            <p><strong>Updated:</strong> ${parseUTCDate(currentConfig.updated_at).toLocaleString()}</p>
-            ${modelsHtml}
-        </div>
-    `;
 }
 
 // Generate LMStudio context window commands

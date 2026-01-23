@@ -87,12 +87,7 @@
             </div>
 
             <!-- Current Config Display -->
-            <div id="currentConfig" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Configuration:</p>
-                <div id="configDisplay" class="text-sm text-gray-600 dark:text-gray-400">
-                    Loading...
-                </div>
-            </div>
+            {% include 'components/workflow_config_snippet.html' %}
 
             <!-- Buttons -->
             <div class="flex justify-end space-x-4">
@@ -161,14 +156,9 @@ async function loadConfig() {
             document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             document.getElementById('description').value = currentConfig.description || '';
             
-            document.getElementById('configDisplay').innerHTML = `
-                <div class="grid grid-cols-3 gap-4">
-                    <div><strong>Min Hunt Score:</strong> ${currentConfig.min_hunt_score}</div>
-                    <div><strong>Ranking Threshold:</strong> ${currentConfig.ranking_threshold}</div>
-                    <div><strong>Similarity Threshold:</strong> ${currentConfig.similarity_threshold}</div>
-                    <div class="col-span-3"><strong>Version:</strong> ${currentConfig.version} | <strong>Active:</strong> ${currentConfig.is_active ? 'Yes' : 'No'}</div>
-                </div>
-            `;
+            if (typeof renderWorkflowConfigDisplay === 'function') {
+                renderWorkflowConfigDisplay(currentConfig);
+            }
         }
     } catch (error) {
         console.error('Error loading config:', error);

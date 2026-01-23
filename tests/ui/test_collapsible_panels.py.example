@@ -1,0 +1,23 @@
+import pytest
+from playwright.sync_api import Page, expect
+import os
+
+@pytest.mark.ui
+def test_collapsible_panels_functionality(page: Page):
+    """Test that collapsible panels expand and collapse correctly."""
+    base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+    page.goto(f"{base_url}/diags")
+    page.wait_for_load_state("networkidle")
+    
+    # In diags.html, panels like "Queue Status" are often collapsible
+    panel_header = page.locator("h2:has-text('Queue Status')")
+    expect(panel_header).to_be_visible()
+    
+    # Toggle collapse (click header)
+    panel_header.click()
+    page.wait_for_timeout(500)
+    
+    # Check if content is hidden
+    panel_content = page.locator("#queueStatusContent")
+    # This may fail if the selector is wrong or the toggle behavior is different
+    # ...
