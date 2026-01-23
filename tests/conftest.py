@@ -26,7 +26,7 @@ import shutil
 import logging
 from typing import AsyncGenerator, Generator
 from pathlib import Path
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 from unittest.mock import AsyncMock, MagicMock
 
 # Add project root to Python path
@@ -324,42 +324,41 @@ def browser_type_launch_args():
     }
 
 
-@pytest_asyncio.fixture(scope="session")
-async def playwright_context():
-    """Playwright context for session-scoped tests (async-safe)."""
-    async with async_playwright() as p:
+@pytest.fixture(scope="session")
+def _playwright_sync():
+    """Sync Playwright instance for session-scoped browser (used by sync UI tests)."""
+    with sync_playwright() as p:
         yield p
 
 
-@pytest_asyncio.fixture(scope="session")
-async def browser(playwright_context, browser_type_launch_args):
-    """Browser instance for session-scoped tests"""
+@pytest.fixture(scope="session")
+def browser(_playwright_sync, browser_type_launch_args):
+    """Browser instance for session-scoped tests (sync API for playwright.sync_api tests)."""
     try:
-        browser = await playwright_context.chromium.launch(**browser_type_launch_args)
-        yield browser
-        await browser.close()
+        b = _playwright_sync.chromium.launch(**browser_type_launch_args)
+        yield b
+        b.close()
     except Exception as e:
         error_str = str(e)
         if "Executable doesn't exist" in error_str or "playwright install" in error_str.lower():
             pytest.skip("Playwright browsers not installed. Run 'playwright install' in Docker container")
-        # Re-raise other exceptions
         raise
 
 
-@pytest_asyncio.fixture(scope="session")
-async def context(browser, browser_context_args):
-    """Browser context for session-scoped tests"""
-    context = await browser.new_context(**browser_context_args)
-    yield context
-    await context.close()
+@pytest.fixture(scope="session")
+def context(browser, browser_context_args):
+    """Browser context for session-scoped tests (sync API)."""
+    ctx = browser.new_context(**browser_context_args)
+    yield ctx
+    ctx.close()
 
 
-@pytest_asyncio.fixture
-async def page(context):
-    """Page instance for each test"""
-    page = await context.new_page()
-    yield page
-    await page.close()
+@pytest.fixture
+def page(context):
+    """Page instance for each test (sync API for playwright.sync_api)."""
+    p = context.new_page()
+    yield p
+    p.close()
 
 
 # Test isolation fixtures

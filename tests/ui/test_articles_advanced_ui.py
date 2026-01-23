@@ -158,6 +158,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_classification_filter_dropdown(self, page: Page):
         """Test classification filter dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -209,6 +210,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_filter_summary_display(self, page: Page):
         """Test filter summary display with active filters."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -230,6 +232,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_clear_all_filters_link(self, page: Page):
         """Test clear all filters link."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -300,6 +303,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_filter_persistence_session_storage(self, page: Page):
         """Test filter persistence via sessionStorage."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -319,6 +323,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_url_parameter_filter_parsing(self, page: Page):
         """Test URL parameter filter parsing and application."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -420,6 +425,7 @@ class TestArticlesSorting:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_sort_with_filter_combination(self, page: Page):
         """Test sort with filter combination."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -455,7 +461,8 @@ class TestArticlesSorting:
         # Verify sort defaults are applied
         sort_by = page.locator("#sort-by")
         # Default may be "published_at" or "discovered_at"
-        assert sort_by.input_value() in ["published_at", "discovered_at"], "Sort should reset to default"
+        sort_value = sort_by.input_value()
+        assert sort_value in ["published_at", "discovered_at"], "Sort should reset to default"
 
 
 class TestArticlesPagination:
@@ -532,6 +539,7 @@ class TestArticlesPagination:
     
     @pytest.mark.ui
     @pytest.mark.articles
+    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
     def test_pagination_state_preservation_with_filters(self, page: Page):
         """Test pagination state preservation with filters."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

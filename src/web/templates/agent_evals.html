@@ -1205,27 +1205,6 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Event listeners
-document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
-document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
-document.getElementById('selectAllBtn').addEventListener('click', () => {
-    selectedArticleUrls.clear();
-    evalArticles.forEach(article => {
-        selectedArticleUrls.add(article.url);
-        const checkbox = document.getElementById(`article-${article.url}`);
-            if (checkbox) checkbox.checked = true;
-    });
-    updateRunButton();
-});
-document.getElementById('deselectAllBtn').addEventListener('click', () => {
-    selectedArticleUrls.clear();
-    evalArticles.forEach(article => {
-        const checkbox = document.getElementById(`article-${article.url}`);
-        if (checkbox) checkbox.checked = false;
-    });
-    updateRunButton();
-});
-
 // Chart instance for MAE chart
 let maeChart = null;
 
@@ -2204,9 +2183,6 @@ function closeCommandlinesModal() {
             modal.classList.add('hidden');
         }
     }
-}
-    const modal = document.getElementById('commandlinesModal');
-    modal.classList.add('hidden');
 }
 
 // Escape HTML to prevent XSS

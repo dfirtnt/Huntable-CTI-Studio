@@ -261,7 +261,7 @@ class TestDashboardFlows:
         expect(page.locator("text=🏥 System Health Checks")).to_be_visible()
 
         # Check if the Run All Checks button exists and if checks started automatically
-        run_all_checks_button = page.locator("#runAllChecks")
+        run_all_checks_button = page.locator("#runAllHealthChecks")
         expect(run_all_checks_button).to_be_visible()
         expect(run_all_checks_button).to_contain_text("🔄 Run All Checks")
 

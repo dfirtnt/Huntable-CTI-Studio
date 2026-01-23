@@ -500,7 +500,7 @@ class TestQuickActions:
         """Test Rescore All Articles API call."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
-        # Intercept API call
+        # Intercept API call - MUST set up route BEFORE navigation
         api_called = {"called": False}
         
         def handle_route(route):
@@ -513,10 +513,11 @@ class TestQuickActions:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("networkidle")
         
-        # Click rescore button
-        rescore_btn = page.locator("button:has-text('🔄 Rescore All Articles')")
+        # Wait for button to be visible and clickable
+        rescore_btn = page.locator("button:has-text('🔄 Rescore All Articles'), button:has-text('Rescore All Articles')").first
+        rescore_btn.wait_for(state="visible", timeout=5000)
         rescore_btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(3000)  # Wait for API call to complete
         
         # Verify API was called
         assert api_called["called"], "Rescore all articles API should be called"

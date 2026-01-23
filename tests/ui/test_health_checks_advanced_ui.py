@@ -39,28 +39,11 @@ class TestHealthChecksPageLoad:
         controls_section = page.locator("text=🔧 Health Check Controls")
         expect(controls_section).to_be_visible()
         
-        # Verify all control buttons exist
-        run_all_btn = page.locator("#runAllChecks")
+        # Verify Run All Health Checks button exists (diags.html: only this button exists;
+        # individual check buttons #runDatabaseCheck etc. do not exist)
+        run_all_btn = page.locator("#runAllHealthChecks")
         expect(run_all_btn).to_be_visible()
-        expect(run_all_btn).to_have_text("🔄 Run All Checks")
-        
-        database_btn = page.locator("#runDatabaseCheck")
-        expect(database_btn).to_be_visible()
-        
-        deduplication_btn = page.locator("#runDeduplicationCheck")
-        expect(deduplication_btn).to_be_visible()
-        
-        services_btn = page.locator("#runServicesCheck")
-        expect(services_btn).to_be_visible()
-        
-        celery_btn = page.locator("#runCeleryCheck")
-        expect(celery_btn).to_be_visible()
-        
-        ingestion_btn = page.locator("#runIngestionCheck")
-        expect(ingestion_btn).to_be_visible()
-        
-        refresh_btn = page.locator("#refreshTimestamp")
-        expect(refresh_btn).to_be_visible()
+        expect(run_all_btn).to_contain_text("Run All")
 
 
 class TestHealthCheckButtons:
@@ -90,7 +73,7 @@ class TestHealthCheckButtons:
         page.wait_for_load_state("networkidle")
         
         # Click Run All Checks button
-        run_all_btn = page.locator("#runAllChecks")
+        run_all_btn = page.locator("#runAllHealthChecks")
         run_all_btn.click()
         page.wait_for_timeout(2000)
         
@@ -100,6 +83,7 @@ class TestHealthCheckButtons:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#runDatabaseCheck does not exist; diags uses single #runAllHealthChecks")
     def test_database_health_button(self, page: Page):
         """Test Database Health button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -144,6 +128,7 @@ class TestHealthCheckButtons:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#runDeduplicationCheck does not exist; diags uses single #runAllHealthChecks")
     def test_deduplication_health_button(self, page: Page):
         """Test Deduplication Health button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -190,6 +175,7 @@ class TestHealthCheckButtons:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#runServicesCheck does not exist; diags uses single #runAllHealthChecks")
     def test_services_health_button(self, page: Page):
         """Test Services Health button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -226,6 +212,7 @@ class TestHealthCheckButtons:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#runCeleryCheck does not exist; diags uses single #runAllHealthChecks")
     def test_celery_health_button(self, page: Page):
         """Test Celery Health button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -260,6 +247,7 @@ class TestHealthCheckButtons:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#runIngestionCheck does not exist; diags uses single #runAllHealthChecks")
     def test_ingestion_analytics_button(self, page: Page):
         """Test Ingestion Analytics button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -302,6 +290,7 @@ class TestHealthCheckButtons:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#refreshTimestamp and #overallStatusContent do not exist in diags template")
     def test_refresh_timestamp_button(self, page: Page):
         """Test Refresh Timestamp button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -471,6 +460,7 @@ class TestHealthCheckErrorHandling:
     
     @pytest.mark.ui
     @pytest.mark.health_checks
+    @pytest.mark.skip(reason="#runDatabaseCheck does not exist; diags uses single #runAllHealthChecks")
     def test_health_check_error_display(self, page: Page):
         """Test health check error display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

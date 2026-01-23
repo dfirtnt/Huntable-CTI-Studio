@@ -142,6 +142,7 @@ class TestJobsRefreshButton:
             else:
                 route.continue_()
         
+        # MUST set up route BEFORE navigation
         page.route("**/api/jobs/**", handle_route)
         
         page.goto(f"{base_url}/jobs")
@@ -152,12 +153,13 @@ class TestJobsRefreshButton:
         initial_count = api_call_count["count"]
         
         # Click refresh button
-        refresh_btn = page.locator("#refreshBtn")
+        refresh_btn = page.locator("#refreshBtn, button:has-text('Refresh'), button[onclick*='refresh']").first
+        refresh_btn.wait_for(state="visible", timeout=5000)
         refresh_btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(3000)  # Wait for API call to complete
         
         # Verify API was called again
-        assert api_call_count["count"] > initial_count, "Refresh button should trigger API calls"
+        assert api_call_count["count"] > initial_count, f"Refresh button should trigger API calls. Initial: {initial_count}, After click: {api_call_count['count']}"
     
     @pytest.mark.ui
     @pytest.mark.jobs

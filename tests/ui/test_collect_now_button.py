@@ -33,18 +33,19 @@ class TestCollectNowButton:
         """Test that clicking Collect Now triggers the API call."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock the fetch API call
+        # Mock the fetch API call - MUST set up route BEFORE navigation
         api_calls = []
         
-        async def mock_fetch(route, request):
-            api_calls.append({"url": request.url, "method": request.method, "headers": request.headers})
+        def mock_fetch(route):
+            request = route.request
+            api_calls.append({"url": request.url, "method": request.method})
             route.fulfill(
                 status=200,
                 content_type="application/json",
                 body='{"success": true, "message": "Collection task started for source 1", "task_id": "test-task-123"}'
             )
         
-        # Set up the mock
+        # Set up the mock BEFORE navigation
         page.route("**/api/sources/*/collect", mock_fetch)
         
         page.goto(f"{base_url}/sources")
@@ -66,8 +67,8 @@ class TestCollectNowButton:
         """Test that clicking Collect Now shows status indicator."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock successful API response
-        async def mock_fetch(route, request):
+        # Mock successful API response - MUST set up route BEFORE navigation
+        def mock_fetch(route):
             route.fulfill(
                 status=200,
                 content_type="application/json",
@@ -101,8 +102,8 @@ class TestCollectNowButton:
         """Test that Collect Now handles API errors gracefully."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock API error response
-        async def mock_fetch(route, request):
+        # Mock API error response - MUST set up route BEFORE navigation
+        def mock_fetch(route):
             route.fulfill(
                 status=200,
                 content_type="application/json",
@@ -132,8 +133,8 @@ class TestCollectNowButton:
         """Test that Collect Now handles network errors."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock network error
-        async def mock_fetch(route, request):
+        # Mock network error - MUST set up route BEFORE navigation
+        def mock_fetch(route):
             route.abort("failed")
         
         page.route("**/api/sources/*/collect", mock_fetch)
@@ -154,10 +155,9 @@ class TestCollectNowButton:
         """Test that Collect Now button is disabled during collection."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock API response with delay
-        async def mock_fetch(route, request):
-            import asyncio
-            asyncio.sleep(0.1)  # Simulate delay
+        # Mock API response with delay - MUST set up route BEFORE navigation
+        def mock_fetch(route):
+            # Note: Can't use asyncio.sleep in sync context, use page.wait_for_timeout instead if needed
             route.fulfill(
                 status=200,
                 content_type="application/json",
@@ -182,8 +182,8 @@ class TestCollectNowButton:
         """Test that Collect Now shows terminal output during collection."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock successful API response
-        async def mock_fetch(route, request):
+        # Mock successful API response - MUST set up route BEFORE navigation
+        def mock_fetch(route):
             route.fulfill(
                 status=200,
                 content_type="application/json",
@@ -212,8 +212,8 @@ class TestCollectNowButton:
         """Test that the close button works on the collection status."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock successful API response
-        async def mock_fetch(route, request):
+        # Mock successful API response - MUST set up route BEFORE navigation
+        def mock_fetch(route):
             route.fulfill(
                 status=200,
                 content_type="application/json",
@@ -246,9 +246,10 @@ class TestCollectNowButton:
         """Test Collect Now button with multiple sources."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
         
-        # Mock API responses
+        # Mock API responses - MUST set up route BEFORE navigation
         api_calls = []
-        async def mock_fetch(route, request):
+        def mock_fetch(route):
+            request = route.request
             api_calls.append(request.url)
             route.fulfill(
                 status=200,

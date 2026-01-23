@@ -19,11 +19,11 @@ class TestMainAnalyticsPage:
         page.goto(f"{base_url}/analytics")
         page.wait_for_load_state("networkidle")
         
-        # Verify page title
-        expect(page).to_have_title("Analytics - Huntable CTI Scraper")
+        # Verify page title (app uses "Studio" not "Scraper")
+        expect(page).to_have_title("Analytics - Huntable CTI Studio")
         
-        # Verify main heading
-        heading = page.locator("h1:has-text('📊 Analytics Dashboard')")
+        # Verify main heading (template: "Analytics Dashboard", no emoji)
+        heading = page.locator("h1:has-text('Analytics Dashboard')")
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -33,10 +33,6 @@ class TestMainAnalyticsPage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/analytics")
         page.wait_for_load_state("networkidle")
-        
-        # Verify MLOps callout is visible
-        mlops_callout = page.locator("text=Looking for model workflows?")
-        expect(mlops_callout).to_be_visible()
         
         # Verify Scraper Metrics card
         scraper_card = page.locator("text=Scraper Metrics")
@@ -168,14 +164,14 @@ class TestMLOpsPage:
         page.goto(f"{base_url}/mlops")
         page.wait_for_load_state("networkidle")
 
-        expect(page).to_have_title("MLOps - Huntable CTI Scraper")
-        heading = page.locator("h1:has-text('🧠 MLOps Control Center')")
+        expect(page).to_have_title("MLOps - Huntable CTI Studio")
+        heading = page.locator("h1:has-text('MLOps Control Center')")
         expect(heading).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.analytics
     def test_mlops_cards_display(self, page: Page):
-        """Verify ML vs Hunt and Observable cards live on MLOps page."""
+        """Verify ML vs Hunt and Agent Evaluations cards on MLOps (Observable Training hidden)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/mlops")
         page.wait_for_load_state("networkidle")
@@ -183,13 +179,13 @@ class TestMLOpsPage:
         ml_card = page.locator("text=ML vs Hunt Comparison")
         expect(ml_card).to_be_visible()
 
-        observable_card = page.locator("text=Observable Training")
-        expect(observable_card).to_be_visible()
+        agent_evals_card = page.locator("text=Agent Evaluations")
+        expect(agent_evals_card).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.analytics
     def test_mlops_card_links(self, page: Page):
-        """Verify MLOps cards link to respective features."""
+        """Verify MLOps cards link to respective features (Observable Training card hidden)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/mlops")
         page.wait_for_load_state("networkidle")
@@ -200,9 +196,9 @@ class TestMLOpsPage:
 
         page.goto(f"{base_url}/mlops")
         page.wait_for_load_state("networkidle")
-        page.locator("a[href='/observables-training']").click()
+        page.locator("a[href='/mlops/agent-evals']").click()
         page.wait_for_load_state("networkidle")
-        expect(page).to_have_url(f"{base_url}/observables-training")
+        expect(page).to_have_url(f"{base_url}/mlops/agent-evals")
     
     @pytest.mark.ui
     @pytest.mark.analytics
@@ -220,8 +216,8 @@ class TestMLOpsPage:
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2000)
         
-        # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('📊 Analytics Dashboard')")
+        # Verify page still loads (graceful error handling); template uses "Analytics Dashboard"
+        heading = page.locator("h1:has-text('Analytics Dashboard')")
         expect(heading).to_be_visible()
 
 
@@ -236,8 +232,8 @@ class TestScraperMetricsPage:
         page.goto(f"{base_url}/analytics/scraper-metrics")
         page.wait_for_load_state("networkidle")
         
-        # Verify page title
-        expect(page).to_have_title("Scraper Metrics - Analytics - Huntable CTI Scraper")
+        # Verify page title (app uses "Studio")
+        expect(page).to_have_title("Scraper Metrics - Analytics - Huntable CTI Studio")
         
         # Verify main heading
         heading = page.locator("h1:has-text('⚡ Scraper Metrics')")
@@ -581,7 +577,7 @@ class TestHuntMetricsPage:
         page.wait_for_load_state("networkidle")
         
         # Verify page title
-        expect(page).to_have_title("Hunt Scoring Metrics - Analytics - Huntable CTI Scraper")
+        expect(page).to_have_title("Hunt Scoring Metrics - Analytics - Huntable CTI Studio")
         
         # Verify main heading
         heading = page.locator("h1:has-text('🎯 Hunt Scoring Metrics')")

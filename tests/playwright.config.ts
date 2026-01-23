@@ -27,6 +27,7 @@ export default defineConfig({
   
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],  // Shows test progress in terminal
     ['line'],  // Shows one line per test
     ['allure-playwright', { 
