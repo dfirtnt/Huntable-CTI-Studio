@@ -1,0 +1,5 @@
+  reporter: [
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['list'],
+    ['junit', { outputFile: 'test-results/results.xml' }]
+  ],

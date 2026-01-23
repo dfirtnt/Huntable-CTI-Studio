@@ -65,17 +65,20 @@ class TestCollapsiblePanels:
             
             # Get initial state
             initial_state = panel_header.get_attribute("aria-expanded")
+            page.wait_for_timeout(100)  # Small wait for state to settle
             
             # Press Enter
             page.keyboard.press("Enter")
+            page.wait_for_timeout(300)  # Wait for toggle animation
             
             # Assert state changed
             new_state = panel_header.get_attribute("aria-expanded")
-            assert initial_state != new_state
+            assert initial_state != new_state, f"State should change after Enter, was {initial_state}, got {new_state}"
             
             # Press Space
             page.keyboard.press("Space")
+            page.wait_for_timeout(300)  # Wait for toggle animation
             
             # Assert state changed back
             final_state = panel_header.get_attribute("aria-expanded")
-            assert final_state == initial_state
+            assert final_state == initial_state, f"State should return to initial after Space, was {initial_state}, got {final_state}"

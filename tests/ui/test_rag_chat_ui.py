@@ -4,29 +4,28 @@ UI tests for RAG chat interface.
 import json
 import re
 import pytest
-from playwright.async_api import Page, expect
+from playwright.sync_api import Page, expect
 
 
 class TestRAGChatUI:
     """Test RAG chat UI functionality."""
     
     @pytest.mark.ui_smoke
-    @pytest.mark.asyncio
-    async def test_chat_page_loads(self, page: Page):
+    def test_chat_page_loads(self, page: Page):
         """Test that the chat page loads correctly."""
         try:
-            await page.goto("http://localhost:8001/chat", timeout=10000, wait_until="domcontentloaded")
-            await page.wait_for_load_state("networkidle", timeout=5000)
+            page.goto("http://localhost:8001/chat", timeout=10000, wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle", timeout=5000)
         except Exception as e:
             pytest.skip(f"Page load failed (browser/server issue): {e}")
         
         # Check page title and main elements
-        await expect(page).to_have_title(re.compile(r"RAG Chat - Huntable .* Studio"), timeout=5000)
+        expect(page).to_have_title(re.compile(r"RAG Chat - Huntable .* Studio"), timeout=5000)
         
         # Check for main chat interface elements
-        await expect(page.locator("h2")).to_contain_text("Threat Intelligence Chat", timeout=5000)
-        await expect(page.locator("textarea[placeholder*='Ask about cybersecurity']")).to_be_visible(timeout=5000)
-        await expect(page.locator("button:has-text('Send')")).to_be_visible(timeout=5000)
+        expect(page.locator("h2")).to_contain_text("Threat Intelligence Chat", timeout=5000)
+        expect(page.locator("textarea[placeholder*='Ask about cybersecurity']")).to_be_visible(timeout=5000)
+        expect(page.locator("button:has-text('Send')")).to_be_visible(timeout=5000)
     
     @pytest.mark.ui
     def test_chat_interface_elements(self, page: Page):
@@ -47,7 +46,7 @@ class TestRAGChatUI:
         expect(page.locator("button:has-text('Send')")).to_be_visible()
         
         # Check footer
-        expect(page.locator("text=Try asking:")).to_be_visible()
+        expect(page.get_by_text("Try asking:", exact=True)).to_be_visible()
     
     @pytest.mark.ui
     def test_chat_parameter_controls(self, page: Page):
@@ -92,12 +91,11 @@ class TestRAGChatUI:
         expect(send_button).to_be_enabled()
     
     @pytest.mark.ui_smoke
-    @pytest.mark.asyncio
-    async def test_chat_send_smoke(self, page: Page):
+    def test_chat_send_smoke(self, page: Page):
         """Smoke: sending a prompt renders without errors."""
         try:
-            await page.goto("http://localhost:8001/chat", timeout=10000, wait_until="domcontentloaded")
-            await page.wait_for_load_state("networkidle", timeout=5000)
+            page.goto("http://localhost:8001/chat", timeout=10000, wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle", timeout=5000)
         except Exception as e:
             pytest.skip(f"Page load failed (browser/server issue): {e}")
 
@@ -105,12 +103,12 @@ class TestRAGChatUI:
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
         send_button = page.locator("button:has-text('Send')")
 
-        await expect(input_field).to_be_visible(timeout=5000)
+        expect(input_field).to_be_visible(timeout=5000)
 
-        await input_field.fill(prompt)
-        if await send_button.is_enabled():
-            await send_button.click()
-            await expect(page.locator(f"text={prompt}")).to_be_visible(timeout=5000)
+        input_field.fill(prompt)
+        if send_button.is_enabled():
+            send_button.click()
+            expect(page.locator(f"text={prompt}")).to_be_visible(timeout=5000)
         else:
             pytest.skip("Send button disabled (likely missing chat configuration)")
 
@@ -297,17 +295,17 @@ class TestRAGChatUI:
         # Test desktop view
         page.set_viewport_size({"width": 1280, "height": 720})
         expect(page.locator("h2")).to_be_visible()
-        expect(page.locator("input[placeholder*='cybersecurity']")).to_be_visible()
+        expect(page.locator("textarea[placeholder*='cybersecurity']")).to_be_visible()
         
         # Test mobile view
         page.set_viewport_size({"width": 375, "height": 667})
         expect(page.locator("h2")).to_be_visible()
-        expect(page.locator("input[placeholder*='cybersecurity']")).to_be_visible()
+        expect(page.locator("textarea[placeholder*='cybersecurity']")).to_be_visible()
         
         # Test tablet view
         page.set_viewport_size({"width": 768, "height": 1024})
         expect(page.locator("h2")).to_be_visible()
-        expect(page.locator("input[placeholder*='cybersecurity']")).to_be_visible()
+        expect(page.locator("textarea[placeholder*='cybersecurity']")).to_be_visible()
     
     @pytest.mark.ui
     def test_chat_accessibility(self, page: Page):

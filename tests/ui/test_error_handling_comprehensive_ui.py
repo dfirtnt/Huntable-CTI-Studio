@@ -256,31 +256,38 @@ class TestErrorRecovery:
         """Test retry functionality after error."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
-        # Mock initial error, then success
+        # Mock initial error, then success - MUST set up route BEFORE navigation
         call_count = {"count": 0}
+        initial_api_calls = 0
         
         def handle_route(route):
-            if "/api/" in route.request.url:
+            # Only intercept specific dashboard API calls, not all APIs
+            url = route.request.url
+            if "/api/dashboard" in url or "/api/stats" in url or "/api/health" in url:
                 call_count["count"] += 1
-                if call_count["count"] == 1:
-                    route.fulfill(status=500, body="Error")
+                if call_count["count"] <= 1:
+                    route.fulfill(status=500, body='{"error": "Internal Server Error"}', headers={"Content-Type": "application/json"})
                 else:
-                    route.fulfill(status=200, body="{}", headers={"Content-Type": "application/json"})
+                    route.fulfill(status=200, body='{"status": "ok"}', headers={"Content-Type": "application/json"})
             else:
                 route.continue_()
         
-        page.route("**/api/**", handle_route)
+        page.route("**/api/dashboard*", handle_route)
+        page.route("**/api/stats*", handle_route)
+        page.route("**/api/health*", handle_route)
         
         # Navigate to page
         page.goto(f"{base_url}/dashboard")
         page.wait_for_load_state("networkidle")
+        initial_api_calls = call_count["count"]
         
         # Refresh (retry)
         page.reload()
         page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)  # Wait for retry logic
         
-        # Verify retry occurred
-        assert call_count["count"] >= 2, "API should be called again on retry"
+        # Verify retry occurred (should have more calls after reload)
+        assert call_count["count"] > initial_api_calls, f"API should be called again on retry. Initial: {initial_api_calls}, After reload: {call_count['count']}"
 
 
 class TestPermissionErrorHandling:

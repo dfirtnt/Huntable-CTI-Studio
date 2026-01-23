@@ -975,18 +975,21 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 session_id
             )
 
-            # Always generate Langfuse session URL (sessions provide better workflow overview)
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip('/') if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Generate direct session URL using session_id
-            # Session URLs are more useful for workflows as they show all traces in the execution
-            if langfuse_project_id:
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/sessions/{session_id}"
+            # Prefer /traces/{trace_id}: direct trace URLs work. /sessions/{session_id} 404s
+            # ("Session not found" / sessions.byIdWithScores). Fallback: traces?search={session_id}.
+            if resolved_trace_id and langfuse_project_id:
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
+            elif resolved_trace_id:
+                agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
+            elif langfuse_project_id:
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
             else:
-                agent_chat_url = f"{langfuse_host}/sessions/{session_id}"
+                agent_chat_url = f"{langfuse_host}/traces?search={session_id}"
 
-            logger.info(f"🔗 Generated Langfuse session URL: {agent_chat_url}")
+            logger.info(f"🔗 Generated Langfuse URL: {agent_chat_url} (trace_id={bool(resolved_trace_id)})")
             logger.info(
                 "   Trace ID: %s (lookup=%s, hash=%s), Session ID: %s (execution #%s)",
                 resolved_trace_id,
