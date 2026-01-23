@@ -111,7 +111,7 @@ test.describe('Agent Config Presets', () => {
     });
 
     // Load preset
-    const fileInput = page.locator('#load-preset-input');
+    const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
 
     // Wait for preset to be applied and dialog
@@ -267,6 +267,67 @@ test.describe('Agent Config Presets', () => {
       const currentValue = await rankingInput.inputValue();
       expect(parseFloat(currentValue)).toBeCloseTo(7.5, 1);
     }
+  });
+
+  test('should import preset and apply provider/model correctly', async ({ page }) => {
+    // Use the actual preset file from Downloads
+    const presetPath = path.join(process.env.HOME || '/Users/starlord', 'Downloads', 'workflow-preset-2026-01-23-test.json');
+    
+    if (!fs.existsSync(presetPath)) {
+      test.skip();
+      return;
+    }
+
+    // Set up dialog handler
+    page.on('dialog', async dialog => {
+      await dialog.accept();
+    });
+
+    // Import preset
+    const fileInput = page.locator('#import-preset-input');
+    await fileInput.setInputFiles(presetPath);
+
+    // Wait for preset to be applied
+    await page.waitForTimeout(5000);
+
+    // Expand panels to check values
+    await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
+    await expandPanelIfNeeded(page, 'extract-agent-configs-panel');
+    await expandPanelIfNeeded(page, 'sigma-agent-configs-panel');
+
+    // Verify RankAgent: lmstudio + google/gemma-3-4b
+    const rankProvider = page.locator('#rankagent-provider');
+    await rankProvider.waitFor({ state: 'visible', timeout: 10000 });
+    const rankProviderValue = await rankProvider.inputValue();
+    expect(rankProviderValue).toBe('lmstudio');
+
+    const rankModel = page.locator('#rankagent-model-2');
+    await rankModel.waitFor({ state: 'visible', timeout: 10000 });
+    const rankModelValue = await rankModel.inputValue();
+    expect(rankModelValue).toBe('google/gemma-3-4b');
+
+    // Verify ExtractAgent: openai + gpt-4o-mini
+    const extractProvider = page.locator('#extractagent-provider');
+    await extractProvider.waitFor({ state: 'visible', timeout: 10000 });
+    const extractProviderValue = await extractProvider.inputValue();
+    expect(extractProviderValue).toBe('openai');
+
+    // For OpenAI, check the openai-specific input
+    const extractModelOpenAI = page.locator('#extractagent-model-openai');
+    await extractModelOpenAI.waitFor({ state: 'visible', timeout: 10000 });
+    const extractModelValue = await extractModelOpenAI.inputValue();
+    expect(extractModelValue).toBe('gpt-4o-mini');
+
+    // Verify SigmaAgent: openai + gpt-4o-mini-2024-07-18
+    const sigmaProvider = page.locator('#sigmaagent-provider');
+    await sigmaProvider.waitFor({ state: 'visible', timeout: 10000 });
+    const sigmaProviderValue = await sigmaProvider.inputValue();
+    expect(sigmaProviderValue).toBe('openai');
+
+    const sigmaModelOpenAI = page.locator('#sigmaagent-model-openai');
+    await sigmaModelOpenAI.waitFor({ state: 'visible', timeout: 10000 });
+    const sigmaModelValue = await sigmaModelOpenAI.inputValue();
+    expect(sigmaModelValue).toBe('gpt-4o-mini-2024-07-18');
   });
 });
 
