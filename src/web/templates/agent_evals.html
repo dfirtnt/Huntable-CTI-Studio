@@ -291,118 +291,36 @@ async function loadActiveConfig() {
             }
             
             if (qaModel) {
-                qaModelInfo = `<p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Model:</strong> ${qaModel} (${qaProvider})</p>`;
+                qaModelInfo = `<p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">QA Agent Model:</strong> ${qaModel} (${qaProvider})</p>`;
             } else {
-                qaModelInfo = `<p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Model:</strong> Not configured</p>`;
+                qaModelInfo = `<p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">QA Agent Model:</strong> Not configured</p>`;
             }
         }
         
         // Get prompt save comment
         const promptComment = await getLatestPromptComment(agentName);
         
-        // Build selected models summary - only show enabled agents
-        const selectedModels = [];
-        
-        // Get disabled extract agents from config (same logic as workflow.html)
-        function getDisabledExtractAgentsFromConfig(config) {
-            if (!config) return [];
-            const prompts = config.agent_prompts || {};
-            const extractSettings = prompts.ExtractAgentSettings || prompts.ExtractAgent || {};
-            const disabledRaw = extractSettings.disabled_agents || extractSettings.disabled_sub_agents || [];
-            
-            if (Array.isArray(disabledRaw)) {
-                return disabledRaw;
-            }
-            
-            if (disabledRaw && typeof disabledRaw === 'object') {
-                return Object.entries(disabledRaw)
-                    .filter(([_, value]) => value === false || value === 0 || (typeof value === 'string' && value.toLowerCase() === 'false'))
-                    .map(([key]) => key);
-            }
-            
-            return [];
-        }
-        
-        const disabled = getDisabledExtractAgentsFromConfig(data);
-        const disabledSet = new Set(disabled);
-        
-        // Note: SIGMA, Rank, and Extract agents are not shown in Selected Models
-        // SIGMA is skipped for extractor evals, Rank is always disabled for evals
-        
-        // Sub-agents (only if enabled and has model)
-        ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'].forEach(agent => {
-            const modelKey = `${agent}_model`;
-            // Only show if model exists and agent is not disabled
-            if (models[modelKey] && !disabledSet.has(agent)) {
-                const provider = models[`${agent}_provider`] || 'lmstudio';
-                selectedModels.push(`${agent}: ${models[modelKey]} (${provider})`);
-            }
-        });
-        
-        // QA agents - show if QA is enabled (model may fallback to ExtractAgent)
-        // Note: RankAgentQA is excluded since rank agent is always disabled for extractor evals
-        const qaAgentMap = {
-            'CmdlineExtract': 'CmdLineQA',
-            'ProcTreeExtract': 'ProcTreeQA',
-            'HuntQueriesExtract': 'HuntQueriesQA'
-        };
-        Object.entries(qaAgentMap).forEach(([agent, qaKey]) => {
-            if (disabledSet.has(agent)) return;
-            // Show QA agent if QA is enabled for the agent
-            if (qaEnabled[agent] === true) {
-                // Check for explicit QA model, fallback to ExtractAgent if not set
-                let qaModel = models[qaKey];
-                let qaProvider = models[`${qaKey}_provider`];
-                
-                if (!qaModel || qaModel === '' || qaModel === null) {
-                    qaModel = models['ExtractAgent'];
-                    if (!qaProvider || qaProvider === '' || qaProvider === null) {
-                        qaProvider = models['ExtractAgent_provider'] || 'lmstudio';
-                    }
-                } else {
-                    qaProvider = qaProvider || 'lmstudio';
-                }
-                
-                if (qaModel) {
-                    selectedModels.push(`${qaKey}: ${qaModel} (${qaProvider})`);
-                }
-            }
-        });
-        
-        const modelsHtml = selectedModels.length > 0 
-            ? `<div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600"><p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Selected Models:</p><div class="space-y-1 text-xs text-gray-400 dark:text-gray-400">${selectedModels.join('<br>')}</div></div>`
-            : '';
-        
-        // Parse local timestamp - ensure UTC timestamps are converted to local time
-        let updatedDate = 'N/A';
-        if (data.updated_at) {
-            let timestampStr = data.updated_at;
-            // If timestamp doesn't have timezone info, assume it's UTC and append 'Z'
-            if (!timestampStr.endsWith('Z') && !timestampStr.match(/[+-]\d{2}:\d{2}$/)) {
-                timestampStr = timestampStr + 'Z';
-            }
-            // Convert to local time
-            updatedDate = new Date(timestampStr).toLocaleString();
-        }
-        
-        configDisplay.innerHTML = `
-            <div class="space-y-1 text-sm text-gray-400 dark:text-gray-400">
-                <p><strong class="text-gray-300 dark:text-gray-300">Version:</strong> ${data.version || 'N/A'}</p>
-                <p><strong class="text-gray-300 dark:text-gray-300">Junk Filter Threshold:</strong> ${data.junk_filter_threshold || 'N/A'}</p>
-                <p><strong class="text-gray-300 dark:text-gray-300">Updated:</strong> ${updatedDate}</p>
-                <div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
-                    <p class="text-xs font-medium text-gray-300 dark:text-gray-300 mb-1">Agent: ${agentName}</p>
-                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">LLM Provider:</strong> ${agentProvider}</p>
-                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">LLM Model:</strong> ${agentModel}</p>
-                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> ${temperature}</p>
-                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> ${topP}</p>
-                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> ${qaStatus}</p>
-                    ${qaModelInfo}
-                    <p class="text-xs"><strong class="text-gray-300 dark:text-gray-300">Prompt Save Comments:</strong> ${promptComment || 'None'}</p>
-                </div>
-                ${modelsHtml}
+        const extraHtml = `
+            <div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                <p class="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Agent: ${agentName}</p>
+                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">LLM Provider:</strong> ${agentProvider}</p>
+                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">LLM Model:</strong> ${agentModel}</p>
+                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">Temp:</strong> ${temperature}</p>
+                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">Top_P:</strong> ${topP}</p>
+                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">QA Agent Status:</strong> ${qaStatus}</p>
+                ${qaModelInfo}
+                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">Prompt Save Comments:</strong> ${promptComment || 'None'}</p>
             </div>
         `;
+
+        if (typeof renderWorkflowConfigDisplay === 'function') {
+            renderWorkflowConfigDisplay(data, {
+                containerId: 'activeConfigDisplay',
+                extraHtml: extraHtml,
+                showThresholds: true, // Shows junk filter threshold if available
+                showVersion: true
+            });
+        }
     } catch (error) {
         console.error('Error loading active config:', error);
         const configDisplay = document.getElementById('activeConfigDisplay');
