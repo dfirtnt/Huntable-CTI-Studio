@@ -174,8 +174,12 @@ class TestCreateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
+    @pytest.mark.skip(reason="DEPRECATED: CMD observables features are deprecated")
     async def test_create_cmd_annotation(self, async_client: httpx.AsyncClient):
-        """Test creating a CMD observable annotation."""
+        """Test creating a CMD observable annotation.
+        
+        DEPRECATED: CMD observables features are deprecated.
+        """
         articles_response = await async_client.get("/api/articles?limit=1")
         if articles_response.status_code != 200:
             pytest.skip("No articles available for testing")
