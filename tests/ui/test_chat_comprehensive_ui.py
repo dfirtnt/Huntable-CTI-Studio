@@ -22,7 +22,7 @@ class TestChatPageLoad:
         page.wait_for_timeout(3000)  # Wait for React to render
         
         # Verify page title
-        expect(page).to_have_title("RAG Chat - Huntable CTI Scraper")
+        expect(page).to_have_title("RAG Chat - Huntable CTI Studio")
         
         # Verify main heading
         heading = page.locator("text=🔍 Threat Intelligence Chat")

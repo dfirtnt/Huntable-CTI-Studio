@@ -10,7 +10,7 @@ class TestModalInteractions:
     
     def test_modal_opens_and_closes_with_escape(self, page: Page):
         """Test that modal closes with Escape key."""
-        page.goto("http://localhost:8002/articles")
+        page.goto("http://localhost:8001/articles")
         
         # Find a button that opens a modal (e.g., help, settings)
         modal_trigger = page.locator("button:has-text('Help'), button:has-text('Settings')").first
@@ -29,7 +29,7 @@ class TestModalInteractions:
     
     def test_modal_closes_on_click_outside(self, page: Page):
         """Test that modal closes when clicking outside."""
-        page.goto("http://localhost:8002/articles")
+        page.goto("http://localhost:8001/articles")
         
         # Open modal
         modal_trigger = page.locator("button:has-text('Help')").first
@@ -46,7 +46,7 @@ class TestModalInteractions:
     
     def test_modal_close_button(self, page: Page):
         """Test that modal close button works."""
-        page.goto("http://localhost:8002/articles")
+        page.goto("http://localhost:8001/articles")
         
         # Open modal
         modal_trigger = page.locator("button:has-text('Help')").first

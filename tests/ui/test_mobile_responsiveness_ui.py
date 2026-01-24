@@ -23,7 +23,7 @@ class TestMobileLayout:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads and displays correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
         
         # Verify content is visible (not cut off)
@@ -42,7 +42,7 @@ class TestMobileLayout:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads and displays correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -57,7 +57,7 @@ class TestMobileLayout:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads and displays correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -72,7 +72,7 @@ class TestMobileLayout:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads and displays correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -88,7 +88,7 @@ class TestMobileLayout:
         page.wait_for_timeout(2000)
         
         # Verify page loads and displays correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -104,7 +104,7 @@ class TestMobileLayout:
         page.wait_for_timeout(3000)
         
         # Verify page loads and displays correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
 
 
@@ -424,7 +424,7 @@ class TestMobileResponsiveBreakpoints:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -439,7 +439,7 @@ class TestMobileResponsiveBreakpoints:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -454,7 +454,7 @@ class TestMobileResponsiveBreakpoints:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -469,7 +469,7 @@ class TestMobileResponsiveBreakpoints:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
 
 
@@ -488,7 +488,7 @@ class TestMobileOrientation:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -503,7 +503,7 @@ class TestMobileOrientation:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -522,7 +522,7 @@ class TestMobileOrientation:
         page.wait_for_timeout(500)
         
         # Verify page adapts to orientation change
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
 
 

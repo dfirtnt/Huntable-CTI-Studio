@@ -26,7 +26,7 @@ class TestSettingsPageLoad:
         expect(page).to_have_title("Settings - Huntable CTI Scraper")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('⚙️ Settings')")
+        heading = page.locator("h1:has-text('⚙️ Settings')").first
         expect(heading).to_be_visible()
 
 
@@ -815,7 +815,7 @@ class TestSettingsLoading:
         page.wait_for_timeout(2000)  # Wait for async initialization
         
         # Verify page loaded successfully
-        heading = page.locator("h1:has-text('⚙️ Settings')")
+        heading = page.locator("h1:has-text('⚙️ Settings')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui

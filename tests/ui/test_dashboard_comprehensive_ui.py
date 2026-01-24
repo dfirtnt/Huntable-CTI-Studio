@@ -23,7 +23,7 @@ class TestDashboardPageLoad:
         expect(page).to_have_title("Dashboard - CTI Scraper")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('Huntable - CTI Scraper & Workbench')")
+        heading = page.locator("h1:has-text('Huntable - CTI Scraper & Workbench')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -552,7 +552,7 @@ class TestQuickActions:
         page.wait_for_timeout(1000)
         
         # Verify navigation to health checks page
-        expect(page).to_have_url(f"{base_url}/health-checks")
+        expect(page).to_have_url(f"{base_url}/diags")
         
         # Verify session storage flag was set
         auto_run_flag = page.evaluate("sessionStorage.getItem('autoRunHealthChecks')")
@@ -667,6 +667,6 @@ class TestDataLoading:
         page.wait_for_timeout(2000)
         
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('Huntable - CTI Scraper & Workbench')")
+        heading = page.locator("h1:has-text('Huntable - CTI Scraper & Workbench')").first
         expect(heading).to_be_visible()
 

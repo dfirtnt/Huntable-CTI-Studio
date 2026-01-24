@@ -5983,10 +5983,10 @@ function renderAgentPrompts() {
     
     qaAgents.forEach(qaAgent => {
         const container = document.getElementById(qaAgent.container);
-        // Always re-render if container exists and prompt data is available (even if hidden)
-        // This ensures fresh data is shown when the modal is expanded
-        if (container && agentPrompts[qaAgent.name]) {
-            const promptData = agentPrompts[qaAgent.name];
+        // Always re-render if container exists (even if hidden)
+        // This ensures the editor is available even when prompts are missing from DB
+        if (container) {
+            const promptData = getOrCreatePromptData(qaAgent.name);
             container.innerHTML = renderSinglePrompt(qaAgent.name, promptData, qaAgent.prefix);
             // Re-initialize collapsible panels after rendering
             setTimeout(() => {
@@ -6144,54 +6144,111 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                             `}
                         </div>
                     </div>
-                    ${instructions ? `
-                        <div class="mb-3">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
-                            ${isEditing ? `
-                                <textarea id="${agentId}-instructions-2" 
-                                          rows="4"
-                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
-                            ` : `
-                                <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
-                            `}
+                    ${isTemplateFormat || isExtractionAgent ? `
+                        <!-- Template-based format for extraction agents -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Role (Role)</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-role-2" 
+                                              rows="2"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.role || promptParts.system)}</textarea>
+                                ` : `
+                                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(templateData.role || promptParts.system)}</div>
+                                `}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Template (with placeholders: {title}, {url}, {content}, {task}, {json_example}, {instructions})</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-user-template-2" 
+                                              rows="10"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.user_template || promptParts.user)}</textarea>
+                                ` : `
+                                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(templateData.user_template || promptParts.user)}</div>
+                                `}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-task-2" 
+                                              rows="2"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.task || '')}</textarea>
+                                ` : `
+                                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap">${escapeHtml(templateData.task || '')}</div>
+                                `}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">JSON Example</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-json-example-2" 
+                                              rows="8"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.json_example || '')}</textarea>
+                                ` : `
+                                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(templateData.json_example || '')}</div>
+                                `}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-instructions-2" 
+                                              rows="8"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(templateData.instructions || instructions)}</textarea>
+                                ` : `
+                                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto">${escapeHtml(templateData.instructions || instructions)}</div>
+                                `}
+                            </div>
                         </div>
-                    ` : ''}
-                    <div class="space-y-6">
-                        <div class="border-l-4 border-blue-500 pl-4">
-                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                <span class="inline-flex items-center gap-2">
-                                    <span>🔧</span>
-                                    <span>System Prompt</span>
-                                </span>
-                            </label>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
-                        ${isEditing ? `
-                                <textarea id="${agentId}-prompt-system-2" 
-                                      rows="8"
-                                          placeholder="Enter system prompt (agent role, behavior, constraints)..."
-                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
-                            ` : `
-                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
-                            `}
-                        </div>
-                        <div class="border-l-4 border-green-500 pl-4">
-                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                <span class="inline-flex items-center gap-2">
-                                    <span>💬</span>
-                                    <span>User Prompt</span>
-                                </span>
-                            </label>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                    ` : `
+                        <!-- Legacy simple format -->
+                        ${instructions ? `
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instructions Template</label>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-instructions-2" 
+                                              rows="4"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(instructions)}</textarea>
+                                ` : `
+                                    <div class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-48 overflow-y-auto">${escapeHtml(instructions)}</div>
+                                `}
+                            </div>
+                        ` : ''}
+                        <div class="space-y-6">
+                            <div class="border-l-4 border-blue-500 pl-4">
+                                <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                    <span class="inline-flex items-center gap-2">
+                                        <span>🔧</span>
+                                        <span>System Prompt</span>
+                                    </span>
+                                </label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
                             ${isEditing ? `
-                                <textarea id="${agentId}-prompt-user-2" 
+                                    <textarea id="${agentId}-prompt-system-2" 
                                           rows="8"
-                                          placeholder="Enter user prompt (task, query, or user message)..."
-                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
-                            ` : `
-                                <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
-                            `}
+                                              placeholder="Enter system prompt (agent role, behavior, constraints)..."
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                ` : `
+                                    <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                `}
+                            </div>
+                            <div class="border-l-4 border-green-500 pl-4">
+                                <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                    <span class="inline-flex items-center gap-2">
+                                        <span>💬</span>
+                                        <span>User Prompt</span>
+                                    </span>
+                                </label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-user-2" 
+                                              rows="8"
+                                              placeholder="Enter user prompt (task, query, or user message)..."
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                ` : `
+                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                `}
+                            </div>
                         </div>
-                    </div>
+                    `}
                     ${isEditing ? `
                         <div class="mt-4">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Change Description (optional)</label>
@@ -6206,11 +6263,25 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     `;
 }
 
+function getOrCreatePromptData(agentName) {
+    if (!agentPrompts) {
+        agentPrompts = {};
+    }
+    if (!agentPrompts[agentName]) {
+        agentPrompts[agentName] = {
+            prompt: '',
+            instructions: '',
+            model: getCurrentModelForAgent(agentName) || 'Not configured'
+        };
+    }
+    return agentPrompts[agentName];
+}
+
 function renderQAPrompt(agentName, containerId) {
     const container = document.getElementById(containerId);
-    if (!container || !agentPrompts[agentName]) return;
+    if (!container) return;
     
-    const promptData = agentPrompts[agentName];
+    const promptData = getOrCreatePromptData(agentName);
     const prompt = promptData.prompt || '';
     const instructions = promptData.instructions || '';
     // Get current model from dropdown first, fall back to promptData.model
@@ -7279,72 +7350,78 @@ async function saveAgentPrompt2(agentName) {
     console.log('saveAgentPrompt2 called for:', agentName);
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     console.log('Looking for elements with agentId:', agentId);
-    const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
-    const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
-    const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
-    const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
-    
-    console.log('Elements found:', {
-        system: !!promptSystemElement,
-        user: !!promptUserElement,
-        instructions: !!instructionsElement,
-        changeDescription: !!changeDescriptionElement
-    });
-    
-    if (!promptSystemElement || !promptUserElement) {
-        console.error('Prompt elements not found!', {
-            agentId,
-            systemId: `${agentId}-prompt-system-2`,
-            userId: `${agentId}-prompt-user-2`,
-            systemElement: promptSystemElement,
-            userElement: promptUserElement
-        });
-        alert(`Prompt elements not found for ${agentName}. Check console for details.`);
-        return;
-    }
     
     // Check if this is an extraction agent or QA agent that uses template format
     const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'].includes(agentName);
     const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'QAAgent'].includes(agentName);
     const usesTemplateFormat = isExtractionAgent || isQAAgent;
     
-    console.log('Is extraction agent:', isExtractionAgent);
-    console.log('Is QA agent:', isQAAgent);
-    console.log('Uses template format:', usesTemplateFormat);
-    console.log('System element value length:', promptSystemElement.value?.length || 0);
-    console.log('User element value length:', promptUserElement.value?.length || 0);
+    // Try to get template format fields first, then fall back to simple format
+    const promptRoleElement = document.getElementById(`${agentId}-prompt-role-2`);
+    const promptUserTemplateElement = document.getElementById(`${agentId}-prompt-user-template-2`);
+    const promptTaskElement = document.getElementById(`${agentId}-prompt-task-2`);
+    const promptJsonExampleElement = document.getElementById(`${agentId}-prompt-json-example-2`);
+    const promptInstructionsElement = document.getElementById(`${agentId}-prompt-instructions-2`);
+    
+    // Fallback to simple format fields
+    const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
+    const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
+    const instructionsElement = document.getElementById(`${agentId}-instructions-2`);
+    const changeDescriptionElement = document.getElementById(`${agentId}-change-description-2`);
+    
+    console.log('Elements found:', {
+        templateFormat: usesTemplateFormat,
+        role: !!promptRoleElement,
+        userTemplate: !!promptUserTemplateElement,
+        task: !!promptTaskElement,
+        jsonExample: !!promptJsonExampleElement,
+        templateInstructions: !!promptInstructionsElement,
+        system: !!promptSystemElement,
+        user: !!promptUserElement,
+        instructions: !!instructionsElement,
+        changeDescription: !!changeDescriptionElement
+    });
+    
+    // If using template format but template elements don't exist, show error
+    if (usesTemplateFormat && (!promptRoleElement || !promptUserTemplateElement)) {
+        console.error('Template format agent but template elements not found!', {
+            agentName,
+            agentId,
+            roleId: `${agentId}-prompt-role-2`,
+            userTemplateId: `${agentId}-prompt-user-template-2`,
+            roleElement: promptRoleElement,
+            userTemplateElement: promptUserTemplateElement
+        });
+        alert(`Template format elements not found for ${agentName}. Please ensure the prompt editor is properly loaded.`);
+        return;
+    }
     
     let combinedPrompt;
-    if (usesTemplateFormat) {
-        // For extraction/QA agents, preserve template format structure
-        // Try to get existing template data to preserve task, json_example, objective, evaluation_criteria, etc.
+    if (usesTemplateFormat && promptRoleElement && promptUserTemplateElement) {
+        // Template format - read all template fields
         const existingPrompt = agentPrompts[agentName]?.prompt || '';
-        console.log('Existing prompt length:', existingPrompt.length);
         let templateData = {};
         
         try {
             if (existingPrompt) {
                 const parsed = JSON.parse(existingPrompt);
-                console.log('Parsed existing prompt:', parsed);
-                if (parsed && typeof parsed === 'object' && parsed.user_template) {
-                    // Preserve existing template fields
+                if (parsed && typeof parsed === 'object') {
+                    // Preserve existing template fields and update from form
                     if (isExtractionAgent) {
                         templateData = {
-                            role: promptSystemElement.value || parsed.role || "",
-                            user_template: promptUserElement.value || parsed.user_template || "",
-                            task: parsed.task || "",
-                            json_example: parsed.json_example || "",
-                            instructions: parsed.instructions || ""
+                            role: promptRoleElement.value || parsed.role || "",
+                            user_template: promptUserTemplateElement.value || parsed.user_template || "",
+                            task: promptTaskElement ? promptTaskElement.value : (parsed.task || ""),
+                            json_example: promptJsonExampleElement ? promptJsonExampleElement.value : (parsed.json_example || ""),
+                            instructions: promptInstructionsElement ? promptInstructionsElement.value : (parsed.instructions || "")
                         };
                     } else if (isQAAgent) {
-                        // QA agents may have objective, evaluation_criteria, etc.
                         templateData = {
-                            role: promptSystemElement.value || parsed.role || "",
-                            user_template: promptUserElement.value || parsed.user_template || "",
+                            role: promptRoleElement.value || parsed.role || "",
+                            user_template: promptUserTemplateElement.value || parsed.user_template || "",
                             objective: parsed.objective || "",
                             evaluation_criteria: parsed.evaluation_criteria || [],
-                            instructions: parsed.instructions || "",
-                            // Preserve other QA-specific fields if they exist
+                            instructions: promptInstructionsElement ? promptInstructionsElement.value : (parsed.instructions || ""),
                             input_format: parsed.input_format || {},
                             qa_process: parsed.qa_process || {},
                             output_format: parsed.output_format || {}
@@ -7354,19 +7431,19 @@ async function saveAgentPrompt2(agentName) {
                     // New template format
                     if (isExtractionAgent) {
                         templateData = {
-                            role: promptSystemElement.value || "",
-                            user_template: promptUserElement.value || "",
-                            task: "",
-                            json_example: "",
-                            instructions: ""
+                            role: promptRoleElement.value || "",
+                            user_template: promptUserTemplateElement.value || "",
+                            task: promptTaskElement ? promptTaskElement.value : "",
+                            json_example: promptJsonExampleElement ? promptJsonExampleElement.value : "",
+                            instructions: promptInstructionsElement ? promptInstructionsElement.value : ""
                         };
                     } else if (isQAAgent) {
                         templateData = {
-                            role: promptSystemElement.value || "",
-                            user_template: promptUserElement.value || "",
+                            role: promptRoleElement.value || "",
+                            user_template: promptUserTemplateElement.value || "",
                             objective: "",
                             evaluation_criteria: [],
-                            instructions: ""
+                            instructions: promptInstructionsElement ? promptInstructionsElement.value : ""
                         };
                     }
                 }
@@ -7374,48 +7451,89 @@ async function saveAgentPrompt2(agentName) {
                 // No existing prompt - create new template
                 if (isExtractionAgent) {
                     templateData = {
-                        role: promptSystemElement.value || "",
-                        user_template: promptUserElement.value || "",
-                        task: "",
-                        json_example: "",
-                        instructions: ""
+                        role: promptRoleElement.value || "",
+                        user_template: promptUserTemplateElement.value || "",
+                        task: promptTaskElement ? promptTaskElement.value : "",
+                        json_example: promptJsonExampleElement ? promptJsonExampleElement.value : "",
+                        instructions: promptInstructionsElement ? promptInstructionsElement.value : ""
                     };
                 } else if (isQAAgent) {
                     templateData = {
-                        role: promptSystemElement.value || "",
-                        user_template: promptUserElement.value || "",
+                        role: promptRoleElement.value || "",
+                        user_template: promptUserTemplateElement.value || "",
                         objective: "",
                         evaluation_criteria: [],
-                        instructions: ""
+                        instructions: promptInstructionsElement ? promptInstructionsElement.value : ""
                     };
                 }
             }
         } catch (e) {
             console.error('Error parsing existing prompt:', e);
             // Fallback: create new template structure
-            if (isExtractionAgent) {
+            if (isExtractionAgent && promptRoleElement && promptUserTemplateElement) {
                 templateData = {
-                    role: promptSystemElement.value || "",
-                    user_template: promptUserElement.value || "",
-                    task: "",
-                    json_example: "",
-                    instructions: ""
+                    role: promptRoleElement.value || "",
+                    user_template: promptUserTemplateElement.value || "",
+                    task: promptTaskElement ? promptTaskElement.value : "",
+                    json_example: promptJsonExampleElement ? promptJsonExampleElement.value : "",
+                    instructions: promptInstructionsElement ? promptInstructionsElement.value : ""
                 };
-            } else if (isQAAgent) {
+            } else if (isQAAgent && promptRoleElement && promptUserTemplateElement) {
                 templateData = {
-                    role: promptSystemElement.value || "",
-                    user_template: promptUserElement.value || "",
+                    role: promptRoleElement.value || "",
+                    user_template: promptUserTemplateElement.value || "",
                     objective: "",
                     evaluation_criteria: [],
-                    instructions: ""
+                    instructions: promptInstructionsElement ? promptInstructionsElement.value : ""
                 };
+            } else {
+                // If template elements don't exist, fall back to simple format
+                console.warn('Template format elements not found in catch block, falling back to simple format');
+                if (!promptSystemElement || !promptUserElement) {
+                    console.error('Prompt elements not found!', {
+                        agentId,
+                        systemId: `${agentId}-prompt-system-2`,
+                        userId: `${agentId}-prompt-user-2`,
+                        systemElement: promptSystemElement,
+                        userElement: promptUserElement
+                    });
+                    alert(`Prompt elements not found for ${agentName}. Check console for details.`);
+                    return;
+                }
+                combinedPrompt = JSON.stringify({
+                    system: promptSystemElement.value || "",
+                    user: promptUserElement.value || ""
+                });
+                // Early return since we've set combinedPrompt
+                // Continue to the rest of the function to save
             }
         }
         
-        console.log('Template data before stringify:', templateData);
-        combinedPrompt = JSON.stringify(templateData);
-        console.log('Combined prompt JSON string:', combinedPrompt);
+        // Only stringify templateData if it was successfully created and combinedPrompt wasn't set in catch
+        if (!combinedPrompt && templateData && Object.keys(templateData).length > 0) {
+            console.log('Template data before stringify:', templateData);
+            combinedPrompt = JSON.stringify(templateData);
+            console.log('Combined prompt JSON string:', combinedPrompt);
+        } else if (!combinedPrompt) {
+            // If we're in template format branch but templateData wasn't created, something went wrong
+            console.error('Template format branch but templateData is empty or combinedPrompt not set');
+            alert(`Error saving prompt for ${agentName}: Template data could not be created.`);
+            return;
+        }
     } else {
+        // Simple format or fallback
+        if (!promptSystemElement || !promptUserElement) {
+            console.error('Prompt elements not found!', {
+                agentId,
+                systemId: `${agentId}-prompt-system-2`,
+                userId: `${agentId}-prompt-user-2`,
+                systemElement: promptSystemElement,
+                userElement: promptUserElement
+            });
+            alert(`Prompt elements not found for ${agentName}. Check console for details.`);
+            return;
+        }
+        
         // For non-extraction/QA agents, use simple system/user format
         combinedPrompt = JSON.stringify({
             system: promptSystemElement.value || "",
@@ -7423,14 +7541,16 @@ async function saveAgentPrompt2(agentName) {
         });
     }
     
-    console.log('System prompt value:', promptSystemElement.value);
-    console.log('User prompt value:', promptUserElement.value);
+    console.log('System prompt value:', promptSystemElement?.value);
+    console.log('User prompt value:', promptUserElement?.value);
+    console.log('Role prompt value:', promptRoleElement?.value);
+    console.log('User template value:', promptUserTemplateElement?.value);
     console.log('Combined prompt JSON:', combinedPrompt);
     
     const promptData = {
         agent_name: agentName,
         prompt: combinedPrompt,
-        instructions: instructionsElement ? instructionsElement.value : null,
+        instructions: usesTemplateFormat && promptInstructionsElement ? promptInstructionsElement.value : (instructionsElement ? instructionsElement.value : null),
         change_description: changeDescriptionElement ? changeDescriptionElement.value : null
     };
     

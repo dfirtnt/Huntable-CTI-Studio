@@ -25,7 +25,7 @@ class TestJobsPageLoad:
         expect(page).to_have_title("Job Monitor - Huntable CTI Scraper")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('🔄 Job Monitor')")
+        heading = page.locator("h1:has-text('🔄 Job Monitor')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -509,7 +509,7 @@ class TestJobsErrorHandling:
         page.wait_for_timeout(2000)
         
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('🔄 Job Monitor')")
+        heading = page.locator("h1:has-text('🔄 Job Monitor')").first
         expect(heading).to_be_visible()
         
         # Verify error messages appear in sections

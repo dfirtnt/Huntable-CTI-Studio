@@ -24,7 +24,7 @@ class TestPDFUploadPageLoad:
         expect(page).to_have_title("PDF Upload - Huntable CTI Scraper")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('📄 Upload PDF Report')")
+        heading = page.locator("h1:has-text('📄 Upload PDF Report')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui

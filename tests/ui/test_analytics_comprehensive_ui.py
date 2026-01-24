@@ -23,7 +23,7 @@ class TestMainAnalyticsPage:
         expect(page).to_have_title("Analytics - Huntable CTI Studio")
         
         # Verify main heading (template: "Analytics Dashboard", no emoji)
-        heading = page.locator("h1:has-text('Analytics Dashboard')")
+        heading = page.locator("h1:has-text('Analytics Dashboard')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -165,7 +165,7 @@ class TestMLOpsPage:
         page.wait_for_load_state("networkidle")
 
         expect(page).to_have_title("MLOps - Huntable CTI Studio")
-        heading = page.locator("h1:has-text('MLOps Control Center')")
+        heading = page.locator("h1:has-text('MLOps Control Center')").first
         expect(heading).to_be_visible()
 
     @pytest.mark.ui
@@ -217,7 +217,7 @@ class TestMLOpsPage:
         page.wait_for_timeout(2000)
         
         # Verify page still loads (graceful error handling); template uses "Analytics Dashboard"
-        heading = page.locator("h1:has-text('Analytics Dashboard')")
+        heading = page.locator("h1:has-text('Analytics Dashboard')").first
         expect(heading).to_be_visible()
 
 
@@ -236,7 +236,7 @@ class TestScraperMetricsPage:
         expect(page).to_have_title("Scraper Metrics - Analytics - Huntable CTI Studio")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('⚡ Scraper Metrics')")
+        heading = page.locator("h1:has-text('⚡ Scraper Metrics')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -517,7 +517,7 @@ class TestScraperMetricsPage:
         page.wait_for_timeout(2000)
         
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('⚡ Scraper Metrics')")
+        heading = page.locator("h1:has-text('⚡ Scraper Metrics')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -580,7 +580,7 @@ class TestHuntMetricsPage:
         expect(page).to_have_title("Hunt Scoring Metrics - Analytics - Huntable CTI Studio")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('🎯 Hunt Scoring Metrics')")
+        heading = page.locator("h1:has-text('🎯 Hunt Scoring Metrics')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -1047,7 +1047,7 @@ class TestChartInteractions:
         page.wait_for_timeout(2000)
         
         # Verify page still loads
-        heading = page.locator("h1:has-text('🎯 Hunt Scoring Metrics')")
+        heading = page.locator("h1:has-text('🎯 Hunt Scoring Metrics')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
