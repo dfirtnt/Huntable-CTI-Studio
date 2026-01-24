@@ -62,7 +62,7 @@ class Test500ErrorHandling:
         page.wait_for_load_state("networkidle")
         
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
 
 
@@ -89,7 +89,7 @@ class TestNetworkErrorHandling:
         page.wait_for_load_state("networkidle")
         
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -114,7 +114,7 @@ class TestNetworkErrorHandling:
         page.wait_for_load_state("domcontentloaded")
         
         # Verify page loads (may timeout but should handle gracefully)
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
 
 
@@ -247,7 +247,7 @@ class TestErrorRecovery:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads successfully after recovery
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui

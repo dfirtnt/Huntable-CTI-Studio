@@ -95,7 +95,7 @@ class TestAPIPerformance:
         page.wait_for_timeout(2000)
         
         # Verify page loads (API performance verified via page load time)
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -108,7 +108,7 @@ class TestAPIPerformance:
         page.wait_for_load_state("networkidle")
         
         # Verify page loads (API performance verified via page load time)
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -214,7 +214,7 @@ class TestMemoryUsage:
         """)
         
         # Verify page loads (memory info may not be available in all browsers)
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -230,7 +230,7 @@ class TestMemoryUsage:
             page.wait_for_timeout(1000)
         
         # Verify page still loads correctly
-        heading = page.locator("h1")
+        heading = page.locator("h1").first
         expect(heading).to_be_visible()
 
 

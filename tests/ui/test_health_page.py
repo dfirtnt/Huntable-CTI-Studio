@@ -15,11 +15,11 @@ class TestHealthPage:
     def test_health_page_loads(self, page: Page):
         """Test that the Health page loads correctly."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Check page title and header
-        expect(page).to_have_title("Health Checks - CTI Scraper")
-        expect(page.locator("h1").nth(1)).to_contain_text("🏥 System Health Checks")
+        expect(page).to_have_title("System Diagnostics & Health - Huntable CTI Studio")
+        expect(page.locator("h1").nth(1)).to_contain_text("System Diagnostics & Health")
 
         # Check description
         expect(page.locator("p").first).to_contain_text(
@@ -30,7 +30,7 @@ class TestHealthPage:
     def test_health_check_buttons_visible(self, page: Page):
         """Test that all health check buttons are visible."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Only runAllHealthChecks exists in diags; individual check buttons do not exist
         button = page.locator("#runAllHealthChecks")
@@ -40,7 +40,7 @@ class TestHealthPage:
     def test_health_check_sections_visible(self, page: Page):
         """Test that all health check sections are visible."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Check all health check sections are visible
         sections = [
@@ -105,7 +105,7 @@ class TestHealthPage:
 
         page.route("**/api/health*", mock_health_check)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Run All Checks button
         run_all_button = page.locator("#runAllHealthChecks")
@@ -132,7 +132,7 @@ class TestHealthPage:
 
         page.route("**/api/health/database", mock_database_health)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Database Health button
         db_button = page.locator("#runDatabaseCheck")
@@ -160,7 +160,7 @@ class TestHealthPage:
 
         page.route("**/api/health/deduplication", mock_deduplication_health)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Deduplication Health button
         dedup_button = page.locator("#runDeduplicationCheck")
@@ -187,7 +187,7 @@ class TestHealthPage:
 
         page.route("**/api/health/services", mock_services_health)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Services Health button
         services_button = page.locator("#runServicesCheck")
@@ -214,7 +214,7 @@ class TestHealthPage:
 
         page.route("**/api/health/celery", mock_celery_health)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Celery Health button
         celery_button = page.locator("#runCeleryCheck")
@@ -240,7 +240,7 @@ class TestHealthPage:
 
         page.route("**/api/health/ingestion", mock_ingestion_analytics)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Ingestion Analytics button
         ingestion_button = page.locator("#runIngestionCheck")
@@ -267,7 +267,7 @@ class TestHealthPage:
 
         page.route("**/api/health/database", mock_health_error)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Database Health button
         db_button = page.locator("#runDatabaseCheck")
@@ -297,7 +297,7 @@ class TestHealthPage:
 
         page.route("**/api/health/database", mock_slow_health)
 
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Click Database Health button
         db_button = page.locator("#runDatabaseCheck")
@@ -318,7 +318,7 @@ class TestHealthPage:
     def test_health_check_button_styling(self, page: Page):
         """Test health check button styling and classes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Check Run All Health Checks button styling (individual check buttons do not exist in diags)
         run_all_button = page.locator("#runAllHealthChecks")
@@ -330,7 +330,7 @@ class TestHealthPage:
     def test_health_check_section_headers(self, page: Page):
         """Test health check section headers are correct."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Check section headers
         headers = [
@@ -349,7 +349,7 @@ class TestHealthPage:
     def test_health_check_initial_content(self, page: Page):
         """Test initial content in health check sections."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
 
         # Check initial content messages
         initial_messages = [
@@ -373,9 +373,9 @@ class TestHealthPage:
         page.goto(f"{base_url}/")
 
         # Click Health link in navigation
-        health_link = page.locator("a[href='/health-checks']")
+        health_link = page.locator("a[href='/diags']")
         health_link.click()
 
         # Verify we're on the health checks page
-        expect(page).to_have_url(f"{base_url}/health-checks")
-        expect(page.locator("h1").nth(1)).to_contain_text("🏥 System Health Checks")
+        expect(page).to_have_url(f"{base_url}/diags")
+        expect(page.locator("h1").nth(1)).to_contain_text("System Diagnostics & Health")

@@ -25,7 +25,7 @@ class TestDiagnosticsPageLoad:
         expect(page).to_have_title("System Diagnostics - Huntable CTI Scraper")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('🔧 System Diagnostics')")
+        heading = page.locator("h1:has-text('🔧 System Diagnostics')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -300,7 +300,7 @@ class TestDiagnosticsJobHistory:
         expect(job_history_header).to_be_visible()
         
         # Verify job history content exists
-        job_history_content = page.locator("#jobHistoryContent")
+        job_history_content = page.locator("#job-history-content")
         expect(job_history_content).to_be_visible()
     
     @pytest.mark.ui
@@ -313,11 +313,11 @@ class TestDiagnosticsJobHistory:
         page.wait_for_timeout(2000)
         
         # Verify toggle button exists
-        toggle_btn = page.locator("#jobHistoryToggle")
+        toggle_btn = page.locator("#job-history-toggle")
         expect(toggle_btn).to_be_visible()
         
         # Verify job history content is initially hidden
-        job_history_content = page.locator("#jobHistoryContent")
+        job_history_content = page.locator("#job-history-content")
         expect(job_history_content).to_have_class("hidden")
         
         # Click toggle to expand
@@ -473,7 +473,7 @@ class TestDiagnosticsErrorHandling:
         page.wait_for_timeout(2000)
         
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('🔧 System Diagnostics')")
+        heading = page.locator("h1:has-text('🔧 System Diagnostics')").first
         expect(heading).to_be_visible()
 
 

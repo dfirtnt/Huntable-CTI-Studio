@@ -17,14 +17,14 @@ class TestHealthChecksPageLoad:
     def test_health_checks_page_loads(self, page: Page):
         """Test health checks page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify page title
-        expect(page).to_have_title("Health Checks - Huntable CTI Scraper")
+        expect(page).to_have_title("System Diagnostics & Health - Huntable CTI Studio")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('🏥 System Health Checks')")
+        heading = page.locator("h1:has-text('System Diagnostics & Health')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui
@@ -32,7 +32,7 @@ class TestHealthChecksPageLoad:
     def test_health_check_controls_display(self, page: Page):
         """Test health check controls display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify controls section exists
@@ -69,7 +69,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Run All Checks button
@@ -114,7 +114,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health/database", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Database Health button
@@ -161,7 +161,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health/deduplication", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Deduplication Health button
@@ -198,7 +198,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health/services", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Services Health button
@@ -233,7 +233,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health/celery", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Celery Health button
@@ -276,7 +276,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health/ingestion", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Ingestion Analytics button
@@ -309,7 +309,7 @@ class TestHealthCheckButtons:
         
         page.route("**/api/health", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Refresh Timestamp button
@@ -330,7 +330,7 @@ class TestHealthCheckLoadingOverlay:
     def test_loading_overlay_display(self, page: Page):
         """Test loading overlay displays during health checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify loading overlay exists
@@ -343,7 +343,7 @@ class TestHealthCheckLoadingOverlay:
     def test_loading_message_display(self, page: Page):
         """Test loading message displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify loading message element exists
@@ -363,7 +363,7 @@ class TestHealthCheckStatusDisplay:
     def test_overall_status_display(self, page: Page):
         """Test overall status display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify overall status section exists
@@ -379,7 +379,7 @@ class TestHealthCheckStatusDisplay:
     def test_database_health_section_display(self, page: Page):
         """Test database health section display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify database health section exists
@@ -395,7 +395,7 @@ class TestHealthCheckStatusDisplay:
     def test_deduplication_health_section_display(self, page: Page):
         """Test deduplication health section display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify deduplication health section exists
@@ -411,7 +411,7 @@ class TestHealthCheckStatusDisplay:
     def test_services_health_section_display(self, page: Page):
         """Test services health section display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify services health section exists
@@ -427,7 +427,7 @@ class TestHealthCheckStatusDisplay:
     def test_celery_health_section_display(self, page: Page):
         """Test celery health section display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify celery health section exists
@@ -443,7 +443,7 @@ class TestHealthCheckStatusDisplay:
     def test_ingestion_analytics_section_display(self, page: Page):
         """Test ingestion analytics section display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Verify ingestion analytics section exists
@@ -474,7 +474,7 @@ class TestHealthCheckErrorHandling:
         
         page.route("**/api/health/database", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         
         # Click Database Health button
@@ -513,7 +513,7 @@ class TestHealthCheckAutoRefresh:
         
         page.route("**/api/health", handle_route)
         
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2000)
         
@@ -538,7 +538,7 @@ class TestHealthCheckSessionStorage:
         page.evaluate("sessionStorage.setItem('autoRunHealthChecks', 'true');")
         
         # Navigate to health checks page
-        page.goto(f"{base_url}/health-checks")
+        page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2000)
         

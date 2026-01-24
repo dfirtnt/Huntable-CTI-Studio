@@ -600,24 +600,6 @@ async def get_execution_commandlines(
                 "warnings": warnings if warnings else None,
             }
             
-            # For hunt_queries, also include separate EDR queries and SIGMA rules
-            if result_key == "hunt_queries" and extraction_result and isinstance(extraction_result, dict):
-                subresults = extraction_result.get("subresults", {})
-                if isinstance(subresults, dict):
-                    hunt_queries_result = subresults.get("hunt_queries", {}) or subresults.get("HuntQueriesExtract", {})
-                    if isinstance(hunt_queries_result, dict):
-                        edr_queries = hunt_queries_result.get("queries", [])
-                        sigma_rules = hunt_queries_result.get("sigma_rules", [])
-                        
-                        # Apply correction to fix misclassifications
-                        edr_queries_checked, sigma_rules_checked = _correct_hunt_queries_classification(
-                            edr_queries, sigma_rules
-                        )
-                        
-                        if edr_queries_checked or sigma_rules_checked:
-                            response_data["edr_queries"] = edr_queries_checked
-                            response_data["sigma_rules"] = sigma_rules_checked
-            
             return response_data
         finally:
             db_session.close()
@@ -626,66 +608,6 @@ async def get_execution_commandlines(
     except Exception as e:
         logger.error(f"Error getting execution commandlines: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-def _correct_hunt_queries_classification(edr_queries: list, sigma_rules: list) -> Tuple[list, list]:
-    """
-    Correct misclassified EDR queries and SIGMA rules by detecting their actual type.
-    Returns (corrected_edr_queries, corrected_sigma_rules).
-    """
-    def is_sigma_rule(item):
-        """Check if an item looks like a SIGMA rule."""
-        if not isinstance(item, dict):
-            return False
-        # SIGMA rules typically have these fields as keys
-        sigma_fields = ['title', 'description', 'tags', 'logsource', 'detection', 'yaml', 'sigma_text']
-        if any(field in item for field in sigma_fields):
-            return True
-        # Or check if query_text/yaml contains SIGMA YAML structure
-        text_content = item.get('query_text') or item.get('yaml') or item.get('sigma_text') or ''
-        if isinstance(text_content, str):
-            # SIGMA YAML has these patterns
-            sigma_patterns = ['logsource:', 'detection:', 'title:', 'description:']
-            if any(pattern in text_content for pattern in sigma_patterns):
-                return True
-        return False
-    
-    def is_edr_query(item):
-        """Check if an item looks like an EDR query."""
-        if not isinstance(item, dict):
-            return False
-        # If it's clearly a SIGMA rule, it's not an EDR query
-        if is_sigma_rule(item):
-            return False
-        # EDR queries have query/query_text and type/platform
-        has_query = 'query' in item or 'query_text' in item
-        has_type = 'type' in item or 'platform' in item
-        return has_query and has_type
-    
-    edr_queries_checked = []
-    sigma_rules_checked = []
-    
-    # Check items in edr_queries - if they look like SIGMA rules, move them
-    for item in (edr_queries if isinstance(edr_queries, list) else []):
-        if is_sigma_rule(item):
-            sigma_rules_checked.append(item)
-        elif is_edr_query(item) or not isinstance(item, dict):
-            edr_queries_checked.append(item)
-        else:
-            # Ambiguous - keep in original location
-            edr_queries_checked.append(item)
-    
-    # Check items in sigma_rules - if they look like EDR queries, move them
-    for item in (sigma_rules if isinstance(sigma_rules, list) else []):
-        if is_edr_query(item):
-            edr_queries_checked.append(item)
-        elif is_sigma_rule(item) or not isinstance(item, dict):
-            sigma_rules_checked.append(item)
-        else:
-            # Ambiguous - keep in original location
-            sigma_rules_checked.append(item)
-    
-    return edr_queries_checked, sigma_rules_checked
 
 
 def resolve_article_by_url(url: str) -> Optional[int]:
@@ -805,31 +727,16 @@ async def get_subagent_eval_articles(
 
             article_id = resolve_article_by_url(url)
             
-            # Handle dual-count format for hunt_queries
-            if canonical_subagent == "hunt_queries":
-                expected_edr = article_def.get("expected_edr_count", 0)
-                expected_sigma = article_def.get("expected_sigma_count", 0)
-                results.append(
-                    {
-                        "url": url,
-                        "expected_count": None,  # Not used for hunt_queries
-                        "expected_edr_count": expected_edr,
-                        "expected_sigma_count": expected_sigma,
-                        "article_id": article_id,
-                        "found": article_id is not None,
-                    }
-                )
-            else:
-                # Standard single-count format
-                expected_count = article_def.get("expected_count", 0)
-                results.append(
-                    {
-                        "url": url,
-                        "expected_count": expected_count,
-                        "article_id": article_id,
-                        "found": article_id is not None,
-                    }
-                )
+            # Standard single-count format for all subagents
+            expected_count = article_def.get("expected_count", 0)
+            results.append(
+                {
+                    "url": url,
+                    "expected_count": expected_count,
+                    "article_id": article_id,
+                    "found": article_id is not None,
+                }
+            )
 
         return {"subagent": subagent, "articles": results, "total": len(results)}
     except HTTPException:
@@ -897,8 +804,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 / "eval_articles.yaml"
             )
             expected_counts = {}
-            expected_edr_counts = {}
-            expected_sigma_counts = {}
             if config_path.exists():
                 with open(config_path, "r") as f:
                     config = yaml.safe_load(f)
@@ -907,18 +812,9 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     )
                     for article_def in subagent_articles:
                         url = article_def.get("url")
-                        # Support both old format (expected_count) and new format (expected_edr_count/expected_sigma_count)
                         expected_count = article_def.get("expected_count")
-                        expected_edr = article_def.get("expected_edr_count")
-                        expected_sigma = article_def.get("expected_sigma_count")
                         if url:
-                            if expected_edr is not None or expected_sigma is not None:
-                                # New dual-count format for hunt_queries
-                                expected_edr_counts[url] = expected_edr if expected_edr is not None else 0
-                                expected_sigma_counts[url] = expected_sigma if expected_sigma is not None else 0
-                            else:
-                                # Legacy single-count format
-                                expected_counts[url] = expected_count if expected_count is not None else 0
+                            expected_counts[url] = expected_count if expected_count is not None else 0
 
             # Create SubagentEvaluationTable records and workflow executions
             eval_records = []
@@ -927,159 +823,68 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
             for mapping in article_mappings:
                 url = mapping["url"]
                 article_id = mapping["article_id"]
+                expected_count = expected_counts.get(url, 0)
                 
-                # For hunt_queries, create two eval records (EDR and SIGMA)
-                if canonical_subagent_name == "hunt_queries":
-                    expected_edr = expected_edr_counts.get(url, 0)
-                    expected_sigma = expected_sigma_counts.get(url, 0)
-                    
-                    if not article_id:
-                        # Create both eval records but mark as failed
-                        eval_record_edr = SubagentEvaluationTable(
-                            subagent_name="hunt_queries_edr",
-                            article_url=url,
-                            article_id=None,
-                            expected_count=expected_edr,
-                            workflow_config_id=active_config.id,
-                            workflow_config_version=active_config.version,
-                            status="failed",
-                        )
-                        eval_record_sigma = SubagentEvaluationTable(
-                            subagent_name="hunt_queries_sigma",
-                            article_url=url,
-                            article_id=None,
-                            expected_count=expected_sigma,
-                            workflow_config_id=active_config.id,
-                            workflow_config_version=active_config.version,
-                            status="failed",
-                        )
-                        db_session.add(eval_record_edr)
-                        db_session.add(eval_record_sigma)
-                        eval_records.extend([eval_record_edr, eval_record_sigma])
-                        continue
-                    
-                    # Create two eval records for hunt_queries
-                    eval_record_edr = SubagentEvaluationTable(
-                        subagent_name="hunt_queries_edr",
-                        article_url=url,
-                        article_id=article_id,
-                        expected_count=expected_edr,
-                        workflow_config_id=active_config.id,
-                        workflow_config_version=active_config.version,
-                        status="pending",
-                    )
-                    eval_record_sigma = SubagentEvaluationTable(
-                        subagent_name="hunt_queries_sigma",
-                        article_url=url,
-                        article_id=article_id,
-                        expected_count=expected_sigma,
-                        workflow_config_id=active_config.id,
-                        workflow_config_version=active_config.version,
-                        status="pending",
-                    )
-                    # Create workflow execution (one execution for both EDR and SIGMA)
-                    execution = AgenticWorkflowExecutionTable(
-                        article_id=article_id,
-                        status="pending",
-                        config_snapshot={
-                            "min_hunt_score": active_config.min_hunt_score,
-                            "ranking_threshold": active_config.ranking_threshold,
-                            "similarity_threshold": active_config.similarity_threshold,
-                            "junk_filter_threshold": active_config.junk_filter_threshold,
-                            "agent_models": active_config.agent_models or {},
-                            "agent_prompts": active_config.agent_prompts or {},
-                            "qa_enabled": active_config.qa_enabled or {},
-                            "config_id": active_config.id,
-                            "config_version": active_config.version,
-                            "eval_run": True,
-                            "skip_os_detection": True,  # Bypass OS detection for evals
-                            "skip_rank_agent": True,  # Bypass rank agent for evals
-                            "skip_sigma_generation": True,  # Skip SIGMA generation for evals
-                            "subagent_eval": "hunt_queries",  # Use base name for workflow
-                        },
-                    )
-                    db_session.add(execution)
-                    db_session.flush()  # Get execution.id
-                    
-                    # Link both eval records to the same execution
-                    eval_record_edr.workflow_execution_id = execution.id
-                    eval_record_sigma.workflow_execution_id = execution.id
-                    db_session.add(eval_record_edr)
-                    db_session.add(eval_record_sigma)
-                    eval_records.extend([eval_record_edr, eval_record_sigma])
-                    executions.append(
-                        {
-                            "execution_id": execution.id,
-                            "article_id": article_id,
-                            "url": url,
-                            "eval_record_id": eval_record_edr.id,  # Use EDR as primary
-                            "eval_record_id_sigma": eval_record_sigma.id,
-                        }
-                    )
-                else:
-                    # Standard single-count subagents
-                    expected_count = expected_counts.get(url, 0)
-                    
-                    if not article_id:
-                        # Create eval record but mark as failed
-                        eval_record = SubagentEvaluationTable(
-                            subagent_name=canonical_subagent_name,
-                            article_url=url,
-                            article_id=None,
-                            expected_count=expected_count,
-                            workflow_config_id=active_config.id,
-                            workflow_config_version=active_config.version,
-                            status="failed",
-                        )
-                        db_session.add(eval_record)
-                        eval_records.append(eval_record)
-                        continue
-                    
-                    # Create workflow execution
-                    execution = AgenticWorkflowExecutionTable(
-                        article_id=article_id,
-                        status="pending",
-                        config_snapshot={
-                            "min_hunt_score": active_config.min_hunt_score,
-                            "ranking_threshold": active_config.ranking_threshold,
-                            "similarity_threshold": active_config.similarity_threshold,
-                            "junk_filter_threshold": active_config.junk_filter_threshold,
-                            "agent_models": active_config.agent_models or {},
-                            "agent_prompts": active_config.agent_prompts or {},
-                            "qa_enabled": active_config.qa_enabled or {},
-                            "config_id": active_config.id,
-                            "config_version": active_config.version,
-                            "eval_run": True,
-                            "skip_os_detection": True,  # Bypass OS detection for evals
-                            "skip_rank_agent": True,  # Bypass rank agent for evals
-                            "skip_sigma_generation": True,  # Skip SIGMA generation for evals
-                            "subagent_eval": canonical_subagent_name,
-                        },
-                    )
-                    db_session.add(execution)
-                    db_session.flush()  # Get execution.id
-
-                    # Create SubagentEvaluationTable record
+                if not article_id:
+                    # Create eval record but mark as failed
                     eval_record = SubagentEvaluationTable(
                         subagent_name=canonical_subagent_name,
                         article_url=url,
-                        article_id=article_id,
+                        article_id=None,
                         expected_count=expected_count,
-                        workflow_execution_id=execution.id,
                         workflow_config_id=active_config.id,
                         workflow_config_version=active_config.version,
-                        status="pending",
+                        status="failed",
                     )
                     db_session.add(eval_record)
                     eval_records.append(eval_record)
-                    executions.append(
-                        {
-                            "execution_id": execution.id,
-                            "article_id": article_id,
-                            "url": url,
-                            "eval_record_id": eval_record.id,
-                        }
-                    )
+                    continue
+                
+                # Create workflow execution
+                execution = AgenticWorkflowExecutionTable(
+                    article_id=article_id,
+                    status="pending",
+                    config_snapshot={
+                        "min_hunt_score": active_config.min_hunt_score,
+                        "ranking_threshold": active_config.ranking_threshold,
+                        "similarity_threshold": active_config.similarity_threshold,
+                        "junk_filter_threshold": active_config.junk_filter_threshold,
+                        "agent_models": active_config.agent_models or {},
+                        "agent_prompts": active_config.agent_prompts or {},
+                        "qa_enabled": active_config.qa_enabled or {},
+                        "config_id": active_config.id,
+                        "config_version": active_config.version,
+                        "eval_run": True,
+                        "skip_os_detection": True,  # Bypass OS detection for evals
+                        "skip_rank_agent": True,  # Bypass rank agent for evals
+                        "skip_sigma_generation": True,  # Skip SIGMA generation for evals
+                        "subagent_eval": canonical_subagent_name,
+                    },
+                )
+                db_session.add(execution)
+                db_session.flush()  # Get execution.id
+
+                # Create SubagentEvaluationTable record
+                eval_record = SubagentEvaluationTable(
+                    subagent_name=canonical_subagent_name,
+                    article_url=url,
+                    article_id=article_id,
+                    expected_count=expected_count,
+                    workflow_execution_id=execution.id,
+                    workflow_config_id=active_config.id,
+                    workflow_config_version=active_config.version,
+                    status="pending",
+                )
+                db_session.add(eval_record)
+                eval_records.append(eval_record)
+                executions.append(
+                    {
+                        "execution_id": execution.id,
+                        "article_id": article_id,
+                        "url": url,
+                        "eval_record_id": eval_record.id,
+                    }
+                )
 
             db_session.commit()
 
@@ -1123,9 +928,11 @@ async def get_subagent_eval_results(
         try:
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             
-            # For hunt_queries, include both edr and sigma eval records
+            # For hunt_queries, include historical hunt_queries_edr records to show previous EDR results
             if canonical_subagent == "hunt_queries":
-                lookup_values = {"hunt_queries_edr", "hunt_queries_sigma", "hunt_queries"}
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
             
             query = db_session.query(SubagentEvaluationTable)
             if lookup_values:
@@ -1142,7 +949,6 @@ async def get_subagent_eval_results(
 
             results = []
             for record in eval_records:
-                # For hunt_queries evaluations, get corrected counts from execution data
                 actual_count = record.actual_count
                 warnings = []
                 
@@ -1159,26 +965,6 @@ async def get_subagent_eval_results(
                             extraction_warnings = execution.extraction_result.get("warnings")
                             if isinstance(extraction_warnings, list):
                                 warnings.extend(extraction_warnings)
-                        
-                        # For hunt_queries evaluations, get corrected counts
-                        if record.subagent_name in ("hunt_queries_edr", "hunt_queries_sigma"):
-                            subresults = execution.extraction_result.get("subresults", {})
-                            if isinstance(subresults, dict):
-                                hunt_queries_result = subresults.get("hunt_queries", {}) or subresults.get("HuntQueriesExtract", {})
-                                if isinstance(hunt_queries_result, dict):
-                                    edr_queries = hunt_queries_result.get("queries", [])
-                                    sigma_rules = hunt_queries_result.get("sigma_rules", [])
-                                    
-                                    # Apply correction to get accurate counts
-                                    edr_queries_checked, sigma_rules_checked = _correct_hunt_queries_classification(
-                                        edr_queries, sigma_rules
-                                    )
-                                    
-                                    # Use corrected count based on subagent type
-                                    if record.subagent_name == "hunt_queries_edr":
-                                        actual_count = len(edr_queries_checked)
-                                    elif record.subagent_name == "hunt_queries_sigma":
-                                        actual_count = len(sigma_rules_checked)
 
                 # Calculate score if actual_count is set
                 score = None
@@ -1315,10 +1101,6 @@ async def clear_pending_eval_records(
         try:
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             
-            # For hunt_queries, include both edr and sigma eval records
-            if canonical_subagent == "hunt_queries":
-                lookup_values = {"hunt_queries_edr", "hunt_queries_sigma", "hunt_queries"}
-            
             # Find all pending records for this subagent
             pending_records = (
                 db_session.query(SubagentEvaluationTable)
@@ -1367,10 +1149,6 @@ async def backfill_eval_records(
 
         try:
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
-            
-            # For hunt_queries, include both edr and sigma eval records
-            if canonical_subagent == "hunt_queries":
-                lookup_values = {"hunt_queries_edr", "hunt_queries_sigma", "hunt_queries"}
             
             # Find all pending eval records for this subagent
             pending_evals = (
@@ -1450,9 +1228,11 @@ async def get_subagent_eval_aggregate(
         try:
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             
-            # For hunt_queries, include both edr and sigma eval records
+            # For hunt_queries, include historical hunt_queries_edr records for aggregate calculations
             if canonical_subagent == "hunt_queries":
-                lookup_values = {"hunt_queries_edr", "hunt_queries_sigma", "hunt_queries"}
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
             
             query = db_session.query(SubagentEvaluationTable)
             if lookup_values:

@@ -10,7 +10,7 @@ class TestSigmaEditorValidation:
     
     def test_sigma_editor_loads(self, page: Page):
         """Test that SIGMA editor page loads."""
-        page.goto("http://localhost:8002/sigma-queue")
+        page.goto("http://localhost:8001/sigma-queue")
         
         # Look for editor or queue interface
         editor = page.locator("textarea, .sigma-editor, [data-testid='sigma-editor']").first
@@ -18,7 +18,7 @@ class TestSigmaEditorValidation:
     
     def test_sigma_yaml_validation(self, page: Page):
         """Test YAML validation in SIGMA editor."""
-        page.goto("http://localhost:8002/sigma-queue")
+        page.goto("http://localhost:8001/sigma-queue")
         
         # Find editor
         editor = page.locator("textarea, .sigma-editor").first
@@ -37,7 +37,7 @@ class TestSigmaEditorValidation:
     
     def test_sigma_editor_save(self, page: Page):
         """Test saving SIGMA rule from editor."""
-        page.goto("http://localhost:8002/sigma-queue")
+        page.goto("http://localhost:8001/sigma-queue")
         
         # Find editor
         editor = page.locator("textarea, .sigma-editor").first

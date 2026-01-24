@@ -12,7 +12,7 @@ class TestAnnotationUIPersistence:
     def test_annotation_ui_loads(self, page: Page):
         """Test that annotation UI loads on article page."""
         # Navigate to article detail page
-        page.goto("http://localhost:8002/articles/1")
+        page.goto("http://localhost:8001/articles/1")
         
         # Look for annotation interface
         annotation_ui = page.locator(".annotation-manager, [data-annotation-mode]")
@@ -21,7 +21,7 @@ class TestAnnotationUIPersistence:
     @pytest.mark.skip(reason="Requires article with content - implement with test data")
     def test_create_annotation_from_ui(self, page: Page):
         """Test creating annotation from UI."""
-        page.goto("http://localhost:8002/articles/1")
+        page.goto("http://localhost:8001/articles/1")
         
         # Select text in article content
         article_content = page.locator("#article-content, .article-content").first
@@ -44,7 +44,7 @@ class TestAnnotationUIPersistence:
     
     def test_annotation_mode_toggle(self, page: Page):
         """Test switching between annotation modes."""
-        page.goto("http://localhost:8002/articles/1")
+        page.goto("http://localhost:8001/articles/1")
         
         # Look for mode toggle
         mode_toggle = page.locator("[data-annotation-mode], .annotation-mode-toggle").first

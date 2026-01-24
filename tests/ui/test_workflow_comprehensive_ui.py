@@ -7,6 +7,7 @@ import pytest
 from playwright.sync_api import Page, expect
 import os
 import json
+import re
 
 
 class TestWorkflowTabNavigation:
@@ -34,8 +35,8 @@ class TestWorkflowTabNavigation:
         # Verify other tabs are hidden
         executions_content = page.locator("#tab-content-executions")
         queue_content = page.locator("#tab-content-queue")
-        expect(executions_content).to_have_class("hidden")
-        expect(queue_content).to_have_class("hidden")
+        expect(executions_content).to_have_class(re.compile(r"hidden"))
+        expect(queue_content).to_have_class(re.compile(r"hidden"))
     
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -59,8 +60,8 @@ class TestWorkflowTabNavigation:
         # Verify other tabs are hidden
         config_content = page.locator("#tab-content-config")
         queue_content = page.locator("#tab-content-queue")
-        expect(config_content).to_have_class("hidden")
-        expect(queue_content).to_have_class("hidden")
+        expect(config_content).to_have_class(re.compile(r"hidden"))
+        expect(queue_content).to_have_class(re.compile(r"hidden"))
     
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -84,8 +85,8 @@ class TestWorkflowTabNavigation:
         # Verify other tabs are hidden
         config_content = page.locator("#tab-content-config")
         executions_content = page.locator("#tab-content-executions")
-        expect(config_content).to_have_class("hidden")
-        expect(executions_content).to_have_class("hidden")
+        expect(config_content).to_have_class(re.compile(r"hidden"))
+        expect(executions_content).to_have_class(re.compile(r"hidden"))
     
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -325,7 +326,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_timeout(500)
         
         # Find Reset button
-        reset_button = page.locator("button:has-text('Reset')")
+        reset_button = page.get_by_role("button", name="Reset", exact=True)
         expect(reset_button).to_be_visible()
     
     @pytest.mark.ui
@@ -384,7 +385,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_timeout(500)
         
         # Expand Junk Filter panel
-        toggle_button = page.locator("button:has-text('Junk Filter')")
+        toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
         toggle_button.click()
         page.wait_for_timeout(300)
         
@@ -408,7 +409,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_timeout(500)
         
         # Expand Junk Filter panel
-        toggle_button = page.locator("button:has-text('Junk Filter')")
+        toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
         toggle_button.click()
         page.wait_for_timeout(300)
         
@@ -435,7 +436,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_timeout(500)
         
         # Expand Junk Filter panel
-        toggle_button = page.locator("button:has-text('Junk Filter')")
+        toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
         toggle_button.click()
         page.wait_for_timeout(300)
         
@@ -485,7 +486,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(500)
         
         # Expand Rank Agent panel
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
+        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -505,13 +506,13 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(500)
         
         # Expand Rank Agent panel
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
+        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
         # Find test button
-        test_button = page.locator("button:has-text('Test with Article 2155')")
-        expect(test_button).to_be_visible()
+        test_button = page.get_by_role("button", name=re.compile(r"Test with .* ArticleID"))
+        expect(test_button.first).to_be_visible()
         
         # Verify button has onclick handler
         onclick_attr = test_button.get_attribute("onclick")
@@ -529,7 +530,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(500)
         
         # Expand Rank Agent panel
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
+        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -553,7 +554,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(500)
         
         # Expand Rank Agent panel
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
+        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -580,7 +581,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(500)
         
         # Expand Rank Agent panel
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
+        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -616,7 +617,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(500)
         
         # Expand Rank Agent panel
-        toggle_button = page.locator("button:has-text('Rank Agent Configs')")
+        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -641,7 +642,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        toggle_button = page.locator("button:has-text('Extract Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -661,7 +662,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        toggle_button = page.locator("button:has-text('Extract Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -681,12 +682,12 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        toggle_button = page.locator("button:has-text('Extract Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
         # Find Sub-Agents section
-        sub_agents_header = page.locator("text=Extract Agent Sub-Agents")
+        sub_agents_header = page.get_by_role("heading", name="Extract Agents Sub-Agents")
         expect(sub_agents_header).to_be_visible()
     
     @pytest.mark.ui
@@ -701,12 +702,12 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
         # Find CmdlineExtract panel
-        cmdline_toggle = page.locator("button:has-text('CmdlineExtract')")
+        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
         expect(cmdline_toggle).to_be_visible()
         
         # Toggle sub-agent panel
@@ -729,12 +730,12 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
         # Expand CmdlineExtract panel
-        cmdline_toggle = page.locator("button:has-text('CmdlineExtract')")
+        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
         cmdline_toggle.click()
         page.wait_for_timeout(300)
         
@@ -754,7 +755,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
@@ -782,11 +783,11 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand panels
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
-        cmdline_toggle = page.locator("button:has-text('CmdlineExtract')")
+        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
         cmdline_toggle.click()
         page.wait_for_timeout(300)
         
@@ -810,11 +811,11 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand panels
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
-        cmdline_toggle = page.locator("button:has-text('CmdlineExtract')")
+        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
         cmdline_toggle.click()
         page.wait_for_timeout(300)
         
@@ -839,16 +840,16 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_timeout(500)
         
         # Expand panels
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
-        cmdline_toggle = page.locator("button:has-text('CmdlineExtract')")
+        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
         cmdline_toggle.click()
         page.wait_for_timeout(300)
         
         # Find test button
-        test_button = page.locator("button:has-text('Test with Article 2155'):near(#cmdlineextract-agent-panel-content)")
+        test_button = page.locator("button:has-text('ArticleID'):near(#cmdlineextract-agent-panel-content)").first
         expect(test_button).to_be_visible()
         
         # Verify onclick handler
@@ -871,7 +872,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_timeout(500)
         
         # Expand SIGMA Agent panel
-        toggle_button = page.locator("button:has-text('SIGMA Generator Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -891,7 +892,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_timeout(500)
         
         # Expand SIGMA Agent panel
-        toggle_button = page.locator("button:has-text('SIGMA Generator Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -915,7 +916,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_timeout(500)
         
         # Expand SIGMA Agent panel
-        toggle_button = page.locator("button:has-text('SIGMA Generator Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -939,7 +940,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_timeout(500)
         
         # Expand SIGMA Agent panel
-        toggle_button = page.locator("button:has-text('SIGMA Generator Agent')")
+        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
         toggle_button.click()
         page.wait_for_timeout(500)
         
@@ -1008,7 +1009,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_timeout(500)
         
         # Find Refresh button
-        refresh_button = page.locator("button:has-text('🔄 Refresh')")
+        refresh_button = page.locator("button:has-text('🔄 Refresh')").first
         expect(refresh_button).to_be_visible()
         
         # Verify onclick handler
@@ -1027,7 +1028,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_timeout(500)
         
         # Find Trigger Workflow button
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')")
+        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         expect(trigger_button).to_be_visible()
         
         # Click button
@@ -1293,7 +1294,7 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
         
         # Find View button in table
-        view_buttons = page.locator("button:has-text('View')")
+        view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
             page.wait_for_timeout(500)
@@ -1315,20 +1316,20 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
         
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')")
+        view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
             page.wait_for_timeout(500)
             
             # Find close button
-            close_button = page.locator("#executionModal button:has-text('✕')")
+            close_button = page.locator("#executionModal button:has-text('✕')").first
             if close_button.count() > 0:
                 close_button.click()
                 page.wait_for_timeout(300)
                 
                 # Verify modal closes
                 modal = page.locator("#executionModal")
-                expect(modal).to_have_class("hidden")
+                expect(modal).to_have_class(re.compile(r"hidden"))
     
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1342,7 +1343,7 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
         
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')")
+        view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
             page.wait_for_timeout(500)
@@ -1372,7 +1373,7 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
         
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')")
+        view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
             page.wait_for_timeout(500)
@@ -1383,7 +1384,7 @@ class TestWorkflowExecutionsTabModal:
             
             # Verify modal closes
             modal = page.locator("#executionModal")
-            expect(modal).to_have_class("hidden")
+            expect(modal).to_have_class(re.compile(r"hidden"))
     
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1397,7 +1398,7 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
         
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')")
+        view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
             page.wait_for_timeout(1000)
@@ -1422,7 +1423,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(500)
         
         # Click Trigger Workflow button
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')")
+        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
         page.wait_for_timeout(500)
         
@@ -1443,7 +1444,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(500)
         
         # Open modal
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')")
+        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
         page.wait_for_timeout(500)
         
@@ -1466,12 +1467,12 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(500)
         
         # Open modal
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')")
+        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
         page.wait_for_timeout(500)
         
         # Find Cancel button
-        cancel_button = page.locator("#triggerWorkflowModal button:has-text('Cancel')")
+        cancel_button = page.locator("#triggerWorkflowModal button:has-text('Cancel')").first
         expect(cancel_button).to_be_visible()
         
         # Click Cancel
@@ -1480,7 +1481,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         
         # Verify modal closes
         modal = page.locator("#triggerWorkflowModal")
-        expect(modal).to_have_class("hidden")
+        expect(modal).to_have_class(re.compile(r"hidden"))
     
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1494,12 +1495,12 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(500)
         
         # Open modal
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')")
+        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
         page.wait_for_timeout(500)
         
         # Find Trigger button in modal
-        modal_trigger_button = page.locator("#triggerWorkflowModal button:has-text('Trigger')")
+        modal_trigger_button = page.locator("#triggerWorkflowModal").get_by_role("button", name="Trigger", exact=True)
         expect(modal_trigger_button).to_be_visible()
         
         # Verify onclick handler
@@ -1522,7 +1523,7 @@ class TestWorkflowQueueTabActions:
         page.wait_for_timeout(500)
         
         # Find Refresh button
-        refresh_button = page.locator("button:has-text('🔄 Refresh')")
+        refresh_button = page.locator("button:has-text('🔄 Refresh')").first
         expect(refresh_button).to_be_visible()
         
         # Verify onclick handler
@@ -1635,12 +1636,12 @@ class TestWorkflowSubAgentsAdditional:
         page.wait_for_timeout(500)
         
         # Expand Extract Agent panel
-        extract_toggle = page.locator("button:has-text('Extract Agent')")
+        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
         extract_toggle.click()
         page.wait_for_timeout(500)
         
         # Find ProcTreeExtract panel
-        proctree_toggle = page.locator("button:has-text('ProcTreeExtract')")
+        proctree_toggle = page.locator('[data-collapsible-panel="proctreeextract-agent-panel"]')
         expect(proctree_toggle).to_be_visible()
         
         # Toggle sub-agent panel
@@ -1713,7 +1714,7 @@ class TestWorkflowExecutionsTableAdvanced:
         page.wait_for_timeout(2000)
         
         # Find Retry buttons (should only be visible for failed)
-        retry_buttons = page.locator("button:has-text('Retry')")
+        retry_buttons = page.locator("button:has-text('Retry')").first
         # Buttons may or may not exist depending on execution status
     
     @pytest.mark.ui
@@ -1768,7 +1769,7 @@ class TestWorkflowConfigurationAdvanced:
         threshold_input = page.locator("#junkFilterThreshold")
         if threshold_input.is_visible():
             # Expand panel first
-            toggle_button = page.locator("button:has-text('Junk Filter')")
+            toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
             toggle_button.click()
             page.wait_for_timeout(300)
             
@@ -1837,7 +1838,7 @@ class TestWorkflowConfigurationAdvanced:
         page.wait_for_timeout(1000)
         
         # Find Reset button
-        reset_button = page.locator("button:has-text('Reset')")
+        reset_button = page.get_by_role("button", name="Reset", exact=True)
         expect(reset_button).to_be_visible()
         
         # Verify onclick handler

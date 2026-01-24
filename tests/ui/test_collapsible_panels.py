@@ -10,7 +10,7 @@ class TestCollapsiblePanels:
     
     def test_panel_header_toggles_expand_collapse(self, page: Page):
         """Test that clicking panel header toggles expand/collapse."""
-        page.goto("http://localhost:8002/workflow")
+        page.goto("http://localhost:8001/workflow")
         
         # Find collapsible panel header
         panel_header = page.locator("[data-panel-header], .collapsible-header, button[aria-expanded]").first
@@ -27,7 +27,7 @@ class TestCollapsiblePanels:
     
     def test_caret_reflects_panel_state(self, page: Page):
         """Test that caret reflects expanded/collapsed state."""
-        page.goto("http://localhost:8002/workflow")
+        page.goto("http://localhost:8001/workflow")
         
         # Find panel with caret
         panel_header = page.locator("button[aria-expanded]").first
@@ -46,7 +46,7 @@ class TestCollapsiblePanels:
     
     def test_panel_header_has_pointer_cursor(self, page: Page):
         """Test that panel header has pointer cursor."""
-        page.goto("http://localhost:8002/workflow")
+        page.goto("http://localhost:8001/workflow")
         
         panel_header = page.locator("button[aria-expanded]").first
         if panel_header.is_visible():
@@ -56,7 +56,7 @@ class TestCollapsiblePanels:
     
     def test_panel_keyboard_support(self, page: Page):
         """Test that panels support keyboard navigation (Enter + Space)."""
-        page.goto("http://localhost:8002/workflow")
+        page.goto("http://localhost:8001/workflow")
         
         panel_header = page.locator("button[aria-expanded]").first
         if panel_header.is_visible():

@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 # Disable in environments without full UI/data stack.
-pytestmark = pytest.mark.skip(reason="UI flow tests disabled in this environment.")
+# pytestmark = pytest.mark.skip(reason="UI flow tests disabled in this environment.")
 
 
 class TestDashboardFlows:
@@ -232,7 +232,7 @@ class TestDashboardFlows:
 
     @pytest.mark.ui
     def test_run_health_checks_navigation_and_execution(self, page: Page):
-        """Test that Run Health Checks button navigates to health-checks page and executes Run All Checks."""
+        """Test that Run Health Checks button navigates to diags page and executes Run All Checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
 
@@ -253,11 +253,11 @@ class TestDashboardFlows:
         # Click the Run Health Checks button
         health_check_button.click()
 
-        # Wait for navigation to health-checks page
+        # Wait for navigation to diags page
         page.wait_for_load_state("networkidle")
 
-        # Verify we navigated to the health-checks page
-        expect(page).to_have_url(f"{base_url}/health-checks")
+        # Verify we navigated to the diags page
+        expect(page).to_have_url(f"{base_url}/diags")
         expect(page.locator("text=🏥 System Health Checks")).to_be_visible()
 
         # Check if the Run All Checks button exists and if checks started automatically
@@ -461,7 +461,7 @@ class TestAccessibility:
         page.goto("http://localhost:8001/")
 
         # Check for proper heading hierarchy
-        h1 = page.locator("h1")
+        h1 = page.locator("h1").first
         expect(h1).to_have_count(1)
 
         # Check for main content area

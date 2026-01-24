@@ -27,7 +27,7 @@ class TestSourcesListDisplay:
         expect(page).to_have_title("Sources - Huntable CTI Scraper")
         
         # Verify main heading
-        heading = page.locator("h1:has-text('🔗 Threat Intelligence Sources')")
+        heading = page.locator("h1:has-text('🔗 Threat Intelligence Sources')").first
         expect(heading).to_be_visible()
     
     @pytest.mark.ui

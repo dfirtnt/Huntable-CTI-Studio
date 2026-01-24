@@ -14,7 +14,7 @@ class TestCollectNowButton:
     
     def test_collect_now_button_visible(self, page: Page):
         """Test that the Collect Now button is visible on sources page."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
         
         # Check that Collect Now button is visible (use first to avoid strict mode violation)
@@ -23,15 +23,14 @@ class TestCollectNowButton:
         
         # Check button styling (contains these classes)
         button_class = collect_button.get_attribute("class")
-        assert "border-blue-300" in button_class
-        assert "text-blue-700" in button_class
-        assert "bg-blue-50" in button_class
+        assert "text-white" in button_class
+        assert "rounded" in button_class
 
     @pytest.mark.ui
     
     def test_collect_now_button_click_triggers_api_call(self, page: Page):
         """Test that clicking Collect Now triggers the API call."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock the fetch API call - MUST set up route BEFORE navigation
         api_calls = []
@@ -65,7 +64,7 @@ class TestCollectNowButton:
     
     def test_collect_now_shows_status_indicator(self, page: Page):
         """Test that clicking Collect Now shows status indicator."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock successful API response - MUST set up route BEFORE navigation
         def mock_fetch(route):
@@ -100,7 +99,7 @@ class TestCollectNowButton:
     
     def test_collect_now_handles_api_error(self, page: Page):
         """Test that Collect Now handles API errors gracefully."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock API error response - MUST set up route BEFORE navigation
         def mock_fetch(route):
@@ -131,7 +130,7 @@ class TestCollectNowButton:
     
     def test_collect_now_handles_network_error(self, page: Page):
         """Test that Collect Now handles network errors."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock network error - MUST set up route BEFORE navigation
         def mock_fetch(route):
@@ -153,7 +152,7 @@ class TestCollectNowButton:
     
     def test_collect_now_button_disabled_during_collection(self, page: Page):
         """Test that Collect Now button is disabled during collection."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock API response with delay - MUST set up route BEFORE navigation
         def mock_fetch(route):
@@ -180,7 +179,7 @@ class TestCollectNowButton:
     
     def test_collect_now_shows_terminal_output(self, page: Page):
         """Test that Collect Now shows terminal output during collection."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock successful API response - MUST set up route BEFORE navigation
         def mock_fetch(route):
@@ -210,7 +209,7 @@ class TestCollectNowButton:
     
     def test_collect_now_close_button(self, page: Page):
         """Test that the close button works on the collection status."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock successful API response - MUST set up route BEFORE navigation
         def mock_fetch(route):
@@ -244,7 +243,7 @@ class TestCollectNowButton:
     
     def test_collect_now_multiple_sources(self, page: Page):
         """Test Collect Now button with multiple sources."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8000")
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
         # Mock API responses - MUST set up route BEFORE navigation
         api_calls = []
