@@ -78,16 +78,6 @@
                     <option value="process_lineage">Process Lineage</option>
                     <option value="hunt_queries">Hunt Queries</option>
                 </select>
-                <!-- Hunt Query Feature Selection (shown only when Hunt Queries is selected) -->
-                <div id="huntQueryFeatureContainer" class="hidden mt-2">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Hunt Query Feature
-                    </label>
-                    <select id="huntQueryFeatureSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700 text-gray-900 dark:text-white">
-                        <option value="hunt_queries_edr">EDR Queries</option>
-                        <option value="hunt_queries_sigma">SIGMA Rules</option>
-                    </select>
-                </div>
                 <button id="loadEvalArticlesBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Load Eval Articles
                 </button>
@@ -192,9 +182,22 @@
         <!-- MAE Chart -->
         <div id="maeChartContainer" class="mb-6 hidden">
             <div class="eval-card rounded-lg shadow-lg p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Mean Absolute Error Metrics by Config Version</h3>
-                <div class="h-64">
-                    <canvas id="maeChart"></canvas>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Mean Absolute Error Metrics by Config Version</h3>
+                    <div class="flex items-center gap-2">
+                        <button id="chartPrevBtn" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            ← Prev
+                        </button>
+                        <span id="chartRangeDisplay" class="text-sm text-gray-400 dark:text-gray-500 px-2"></span>
+                        <button id="chartNextBtn" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Next →
+                        </button>
+                    </div>
+                </div>
+                <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
+                    <div class="h-64" style="min-width: fit-content;">
+                        <canvas id="maeChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -397,18 +400,7 @@ async function loadEvalArticles() {
                 '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
             
             // For hunt_queries, show the expected count based on selected feature
-            let expectedCountDisplay = '';
-            if (subagentSelect === 'hunt_queries') {
-                const featureSelect = document.getElementById('huntQueryFeatureSelect');
-                const selectedFeature = featureSelect ? featureSelect.value : 'hunt_queries_edr';
-                if (selectedFeature === 'hunt_queries_edr') {
-                    expectedCountDisplay = `Expected EDR: ${article.expected_edr_count !== undefined ? article.expected_edr_count : 'N/A'}`;
-                } else {
-                    expectedCountDisplay = `Expected SIGMA: ${article.expected_sigma_count !== undefined ? article.expected_sigma_count : 'N/A'}`;
-                }
-            } else {
-                expectedCountDisplay = `Expected: ${article.expected_count !== undefined ? article.expected_count : 'N/A'}`;
-            }
+            const expectedCountDisplay = `Expected: ${article.expected_count !== undefined ? article.expected_count : 'N/A'}`;
             
             label.innerHTML = `
                 <span class="font-medium">${urlDisplay}</span>
@@ -650,9 +642,8 @@ async function runEvaluation() {
     statusText.textContent = `Triggering ${selectedArticleUrls.size} workflow executions...`;
     
     try {
-        // For hunt_queries, always use base name when running (API creates both EDR and SIGMA records)
-        const subagentSelect = document.getElementById('subagentSelect').value;
-        const subagentForRun = subagentSelect === 'hunt_queries' ? 'hunt_queries' : currentSubagent;
+        // Use current subagent directly
+        const subagentForRun = currentSubagent;
         
         const response = await fetch('/api/evaluations/run-subagent-eval', {
             method: 'POST',
@@ -992,6 +983,11 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
+    
+    if (currentWindowVersions && currentWindowVersions.length > 0) {
+        updateTableWindow(currentWindowVersions);
+    }
+    setupSynchronizedScrolling();
 }
 
 // Show notification function
@@ -1125,32 +1121,67 @@ function showNotification(message, type = 'info') {
 
 // Chart instance for MAE chart
 let maeChart = null;
+let allChartData = null; // Store all chart data for windowing
+let chartWindowStart = 0; // Current window start index
+let currentWindowVersions = [];
+const CHART_WINDOW_SIZE = 25; // Show 25 versions at a time
 
-// Render MAE line chart
-function renderMAEChart(aggregates, modelsByVersion = {}) {
+// Render MAE line chart with windowing support
+function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     if (!window.Chart) {
         console.warn('Chart.js not loaded');
         return;
     }
     
-    // Filter aggregates that have nMAE data and exclude specified versions
-    const validAggregates = aggregates.filter(agg => 
-        agg.mean_absolute_error !== null && 
-        agg.config_version && 
-        !excludedVersions.includes(parseInt(agg.config_version))
-    );
+    // Filter aggregates that have MAE data (either normalized or raw) and exclude specified versions
+    const validAggregates = aggregates.filter(agg => {
+        const hasNMAE = agg.mean_absolute_error != null && !isNaN(agg.mean_absolute_error);
+        const hasRawMAE = agg.raw_mae != null && !isNaN(agg.raw_mae);
+        const hasMAEData = hasNMAE || hasRawMAE;
+        const hasConfigVersion = agg.config_version != null;
+        const notExcluded = !excludedVersions.includes(parseInt(agg.config_version));
+        
+        return hasMAEData && hasConfigVersion && notExcluded;
+    });
     
     if (validAggregates.length === 0) {
         document.getElementById('maeChartContainer').classList.add('hidden');
+        allChartData = null;
+        currentWindowVersions = [];
         return;
     }
     
     // Sort by config version
     validAggregates.sort((a, b) => parseInt(a.config_version) - parseInt(b.config_version));
     
-    const labels = validAggregates.map(agg => `v${agg.config_version}`);
-    const nmaeData = validAggregates.map(agg => agg.mean_absolute_error);
-    const maeData = validAggregates.map(agg => agg.raw_mae !== null && agg.raw_mae !== undefined ? agg.raw_mae : null);
+    // Store all data for windowing
+    allChartData = {
+        aggregates: validAggregates,
+        modelsByVersion: modelsByVersion,
+        labels: validAggregates.map(agg => `v${agg.config_version}`),
+        nmaeData: validAggregates.map(agg => agg.mean_absolute_error),
+        maeData: validAggregates.map(agg => agg.raw_mae != null && !isNaN(agg.raw_mae) ? agg.raw_mae : null),
+        versions: validAggregates.map(agg => agg.config_version)
+    };
+    
+    // Reset window to show latest if resetWindow is true or if this is first load
+    if (resetWindow || chartWindowStart === 0) {
+        chartWindowStart = Math.max(0, allChartData.labels.length - CHART_WINDOW_SIZE);
+    }
+    
+    // Ensure window start is valid
+    chartWindowStart = Math.max(0, Math.min(chartWindowStart, allChartData.labels.length - CHART_WINDOW_SIZE));
+    
+    // Get window slice
+    const windowEnd = Math.min(chartWindowStart + CHART_WINDOW_SIZE, allChartData.labels.length);
+    const windowLabels = allChartData.labels.slice(chartWindowStart, windowEnd);
+    const windowNmaeData = allChartData.nmaeData.slice(chartWindowStart, windowEnd);
+    const windowMaeData = allChartData.maeData.slice(chartWindowStart, windowEnd);
+    const windowVersions = allChartData.versions.slice(chartWindowStart, windowEnd);
+    currentWindowVersions = windowVersions;
+    
+    // Update navigation buttons
+    updateChartNavigation();
     
     const chartContainer = document.getElementById('maeChartContainer');
     chartContainer.classList.remove('hidden');
@@ -1159,26 +1190,32 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
+    const chartInner = canvas.parentElement;
+    if (chartInner) {
+        const minWidth = Math.max(900, windowLabels.length * 60);
+        chartInner.style.width = `${minWidth}px`;
+    }
     
     // Destroy existing chart if it exists
     if (maeChart) {
         maeChart.destroy();
     }
     
-    // Determine color based on nMAE values (nMAE thresholds adjusted for normalized scale)
-    const nmaeColors = nmaeData.map(nmae => {
-        if (nmae <= 0.2) return '#10B981'; // green (20% error)
-        if (nmae <= 0.5) return '#F59E0B'; // yellow (50% error)
-        return '#EF4444'; // red (>50% error)
+    // Determine color based on nMAE values
+    const nmaeColors = windowNmaeData.map(nmae => {
+        if (nmae == null || isNaN(nmae)) return '#9CA3AF';
+        if (nmae <= 0.2) return '#10B981';
+        if (nmae <= 0.5) return '#F59E0B';
+        return '#EF4444';
     });
     
     maeChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels: windowLabels,
             datasets: [{
                 label: 'Normalized Mean Absolute Error (nMAE)',
-                data: nmaeData,
+                data: windowNmaeData,
                 borderColor: '#3B82F6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 borderWidth: 2,
@@ -1191,7 +1228,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
                 yAxisID: 'y'
             }, {
                 label: 'Mean Absolute Error (MAE)',
-                data: maeData,
+                data: windowMaeData,
                 borderColor: '#10B981',
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 borderWidth: 2,
@@ -1220,7 +1257,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
                     bodyColor: '#fff',
                     callbacks: {
                         title: function(context) {
-                            const version = validAggregates[context[0].dataIndex].config_version;
+                            const index = context[0].dataIndex;
+                            const version = windowVersions[index];
                             const modelInfo = modelsByVersion[version];
                             let modelText = '';
                             if (modelInfo && modelInfo.agentModel && modelInfo.agentModel !== 'N/A') {
@@ -1283,7 +1321,12 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
                 },
                 x: {
                     ticks: {
-                        color: '#9CA3AF'
+                        color: '#9CA3AF',
+                        maxRotation: 45,
+                        minRotation: 45,
+                        maxTicksLimit: 200, // Show all labels (set high enough for all versions)
+                        autoSkip: false, // Don't skip any labels
+                        stepSize: 1 // Show every label
                     },
                     grid: {
                         color: 'rgba(156, 163, 175, 0.1)'
@@ -1292,6 +1335,131 @@ function renderMAEChart(aggregates, modelsByVersion = {}) {
             }
         }
     });
+    
+    // Force chart update to ensure all data is rendered
+    maeChart.update('none');
+    
+    // Setup synchronized scrolling
+    setupSynchronizedScrolling();
+    
+    // Update table to match chart window
+    updateTableWindow(windowVersions);
+}
+
+// Update chart navigation buttons
+function updateChartNavigation() {
+    if (!allChartData) return;
+    
+    const prevBtn = document.getElementById('chartPrevBtn');
+    const nextBtn = document.getElementById('chartNextBtn');
+    const rangeDisplay = document.getElementById('chartRangeDisplay');
+    
+    if (!prevBtn || !nextBtn || !rangeDisplay) return;
+    
+    const total = allChartData.labels.length;
+    const windowEnd = Math.min(chartWindowStart + CHART_WINDOW_SIZE, total);
+    
+    prevBtn.disabled = chartWindowStart === 0;
+    nextBtn.disabled = windowEnd >= total;
+    
+    rangeDisplay.textContent = `${chartWindowStart + 1}-${windowEnd} of ${total}`;
+}
+
+// Navigate chart window
+function navigateChartWindow(direction) {
+    if (!allChartData) return;
+    
+    const total = allChartData.labels.length;
+    const maxStart = Math.max(0, total - CHART_WINDOW_SIZE);
+    
+    if (direction === 'prev') {
+        chartWindowStart = Math.max(0, chartWindowStart - CHART_WINDOW_SIZE);
+    } else if (direction === 'next') {
+        chartWindowStart = Math.min(maxStart, chartWindowStart + CHART_WINDOW_SIZE);
+    }
+    
+    // Re-render chart with new window
+    renderMAEChart(allChartData.aggregates, allChartData.modelsByVersion, false);
+}
+
+// Setup synchronized scrolling between chart and table
+function setupSynchronizedScrolling() {
+    const chartScrollContainer = document.getElementById('chartScrollContainer');
+    const tableScrollContainer = document.getElementById('resultsTableScrollContainer');
+    
+    if (!chartScrollContainer || !tableScrollContainer) return;
+    
+    let isScrolling = false;
+    
+    chartScrollContainer.onscroll = () => {
+        if (isScrolling) return;
+        isScrolling = true;
+        const chartMax = chartScrollContainer.scrollWidth - chartScrollContainer.clientWidth;
+        const tableMax = tableScrollContainer.scrollWidth - tableScrollContainer.clientWidth;
+        const scrollRatio = chartMax > 0 ? chartScrollContainer.scrollLeft / chartMax : 0;
+        tableScrollContainer.scrollLeft = scrollRatio * tableMax;
+        setTimeout(() => { isScrolling = false; }, 10);
+    };
+    
+    tableScrollContainer.onscroll = () => {
+        if (isScrolling) return;
+        isScrolling = true;
+        const chartMax = chartScrollContainer.scrollWidth - chartScrollContainer.clientWidth;
+        const tableMax = tableScrollContainer.scrollWidth - tableScrollContainer.clientWidth;
+        const scrollRatio = tableMax > 0 ? tableScrollContainer.scrollLeft / tableMax : 0;
+        chartScrollContainer.scrollLeft = scrollRatio * chartMax;
+        setTimeout(() => { isScrolling = false; }, 10);
+    };
+}
+
+// Update table to show only versions in current window
+function updateTableWindow(windowVersions) {
+    if (!windowVersions || windowVersions.length === 0) return;
+    
+    const table = document.querySelector('#resultsTableScrollContainer table');
+    if (!table) return;
+    
+    // Get all version columns
+    const headerRow = table.querySelector('thead tr');
+    const bodyRows = table.querySelectorAll('tbody tr');
+    
+    if (!headerRow) return;
+    
+    // Hide/show columns based on window
+    const headerCells = Array.from(headerRow.querySelectorAll('th'));
+    headerCells.forEach((th, index) => {
+        if (index < 2) return; // Skip Article ID and Expected columns
+        
+        const versionText = th.textContent.trim();
+        const versionMatch = versionText.match(/^v(\d+)$/);
+        if (versionMatch) {
+            const version = parseInt(versionMatch[1]);
+            if (windowVersions.includes(version)) {
+                th.style.display = '';
+            } else {
+                th.style.display = 'none';
+            }
+        }
+    });
+    
+    bodyRows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        cells.forEach((td, index) => {
+            if (index < 2) return; // Skip Article ID and Expected columns
+            
+            const headerCell = headerCells[index];
+            if (headerCell && headerCell.style.display === 'none') {
+                td.style.display = 'none';
+            } else {
+                td.style.display = '';
+            }
+        });
+    });
+    
+    const chartScrollContainer = document.getElementById('chartScrollContainer');
+    const tableScrollContainer = document.getElementById('resultsTableScrollContainer');
+    if (chartScrollContainer) chartScrollContainer.scrollLeft = 0;
+    if (tableScrollContainer) tableScrollContainer.scrollLeft = 0;
 }
 
 // Load aggregate scores for current subagent
@@ -1308,8 +1476,8 @@ async function loadAggregateScores() {
         return;
     }
     
-    // For API calls, use base subagent name (hunt_queries returns both EDR and SIGMA)
-    const apiSubagent = subagent === 'hunt_queries' ? 'hunt_queries' : subagent;
+    // Use subagent directly (no feature selection for hunt_queries)
+    const apiSubagent = subagent;
     const agentName = SUBAGENT_MAP[subagent] || 'CmdlineExtract';
     const aggregateScores = document.getElementById('aggregateScores');
     const aggregateScoresContent = document.getElementById('aggregateScoresContent');
@@ -1384,7 +1552,7 @@ async function loadAggregateScores() {
         }
         
         // Render MAE chart
-        renderMAEChart(filteredAggregates, configParamsByVersion);
+        renderMAEChart(filteredAggregates, configParamsByVersion, true); // Reset window to show latest
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';
@@ -1505,12 +1673,7 @@ async function loadPreviousResults() {
         const data = await response.json();
         let results = data.results || [];
         
-        // For hunt_queries, filter by selected feature (EDR or SIGMA)
-        if (subagentSelect === 'hunt_queries') {
-            const featureSelect = document.getElementById('huntQueryFeatureSelect');
-            const selectedFeature = featureSelect ? featureSelect.value : 'hunt_queries_edr';
-            results = results.filter(r => r.subagent_name === selectedFeature);
-        }
+        // No filtering needed - hunt_queries is now a single type
         
         if (results.length === 0) {
             resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No previous results found for this subagent.</p>';
@@ -1664,28 +1827,13 @@ document.getElementById('deselectAllBtn').addEventListener('click', () => {
     updateRunButton();
 });
 
-// Get effective subagent value (uses feature selection for hunt_queries)
+// Get effective subagent value
 function getEffectiveSubagent() {
-    const subagent = document.getElementById('subagentSelect').value;
-    if (subagent === 'hunt_queries') {
-        const featureSelect = document.getElementById('huntQueryFeatureSelect');
-        return featureSelect ? featureSelect.value : 'hunt_queries_edr';
-    }
-    return subagent;
+    return document.getElementById('subagentSelect').value;
 }
 
 // Auto-load previous results when subagent changes
 document.getElementById('subagentSelect').addEventListener('change', () => {
-    const subagent = document.getElementById('subagentSelect').value;
-    const featureContainer = document.getElementById('huntQueryFeatureContainer');
-    
-    // Show/hide hunt query feature dropdown
-    if (subagent === 'hunt_queries') {
-        featureContainer.classList.remove('hidden');
-    } else {
-        featureContainer.classList.add('hidden');
-    }
-    
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
@@ -1720,71 +1868,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // Setup chart navigation buttons
+    const prevBtn = document.getElementById('chartPrevBtn');
+    const nextBtn = document.getElementById('chartNextBtn');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => navigateChartWindow('prev'));
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => navigateChartWindow('next'));
+    }
+    
     // Auto-load previous results on page load after config is loaded
     loadActiveConfig().then(() => {
         loadPreviousResults();
     });
-    
-    const featureSelect = document.getElementById('huntQueryFeatureSelect');
-    if (featureSelect) {
-        featureSelect.addEventListener('change', () => {
-            // Update currentSubagent
-            currentSubagent = getEffectiveSubagent();
-            
-            // Re-render articles if they're already loaded (to update expected counts)
-            if (evalArticles && evalArticles.length > 0) {
-                const articleList = document.getElementById('articleList');
-                const existingArticles = articleList.querySelectorAll('div[class*="border"]');
-                existingArticles.forEach((div, index) => {
-                    if (index < evalArticles.length) {
-                        const article = evalArticles[index];
-                        const label = div.querySelector('label');
-                        if (label) {
-                            const subagentSelect = document.getElementById('subagentSelect');
-                            if (subagentSelect && subagentSelect.value === 'hunt_queries') {
-                                const featureSelect = document.getElementById('huntQueryFeatureSelect');
-                                const selectedFeature = featureSelect ? featureSelect.value : 'hunt_queries_edr';
-                                const urlDisplay = article.url.length > 60 ? article.url.substring(0, 60) + '...' : article.url;
-                                const foundBadge = article.found ? 
-                                    '<span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded ml-2">Found</span>' :
-                                    '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
-                                
-                                let expectedCountDisplay = '';
-                                if (selectedFeature === 'hunt_queries_edr') {
-                                    expectedCountDisplay = `Expected EDR: ${article.expected_edr_count !== undefined ? article.expected_edr_count : 'N/A'}`;
-                                } else {
-                                    expectedCountDisplay = `Expected SIGMA: ${article.expected_sigma_count !== undefined ? article.expected_sigma_count : 'N/A'}`;
-                                }
-                                
-                                label.innerHTML = `
-                                    <span class="font-medium">${urlDisplay}</span>
-                                    <span class="text-gray-500 dark:text-gray-400 ml-2">${expectedCountDisplay}</span>
-                                    ${foundBadge}
-                                `;
-                            }
-                        }
-                    }
-                });
-            }
-            
-            // Auto-load previous results when feature changes
-            const resultsTable = document.getElementById('resultsTable');
-            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
-            
-            // Clear aggregate scores
-            const aggregateScoresContent = document.getElementById('aggregateScoresContent');
-            if (aggregateScoresContent) {
-                aggregateScoresContent.innerHTML = '';
-            }
-            const aggregateScores = document.getElementById('aggregateScores');
-            if (aggregateScores) {
-                aggregateScores.classList.add('hidden');
-            }
-            
-            // Auto-load previous results after clearing
-            loadPreviousResults();
-        });
-    }
 });
 
 // Show commandlines modal
@@ -1817,11 +1916,6 @@ async function showCommandlines(executionId, articleUrl, count) {
         const resultType = data.result_type || 'cmdline';
         const subagentEval = data.subagent_eval || '';
         
-        // For hunt_queries, get separate EDR queries and SIGMA rules if available
-        const edrQueries = data.edr_queries || [];
-        const sigmaRules = data.sigma_rules || [];
-        const hasSeparateData = (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') && (edrQueries.length > 0 || sigmaRules.length > 0);
-        
         // Show truncation warnings if any
         if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
             data.warnings.forEach(warning => {
@@ -1850,7 +1944,7 @@ async function showCommandlines(executionId, articleUrl, count) {
         exportBtn.dataset.executionId = executionId;
         exportBtn.dataset.agentName = agentName;
         
-        if (commandlines.length === 0 && !hasSeparateData) {
+        if (commandlines.length === 0) {
             let emptyMessage = 'No commandlines found for this execution.';
             if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
                 emptyMessage = 'No process lineage relationships found for this execution.';
@@ -1870,7 +1964,7 @@ async function showCommandlines(executionId, articleUrl, count) {
         let html = `
             <div class="mb-4">
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Found <strong class="text-gray-700 dark:text-gray-300">${hasSeparateData ? (edrQueries.length + sigmaRules.length) : commandlines.length}</strong> ${hasSeparateData ? 'item(s)' : (resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)')} 
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)'} 
                     from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -1879,102 +1973,8 @@ async function showCommandlines(executionId, articleUrl, count) {
             </div>
         `;
         
-        // For hunt_queries with separate data, display EDR queries and SIGMA rules separately
-        if (hasSeparateData) {
-            // EDR Queries Section
-            if (edrQueries.length > 0) {
-                html += `
-                    <div class="mb-6">
-                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                            <span class="px-2 py-1 text-xs rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium">EDR QUERIES</span>
-                            <span class="text-xs text-gray-500 dark:text-gray-400">(${edrQueries.length})</span>
-                        </h4>
-                        <div class="space-y-2">
-                `;
-                
-                edrQueries.forEach((item, index) => {
-                    let displayContent = '';
-                    if (typeof item === 'object' && item !== null) {
-                        const query = item.query || item.query_text || item.value || 'N/A';
-                        const queryType = item.type || item.platform || 'unknown';
-                        const context = item.context || item.source_context || '';
-                        const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
-                        displayContent = `<span class="px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">${escapeHtml(queryType)}</span> <span class="font-mono">${escapeHtml(String(query))}</span>${contextDisplay}`;
-                    } else {
-                        displayContent = escapeHtml(String(item));
-                    }
-                    
-                    html += `
-                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                            <div class="flex items-start gap-3">
-                                <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
-                                <div class="flex-1 text-sm text-gray-800 dark:text-gray-200">${displayContent}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += '</div></div>';
-            }
-            
-            // SIGMA Rules Section
-            if (sigmaRules.length > 0) {
-                html += `
-                    <div class="mb-6">
-                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                            <span class="px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 font-medium">SIGMA RULES</span>
-                            <span class="text-xs text-gray-500 dark:text-gray-400">(${sigmaRules.length})</span>
-                        </h4>
-                        <div class="space-y-2">
-                `;
-                
-                sigmaRules.forEach((item, index) => {
-                    let displayContent = '';
-                    if (typeof item === 'object' && item !== null) {
-                        // Extract title from sigma_text if present, otherwise use title/id fields
-                        let title = item.title || item.id || 'Untitled Rule';
-                        let yaml = item.yaml || '';
-                        const sigmaText = item.sigma_text || '';
-                        
-                        // If we have sigma_text but no title/yaml, extract title from sigma_text
-                        if (sigmaText && (!item.title && !item.yaml)) {
-                            // Extract title from sigma_text (format: "title: ... status:" or "title: ... description:")
-                            // Title ends at the next field (status, description, author, etc.)
-                            const titleMatch = sigmaText.match(/title:\s*([^\n]+?)(?:\s+status:|\s+description:|\s+author:|\s+references:|\s+date:|\s+logsource:|\s+detection:|\n|$)/i);
-                            if (titleMatch) {
-                                title = titleMatch[1].trim();
-                            } else {
-                                // Fallback: extract everything after "title:" until newline
-                                const fallbackMatch = sigmaText.match(/title:\s*([^\n]+)/i);
-                                if (fallbackMatch) {
-                                    title = fallbackMatch[1].trim();
-                                }
-                            }
-                            yaml = sigmaText;
-                        }
-                        
-                        const context = item.context || item.source_context || '';
-                        const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
-                        const yamlDisplay = yaml ? `<div class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">${escapeHtml(yaml)}</div>` : '';
-                        displayContent = `<div><strong class="text-gray-800 dark:text-gray-200">${escapeHtml(title)}</strong>${contextDisplay}${yamlDisplay}</div>`;
-                    } else {
-                        displayContent = escapeHtml(String(item));
-                    }
-                    
-                    html += `
-                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                            <div class="flex items-start gap-3">
-                                <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
-                                <div class="flex-1 text-sm text-gray-800 dark:text-gray-200">${displayContent}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += '</div></div>';
-            }
-        } else {
-            // Standard display for other types or fallback
+        // Display commandlines/queries
+        if (commandlines.length > 0) {
             html += '<div class="space-y-2">';
             
             commandlines.forEach((item, index) => {
