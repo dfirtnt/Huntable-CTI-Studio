@@ -83,14 +83,9 @@
                 </button>
             </div>
 
-            <!-- Active Config Display -->
+            <!-- Current Config Display -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Active Workflow Config
-                </label>
-                <div id="activeConfigDisplay" class="p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700">
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading config...</p>
-                </div>
+                {% include 'components/workflow_config_snippet.html' %}
             </div>
         </div>
     </div>
@@ -215,7 +210,7 @@ let activeConfig = null;
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
 let executionResults = {};
-const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037];
+const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037, 5220];
 
 // Map dropdown values to agent names
 const SUBAGENT_MAP = {
@@ -224,110 +219,22 @@ const SUBAGENT_MAP = {
     'hunt_queries': 'HuntQueriesExtract'
 };
 
-// Get latest prompt comment for an agent
-async function getLatestPromptComment(agentName) {
-    try {
-        const response = await fetch(`/api/workflow/config/prompts/${encodeURIComponent(agentName)}/versions`);
-        if (!response.ok) {
-            return null;
-        }
-        const data = await response.json();
-        if (data.versions && data.versions.length > 0) {
-            // Get the latest version (first in the list since it's ordered desc)
-            const latest = data.versions[0];
-            return latest.change_description || null;
-        }
-        return null;
-    } catch (error) {
-        console.error(`Error fetching prompt comment for ${agentName}:`, error);
-        return null;
-    }
-}
-
 // Load active workflow config
 async function loadActiveConfig() {
     try {
-        const subagentValue = document.getElementById('subagentSelect').value;
-        const agentName = SUBAGENT_MAP[subagentValue] || SUBAGENT_MAP[subagentValue === 'hunt_queries' ? 'hunt_queries' : 'cmdline'] || 'CmdlineExtract';
-        
         const response = await fetch('/api/workflow/config');
         const data = await response.json();
         activeConfig = data;
-        
-        const configDisplay = document.getElementById('activeConfigDisplay');
-        
-        const models = data.agent_models || {};
-        const qaEnabled = data.qa_enabled || {};
-        
-        // Get agent-specific parameters
-        const temperature = models[`${agentName}_temperature`] || models[`${agentName}_model_temperature`] || 'N/A';
-        const topP = models[`${agentName}_top_p`] || models[`${agentName}_model_top_p`] || 'N/A';
-        const contextWindow = models[`${agentName}_context_window`] || models[`${agentName}_model_context_window`] || 'N/A';
-        
-        // Get LLM Provider and Model for the agent being evaluated
-        const agentProvider = models[`${agentName}_provider`] || 'lmstudio';
-        const agentModelKey = `${agentName}_model`;
-        const agentModel = models[agentModelKey] || 'N/A';
-        
-        // Get QA agent status - qa_enabled uses agent name (CmdlineExtract), not QA name (CmdLineQA)
-        const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
-                           agentName === 'ProcTreeExtract' ? 'ProcTreeQA' : null;
-        
-        // Check qa_enabled using the agent name, not the QA agent name
-        const qaStatus = qaAgentName ? (qaEnabled[agentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
-        
-        // Get QA agent model info if enabled
-        // QA models can fallback to ExtractAgent model if not explicitly set
-        let qaModelInfo = '';
-        if (qaAgentName && qaEnabled[agentName] === true) {
-            let qaModel = models[qaAgentName];
-            let qaProvider = models[`${qaAgentName}_provider`];
-            
-            // If QA model not set, check for fallback to ExtractAgent
-            if (!qaModel || qaModel === '' || qaModel === null) {
-                qaModel = models['ExtractAgent'];
-                if (!qaProvider || qaProvider === '' || qaProvider === null) {
-                    qaProvider = models['ExtractAgent_provider'] || 'lmstudio';
-                }
-            } else {
-                qaProvider = qaProvider || 'lmstudio';
-            }
-            
-            if (qaModel) {
-                qaModelInfo = `<p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">QA Agent Model:</strong> ${qaModel} (${qaProvider})</p>`;
-            } else {
-                qaModelInfo = `<p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">QA Agent Model:</strong> Not configured</p>`;
-            }
-        }
-        
-        // Get prompt save comment
-        const promptComment = await getLatestPromptComment(agentName);
-        
-        const extraHtml = `
-            <div class="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
-                <p class="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">Agent: ${agentName}</p>
-                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">LLM Provider:</strong> ${agentProvider}</p>
-                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">LLM Model:</strong> ${agentModel}</p>
-                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">Temp:</strong> ${temperature}</p>
-                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">Top_P:</strong> ${topP}</p>
-                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">QA Agent Status:</strong> ${qaStatus}</p>
-                ${qaModelInfo}
-                <p class="text-xs"><strong class="text-gray-900 dark:text-gray-100">Prompt Save Comments:</strong> ${promptComment || 'None'}</p>
-            </div>
-        `;
 
         if (typeof renderWorkflowConfigDisplay === 'function') {
-            renderWorkflowConfigDisplay(data, {
-                containerId: 'activeConfigDisplay',
-                extraHtml: extraHtml,
-                showThresholds: true, // Shows junk filter threshold if available
-                showVersion: true
-            });
+            renderWorkflowConfigDisplay(data);
         }
     } catch (error) {
         console.error('Error loading active config:', error);
-        const configDisplay = document.getElementById('activeConfigDisplay');
-        configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
+        const configDisplay = document.getElementById('configDisplay');
+        if (configDisplay) {
+            configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
+        }
     }
 }
 
@@ -1458,8 +1365,20 @@ function updateTableWindow(windowVersions) {
     
     const chartScrollContainer = document.getElementById('chartScrollContainer');
     const tableScrollContainer = document.getElementById('resultsTableScrollContainer');
-    if (chartScrollContainer) chartScrollContainer.scrollLeft = 0;
-    if (tableScrollContainer) tableScrollContainer.scrollLeft = 0;
+    requestAnimationFrame(() => {
+        if (chartScrollContainer) {
+            chartScrollContainer.scrollLeft = Math.max(
+                0,
+                chartScrollContainer.scrollWidth - chartScrollContainer.clientWidth
+            );
+        }
+        if (tableScrollContainer) {
+            tableScrollContainer.scrollLeft = Math.max(
+                0,
+                tableScrollContainer.scrollWidth - tableScrollContainer.clientWidth
+            );
+        }
+    });
 }
 
 // Load aggregate scores for current subagent
