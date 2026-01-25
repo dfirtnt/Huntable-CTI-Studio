@@ -85,6 +85,7 @@
 
             <!-- Current Config Display -->
             <div>
+                {% set show_eval_config_help = true %}
                 {% include 'components/workflow_config_snippet.html' %}
             </div>
         </div>
@@ -528,6 +529,76 @@ function updateRunButton() {
     runBtn.disabled = selectedArticleUrls.size === 0;
 }
 
+// Help modal function
+function showHelp(fieldName) {
+    const helpTexts = {
+        'evalCurrentConfig': {
+            title: 'Eval Configuration Constraints',
+            content: `<p class="mb-2">These values reflect the active agent config only.</p>
+                      <p class="mb-2"><strong>Hardcoded constraints:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Rank agent is skipped in eval runs.</li>
+                          <li>OS detection is skipped in eval runs.</li>
+                          <li>SIGMA rule generation is skipped (no rules created).</li>
+                          <li>Each eval runs a single extraction subagent (the selected one).</li>
+                          <li>Extractor QA runs only if enabled for that subagent.</li>
+                      </ul>
+                      <p class="mb-2"><strong>Evaluation scope:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Scoring is expected-count only.</li>
+                          <li>No string accuracy checks.</li>
+                          <li>No hallucination checks.</li>
+                      </ul>`
+        }
+    };
+    
+    const help = helpTexts[fieldName];
+    if (!help) return;
+    
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
+                    ${help.content}
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
+}
+
 // Run evaluation
 async function runEvaluation() {
     if (selectedArticleUrls.size === 0) {
@@ -895,6 +966,17 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         updateTableWindow(currentWindowVersions);
     }
     setupSynchronizedScrolling();
+    
+    // Scroll table to the right on first load
+    requestAnimationFrame(() => {
+        const tableScrollContainer = document.getElementById('resultsTableScrollContainer');
+        if (tableScrollContainer) {
+            tableScrollContainer.scrollLeft = Math.max(
+                0,
+                tableScrollContainer.scrollWidth - tableScrollContainer.clientWidth
+            );
+        }
+    });
 }
 
 // Show notification function
@@ -1251,6 +1333,17 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     
     // Update table to match chart window
     updateTableWindow(windowVersions);
+    
+    // Scroll chart to the right on first load
+    requestAnimationFrame(() => {
+        const chartScrollContainer = document.getElementById('chartScrollContainer');
+        if (chartScrollContainer) {
+            chartScrollContainer.scrollLeft = Math.max(
+                0,
+                chartScrollContainer.scrollWidth - chartScrollContainer.clientWidth
+            );
+        }
+    });
 }
 
 // Update chart navigation buttons
@@ -1365,7 +1458,9 @@ function updateTableWindow(windowVersions) {
     
     const chartScrollContainer = document.getElementById('chartScrollContainer');
     const tableScrollContainer = document.getElementById('resultsTableScrollContainer');
-    requestAnimationFrame(() => {
+    
+    // Use a small delay to ensure DOM is fully updated
+    setTimeout(() => {
         if (chartScrollContainer) {
             chartScrollContainer.scrollLeft = Math.max(
                 0,
@@ -1378,7 +1473,7 @@ function updateTableWindow(windowVersions) {
                 tableScrollContainer.scrollWidth - tableScrollContainer.clientWidth
             );
         }
-    });
+    }, 50);
 }
 
 // Load aggregate scores for current subagent
