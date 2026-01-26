@@ -12064,18 +12064,22 @@ async function openEnrichModal() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) return;
     
-    // Ensure rule modal is in stack if it's open
+    // Ensure rule modal is registered and tracked if it's open
     const ruleModal = document.getElementById('ruleModal');
+    const modalStack = window.ModalManager ? window.ModalManager.getStack() : [];
+    
     if (ruleModal && !ruleModal.classList.contains('hidden')) {
-        // Check if rule modal is already in stack
-        if (!modalStack.includes('ruleModal')) {
-            // Add rule modal to stack BEFORE pushing enrich modal
-            modalStack.push('ruleModal');
+        // Ensure rule modal is registered and in stack
+        if (window.ModalManager && !modalStack.includes('ruleModal')) {
+            window.ModalManager.register('ruleModal', { isDynamic: false });
+            // Modal is already visible, ensure it's tracked in stack
+            // Call open with hidePrevious=false to add to stack without hiding anything
+            window.ModalManager.open('ruleModal', false);
         }
-    } else if (currentRuleId) {
-        // Rule modal should be open but isn't - this shouldn't happen, but ensure it's in stack
+    } else if (currentRuleId && window.ModalManager) {
+        // Rule modal should be open but isn't - ensure it's registered
         if (!modalStack.includes('ruleModal')) {
-            modalStack.push('ruleModal');
+            window.ModalManager.register('ruleModal', { isDynamic: false });
         }
     }
     
