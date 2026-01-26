@@ -109,9 +109,15 @@ level: medium
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
         """Test SIGMA rule generation with retry logic."""
-        invalid_yaml = "This is not valid YAML"
-        valid_rule = """
-title: Test Rule
+        # Invalid but parseable rule (missing detection field)
+        invalid_rule = """title: Test Rule
+id: test-123
+description: Test
+logsource:
+    category: process_creation
+    product: windows
+"""
+        valid_rule = """title: Test Rule
 id: test-123
 description: Test
 logsource:
@@ -135,12 +141,21 @@ level: low
                 mock_prompt.return_value = "Generate SIGMA rule"
                 
                 with patch.object(service, '_call_provider_for_sigma') as mock_call:
-                    # First attempt returns invalid YAML, second returns valid
-                    mock_call.side_effect = [invalid_yaml, valid_rule]
+                    # First generation returns invalid rule, repair returns valid
+                    call_count = [0]
+                    def call_side_effect(*args, **kwargs):
+                        call_count[0] += 1
+                        # First call is generation (Phase 1), subsequent calls are repair (Phase 3)
+                        if call_count[0] == 1:
+                            return invalid_rule
+                        else:
+                            return valid_rule
+                    mock_call.side_effect = call_side_effect
                     
                     with patch('src.services.sigma_generation_service.validate_sigma_rule') as mock_validate:
                         def validate_side_effect(rule_str):
-                            if 'title:' in rule_str:
+                            # Check if rule has detection field
+                            if 'detection:' in rule_str and 'condition:' in rule_str:
                                 try:
                                     parsed = yaml.safe_load(rule_str)
                                     return ValidationResult(
@@ -152,11 +167,12 @@ level: low
                                     )
                                 except:
                                     pass
+                            # Invalid rule (missing detection)
                             return ValidationResult(
                                 is_valid=False,
-                                errors=['Invalid YAML'],
+                                errors=['Missing required field: detection'],
                                 warnings=[],
-                                metadata=None,
+                                metadata={'rule': yaml.safe_load(rule_str) if 'title:' in rule_str else None},
                                 content_preview=rule_str
                             )
                         

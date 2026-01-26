@@ -389,6 +389,139 @@ class TestCriticalAPIs:
         assert data.get("status") in ["healthy", "unhealthy"]  # Accept either, just verify endpoint works
         assert "workers" in data or "status" in data
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_annotation_creation_smoke(self, async_client: httpx.AsyncClient):
+        """Test annotation creation endpoint accessibility and write operation if articles available."""
+        # Try to get an article for testing
+        articles_response = await async_client.get("/api/articles?limit=1")
+        article_id = None
+        
+        if articles_response.status_code == 200:
+            articles_data = articles_response.json()
+            if articles_data.get("articles"):
+                article_id = articles_data["articles"][0]["id"]
+        
+        # If no articles, test endpoint accessibility with non-existent article
+        if not article_id:
+            article_id = 999999  # Non-existent article ID
+        
+        annotation_id = None
+        
+        try:
+            # Create annotation with valid text length
+            annotation_data = {
+                "annotation_type": "huntable",
+                "selected_text": "x" * 1000,  # Exactly 1000 characters
+                "start_position": 0,
+                "end_position": 1000,
+                "context_before": "",
+                "context_after": "",
+                "confidence_score": 1.0
+            }
+            
+            response = await async_client.post(
+                f"/api/articles/{article_id}/annotations",
+                json=annotation_data
+            )
+            
+            # If article doesn't exist, verify we get 404 (not 405 method not allowed)
+            if article_id == 999999:
+                assert response.status_code == 404, f"Expected 404 for non-existent article, got {response.status_code}"
+                data = response.json()
+                assert "detail" in data
+                return  # Endpoint is accessible, test passes
+            
+            # If article exists, verify creation succeeded
+            assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+            data = response.json()
+            assert data["success"] is True
+            assert "annotation" in data
+            annotation_id = data["annotation"]["id"]
+            
+            # Verify annotation persists by fetching it
+            get_response = await async_client.get(f"/api/articles/{article_id}/annotations")
+            assert get_response.status_code == 200
+            annotations = get_response.json().get("annotations", [])
+            assert any(a["id"] == annotation_id for a in annotations), "Annotation not found after creation"
+            
+        finally:
+            # Cleanup: delete the annotation if it was created
+            if annotation_id:
+                try:
+                    delete_response = await async_client.delete(f"/api/articles/{article_id}/annotations/{annotation_id}")
+                    # Accept 200 or 404 (already deleted)
+                    assert delete_response.status_code in [200, 404]
+                except Exception:
+                    pass  # Ignore cleanup errors in smoke test
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_workflow_trigger_smoke(self, async_client: httpx.AsyncClient):
+        """Test workflow trigger endpoint accepts requests (doesn't wait for completion)."""
+        # Try to get an article for testing
+        articles_response = await async_client.get("/api/articles?limit=1")
+        article_id = None
+        
+        if articles_response.status_code == 200:
+            articles_data = articles_response.json()
+            if articles_data.get("articles"):
+                article_id = articles_data["articles"][0]["id"]
+        
+        # If no articles, test endpoint accessibility with non-existent article
+        if not article_id:
+            article_id = 999999  # Non-existent article ID
+        
+        # Trigger workflow (may return 400 if execution already exists, or 404 if article doesn't exist)
+        response = await async_client.post(f"/api/workflow/articles/{article_id}/trigger")
+        
+        # Accept 200 (success), 400 (validation/duplicate), 404 (article not found), or 500 (server error)
+        # Just verify endpoint is accessible and responds appropriately (not 405 method not allowed)
+        assert response.status_code in [200, 400, 404, 500], f"Unexpected status {response.status_code}"
+        
+        if response.status_code == 200:
+            data = response.json()
+            assert "execution_id" in data or "message" in data
+        elif response.status_code in [400, 404]:
+            data = response.json()
+            assert "detail" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_sigma_generation_endpoint_smoke(self, async_client: httpx.AsyncClient):
+        """Test SIGMA generation endpoint is accessible (doesn't require API key for smoke test)."""
+        # Try to get an article for testing
+        articles_response = await async_client.get("/api/articles?limit=1")
+        article_id = None
+        
+        if articles_response.status_code == 200:
+            articles_data = articles_response.json()
+            if articles_data.get("articles"):
+                article_id = articles_data["articles"][0]["id"]
+        
+        # If no articles, test endpoint accessibility with non-existent article
+        if not article_id:
+            article_id = 999999  # Non-existent article ID
+        
+        # Try to access SIGMA generation endpoint without API key
+        # Should return 400 (missing API key), 404 (article not found), or 500 (server error)
+        # Not 405 (method not allowed) - proves endpoint exists
+        response = await async_client.post(
+            f"/api/articles/{article_id}/generate-sigma",
+            json={}
+        )
+        
+        # Accept 400 (validation error), 404 (article not found), or 500 (server error)
+        # Just verify endpoint exists and is accessible (not 405 method not allowed)
+        assert response.status_code in [400, 404, 500], f"Unexpected status {response.status_code}"
+        
+        if response.status_code in [400, 500]:
+            data = response.json()
+            assert "detail" in data or "error" in data or "message" in data
+
 
 class TestPerformance:
     """Test performance and response times."""

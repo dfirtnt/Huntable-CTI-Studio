@@ -147,7 +147,7 @@ class TestArticlesSearchAndFilter:
         page.wait_for_timeout(1000)
         
         # Verify URL contains search parameter
-        expect(page).to_have_url(re.compile(r"search=malware")
+        expect(page).to_have_url(re.compile(r".*search=malware.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -174,7 +174,7 @@ class TestArticlesSearchAndFilter:
             page.wait_for_timeout(1000)
             
             # Verify URL contains source parameter
-            expect(page).to_have_url(re.compile(r"source=")
+            expect(page).to_have_url(re.compile(r".*source=.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -204,7 +204,7 @@ class TestArticlesSearchAndFilter:
         page.wait_for_timeout(1000)
         
         # Verify URL contains classification parameter
-        expect(page).to_have_url(re.compile(r"classification=chosen")
+        expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -228,7 +228,7 @@ class TestArticlesSearchAndFilter:
         page.wait_for_timeout(1000)
         
         # Verify URL contains score range parameter
-        expect(page).to_have_url(re.compile(r"threat_hunting_range=80-100")
+        expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -277,7 +277,7 @@ class TestArticlesSearchAndFilter:
         page.wait_for_load_state("networkidle")
         
         # Verify URL is reset (no filter parameters)
-        expect(page).to_have_url(re.compile(r"/articles")
+        expect(page).to_have_url(re.compile(r".*/articles.*"))
         # URL may still have some params, but classification should be gone
     
     @pytest.mark.ui
@@ -437,7 +437,7 @@ class TestArticlesSorting:
         page.wait_for_timeout(1000)
         
         # Verify URL contains sort parameter
-        expect(page).to_have_url(re.compile(r"sort_by=title")
+        expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -475,8 +475,8 @@ class TestArticlesSorting:
         page.wait_for_timeout(1000)
         
         # Verify both parameters are in URL
-        expect(page).to_have_url(re.compile(r"classification=chosen")
-        expect(page).to_have_url(re.compile(r"sort_by=title")
+        expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
+        expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -538,7 +538,7 @@ class TestArticlesPagination:
         page.wait_for_timeout(1000)
         
         # Verify URL contains per_page parameter
-        expect(page).to_have_url(re.compile(r"per_page=50")
+        expect(page).to_have_url(re.compile(r".*per_page=50.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -570,7 +570,7 @@ class TestArticlesPagination:
             page.wait_for_load_state("networkidle")
             
             # Verify page changed
-            expect(page).to_have_url(re.compile(r"page=1")
+            expect(page).to_have_url(re.compile(r".*page=1.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -588,7 +588,7 @@ class TestArticlesPagination:
             page.wait_for_load_state("networkidle")
             
             # Verify filter is preserved
-            expect(page).to_have_url(re.compile(r"classification=chosen")
+            expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -633,7 +633,7 @@ class TestArticlesPagination:
             page.wait_for_load_state("networkidle")
             
             # Verify sort is preserved
-            expect(page).to_have_url(re.compile(r"sort_by=title")
+            expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -1032,7 +1032,7 @@ class TestArticlesCardFeatures:
             page.wait_for_load_state("networkidle")
             
             # Verify navigation to article detail page
-            expect(page).to_have_url(re.compile(rr".*\/articles\/\d+")
+            expect(page).to_have_url(re.compile(r".*/articles/\d+.*"))
     
     @pytest.mark.ui
     @pytest.mark.articles

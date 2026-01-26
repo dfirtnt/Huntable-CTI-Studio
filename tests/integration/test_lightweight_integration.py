@@ -36,7 +36,9 @@ class TestDataIngestionPipeline:
         
         # Mock RSS feed response
         mock_response = MagicMock()
-        mock_response.text = """
+        # Provide longer content to pass content filtering (minimum ~2000 chars)
+        long_content = "This is a comprehensive test article about threat intelligence with TTP indicators. " * 30
+        mock_response.text = f"""
         <?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">
             <channel>
@@ -44,7 +46,7 @@ class TestDataIngestionPipeline:
                 <item>
                     <title>Test Threat Intelligence Article</title>
                     <link>https://example.com/article1</link>
-                    <description>This is a test article about threat intelligence with TTP indicators.</description>
+                    <description>{long_content}</description>
                     <pubDate>Wed, 01 Jan 2024 12:00:00 GMT</pubDate>
                 </item>
             </channel>
@@ -65,10 +67,16 @@ class TestDataIngestionPipeline:
             id=1,
             title="Test Threat Intelligence Article",
             content="This is a test article about threat intelligence with TTP indicators.",
+            url="https://example.com/article1",
             canonical_url="https://example.com/article1",
             source_id=1,
             published_at=datetime.now(),
             content_hash="test-hash-123",
+            authors=[],
+            tags=[],
+            article_metadata={},
+            word_count=12,
+            processing_status="processed",
             collected_at=datetime.now(),
             discovered_at=datetime.now(),
             created_at=datetime.now(),
@@ -93,7 +101,12 @@ class TestDataIngestionPipeline:
             check_frequency=3600,
             lookback_days=180,
             active=True,
-            config={}
+            config={},
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
     
     @pytest.mark.integration_light
@@ -118,7 +131,7 @@ class TestDataIngestionPipeline:
             article = articles[0]
             assert article.title == "Test Threat Intelligence Article"
             assert "threat intelligence" in article.content.lower()
-            assert article.url == "https://example.com/article1"
+            assert article.canonical_url == "https://example.com/article1"
         
         # Execute: Store article in database (if any articles were parsed)
         if len(articles) > 0:
@@ -197,10 +210,16 @@ class TestContentAnalysisPipeline:
                 id=1,
                 title="APT29 Campaign Analysis",
                 content="Detailed analysis of APT29 techniques including process injection and lateral movement.",
+                url="https://example.com/apt29",
                 canonical_url="https://example.com/apt29",
                 source_id=1,
                 published_at=datetime.now(),
                 content_hash="apt29-hash",
+                authors=[],
+                tags=[],
+                article_metadata={},
+                word_count=15,
+                processing_status="processed",
                 collected_at=datetime.now(),
                 discovered_at=datetime.now(),
                 created_at=datetime.now(),
@@ -210,10 +229,16 @@ class TestContentAnalysisPipeline:
                 id=2,
                 title="Malware Detection Techniques",
                 content="Overview of modern malware detection and analysis methods.",
+                url="https://example.com/malware-detection",
                 canonical_url="https://example.com/malware-detection",
                 source_id=1,
                 published_at=datetime.now(),
                 content_hash="malware-hash",
+                authors=[],
+                tags=[],
+                article_metadata={},
+                word_count=8,
+                processing_status="processed",
                 collected_at=datetime.now(),
                 discovered_at=datetime.now(),
                 created_at=datetime.now(),
@@ -302,7 +327,12 @@ class TestSourceManagementPipeline:
             check_frequency=3600,
             lookback_days=180,
             active=True,
-            config={}
+            config={},
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         mock_manager.load_sources_from_config.return_value = [mock_source]
@@ -429,7 +459,12 @@ class TestCriticalPathIntegration:
             check_frequency=3600,
             lookback_days=180,
             active=True,
-            config={}
+            config={},
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         # Mock article
@@ -457,10 +492,16 @@ class TestCriticalPathIntegration:
             id=1,
             title="Test Article",
             content="Test content with threat intelligence",
+            url="https://example.com/test",
             canonical_url="https://example.com/test",
             source_id=1,
             published_at=datetime.now(),
             content_hash="test-hash",
+            authors=[],
+            tags=[],
+            article_metadata={},
+            word_count=5,
+            processing_status="processed",
             collected_at=datetime.now(),
             discovered_at=datetime.now(),
             created_at=datetime.now(),

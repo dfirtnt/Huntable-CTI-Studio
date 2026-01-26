@@ -10,14 +10,16 @@ from playwright.sync_api import Page, expect
 def test_agent_evals_page_loads(page: Page):
     """Test that the agent evals page loads correctly."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     
     # Check main heading (use role to avoid strict mode when multiple h1)
     expect(page.get_by_role("heading", name="Agent Evaluations")).to_be_visible()
     
     # Check main sections exist (use role/unique to avoid strict mode)
-    expect(page.locator("text=Configuration")).to_be_visible()
+    expect(page.get_by_role("heading", name="Configuration")).to_be_visible()
     expect(page.get_by_role("heading", name="Evaluation Articles")).to_be_visible()
-    expect(page.locator("text=Results Comparison")).to_be_visible()
+    expect(page.get_by_role("heading", name="Results Comparison")).to_be_visible()
     
     # Check buttons exist (template uses loadEvalArticlesBtn, not loadDatasetBtn)
     expect(page.locator("#loadEvalArticlesBtn")).to_be_visible()
@@ -43,6 +45,8 @@ def _click_load_eval_articles_and_wait(page: Page) -> None:
 def test_load_dataset_articles(page: Page):
     """Test loading articles from dataset."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
     
     # Check if articles loaded (either articles shown or "No articles" message)
@@ -61,8 +65,10 @@ def test_load_dataset_articles(page: Page):
 
 @pytest.mark.ui
 def test_select_articles_and_presets(page: Page):
-    """Test selecting articles and presets."""
+    """Test selecting articles (presets no longer exist on this page)."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
     
     # Check if there are articles to select
@@ -71,34 +77,30 @@ def test_select_articles_and_presets(page: Page):
     
     if article_count > 0:
         # Select first article
-        article_checkboxes.first().check()
+        article_checkboxes.first.check()
         
-        # Check presets
-        preset_checkboxes = page.locator("#presetList input[type='checkbox']")
-        preset_count = preset_checkboxes.count()
-        
-        if preset_count > 0:
-            # Select first preset
-            preset_checkboxes.first().check()
-            
-            # Run button should be enabled
-            run_btn = page.locator("#runEvalBtn")
-            expect(run_btn).not_to_be_disabled()
+        # Run button should be enabled when articles are selected
+        run_btn = page.locator("#runEvalBtn")
+        expect(run_btn).not_to_be_disabled()
+    else:
+        # If no articles, run button should be disabled
+        run_btn = page.locator("#runEvalBtn")
+        expect(run_btn).to_be_disabled()
 
 
 @pytest.mark.ui
 def test_run_evaluation_button(page: Page):
     """Test that run evaluation button works."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
     
-    # Select article and preset if available
+    # Select article if available (presets no longer exist)
     article_checkboxes = page.locator("#articleList input[type='checkbox']")
-    preset_checkboxes = page.locator("#presetList input[type='checkbox']")
     
-    if article_checkboxes.count() > 0 and preset_checkboxes.count() > 0:
-        article_checkboxes.first().check()
-        preset_checkboxes.first().check()
+    if article_checkboxes.count() > 0:
+        article_checkboxes.first.check()
         
         # Click run evaluation
         run_btn = page.locator("#runEvalBtn")
@@ -125,6 +127,8 @@ def test_run_evaluation_button(page: Page):
 def test_select_all_deselect_all_buttons(page: Page):
     """Test select all and deselect all buttons."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
     
     # Check if articles exist
