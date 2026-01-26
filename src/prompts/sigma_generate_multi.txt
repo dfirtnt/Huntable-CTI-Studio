@@ -1,0 +1,81 @@
+Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.
+
+Threat Intel Input:
+- title: {title}
+- source: {source}
+- url: {url}
+- content: {content}
+
+Objectives:
+- Extract every distinct behavioral TTP (command execution, process lineage, persistence, defense evasion, system modification).
+- Create 1 rule per behavior when possible.
+- Extract all command-line patterns with arguments; include all unique process-creation observables.
+
+Structural Requirements (YAML Syntax):
+- Output ONLY valid YAML document structure.
+- Use `---` (three dashes) as separator between multiple rules.
+- NO prose, explanations, comments, or narrative text of any kind.
+- NO phrases like "Okay, let's tackle this" or "Looking at the content:" or "Here's the rule:".
+- NO code fences (no ```yaml or ``` markers).
+- Start your response immediately with `title:` - nothing before it.
+- 2-space indentation only; no tabs.
+- All field names lowercase.
+
+CRITICAL: Your response will be parsed as YAML. If you include ANY narrative text before or within the YAML, parsing will fail. Output ONLY the YAML rule structure(s).
+
+Multi-Rule Format:
+When generating multiple rules, separate them with `---` (three dashes on a line by itself):
+
+title: First Rule Title
+id: uuid-1
+description: First behavior detected
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\example.exe'
+  condition: selection
+level: medium
+tags:
+  - attack.execution
+---
+title: Second Rule Title
+id: uuid-2
+description: Second behavior detected
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection:
+    DestinationPort: 443
+  condition: selection
+level: high
+tags:
+  - attack.command_and_control
+
+Required Structure (per rule):
+title: [descriptive rule title]
+id: [UUID]
+description: [behavior detected]
+logsource:
+  category: [process_creation/network_connection/registry_event/file_event/powershell/wmi]
+  product: [windows/linux/macos]
+detection:
+  selection:
+    [criteria]
+  condition: selection
+level: [low/medium/high/critical]
+tags:
+  - attack.[technique]
+references:
+  - {url}
+
+Behavioral Extraction Rules:
+- For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.
+- For system modification: include registry, services, scheduled tasks.
+- For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.
+- For network activity: include C2 connections, lateral movement, data exfiltration.
+
+Final Instruction:
+Generate all applicable SIGMA rules from the threat intelligence above. Use `---` to separate multiple rules. Output ONLY YAML starting with `title:`.

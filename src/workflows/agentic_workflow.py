@@ -1834,7 +1834,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 article_id=state['article_id'],
                 qa_feedback=qa_feedback,
                 sigma_prompt_template=sigma_prompt_template,  # Pass database prompt if available
-                sigma_system_prompt=sigma_system_prompt  # Pass database system prompt if available
+                sigma_system_prompt=sigma_system_prompt,  # Pass database system prompt if available
+                extraction_result=extraction_result  # Pass extraction result for artifact-driven expansion
             )
             
             sigma_rules = generation_result.get('rules', []) if generation_result else []

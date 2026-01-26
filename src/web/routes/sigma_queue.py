@@ -1476,12 +1476,12 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
 
 **Now output ONLY the validated/corrected YAML starting with 'title:':"""
                     else:
-                        # Subsequent attempts: Use sigma_feedback prompt (same as AI/ML Assistant modal)
+                        # Subsequent attempts: Use sigma_repair_single prompt (same as AI/ML Assistant modal)
                         from src.utils.prompt_loader import format_prompt_async
                         
                         errors_text = "\n".join([f"- {err}" for err in validation_errors]) if validation_errors else "No valid SIGMA YAML detected. Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
                         validation_prompt = await format_prompt_async(
-                            "sigma_feedback",
+                            "sigma_repair_single",
                             validation_errors=errors_text,
                             original_rule=previous_yaml_preview or "No YAML was detected in the previous attempt."
                         )

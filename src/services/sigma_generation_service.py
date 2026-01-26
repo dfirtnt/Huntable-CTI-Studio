@@ -6,16 +6,42 @@ Reusable service for generating SIGMA rules from articles using LLM.
 
 import logging
 import yaml
-from typing import Dict, List, Any, Optional
+import uuid
+from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
+from dataclasses import dataclass
 
 from src.utils.prompt_loader import format_prompt
-from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule
+from src.services.sigma_validator import validate_sigma_rule, clean_sigma_rule, ValidationResult
 from src.services.llm_service import LLMService
 from src.utils.llm_optimizer import optimize_article_content
 from src.utils.langfuse_client import trace_llm_call, log_llm_completion, log_llm_error
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RuleValidationResult:
+    """Result of validating a single rule."""
+    rule_id: str
+    rule_yaml: str
+    validation_result: ValidationResult
+    rule_index: int
+    generation_phase: str = "generation"
+    repair_attempts: List[Dict[str, Any]] = None
+    final_status: str = "pending"
+    
+    def __post_init__(self):
+        if self.repair_attempts is None:
+            self.repair_attempts = []
+
+
+@dataclass
+class ValidationResults:
+    """Categorized validation results."""
+    valid_rules: List[RuleValidationResult]
+    invalid_rules: List[RuleValidationResult]
+    all_rules: List[RuleValidationResult]
 
 
 class SigmaGenerationService:
@@ -46,10 +72,13 @@ class SigmaGenerationService:
         article_id: Optional[int] = None,
         qa_feedback: Optional[str] = None,
         sigma_prompt_template: Optional[str] = None,
-        sigma_system_prompt: Optional[str] = None
+        sigma_system_prompt: Optional[str] = None,
+        extraction_result: Optional[Dict[str, Any]] = None,
+        enable_multi_rule_expansion: bool = True,
+        max_repair_attempts_per_rule: int = 3
     ) -> Dict[str, Any]:
         """
-        Generate SIGMA rules from article content.
+        Generate SIGMA rules from article content using phased approach.
         
         Args:
             article_title: Article title
@@ -58,8 +87,11 @@ class SigmaGenerationService:
             url: Article URL
             ai_model: AI model to use ('lmstudio' or 'chatgpt')
             api_key: OpenAI API key (required for ChatGPT)
-            max_attempts: Maximum number of generation attempts
+            max_attempts: Maximum number of generation attempts (deprecated, kept for compatibility)
             min_confidence: Minimum confidence for content filtering
+            extraction_result: Optional extraction result with observables for artifact-driven expansion
+            enable_multi_rule_expansion: Whether to enable Phase 4 expansion
+            max_repair_attempts_per_rule: Maximum repair attempts per individual rule
         
         Returns:
             Dict with 'rules' (list of validated rules), 'metadata', 'errors'
@@ -96,17 +128,30 @@ class SigmaGenerationService:
                     sigma_prompt = None  # Ensure it's None so we fall through to file loading
             
             if not sigma_prompt:
-                # Fallback to file-based prompt
+                # Fallback to file-based prompt (use new multi-rule prompt, fallback to old for compatibility)
                 from src.utils.prompt_loader import format_prompt_async
-                sigma_prompt = await format_prompt_async(
-                    "sigma_generation",
-                    title=article_title,
-                    source=source_name,
-                    url=url or 'N/A',
-                    content=content_to_analyze
-                )
-                if sigma_prompt and isinstance(sigma_prompt, str):
-                    logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
+                try:
+                    sigma_prompt = await format_prompt_async(
+                        "sigma_generate_multi",
+                        title=article_title,
+                        source=source_name,
+                        url=url or 'N/A',
+                        content=content_to_analyze
+                    )
+                    if sigma_prompt and isinstance(sigma_prompt, str):
+                        logger.info(f"Using file-based multi-rule prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
+                except Exception as e:
+                    # Fallback to old prompt for backward compatibility
+                    logger.warning(f"Failed to load sigma_generate_multi prompt, falling back to sigma_generation: {e}")
+                    sigma_prompt = await format_prompt_async(
+                        "sigma_generation",
+                        title=article_title,
+                        source=source_name,
+                        url=url or 'N/A',
+                        content=content_to_analyze
+                    )
+                    if sigma_prompt and isinstance(sigma_prompt, str):
+                        logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
             
             # Ensure we have a valid prompt
             if not sigma_prompt or not isinstance(sigma_prompt, str):
@@ -129,139 +174,95 @@ class SigmaGenerationService:
                     logger.warning(f"Truncating prompt from {len(sigma_prompt)} to {max_prompt_chars} chars")
                     sigma_prompt = sigma_prompt[:max_prompt_chars] + "\n\n[Prompt truncated to fit model context window]"
             
-            # Generate rules with retry logic
-            validation_results = []
-            rules = []
-            conversation_log = []
-            previous_errors_text = None
-            previous_yaml_preview = ""
+            # Phase 1: Multi-rule generation (structurally constrained)
+            logger.info("Phase 1: Multi-rule generation")
+            generated_yaml = await self._generate_multi_rules(
+                sigma_prompt=sigma_prompt,
+                qa_feedback=qa_feedback,
+                sigma_system_prompt=sigma_system_prompt,
+                ai_model=ai_model,
+                execution_id=execution_id,
+                article_id=article_id
+            )
             
-            for attempt in range(max_attempts):
-                logger.info(f"SIGMA generation attempt {attempt + 1}/{max_attempts}")
+            # Phase 2: Validation & Categorization
+            logger.info("Phase 2: Validation & categorization")
+            validation_results = self._validate_all_rules(generated_yaml)
+            
+            # Phase 3: Per-rule repair (strict mode)
+            logger.info(f"Phase 3: Per-rule repair ({len(validation_results.invalid_rules)} invalid rules)")
+            repaired_results = await self._repair_rules(
+                invalid_rules=validation_results.invalid_rules,
+                max_repair_attempts_per_rule=max_repair_attempts_per_rule,
+                execution_id=execution_id,
+                article_id=article_id,
+                sigma_system_prompt=sigma_system_prompt
+            )
+            
+            # Combine valid and repaired rules
+            all_valid_rules = validation_results.valid_rules + repaired_results
+            
+            # Phase 4: Optional expansion (artifact-driven)
+            expansion_rules = []
+            if enable_multi_rule_expansion and extraction_result:
+                logger.info("Phase 4: Checking for expansion opportunities")
+                expansion_needed, uncovered_categories = self._needs_expansion(
+                    valid_rules=all_valid_rules,
+                    extraction_result=extraction_result
+                )
                 
-                # Initialize attempt-specific variables
-                attempt_rules = []
-                attempt_validation_results = []
-                all_valid = True
-                
-                feedback_prefix = ""
-                if attempt > 0:
-                    # Use the sigma_feedback template for structured feedback
-                    try:
-                        feedback_template = await format_prompt_async(
-                            "sigma_feedback",
-                            validation_errors=previous_errors_text or "No valid SIGMA YAML detected. Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation.",
-                            original_rule=previous_yaml_preview or "No YAML was detected in the previous attempt."
-                        )
-                        feedback_prefix = feedback_template
-                    except Exception as e:
-                        # Fallback to simple feedback if template loading fails
-                        logger.warning(f"Failed to load sigma_feedback template, using simple feedback: {e}")
-                        feedback_parts = []
-                        if previous_errors_text:
-                            feedback_parts.append(f"Previous validation errors:\n{previous_errors_text}")
-                        else:
-                            feedback_parts.append(
-                                "Previous attempt failed validation or produced no YAML. "
-                                "Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
-                            )
-                        if previous_yaml_preview:
-                            feedback_parts.append(f"Previous YAML attempt:\n{previous_yaml_preview}")
-                        feedback_prefix = "\n\n".join(feedback_parts)
-                
-                # Prepare prompt for this attempt
-                if feedback_prefix:
-                    current_prompt = f"{feedback_prefix}\n\n{sigma_prompt}"
-                else:
-                    current_prompt = sigma_prompt
-                
-                # Add QA feedback if provided (only on first attempt)
-                if attempt == 0 and qa_feedback:
-                    current_prompt = f"{qa_feedback}\n\n{current_prompt}"
-                
-                # Call LLM API
-                try:
-                    sigma_provider = self.llm_service.provider_sigma
-                    requested_provider = self.llm_service._canonicalize_provider(ai_model)
-                    if ai_model and ai_model != 'lmstudio' and requested_provider != 'lmstudio':
-                        sigma_provider = requested_provider
-                    sigma_response = await self._call_provider_for_sigma(
-                        current_prompt,
-                        provider=sigma_provider,
+                if expansion_needed:
+                    logger.info(f"Phase 4: Generating additional rules for uncovered categories: {uncovered_categories}")
+                    expansion_prompt = await self._build_expansion_prompt(
+                        sigma_prompt_template=sigma_prompt_template,
+                        article_title=article_title,
+                        source_name=source_name,
+                        url=url,
+                        content_to_analyze=content_to_analyze,
+                        uncovered_categories=uncovered_categories,
+                        extraction_result=extraction_result
+                    )
+                    
+                    expansion_yaml = await self._generate_multi_rules(
+                        sigma_prompt=expansion_prompt,
+                        qa_feedback=None,
+                        sigma_system_prompt=sigma_system_prompt,
+                        ai_model=ai_model,
                         execution_id=execution_id,
-                        article_id=article_id,
-                        system_prompt=sigma_system_prompt
+                        article_id=article_id
                     )
                     
-                    # Ensure we have a response (even if empty, store it as string)
-                    if sigma_response is None:
-                        sigma_response = ""
+                    expansion_validation = self._validate_all_rules(expansion_yaml)
+                    # Mark expansion rules with correct phase
+                    for rule in expansion_validation.all_rules:
+                        rule.generation_phase = "expansion"
+                    
+                    # Repair expansion rules if needed
+                    if expansion_validation.invalid_rules:
+                        expansion_repaired = await self._repair_rules(
+                            invalid_rules=expansion_validation.invalid_rules,
+                            max_repair_attempts_per_rule=max_repair_attempts_per_rule,
+                            execution_id=execution_id,
+                            article_id=article_id,
+                            sigma_system_prompt=sigma_system_prompt
+                        )
+                        expansion_rules = expansion_validation.valid_rules + expansion_repaired
                     else:
-                        sigma_response = str(sigma_response)
-                    
-                    logger.info(f"SIGMA generation attempt {attempt + 1}: Received response ({len(sigma_response)} chars)")
-                except Exception as e:
-                    # Log error in conversation log
-                    logger.error(f"SIGMA generation attempt {attempt + 1} failed: {e}")
-                    conversation_log.append({
-                        'attempt': attempt + 1,
-                        'messages': [
-                            {
-                                'role': 'system',
-                                'content': 'You are a senior cybersecurity detection engineer specializing in SIGMA rule creation.'
-                            },
-                            {
-                                'role': 'user',
-                                'content': current_prompt
-                            }
-                        ],
-                        'llm_response': None,
-                        'validation': [],
-                        'all_valid': False,
-                        'error': str(e)
-                    })
-                    raise
-                
-                # Clean and validate response
-                cleaned_response = clean_sigma_rule(sigma_response)
-                
-                # Split into individual rules
-                rule_blocks = cleaned_response.split('---')
-                # Note: attempt_rules, attempt_validation_results, and all_valid are already initialized above
-                
-                for i, block in enumerate(rule_blocks):
-                    block = block.strip()
-                    if not block:
-                        continue
-                    
-                    # Check if block looks like YAML
-                    has_yaml_structure = ':' in block and any(
-                        key in block for key in ['title', 'id', 'description', 'logsource', 'detection']
-                    )
-                    
-                    if not has_yaml_structure:
-                        logger.warning(f"Skipping block {i+1} - doesn't look like YAML")
-                        continue
-                    
-                    # Validate rule
-                    validation_result = validate_sigma_rule(block)
-                    if validation_result.metadata is None:
-                        validation_result.metadata = {}
-                    validation_result.metadata['rule_index'] = i + 1
-                    attempt_validation_results.append(validation_result)
-                    validation_results.append(validation_result)
-                    
-                    if not validation_result.is_valid:
-                        all_valid = False
-                    
-                    if validation_result.is_valid:
-                        try:
-                            parsed_yaml = yaml.safe_load(block) if block else {}
+                        expansion_rules = expansion_validation.valid_rules
+            
+            # Build final rules list and conversation log
+            final_rules = []
+            conversation_log = []
+            
+            # Process all rules and build rule-scoped logs
+            for rule_result in all_valid_rules + expansion_rules:
+                if rule_result.final_status == "valid" or rule_result.final_status == "repaired":
+                    try:
+                        parsed_yaml = yaml.safe_load(rule_result.rule_yaml)
+                        if parsed_yaml:
                             detection = parsed_yaml.get('detection')
-                            
                             if detection and isinstance(detection, dict):
-                                rule_metadata = validation_result.metadata or {}
-                                rule_metadata.update({
+                                rule_metadata = {
                                     'title': parsed_yaml.get('title'),
                                     'description': parsed_yaml.get('description'),
                                     'id': parsed_yaml.get('id'),
@@ -270,85 +271,46 @@ class SigmaGenerationService:
                                     'status': parsed_yaml.get('status', 'experimental'),
                                     'logsource': parsed_yaml.get('logsource', {}),
                                     'detection': detection
-                                })
-                                attempt_rules.append(rule_metadata)
-                        except Exception as e:
-                            logger.warning(f"Failed to parse validated rule: {e}")
-                            all_valid = False
+                                }
+                                final_rules.append(rule_metadata)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse rule {rule_result.rule_id}: {e}")
                 
-                # Store conversation log entry (always store, even if response is empty)
-                conversation_log.append({
-                    'attempt': attempt + 1,
-                    'messages': [
-                        {
-                            'role': 'system',
-                            'content': 'You are a senior cybersecurity detection engineer specializing in SIGMA rule creation.'
-                        },
-                        {
-                            'role': 'user',
-                            'content': current_prompt
-                        }
-                    ],
-                    'llm_response': sigma_response if sigma_response else "",  # Ensure it's always a string, never None
-                    'validation': [
-                        {
-                            'is_valid': r.is_valid,
-                            'errors': r.errors,
-                            'warnings': r.warnings,
-                            'rule_index': r.metadata.get('rule_index') if r.metadata else None
-                        } for r in attempt_validation_results
-                    ],
-                    'all_valid': all_valid,
-                    'error': None
-                })
-                
-                logger.debug(f"Stored conversation log entry for attempt {attempt + 1}: llm_response length={len(sigma_response) if sigma_response else 0}")
-                
-                # If we got valid rules, break
-                if attempt_rules:
-                    rules.extend(attempt_rules)
-                    break
-                
-                # Prepare validation feedback for next attempt
-                previous_errors = []
-                previous_yaml_preview = ""
-                # Safety check: ensure attempt_validation_results is a list
-                if attempt_validation_results is None:
-                    logger.warning(f"SIGMA generation attempt {attempt + 1}: attempt_validation_results is None, initializing as empty list")
-                    attempt_validation_results = []
-                for result in attempt_validation_results:
-                    if not result.is_valid and result.errors:
-                        previous_errors.extend(result.errors)
-                    if result.content_preview:
-                        previous_yaml_preview = result.content_preview
-                
-                # If nothing to feedback (e.g., no YAML detected), provide explicit guidance
-                if not previous_errors and not attempt_rules:
-                    previous_errors = [
-                        "No valid SIGMA YAML detected. Respond with YAML starting with 'title:' and include "
-                        "'logsource' and 'detection' mappings using 2-space indentation. Do not include prose."
-                    ]
-                
-                previous_errors_text = "\n".join(previous_errors) if previous_errors else None
+                # Build conversation log entry for this rule
+                rule_log = {
+                    'rule_id': rule_result.rule_id,
+                    'generation_phase': rule_result.generation_phase,
+                    'final_status': rule_result.final_status,
+                    'repair_attempts': rule_result.repair_attempts,
+                    'validation': {
+                        'is_valid': rule_result.validation_result.is_valid,
+                        'errors': rule_result.validation_result.errors,
+                        'warnings': rule_result.validation_result.warnings,
+                        'rule_index': rule_result.rule_index
+                    }
+                }
+                conversation_log.append(rule_log)
+            
+            # Build validation results summary
+            all_validation_results = [
+                {
+                    'is_valid': r.validation_result.is_valid,
+                    'errors': r.validation_result.errors,
+                    'warnings': r.validation_result.warnings,
+                    'rule_index': r.rule_index
+                }
+                for r in validation_results.all_rules + expansion_rules
+            ]
             
             return {
-                'rules': rules,
+                'rules': final_rules,
                 'metadata': {
-                    'total_attempts': len(conversation_log),
-                    'valid_rules': len(rules),
-                    'validation_results': [
-                        {
-                            'is_valid': r.is_valid,
-                            'errors': r.errors,
-                            'warnings': r.warnings
-                        } for r in validation_results
-                    ],
+                    'total_attempts': sum(len(r.repair_attempts) + 1 for r in all_valid_rules + expansion_rules),
+                    'valid_rules': len(final_rules),
+                    'validation_results': all_validation_results,
                     'conversation_log': conversation_log
                 },
-                'errors': None if rules else (
-                    f"No valid SIGMA rules could be generated. Last validation errors: {previous_errors_text}"
-                    if previous_errors_text else "No valid SIGMA rules could be generated"
-                )
+                'errors': None if final_rules else "No valid SIGMA rules could be generated after all phases"
             }
             
         except Exception as e:
@@ -360,6 +322,341 @@ class SigmaGenerationService:
                 'metadata': {},
                 'errors': str(e)
             }
+    
+    async def _generate_multi_rules(
+        self,
+        sigma_prompt: str,
+        qa_feedback: Optional[str],
+        sigma_system_prompt: Optional[str],
+        ai_model: str,
+        execution_id: Optional[int],
+        article_id: Optional[int]
+    ) -> str:
+        """Phase 1: Generate multi-rule YAML with structural constraints."""
+        # Prepare prompt
+        current_prompt = sigma_prompt
+        if qa_feedback:
+            current_prompt = f"{qa_feedback}\n\n{current_prompt}"
+        
+        # Call LLM API
+        sigma_provider = self.llm_service.provider_sigma
+        requested_provider = self.llm_service._canonicalize_provider(ai_model)
+        if ai_model and ai_model != 'lmstudio' and requested_provider != 'lmstudio':
+            sigma_provider = requested_provider
+        
+        sigma_response = await self._call_provider_for_sigma(
+            current_prompt,
+            provider=sigma_provider,
+            execution_id=execution_id,
+            article_id=article_id,
+            system_prompt=sigma_system_prompt
+        )
+        
+        if sigma_response is None:
+            sigma_response = ""
+        else:
+            sigma_response = str(sigma_response)
+        
+        logger.info(f"Phase 1: Generated {len(sigma_response)} chars of YAML")
+        return sigma_response
+    
+    def _validate_all_rules(self, yaml_content: str) -> ValidationResults:
+        """Phase 2: Parse and validate all rules with defensive parsing."""
+        # Handle multiple rules: first try extracting from markdown code blocks, then split by ---
+        rule_blocks = []
+        
+        # Strategy 1: Extract from multiple markdown code blocks (backward compatibility)
+        import re
+        code_block_pattern = r'```(?:yaml|yml)?\s*\n(.*?)```'
+        code_blocks = re.findall(code_block_pattern, yaml_content, re.DOTALL)
+        if code_blocks:
+            rule_blocks = [block.strip() for block in code_blocks]
+            logger.debug(f"Extracted {len(rule_blocks)} rules from markdown code blocks")
+        else:
+            # Strategy 2: Split by --- separator (preferred for new prompt)
+            cleaned_response = clean_sigma_rule(yaml_content)
+            if '---' in cleaned_response:
+                rule_blocks = cleaned_response.split('---')
+                rule_blocks = [block.strip() for block in rule_blocks]
+                logger.debug(f"Split by --- separator: {len(rule_blocks)} blocks")
+            else:
+                # Strategy 3: Try to find multiple title: entries (fallback)
+                # Look for patterns like "title: ..." followed by another "title:" later
+                title_pattern = r'(?:^|\n)title\s*:'
+                title_matches = list(re.finditer(title_pattern, cleaned_response, re.MULTILINE))
+                if len(title_matches) > 1:
+                    # Split at each title: after the first one
+                    rule_blocks = [cleaned_response[:title_matches[1].start()].strip()]
+                    for i in range(1, len(title_matches)):
+                        start = title_matches[i].start()
+                        end = title_matches[i+1].start() if i+1 < len(title_matches) else len(cleaned_response)
+                        rule_blocks.append(cleaned_response[start:end].strip())
+                    logger.debug(f"Split by multiple title: entries: {len(rule_blocks)} blocks")
+                else:
+                    # Single rule - clean it
+                    rule_blocks = [cleaned_response]
+        
+        all_rules = []
+        valid_rules = []
+        invalid_rules = []
+        
+        for i, block in enumerate(rule_blocks):
+            block = block.strip()
+            
+            # Trim empty documents
+            if not block:
+                logger.debug(f"Skipping empty block {i+1}")
+                continue
+            
+            # Clean the block (in case it came from markdown extraction)
+            cleaned_block = clean_sigma_rule(block)
+            
+            # Require title: at root level (fail closed)
+            if 'title:' not in cleaned_block[:200]:  # Check first 200 chars for title
+                logger.warning(f"Block {i+1} rejected: no 'title:' found at root level after cleaning")
+                continue
+            
+            # Check if block looks like YAML structure
+            has_yaml_structure = ':' in cleaned_block and any(
+                key in cleaned_block for key in ['title', 'id', 'description', 'logsource', 'detection']
+            )
+            
+            if not has_yaml_structure:
+                logger.warning(f"Block {i+1} rejected: doesn't look like YAML")
+                continue
+            
+            # Validate rule
+            validation_result = validate_sigma_rule(cleaned_block)
+            rule_id = str(uuid.uuid4())
+            
+            rule_result = RuleValidationResult(
+                rule_id=rule_id,
+                rule_yaml=cleaned_block,
+                validation_result=validation_result,
+                rule_index=i + 1,
+                generation_phase="generation",
+                final_status="valid" if validation_result.is_valid else "invalid"
+            )
+            
+            all_rules.append(rule_result)
+            
+            if validation_result.is_valid:
+                valid_rules.append(rule_result)
+            else:
+                invalid_rules.append(rule_result)
+        
+        logger.info(f"Phase 2: Parsed {len(all_rules)} rules ({len(valid_rules)} valid, {len(invalid_rules)} invalid)")
+        
+        return ValidationResults(
+            valid_rules=valid_rules,
+            invalid_rules=invalid_rules,
+            all_rules=all_rules
+        )
+    
+    async def _repair_rules(
+        self,
+        invalid_rules: List[RuleValidationResult],
+        max_repair_attempts_per_rule: int,
+        execution_id: Optional[int],
+        article_id: Optional[int],
+        sigma_system_prompt: Optional[str]
+    ) -> List[RuleValidationResult]:
+        """Phase 3: Repair invalid rules one at a time."""
+        repaired_rules = []
+        
+        for rule_result in invalid_rules:
+            logger.info(f"Repairing rule {rule_result.rule_id} (attempt 1/{max_repair_attempts_per_rule})")
+            
+            previous_errors_text = "\n".join(rule_result.validation_result.errors) if rule_result.validation_result.errors else "No valid SIGMA YAML detected."
+            previous_yaml_preview = rule_result.rule_yaml[:500] if rule_result.rule_yaml else "No YAML was detected."
+            
+            repaired = False
+            for attempt in range(max_repair_attempts_per_rule):
+                try:
+                    # Load repair prompt
+                    from src.utils.prompt_loader import format_prompt_async
+                    repair_prompt = await format_prompt_async(
+                        "sigma_repair_single",
+                        validation_errors=previous_errors_text,
+                        original_rule=previous_yaml_preview
+                    )
+                    
+                    # Call LLM API for repair
+                    sigma_provider = self.llm_service.provider_sigma
+                    repaired_yaml = await self._call_provider_for_sigma(
+                        repair_prompt,
+                        provider=sigma_provider,
+                        execution_id=execution_id,
+                        article_id=article_id,
+                        system_prompt=sigma_system_prompt
+                    )
+                    
+                    if repaired_yaml is None:
+                        repaired_yaml = ""
+                    else:
+                        repaired_yaml = str(repaired_yaml)
+                    
+                    # Clean and validate repaired rule
+                    cleaned_repaired = clean_sigma_rule(repaired_yaml)
+                    validation_result = validate_sigma_rule(cleaned_repaired)
+                    
+                    # Log repair attempt
+                    repair_attempt = {
+                        'attempt': attempt + 1,
+                        'llm_response': repaired_yaml,
+                        'validation': {
+                            'is_valid': validation_result.is_valid,
+                            'errors': validation_result.errors,
+                            'warnings': validation_result.warnings
+                        }
+                    }
+                    rule_result.repair_attempts.append(repair_attempt)
+                    
+                    if validation_result.is_valid:
+                        # Repair successful
+                        rule_result.rule_yaml = cleaned_repaired
+                        rule_result.validation_result = validation_result
+                        rule_result.final_status = "repaired"
+                        repaired_rules.append(rule_result)
+                        repaired = True
+                        logger.info(f"Rule {rule_result.rule_id} repaired successfully after {attempt + 1} attempts")
+                        break
+                    else:
+                        # Prepare for next attempt
+                        previous_errors_text = "\n".join(validation_result.errors) if validation_result.errors else previous_errors_text
+                        previous_yaml_preview = cleaned_repaired[:500]
+                        
+                except Exception as e:
+                    logger.error(f"Repair attempt {attempt + 1} failed for rule {rule_result.rule_id}: {e}")
+                    repair_attempt = {
+                        'attempt': attempt + 1,
+                        'llm_response': None,
+                        'validation': None,
+                        'error': str(e)
+                    }
+                    rule_result.repair_attempts.append(repair_attempt)
+            
+            if not repaired:
+                rule_result.final_status = "failed"
+                logger.warning(f"Rule {rule_result.rule_id} failed to repair after {max_repair_attempts_per_rule} attempts")
+        
+        logger.info(f"Phase 3: Repaired {len(repaired_rules)}/{len(invalid_rules)} rules")
+        return repaired_rules
+    
+    def _needs_expansion(
+        self,
+        valid_rules: List[RuleValidationResult],
+        extraction_result: Dict[str, Any]
+    ) -> Tuple[bool, List[str]]:
+        """Phase 4: Check if expansion needed (artifact-driven)."""
+        # Map observable types to logsource categories
+        observable_to_category = {
+            'cmdline': 'process_creation',
+            'process_lineage': 'process_creation',
+            'network_connection': 'network_connection',
+            'registry_keys': 'registry_event',
+            'file_event': 'file_event',
+            'powershell': 'powershell',
+            'wmi': 'wmi'
+        }
+        
+        # Get available observables from extraction_result
+        available_observables = {}
+        subresults = extraction_result.get('subresults', {})
+        if isinstance(subresults, dict):
+            for obs_type, obs_result in subresults.items():
+                if isinstance(obs_result, dict):
+                    count = obs_result.get('count', 0)
+                    items = obs_result.get('items', [])
+                    if count > 0 or (isinstance(items, list) and len(items) > 0):
+                        available_observables[obs_type] = {
+                            'count': count if count > 0 else len(items),
+                            'items': items
+                        }
+        
+        # Get covered categories from valid rules
+        covered_categories = set()
+        for rule_result in valid_rules:
+            try:
+                parsed_yaml = yaml.safe_load(rule_result.rule_yaml)
+                if parsed_yaml:
+                    logsource = parsed_yaml.get('logsource', {})
+                    if isinstance(logsource, dict):
+                        category = logsource.get('category')
+                        if category:
+                            covered_categories.add(category)
+            except Exception as e:
+                logger.debug(f"Failed to parse rule for category extraction: {e}")
+        
+        # Check which observable types map to uncovered categories
+        uncovered_categories = []
+        for obs_type, category in observable_to_category.items():
+            if obs_type in available_observables and category not in covered_categories:
+                uncovered_categories.append(category)
+                logger.info(f"Found uncovered category {category} from observable type {obs_type} (count: {available_observables[obs_type]['count']})")
+        
+        needs_expansion = len(uncovered_categories) > 0
+        return needs_expansion, uncovered_categories
+    
+    async def _build_expansion_prompt(
+        self,
+        sigma_prompt_template: Optional[str],
+        article_title: str,
+        source_name: str,
+        url: str,
+        content_to_analyze: str,
+        uncovered_categories: List[str],
+        extraction_result: Dict[str, Any]
+    ) -> str:
+        """Build prompt for expansion phase focusing on uncovered categories."""
+        # Build context about uncovered categories and their observables
+        category_context = []
+        observable_to_category = {
+            'cmdline': 'process_creation',
+            'process_lineage': 'process_creation',
+            'network_connection': 'network_connection',
+            'registry_keys': 'registry_event',
+            'file_event': 'file_event',
+            'powershell': 'powershell',
+            'wmi': 'wmi'
+        }
+        
+        subresults = extraction_result.get('subresults', {})
+        for obs_type, category in observable_to_category.items():
+            if category in uncovered_categories and obs_type in subresults:
+                obs_result = subresults[obs_type]
+                items = obs_result.get('items', [])
+                if items:
+                    category_context.append(f"\n{category.upper()} observables ({obs_type}):")
+                    for item in items[:5]:  # Limit to first 5 items
+                        if isinstance(item, str):
+                            category_context.append(f"  - {item}")
+                        elif isinstance(item, dict):
+                            category_context.append(f"  - {item}")
+        
+        context_text = "\n".join(category_context) if category_context else ""
+        
+        # Use multi-rule generation prompt template
+        from src.utils.prompt_loader import format_prompt_async
+        base_prompt = await format_prompt_async(
+            "sigma_generate_multi",
+            title=article_title,
+            source=source_name,
+            url=url or 'N/A',
+            content=content_to_analyze
+        )
+        
+        # Add expansion context
+        expansion_prompt = f"""Generate additional SIGMA rules for the following uncovered logsource categories: {', '.join(uncovered_categories)}
+
+These categories have observables available but no rules generated yet:
+{context_text}
+
+{base_prompt}
+
+Focus on generating rules for the uncovered categories listed above."""
+        
+        return expansion_prompt
     
     async def _call_provider_for_sigma(
         self,
