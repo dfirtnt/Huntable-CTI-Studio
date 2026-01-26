@@ -525,7 +525,7 @@
                             <div data-agent-prefix="rankqa" data-provider="lmstudio">
                                 <select id="rankqa-model"
                                         name="agent_models[RankAgentQA]"
-                                        onchange="autoSaveModelChange()"
+                                        onchange="validateAgentModelOnChange('rankqa'); autoSaveModelChange()"
                                         class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
                                 </select>
                             </div>
@@ -535,7 +535,8 @@
                                        name="agent_models[RankAgentQA]"
                                        class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
                                        placeholder="gpt-4o-mini"
-                                       onchange="autoSaveModelChange()">
+                                       onchange="validateAgentModelOnChange('rankqa'); autoSaveModelChange()"
+                                       oninput="validateAgentModelOnChange('rankqa'); autoSaveModelChange()">
                             </div>
                             <div data-agent-prefix="rankqa" data-provider="anthropic" class="hidden">
                                 <input type="text"
@@ -543,37 +544,40 @@
                                        name="agent_models[RankAgentQA]"
                                        class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
                                        placeholder="claude-sonnet-4-5"
-                                       onchange="autoSaveModelChange()">
+                                       onchange="validateAgentModelOnChange('rankqa'); autoSaveModelChange()"
+                                       oninput="validateAgentModelOnChange('rankqa'); autoSaveModelChange()">
                             </div>
-                             <div class="mt-3">
-                                <label for="rankqa-temperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Rank QA Temperature
-                                </label>
-                                <input type="number" 
-                                       id="rankqa-temperature" 
-                                       name="agent_models[RankAgentQA_temperature]"
-                                       min="0" 
-                                       max="2" 
-                                       step="0.1"
-                                       value="0.1"
-                                       onchange="autoSaveModelChange()"
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Temperature for QA evaluation (0.0-2.0, default: 0.1)</p>
-                            </div>
-                            <div class="mt-3">
-                                <label for="rankqa-top-p" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Rank QA Top_P
-                                </label>
-                                <input type="number"
-                                       id="rankqa-top-p"
-                                       name="agent_models[RankAgentQA_top_p]"
-                                       min="0"
-                                       max="1"
-                                       step="0.01"
-                                       value="0.9"
-                                       onchange="autoSaveModelChange()"
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Top_P for QA evaluation (0.0-1.0, default: 0.9)</p>
+                             <div class="mt-3 flex gap-3">
+                                <div class="flex-1">
+                                    <label for="rankqa-temperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Rank QA Temperature
+                                    </label>
+                                    <input type="number" 
+                                           id="rankqa-temperature" 
+                                           name="agent_models[RankAgentQA_temperature]"
+                                           min="0" 
+                                           max="2" 
+                                           step="0.1"
+                                           value="0.1"
+                                           onchange="autoSaveModelChange()"
+                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Temperature for QA evaluation (0.0-2.0 for OpenAI, 0.0-1.0 for LMStudio/Anthropic, default: 0.1)</p>
+                                </div>
+                                <div class="flex-1">
+                                    <label for="rankqa-top-p" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Rank QA Top_P
+                                    </label>
+                                    <input type="number"
+                                           id="rankqa-top-p"
+                                           name="agent_models[RankAgentQA_top_p]"
+                                           min="0"
+                                           max="1"
+                                           step="0.01"
+                                           value="0.9"
+                                           onchange="autoSaveModelChange()"
+                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Top_P for QA evaluation (0.0-1.0, default: 0.9)</p>
+                                </div>
                             </div>
                         </div>
                         <!-- Rank QA Agent Prompt -->
@@ -665,7 +669,7 @@
                                             <div data-agent-prefix="cmdlineextract" data-provider="lmstudio">
                                                 <select id="cmdlineextract-model"
                                                         name="agent_models[CmdlineExtract_model]"
-                                                        onchange="autoSaveModelChange()"
+                                                        onchange="validateAgentModelOnChange('cmdlineextract'); autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                     <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
@@ -676,7 +680,8 @@
                                                        name="agent_models[CmdlineExtract_model]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="gpt-4o-mini"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('cmdlineextract'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('cmdlineextract'); autoSaveModelChange()">
                                             </div>
                                             <div data-agent-prefix="cmdlineextract" data-provider="anthropic" class="hidden">
                                                 <input type="text"
@@ -684,7 +689,8 @@
                                                        name="agent_models[CmdlineExtract_model]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="claude-sonnet-4-5"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('cmdlineextract'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('cmdlineextract'); autoSaveModelChange()">
                                             </div>
                                         </div>
                                         <!-- Temperature and Top_P -->
@@ -854,7 +860,7 @@
                                             <div data-agent-prefix="proctreeextract" data-provider="lmstudio">
                                                 <select id="proctreeextract-model"
                                                         name="agent_models[ProcTreeExtract_model]"
-                                                        onchange="autoSaveModelChange()"
+                                                        onchange="validateAgentModelOnChange('proctreeextract'); autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                     <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
@@ -865,7 +871,8 @@
                                                        name="agent_models[ProcTreeExtract_model]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="gpt-4o-mini"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('proctreeextract'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('proctreeextract'); autoSaveModelChange()">
                                             </div>
                                             <div data-agent-prefix="proctreeextract" data-provider="anthropic" class="hidden">
                                                 <input type="text"
@@ -873,20 +880,24 @@
                                                        name="agent_models[ProcTreeExtract_model]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="claude-sonnet-4-5"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('proctreeextract'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('proctreeextract'); autoSaveModelChange()">
                                             </div>
                                         </div>
-                                        <!-- Temperature -->
+                                        <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                            <input type="number" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
-                                        </div>
-                                        <!-- Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                            <input type="number" id="proctreeextract-top-p" name="agent_models[ProcTreeExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                            <div class="flex gap-3">
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                                    <input type="number" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                                                    <input type="number" id="proctreeextract-top-p" name="agent_models[ProcTreeExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                </div>
+                                            </div>
                                         </div>
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -933,7 +944,7 @@
                                             <div data-agent-prefix="proctreeqa" data-provider="lmstudio">
                                                 <select id="proctreeqa-model"
                                                         name="agent_models[ProcTreeQA]"
-                                                        onchange="autoSaveModelChange()"
+                                                        onchange="validateAgentModelOnChange('proctreeqa'); autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 </select>
                                             </div>
@@ -943,7 +954,8 @@
                                                        name="agent_models[ProcTreeQA]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="gpt-4o-mini"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('proctreeqa'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('proctreeqa'); autoSaveModelChange()">
                                             </div>
                                             <div data-agent-prefix="proctreeqa" data-provider="anthropic" class="hidden">
                                                 <input type="text"
@@ -951,31 +963,34 @@
                                                        name="agent_models[ProcTreeQA]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="claude-sonnet-4-5"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('proctreeqa'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('proctreeqa'); autoSaveModelChange()">
                                             </div>
-                                             <div class="mt-2">
-                                                 <label for="proctreeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                <input type="number" 
-                                                       id="proctreeqa-temperature" 
-                                                       name="agent_models[ProcTreeQA_temperature]"
-                                                       min="0" 
-                                                       max="2" 
-                                                       step="0.1"
-                                                       value="0.1"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
-                                            </div>
-                                            <div class="mt-2">
-                                                <label for="proctreeqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                <input type="number" 
-                                                       id="proctreeqa-top-p" 
-                                                       name="agent_models[ProcTreeQA_top_p]"
-                                                       min="0" 
-                                                       max="1" 
-                                                       step="0.01"
-                                                       value="0.9"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                             <div class="mt-2 flex gap-3">
+                                                 <div class="flex-1">
+                                                     <label for="proctreeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                    <input type="number" 
+                                                           id="proctreeqa-temperature" 
+                                                           name="agent_models[ProcTreeQA_temperature]"
+                                                           min="0" 
+                                                           max="2" 
+                                                           step="0.1"
+                                                           value="0.1"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label for="proctreeqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
+                                                    <input type="number" 
+                                                           id="proctreeqa-top-p" 
+                                                           name="agent_models[ProcTreeQA_top_p]"
+                                                           min="0" 
+                                                           max="1" 
+                                                           step="0.01"
+                                                           value="0.9"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                </div>
                                             </div>
                                         </div>
                                         <div id="proctreeextract-agent-qa-prompt-container" class="hidden"></div>
@@ -1036,7 +1051,7 @@
                                             <div data-agent-prefix="huntqueriesextract" data-provider="lmstudio">
                                                 <select id="huntqueriesextract-model"
                                                         name="agent_models[HuntQueriesExtract_model]"
-                                                        onchange="autoSaveModelChange()"
+                                                        onchange="validateAgentModelOnChange('huntqueriesextract'); autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                     <option value="">Use Extract Agents Fallback Model</option>
                                                 </select>
@@ -1047,7 +1062,8 @@
                                                        name="agent_models[HuntQueriesExtract_model]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="gpt-4o-mini"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('huntqueriesextract'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('huntqueriesextract'); autoSaveModelChange()">
                                             </div>
                                             <div data-agent-prefix="huntqueriesextract" data-provider="anthropic" class="hidden">
                                                 <input type="text"
@@ -1055,20 +1071,24 @@
                                                        name="agent_models[HuntQueriesExtract_model]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="claude-sonnet-4-5"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('huntqueriesextract'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('huntqueriesextract'); autoSaveModelChange()">
                                             </div>
                                         </div>
-                                        <!-- Temperature -->
+                                        <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                            <input type="number" id="huntqueriesextract-temperature" name="agent_models[HuntQueriesExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
-                                        </div>
-                                        <!-- Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
-                                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                            <input type="number" id="huntqueriesextract-top-p" name="agent_models[HuntQueriesExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                            <div class="flex gap-3">
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
+                                                    <input type="number" id="huntqueriesextract-temperature" name="agent_models[HuntQueriesExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
+                                                    <input type="number" id="huntqueriesextract-top-p" name="agent_models[HuntQueriesExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                </div>
+                                            </div>
                                         </div>
                                         <!-- Test Buttons -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
@@ -1115,7 +1135,7 @@
                                             <div data-agent-prefix="huntqueriesqa" data-provider="lmstudio">
                                                 <select id="huntqueriesqa-model"
                                                         name="agent_models[HuntQueriesQA]"
-                                                        onchange="autoSaveModelChange()"
+                                                        onchange="validateAgentModelOnChange('huntqueriesqa'); autoSaveModelChange()"
                                                         class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
                                                 </select>
                                             </div>
@@ -1125,7 +1145,8 @@
                                                        name="agent_models[HuntQueriesQA]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="gpt-4o-mini"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('huntqueriesqa'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('huntqueriesqa'); autoSaveModelChange()">
                                             </div>
                                             <div data-agent-prefix="huntqueriesqa" data-provider="anthropic" class="hidden">
                                                 <input type="text"
@@ -1133,31 +1154,34 @@
                                                        name="agent_models[HuntQueriesQA]"
                                                        class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
                                                        placeholder="claude-sonnet-4-5"
-                                                       onchange="autoSaveModelChange()">
+                                                       onchange="validateAgentModelOnChange('huntqueriesqa'); autoSaveModelChange()"
+                                                       oninput="validateAgentModelOnChange('huntqueriesqa'); autoSaveModelChange()">
                                             </div>
-                                             <div class="mt-2">
-                                                 <label for="huntqueriesqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                <input type="number" 
-                                                       id="huntqueriesqa-temperature" 
-                                                       name="agent_models[HuntQueriesQA_temperature]"
-                                                       min="0" 
-                                                       max="2" 
-                                                       step="0.1"
-                                                       value="0.1"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
-                                            </div>
-                                            <div class="mt-2">
-                                                <label for="huntqueriesqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                <input type="number" 
-                                                       id="huntqueriesqa-top-p" 
-                                                       name="agent_models[HuntQueriesQA_top_p]"
-                                                       min="0" 
-                                                       max="1" 
-                                                       step="0.01"
-                                                       value="0.9"
-                                                       onchange="autoSaveModelChange()"
-                                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                             <div class="mt-2 flex gap-3">
+                                                 <div class="flex-1">
+                                                     <label for="huntqueriesqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                                                    <input type="number" 
+                                                           id="huntqueriesqa-temperature" 
+                                                           name="agent_models[HuntQueriesQA_temperature]"
+                                                           min="0" 
+                                                           max="2" 
+                                                           step="0.1"
+                                                           value="0.1"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                </div>
+                                                <div class="flex-1">
+                                                    <label for="huntqueriesqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
+                                                    <input type="number" 
+                                                           id="huntqueriesqa-top-p" 
+                                                           name="agent_models[HuntQueriesQA_top_p]"
+                                                           min="0" 
+                                                           max="1" 
+                                                           step="0.01"
+                                                           value="0.9"
+                                                           onchange="autoSaveModelChange()"
+                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                </div>
                                             </div>
                                         </div>
                                         <div id="huntqueriesextract-agent-qa-prompt-container" class="hidden"></div>
@@ -1249,19 +1273,25 @@
                 </div>
 
                 <!-- Preset Management -->
-                <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700" style="background: rgb(20, 28, 48) !important; border-color: rgba(139, 92, 246, 0.15) !important;">
-                    <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">💾 Configuration Presets</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Save and load presets from the server. Export to or import from local JSON files.</p>
-                    <div class="flex flex-wrap gap-3">
-                        <button type="button" onclick="saveConfigPreset()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">💾 Save Preset</button>
-                        <button type="button" onclick="showConfigPresetList()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium">📂 Load Preset</button>
-                        <button type="button" onclick="exportPresetToFile()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium">📤 Export Preset</button>
-                        <label for="import-preset-input" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium cursor-pointer">📥 Import Preset</label>
-                        <input type="file" id="import-preset-input" accept=".json" class="hidden" onchange="importPresetFromFile(event)">
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div class="w-full flex items-center justify-between p-4 text-left">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">💾 Configuration Presets</h3>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                        Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, sigma content source settings, and agent prompts.
-                    </p>
+                    <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Save and load presets from the server. Export to or import from local JSON files.</p>
+                        <div class="flex flex-wrap gap-3">
+                            <button type="button" onclick="saveConfigPreset()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">💾 Save Preset</button>
+                            <button type="button" onclick="showConfigPresetList()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium">📂 Load Preset</button>
+                            <button type="button" onclick="exportPresetToFile()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium">📤 Export Preset</button>
+                            <label for="import-preset-input" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium cursor-pointer">📥 Import Preset</label>
+                            <input type="file" id="import-preset-input" accept=".json" class="hidden" onchange="importPresetFromFile(event)">
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Presets include: thresholds, model selections, QA toggles, temperature settings, extract agent toggles, sigma content source settings, and agent prompts.
+                        </p>
+                    </div>
                 </div>
 
 
@@ -2227,8 +2257,143 @@ function inferProviderFromModel(modelId) {
 function isModelAllowedForProvider(provider, modelId) {
     if (!modelId) return false;
     const guard = providerModelGuards[provider];
-    if (!guard) return true;
+    if (!guard) {
+        // For LMStudio, model should NOT match commercial provider patterns
+        if (provider === 'lmstudio') {
+            const trimmed = modelId.trim();
+            // Reject if it matches OpenAI or Anthropic patterns
+            if (providerModelGuards.openai && providerModelGuards.openai.test(trimmed)) return false;
+            if (providerModelGuards.anthropic && providerModelGuards.anthropic.test(trimmed)) return false;
+            return true;
+        }
+        return true;
+    }
     return guard.test(modelId.trim());
+}
+
+/**
+ * Validates provider/model combination and shows error if invalid
+ * @param {string} agentPrefix - Agent prefix (e.g., 'rankagent')
+ * @param {string} provider - Provider name
+ * @param {string} modelId - Model identifier
+ * @returns {boolean} - true if valid, false if invalid
+ */
+function validateProviderModelCombination(agentPrefix, provider, modelId) {
+    if (!modelId || !modelId.trim()) {
+        // Empty model is valid (will use fallback)
+        clearProviderModelError(agentPrefix);
+        return true;
+    }
+    
+    const trimmed = modelId.trim();
+    const normalizedProvider = (provider || 'lmstudio').toString().trim().toLowerCase();
+    
+    let isValid = true;
+    let errorMessage = '';
+    
+    if (normalizedProvider === 'openai') {
+        if (!isModelAllowedForProvider('openai', trimmed)) {
+            isValid = false;
+            errorMessage = `Invalid model for OpenAI provider. Model "${trimmed}" does not match OpenAI patterns (gpt-*, o*, etc.).`;
+        }
+    } else if (normalizedProvider === 'anthropic') {
+        if (!isModelAllowedForProvider('anthropic', trimmed)) {
+            isValid = false;
+            errorMessage = `Invalid model for Anthropic provider. Model "${trimmed}" does not match Anthropic patterns (claude-*).`;
+        }
+    } else if (normalizedProvider === 'lmstudio') {
+        // For LMStudio, reject commercial provider models
+        if (providerModelGuards.openai && providerModelGuards.openai.test(trimmed)) {
+            isValid = false;
+            errorMessage = `Invalid model for LMStudio provider. Model "${trimmed}" appears to be an OpenAI model. Use an LMStudio model instead.`;
+        } else if (providerModelGuards.anthropic && providerModelGuards.anthropic.test(trimmed)) {
+            isValid = false;
+            errorMessage = `Invalid model for LMStudio provider. Model "${trimmed}" appears to be an Anthropic model. Use an LMStudio model instead.`;
+        }
+    }
+    
+    if (!isValid) {
+        showProviderModelError(agentPrefix, errorMessage);
+    } else {
+        clearProviderModelError(agentPrefix);
+    }
+    
+    return isValid;
+}
+
+/**
+ * Shows error message for invalid provider/model combination
+ */
+function showProviderModelError(agentPrefix, message) {
+    // Find the model input container
+    const config = getAgentConfig(agentPrefix);
+    if (!config) return;
+    
+    const provider = getAgentProvider(agentPrefix) || 'lmstudio';
+    let modelContainer = null;
+    
+    if (provider === 'lmstudio') {
+        modelContainer = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+    } else {
+        modelContainer = document.getElementById(`${agentPrefix}-model-${provider}`);
+    }
+    
+    if (!modelContainer) return;
+    
+    // Find or create error element
+    let errorEl = document.getElementById(`${agentPrefix}-model-error`);
+    if (!errorEl) {
+        errorEl = document.createElement('p');
+        errorEl.id = `${agentPrefix}-model-error`;
+        errorEl.className = 'text-xs text-red-500 dark:text-red-400 mt-1';
+        // Insert after the model input's parent container
+        const parent = modelContainer.closest('[data-agent-prefix]') || modelContainer.parentElement;
+        if (parent) {
+            parent.appendChild(errorEl);
+        }
+    }
+    
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+    
+    // Add error styling to the input
+    modelContainer.classList.add('border-red-500', 'dark:border-red-500');
+    // Remove any gray border classes
+    modelContainer.classList.remove('border-gray-300', 'border-gray-600', 'border-gray-700', 'dark:border-gray-300', 'dark:border-gray-600', 'dark:border-gray-700');
+}
+
+/**
+ * Clears error message for provider/model combination
+ */
+function clearProviderModelError(agentPrefix) {
+    const errorEl = document.getElementById(`${agentPrefix}-model-error`);
+    if (errorEl) {
+        errorEl.classList.add('hidden');
+        errorEl.textContent = '';
+    }
+    
+    // Remove error styling from inputs
+    const provider = getAgentProvider(agentPrefix) || 'lmstudio';
+    let modelContainer = null;
+    
+    if (provider === 'lmstudio') {
+        modelContainer = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
+    } else {
+        modelContainer = document.getElementById(`${agentPrefix}-model-${provider}`);
+    }
+    
+    if (modelContainer) {
+        modelContainer.classList.remove('border-red-500', 'dark:border-red-500');
+        // Restore appropriate gray border classes based on input type
+        // Check if it's a dark-themed input (has bg-[#0a0e1a] or similar)
+        const isDarkInput = modelContainer.classList.contains('bg-[#0a0e1a]') || 
+                           modelContainer.closest('.bg-\\[\\#0a0e1a\\]');
+        if (isDarkInput) {
+            modelContainer.classList.add('border-gray-700');
+        } else {
+            modelContainer.classList.add('border-gray-300', 'dark:border-gray-600');
+        }
+    }
 }
 
 // Curated model catalogs for commercial providers - kept client-side for quick selection
@@ -2629,9 +2794,25 @@ function applyAgentConfigs(models = null) {
         const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
         setAgentProvider(config.prefix, provider);
         
-        if (config.temperatureKey && agentModelsData[config.temperatureKey] !== undefined) {
+        // Update temperature limit first based on provider
+        updateTemperatureLimit(config.prefix, provider);
+        
+                if (config.temperatureKey && agentModelsData[config.temperatureKey] !== undefined) {
             const tempInput = document.getElementById(`${config.prefix}-temperature`);
-            if (tempInput) tempInput.value = agentModelsData[config.temperatureKey];
+            if (tempInput) {
+                const tempValue = parseFloat(agentModelsData[config.temperatureKey]);
+                if (!isNaN(tempValue)) {
+                    // Clamp value to provider's max before setting
+                    // LMStudio and Anthropic: max 1, OpenAI: max 2
+                    const maxTemp = (provider === 'anthropic' || provider === 'lmstudio') ? 1 : 2;
+                    const clampedValue = Math.min(Math.max(0, tempValue), maxTemp);
+                    tempInput.value = clampedValue;
+                    // If value was clamped, log a warning
+                    if (tempValue !== clampedValue) {
+                        console.warn(`Temperature value ${tempValue} clamped to ${clampedValue} for ${config.prefix} (provider: ${provider}, max: ${maxTemp})`);
+                    }
+                }
+            }
         }
         if (config.topPKey && agentModelsData[config.topPKey] !== undefined) {
             const topPInput = document.getElementById(`${config.prefix}-top-p`);
@@ -2684,7 +2865,7 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     const lmstudioSelect = `
         <select id="${agentPrefix}-model${config.isSubAgent ? '' : '-2'}"
                 ${nameAttr}
-                onchange="autoSaveModelChange()"
+                onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
                 class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono ${sizeClass}">
             <option value="">${lmstudioPlaceholder}</option>
             ${lmstudioOptions}
@@ -2705,7 +2886,7 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
                 <input type="number" 
                        id="${agentPrefix}-temperature" 
                        name="agent_models[${config.temperatureKey}]"
-                       min="0" max="2" step="0.1" 
+                       min="0" max="${(currentProvider === 'anthropic' || currentProvider === 'lmstudio') ? '1' : '2'}" step="0.1" 
                        value="${temperatureDefault}" 
                        onchange="autoSaveModelChange()" 
                        class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
@@ -2784,7 +2965,8 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
                    class="${baseClass}"
                    value="${escapeHtml(eligibleCurrentModel || '')}"
                    placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
-                   oninput="autoSaveModelChange()">
+                   oninput="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
+                   onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()">
         `;
     }
 
@@ -2809,7 +2991,7 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
     return `
         <select id="${elementId}"
                 ${nameAttr}
-                onchange="autoSaveModelChange()"
+                onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
                 class="${baseClass}">
             <option value="" ${placeholderSelected}>${placeholder}</option>
             ${options}
@@ -3458,6 +3640,9 @@ function onAgentProviderChange(agentPrefix) {
     // __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
     updateAgentProviderVisibility(agentPrefix, provider);
     
+    // Update temperature max based on provider (Anthropic: 1, others: 2)
+    updateTemperatureLimit(agentPrefix, provider);
+    
     // Clear model dropdowns/inputs when provider changes to ensure alignment
     const modelSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
     const modelInputs = [
@@ -3508,6 +3693,14 @@ function onAgentProviderChange(agentPrefix) {
         });
     }
     
+    // Validate current model against new provider
+    const currentModel = getActiveAgentModelValue(agentPrefix, provider);
+    if (currentModel) {
+        validateProviderModelCombination(agentPrefix, provider, currentModel);
+    } else {
+        clearProviderModelError(agentPrefix);
+    }
+    
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
     }
@@ -3525,6 +3718,8 @@ function refreshAllProviderBlocks() {
         const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
         // __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
         updateAgentProviderVisibility(prefix, provider);
+        // Update temperature limit based on provider
+        updateTemperatureLimit(prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(prefix);
         } else {
@@ -4359,6 +4554,10 @@ async function loadConfig(skipPromptReload = false) {
             applyAgentConfigs(currentConfig.agent_models);
         }
         
+        // Validate and clamp all temperature inputs after config is loaded
+        // This fixes any invalid values (e.g., 2.5 when max is 2) that might have been saved
+        validateAllTemperatureInputs();
+        
         // Update config display after models are loaded
         updateConfigDisplay();
         
@@ -4405,12 +4604,17 @@ async function loadConfig(skipPromptReload = false) {
         // Initialize change tracking after config is loaded
         initializeChangeTracking();
         
-        // Load sub-agent temperature values
+        // Load sub-agent temperature values and clamp to provider limits
         const agentModels = currentConfig?.agent_models || {};
         const subAgents = [
-            { name: 'RankAgent', id: 'rankagent-temperature' },
-            { name: 'CmdlineExtract', id: 'cmdlineextract-temperature' },
-            { name: 'ProcTreeExtract', id: 'proctreeextract-temperature' }
+            { name: 'RankAgent', id: 'rankagent-temperature', prefix: 'rankagent' },
+            { name: 'CmdlineExtract', id: 'cmdlineextract-temperature', prefix: 'cmdlineextract' },
+            { name: 'ProcTreeExtract', id: 'proctreeextract-temperature', prefix: 'proctreeextract' },
+            { name: 'HuntQueriesExtract', id: 'huntqueriesextract-temperature', prefix: 'huntqueriesextract' },
+            { name: 'RankAgentQA', id: 'rankqa-temperature', prefix: 'rankqa' },
+            { name: 'CmdLineQA', id: 'cmdlineqa-temperature', prefix: 'cmdlineqa' },
+            { name: 'ProcTreeQA', id: 'proctreeqa-temperature', prefix: 'proctreeqa' },
+            { name: 'HuntQueriesQA', id: 'huntqueriesqa-temperature', prefix: 'huntqueriesqa' }
         ];
         subAgents.forEach(subAgent => {
             const tempInput = document.getElementById(subAgent.id);
@@ -4418,11 +4622,22 @@ async function loadConfig(skipPromptReload = false) {
                 const tempKey = `${subAgent.name}_temperature`;
                 const tempValue = agentModels[tempKey];
                 if (tempValue !== undefined) {
-                    tempInput.value = tempValue;
+                    // Get provider for this agent to determine max
+                    const provider = getAgentProvider(subAgent.prefix) || 'lmstudio';
+                    // LMStudio and Anthropic: max 1, OpenAI: max 2
+                    const maxTemp = (provider === 'anthropic' || provider === 'lmstudio') ? 1 : 2;
+                    const clampedValue = Math.min(Math.max(0, parseFloat(tempValue) || 0), maxTemp);
+                    tempInput.value = clampedValue;
+                    // Update max attribute
+                    tempInput.setAttribute('max', maxTemp);
+                    // If value was clamped, log a warning
+                    if (parseFloat(tempValue) !== clampedValue) {
+                        console.warn(`Temperature value ${tempValue} clamped to ${clampedValue} for ${subAgent.name} (provider: ${provider}, max: ${maxTemp})`);
+                    }
                 }
                 // Ensure onChange handler is set
                 if (!tempInput.getAttribute('onchange')) {
-                    tempInput.setAttribute('onchange', 'autoSaveConfig()');
+                    tempInput.setAttribute('onchange', 'autoSaveModelChange()');
                 }
             }
         });
@@ -5645,6 +5860,22 @@ window.autoSaveConfig = async function autoSaveConfig() {
 // Actual autosave implementation (separated for debouncing)
 async function performAutoSave() {
     try {
+        // Validate all provider/model combinations before saving
+        let hasValidationErrors = false;
+        Object.values(AGENT_CONFIG).forEach(config => {
+            const provider = getAgentProvider(config.prefix) || 'lmstudio';
+            const model = getAgentModel(config.prefix, provider);
+            if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                hasValidationErrors = true;
+            }
+        });
+        
+        // If validation errors exist, don't save
+        if (hasValidationErrors) {
+            console.warn('Auto-save skipped: Invalid provider/model combinations detected');
+            return;
+        }
+        
         // Get current config to preserve other settings
         if (!currentConfig) {
             // Load config first if not available
@@ -5878,7 +6109,103 @@ async function performAutoSave() {
 }
 
 // Legacy function name for backward compatibility
-window.autoSaveModelChange = window.autoSaveConfig;
+/**
+ * Updates temperature input max value based on provider
+ * Anthropic: max 1, LMStudio: max 1, OpenAI: max 2
+ */
+function updateTemperatureLimit(agentPrefix, provider) {
+    const temperatureInput = document.getElementById(`${agentPrefix}-temperature`);
+    if (!temperatureInput) return;
+    
+    // LMStudio and Anthropic both have max 1.0, OpenAI has max 2.0
+    const maxTemp = (provider === 'anthropic' || provider === 'lmstudio') ? 1 : 2;
+    const currentValue = parseFloat(temperatureInput.value) || 0;
+    
+    temperatureInput.setAttribute('max', maxTemp);
+    
+    // Clamp value if it exceeds new max
+    if (currentValue > maxTemp) {
+        temperatureInput.value = maxTemp;
+        // Only trigger save if not initializing (to avoid save loops during page load)
+        if (!isInitializing && typeof autoSaveModelChange === 'function') {
+            autoSaveModelChange();
+        }
+    }
+    
+    // Update help text if present
+    const helpText = temperatureInput.parentElement?.querySelector('p.text-xs');
+    if (helpText) {
+        const range = maxTemp === 1 ? '0.0-1.0' : '0.0-2.0';
+        helpText.textContent = helpText.textContent.replace(/0\.0-\d+\.\d+/, range);
+    }
+}
+
+/**
+ * Validates and clamps all temperature inputs based on their provider
+ * Called on page load to fix any invalid values
+ */
+function validateAllTemperatureInputs() {
+    // Check all agents in AGENT_CONFIG
+    Object.values(AGENT_CONFIG).forEach(config => {
+        if (config.temperatureKey) {
+            const provider = getAgentProvider(config.prefix) || 'lmstudio';
+            updateTemperatureLimit(config.prefix, provider);
+        }
+    });
+    
+    // Check QA agents and sub-agents
+    const qaAgents = ['rankqa', 'cmdlineqa', 'proctreeqa', 'huntqueriesqa'];
+    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract'];
+    
+    [...qaAgents, ...subAgents].forEach(prefix => {
+        const provider = getAgentProvider(prefix) || 'lmstudio';
+        updateTemperatureLimit(prefix, provider);
+    });
+}
+
+/**
+ * Validates model for a specific agent and provides immediate feedback
+ * Can be called from model input onchange/oninput handlers
+ */
+function validateAgentModelOnChange(agentPrefix) {
+    const provider = getAgentProvider(agentPrefix) || 'lmstudio';
+    const model = getAgentModel(agentPrefix, provider);
+    return validateProviderModelCombination(agentPrefix, provider, model);
+}
+
+/**
+ * Validates and saves model changes
+ * Wraps autoSaveConfig with validation
+ */
+window.autoSaveModelChange = function() {
+    // Validate all agent models before saving
+    let hasErrors = false;
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const provider = getAgentProvider(config.prefix) || 'lmstudio';
+        const model = getAgentModel(config.prefix, provider);
+        if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+            hasErrors = true;
+        }
+    });
+    
+    // Also validate OS Detection fallback if enabled
+    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+    if (osFallbackToggle && osFallbackToggle.checked) {
+        const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+        const model = getAgentModel('osdetectionagent-fallback', provider);
+        if (model && !validateProviderModelCombination('osdetectionagent-fallback', provider, model)) {
+            hasErrors = true;
+        }
+    }
+    
+    // Only proceed with save if no validation errors
+    if (!hasErrors) {
+        return window.autoSaveConfig();
+    } else {
+        console.warn('Model change validation failed - not saving');
+        return Promise.resolve();
+    }
+};
 
 async function loadAgentPrompts() {
     try {
