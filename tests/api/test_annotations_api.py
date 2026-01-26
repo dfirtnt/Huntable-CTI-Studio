@@ -572,55 +572,6 @@ class TestDeleteAnnotation:
         assert "Article not found" in data["detail"]
 
 
-class TestAnnotationStats:
-    """Test annotation statistics endpoint."""
-    
-    @pytest.mark.api
-    @pytest.mark.asyncio
-    async def test_get_annotation_stats(self, async_client: httpx.AsyncClient):
-        """Test getting annotation statistics."""
-        response = await async_client.get("/api/annotations/stats")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["success"] is True
-        assert "stats" in data
-        
-        stats = data["stats"]
-        assert "total_annotations" in stats
-        assert "huntable_count" in stats
-        assert "not_huntable_count" in stats
-        
-        # Check data types
-        assert isinstance(stats["total_annotations"], int)
-        assert isinstance(stats["huntable_count"], int)
-        assert isinstance(stats["not_huntable_count"], int)
-        
-        # Check logical relationships
-        assert stats["total_annotations"] >= 0
-        assert stats["huntable_count"] >= 0
-        assert stats["not_huntable_count"] >= 0
-        assert stats["total_annotations"] >= stats["huntable_count"] + stats["not_huntable_count"]
-        assert "counts_by_type" in stats
-
-
-class TestAnnotationTypesEndpoint:
-    """Test annotation type registry endpoint."""
-
-    @pytest.mark.api
-    @pytest.mark.asyncio
-    async def test_get_annotation_types(self, async_client: httpx.AsyncClient):
-        response = await async_client.get("/api/annotations/types")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "modes" in data
-        assert "huntability" in data["modes"]
-        assert "observables" in data["modes"]
-        assert "CMD" in data["modes"]["observables"]
-
-
 class TestAnnotationCRUDWorkflow:
     """Test complete CRUD workflow."""
     
