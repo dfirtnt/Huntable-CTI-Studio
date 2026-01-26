@@ -181,7 +181,8 @@ async def get_annotation_stats():
     """Get annotation statistics."""
     try:
         stats = await async_db_manager.get_annotation_stats()
-        return {"success": True, "stats": stats}
+        # Convert Pydantic model to dict for JSON serialization
+        return {"success": True, "stats": stats.model_dump() if hasattr(stats, 'model_dump') else stats.dict()}
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to get annotation stats: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

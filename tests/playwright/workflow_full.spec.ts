@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Full Analyst Workflow', () => {
   test('complete workflow from ingestion to sigma save', async ({ page }) => {
+    test.setTimeout(300000); // 5 minutes for full workflow
     const baseURL = process.env.CTI_SCRAPER_URL || 'http://localhost:8002';
     
     // Step 1: Navigate to articles page

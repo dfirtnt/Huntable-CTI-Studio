@@ -639,3 +639,34 @@ class TestAnnotationCRUDWorkflow:
         # 6. VERIFY DELETION
         verify_response = await async_client.get(f"/api/annotations/{annotation_id}")
         assert verify_response.status_code == 404
+
+
+class TestAnnotationStats:
+    """Test annotation statistics endpoint."""
+    
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_get_annotation_stats(self, async_client: httpx.AsyncClient):
+        """Test getting annotation statistics."""
+        response = await async_client.get("/api/annotations/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "stats" in data
+
+
+class TestAnnotationTypesEndpoint:
+    """Test annotation types endpoint."""
+    
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_get_annotation_types(self, async_client: httpx.AsyncClient):
+        """Test getting annotation types."""
+        response = await async_client.get("/api/annotations/types")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "modes" in data
+        # Check that observables includes "cmd" (lowercase, not "CMD")
+        assert "observables" in data["modes"]
+        assert "cmd" in data["modes"]["observables"]

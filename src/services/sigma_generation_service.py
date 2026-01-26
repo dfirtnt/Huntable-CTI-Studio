@@ -202,8 +202,13 @@ class SigmaGenerationService:
             # Combine valid and repaired rules
             all_valid_rules = validation_results.valid_rules + repaired_results
             
+            # Track all rules that went through repair (including failed ones) for attempt counting
+            # Failed repair rules are still in validation_results.invalid_rules but with repair_attempts populated
+            all_rules_with_repair_attempts = validation_results.all_rules.copy()
+            
             # Phase 4: Optional expansion (artifact-driven)
             expansion_rules = []
+            expansion_validation = None
             if enable_multi_rule_expansion and extraction_result:
                 logger.info("Phase 4: Checking for expansion opportunities")
                 expansion_needed, uncovered_categories = self._needs_expansion(
@@ -292,6 +297,16 @@ class SigmaGenerationService:
                 conversation_log.append(rule_log)
             
             # Build validation results summary
+            # Include all rules (valid, invalid, repaired, failed) for attempt counting
+            # validation_results.all_rules includes all Phase 2 rules (both valid and invalid)
+            # Invalid rules that failed repair still have repair_attempts populated
+            all_rules_for_counting = all_rules_with_repair_attempts.copy()
+            
+            # Add expansion rules (both valid and invalid) if expansion occurred
+            if expansion_validation:
+                # Include all expansion rules (valid + invalid) for attempt counting
+                all_rules_for_counting.extend(expansion_validation.all_rules)
+            
             all_validation_results = [
                 {
                     'is_valid': r.validation_result.is_valid,
@@ -299,13 +314,23 @@ class SigmaGenerationService:
                     'warnings': r.validation_result.warnings,
                     'rule_index': r.rule_index
                 }
-                for r in validation_results.all_rules + expansion_rules
+                for r in validation_results.all_rules + (expansion_validation.all_rules if expansion_validation else expansion_rules)
             ]
+            
+            # Calculate total attempts: 1 initial attempt + repair attempts for each rule
+            # This includes all rules (valid, invalid, repaired, failed)
+            # Each rule gets 1 for initial generation + len(repair_attempts) for repair attempts
+            # Minimum is 1 (the initial generation attempt) even if no rules were parsed
+            total_attempts = sum(len(r.repair_attempts) + 1 for r in all_rules_for_counting)
+            # Ensure at least 1 attempt is counted (the initial generation in Phase 1)
+            # This handles cases where all generated YAML is rejected early (e.g., no title: found)
+            if total_attempts == 0:
+                total_attempts = 1  # At minimum, we made 1 generation attempt in Phase 1
             
             return {
                 'rules': final_rules,
                 'metadata': {
-                    'total_attempts': sum(len(r.repair_attempts) + 1 for r in all_valid_rules + expansion_rules),
+                    'total_attempts': total_attempts,
                     'valid_rules': len(final_rules),
                     'validation_results': all_validation_results,
                     'conversation_log': conversation_log
