@@ -59,6 +59,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Multi-Rule SIGMA Generation with Phased Approach** (2026-01-26): Enhanced SIGMA rule generation to support multiple rules per article
+  - Refactored generation into 4 phases: multi-rule generation, validation, per-rule repair, artifact-driven expansion
+  - Added defensive parsing for multiple rules (handles `---` separators, markdown code blocks, multiple `title:` entries)
+  - Implemented artifact-driven expansion phase that generates additional rules for uncovered logsource categories
+  - Added rule-scoped logging with `rule_id`, `generation_phase`, `repair_attempts[]`, and `final_status` tracking
+  - Created `sigma_generate_multi.txt` prompt explicitly supporting multi-rule output with `---` separators
+  - Renamed `sigma_feedback.txt` to `sigma_repair_single.txt` for clarity
+  - Added per-rule max attempts (`max_repair_attempts_per_rule`) to prevent one pathological rule from consuming all attempts
+  - Updated workflow to pass `extraction_result` to enable expansion phase based on extracted observables
+  - Fixed parsing to handle markdown code blocks for backward compatibility with existing model outputs
+  - Addresses issue where only 1 rule was generated despite multiple observable types (cmdline + process_lineage)
+
 ### Changed
 - **Observables Mode Disabled** (2026-01-22): Disabled Observables annotation mode, marked as inactive for future release
   - Hidden Observables Mode button in article detail page (preserved in comments)
