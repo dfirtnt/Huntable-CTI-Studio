@@ -10,7 +10,7 @@ import { allure } from 'allure-playwright';
  * - Supports both TypeScript and JavaScript test files
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir: '.',
   testMatch: /.*\.(spec|test)\.(ts|js)$/,
   
   /* Run tests in files in parallel */
@@ -63,7 +63,7 @@ export default defineConfig({
   ],
 
   /* Global setup to check web server health before tests */
-  globalSetup: require.resolve('./tests/playwright/global-setup.ts'),
+  globalSetup: require.resolve('./playwright/global-setup.ts'),
   
   /* Run your local dev server before starting the tests */
   // Note: Server should be started manually or via Docker
