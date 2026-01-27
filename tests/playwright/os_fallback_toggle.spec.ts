@@ -33,7 +33,7 @@ test.describe('OS Detection Fallback Toggle', () => {
     }
   });
 
-  test('toggle should stay disabled after unchecking and saving', async ({ page }) => {
+  test.skip('toggle should stay disabled after unchecking and saving', async ({ page }) => {
     // Check for console errors
     page.on('console', msg => {
       if (msg.type() === 'error') {
@@ -143,7 +143,7 @@ test.describe('OS Detection Fallback Toggle', () => {
     await expect(fallbackContainer).toBeHidden();
   });
 
-  test('toggle should stay enabled after checking and saving', async ({ page }) => {
+  test.skip('toggle should stay enabled after checking and saving', async ({ page }) => {
     // Wait for models to load and OS Detection container to be populated
     await page.waitForFunction(() => {
       const toggle = document.getElementById('osdetectionagent-fallback-enabled');

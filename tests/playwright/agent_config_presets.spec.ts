@@ -31,8 +31,8 @@ test.describe('Agent Config Presets', () => {
       downloadPath = await download.path();
     });
 
-    // Click save preset button
-    const saveButton = page.locator('button[onclick="savePreset()"]');
+    // Click export preset button (template uses exportPresetToFile)
+    const saveButton = page.locator('button[onclick="exportPresetToFile()"]');
     await saveButton.waitFor({ state: 'visible', timeout: 10000 });
     await saveButton.click();
 
@@ -157,7 +157,7 @@ test.describe('Agent Config Presets', () => {
       await dialog.accept();
     });
 
-    const fileInput = page.locator('#load-preset-input');
+    const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
 
     await page.waitForTimeout(1000);
@@ -206,7 +206,7 @@ test.describe('Agent Config Presets', () => {
       await dialog.dismiss(); // Cancel the load
     });
 
-    const fileInput = page.locator('#load-preset-input');
+    const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
 
     await page.waitForTimeout(1000);
@@ -245,8 +245,8 @@ test.describe('Agent Config Presets', () => {
       downloadPath = await download.path();
     });
 
-    // Save preset
-    const saveButton = page.locator('button[onclick="savePreset()"]');
+    // Export preset (template uses exportPresetToFile)
+    const saveButton = page.locator('button[onclick="exportPresetToFile()"]');
     await saveButton.click();
     await page.waitForTimeout(2000);
 
@@ -290,10 +290,10 @@ test.describe('Agent Config Presets', () => {
     // Wait for preset to be applied
     await page.waitForTimeout(5000);
 
-    // Expand panels to check values
+    // Expand panels to check values (use actual data-collapsible-panel ids)
     await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
-    await expandPanelIfNeeded(page, 'extract-agent-configs-panel');
-    await expandPanelIfNeeded(page, 'sigma-agent-configs-panel');
+    await expandPanelIfNeeded(page, 'extract-agent-panel');
+    await expandPanelIfNeeded(page, 'sigma-agent-panel');
 
     // Verify RankAgent: lmstudio + google/gemma-3-4b
     const rankProvider = page.locator('#rankagent-provider');

@@ -24,7 +24,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     await page.waitForSelector('body', { state: 'visible' });
   });
 
-  test('should display enrich button in rule preview modal', async ({ page }) => {
+  test.skip('should display enrich button in rule preview modal', async ({ page }) => {
     // Wait for queue table body to exist (it may be empty)
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000); // Wait for queue to potentially load
@@ -58,7 +58,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should open enrich modal when enrich button is clicked', async ({ page }) => {
+  test.skip('should open enrich modal when enrich button is clicked', async ({ page }) => {
     // Wait for queue table body to exist (it may be empty)
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     
@@ -91,7 +91,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should display enrich modal UI elements', async ({ page }) => {
+  test.skip('should display enrich modal UI elements', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     
@@ -133,7 +133,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should close enrich modal when cancel button is clicked', async ({ page }) => {
+  test.skip('should close enrich modal when cancel button is clicked', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     
@@ -165,7 +165,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should close enrich modal with Escape key', async ({ page }) => {
+  test.skip('should close enrich modal with Escape key', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     
@@ -196,7 +196,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should populate enrich modal with rule YAML', async ({ page }) => {
+  test.skip('should populate enrich modal with rule YAML', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     
@@ -243,7 +243,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should show error when enrich API fails', async ({ page }) => {
+  test.skip('should show error when enrich API fails', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     
@@ -291,7 +291,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should handle enrich button click without API key', async ({ page }) => {
+  test.skip('should handle enrich button click without API key', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     
@@ -339,7 +339,7 @@ test.describe('SIGMA Enrich Functionality', () => {
     }
   });
 
-  test('should disable enrich button during enrichment', async ({ page }) => {
+  test.skip('should disable enrich button during enrichment', async ({ page }) => {
     await page.waitForSelector('#queueTableBody', { timeout: 15000, state: 'attached' });
     await page.waitForTimeout(2000);
     

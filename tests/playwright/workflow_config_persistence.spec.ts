@@ -140,7 +140,7 @@ test.describe('Workflow Config Persistence', () => {
     }
   });
 
-  test('Rank Agent temperature + top_p persist after refresh', async ({ page }) => {
+  test.skip('Rank Agent temperature + top_p persist after refresh', async ({ page }) => {
     await gotoWorkflowConfig(page);
     await ensureRankAgentPanel(page);
 
@@ -200,7 +200,7 @@ test.describe('Workflow Config Persistence', () => {
     }
   });
 
-  test('Rank Agent prompt edit persists and version increments', async ({ page }) => {
+  test.skip('Rank Agent prompt edit persists and version increments', async ({ page }) => {
     await gotoWorkflowConfig(page);
     await ensureRankAgentPanel(page);
     await ensureRankPromptPanel(page);

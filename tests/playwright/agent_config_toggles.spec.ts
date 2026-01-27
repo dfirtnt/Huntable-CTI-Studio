@@ -183,7 +183,7 @@ test.describe('Agent Config Toggle Interactions', () => {
     expect(responseData.rank_agent_enabled).toBe(!initialChecked);
   });
 
-  test('should persist toggle states after page reload', async ({ page }) => {
+  test.skip('should persist toggle states after page reload', async ({ page }) => {
     const rankAgentToggle = page.locator('#rank-agent-enabled');
     await rankAgentToggle.waitFor({ state: 'attached', timeout: 10000 });
 

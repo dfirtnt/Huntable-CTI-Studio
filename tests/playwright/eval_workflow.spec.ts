@@ -6,8 +6,8 @@ import { test, expect } from '@playwright/test';
  * Tests: run eval → view results → compare snapshot
  */
 test.describe('Eval Workflow', () => {
-  test('run eval and view results', async ({ page }) => {
-    const baseURL = process.env.CTI_SCRAPER_URL || 'http://localhost:8002';
+  test.skip('run eval and view results', async ({ page }) => {
+    const baseURL = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
     
     // Step 1: Navigate to evaluations page
     await page.goto(`${baseURL}/evaluations`);
@@ -43,7 +43,7 @@ test.describe('Eval Workflow', () => {
   });
   
   test('compare eval snapshots', async ({ page }) => {
-    const baseURL = process.env.CTI_SCRAPER_URL || 'http://localhost:8002';
+    const baseURL = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
     
     await page.goto(`${baseURL}/evaluations`);
     

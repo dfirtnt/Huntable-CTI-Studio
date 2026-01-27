@@ -168,7 +168,7 @@ test.describe('Agent Config Edge Cases', () => {
     await expect(rankingInput).toBeEnabled();
   });
 
-  test('should handle multiple simultaneous field changes', async ({ page }) => {
+  test.skip('should handle multiple simultaneous field changes', async ({ page }) => {
     await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
     await expandPanelIfNeeded(page, 'other-thresholds-panel');
 

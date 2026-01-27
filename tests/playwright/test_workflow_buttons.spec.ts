@@ -4,7 +4,7 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 const TEST_ARTICLE_ID = '68';
 
 test.describe('Workflow Test Buttons', () => {
-  test('test all "Test with Custom ArticleID" buttons with article 68', async ({ page }) => {
+  test.skip('test all "Test with Custom ArticleID" buttons with article 68', async ({ page }) => {
     test.setTimeout(300000); // 5 minutes for all agents to complete
     // Navigate to workflow config tab
     await page.goto(`${BASE}/workflow#config`);

@@ -23,7 +23,7 @@ export async function waitForAutosave(page: Page, timeout: number = 15000): Prom
  */
 export async function waitForModelLoad(page: Page, timeout: number = 15000): Promise<void> {
   await page.waitForResponse(
-    (resp) => (resp.url().includes('/api/lmstudio/models') || resp.url().includes('/api/workflow/config')) && resp.status() === 200,
+    (resp) => (resp.url().includes('/api/lmstudio-models') || resp.url().includes('/api/workflow/config')) && resp.status() === 200,
     { timeout }
   ).catch(() => {
     // Model API might have already completed or failed

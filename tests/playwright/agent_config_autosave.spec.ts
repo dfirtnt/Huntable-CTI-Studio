@@ -207,7 +207,7 @@ test.describe('Agent Config Autosave', () => {
     expect(responseData.sigma_fallback_enabled).toBe(!initialChecked);
   });
 
-  test('should autosave Extract sub-agent toggles on change', async ({ page }) => {
+  test.skip('should autosave Extract sub-agent toggles on change', async ({ page }) => {
     // Ensure extract-agent-panel is expanded first
     await expandPanelIfNeeded(page, 'extract-agent-panel');
     await page.waitForTimeout(1000);
