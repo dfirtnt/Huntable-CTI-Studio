@@ -207,6 +207,47 @@ class TestWorkflowConfig:
         assert 0.0 <= data["similarity_threshold"] <= 1.0
         assert 0.0 <= data["junk_filter_threshold"] <= 1.0
 
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_workflow_config_versions_list(self, async_client: httpx.AsyncClient):
+        """GET /api/workflow/config/versions returns version list."""
+        response = await async_client.get("/api/workflow/config/versions")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert "versions" in data
+        assert isinstance(data["versions"], list)
+        for v in data["versions"]:
+            assert "version" in v
+            assert "is_active" in v
+            assert "created_at" in v
+            assert "updated_at" in v
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_workflow_config_by_version(self, async_client: httpx.AsyncClient):
+        """GET /api/workflow/config/version/{version} returns preset-shaped config."""
+        # Get current version from active config
+        resp = await async_client.get("/api/workflow/config")
+        assert resp.status_code == 200
+        version = resp.json().get("version", 1)
+        response = await async_client.get(f"/api/workflow/config/version/{version}")
+        assert response.status_code == 200
+        data = response.json()
+        assert "thresholds" in data
+        assert "agent_models" in data
+        assert "agent_prompts" in data
+        assert data["thresholds"].get("junk_filter_threshold") is not None
+        assert data["thresholds"].get("ranking_threshold") is not None
+        assert data["thresholds"].get("similarity_threshold") is not None
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_workflow_config_version_404(self, async_client: httpx.AsyncClient):
+        """GET /api/workflow/config/version/999999 returns 404."""
+        response = await async_client.get("/api/workflow/config/version/999999")
+        assert response.status_code == 404
+
 class TestQuickActionsEndpoints:
     """Test quick action endpoints."""
     
