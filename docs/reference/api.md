@@ -100,12 +100,14 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
 - `POST /api/workflow/articles/{article_id}/trigger` - Manually trigger agentic workflow for an article via Celery
 
 ### Workflow Configuration
-- `GET /api/workflow/config` - Get current workflow configuration
-- `PUT /api/workflow/config` - Update workflow configuration
-- `GET /api/workflow/config/prompts` - Get agent prompts
-- `PUT /api/workflow/config/prompts/{agent_name}` - Update agent prompt
-- `GET /api/workflow/config/models` - Get agent model assignments
-- `PUT /api/workflow/config/models` - Update agent model assignments
+- `GET /api/workflow/config` - Get current workflow configuration (includes `agent_models` and prompts)
+- `PUT /api/workflow/config` - Update workflow configuration (including agent model assignments via `agent_models`)
+- `GET /api/workflow/config/prompts` - Get all agent prompts
+- `GET /api/workflow/config/prompts/{agent_name}` - Get single agent prompt
+- `PUT /api/workflow/config/prompts` - Update agent prompts; body includes `agent_name`, `system_prompt`, `user_prompt` (bulk update)
+- `GET /api/workflow/config/prompts/{agent_name}/versions` - Get prompt version history
+- `POST /api/workflow/config/prompts/{agent_name}/rollback` - Rollback prompt to a prior version
+- `GET /api/workflow/config/preset/list`, `GET /api/workflow/config/versions`, `GET /api/workflow/config/version/{version_number}` - Presets and version history
 
 ## Sources Management Endpoints
 
