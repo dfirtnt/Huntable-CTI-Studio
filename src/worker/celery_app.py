@@ -188,8 +188,11 @@ def check_all_sources(self):
                     }
 
                 # Initialize processor for deduplication
-                # Use source's lookback_days if available, otherwise default to 90
-                max_age_days = getattr(source, 'lookback_days', None) or 90
+                # Use maximum lookback_days from all sources, or default to 90
+                max_age_days = max(
+                    (getattr(s, 'lookback_days', None) or 90 for s in active_sources),
+                    default=90
+                )
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
                     max_age_days=max_age_days,
