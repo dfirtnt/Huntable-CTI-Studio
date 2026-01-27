@@ -538,29 +538,23 @@ class TestArticleDetailAdvancedFeatures:
     def test_article_workflow_execution_redirect(self, page: Page):
         """Test workflow execution redirect to workflow page."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        
-        # Intercept navigation
-        navigation_occurred = {"occurred": False}
-        
-        def handle_navigation(request):
-            if "/workflow" in request.url:
-                navigation_occurred["occurred"] = True
-        
-        page.route("**/workflow*", handle_navigation)
-        
+        workflow_seen = {"seen": False}
+
+        def handle_route(route):
+            if "/workflow" in route.request.url:
+                workflow_seen["seen"] = True
+            route.continue_()
+
+        page.route("**/workflow*", handle_route)
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
-        # Find and click first article
+
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
-            # Click trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
             trigger_btn.click()
             page.wait_for_timeout(3000)
-            
-            # Verify navigation occurred (may redirect after successful trigger)
-            # This test verifies the redirect logic exists
+            # Redirect may go to /workflow#executions or we saw workflow API/URL
+            assert workflow_seen["seen"] or "/workflow" in page.url, "workflow trigger should hit workflow API or redirect to /workflow"

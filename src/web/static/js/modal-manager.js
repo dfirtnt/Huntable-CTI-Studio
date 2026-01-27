@@ -4,7 +4,7 @@
  * Features:
  * - Escape key closes topmost modal, returns to previous modal or base page
  * - Click away closes modal and navigates to clicked element
- * - Ctrl+Enter/Cmd+Enter submits modals with input fields
+ * - Enter (and Ctrl+Enter/Cmd+Enter) triggers primary/enter button when focus is not in textarea
  * - Modal stack management for nested modals
  */
 
@@ -97,47 +97,56 @@
     }
 
     /**
-     * Setup keyboard shortcuts (Ctrl+Enter/Cmd+Enter for submit)
+     * Resolve primary/enter button in a modal (submitButtonSelector or heuristics)
+     */
+    function resolvePrimaryButton(modal, submitButtonSelector) {
+        if (submitButtonSelector) {
+            const submitBtn = typeof submitButtonSelector === 'string'
+                ? modal.querySelector(submitButtonSelector)
+                : submitButtonSelector;
+            return submitBtn && (typeof submitBtn.click === 'function' || typeof submitBtn.onclick === 'function') ? submitBtn : null;
+        }
+        let btn = modal.querySelector('button[type="submit"]');
+        if (!btn) {
+            btn = modal.querySelector('button.bg-purple-500, button.bg-purple-600, button.bg-blue-500, button.bg-blue-600, button.bg-emerald-600');
+        }
+        if (!btn) {
+            const buttons = modal.querySelectorAll('button');
+            const primaryTexts = ['save', 'submit', 'ok', 'confirm', 'apply', 'trigger', 'run'];
+            for (const b of buttons) {
+                const text = (b.textContent || '').trim().toLowerCase();
+                if (primaryTexts.some(t => text.includes(t))) {
+                    btn = b;
+                    break;
+                }
+            }
+        }
+        return btn || null;
+    }
+
+    /**
+     * Setup keyboard shortcuts: Enter (and Ctrl+Enter/Cmd+Enter) triggers primary button.
+     * Plain Enter is used when focus is not in a textarea/contenteditable.
      */
     function setupKeyboardShortcuts(modalId, modal, submitButtonSelector) {
         modal.addEventListener('keydown', function(e) {
-            // Ctrl+Enter (Windows/Linux) or Cmd+Enter (macOS)
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (submitButtonSelector) {
-                    const submitBtn = typeof submitButtonSelector === 'string' 
-                        ? modal.querySelector(submitButtonSelector)
-                        : submitButtonSelector;
-                    
-                    if (submitBtn && typeof submitBtn.click === 'function') {
-                        submitBtn.click();
-                    } else if (submitBtn && typeof submitBtn.onclick === 'function') {
-                        submitBtn.onclick();
-                    }
-                } else {
-                    // Try to find common submit button patterns
-                    let submitBtn = modal.querySelector('button[type="submit"]');
-                    if (!submitBtn) {
-                        // Try buttons with common submit-related classes
-                        submitBtn = modal.querySelector('button.bg-purple-500, button.bg-purple-600, button.bg-blue-500, button.bg-blue-600, button.bg-emerald-600');
-                    }
-                    if (!submitBtn) {
-                        // Try buttons with common submit text
-                        const buttons = modal.querySelectorAll('button');
-                        for (const btn of buttons) {
-                            const text = btn.textContent.trim().toLowerCase();
-                            if (text.includes('save') || text.includes('submit') || text.includes('ok') || text.includes('confirm') || text.includes('apply')) {
-                                submitBtn = btn;
-                                break;
-                            }
-                        }
-                    }
-                    if (submitBtn) {
-                        submitBtn.click();
-                    }
-                }
+            if (e.key !== 'Enter') return;
+
+            const isModEnter = (e.ctrlKey || e.metaKey);
+            const target = e.target && e.target.closest ? e.target.closest('textarea, [contenteditable="true"]') : null;
+            const allowPlainEnter = !target;
+
+            if (!isModEnter && !allowPlainEnter) return;
+
+            const submitBtn = resolvePrimaryButton(modal, submitButtonSelector);
+            if (!submitBtn) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof submitBtn.click === 'function') {
+                submitBtn.click();
+            } else if (typeof submitBtn.onclick === 'function') {
+                submitBtn.onclick();
             }
         });
     }

@@ -1284,6 +1284,7 @@
                         <div class="flex flex-wrap gap-3">
                             <button type="button" onclick="saveConfigPreset()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">💾 Save Preset</button>
                             <button type="button" onclick="showConfigPresetList()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium">📂 Load Preset</button>
+                            <button type="button" onclick="showConfigVersionList()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors font-medium">🔄 Restore by version</button>
                             <button type="button" onclick="exportPresetToFile()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium">📤 Export Preset</button>
                             <label for="import-preset-input" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium cursor-pointer">📥 Import Preset</label>
                             <input type="file" id="import-preset-input" accept=".json" class="hidden" onchange="importPresetFromFile(event)">
@@ -1335,6 +1336,25 @@
                     </div>
                     <div class="mt-4 flex justify-end">
                         <button type="button" onclick="closeConfigPresetListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Version List Modal (Restore by version #) -->
+        <div id="configVersionListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
+                <div class="mt-3">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">🔄 Restore configuration by version</h3>
+                        <button type="button" onclick="closeConfigVersionListModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-3">Load a full config (thresholds, models, QA, prompts) from a prior version into the form. Save to make it active.</p>
+                    <div id="configVersionList" class="space-y-3 max-h-[60vh] overflow-y-auto">
+                        <!-- Version items will be populated here -->
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="closeConfigVersionListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
                     </div>
                 </div>
             </div>
@@ -7318,6 +7338,93 @@ async function importPresetFromFile(event) {
 
 function closeConfigPresetListModal() {
     popModal();
+}
+
+function closeConfigVersionListModal() {
+    popModal();
+}
+
+async function refreshConfigVersionList() {
+    try {
+        const response = await fetch('/api/workflow/config/versions');
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load versions'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to load versions (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        const listEl = document.getElementById('configVersionList');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        if (!data.versions || data.versions.length === 0) {
+            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No config versions found.</p>';
+            return;
+        }
+        data.versions.forEach(v => {
+            const item = document.createElement('div');
+            item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+            const updatedStr = new Date(v.updated_at).toLocaleString();
+            const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
+            item.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
+                            ${activeBadge}
+                        </div>
+                        ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
+                    </div>
+                    <div class="flex space-x-2 ml-4">
+                        <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error refreshing config version list:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading versions: ${errorMessage}`);
+    }
+}
+
+async function showConfigVersionList() {
+    try {
+        pushModal('configVersionListModal', true);
+        await refreshConfigVersionList();
+    } catch (error) {
+        console.error('Error showing config version list:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading versions: ${errorMessage}`);
+    }
+}
+
+async function loadConfigByVersion(versionNumber) {
+    try {
+        const response = await fetch(`/api/workflow/config/version/${versionNumber}`);
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load config'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to load config v${versionNumber} (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        await applyPreset(data);
+        closeConfigVersionListModal();
+        alert(`Configuration version ${versionNumber} loaded into form. Click Save to make it active.`);
+    } catch (error) {
+        console.error('Error loading config by version:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        alert(`Error loading version: ${errorMessage}`);
+    }
 }
 
 async function refreshConfigPresetList() {
@@ -13347,6 +13454,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Register static modals
         const staticModals = [
             'configPresetListModal',
+            'configVersionListModal',
             'executionModal',
             'triggerWorkflowModal',
             'ruleModal',
