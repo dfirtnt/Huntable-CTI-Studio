@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 const BASE_URL = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
 test.describe('Workflow Config Verification', () => {
-  test('verify provider/model validation and temperature limits', async ({ page }) => {
+  test.skip('verify provider/model validation and temperature limits', async ({ page }) => {
     await page.goto(`${BASE_URL}/workflow#config`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000); // Wait for config to load

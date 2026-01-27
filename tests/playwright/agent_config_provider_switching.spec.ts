@@ -52,6 +52,13 @@ test.describe('Agent Config Provider Switching', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
+    // Skip if anthropic is not available (e.g. no API key in settings)
+    const hasAnthropic = await providerSelect.locator('option[value="anthropic"]').count() > 0;
+    if (!hasAnthropic) {
+      test.skip(true, 'Anthropic provider not available (requires API key in Settings)');
+      return;
+    }
+
     // Switch to OpenAI first and wait for any autosave
     await providerSelect.selectOption('openai');
     await page.waitForTimeout(2000); // Wait for UI to update
@@ -59,11 +66,11 @@ test.describe('Agent Config Provider Switching', () => {
     // Then switch to Anthropic
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
+      { timeout: 15000 }
     );
 
     await providerSelect.selectOption('anthropic');
-    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for provider switching
+    await page.waitForTimeout(2000);
 
     const response = await responsePromise;
     expect(response.status()).toBe(200);
@@ -89,8 +96,8 @@ test.describe('Agent Config Provider Switching', () => {
     await providerSelect.selectOption('lmstudio');
     await page.waitForTimeout(5000); // Wait longer for model list to load via API
 
-    // Check if model dropdown exists and has options
-    const modelSelect = page.locator('#rankagent-model-lmstudio');
+    // LM Studio model select uses id rankagent-model-2 (not rankagent-model-lmstudio)
+    const modelSelect = page.locator('#rankagent-model-2');
     // Wait for it to be attached first, then visible
     await modelSelect.waitFor({ state: 'attached', timeout: 10000 });
     await page.waitForTimeout(2000); // Additional wait for visibility
@@ -124,14 +131,18 @@ test.describe('Agent Config Provider Switching', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Switch to a different provider first to ensure clean state
+    const hasAnthropic = await providerSelect.locator('option[value="anthropic"]').count() > 0;
+    if (!hasAnthropic) {
+      test.skip(true, 'Anthropic provider not available (requires API key in Settings)');
+      return;
+    }
+
     await providerSelect.selectOption('lmstudio');
     await page.waitForTimeout(2000);
-    
-    await providerSelect.selectOption('anthropic');
-    await page.waitForTimeout(5000); // Wait longer for UI to update and API calls
 
-    // Check for Anthropic model selector - wait for attached first
+    await providerSelect.selectOption('anthropic');
+    await page.waitForTimeout(5000);
+
     const modelSelector = page.locator('#rankagent-model-anthropic');
     await modelSelector.waitFor({ state: 'attached', timeout: 10000 });
     await page.waitForTimeout(2000); // Additional wait for visibility
@@ -188,12 +199,12 @@ test.describe('Agent Config Provider Switching', () => {
     await providerSelect.selectOption('lmstudio');
     // Wait for loadLMStudioModels API call
     await page.waitForResponse(
-      (resp) => resp.url().includes('/api/lmstudio/models') || resp.url().includes('/api/workflow/config'),
+      (resp) => resp.url().includes('/api/lmstudio-models') || resp.url().includes('/api/workflow/config'),
       { timeout: 15000 }
     ).catch(() => {});
     await page.waitForTimeout(3000);
 
-    const lmModelSelect = page.locator('#rankagent-model-lmstudio');
+    const lmModelSelect = page.locator('#rankagent-model-2');
     await lmModelSelect.waitFor({ state: 'attached', timeout: 15000 });
     await page.waitForTimeout(2000);
     const lmExists = await lmModelSelect.count() > 0;
@@ -208,8 +219,8 @@ test.describe('Agent Config Provider Switching', () => {
     await page.waitForTimeout(2000);
     const openaiExists = await openaiModelSelector.count() > 0;
     expect(openaiExists).toBe(true);
-    
-    // LMStudio model selector should be hidden or not exist
+
+    // LM Studio model selector (#rankagent-model-2) should be hidden when provider is openai
     const lmVisible = await lmModelSelect.isVisible().catch(() => false);
     expect(lmVisible).toBe(false);
   });
@@ -218,33 +229,27 @@ test.describe('Agent Config Provider Switching', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Switch to OpenAI and wait for handler to complete
     await providerSelect.selectOption('openai');
-    // Wait for provider change handler and autosave
     await page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
-    ).catch(() => {}); // Autosave might not fire immediately
+      { timeout: 15000 }
+    ).catch(() => {});
     await page.waitForTimeout(3000);
 
-    // Verify OpenAI inputs exist (wait for renderSubAgentCommercialInputs to run)
     const openaiModelInput = page.locator('#rankagent-model-openai');
     await openaiModelInput.waitFor({ state: 'attached', timeout: 15000 });
     await page.waitForTimeout(2000);
     const openaiExists = await openaiModelInput.count() > 0;
     expect(openaiExists).toBe(true);
 
-    // Switch to LMStudio and wait for handler
     await providerSelect.selectOption('lmstudio');
-    // Wait for loadLMStudioModels to complete
     await page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
+      (resp) => resp.url().includes('/api/lmstudio-models') || (resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT'),
+      { timeout: 15000 }
     ).catch(() => {});
-    await page.waitForTimeout(5000); // Wait for LMStudio models to load
+    await page.waitForTimeout(5000);
 
-    // Verify LMStudio dropdown exists and OpenAI input is hidden
-    const lmModelSelect = page.locator('#rankagent-model-lmstudio');
+    const lmModelSelect = page.locator('#rankagent-model-2');
     await lmModelSelect.waitFor({ state: 'attached', timeout: 15000 });
     await page.waitForTimeout(2000);
     const lmExists = await lmModelSelect.count() > 0;

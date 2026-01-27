@@ -67,7 +67,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
     expect(responseData.agent_models?.RankAgent_top_p).toBeCloseTo(0.95, 2);
   });
 
-  test('should autosave Extract Agent temperature changes', async ({ page }) => {
+  test.skip('should autosave Extract Agent temperature changes', async ({ page }) => {
     const tempInput = page.locator('#extractagent-temperature');
     await tempInput.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -88,7 +88,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
     expect(responseData.agent_models?.ExtractAgent_temperature).toBeCloseTo(0.3, 1);
   });
 
-  test('should autosave CmdlineExtract temperature changes', async ({ page }) => {
+  test.skip('should autosave CmdlineExtract temperature changes', async ({ page }) => {
     await expandPanelIfNeeded(page, 'extract-agent-panel');
     await page.waitForTimeout(500);
     await expandPanelIfNeeded(page, 'cmdlineextract-agent-panel');

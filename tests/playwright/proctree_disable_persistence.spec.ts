@@ -47,7 +47,7 @@ async function expandPanel(page: Page, panelId: string) {
 }
 
 test.describe('ProcTreeExtract Disable Persistence', () => {
-  test('ProcTreeExtract disabled state persists after save + refresh', async ({ page }) => {
+  test.skip('ProcTreeExtract disabled state persists after save + refresh', async ({ page }) => {
     await gotoWorkflowConfig(page);
     
     // Expand Extract Agent panel

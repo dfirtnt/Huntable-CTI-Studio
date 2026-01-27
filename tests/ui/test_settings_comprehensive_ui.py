@@ -331,11 +331,11 @@ class TestAIMLConfiguration:
         api_called = {"called": False}
         
         def handle_route(route):
-            if "/api/lmstudio/models" in route.request.url:
+            if "/api/lmstudio-models" in route.request.url:
                 api_called["called"] = True
             route.continue_()
         
-        page.route("**/api/lmstudio/models", handle_route)
+        page.route("**/api/lmstudio-models", handle_route)
         
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("networkidle")

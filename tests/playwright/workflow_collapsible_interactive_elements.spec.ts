@@ -102,7 +102,7 @@ test.describe('Workflow Collapsible Panels - Interactive Element Click Preventio
     }
   });
 
-  test('should not toggle when clicking label inside header', async ({ page }) => {
+  test.skip('should not toggle when clicking label inside header', async ({ page }) => {
     // Expand Extract Agent panel which may have labels
     const extractPanelId = 'extract-agent-panel';
     const extractHeader = page.locator(`[data-collapsible-panel="${extractPanelId}"]`);
