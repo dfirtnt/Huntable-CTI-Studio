@@ -33,6 +33,7 @@ class TestSigmaAgentEvaluator:
             pattern_safe=True,
             ioc_leakage=False,
             field_conformance=True,
+            selection_feasible=True,
             final_pass=True,
             errors=[],
             warnings=[]
@@ -179,6 +180,7 @@ level: medium
             pattern_safe=False,
             ioc_leakage=False,
             field_conformance=False,
+            selection_feasible=False,
             final_pass=False,
             errors=['Missing required field: detection'],
             warnings=[]

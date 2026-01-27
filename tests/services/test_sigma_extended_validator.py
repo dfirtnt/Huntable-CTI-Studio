@@ -133,3 +133,71 @@ level: medium
         safe = validator._check_pattern_safety(detection, errors=[], warnings=[])
         
         assert isinstance(safe, bool)
+
+    def test_impossible_selection_same_field_different_values(self, validator):
+        """Selection requiring same single-value field to match incompatible values (never true)."""
+        # Same base field (Image) with two identity-style constraints and different values.
+        rule_data = {
+            'logsource': {'category': 'process_creation', 'product': 'windows'},
+            'detection': {
+                'selection': {
+                    'Image|endswith': 'powershell.exe',
+                    'Image|startswith': 'C:\\wscript',
+                },
+                'condition': 'selection',
+            },
+        }
+        errors = []
+        warnings = []
+        feasible = validator._check_impossible_selections(rule_data, errors, warnings)
+        assert feasible is False
+        assert any('incompatible' in e or 'never true' in e for e in errors)
+        assert 'Image' in errors[0]
+
+    def test_impossible_selection_feasible_non_single_value_field(self, validator):
+        """CommandLine (not single-value) with multiple constraints is not flagged."""
+        rule_data = {
+            'detection': {
+                'selection': {
+                    'CommandLine|contains': 'schtasks',
+                    'CommandLine|contains': '/create',
+                },
+                'condition': 'selection',
+            },
+        }
+        errors = []
+        warnings = []
+        feasible = validator._check_impossible_selections(rule_data, errors, warnings)
+        assert feasible is True
+        assert not errors
+
+    def test_impossible_selection_feasible_same_value_two_constraints(self, validator):
+        """Same single-value field with two identity constraints but same value is feasible."""
+        rule_data = {
+            'detection': {
+                'selection': {
+                    'Image|endswith': 'x.exe',
+                    'Image|startswith': 'x.exe',
+                },
+                'condition': 'selection',
+            },
+        }
+        errors = []
+        feasible = validator._check_impossible_selections(rule_data, errors, [])
+        assert feasible is True
+        assert not errors
+
+    def test_impossible_selection_feasible_one_constraint_list_value(self, validator):
+        """One constraint with list value (OR) is feasible."""
+        rule_data = {
+            'detection': {
+                'selection': {
+                    'Image|endswith': ['powershell.exe', 'pwsh.exe'],
+                },
+                'condition': 'selection',
+            },
+        }
+        errors = []
+        feasible = validator._check_impossible_selections(rule_data, errors, [])
+        assert feasible is True
+        assert not errors
