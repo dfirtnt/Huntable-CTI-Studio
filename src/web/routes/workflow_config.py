@@ -485,6 +485,78 @@ async def delete_config_preset(request: Request, preset_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> Dict[str, Any]:
+    """Build preset-shaped dict from agentic_workflow_config row for applyPreset()."""
+    return {
+        "version": "1.0",
+        "thresholds": {
+            "junk_filter_threshold": config.junk_filter_threshold,
+            "ranking_threshold": config.ranking_threshold,
+            "similarity_threshold": config.similarity_threshold,
+        },
+        "agent_models": config.agent_models if config.agent_models is not None else {},
+        "qa_enabled": config.qa_enabled if config.qa_enabled is not None else {},
+        "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False) or False,
+        "rank_agent_enabled": getattr(config, "rank_agent_enabled", True) if getattr(config, "rank_agent_enabled", None) is not None else True,
+        "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
+        "extract_agent_settings": {"disabled_agents": []},
+        "agent_prompts": config.agent_prompts if config.agent_prompts is not None else {},
+    }
+
+
+@router.get("/config/versions")
+async def list_config_versions(request: Request):
+    """List workflow config versions (version, is_active, description, created_at, updated_at, id)."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            rows = db_session.query(AgenticWorkflowConfigTable).order_by(
+                AgenticWorkflowConfigTable.version.desc()
+            ).all()
+            return {
+                "success": True,
+                "versions": [
+                    {
+                        "id": r.id,
+                        "version": r.version,
+                        "is_active": r.is_active,
+                        "description": r.description or "",
+                        "created_at": r.created_at.isoformat(),
+                        "updated_at": r.updated_at.isoformat(),
+                    }
+                    for r in rows
+                ],
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error listing config versions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/config/version/{version_number}")
+async def get_config_by_version(request: Request, version_number: int):
+    """Get full workflow config by version number; returns preset-shaped payload for applyPreset."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            config = db_session.query(AgenticWorkflowConfigTable).filter(
+                AgenticWorkflowConfigTable.version == version_number
+            ).first()
+            if not config:
+                raise HTTPException(status_code=404, detail=f"No config with version {version_number}")
+            return _config_row_to_preset_dict(config)
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting config by version: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/config/prompts")
 async def get_agent_prompts(request: Request):
     """Get agent prompts from active workflow configuration."""
