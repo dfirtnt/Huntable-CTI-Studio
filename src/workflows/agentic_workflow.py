@@ -98,10 +98,15 @@ class WorkflowState(TypedDict):
     termination_details: Optional[Dict[str, Any]]
 
 
-def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable, db_session: Session) -> None:
+def _update_subagent_eval_on_completion(
+    execution: AgenticWorkflowExecutionTable,
+    db_session: Session,
+    extraction_result_override: Optional[Dict[str, Any]] = None,
+) -> None:
     """
     Update SubagentEvaluationTable when workflow execution completes.
     Extracts count from extraction_result.subresults.{subagent_name} and calculates score.
+    If extraction_result_override is provided (e.g. from workflow state), use it instead of execution.extraction_result.
     """
     try:
         config_snapshot = execution.config_snapshot or {}
@@ -111,20 +116,27 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
             # Not an eval run
             return
         
-        # For hunt_queries, find both EDR and SIGMA eval records
+        # For hunt_queries, find eval records (hunt_queries, hunt_queries_edr, or hunt_queries_sigma)
+        # run-subagent-eval creates records with subagent_name "hunt_queries"; also support legacy EDR/SIGMA
         if subagent_name == "hunt_queries":
             eval_records = db_session.query(SubagentEvaluationTable).filter(
                 SubagentEvaluationTable.workflow_execution_id == execution.id,
-                SubagentEvaluationTable.subagent_name.in_(["hunt_queries_edr", "hunt_queries_sigma"])
+                SubagentEvaluationTable.subagent_name.in_(
+                    ["hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"]
+                ),
             ).all()
-            
+
             if not eval_records:
-                logger.warning(f"No SubagentEvaluation records found for execution {execution.id} (hunt_queries)")
+                logger.warning(
+                    f"No SubagentEvaluation records found for execution {execution.id} (hunt_queries)"
+                )
                 return
-            
-            # Update both records
+
             for eval_record in eval_records:
-                _update_single_eval_record(eval_record, execution, db_session)
+                _update_single_eval_record(
+                    eval_record, execution, db_session,
+                    extraction_result_override=extraction_result_override,
+                )
             return
         
         # Standard single eval record
@@ -136,7 +148,10 @@ def _update_subagent_eval_on_completion(execution: AgenticWorkflowExecutionTable
             logger.warning(f"No SubagentEvaluation record found for execution {execution.id}")
             return
         
-        _update_single_eval_record(eval_record, execution, db_session)
+        _update_single_eval_record(
+            eval_record, execution, db_session,
+            extraction_result_override=extraction_result_override,
+        )
         
     except Exception as e:
         logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
@@ -158,8 +173,23 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
             queries = hunt_queries_result.get('queries', [])
             query_count = len(queries) if isinstance(queries, list) else 0
         return query_count
-    
-    # Standard subagent handling
+
+    # hunt_queries: prefer query_count, then count, then len(queries/items)
+    if subagent_name == "hunt_queries":
+        hq = subresults.get("hunt_queries", {})
+        if not isinstance(hq, dict):
+            logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
+            return None
+        n = hq.get("query_count")
+        if n is not None:
+            return int(n)
+        n = hq.get("count")
+        if n is not None:
+            return int(n)
+        q = hq.get("queries") or hq.get("items", [])
+        return len(q) if isinstance(q, list) else 0
+
+    # Standard subagent handling (cmdline, process_lineage)
     subagent_result = subresults.get(subagent_name, {})
     if not isinstance(subagent_result, dict):
         logger.warning(f"No {subagent_name} result in subresults for execution {execution_id}")
@@ -177,11 +207,16 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
     return actual_count
 
 
-def _update_single_eval_record(eval_record: SubagentEvaluationTable, execution: AgenticWorkflowExecutionTable, db_session: Session) -> None:
+def _update_single_eval_record(
+    eval_record: SubagentEvaluationTable,
+    execution: AgenticWorkflowExecutionTable,
+    db_session: Session,
+    extraction_result_override: Optional[Dict[str, Any]] = None,
+) -> None:
     """Update a single eval record with actual count from execution."""
     try:
-        # Extract count from extraction_result
-        extraction_result = execution.extraction_result
+        # Prefer override (e.g. from workflow state) so skip-sigma path has extraction_result
+        extraction_result = extraction_result_override if extraction_result_override is not None else execution.extraction_result
         if not extraction_result or not isinstance(extraction_result, dict):
             logger.warning(f"No extraction_result for execution {execution.id}")
             eval_record.status = 'failed'
@@ -953,7 +988,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Map subagent names to agent names
                     subagent_to_agent = {
                         "cmdline": "CmdlineExtract",
-                        "process_lineage": "ProcTreeExtract"
+                        "process_lineage": "ProcTreeExtract",
+                        "hunt_queries": "HuntQueriesExtract"
                     }
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
@@ -967,7 +1003,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         # Also include QA model prefix if present
                         qa_names = {
                             "CmdlineExtract": "CmdLineQA",
-                            "ProcTreeExtract": "ProcTreeQA"
+                            "ProcTreeExtract": "ProcTreeQA",
+                            "HuntQueriesExtract": "HuntQueriesQA"
                         }
                         qa_name = qa_names.get(agent_name)
                         if qa_name:
@@ -2336,6 +2373,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = 'extract_agent'
                 execution.completed_at = datetime.now()
                 db_session.commit()
+                # Use state's extraction_result — execution may not have it loaded yet in this path
+                extraction_from_state = state.get("extraction_result") if isinstance(state.get("extraction_result"), dict) else None
+                _update_subagent_eval_on_completion(
+                    execution, db_session, extraction_result_override=extraction_from_state
+                )
                 return "end"
         
         return "generate_sigma"
