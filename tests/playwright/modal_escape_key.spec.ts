@@ -111,71 +111,39 @@ test.describe('Modal Escape Key Functionality', () => {
     await expect(modal).not.toBeVisible({ timeout: 3000 });
   });
 
-  test.skip('ESC key closes nested modals (only topmost)', async ({ page }) => {
-    // This test verifies that ESC only closes the topmost modal
+  test('ESC key closes nested modals (only topmost), then previous', async ({ page }) => {
     await page.goto(`${BASE}/workflow#config`);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-    
-    // Open first modal (e.g., config preset list)
+    await page.waitForTimeout(2000);
+
     await page.evaluate(() => {
-      if (typeof window.ModalManager !== 'undefined' && typeof pushModal === 'function') {
-        pushModal('configPresetListModal');
-      } else if (typeof showConfigPresetListModal === 'function') {
-        showConfigPresetListModal();
+      if (typeof (window as any).pushModal === 'function') {
+        (window as any).pushModal('configPresetListModal', true);
       }
     });
-    
-    // Wait for first modal
     const firstModal = page.locator('#configPresetListModal');
     await expect(firstModal).toBeVisible({ timeout: 5000 });
-    
-    // Open second modal on top (nested)
+
     await page.evaluate(() => {
-      if (typeof window.ModalManager !== 'undefined') {
-        window.ModalManager.open('triggerWorkflowModal');
+      if (typeof (window as any).pushModal === 'function') {
+        (window as any).pushModal('configVersionListModal', true);
       }
     });
-    
-    // Wait for second modal
-    const secondModal = page.locator('#triggerWorkflowModal');
+    const secondModal = page.locator('#configVersionListModal');
     await expect(secondModal).toBeVisible({ timeout: 5000 });
-    
-    // Verify both modals are in stack
-    const stackState = await page.evaluate(() => {
-      if (window.ModalManager) {
-        return window.ModalManager.getStack();
-      }
-      return [];
-    });
+
+    const stackState = await page.evaluate(() =>
+      (window as any).ModalManager ? (window as any).ModalManager.getStack() : []
+    );
     expect(stackState.length).toBeGreaterThanOrEqual(2);
-    
-    // Press ESC - should only close topmost modal
+
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
-    
-    // Topmost modal should be closed
     await expect(secondModal).not.toBeVisible({ timeout: 3000 });
-    
-    // First modal should still be visible (or restored)
-    // Note: ModalManager might hide previous modals, so check if it's restored
-    const firstModalStillVisible = await firstModal.isVisible({ timeout: 2000 }).catch(() => false);
-    const firstModalInStack = await page.evaluate(() => {
-      if (window.ModalManager) {
-        const stack = window.ModalManager.getStack();
-        return stack.includes('configPresetListModal');
-      }
-      return false;
-    });
-    
-    // Either modal is visible or still in stack (might be hidden but not removed)
-    expect(firstModalStillVisible || firstModalInStack).toBe(true);
-    
-    // Press ESC again - should close first modal
+    await expect(firstModal).toBeVisible({ timeout: 2000 });
+
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
-    
-    // First modal should now be closed
     await expect(firstModal).not.toBeVisible({ timeout: 3000 });
   });
 
