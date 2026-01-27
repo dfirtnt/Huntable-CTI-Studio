@@ -85,15 +85,9 @@ test.describe('Modal stack and Enter key', () => {
   });
 
   test('Enter key triggers primary/enter button in modal', async ({ page }) => {
-    await page.goto(`${BASE}/workflow`);
+    await page.goto(`${BASE}/workflow#executions`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
-
-    const execTab = page.locator('button[data-tab="executions"], [data-tab="executions"], a:has-text("Executions")').first();
-    if (await execTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await execTab.click();
-      await page.waitForTimeout(500);
-    }
 
     await page.evaluate(() => {
       if (typeof (window as any).showTriggerWorkflowModal === 'function') {
