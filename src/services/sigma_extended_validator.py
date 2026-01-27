@@ -7,6 +7,7 @@ Extends the base sigma_validator with additional structural checks:
 - Pattern safety
 - IOC leakage detection
 - Field conformance
+- Impossible-selection detection (same single-value-per-event field required to match incompatible values).
 """
 
 import logging
@@ -39,6 +40,7 @@ class ExtendedValidationResult:
     pattern_safe: bool
     ioc_leakage: bool  # True if IOC leakage detected (bad)
     field_conformance: bool
+    selection_feasible: bool
     final_pass: bool
     errors: List[str]
     warnings: List[str]
@@ -58,6 +60,13 @@ class SigmaExtendedValidator:
         'Image', 'ParentImage', 'CommandLine', 'ParentCommandLine',
         'ProcessId', 'ParentProcessId', 'IntegrityLevel', 'Hashes',
         'CurrentDirectory', 'User', 'LogonId'
+    }
+
+    # Single-value-per-event fields (at most one value per log event). Used to detect
+    # impossible selections (e.g. Image endswith powershell.exe AND Image endswith wscript.exe).
+    SINGLE_VALUE_PER_EVENT_FIELDS = {
+        'Image', 'ParentImage', 'ProcessId', 'ParentProcessId',
+        'User', 'LogonId', 'CurrentDirectory', 'IntegrityLevel'
     }
     
     # Valid logsource category/product combinations
@@ -154,6 +163,7 @@ class SigmaExtendedValidator:
                 pattern_safe=False,
                 ioc_leakage=False,
                 field_conformance=False,
+                selection_feasible=False,
                 final_pass=False,
                 errors=pySigma_errors,
                 warnings=[]
@@ -181,13 +191,17 @@ class SigmaExtendedValidator:
         # Field conformance
         field_conformance = self._check_field_conformance(rule_data, errors, warnings)
         
+        # Impossible-selection (same single-value field, incompatible values)
+        selection_feasible = self._check_impossible_selections(rule_data, errors, warnings)
+        
         final_pass = (
             pySigma_passed and
             telemetry_feasible and
             condition_valid and
             pattern_safe and
             not ioc_leakage and
-            field_conformance
+            field_conformance and
+            selection_feasible
         )
         
         return ExtendedValidationResult(
@@ -198,6 +212,7 @@ class SigmaExtendedValidator:
             pattern_safe=pattern_safe,
             ioc_leakage=ioc_leakage,
             field_conformance=field_conformance,
+            selection_feasible=selection_feasible,
             final_pass=final_pass,
             errors=errors,
             warnings=warnings
@@ -293,6 +308,58 @@ class SigmaExtendedValidator:
             if len(parts) == 2 and parts[0].strip() == parts[1].strip():
                 errors.append("Condition is always true (selection or not selection)")
                 return False
+        
+        return True
+    
+    def _check_impossible_selections(
+        self,
+        rule_data: Dict[str, Any],
+        errors: List[str],
+        warnings: List[str]
+    ) -> bool:
+        """Detect selections that require a single-value-per-event field to match incompatible values (never true)."""
+        detection = rule_data.get('detection', {})
+        if not isinstance(detection, dict):
+            return False
+        
+        for sel_name, sel_value in detection.items():
+            if sel_name in ('condition', 'timeframe'):
+                continue
+            if not isinstance(sel_value, dict):
+                continue
+            
+            # Group constraints by base field: base_field -> list of (modifier, value_list)
+            field_constraints = {}
+            for key, val in sel_value.items():
+                parts = key.replace('=', '|').split('|')
+                base_field = (parts[0] or '').strip().title()
+                if base_field not in self.SINGLE_VALUE_PER_EVENT_FIELDS:
+                    continue
+                modifier = (parts[1].lower() if len(parts) > 1 else '') or ''
+                val_list = [val] if not isinstance(val, list) else list(val)
+                val_list = [str(v).strip().lower() for v in val_list if v is not None]
+                if not val_list:
+                    continue
+                if base_field not in field_constraints:
+                    field_constraints[base_field] = []
+                field_constraints[base_field].append((modifier, val_list))
+            
+            for base_field, constraints in field_constraints.items():
+                if len(constraints) < 2:
+                    continue
+                # Collect values from identity-style modifiers (endswith, startswith, or direct).
+                # contains can overlap so we do not treat "different contains" as impossible.
+                identity_values = []
+                for mod, vals in constraints:
+                    if mod in ('endswith', 'startswith', '') or not mod:
+                        identity_values.extend(vals)
+                if not identity_values:
+                    continue
+                if len(set(identity_values)) > 1:
+                    errors.append(
+                        f"Selection requires field {base_field} to match multiple incompatible values (never true)"
+                    )
+                    return False
         
         return True
     

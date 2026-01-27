@@ -80,7 +80,7 @@ class TestArticlesSearchAndFilter:
     @pytest.mark.ui
     @pytest.mark.articles
     def test_predefined_search_patterns(self, page: Page):
-        """Test predefined search pattern links."""
+        """Test predefined search pattern links (Playwright has no :near(); check panel content)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
@@ -91,18 +91,13 @@ class TestArticlesSearchAndFilter:
         help_button.click()
         page.wait_for_timeout(300)
         
-        # Find predefined pattern links
-        high_value_link = page.locator("a:has-text('Use This Search'):near(text='High-Value Detection Content')")
-        technical_link = page.locator("a:has-text('Use This Search'):near(text='Technical Intelligence')")
-        actionable_link = page.locator("a:has-text('Use This Search'):near(text='Actionable Intelligence Content')")
-        
-        # Verify links exist
-        if high_value_link.count() > 0:
-            expect(high_value_link.first).to_be_visible()
-        if technical_link.count() > 0:
-            expect(technical_link.first).to_be_visible()
-        if actionable_link.count() > 0:
-            expect(actionable_link.first).to_be_visible()
+        help_panel = page.locator("#search-help")
+        expect(help_panel).to_be_visible()
+        expect(help_panel).to_contain_text("High-Value Detection Content")
+        expect(help_panel).to_contain_text("Technical Intelligence")
+        expect(help_panel).to_contain_text("Actionable Intelligence Content")
+        use_links = help_panel.get_by_role("link", name="Use This Search")
+        expect(use_links).to_have_count(3)
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -161,19 +156,14 @@ class TestArticlesSearchAndFilter:
         # Find source filter
         source_filter = page.locator("#source")
         expect(source_filter).to_be_visible()
+        # Verify "All Sources" option exists (avoid asserting visibility on <option> when select is collapsed)
+        expect(source_filter.locator("option").first).to_have_text("All Sources")
         
-        # Verify "All Sources" option exists
-        all_sources_option = page.locator("#source option:has-text('All Sources')")
-        expect(all_sources_option).to_be_visible()
-        
-        # Select a source if available
+        # Select a source if available (Playwright uses select_option(index=...))
         options = source_filter.locator("option")
         if options.count() > 1:
-            # Select first non-"All Sources" option
-            source_filter.select_index(1)
+            source_filter.select_option(index=1)
             page.wait_for_timeout(1000)
-            
-            # Verify URL contains source parameter
             expect(page).to_have_url(re.compile(r".*source=.*"))
     
     @pytest.mark.ui
@@ -218,10 +208,8 @@ class TestArticlesSearchAndFilter:
         # Find score range filter
         score_filter = page.locator("#threat_hunting_range")
         expect(score_filter).to_be_visible()
-        
-        # Verify options exist
-        excellent_option = page.locator("#threat_hunting_range option:has-text('🎯 Excellent (80-100)')")
-        expect(excellent_option).to_be_visible()
+        # Verify Excellent option exists (avoid asserting visibility on <option> when select is collapsed)
+        expect(score_filter.locator("option").nth(1)).to_have_text("🎯 Excellent (80-100)")
         
         # Select score range
         score_filter.select_option("80-100")
@@ -323,10 +311,10 @@ class TestArticlesSearchAndFilter:
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
         
-        # Find default filters indicator
+        # Find default filters indicator (element exists; often has class "hidden" initially)
         indicator = page.locator("#default-filters-indicator")
-        # Indicator may be hidden initially
-        expect(indicator).to_be_visible() or expect(indicator).to_have_class("hidden")
+        expect(indicator).to_be_attached()
+        assert indicator.is_visible() or "hidden" in (indicator.get_attribute("class") or "")
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -383,24 +371,14 @@ class TestArticlesSorting:
         # Find sort by dropdown
         sort_by = page.locator("#sort-by")
         expect(sort_by).to_be_visible()
-        
-        # Verify all options exist
+        # Verify all options exist (avoid asserting visibility on <option> when select is collapsed)
         options = [
-            "discovered_at",
-            "published_at",
-            "title",
-            "source_id",
-            "threat_hunting_score",
-            "ml_hunt_score",
-            "annotation_count",
-            "word_count",
-            "id"
+            "discovered_at", "published_at", "title", "source_id",
+            "threat_hunting_score", "ml_hunt_score", "annotation_count",
+            "word_count", "id"
         ]
-        
         for option_value in options:
-            option = page.locator(f"#sort-by option[value='{option_value}']")
-            if option.count() > 0:
-                expect(option.first).to_be_visible()
+            expect(sort_by.locator(f"option[value='{option_value}']")).to_have_count(1)
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -414,13 +392,8 @@ class TestArticlesSorting:
         # Find sort order dropdown
         sort_order = page.locator("#sort-order")
         expect(sort_order).to_be_visible()
-        
-        # Verify options exist
-        desc_option = page.locator("#sort-order option[value='desc']")
-        asc_option = page.locator("#sort-order option[value='asc']")
-        
-        expect(desc_option).to_be_visible()
-        expect(asc_option).to_be_visible()
+        expect(sort_order.locator("option[value='desc']")).to_have_count(1)
+        expect(sort_order.locator("option[value='asc']")).to_have_count(1)
     
     @pytest.mark.ui
     @pytest.mark.articles
@@ -513,15 +486,9 @@ class TestArticlesPagination:
         # Find per-page selector
         per_page = page.locator("#per_page")
         expect(per_page).to_be_visible()
-        
-        # Verify options exist
-        option_20 = page.locator("#per_page option[value='20']")
-        option_50 = page.locator("#per_page option[value='50']")
-        option_100 = page.locator("#per_page option[value='100']")
-        
-        expect(option_20).to_be_visible()
-        expect(option_50).to_be_visible()
-        expect(option_100).to_be_visible()
+        expect(per_page.locator("option[value='20']")).to_have_count(1)
+        expect(per_page.locator("option[value='50']")).to_have_count(1)
+        expect(per_page.locator("option[value='100']")).to_have_count(1)
     
     @pytest.mark.ui
     @pytest.mark.articles
