@@ -19,7 +19,6 @@ router = APIRouter(tags=["Search"])
 async def api_search_articles(
     q: str,
     source_id: Optional[int] = None,
-    classification: Optional[str] = None,
     threat_hunting_min: Optional[int] = None,
     limit: Optional[int] = 100,
     offset: Optional[int] = 0,
@@ -31,14 +30,6 @@ async def api_search_articles(
 
         if source_id:
             filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
-
-        if classification:
-            filtered_articles = [
-                article
-                for article in filtered_articles
-                if article.article_metadata
-                and article.article_metadata.get("training_category") == classification
-            ]
 
         if threat_hunting_min is not None:
             filtered_articles = [

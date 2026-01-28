@@ -9809,8 +9809,9 @@ async function viewExecution(executionId) {
                                 // const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
                                 const llmCollapsibleId = `llm-${exec.id}-${idx}`;
                                 
-                                // Format validation results
-                                const validation = entry.validation || [];
+                                // Format validation results (API may return object or array)
+                                const vRaw = entry.validation;
+                                const validation = Array.isArray(vRaw) ? vRaw : (vRaw && typeof vRaw === 'object' && vRaw !== null ? Object.values(vRaw) : []);
                                 const hasErrors = validation.some(v => !v.is_valid);
                                 const validationIcon = hasErrors ? '❌' : '✅';
                                 const validationColor = hasErrors ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400';
@@ -11493,8 +11494,9 @@ async function showValidationConversationModal(data, provider, model) {
                     const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
                     const llmCollapsibleId = 'val-llm-' + idx;
                     
-                    // Format validation results
-                    const validation = entry.validation || [];
+                    // Format validation results (API may return object or array)
+                    const vRaw = entry.validation;
+                    const validation = Array.isArray(vRaw) ? vRaw : (vRaw && typeof vRaw === 'object' && vRaw !== null ? Object.values(vRaw) : []);
                     const hasErrors = validation.some(v => !v.is_valid);
                     const validationIcon = hasErrors ? '❌' : '✅';
                     const validationColor = hasErrors ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400';

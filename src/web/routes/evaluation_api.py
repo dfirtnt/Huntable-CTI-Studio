@@ -1299,9 +1299,12 @@ async def get_subagent_eval_aggregate(
                 mean_score = sum(scores) / len(scores)
                 mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
                 
-                # Calculate normalized MAE (nMAE): MAE / mean(expected_count)
+                # Calculate normalized MAE (nMAE): MAE / mean(expected_count), capped to [0, 1]
+                # Guard: use divisor >= 1 so nMAE doesn't explode when mean_expected_count is 0 or tiny
                 mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
-                normalized_mean_absolute_error = mean_absolute_error / mean_expected_count if mean_expected_count > 0 else None
+                divisor = max(mean_expected_count, 1.0)
+                nmae_raw = mean_absolute_error / divisor if divisor > 0 else None
+                normalized_mean_absolute_error = min(nmae_raw, 1.0) if nmae_raw is not None else None
                 
                 mean_squared_error = sum(s * s for s in scores) / len(scores)
                 perfect_matches = sum(1 for s in scores if s == 0)

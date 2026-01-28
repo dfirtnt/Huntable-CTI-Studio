@@ -33,10 +33,9 @@
   - `articles.canonical_url` (deduplication key)
   - `sources.identifier` (unique source identifier)
   - `source_checks.success` (check result)
-- Classification:
-  - `articles.classification` → chosen / rejected / unclassified
+- Annotations:
   - `annotations.label` → huntable / not huntable
-- NEVER mix article classification with annotation labels
+- (Deprecated: article-level chosen/rejected/unclassified classification and related APIs/UI have been removed.)
 
 ## Scoring
 - Regenerate scores after scoring-rule changes

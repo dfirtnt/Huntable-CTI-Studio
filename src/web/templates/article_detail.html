@@ -1471,10 +1471,6 @@ Please provide a detailed analysis based on the article content and the user's s
             });
         }, 100);
         
-        // Initialize current article classification in localStorage
-        const currentClassification = {{ (article.article_metadata.get("training_category", "") if article.article_metadata else "")|tojson }};
-        localStorage.setItem('currentArticleClassification', currentClassification);
-        
         // Load existing annotations
     });
     
@@ -4887,29 +4883,6 @@ Please provide a detailed analysis based on the article content and the user's s
         }, 10000);
     }
     // Navigation functions
-    async function navigateToNextUnclassified(retryCount = 0) {
-        try {
-            const response = await fetch(`/api/articles/next-unclassified?current_article_id={{ article.id|default(0)|int }}`);
-            const data = await response.json();
-            
-            if (data.article_id) {
-                window.location.href = `/articles/${data.article_id}`;
-            } else {
-                // If no article found and we haven't retried yet, wait and retry once
-                if (retryCount === 0) {
-                    console.log('No unclassified article found, retrying in 1 second...');
-                    setTimeout(() => {
-                        navigateToNextUnclassified(1);
-                    }, 1000);
-                } else {
-                    showNotification('No more unclassified articles found!', 'info');
-                }
-            }
-        } catch (error) {
-            showNotification(`Error: ${error.message}`, 'error');
-        }
-    }
-    
     async function navigateToPrevious() {
         try {
             const currentId = {{ article.id|default(0)|int }};

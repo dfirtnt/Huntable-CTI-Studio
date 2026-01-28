@@ -241,7 +241,7 @@ async function loadDashboardData() {
         if (container && data.top_articles) {
             container.innerHTML = "";
             data.top_articles.forEach(article => {
-                const badgeClass = article.classification === "Chosen" ? "badge-success" : "badge-warning";
+                const badgeClass = "badge-warning";
                 const card = document.createElement("a");
                 card.href = `/articles/${article.id}`;
                 card.className = "block p-4 rounded-lg bg-gray-700/50 border border-gray-600 hover:border-gray-500 transition";

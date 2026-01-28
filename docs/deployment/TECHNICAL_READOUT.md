@@ -252,7 +252,7 @@ def check_source(source_id: str):
 ### 2. Quality Assessment
 - **Content Scoring**: Length, HTML cleaning validation, technical depth
 - **Threat Relevance**: Intelligence value assessment
-- **Classification**: Chosen/Rejected/Unclassified articles
+- (Deprecated: Chosen/Rejected/Unclassified article classification has been removed.)
 
 ### 3. Scalable Architecture
 - **Async Processing**: Non-blocking web operations

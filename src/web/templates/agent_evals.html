@@ -211,7 +211,7 @@ let activeConfig = null;
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
 let executionResults = {};
-const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037, 5220];
+const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037, 5220, 7666, 7667];
 
 // Map dropdown values to agent names
 const SUBAGENT_MAP = {
@@ -679,7 +679,21 @@ async function pollSubagentResults(executions) {
     let pollInterval = null;
     let isPolling = true;
     
-    executionResults = {};
+    // Preserve current run's execution map (caller already set executionResults; do not clear)
+    if (executions && executions.length > 0) {
+        executionResults = {};
+        for (const exec of executions) {
+            if (exec.execution_id != null) {
+                executionResults[exec.execution_id] = {
+                    execution_id: exec.execution_id,
+                    article_id: exec.article_id,
+                    url: exec.url,
+                    eval_record_id: exec.eval_record_id,
+                    status: 'pending'
+                };
+            }
+        }
+    }
     
     const pollOnce = async () => {
         if (!isPolling) return;
@@ -812,12 +826,12 @@ async function pollSubagentResults(executions) {
                 }
                 isPolling = false;
                 
-                statusText.textContent = `✅ All executions completed. Rendering results...`;
+                statusText.textContent = `✅ All executions completed. Refreshing results and chart...`;
                 statusText.className = 'text-sm text-green-600 dark:text-green-400';
                 
-                // Small delay to ensure UI updates
+                // Full refresh: refetch results, reload aggregates/chart, render pivot (same as Load Previous Results)
                 setTimeout(() => {
-                    renderSubagentResults(results);
+                    loadPreviousResults();
                 }, 100);
             } else if (isPolling) {
                 // Schedule next poll
