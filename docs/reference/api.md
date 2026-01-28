@@ -130,13 +130,11 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
 - `GET /api/articles` - List articles with pagination and filtering
 - `GET /api/articles/{article_id}` - Get specific article details
 - `GET /api/articles/search` - Search articles with advanced queries
-- `GET /api/articles/next-unclassified` - Get next unclassified article
 - `GET /api/articles/next` - Get next article by ID
 - `GET /api/articles/previous` - Get previous article by ID
 - `GET /api/articles/top` - Get top-scoring articles for dashboard
 - `GET /api/articles/{article_id}/similar` - Get similar articles using embeddings
-- `POST /api/articles/{article_id}/classify` - Classify article (chosen/rejected)
-- `POST /api/articles/bulk-action` - Perform bulk actions on multiple articles
+- `POST /api/articles/bulk-action` - Bulk delete articles (action `delete` only)
 - `DELETE /api/articles/{article_id}` - Delete specific article
 - `GET /api/search/help` - Get search syntax help
 

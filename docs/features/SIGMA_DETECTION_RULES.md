@@ -80,8 +80,8 @@ Article → Match Existing Rules → Classify Coverage → Generate New Rules (i
 
 ### Prerequisites
 
-- Article classified as "chosen" (required)
 - Threat hunting score < 65 shows warning but allows proceeding
+- (Deprecated: article-level "chosen" classification requirement has been removed.)
 - AI model configured:
   - **ChatGPT**: OpenAI API key required
   - **LMStudio**: Local server running (no API key)
@@ -379,7 +379,7 @@ Matches for Article 123
 
 ### Web Interface Usage
 
-1. Navigate to any article classified as "chosen"
+1. Navigate to any article
 2. Click "Generate SIGMA Rules" button
 3. AI processes article content
 4. System checks for existing coverage
@@ -623,7 +623,6 @@ LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
 - Examine conversation log for debugging
 
 #### Generation Failures
-- Verify article classified as "chosen"
 - Check threat hunting score (warning below 65)
 - Review AI model availability
 - Check content filtering settings
@@ -736,8 +735,8 @@ GROUP BY similarity_range;
 
 ### Input Validation
 - Article ID validation
-- Classification requirement ("chosen")
 - Threat score thresholds
+- (Deprecated: "chosen" classification requirement has been removed.)
 - Rate limiting on generation requests
 - API key validation for external models
 

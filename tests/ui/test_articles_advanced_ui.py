@@ -168,7 +168,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_classification_filter_dropdown(self, page: Page):
         """Test classification filter dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -220,7 +220,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_filter_summary_display(self, page: Page):
         """Test filter summary display with active filters."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -243,7 +243,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_clear_all_filters_link(self, page: Page):
         """Test clear all filters link."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -318,7 +318,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_filter_persistence_session_storage(self, page: Page):
         """Test filter persistence via sessionStorage."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -339,7 +339,7 @@ class TestArticlesSearchAndFilter:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_url_parameter_filter_parsing(self, page: Page):
         """Test URL parameter filter parsing and application."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -429,7 +429,7 @@ class TestArticlesSorting:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_sort_with_filter_combination(self, page: Page):
         """Test sort with filter combination."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -541,7 +541,7 @@ class TestArticlesPagination:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="#classification filter does not exist; classification is modal-based")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_pagination_state_preservation_with_filters(self, page: Page):
         """Test pagination state preservation with filters."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -840,7 +840,7 @@ class TestArticlesBulkSelection:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Bulk toolbar has only Delete; Mark as Chosen/Reject/Unclassify are not in toolbar")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
     def test_bulk_action_mark_as_chosen(self, page: Page):
         """Test bulk action Mark as Chosen button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -857,7 +857,7 @@ class TestArticlesBulkSelection:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Bulk toolbar has only Delete; Mark as Chosen/Reject/Unclassify are not in toolbar")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
     def test_bulk_action_reject(self, page: Page):
         """Test bulk action Reject button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -874,7 +874,7 @@ class TestArticlesBulkSelection:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Bulk toolbar has only Delete; Mark as Chosen/Reject/Unclassify are not in toolbar")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
     def test_bulk_action_unclassify(self, page: Page):
         """Test bulk action Unclassify button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -1036,7 +1036,7 @@ class TestArticlesCardFeatures:
     
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Classification badges (Chosen/Rejected/Unclassified) are not shown on article list cards")
+    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification badges removed")
     def test_classification_badge_display(self, page: Page):
         """Test classification badge display (chosen/rejected/unclassified)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

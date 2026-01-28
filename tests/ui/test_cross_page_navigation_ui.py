@@ -3,9 +3,11 @@ UI tests for cross-page navigation features using Playwright.
 Tests breadcrumbs, deep linking, browser navigation, URL params, and related features.
 """
 
+import os
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
-import os
 
 
 class TestCrossPageNavigation:
@@ -150,12 +152,12 @@ class TestCrossPageNavigation:
         """Test URL parameter persistence."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         
-        # Navigate to articles with query parameters
-        page.goto(f"{base_url}/articles?source_id=1&classification=chosen")
+        # Navigate to articles with query parameters (classification deprecated; use threat_hunting_range)
+        page.goto(f"{base_url}/articles?source_id=1&threat_hunting_range=80-100")
         page.wait_for_load_state("networkidle")
         
         # Verify URL parameters are preserved
-        expect(page).to_have_url(f"{base_url}/articles?source_id=1&classification=chosen")
+        expect(page).to_have_url(re.compile(r".*source_id=1.*threat_hunting_range=80-100.*"))
     
     @pytest.mark.ui
     @pytest.mark.navigation

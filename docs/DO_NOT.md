@@ -308,15 +308,15 @@ async def get_article(id: int):
 
 ## 🔍 THREAT INTELLIGENCE SPECIFIC MISTAKES
 
-### DO NOT: Mix Article and Annotation Classifications
+### DO NOT: Mix Article-Level Logic With Annotation Labels
 ```python
 # ❌ WRONG
-articles = get_huntable_articles()  # Articles can't be "huntable"
+articles = get_huntable_articles()  # Articles don't have a "huntable" flag; annotations do
 
 # ✅ CORRECT
-chosen_articles = get_articles_by_classification("chosen")
 huntable_annotations = get_annotations_by_label("huntable")
 ```
+(Note: Article-level chosen/rejected classification has been deprecated and removed.)
 
 ### DO NOT: Skip Content Validation
 ```python

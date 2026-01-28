@@ -728,8 +728,9 @@ async function viewExecution(executionId) {
                                                 html += '<pre class="mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + llmResponse + '</pre></details>';
                                             }
                                             
-                                            // Validation results
-                                            const validation = entry.validation || [];
+                                            // Validation results (API may return object or array)
+                                            const vRaw = entry.validation;
+                                            const validation = Array.isArray(vRaw) ? vRaw : (vRaw && typeof vRaw === 'object' && vRaw !== null ? Object.values(vRaw) : []);
                                             if (validation.length > 0) {
                                                 html += '<div class="mb-2"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">pySigma Validation:</div>';
                                                 validation.forEach((vr, vrIdx) => {

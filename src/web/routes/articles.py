@@ -4,7 +4,6 @@ Core article management API routes.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -88,40 +87,6 @@ async def api_articles_list(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.get("/next-unclassified")
-async def api_get_next_unclassified(current_article_id: Optional[int] = None):
-    """API endpoint for getting the next unclassified article."""
-    try:
-        articles = await async_db_manager.list_articles()
-        articles.sort(key=lambda x: x.id)
-
-        if not current_article_id:
-            for article in articles:
-                if not article.article_metadata or article.article_metadata.get("training_category") not in [
-                    "chosen",
-                    "rejected",
-                ]:
-                    return {"article_id": article.id}
-        else:
-            found_current = False
-            for article in articles:
-                if article.id == current_article_id:
-                    found_current = True
-                    continue
-
-                if found_current and (
-                    not article.article_metadata
-                    or article.article_metadata.get("training_category") not in ["chosen", "rejected"]
-                ):
-                    return {"article_id": article.id}
-
-        return {"article_id": None, "message": "No unclassified articles found"}
-
-    except Exception as exc:  # noqa: BLE001
-        logger.error("API get next unclassified error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
 @router.get("/next")
 async def api_get_next_article(current_article_id: int):
     """API endpoint for getting the next article by ID."""
@@ -175,13 +140,13 @@ async def api_articles_top(limit: int = 10):
 
         top_articles = []
         for article in articles:
-            if article.get("hunt_score", 0) > 0:
+            hs = getattr(article, "hunt_score", None) or (article.article_metadata or {}).get("threat_hunting_score", 0)
+            if (hs or 0) > 0:
                 top_articles.append(
                     {
-                        "id": article.get("id"),
-                        "title": article.get("title", "Untitled")[:100],
-                        "hunt_score": round(article.get("hunt_score", 0), 1),
-                        "classification": article.get("classification", "Unclassified"),
+                        "id": getattr(article, "id", None),
+                        "title": (getattr(article, "title", None) or "Untitled")[:100],
+                        "hunt_score": round(float(hs) if hs is not None else 0, 1),
                     }
                 )
 
@@ -216,49 +181,6 @@ async def api_get_article(article_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("API get article error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.post("/{article_id}/classify")
-async def api_classify_article(article_id: int, request: Request):
-    """API endpoint for classifying an article with metadata update."""
-    try:
-        body = await request.json()
-        category = body.get("category")
-        reason = body.get("reason", "")
-
-        if not category or category not in {"chosen", "rejected", "unclassified"}:
-            raise HTTPException(status_code=400, detail="Invalid or missing category")
-
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-
-        from src.models.article import ArticleUpdate
-
-        current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-        current_metadata["training_category"] = category
-        current_metadata["training_reason"] = reason
-        current_metadata["training_categorized_at"] = datetime.now().isoformat()
-
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        updated_article = await async_db_manager.update_article(article_id, update_data)
-
-        if not updated_article:
-            raise HTTPException(status_code=500, detail="Failed to update article")
-
-        return {
-            "success": True,
-            "article_id": article_id,
-            "category": category,
-            "reason": reason,
-            "categorized_at": current_metadata["training_categorized_at"],
-        }
-
-    except HTTPException:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        logger.error("API classify article error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -305,32 +227,16 @@ async def api_bulk_action(request: Request):
         if not article_ids:
             raise HTTPException(status_code=400, detail="Article IDs are required")
 
-        if action not in {"chosen", "rejected", "unclassified", "delete"}:
-            raise HTTPException(status_code=400, detail="Invalid action")
+        if action != "delete":
+            raise HTTPException(status_code=400, detail="Only 'delete' bulk action is supported")
 
         processed_count = 0
         errors: list[str] = []
 
         for article_id in article_ids:
             try:
-                if action == "delete":
-                    await async_db_manager.delete_article(article_id)
-                    processed_count += 1
-                else:
-                    article = await async_db_manager.get_article(article_id)
-                    if not article:
-                        errors.append(f"Article {article_id} not found")
-                        continue
-
-                    from src.models.article import ArticleUpdate
-
-                    current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-                    current_metadata["training_category"] = action
-                    current_metadata["training_categorized_at"] = datetime.now().isoformat()
-
-                    update_data = ArticleUpdate(article_metadata=current_metadata)
-                    await async_db_manager.update_article(article_id, update_data)
-                    processed_count += 1
+                await async_db_manager.delete_article(article_id)
+                processed_count += 1
 
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"Article {article_id}: {exc}")

@@ -241,10 +241,6 @@ async def api_dashboard_data():
         for db_article in top_rows:
             metadata = db_article.article_metadata or {}
             hunt_score = metadata.get("threat_hunting_score", 0)
-            training_category = metadata.get("training_category")
-            classification = (
-                training_category.capitalize() if training_category else "Unclassified"
-            )
 
             # Format publication date
             published_at_str = "Unknown"
@@ -259,7 +255,6 @@ async def api_dashboard_data():
                     "id": db_article.id,
                     "title": db_article.title[:100] if db_article.title else "Untitled",
                     "hunt_score": round(hunt_score, 1),
-                    "classification": classification,
                     "published_at": published_at_str,
                     "url": db_article.canonical_url,
                     "source_name": db_article.source_name

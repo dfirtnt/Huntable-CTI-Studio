@@ -417,32 +417,6 @@ async def articles_list(
             "title_only": title_only,
         }
 
-        chosen_count = sum(
-            1
-            for article in filtered_articles
-            if article.article_metadata
-            and article.article_metadata.get("training_category") == "chosen"
-        )
-        rejected_count = sum(
-            1
-            for article in filtered_articles
-            if article.article_metadata
-            and article.article_metadata.get("training_category") == "rejected"
-        )
-        unclassified_count = sum(
-            1
-            for article in filtered_articles
-            if not article.article_metadata
-            or article.article_metadata.get("training_category")
-            not in ["chosen", "rejected"]
-        )
-
-        stats = {
-            "chosen_count": chosen_count,
-            "rejected_count": rejected_count,
-            "unclassified_count": unclassified_count,
-        }
-
         return templates.TemplateResponse(
             "articles.html",
             {
@@ -452,7 +426,6 @@ async def articles_list(
                 "source_lookup": source_lookup,
                 "pagination": pagination,
                 "filters": filters,
-                "stats": stats,
             },
         )
     except Exception as exc:
