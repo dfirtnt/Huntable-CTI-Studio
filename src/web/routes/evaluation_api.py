@@ -42,6 +42,29 @@ def _resolve_subagent_query(subagent: str) -> Tuple[str, List[str]]:
     return canonical_value, list(lookup_values)
 
 
+def _load_preset_expected_by_url(subagent: str) -> Dict[str, int]:
+    """Load predetermined expected_count by article_url from eval_articles.yaml."""
+    config_path = (
+        Path(__file__).parent.parent.parent.parent / "config" / "eval_articles.yaml"
+    )
+    if not config_path.exists():
+        return {}
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f) or {}
+    subagents = config.get("subagents", {})
+    canonical, _ = _resolve_subagent_query(subagent)
+    key = canonical if canonical in subagents else subagent
+    articles = subagents.get(key, [])
+    if not isinstance(articles, list):
+        return {}
+    out = {}
+    for a in articles:
+        url = a.get("url")
+        if url is not None:
+            out[url] = a.get("expected_count", 0) if a.get("expected_count") is not None else 0
+    return out
+
+
 def _get_langfuse_setting(
     key: str, env_key: str, default: Optional[str] = None
 ) -> Optional[str]:
@@ -1250,6 +1273,9 @@ async def get_subagent_eval_aggregate(
                 SubagentEvaluationTable.created_at.desc(),
             ).all()
 
+            # Predetermined expected_count by article_url from eval_articles.yaml
+            preset_expected_by_url = _load_preset_expected_by_url(subagent)
+
             # Group by config version
             by_config_version = {}
             for record in all_records:
@@ -1258,13 +1284,13 @@ async def get_subagent_eval_aggregate(
                     by_config_version[version] = []
                 by_config_version[version].append(record)
 
-            # Calculate aggregate metrics per config version
+            # Calculate aggregate metrics per config version using preset expected
             aggregates = []
             for version, records in sorted(by_config_version.items(), reverse=True):
                 completed_records = [
                     r
                     for r in records
-                    if r.status == "completed" and r.score is not None
+                    if r.status == "completed" and r.actual_count is not None
                 ]
                 failed_records = [r for r in records if r.status == "failed"]
                 pending_records = [r for r in records if r.status == "pending"]
@@ -1293,26 +1319,29 @@ async def get_subagent_eval_aggregate(
                     )
                     continue
 
-                # Calculate metrics
-                scores = [r.score for r in completed_records]
-                expected_counts = [r.expected_count for r in completed_records]
+                # Score = actual - preset_expected (fallback to record.expected_count if url not in preset)
+                scores = []
+                expected_counts = []
+                for r in completed_records:
+                    expected = preset_expected_by_url.get(r.article_url)
+                    if expected is None:
+                        expected = r.expected_count if r.expected_count is not None else 0
+                    expected_counts.append(expected)
+                    scores.append((r.actual_count or 0) - expected)
+
                 mean_score = sum(scores) / len(scores)
                 mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
-                
-                # Calculate normalized MAE (nMAE): MAE / mean(expected_count), capped to [0, 1]
-                # Guard: use divisor >= 1 so nMAE doesn't explode when mean_expected_count is 0 or tiny
-                mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
+                mean_expected_count = (
+                    sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
+                )
                 divisor = max(mean_expected_count, 1.0)
                 nmae_raw = mean_absolute_error / divisor if divisor > 0 else None
                 normalized_mean_absolute_error = min(nmae_raw, 1.0) if nmae_raw is not None else None
-                
                 mean_squared_error = sum(s * s for s in scores) / len(scores)
                 perfect_matches = sum(1 for s in scores if s == 0)
                 perfect_match_percentage = (
                     perfect_matches / len(completed_records)
                 ) * 100
-
-                # Score distribution
                 exact = sum(1 for s in scores if s == 0)
                 within_2 = sum(1 for s in scores if abs(s) <= 2 and s != 0)
                 over_2 = sum(1 for s in scores if abs(s) > 2)
@@ -1326,8 +1355,8 @@ async def get_subagent_eval_aggregate(
                         "pending": len(pending_records),
                         "mean_score": round(mean_score, 2),
                         "mean_absolute_error": round(normalized_mean_absolute_error, 4) if normalized_mean_absolute_error is not None else None,
-                        "raw_mae": round(mean_absolute_error, 4),  # Raw MAE before normalization
-                        "mean_expected_count": round(mean_expected_count, 4),  # Mean expected count used for normalization
+                        "raw_mae": round(mean_absolute_error, 4),
+                        "mean_expected_count": round(mean_expected_count, 4),
                         "mean_squared_error": round(mean_squared_error, 2),
                         "perfect_matches": perfect_matches,
                         "perfect_match_percentage": round(perfect_match_percentage, 1),
@@ -1354,7 +1383,7 @@ async def get_subagent_eval_aggregate(
 @router.get("/config-versions-models")
 async def get_config_versions_models(
     request: Request,
-    config_versions: str = Query(..., description="Comma-separated list of config version numbers"),
+    config_versions: str = Query("1", description="Comma-separated list of config version numbers"),
 ):
     """Get agent models for specified config versions."""
     try:
