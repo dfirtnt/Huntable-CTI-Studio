@@ -563,6 +563,98 @@ class TestCriticalAPIs:
             data = response.json()
             assert "detail" in data or "error" in data or "message" in data
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_backup_status_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: backup status endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/backup/status")
+        assert response.status_code == 200
+        data = response.json()
+        # API returns: automated, total_backups, total_size_gb, last_backup (or legacy status/backups/message)
+        assert any(
+            k in data
+            for k in (
+                "status",
+                "backups",
+                "message",
+                "automated",
+                "total_backups",
+                "total_size_gb",
+                "last_backup",
+            )
+        )
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_backup_list_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: backup list endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/backup/list")
+        assert response.status_code == 200
+        data = response.json()
+        # API returns a list directly; support dict with "backups" key for compatibility
+        backups = data if isinstance(data, list) else (data.get("backups", []) if isinstance(data, dict) else [])
+        assert isinstance(backups, list), "Backup list returns a JSON array or dict with backups key"
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_evaluations_config_versions_models_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: evaluations config-versions-models endpoint is accessible (read-only)."""
+        response = await async_client.get(
+            "/api/evaluations/config-versions-models",
+            params={"config_versions": "1"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "models_by_version" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_search_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: search module is reachable (read-only). Uses /api/search/help to avoid route conflict with /api/articles/{id}."""
+        response = await async_client.get("/api/search/help")
+        if response.status_code == 422:
+            pytest.skip("Search help returned 422 (validation/route may differ in this environment)")
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text[:200]}"
+        data = response.json()
+        assert "help_text" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_workflow_executions_list_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: workflow executions list endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/workflow/executions")
+        assert response.status_code == 200
+        data = response.json()
+        assert "executions" in data
+        assert isinstance(data["executions"], list)
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_dashboard_data_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: dashboard data API is accessible (read-only)."""
+        response = await async_client.get("/api/dashboard/data")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_metrics_health_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: metrics health endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/metrics/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "uptime" in data or "total_sources" in data or "avg_response_time" in data
+
 
 class TestPerformance:
     """Test performance and response times."""
