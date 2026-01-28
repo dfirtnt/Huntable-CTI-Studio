@@ -2041,10 +2041,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#do-not-mix-article-and-annotation-classifications" class="md-nav__link">
+  <a href="#do-not-mix-article-level-logic-with-annotation-labels" class="md-nav__link">
     <span class="md-ellipsis">
       
-        DO NOT: Mix Article and Annotation Classifications
+        DO NOT: Mix Article-Level Logic With Annotation Labels
       
     </span>
   </a>
@@ -2394,14 +2394,14 @@ async def get_article(id: int):
         return result.scalar_one_or_none()
 </code></pre>
 <h2 id="threat-intelligence-specific-mistakes">🔍 THREAT INTELLIGENCE SPECIFIC MISTAKES</h2>
-<h3 id="do-not-mix-article-and-annotation-classifications">DO NOT: Mix Article and Annotation Classifications</h3>
+<h3 id="do-not-mix-article-level-logic-with-annotation-labels">DO NOT: Mix Article-Level Logic With Annotation Labels</h3>
 <pre><code class="language-python"># ❌ WRONG
-articles = get_huntable_articles()  # Articles can't be &quot;huntable&quot;
+articles = get_huntable_articles()  # Articles don't have a &quot;huntable&quot; flag; annotations do
 
 # ✅ CORRECT
-chosen_articles = get_articles_by_classification(&quot;chosen&quot;)
 huntable_annotations = get_annotations_by_label(&quot;huntable&quot;)
 </code></pre>
+<p>(Note: Article-level chosen/rejected classification has been deprecated and removed.)</p>
 <h3 id="do-not-skip-content-validation">DO NOT: Skip Content Validation</h3>
 <pre><code class="language-python"># ❌ WRONG
 def save_article(article):

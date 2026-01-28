@@ -6299,11 +6299,16 @@ function renderAgentPrompts() {
         }
     });
     
-    // Render SIGMA Agent Prompt
+    // Render SIGMA Agent Prompt (always render when container exists, same as Extract/sub-agents)
     const sigmaPromptContainer = document.getElementById('sigma-agent-prompt-container');
-    if (sigmaPromptContainer && agentPrompts['SigmaAgent']) {
-        const promptData = agentPrompts['SigmaAgent'];
+    if (sigmaPromptContainer) {
+        const promptData = getOrCreatePromptData('SigmaAgent');
         sigmaPromptContainer.innerHTML = renderSinglePrompt('SigmaAgent', promptData, 'sigma-agent');
+        setTimeout(() => {
+            if (typeof initCollapsiblePanels === 'function') {
+                initCollapsiblePanels(sigmaPromptContainer);
+            }
+        }, 0);
     }
     
     // Re-initialize collapsible panels for dynamically added prompt panels

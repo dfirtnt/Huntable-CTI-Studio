@@ -910,26 +910,29 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 html += `<td class="px-4 py-3 text-sm text-gray-400 dark:text-gray-600 whitespace-nowrap text-center">-</td>`;
             } else {
                 const actualCount = result.actual_count !== null ? result.actual_count : '-';
-                const score = result.score !== null ? result.score : '-';
+                // Delta relative to row Expected so displayed scores match "Expected" column
+                const displayDelta = (actualCount !== '-' && typeof expectedCount === 'number')
+                    ? (actualCount - expectedCount)
+                    : (result.score !== null ? result.score : null);
                 
-                // Determine color coding based on score
+                // Determine color coding based on delta vs row Expected
                 let scoreClass = 'status-pending';
                 let scoreDisplay = '-';
                 let scoreBadge = '';
                 
-                if (result.status === 'completed' && result.score !== null) {
-                    const absScore = Math.abs(result.score);
-                    if (result.score === 0) {
+                if (result.status === 'completed' && displayDelta !== null) {
+                    const absScore = Math.abs(displayDelta);
+                    if (displayDelta === 0) {
                         scoreClass = 'status-exact'; // Green
                         scoreDisplay = '0';
                         scoreBadge = '✓';
                     } else if (absScore <= 2) {
                         scoreClass = 'status-warning'; // Yellow
-                        scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                        scoreDisplay = displayDelta > 0 ? `+${displayDelta}` : `${displayDelta}`;
                         scoreBadge = `±${absScore}`;
                     } else {
                         scoreClass = 'status-mismatch'; // Red
-                        scoreDisplay = result.score > 0 ? `+${result.score}` : `${result.score}`;
+                        scoreDisplay = displayDelta > 0 ? `+${displayDelta}` : `${displayDelta}`;
                         scoreBadge = `±${absScore}`;
                     }
                 } else if (result.status === 'failed') {
@@ -939,7 +942,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 
                 // Status badge
                 const statusClass = result.status === 'completed' 
-                    ? (result.score === 0 ? 'status-exact' : scoreClass)
+                    ? (displayDelta === 0 ? 'status-exact' : scoreClass)
                     : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
                 
                 // Make cell clickable if completed and has execution_id
@@ -1708,20 +1711,33 @@ async function loadPreviousResults() {
             return;
         }
         
+        // Predetermined expected_count from preset (eval_articles.yaml), not derived from results
+        let presetByArticleId = {};
+        try {
+            const presetResp = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${apiSubagent}`);
+            if (presetResp.ok) {
+                const presetData = await presetResp.json();
+                (presetData.articles || []).forEach(a => {
+                    if (a.article_id != null) presetByArticleId[a.article_id] = a.expected_count != null ? a.expected_count : 0;
+                });
+            }
+        } catch (e) {
+            console.warn('Could not load preset expected counts:', e);
+        }
+        
         // Group by article_id - one row per article, with config versions as columns
-        // Use article_id instead of URL to handle cases where multiple articles share the same URL
         const byArticleId = {};
         results.forEach(result => {
             const articleId = result.article_id;
             if (!byArticleId[articleId]) {
+                const presetExpected = presetByArticleId[articleId];
                 byArticleId[articleId] = {
                     url: result.url,
-                    expected_count: result.expected_count,
+                    expected_count: presetExpected !== undefined ? presetExpected : (result.expected_count ?? 0),
                     article_id: articleId,
                     versions: {}
                 };
             }
-            // Store result by config version
             const version = result.config_version || 'unknown';
             byArticleId[articleId].versions[version] = result;
         });
