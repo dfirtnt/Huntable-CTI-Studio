@@ -45,11 +45,21 @@ async def api_model_retrain_status():
                             "new_version": latest_version.version_number,
                             "training_accuracy": latest_version.accuracy,
                             "training_duration": f"{latest_version.training_duration_seconds:.1f}s" if latest_version.training_duration_seconds else "Unknown",
-                            "training_samples": latest_version.training_samples
+                            "training_samples": latest_version.training_data_size,
                         })
                         
-                        # Include evaluation metrics if available
-                        if latest_version.has_evaluation:
+                        # Include evaluation metrics if available (evaluated_at set by save_evaluation_metrics)
+                        cm = latest_version.eval_confusion_matrix if isinstance(latest_version.eval_confusion_matrix, dict) else None
+                        if latest_version.evaluated_at is not None:
+                            total_chunks = None
+                            misclassified = None
+                            if cm:
+                                tp = cm.get("true_positive") or 0
+                                tn = cm.get("true_negative") or 0
+                                fp = cm.get("false_positive") or 0
+                                fn = cm.get("false_negative") or 0
+                                total_chunks = tp + tn + fp + fn
+                                misclassified = fp + fn
                             status_data["evaluation_metrics"] = {
                                 "accuracy": latest_version.eval_accuracy,
                                 "precision_huntable": latest_version.eval_precision_huntable,
@@ -58,14 +68,9 @@ async def api_model_retrain_status():
                                 "recall_not_huntable": latest_version.eval_recall_not_huntable,
                                 "f1_score_huntable": latest_version.eval_f1_score_huntable,
                                 "f1_score_not_huntable": latest_version.eval_f1_score_not_huntable,
-                                "total_eval_chunks": latest_version.eval_total_chunks,
-                                "misclassified_count": latest_version.eval_misclassified_count,
-                                "confusion_matrix": {
-                                    "true_positive": latest_version.eval_true_positive,
-                                    "true_negative": latest_version.eval_true_negative,
-                                    "false_positive": latest_version.eval_false_positive,
-                                    "false_negative": latest_version.eval_false_negative
-                                } if latest_version.eval_true_positive is not None else None
+                                "total_eval_chunks": total_chunks,
+                                "misclassified_count": misclassified,
+                                "confusion_matrix": cm,
                             }
                 except Exception as e:
                     logger.warning(f"Could not get latest model version: {e}")
@@ -181,10 +186,18 @@ async def api_model_retrain():
                             }
                             update_status("complete", 100, f"Retraining completed successfully! New model: v{latest_version.version_number}", retrain_data)
                         else:
-                            update_status("complete", 100, "Retraining completed successfully")
+                            update_status("complete", 100, "Retraining completed successfully", {
+                                "training_samples": total_available,
+                                "feedback_samples": feedback_count,
+                                "annotation_samples": annotation_count,
+                            })
                     except Exception as e:
                         logger.warning(f"Could not get latest model version: {e}")
-                        update_status("complete", 100, "Retraining completed successfully")
+                        update_status("complete", 100, "Retraining completed successfully", {
+                            "training_samples": total_available,
+                            "feedback_samples": feedback_count,
+                            "annotation_samples": annotation_count,
+                        })
                 else:
                     update_status("error", 0, f"Retraining failed: {result.stderr}")
                     
