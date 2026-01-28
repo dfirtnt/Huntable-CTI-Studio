@@ -3639,8 +3639,8 @@
 </ul>
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
-<li>Article classified as "chosen" (required)</li>
 <li>Threat hunting score &lt; 65 shows warning but allows proceeding</li>
+<li>(Deprecated: article-level "chosen" classification requirement has been removed.)</li>
 <li>AI model configured:</li>
 <li><strong>ChatGPT</strong>: OpenAI API key required</li>
 <li><strong>LMStudio</strong>: Local server running (no API key)</li>
@@ -3886,7 +3886,7 @@ LIMIT :limit
 </code></pre>
 <h3 id="web-interface-usage">Web Interface Usage</h3>
 <ol>
-<li>Navigate to any article classified as "chosen"</li>
+<li>Navigate to any article</li>
 <li>Click "Generate SIGMA Rules" button</li>
 <li>AI processes article content</li>
 <li>System checks for existing coverage</li>
@@ -4099,7 +4099,6 @@ LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
 </ul>
 <h4 id="generation-failures">Generation Failures</h4>
 <ul>
-<li>Verify article classified as "chosen"</li>
 <li>Check threat hunting score (warning below 65)</li>
 <li>Review AI model availability</li>
 <li>Check content filtering settings</li>
@@ -4198,8 +4197,8 @@ GROUP BY similarity_range;
 <h3 id="input-validation">Input Validation</h3>
 <ul>
 <li>Article ID validation</li>
-<li>Classification requirement ("chosen")</li>
 <li>Threat score thresholds</li>
+<li>(Deprecated: "chosen" classification requirement has been removed.)</li>
 <li>Rate limiting on generation requests</li>
 <li>API key validation for external models</li>
 </ul>

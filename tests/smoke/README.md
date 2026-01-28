@@ -7,7 +7,7 @@
 python3 run_tests.py smoke
 ```
 
-**Duration:** ~30 seconds | **Tests:** 22 passed ✅
+**Duration:** ~30 seconds | **Tests:** 25 passed ✅
 
 ## Overview
 
@@ -15,11 +15,11 @@ Smoke tests provide rapid health checks of critical system functionality, comple
 
 ## Current Coverage
 
-### ✅ Smoke Tests (22 tests)
+### ✅ Smoke Tests (25 tests)
 
 Smoke tests are distributed across multiple test files using the `@pytest.mark.smoke` and `@pytest.mark.ui_smoke` markers:
 
-**API Endpoints (14 tests)** - `tests/api/test_endpoints.py`
+**API Endpoints (19 tests)** - `tests/api/test_endpoints.py`
 - Dashboard home page
 - Articles listing
 - Article detail view
@@ -34,6 +34,12 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Annotation endpoint accessibility
 - Redis connectivity check
 - Celery worker health check
+- **Backup** status and list (read-only)
+- **Search** module (/api/search/help)
+- **Workflow executions** list
+- **Evaluations** config-versions-models
+- **Dashboard data** API
+- **Metrics** health
 
 **System Integration (1 test)** - `tests/integration/test_system_integration.py`
 - System startup health check
@@ -52,7 +58,7 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 
 | File | Tests | Category |
 |------|-------|----------|
-| `tests/api/test_endpoints.py` | 14 | API endpoints |
+| `tests/api/test_endpoints.py` | 19 | API endpoints |
 | `tests/integration/test_system_integration.py` | 1 | System health |
 | `tests/ui/test_ui_flows.py` | 4 | UI navigation |
 | `tests/ui/test_rag_chat_ui.py` | 2 | ML services |
@@ -94,7 +100,7 @@ docker exec cti_web pytest tests/ -m smoke -v
 
 | Category | Tests | Duration | Purpose |
 |----------|-------|----------|---------|
-| **API Endpoints** | 14 | ~10s | Core API/export/health/critical endpoints |
+| **API Endpoints** | 19 | ~15s | Core API/export/health/backup/search/workflow/evaluations/metrics |
 | **System Health** | 1 | ~2s | System startup verification |
 | **UI Navigation** | 4 | ~5s | User interface flows |
 | **ML Services** | 2 | ~3s | RAG chat availability and send path |

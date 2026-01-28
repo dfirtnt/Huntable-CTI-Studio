@@ -3273,12 +3273,14 @@
 </ul>
 <h3 id="workflow-configuration">Workflow Configuration</h3>
 <ul>
-<li><code>GET /api/workflow/config</code> - Get current workflow configuration</li>
-<li><code>PUT /api/workflow/config</code> - Update workflow configuration</li>
-<li><code>GET /api/workflow/config/prompts</code> - Get agent prompts</li>
-<li><code>PUT /api/workflow/config/prompts/{agent_name}</code> - Update agent prompt</li>
-<li><code>GET /api/workflow/config/models</code> - Get agent model assignments</li>
-<li><code>PUT /api/workflow/config/models</code> - Update agent model assignments</li>
+<li><code>GET /api/workflow/config</code> - Get current workflow configuration (includes <code>agent_models</code> and prompts)</li>
+<li><code>PUT /api/workflow/config</code> - Update workflow configuration (including agent model assignments via <code>agent_models</code>)</li>
+<li><code>GET /api/workflow/config/prompts</code> - Get all agent prompts</li>
+<li><code>GET /api/workflow/config/prompts/{agent_name}</code> - Get single agent prompt</li>
+<li><code>PUT /api/workflow/config/prompts</code> - Update agent prompts; body includes <code>agent_name</code>, <code>system_prompt</code>, <code>user_prompt</code> (bulk update)</li>
+<li><code>GET /api/workflow/config/prompts/{agent_name}/versions</code> - Get prompt version history</li>
+<li><code>POST /api/workflow/config/prompts/{agent_name}/rollback</code> - Rollback prompt to a prior version</li>
+<li><code>GET /api/workflow/config/preset/list</code>, <code>GET /api/workflow/config/versions</code>, <code>GET /api/workflow/config/version/{version_number}</code> - Presets and version history</li>
 </ul>
 <h2 id="sources-management-endpoints">Sources Management Endpoints</h2>
 <h3 id="source-operations">Source Operations</h3>
@@ -3301,13 +3303,11 @@
 <li><code>GET /api/articles</code> - List articles with pagination and filtering</li>
 <li><code>GET /api/articles/{article_id}</code> - Get specific article details</li>
 <li><code>GET /api/articles/search</code> - Search articles with advanced queries</li>
-<li><code>GET /api/articles/next-unclassified</code> - Get next unclassified article</li>
 <li><code>GET /api/articles/next</code> - Get next article by ID</li>
 <li><code>GET /api/articles/previous</code> - Get previous article by ID</li>
 <li><code>GET /api/articles/top</code> - Get top-scoring articles for dashboard</li>
 <li><code>GET /api/articles/{article_id}/similar</code> - Get similar articles using embeddings</li>
-<li><code>POST /api/articles/{article_id}/classify</code> - Classify article (chosen/rejected)</li>
-<li><code>POST /api/articles/bulk-action</code> - Perform bulk actions on multiple articles</li>
+<li><code>POST /api/articles/bulk-action</code> - Bulk delete articles (action <code>delete</code> only)</li>
 <li><code>DELETE /api/articles/{article_id}</code> - Delete specific article</li>
 <li><code>GET /api/search/help</code> - Get search syntax help</li>
 </ul>
