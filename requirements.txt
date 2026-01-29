@@ -3,8 +3,8 @@
 # Last updated: 2025-01-29
 # Security audit: Updated all packages to latest versions
 # Phase 1 security updates: 2025-01-29 (certifi, charset-normalizer, cryptography)
-# Phase 2 security updates: 2026-01-07 (urllib3, aiohttp, starlette)
-# Phase 3 security updates: 2026-01-XX (urllib3 2.6.3, notebook 7.5.1, langfuse 3.11.2)
+# Phase 2 security updates: 2025-01-07 (urllib3, aiohttp, starlette)
+# Phase 3 security updates: 2025-01-XX (urllib3 2.6.3, notebook 7.5.1, langfuse 3.11.2)
 
 # Core scraping and processing
 requests==2.32.5

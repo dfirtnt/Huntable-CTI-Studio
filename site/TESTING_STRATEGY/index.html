@@ -655,6 +655,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/config/" class="md-nav__link">
         
   
@@ -1906,6 +1934,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ui-tests-without-agent-config-mutation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UI tests without agent config mutation
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2137,6 +2176,15 @@
 - Created date
 - Intended fix approach</p>
 <p>CI reports quarantine counts to prevent skip creep.</p>
+<h3 id="ui-tests-without-agent-config-mutation">UI tests without agent config mutation</h3>
+<p>Some UI tests mutate agent/workflow/settings config (run evaluations, save settings, save workflow config). To run only UI tests that <strong>do not</strong> mutate agent configs:</p>
+<pre><code class="language-bash">python3 run_tests.py ui --exclude-markers agent_config_mutation
+</code></pre>
+<p>This excludes:</p>
+<ul>
+<li><strong>Pytest (tests/ui/)</strong>: tests marked <code>@pytest.mark.agent_config_mutation</code> (run evaluation, save settings, save workflow config).</li>
+<li><strong>Playwright TypeScript (tests/playwright/)</strong>: specs that change workflow/agent config are ignored via <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code> (e.g. <code>agent_config_*.spec.ts</code>, <code>workflow_save_button.spec.ts</code>, <code>workflow_config_persistence.spec.ts</code>, <code>workflow_config_versions.spec.ts</code>).</li>
+</ul>
 <h2 id="ci-recommendations">CI Recommendations</h2>
 <h3 id="speed">Speed</h3>
 <ul>

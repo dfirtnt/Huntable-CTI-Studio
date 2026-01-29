@@ -3,15 +3,30 @@ import { allure } from 'allure-playwright';
 
 /**
  * Playwright configuration for CTIScraper tests
- * 
+ *
  * This configuration:
  * - Integrates Allure reporting for test visualization
  * - Outputs to the same allure-results directory as pytest tests
  * - Supports both TypeScript and JavaScript test files
+ *
+ * When CTI_EXCLUDE_AGENT_CONFIG_TESTS=1 (e.g. run_tests.py ui --exclude-markers agent_config_mutation),
+ * specs that mutate agent/workflow config are ignored so local config is not changed.
  */
+const excludeAgentConfigTests = process.env.CTI_EXCLUDE_AGENT_CONFIG_TESTS === '1';
+
 export default defineConfig({
   testDir: '.',
   testMatch: /.*\.(spec|test)\.(ts|js)$/,
+
+  /* Exclude specs that mutate workflow/agent config when requested */
+  ...(excludeAgentConfigTests && {
+    testIgnore: [
+      'playwright/agent_config_*.spec.ts',
+      'playwright/workflow_save_button.spec.ts',
+      'playwright/workflow_config_persistence.spec.ts',
+      'playwright/workflow_config_versions.spec.ts',
+    ],
+  }),
   
   /* Run tests in files in parallel */
   fullyParallel: false,

@@ -655,6 +655,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1595,10 +1623,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-cli-no-automated-coverage" class="md-nav__link">
+  <a href="#1-cli-help-automated" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. CLI (no automated coverage)
+        1. CLI help (automated)
       
     </span>
   </a>
@@ -1734,41 +1762,11 @@
 
 <h1 id="manual-software-checks-30minute-procedure">Manual Software Checks — 30‑Minute Procedure</h1>
 <p>Checks that are <strong>not</strong> covered by existing (non-skipped) automated tests. Target: <strong>≤30 minutes</strong> total.</p>
-<p><strong>Reference:</strong> gaps derived from test layout (<code>tests/api</code>, <code>tests/ui</code>, <code>tests/integration</code>, <code>tests/playwright</code>), skipped-test inventory (<code>tests/SKIPPED_TESTS.md</code>, <code>@pytest.mark.skip</code>), and app surface (<code>src/web/routes</code>, <code>src/cli/commands</code>).</p>
+<p><strong>Reference:</strong> gaps derived from test layout (<code>tests/api</code>, <code>tests/ui</code>, <code>tests/cli</code>, <code>tests/integration</code>, <code>tests/playwright</code>), skipped-test inventory (<code>tests/SKIPPED_TESTS.md</code>, <code>@pytest.mark.skip</code>), and app surface (<code>src/web/routes</code>, <code>src/cli/commands</code>).</p>
 <hr />
-<h2 id="1-cli-no-automated-coverage">1. CLI (no automated coverage)</h2>
-<p><strong>Time: ~4 min</strong></p>
-<table>
-<thead>
-<tr>
-<th>Step</th>
-<th>Action</th>
-<th>Pass condition</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1.1</td>
-<td><code>python3 -m src.cli.main --help</code></td>
-<td>Usage and subcommands listed</td>
-</tr>
-<tr>
-<td>1.2</td>
-<td><code>python3 -m src.cli.main collect --help</code></td>
-<td>Collect options shown</td>
-</tr>
-<tr>
-<td>1.3</td>
-<td><code>python3 -m src.cli.main backup --help</code></td>
-<td>Backup subcommands/options shown</td>
-</tr>
-<tr>
-<td>1.4</td>
-<td><code>python3 -m src.cli.main rescore --help</code></td>
-<td>Rescore options shown</td>
-</tr>
-</tbody>
-</table>
+<h2 id="1-cli-help-automated">1. CLI help (automated)</h2>
+<p><strong>Covered by:</strong> <code>tests/cli/test_cli_help.py</code> (run: <code>python3 run_tests.py unit --paths tests/cli/test_cli_help.py</code>).</p>
+<p>Main <code>--help</code>, <code>collect --help</code>, <code>backup --help</code>, <code>rescore --help</code>, and <code>stats</code> (with mocked DB) are asserted there. No manual steps.</p>
 <hr />
 <h2 id="2-backup-api-and-ui-api-not-tested-createrestore-not-exercised-in-ui-tests">2. Backup API and UI (API not tested; create/restore not exercised in UI tests)</h2>
 <p><strong>Time: ~5 min</strong></p>
@@ -2026,9 +2024,9 @@
 </thead>
 <tbody>
 <tr>
-<td>CLI</td>
-<td>No CLI test suite</td>
-<td>~4 min</td>
+<td>CLI help</td>
+<td>Covered by <code>tests/cli/test_cli_help.py</code></td>
+<td>0</td>
 </tr>
 <tr>
 <td>Backup API/UI</td>
@@ -2072,7 +2070,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Total: ~30 min</strong></p>
+<p><strong>Total: ~26 min</strong> (CLI help automated)</p>
 <hr />
 <h2 id="how-to-use">How to use</h2>
 <ul>

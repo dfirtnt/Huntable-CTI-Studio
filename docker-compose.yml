@@ -303,6 +303,7 @@ services:
       - ./logs:/app/logs
       - ./tests:/app/tests
       - ./data:/app/data
+      - ./backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy

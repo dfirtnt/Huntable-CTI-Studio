@@ -1,0 +1,18 @@
+---
+description: Modal UX contract — Escape, click-away, stack, Ctrl/Cmd+Enter
+globs: "**/modal-manager.js", "**/web/templates/*.html"
+alwaysApply: false
+---
+
+# Modal UX Contract
+
+When adding or changing modals, follow the behavior implemented in `src/web/static/js/modal-manager.js`:
+
+1. **Escape** — Closes the topmost modal. If a previous modal is in the stack, show it; otherwise base page.
+2. **Click away** — Close the topmost modal. If the click target is a previous modal, show that modal; if base page, stay on base page. Use backdrop click + `elementFromPoint` to resolve the target; pass it into `closeModal(modalId, clickedElement)`.
+3. **Stack** — Opening a modal pushes it onto the stack; closing pops and restores the previous. Register with `ModalManager.register(id, { submitButton?, hasInput?, ... })` and open with `ModalManager.open(id, hidePrevious)`.
+4. **Submit shortcut** — Modals with inputs MUST support **Ctrl+Enter (Windows) / Cmd+Enter (macOS)** to trigger the primary action (OK/Save/Submit). Plain Enter in textareas must not submit; only Mod+Enter. Set `hasInput: true` and optionally `submitButton` when registering.
+
+**Implementation reference:** `src/web/static/js/modal-manager.js` (header and `closeModal` / `setupClickAwayHandler` / `setupKeyboardShortcuts`).
+
+**Tests:** `tests/ui/test_modal_interactions.py` — extend to cover stack restoration, click-away target, and Cmd/Ctrl+Enter where missing.

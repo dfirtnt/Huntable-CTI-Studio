@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `test_classification_badge_display`: Skipped—classification badges (Chosen/Rejected/Unclassified) are not shown on article list cards
 
 ### Added
+- **LG workflow rule and test coverage** (2026-01-29): Cursor rule `.cursor/rules/lg-workflow.mdc` defines "lg" as commit + push + full hygiene (security, deps, docs, changelog). Run_tests: added `_get_agent_config_exclude_env()` so `--exclude-markers agent_config_mutation` sets `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1`; unit tests in `tests/test_run_tests_parsing.py` (TestAgentConfigExcludeEnv) and `tests/test_database.py` (test_db_article_to_model_sets_url_from_canonical_url) for env wiring and DatabaseManager Article.url from canonical_url.
 - **compare-sources CLI** (2026-01-29): New command to compare production DB source settings with `config/sources.yaml` — reports sources only in YAML, only in DB, and field-by-field differences (active, url, rss_url, check_frequency, lookback_days, min_content_length, rss_only). Run via `./run_cli.sh compare-sources`; optional standalone script `scripts/compare_sources_db_vs_yaml.py` for use outside Docker with `DATABASE_URL`
 - **Multi-Rule SIGMA Generation with Phased Approach** (2026-01-26): Enhanced SIGMA rule generation to support multiple rules per article
   - Refactored generation into 4 phases: multi-rule generation, validation, per-rule repair, artifact-driven expansion

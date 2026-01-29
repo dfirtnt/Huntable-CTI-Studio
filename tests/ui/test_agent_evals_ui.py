@@ -89,6 +89,7 @@ def test_select_articles_and_presets(page: Page):
 
 
 @pytest.mark.ui
+@pytest.mark.agent_config_mutation
 def test_run_evaluation_button(page: Page):
     """Test that run evaluation button works."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")

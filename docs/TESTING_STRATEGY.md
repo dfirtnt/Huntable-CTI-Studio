@@ -181,6 +181,19 @@ Quarantined tests (marked with `@pytest.mark.quarantine`) are tracked in `tests/
 
 CI reports quarantine counts to prevent skip creep.
 
+### UI tests without agent config mutation
+
+Some UI tests mutate agent/workflow/settings config (run evaluations, save settings, save workflow config). To run only UI tests that **do not** mutate agent configs:
+
+```bash
+python3 run_tests.py ui --exclude-markers agent_config_mutation
+```
+
+This excludes:
+
+- **Pytest (tests/ui/)**: tests marked `@pytest.mark.agent_config_mutation` (run evaluation, save settings, save workflow config).
+- **Playwright TypeScript (tests/playwright/)**: specs that change workflow/agent config are ignored via `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (e.g. `agent_config_*.spec.ts`, `workflow_save_button.spec.ts`, `workflow_config_persistence.spec.ts`, `workflow_config_versions.spec.ts`).
+
 ## CI Recommendations
 
 ### Speed

@@ -527,7 +527,8 @@ class TestRunner:
 
     def _build_playwright_command(self) -> List[str]:
         """Build Playwright test command based on configuration."""
-        cmd = ["npx", "playwright", "test"]
+        # Use tests/ config so testIgnore and paths resolve correctly when cwd is project root
+        cmd = ["npx", "playwright", "test", "--config", "tests/playwright.config.ts"]
 
         # Determine which Playwright tests to run based on test type
         test_path_map = {
@@ -933,6 +934,8 @@ class TestRunner:
             if self.config.skip_real_api:
                 env["SKIP_REAL_API_TESTS"] = "1"
 
+            env.update(self._get_agent_config_exclude_env())
+
             # Run pytest tests (always run pytest, except when only Playwright tests are needed)
             pytest_success = True
             pytest_start_time = time.time()
@@ -1061,8 +1064,10 @@ class TestRunner:
                 print("=" * 80)
                 status = "✅ PASSED" if pytest_success else "❌ FAILED"
                 print(f"PYTEST TESTS: {status} ({pytest_duration:.2f}s)")
-                if pytest_counts.get("total", 0) > 0:
-                    print(f"   Passed: {pytest_counts.get('passed', 0)} | Failed: {pytest_counts.get('failed', 0)} | Skipped: {pytest_counts.get('skipped', 0)}")
+                print(
+                    f"   Passed: {pytest_counts.get('passed', 0)} | Failed: {pytest_counts.get('failed', 0)} | Skipped: {pytest_counts.get('skipped', 0)}"
+                    + (f" | Errors: {pytest_counts.get('errors', 0)}" if pytest_counts.get("errors", 0) else "")
+                )
                 if not pytest_success:
                     print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
                     print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
@@ -1169,8 +1174,9 @@ class TestRunner:
                     print("=" * 80)
                     status = "✅ PASSED" if playwright_success else "❌ FAILED"
                     print(f"PLAYWRIGHT TESTS: {status} ({playwright_duration:.2f}s)")
-                    if playwright_counts.get("total", 0) > 0:
-                        print(f"   Passed: {playwright_counts.get('passed', 0)} | Failed: {playwright_counts.get('failed', 0)} | Skipped: {playwright_counts.get('skipped', 0)}")
+                    print(
+                        f"   Passed: {playwright_counts.get('passed', 0)} | Failed: {playwright_counts.get('failed', 0)} | Skipped: {playwright_counts.get('skipped', 0)}"
+                    )
                     print("=" * 80)
 
                 except subprocess.TimeoutExpired:
@@ -1207,29 +1213,42 @@ class TestRunner:
             # Stop debugging components
             self.stop_debugging()
 
+    def _get_agent_config_exclude_env(self) -> Dict[str, str]:
+        """Return env vars to exclude Playwright specs that mutate agent/workflow config.
+        Used when --exclude-markers agent_config_mutation is set (no agent config mutation in CI/safe runs).
+        """
+        if self.config.exclude_markers and "agent_config_mutation" in self.config.exclude_markers:
+            return {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
+        return {}
+
     def _parse_pytest_output(self, output: str) -> Dict[str, int]:
         """Parse pytest output to extract test counts.
 
-        Looks for patterns like: '= 445 failed, 758 passed, 53 skipped'
+        Handles summary line variations: '= X passed in 45s', '= 1 failed, 20 passed, 3 skipped in 45s',
+        '= 2 failed, 1 error in 10s'. Order and presence of failed/skipped/error vary.
         """
         import re
 
         counts = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "errors": 0}
 
-        # Pattern: = X failed, Y passed, Z skipped
-        pattern = r"=\s*(\d+)\s+failed.*?(\d+)\s+passed.*?(\d+)\s+skipped"
-        match = re.search(pattern, output)
-        if match:
-            counts["failed"] = int(match.group(1))
-            counts["passed"] = int(match.group(2))
-            counts["skipped"] = int(match.group(3))
-            counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
+        # Optional parts (pytest only includes non-zero in summary). \b avoids matching xpassed/xfailed.
+        for pattern, key in [
+            (r"(\d+)\s+passed\b", "passed"),
+            (r"(\d+)\s+failed\b", "failed"),
+            (r"(\d+)\s+skipped", "skipped"),
+            (r"(\d+)\s+errors?", "errors"),
+        ]:
+            m = re.search(pattern, output)
+            if m:
+                counts[key] = int(m.group(1))
 
-        # Also look for errors
-        error_pattern = r"(\d+)\s+errors?"
-        error_match = re.search(error_pattern, output)
-        if error_match:
-            counts["errors"] = int(error_match.group(1))
+        if counts["passed"] or counts["failed"] or counts["skipped"] or counts["errors"]:
+            counts["total"] = (
+                counts["passed"]
+                + counts["failed"]
+                + counts["skipped"]
+                + counts["errors"]
+            )
 
         return counts
 
@@ -1325,19 +1344,22 @@ class TestRunner:
     def _parse_playwright_output(self, output: str) -> Dict[str, int]:
         """Parse Playwright output to extract test counts.
 
-        Looks for patterns like: '15 failed, 2 skipped, 18 passed'
+        Handles list/line reporter output: '30 passed (1m)', '1 failed, 29 passed', etc.
         """
         import re
 
         counts = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
 
-        # Pattern: X failed, Y skipped, Z passed
-        pattern = r"(\d+)\s+failed.*?(\d+)\s+skipped.*?(\d+)\s+passed"
-        match = re.search(pattern, output)
-        if match:
-            counts["failed"] = int(match.group(1))
-            counts["skipped"] = int(match.group(2))
-            counts["passed"] = int(match.group(3))
+        for pattern, key in [
+            (r"(\d+)\s+passed", "passed"),
+            (r"(\d+)\s+failed", "failed"),
+            (r"(\d+)\s+skipped", "skipped"),
+        ]:
+            m = re.search(pattern, output)
+            if m:
+                counts[key] = int(m.group(1))
+
+        if counts["passed"] or counts["failed"] or counts["skipped"]:
             counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
 
         return counts
@@ -1410,6 +1432,16 @@ class TestRunner:
         """Print enhanced test summary with debugging information."""
         if not DEBUGGING_AVAILABLE or not self.output_formatter:
             self.generate_report()
+            # Always print time lines so summary output is consistent (e.g. for CI and run_tests tests).
+            total_duration = time.time() - self.start_time
+            test_only_duration = 0.0
+            if "pytest" in self.results and "duration" in self.results["pytest"]:
+                test_only_duration += self.results["pytest"]["duration"]
+            if "playwright" in self.results and "duration" in self.results["playwright"]:
+                test_only_duration += self.results["playwright"]["duration"]
+            if test_only_duration > 0:
+                print(f"\n⏱️  Test execution only: {test_only_duration:.2f}s")
+            print(f"⏱️  Total (including setup): {total_duration:.2f}s")
             return
 
         # Calculate duration
@@ -1513,9 +1545,16 @@ class TestRunner:
                             )
                             print(f"    - playwright: {pw_status} ({pw_duration:.2f}s)")
 
-        # Overall statistics
+        # Overall statistics: test execution only (pytest + playwright) vs total (including setup)
         total_duration = time.time() - self.start_time
-        print(f"\n⏱️  Total Execution Time: {total_duration:.2f}s")
+        test_only_duration = 0.0
+        if "pytest" in self.results and "duration" in self.results["pytest"]:
+            test_only_duration += self.results["pytest"]["duration"]
+        if "playwright" in self.results and "duration" in self.results["playwright"]:
+            test_only_duration += self.results["playwright"]["duration"]
+        if test_only_duration > 0:
+            print(f"\n⏱️  Test execution only: {test_only_duration:.2f}s")
+        print(f"⏱️  Total (including setup): {total_duration:.2f}s")
 
         # Success summary
         overall_success = (
@@ -1639,6 +1678,7 @@ Examples:
   python run_tests.py unit --fail-fast         # Unit tests (stateless, no containers)
   python run_tests.py integration              # Integration tests (auto-starts containers)
   python run_tests.py ui                       # UI tests (may auto-start containers)
+  python run_tests.py ui --exclude-markers agent_config_mutation  # UI tests that do not mutate agent configs
   python run_tests.py all                      # Full suite (auto-starts containers)
   python run_tests.py --debug --verbose        # Debug mode with verbose output
   python run_tests.py --context localhost unit # Force localhost execution

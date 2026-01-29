@@ -15,7 +15,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 |--------|-------------|
 | `--config PATH` | Configuration file or directory (e.g. `config/sources.yaml`) |
 | `--database-url URL` | Override database URL |
-| `--debug` | Enable debug logging |
+| `--debug` / `--no-debug` | Enable or disable debug logging (default: off) |
 
 ---
 
@@ -111,6 +111,27 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ---
 
+### compare-sources
+
+**When:** Compare database source settings with `sources.yaml` to see drift (only in YAML, only in DB, or field differences). Use before or after `sync-sources` to verify consistency.
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--config-path PATH` | `SOURCES_CONFIG` or `config/sources.yaml` | Path to sources YAML |
+
+**Examples:**
+
+```bash
+./run_cli.sh compare-sources
+./run_cli.sh compare-sources --config-path config/sources.yaml
+```
+
+**See also:** [Sync sources](#sync-sources), [Source config precedence](../operations/SOURCE_CONFIG_PRECEDENCE.md).
+
+---
+
 ### backup
 
 **When:** Create, list, restore, or verify system backups; prune old backups. For full procedures see [Backup & Restore](../operations/BACKUP_AND_RESTORE.md).
@@ -134,6 +155,12 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `--type full|database|files` | `full` | Backup type |
 | `--no-compress` | — | Skip compression |
 | `--no-verify` | — | Skip file validation |
+
+**Options (restore):** `--backup-dir`, `--components` (comma-separated), `--no-snapshot`, `--force`, `--dry-run`.
+
+**Options (verify):** `--backup-dir`, `--test-restore`.
+
+**Options (prune):** `--backup-dir`, `--daily` (default 7), `--weekly` (4), `--monthly` (3), `--max-size-gb` (50), `--dry-run`, `--force`.
 
 **Examples:**
 
@@ -358,6 +385,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `collect` | Manual fetch from sources (scheduler does this automatically) |
 | `search` | Query articles (text, source, time window) |
 | `sync-sources` | Apply YAML source changes to DB (add/update; use `--no-remove` to avoid deleting) |
+| `compare-sources` | Compare DB source settings vs sources.yaml (drift check) |
 | `backup create/list/restore/verify/prune/stats` | Full backup workflow |
 | `rescore` | Recompute keyword-based threat hunting scores |
 | `rescore-ml` | Recompute ML-based hunt scores |

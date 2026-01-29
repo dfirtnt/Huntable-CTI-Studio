@@ -655,6 +655,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/config/" class="md-nav__link">
         
   
@@ -3025,6 +3053,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="fixed_1">Fixed</h3>
 <ul>
+<li><strong>sources.yaml parse error</strong> (2026-01-29): Fixed YAML indentation for <code>sekoia_io_blog</code> list item (was 3 spaces under <code>sources</code>, causing "expected block end, but found block sequence start" at line 452)</li>
 <li><strong>Retraining Complete panel broken data elements</strong> (2026-01-28): GET <code>/api/model/retrain-status</code> used <code>latest_version.training_samples</code> (AttributeError—model has <code>training_data_size</code>). Fixed: use <code>training_data_size</code>; derive <code>evaluation_metrics</code> from <code>eval_confusion_matrix</code>; write minimal <code>training_samples</code>/<code>feedback_samples</code>/<code>annotation_samples</code> when DB enrichment fails.</li>
 <li><strong>CommandLine / Hunt Queries eval parity with Process Lineage</strong> (2026-01-27): (1) Subagent-eval model filtering only included <code>cmdline</code> and <code>process_lineage</code> — <code>hunt_queries</code> and <code>HuntQueriesExtract</code>/<code>HuntQueriesQA</code> added so eval runs for Hunt Queries filter models correctly. (2) <code>_extract_actual_count</code> for <code>hunt_queries</code> now explicitly uses <code>query_count</code>, then <code>count</code>, then <code>len(queries/items)</code> so completion handler gets the right actual count from <code>subresults["hunt_queries"]</code>.</li>
 <li><strong>Hunt Query eval jobs stuck pending</strong> (2026-01-27): (1) Runs with subagent "hunt_queries" create eval records with <code>subagent_name="hunt_queries"</code>, but the workflow completion handler only looked for <code>hunt_queries_edr</code> and <code>hunt_queries_sigma</code> — completion handler now also finds/updates <code>"hunt_queries"</code>. (2) Eval runs that skip SIGMA mark the execution completed inside <code>check_should_skip_sigma_for_eval</code> and return "end" without going through the post-graph block that calls <code>_update_subagent_eval_on_completion</code> — that block only runs when the graph returns to run_workflow and we re-query execution; the skip-sigma path now calls <code>_update_subagent_eval_on_completion</code> immediately when marking completed so eval records are updated. (3) Polling no longer clears the current run's execution map.</li>
@@ -3039,6 +3068,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="added_1">Added</h3>
 <ul>
+<li><strong>compare-sources CLI</strong> (2026-01-29): New command to compare production DB source settings with <code>config/sources.yaml</code> — reports sources only in YAML, only in DB, and field-by-field differences (active, url, rss_url, check_frequency, lookback_days, min_content_length, rss_only). Run via <code>./run_cli.sh compare-sources</code>; optional standalone script <code>scripts/compare_sources_db_vs_yaml.py</code> for use outside Docker with <code>DATABASE_URL</code></li>
 <li><strong>Multi-Rule SIGMA Generation with Phased Approach</strong> (2026-01-26): Enhanced SIGMA rule generation to support multiple rules per article</li>
 <li>Refactored generation into 4 phases: multi-rule generation, validation, per-rule repair, artifact-driven expansion</li>
 <li>Added defensive parsing for multiple rules (handles <code>---</code> separators, markdown code blocks, multiple <code>title:</code> entries)</li>
@@ -3053,6 +3083,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed_1">Changed</h3>
 <ul>
+<li><strong>sources.yaml RSS vs scraping</strong> (2026-01-29): Updated source config so new installs get known-good RSS/scraping preferences — header comment documents RSS vs scraping and per-source fallbacks; Sekoia: set <code>rss_url</code> to category feed (was null with <code>rss_only: true</code>); Group-IB kept scraping-only with comment; VMRay and Microsoft Defender Endpoint: comments added for alternate feed URLs if primary fails</li>
 <li><strong>Observables Mode Disabled</strong> (2026-01-22): Disabled Observables annotation mode, marked as inactive for future release</li>
 <li>Hidden Observables Mode button in article detail page (preserved in comments)</li>
 <li>Disabled Huntability Mode button (non-clickable)</li>

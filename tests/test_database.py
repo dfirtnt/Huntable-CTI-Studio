@@ -100,6 +100,37 @@ class TestDatabaseManager:
         assert source.identifier == "test-source"
         assert source.active is True
 
+    def test_db_article_to_model_sets_url_from_canonical_url(self):
+        """DatabaseManager._db_article_to_model sets Article.url from db_article.canonical_url."""
+        from datetime import datetime
+
+        with patch.object(DatabaseManager, "create_tables"):
+            manager = DatabaseManager(database_url="sqlite:///:memory:")
+        mock_db = Mock()
+        mock_db.id = 1
+        mock_db.source_id = 1
+        mock_db.canonical_url = "https://example.com/article"
+        mock_db.title = "Title"
+        mock_db.published_at = datetime.now()
+        mock_db.modified_at = None
+        mock_db.authors = []
+        mock_db.tags = []
+        mock_db.summary = None
+        mock_db.content = "body"
+        mock_db.content_hash = "hash"
+        mock_db.article_metadata = {}
+        mock_db.simhash = None
+        mock_db.simhash_bucket = None
+        mock_db.word_count = 0
+        mock_db.discovered_at = datetime.now()
+        mock_db.processing_status = "pending"
+        mock_db.created_at = datetime.now()
+        mock_db.updated_at = datetime.now()
+
+        article = manager._db_article_to_model(mock_db)
+        assert article.url == "https://example.com/article"
+        assert article.canonical_url == "https://example.com/article"
+
 
 class TestAsyncDatabaseManager:
     """Test the AsyncDatabaseManager class."""

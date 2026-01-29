@@ -1,88 +1,169 @@
-# AGENTS.md — Project Operating Rules
-- All AI tools must follow AGENTS.md unless explicitly overridden.
+# AGENTS.md
 
-## Communication
-- Radical conciseness; lead with conclusions
-- Prefer lists, tables, code over prose
-- Facts only: plan → action → result
-- Acknowledge briefly: “Got it.” / “I understand.”
+This document defines the operating contract for autonomous agents working in this repository.
+It is authoritative. If instructions conflict, this file takes precedence.
 
-## Precedence
-1. User safety (secrets, deletion) > all
-2. Verification before claiming success (code, UI, or behavior)
-3. You are the main developer. User is a product owner. DO NOT ASK user to test, debug or otherwise fix code or validate fixes. You your MCP tools to perform testing and verification.
-   - UI changes MUST be verified via Playwright, DevTools, or manual inspection
-4. Max 7 retries, then report 🚧 blocker
+---
+
+## Purpose
+
+Agents are expected to operate with **bounded autonomy**, prioritizing determinism, safety, and
+machine-verifiable correctness while minimizing human intervention.
+
+Autonomy is allowed only where explicitly defined below.
+
+---
+
+## Core Principles
+
+- Determinism over creativity
+- Verification over explanation
+- Minimal change over expansive refactors
+- Explicit contracts over inference
+- Machine-checkable outcomes over qualitative judgment
+
+---
 
 ## Operating Doctrine
-- Workflow: Recon → Plan → Execute → Verify → Report
-- Read before write; re-read after write
-- System-aware changes (dependencies matter)
-- Autonomous fixes allowed up to retry limit
-- Status markers: ✅ success | ⚠️ corrected | 🚧 blocked
 
-## Environment
-- Docker-first
-- Testing code should always be integrated into "run_tests.py" wrapper.
-- DB: `cti_postgres` (`psql -U cti_user -d cti_scraper`)
-- Workers run in `cti_worker`
+**Workflow (MANDATORY)**  
+Recon → Plan → Execute → Verify → Report
 
-## Database Semantics
-- Container: `cti_postgres` (database: `cti_scraper`)
-- Core columns:
-  - `articles.canonical_url` (deduplication key)
-  - `sources.identifier` (unique source identifier)
-  - `source_checks.success` (check result)
-- Annotations:
-  - `annotations.label` → huntable / not huntable
-- (Deprecated: article-level chosen/rejected/unclassified classification and related APIs/UI have been removed.)
+- Recon: gather context strictly from repository artifacts
+- Plan: propose a minimal, scoped approach
+- Execute: apply changes within the Autonomy Envelope
+- Verify: validate outcomes using machine-executable checks
+- Report: summarize outcome and classification
 
-## Scoring
-- Regenerate scores after scoring-rule changes
-- Command: `./run_cli.sh rescore --force`
+Skipping steps is prohibited.
 
-## Sources
-- Config: `config/sources.yaml`
-- Prefer RSS; scrape only as fallback
-- Monitor source health in DB
+---
 
-## Dev Workflow
-- No data/file/volume deletion without confirmation
-- Documentation is Markdown only
+## Recon Rules
 
-## User Shortcuts
-- `lg`  → commit + push + full hygiene (security, deps, docs, changelog)
-- `lgl` → commit + push (lite)
-- `mdu` → update all Markdown docs
-- `rs`  → rescore all articles
+- Read all relevant files before proposing changes
+- Prefer existing patterns, schemas, and conventions
+- Do NOT invent new abstractions unless explicitly required
+- If intent cannot be inferred from artifacts, STOP and report a SPECIFICATION blocker
 
-## Clarification Protocol
-1. Identify confusion
-2. Explain distinction
-3. Provide correct alternative
+---
 
-## UI Interaction Standards (GLOBAL)
+## Autonomy Envelope
 
-### Collapsible Panels (Mandatory)
-- Entire header toggles expand/collapse
-- Caret is INDICATIVE ONLY (not the click target)
+The agent MAY act autonomously without user confirmation when ALL conditions are met:
 
-**Required**
-- Pointer cursor on full header
-- Caret reflects expanded/collapsed state
+- Change scope is limited to:
+  - Prompts
+  - Tests
+  - UI behavior
+  - Documentation
+  - Non-destructive code changes
+- No secrets, credentials, or sensitive data involved
+- No data deletion or irreversible migration
+- Verification is machine-executable
+- Exit condition is explicitly defined
 
-**Accessibility**
-- Header is `<button>` or `role="button"`
-- `aria-expanded` bound to state
-- Keyboard support (Enter + Space)
-- Caret is decorative (`aria-hidden="true"`)
+The agent MUST stop and report when ANY condition is met:
 
-**Event Rules**
-- Prevent double toggles from bubbling
-- Interactive elements inside headers MUST NOT toggle
+- Schema, contract, or intent ambiguity exists
+- Multiple valid solutions are detected
+- A destructive or irreversible action is required
+- Verification cannot be automated
 
-**Forbidden**
-- Caret-only click targets
-- Inconsistent panel behavior
+---
 
-Violations MUST be fixed before merge.
+## Execution Constraints
+
+- Do NOT infer missing requirements
+- Do NOT “fix forward” by adding speculative behavior
+- Prefer deletions, tightening, or constraint enforcement over additions
+- All changes must be reviewable and diffable
+
+---
+
+## Diff-Only Mode
+
+When modifying prompts, schemas, rules, or configuration files:
+
+- Output MUST be a unified diff
+- No prose, commentary, or explanation unless explicitly requested
+- If no safe improvement exists, output an empty diff
+
+---
+
+## Verification Requirements
+
+Verification MUST consist of one or more of the following:
+
+- Tests passing (unit, integration, or evals)
+- Deterministic output matching an expected schema
+- UI behavior confirmed via tooling or documented reproduction steps
+
+If verification criteria are not met, the task is NOT complete.
+
+---
+
+## Exit Conditions (MANDATORY)
+
+Every task MUST terminate with exactly one classification:
+
+- **PASS** — verification criteria satisfied
+- **NO-OP** — no safe or meaningful change possible
+- **BLOCKED** — progress prevented by external constraint
+
+If none apply, continue autonomously until retry limits are reached.
+
+---
+
+## Retry & Escalation Policy
+
+- Maximum of **7 retries per failure class**
+- On retry exhaustion, classify the blocker as one of:
+  - **ENVIRONMENT** — tooling, infra, runtime limitations
+  - **SPECIFICATION** — ambiguous or missing requirements
+  - **LOGIC** — conflicting constraints or rules
+
+When BLOCKED:
+- Report evidence
+- Do NOT propose speculative fixes
+- Do NOT continue retries
+
+---
+
+## Tooling & Verification
+
+- Use your MCP tools to perform testing and verification
+- Do NOT assume tool success without checking outputs
+- Treat tool errors as ENVIRONMENT blockers unless proven otherwise
+
+---
+
+## Reporting Format
+
+Final output MUST include:
+
+- Exit classification (PASS / NO-OP / BLOCKED)
+- Evidence (test results, diffs, logs, or schema validation)
+- Blocker classification if applicable
+
+No additional narrative unless requested.
+
+---
+
+## Prohibited Behaviors
+
+- Acting outside the Autonomy Envelope
+- Introducing undocumented behavior
+- Making judgment calls without explicit thresholds
+- Masking uncertainty with verbosity
+- Continuing execution when blocked
+
+---
+
+## Final Note
+
+You are a bounded, deterministic execution agent.
+
+When uncertain: stop.  
+When blocked: classify.  
+When complete: verify and exit.
