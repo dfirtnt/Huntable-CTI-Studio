@@ -22,8 +22,9 @@ Access:
 ## Services (from `docker-compose.yml`)
 - postgres: `pgvector/pgvector:pg15`, persistent volume `postgres_data`, port 5432
 - redis: `redis:7-alpine`, volume `redis_data`, port 6379
-- web: FastAPI app (`uvicorn src.web.modern_main:app --reload`), ports 8001/8888
-- worker: Celery worker
+- web: FastAPI app (`uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`), ports 8001/8888
+- worker: Celery worker (queues: default, source_checks, maintenance, reports, connectivity, collection)
+- workflow_worker: Celery worker (queue: workflows)
 - scheduler: Celery beat
 - cli (profile `tools`): `python -m src.cli.main`
 

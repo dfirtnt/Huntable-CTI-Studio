@@ -655,6 +655,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1829,10 +1857,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#analysis-commands" class="md-nav__link">
+  <a href="#search-and-export" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Analysis Commands
+        Search and Export
       
     </span>
   </a>
@@ -2495,7 +2523,7 @@
 <ul>
 <li>[ ] <strong>Help Command</strong>
   <code>bash
-  python -m src.cli.main --help</code></li>
+  ./run_cli.sh --help</code></li>
 <li>[ ] Verify help text</li>
 <li>[ ] Check command list</li>
 <li>[ ] Test subcommand help</li>
@@ -2505,7 +2533,7 @@
 <li>
 <p>[ ] <strong>Init Command</strong>
   <code>bash
-  python -m src.cli.main init --config config/sources.yaml</code></p>
+  ./run_cli.sh init --config config/sources.yaml</code></p>
 </li>
 <li>[ ] Verify source loading</li>
 <li>[ ] Check database creation</li>
@@ -2516,7 +2544,7 @@
 <ul>
 <li>[ ] <strong>Collect Command</strong>
   <code>bash
-  python -m src.cli.main collect</code></li>
+  ./run_cli.sh collect</code></li>
 <li>[ ] Verify content collection</li>
 <li>[ ] Check progress display</li>
 <li>[ ] Test error handling</li>
@@ -2524,31 +2552,18 @@
 <p>[ ] Verify results</p>
 </li>
 <li>
-<p>[ ] <strong>Monitor Command</strong>
+<p>[ ] <strong>Stats Command</strong> (overview of sources and articles)
   <code>bash
-  python -m src.cli.main monitor --interval 300</code></p>
+  ./run_cli.sh stats</code></p>
 </li>
-<li>[ ] Test continuous monitoring</li>
-<li>[ ] Verify interval timing</li>
-<li>[ ] Check log output</li>
-<li>[ ] Test graceful shutdown</li>
+<li>[ ] Verify source and article counts</li>
+<li>[ ] Check recent activity display</li>
 </ul>
-<h3 id="analysis-commands"><strong>Analysis Commands</strong></h3>
+<h3 id="search-and-export"><strong>Search and Export</strong></h3>
 <ul>
-<li>[ ] <strong>Analyze Command</strong>
+<li>[ ] <strong>Export Command</strong>
   <code>bash
-  python -m src.cli.main analyze --recent 10</code></li>
-<li>[ ] Verify TTP extraction</li>
-<li>[ ] Check output format</li>
-<li>[ ] Test confidence scoring</li>
-<li>
-<p>[ ] Verify quality assessment</p>
-</li>
-<li>
-<p>[ ] <strong>Export Command</strong>
-  <code>bash
-  python -m src.cli.main export --format json --days 7</code></p>
-</li>
+  ./run_cli.sh export --format json --days 7</code></li>
 <li>[ ] Test data export</li>
 <li>[ ] Verify file format</li>
 <li>[ ] Check data completeness</li>

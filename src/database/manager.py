@@ -664,6 +664,7 @@ class DatabaseManager:
         return Article(
             id=db_article.id,
             source_id=db_article.source_id,
+            url=db_article.canonical_url,
             canonical_url=db_article.canonical_url,
             title=db_article.title,
             published_at=db_article.published_at,

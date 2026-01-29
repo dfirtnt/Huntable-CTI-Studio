@@ -1744,6 +1744,7 @@ class TestWorkflowConfigurationAdvanced:
     
     @pytest.mark.ui
     @pytest.mark.workflow
+    @pytest.mark.agent_config_mutation
     def test_config_save_api_call(self, page: Page):
         """Test that config save API is called on form submit."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

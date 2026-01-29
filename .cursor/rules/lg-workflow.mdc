@@ -1,0 +1,18 @@
+---
+description: "lg" means commit + push + full hygiene (security, deps, docs, changelog)
+alwaysApply: true
+---
+
+# LG (Looks Good) Workflow
+
+When the user says **lg** or **LG**, perform in order:
+
+1. **Commit** — Stage and commit current changes with a clear message (no auto-commit before user says LG).
+2. **Push** — Push to the configured remote (e.g. `origin main`).
+3. **Full hygiene**:
+   - **Security** — Run project security checks / audit if defined (e.g. `npm audit`, safety, or repo-specific).
+   - **Deps** — Verify or update dependency hygiene (e.g. `pip freeze`, `requirements-pinned.txt`, lockfiles).
+   - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
+   - **Changelog** — Update CHANGELOG (or docs/CHANGELOG.md) with this session’s changes.
+
+Only commit and push when the user has said LG. Do not commit/push on "go" or "implement" unless they also say LG.

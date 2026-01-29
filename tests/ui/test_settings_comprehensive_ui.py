@@ -735,6 +735,7 @@ class TestSettingsPersistence:
     
     @pytest.mark.ui
     @pytest.mark.settings
+    @pytest.mark.agent_config_mutation
     def test_settings_save_to_localstorage(self, page: Page):
         """Test settings save to localStorage."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -760,6 +761,7 @@ class TestSettingsPersistence:
     
     @pytest.mark.ui
     @pytest.mark.settings
+    @pytest.mark.agent_config_mutation
     def test_settings_save_api_call(self, page: Page):
         """Test settings save API call."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

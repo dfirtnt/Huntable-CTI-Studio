@@ -220,7 +220,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Help Command**
   ```bash
-  python -m src.cli.main --help
+  ./run_cli.sh --help
   ```
   - [ ] Verify help text
   - [ ] Check command list
@@ -229,7 +229,7 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Init Command**
   ```bash
-  python -m src.cli.main init --config config/sources.yaml
+  ./run_cli.sh init --config config/sources.yaml
   ```
   - [ ] Verify source loading
   - [ ] Check database creation
@@ -240,36 +240,25 @@ This comprehensive testing checklist ensures all features of the CTI Scraper pla
 
 - [ ] **Collect Command**
   ```bash
-  python -m src.cli.main collect
+  ./run_cli.sh collect
   ```
   - [ ] Verify content collection
   - [ ] Check progress display
   - [ ] Test error handling
   - [ ] Verify results
 
-- [ ] **Monitor Command**
+- [ ] **Stats Command** (overview of sources and articles)
   ```bash
-  python -m src.cli.main monitor --interval 300
+  ./run_cli.sh stats
   ```
-  - [ ] Test continuous monitoring
-  - [ ] Verify interval timing
-  - [ ] Check log output
-  - [ ] Test graceful shutdown
+  - [ ] Verify source and article counts
+  - [ ] Check recent activity display
 
-### **Analysis Commands**
-
-- [ ] **Analyze Command**
-  ```bash
-  python -m src.cli.main analyze --recent 10
-  ```
-  - [ ] Verify TTP extraction
-  - [ ] Check output format
-  - [ ] Test confidence scoring
-  - [ ] Verify quality assessment
+### **Search and Export**
 
 - [ ] **Export Command**
   ```bash
-  python -m src.cli.main export --format json --days 7
+  ./run_cli.sh export --format json --days 7
   ```
   - [ ] Test data export
   - [ ] Verify file format

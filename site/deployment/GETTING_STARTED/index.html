@@ -659,6 +659,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/config/" class="md-nav__link">
         
   
@@ -1839,8 +1867,9 @@ cp .env.example .env              # set POSTGRES_PASSWORD and API keys
 <ul>
 <li>postgres: <code>pgvector/pgvector:pg15</code>, persistent volume <code>postgres_data</code>, port 5432</li>
 <li>redis: <code>redis:7-alpine</code>, volume <code>redis_data</code>, port 6379</li>
-<li>web: FastAPI app (<code>uvicorn src.web.modern_main:app --reload</code>), ports 8001/8888</li>
-<li>worker: Celery worker</li>
+<li>web: FastAPI app (<code>uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload</code>), ports 8001/8888</li>
+<li>worker: Celery worker (queues: default, source_checks, maintenance, reports, connectivity, collection)</li>
+<li>workflow_worker: Celery worker (queue: workflows)</li>
 <li>scheduler: Celery beat</li>
 <li>cli (profile <code>tools</code>): <code>python -m src.cli.main</code></li>
 </ul>
