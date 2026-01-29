@@ -1,5 +1,8 @@
 version: "1.0"
 
+# RSS vs scraping: rss_only true = use feed only (no page scrape). rss_url null + rss_only false = scraping-only.
+# If a source fails: try the other mode (set rss_url or null, rss_only true/false). See per-source comments for fallbacks.
+
 sources:
   # =============================================================================
   # PREMIUM THREAT INTELLIGENCE SOURCES (Highest Actionable Value)
@@ -72,7 +75,7 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "MITRE ATT&CK technique analysis and threat simulation intelligence (Web scraping only)"
 
-  # VMRay Blog
+  # VMRay Blog — primary feed is blog/feed/; if empty try https://www.vmray.com/feed/
   - id: "vmray_blog"
     name: "VMRay Blog"
     url: "https://www.vmray.com/blog/"
@@ -107,11 +110,11 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Advanced malware analysis, detection engineering, and actionable threat intelligence"
 
-  # Group-IB Threat Intelligence Blog (Web Scraping Only - RSS Blocked)
+  # Group-IB Threat Intelligence Blog — scraping-only (RSS often blocked by anti-bot). To try RSS: set rss_url to blog rss.xml and rss_only: true.
   - id: "group_ib_threat_intel"
     name: "Group-IB Threat Intelligence Blog"
     url: "https://www.group-ib.com/blog/"
-    rss_url: null  # RSS feed blocked by anti-bot protection
+    rss_url: null  # RSS feed blocked by anti-bot in many envs; scraping-only for reliable new installs
     check_frequency: 1800  # 30 minutes
     active: false
     config:
@@ -121,12 +124,11 @@ sources:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         respect_delay: true
-        max_requests_per_minute: 3  # Very conservative rate limiting
+        max_requests_per_minute: 3
         crawl_delay: 5.0
       min_content_length: 1500
-      # Enhanced filtering for threat intelligence content only
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event", "podcast", "newsletter"]
-      rss_only: false  # Enable web scraping since RSS is blocked
+      rss_only: false  # Scraping-only; RSS often blocked
       discovery:
         strategies:
           - listing:
@@ -347,7 +349,7 @@ sources:
       min_content_length: 2000
     description: "Official Microsoft Security Blog covering Defender products and threat intelligence"
 
-  # Microsoft Defender for Endpoint Blog
+  # Microsoft Defender for Endpoint Blog — if feed 404s try: techcommunity.microsoft.com/category/-/discussions/MicrosoftDefenderATPBlog.rss
   - id: "microsoft_defender_endpoint"
     name: "Microsoft Defender for Endpoint Blog"
     url: "https://techcommunity.microsoft.com/category/microsoft-defender-for-endpoint/blog/microsoftdefenderatpblog"
@@ -448,35 +450,35 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Network detection and response (NDR) blog with threat hunting, detection engineering, and threat intelligence research"
 
-   # Sekoia.io Threat Research & Intelligence (RSS-Only)
-   - id: "sekoia_io_blog"
-     name: "Sekoia.io Threat Research & Intelligence"
-     url: "https://blog.sekoia.io/category/threat-research/"
-     rss_url: null  # Disable RSS, use web scraping only
-     check_frequency: 1800  # 30 minutes
-     active: true
-     config:
-       allow: ["blog.sekoia.io"]
-       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
-       robots:
-         enabled: true  # Enable robots.txt checking for web scraping
-         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-         respect_delay: true
-         max_requests_per_minute: 10  # Respectful rate limiting
-         crawl_delay: 1.0
-       min_content_length: 100  # Very low threshold for RSS summaries
-       min_word_count: 1       # Very low word count for RSS summaries
-       title_filter_keywords: ["newsletter", "subscription", "contact"]
-       rss_only: true   # Use RSS parsing with lenient filters
-       extract:
-         prefer_jsonld: true  # Enable JSON-LD extraction for WordPress sites
-         title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".entry-title"]
-         date_selectors:
-           - "meta[property='article:published_time']::attr(content)"
-           - "time[datetime]::attr(datetime)"
-           - ".entry-date"
-         body_selectors: [".entry-content", "article", ".post-content", ".content"]
-         author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".entry-author"]
+  # Sekoia.io Threat Research & Intelligence (RSS-first; fallback: rss_url null + rss_only false if feed blocked)
+  - id: "sekoia_io_blog"
+    name: "Sekoia.io Threat Research & Intelligence"
+    url: "https://blog.sekoia.io/category/threat-research/"
+    rss_url: "https://blog.sekoia.io/category/threat-research/feed/"  # WordPress category feed; if blocked set null + rss_only: false
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["blog.sekoia.io"]
+      post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 100
+      min_word_count: 1
+      title_filter_keywords: ["newsletter", "subscription", "contact"]
+      rss_only: true  # Prefer RSS to avoid anti-bot; if feed fails set rss_only: false and optionally rss_url: null
+      extract:
+        prefer_jsonld: true  # Enable JSON-LD extraction for WordPress sites
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)", ".entry-title"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+          - ".entry-date"
+        body_selectors: [".entry-content", "article", ".post-content", ".content"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name", ".entry-author"]
     description: "High-quality CTI and SOC insights with actionable threat intelligence and detection engineering (RSS-only to bypass anti-bot protection)"
 
   # Check Point Research

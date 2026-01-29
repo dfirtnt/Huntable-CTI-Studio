@@ -11,7 +11,7 @@ src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
 from .context import CLIContext, setup_logging, get_managers
-from .commands import init, collect, search, export, stats, backup, sync_sources, archive
+from .commands import init, collect, search, export, stats, backup, sync_sources, compare_sources, archive
 from .commands.rescore import rescore
 from .commands.rescore_ml import rescore_ml
 from .commands.embed import embed_group
@@ -45,6 +45,7 @@ cli.add_command(export)
 cli.add_command(stats)
 cli.add_command(backup)
 cli.add_command(sync_sources)
+cli.add_command(compare_sources)
 cli.add_command(rescore)
 cli.add_command(rescore_ml)
 cli.add_command(embed_group)

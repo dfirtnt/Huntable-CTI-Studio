@@ -110,6 +110,34 @@ class TestSourceConfig:
         assert config.validate() is False
 
 
+class TestSourceConfigLoaderLoadFromFile:
+    """Test SourceConfigLoader.load_from_file against config/sources.yaml (parse and structure)."""
+
+    @pytest.fixture
+    def sources_yaml_path(self):
+        """Path to config/sources.yaml relative to project root."""
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        return root / "config" / "sources.yaml"
+
+    def test_sources_yaml_parses_and_has_expected_structure(self, sources_yaml_path):
+        """config/sources.yaml must parse and contain expected sources (e.g. sekoia with rss_url)."""
+        if not sources_yaml_path.exists():
+            pytest.skip("config/sources.yaml not found (run from project root)")
+        loader = SourceConfigLoader()
+        sources = loader.load_from_file(str(sources_yaml_path))
+        assert len(sources) >= 1, "sources.yaml should define at least one source"
+        by_id = {s.identifier: s for s in sources}
+        assert "sekoia_io_blog" in by_id, "sekoia_io_blog should be present after RSS/scraping updates"
+        sekoia = by_id["sekoia_io_blog"]
+        assert sekoia.rss_url is not None, "sekoia_io_blog should have rss_url set (RSS-first config)"
+        assert "group_ib_threat_intel" in by_id
+        group_ib = by_id["group_ib_threat_intel"]
+        assert group_ib.config is not None
+        inner = getattr(group_ib.config, "config", None) or {}
+        assert inner.get("rss_only") is False, "Group-IB should be scraping-only in YAML"
+
+
 @pytest.mark.skip(reason="SourceManager implementation needs review - missing SourceConfigLoader class")
 class TestSourceConfigLoader:
     """Test SourceConfigLoader functionality."""
