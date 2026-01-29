@@ -5,14 +5,19 @@ alwaysApply: true
 
 # LG (Looks Good) Workflow
 
-When the user says **lg** or **LG**, perform in order:
+When the user says **lg** or **LG**, **you must run the full workflow yourself** from hygiene through **push to main**. Do not stop at commit or ask the user to push manually.
 
-1. **Commit** — Stage and commit current changes with a clear message (no auto-commit before user says LG).
-2. **Push** — Push to the configured remote (e.g. `origin main`).
-3. **Full hygiene**:
-   - **Security** — Run project security checks / audit if defined (e.g. `npm audit`, safety, or repo-specific).
-   - **Deps** — Verify or update dependency hygiene (e.g. `pip freeze`, `requirements-pinned.txt`, lockfiles).
-   - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
+Perform in order:
+
+1. **Full hygiene** (so the commit includes these updates):
    - **Changelog** — Update CHANGELOG (or docs/CHANGELOG.md) with this session’s changes.
+   - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
+   - **Deps** — Verify dependency hygiene (e.g. `pip check`, lockfiles).
+   - **Security** — Run project security checks if defined (e.g. `npm audit`, safety).
+2. **Stage** — `git add` (or equivalent) so all changes are staged.
+3. **Commit** — Commit with a clear message (no auto-commit before user says LG).
+4. **Push** — Push to **main** (e.g. `git push origin main`). Complete the push; do not hand off to the user.
 
-Only commit and push when the user has said LG. Do not commit/push on "go" or "implement" unless they also say LG.
+If the environment’s `git` wrapper breaks (e.g. unsupported `--trailer`), use the real git binary (e.g. `/usr/local/bin/git`) so the workflow completes.
+
+Only run this workflow when the user has said LG. Do not commit/push on "go" or "implement" unless they also say LG.
