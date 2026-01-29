@@ -17,6 +17,7 @@ nav:
       - Generate Sigma: howto/generate_sigma.md
       - Evaluate models: howto/evaluate_models.md
   - Reference:
+      - CLI: reference/cli.md
       - Config: reference/config.md
       - API: reference/api.md
       - Schemas: reference/schemas.md
