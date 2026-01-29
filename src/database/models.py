@@ -838,6 +838,27 @@ class EnrichmentPresetTable(Base):
         return f"<EnrichmentPreset(id={self.id}, name='{self.name}', provider='{self.provider}', model='{self.model}')>"
 
 
+class RagPresetTable(Base):
+    """Database table for RAG chat presets (provider, model, max_results, similarity)."""
+
+    __tablename__ = 'rag_presets'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    provider = Column(String(50), nullable=False)  # openai, anthropic, lmstudio, template
+    model = Column(String(255), nullable=False)
+    max_results = Column(Integer, nullable=False, default=5)
+    similarity_threshold = Column(Float, nullable=False, default=0.38)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<RagPreset(id={self.id}, name='{self.name}', provider='{self.provider}', model='{self.model}')>"
+
+
 class WorkflowConfigPresetTable(Base):
     """Database table for workflow configuration presets (thresholds, agent models, QA toggles, etc.)."""
 

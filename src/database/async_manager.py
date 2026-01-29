@@ -1072,11 +1072,13 @@ class AsyncDatabaseManager:
 
                 # Get threshold from workflow config
                 from src.database.models import AgenticWorkflowConfigTable
-                config = session.query(AgenticWorkflowConfigTable).filter(
-                    AgenticWorkflowConfigTable.is_active == True
-                ).order_by(
-                    AgenticWorkflowConfigTable.version.desc()
-                ).first()
+                config_result = await session.execute(
+                    select(AgenticWorkflowConfigTable)
+                    .where(AgenticWorkflowConfigTable.is_active == True)
+                    .order_by(desc(AgenticWorkflowConfigTable.version))
+                    .limit(1)
+                )
+                config = config_result.scalar_one_or_none()
                 threshold = config.auto_trigger_hunt_score_threshold if config and hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
 
                 # Check if workflow should be triggered
@@ -2439,6 +2441,67 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to search similar articles: {e}")
+            return []
+
+    async def search_articles_by_lexical_terms(
+        self,
+        terms: List[str],
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Search articles by title/content containing any of the terms (case-insensitive).
+        Returns format compatible with search_similar_articles (similarity=0.35 placeholder)."""
+        if not terms:
+            return []
+        try:
+            async with self.get_session() as session:
+                # Build OR condition for terms in title or content
+                conditions = []
+                for t in terms:
+                    pat = f"%{t}%"
+                    conditions.append(ArticleTable.title.ilike(pat))
+                    conditions.append(ArticleTable.content.ilike(pat))
+                query = (
+                    select(
+                        ArticleTable.id,
+                        ArticleTable.title,
+                        ArticleTable.summary,
+                        ArticleTable.content,
+                        ArticleTable.canonical_url,
+                        ArticleTable.published_at,
+                        ArticleTable.source_id,
+                        ArticleTable.article_metadata,
+                        SourceTable.name.label("source_name"),
+                    )
+                    .select_from(
+                        ArticleTable.__table__.join(
+                            SourceTable.__table__,
+                            ArticleTable.source_id == SourceTable.id,
+                        )
+                    )
+                    .where(ArticleTable.archived == False)
+                    .where(or_(*conditions))
+                    .order_by(ArticleTable.published_at.desc())
+                    .limit(limit)
+                )
+                result = await session.execute(query)
+                rows = result.fetchall()
+                return [
+                    {
+                        "id": row.id,
+                        "title": row.title,
+                        "summary": row.summary,
+                        "content": row.content[:500] + "..." if len(row.content) > 500 else row.content,
+                        "canonical_url": row.canonical_url,
+                        "published_at": row.published_at.isoformat() if row.published_at else None,
+                        "source_id": row.source_id,
+                        "source_name": row.source_name,
+                        "metadata": row.article_metadata,
+                        "similarity": 0.35,  # Placeholder for lexical match
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Failed to search articles by lexical terms: {e}")
             return []
 
     async def get_article_embedding_stats(self) -> Dict[str, Any]:

@@ -489,59 +489,30 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             async with httpx.AsyncClient() as client:
                 try:
                     if provider == "openai":
-                        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
-                        is_newer_model = any(x in model.lower() for x in ['gpt-4.1', 'gpt-5', 'o1', 'o3', 'o4'])
-                        # Some newer models (gpt-5.2+, gpt-5-nano, etc.) don't support custom temperature
-                        # They only support the default value (1), so we omit the parameter
-                        is_temperature_restricted = any(x in model.lower() for x in [
-                            'gpt-5.2', 'gpt-5.1', 'gpt-5-nano', 'gpt-5-mini', 'gpt-5-chat'
-                        ])
-                        
-                        payload = {
-                            "model": model,
-                            "messages": [
-                                {"role": "system", "content": system_message},
-                                {"role": "user", "content": enrichment_prompt},
-                            ],
-                        }
-                        
-                        # Only add temperature if the model supports custom values
-                        # Restricted models will use default temperature (1) if omitted
-                        if not is_temperature_restricted:
-                            payload["temperature"] = 0.2
-                        
-                        if is_newer_model:
-                            payload["max_completion_tokens"] = 4000
-                        else:
-                            payload["max_tokens"] = 4000
-                        
-                        response = await client.post(
-                            "https://api.openai.com/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {api_key}",
-                                "Content-Type": "application/json",
-                            },
-                            json=payload,
-                            timeout=120.0,
-                        )
-                        if response.status_code != 200:
-                            error_detail = f"OpenAI API error: {response.status_code}"
-                            try:
-                                error_data = response.json()
-                                if "error" in error_data:
-                                    error_detail = error_data["error"].get("message", error_detail)
-                            except:
-                                error_detail = f"OpenAI API error: {response.status_code} - {response.text[:200]}"
-                            
-                            if response.status_code == 401:
-                                error_detail = "OpenAI API key is invalid or expired. Please check your API key."
-                            elif response.status_code == 429:
-                                error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
-                            logger.error(f"OpenAI API error: {response.text}")
-                            raise HTTPException(status_code=response.status_code, detail=error_detail)
-                        response_data = response.json()
-                        raw_response = response_data["choices"][0]["message"]["content"].strip()
-                        
+                        from src.services.openai_chat_client import openai_chat_completions
+
+                        try:
+                            raw_response = await openai_chat_completions(
+                                api_key=api_key,
+                                model_name=model,
+                                messages=[
+                                    {"role": "system", "content": system_message},
+                                    {"role": "user", "content": enrichment_prompt},
+                                ],
+                                max_tokens=4000,
+                                temperature=0.2,
+                                timeout=120.0,
+                            )
+                            raw_response = raw_response.strip()
+                        except ValueError as e:
+                            raise HTTPException(status_code=400, detail=str(e))
+                        except RuntimeError as e:
+                            err = str(e)
+                            if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
+                                raise HTTPException(status_code=401, detail="OpenAI API key is invalid or expired. Please check your API key.")
+                            if "429" in err or "rate limit" in err.lower():
+                                raise HTTPException(status_code=429, detail="OpenAI API rate limit exceeded. Please wait and try again.")
+                            raise HTTPException(status_code=502, detail=err)
                     elif provider == "anthropic":
                         response = await client.post(
                             "https://api.anthropic.com/v1/messages",
@@ -1533,47 +1504,29 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         error_occurred = None
                         
                         if provider == "openai":
-                            # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
-                            is_newer_model = any(x in model.lower() for x in ['gpt-4.1', 'gpt-5', 'o1', 'o3', 'o4'])
-                            is_temperature_restricted = any(x in model.lower() for x in [
-                                'gpt-5.2', 'gpt-5.1', 'gpt-5-nano', 'gpt-5-mini', 'gpt-5-chat'
-                            ])
-                            
-                            payload = {
-                                "model": model,
-                                "messages": attempt_messages,
-                            }
-                            
-                            if not is_temperature_restricted:
-                                payload["temperature"] = 0.2
-                            
-                            if is_newer_model:
-                                payload["max_completion_tokens"] = 4000
-                            else:
-                                payload["max_tokens"] = 4000
-                            
-                            response = await client.post(
-                                "https://api.openai.com/v1/chat/completions",
-                                headers={
-                                    "Authorization": f"Bearer {api_key}",
-                                    "Content-Type": "application/json",
-                                },
-                                json=payload,
-                                timeout=120.0,
-                            )
-                            
-                            if response.status_code != 200:
-                                error_detail = f"OpenAI API error: {response.status_code}"
-                                if response.status_code == 401:
-                                    error_detail = "OpenAI API key is invalid or expired. Please check your API key."
-                                elif response.status_code == 429:
-                                    error_detail = "OpenAI API rate limit exceeded. Please wait and try again."
-                                logger.error(f"OpenAI API error: {response.text}")
-                                error_occurred = error_detail
-                                raise HTTPException(status_code=response.status_code, detail=error_detail)
-                            
-                            response_data = response.json()
-                            raw_response = response_data["choices"][0]["message"]["content"].strip()
+                            from src.services.openai_chat_client import openai_chat_completions
+
+                            try:
+                                raw_response = await openai_chat_completions(
+                                    api_key=api_key,
+                                    model_name=model,
+                                    messages=attempt_messages,
+                                    max_tokens=4000,
+                                    temperature=0.2,
+                                    timeout=120.0,
+                                )
+                                raw_response = raw_response.strip()
+                            except ValueError as e:
+                                error_occurred = str(e)
+                                raise HTTPException(status_code=400, detail=str(e))
+                            except RuntimeError as e:
+                                err = str(e)
+                                error_occurred = err
+                                if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
+                                    raise HTTPException(status_code=401, detail="OpenAI API key is invalid or expired. Please check your API key.")
+                                if "429" in err or "rate limit" in err.lower():
+                                    raise HTTPException(status_code=429, detail="OpenAI API rate limit exceeded. Please wait and try again.")
+                                raise HTTPException(status_code=502, detail=err)
                             
                         elif provider == "anthropic":
                             response = await client.post(
@@ -1588,7 +1541,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                     "max_tokens": 4000,
                                     "temperature": 0.2,
                                     "system": system_message,
-                                    "messages": [{"role": "user", "content": enrichment_prompt}],
+                                    "messages": [{"role": "user", "content": validation_prompt}],
                                 },
                                 timeout=120.0,
                             )
@@ -1613,7 +1566,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 headers={"Content-Type": "application/json"},
                                 json={
                                     "contents": [{
-                                        "parts": [{"text": f"{system_message}\n\n{enrichment_prompt}"}]
+                                        "parts": [{"text": f"{system_message}\n\n{validation_prompt}"}]
                                     }],
                                     "generationConfig": {
                                         "temperature": 0.2,

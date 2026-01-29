@@ -14,14 +14,39 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Keys used in AppSettings (Settings page) for provider API keys
+_WORKFLOW_OPENAI_API_KEY = "WORKFLOW_OPENAI_API_KEY"
+_WORKFLOW_ANTHROPIC_API_KEY = "WORKFLOW_ANTHROPIC_API_KEY"
+
+
+def _load_app_settings_keys() -> Dict[str, Optional[str]]:
+    """Load API keys from AppSettings (database). Matches llm_service behavior."""
+    out: Dict[str, Optional[str]] = {}
+    try:
+        from src.database.manager import DatabaseManager
+        from src.database.models import AppSettingsTable
+
+        db = DatabaseManager()
+        session = db.get_session()
+        try:
+            rows = session.query(AppSettingsTable).filter(
+                AppSettingsTable.key.in_([_WORKFLOW_OPENAI_API_KEY, _WORKFLOW_ANTHROPIC_API_KEY])
+            ).all()
+            for row in rows:
+                out[row.key] = row.value
+        finally:
+            session.close()
+    except Exception as exc:
+        logger.debug("Could not load AppSettings for RAG LLM keys: %s", exc)
+    return out
+
 
 class LLMGenerationService:
     """Service for generating synthesized responses using various LLM providers."""
 
     def __init__(self):
         """Initialize the LLM generation service."""
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        self._refresh_api_keys()
 
         # LMStudio configuration
         self.lmstudio_url = os.getenv(
@@ -32,6 +57,25 @@ class LLMGenerationService:
 
         logger.info("Initialized LLM Generation Service")
 
+    def _refresh_api_keys(self) -> None:
+        """Reload API keys from AppSettings + env. Call before each RAG request so Settings changes apply."""
+        app = _load_app_settings_keys()
+        self.openai_api_key = (
+            app.get(_WORKFLOW_OPENAI_API_KEY)
+            or os.getenv("OPENAI_API_KEY")
+            or os.getenv("WORKFLOW_OPENAI_API_KEY")
+            or os.getenv("CHATGPT_API_KEY")
+        )
+        if isinstance(self.openai_api_key, str):
+            self.openai_api_key = self.openai_api_key.strip() or None
+        self.anthropic_api_key = (
+            app.get(_WORKFLOW_ANTHROPIC_API_KEY)
+            or os.getenv("ANTHROPIC_API_KEY")
+            or os.getenv("WORKFLOW_ANTHROPIC_API_KEY")
+        )
+        if isinstance(self.anthropic_api_key, str):
+            self.anthropic_api_key = self.anthropic_api_key.strip() or None
+
     async def generate_rag_response(
         self,
         query: str,
@@ -39,6 +83,7 @@ class LLMGenerationService:
         conversation_history: Optional[List[Dict[str, Any]]] = None,
         provider: str = "auto",
         retrieved_rules: Optional[List[Dict[str, Any]]] = None,
+        model_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a synthesized response using retrieved chunks.
@@ -54,6 +99,8 @@ class LLMGenerationService:
             Dictionary with generated response and metadata
         """
         try:
+            self._refresh_api_keys()
+
             # Build context from retrieved chunks and rules
             context = self._build_context(retrieved_chunks, retrieved_rules)
 
@@ -85,6 +132,7 @@ class LLMGenerationService:
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 provider=selected_provider,
+                model_override=model_override,
             )
 
             # If LMStudio returned a specific model name, prefer it for display
@@ -391,52 +439,49 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         return "lmstudio"
 
     async def _call_llm(
-        self, system_prompt: str, user_prompt: str, provider: str
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        provider: str,
+        model_override: Optional[str] = None,
     ) -> str:
         """Call the specified LLM provider."""
+        model = (model_override or "").strip() or None
 
         if provider == "openai":
-            return await self._call_openai(system_prompt, user_prompt)
+            return await self._call_openai(system_prompt, user_prompt, model=model)
         elif provider == "anthropic":
-            return await self._call_anthropic(system_prompt, user_prompt)
+            return await self._call_anthropic(system_prompt, user_prompt, model=model)
         elif provider == "lmstudio":
-            return await self._call_lmstudio(system_prompt, user_prompt)
+            return await self._call_lmstudio(system_prompt, user_prompt, model=model)
         else:
             raise ValueError(f"Unknown provider: {provider}")
 
-    async def _call_openai(self, system_prompt: str, user_prompt: str) -> str:
-        """Call OpenAI API."""
+    async def _call_openai(
+        self, system_prompt: str, user_prompt: str, model: Optional[str] = None
+    ) -> str:
+        """Call OpenAI API via shared openai_chat_client (RAG, Enrichment, etc.)."""
+        from src.services.openai_chat_client import openai_chat_completions
+
         if not self.openai_api_key:
             raise ValueError("OpenAI API key not configured")
+        model_name = (model or "").strip() or "gpt-4o-mini"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        return await openai_chat_completions(
+            api_key=self.openai_api_key,
+            model_name=model_name,
+            messages=messages,
+            max_tokens=2000,
+            temperature=0.3,
+            timeout=60.0,
+        )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.openai_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "max_tokens": 2000,
-                    "temperature": 0.3,
-                },
-                timeout=60.0,
-            )
-
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"OpenAI API error: {error_detail}")
-                raise RuntimeError(f"OpenAI API error: {error_detail}")
-
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
-
-    async def _call_anthropic(self, system_prompt: str, user_prompt: str) -> str:
+    async def _call_anthropic(
+        self, system_prompt: str, user_prompt: str, model: Optional[str] = None
+    ) -> str:
         """Call Anthropic Claude API with rate limit handling and exponential backoff."""
         return await self._call_anthropic_with_retry(
             system_prompt=system_prompt,
@@ -444,6 +489,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             max_retries=5,
             base_delay=1.0,
             max_delay=60.0,
+            model_override=model,
         )
 
     async def _call_anthropic_with_retry(
@@ -455,6 +501,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         max_delay: float = 60.0,
         headers: Optional[Dict[str, str]] = None,
         payload: Optional[Dict[str, Any]] = None,
+        model_override: Optional[str] = None,
     ) -> str:
         """
         Call Anthropic Claude API with exponential backoff rate limit handling.
@@ -488,8 +535,9 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
 
         # Default payload
         if payload is None:
+            model_name = (model_override or "").strip() or "claude-sonnet-4-5"
             payload = {
-                "model": "claude-sonnet-4-5",
+                "model": model_name,
                 "max_tokens": 2000,
                 "system": system_prompt,
                 "messages": [{"role": "user", "content": user_prompt}],
@@ -632,7 +680,9 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                 )
                 return 30.0
 
-    async def _call_lmstudio(self, system_prompt: str, user_prompt: str) -> str:
+    async def _call_lmstudio(
+        self, system_prompt: str, user_prompt: str, model: Optional[str] = None
+    ) -> str:
         """Call LMStudio API (OpenAI-compatible) with recommended settings."""
         # Get recommended settings (temperature 0.0 for deterministic scoring, top_p 0.9, seed 42)
         temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
@@ -642,9 +692,10 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             if os.getenv("LMSTUDIO_SEED")
             else None
         )
+        model_name = (model or "").strip() or self.lmstudio_model
 
         payload = {
-            "model": self.lmstudio_model,
+            "model": model_name,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
