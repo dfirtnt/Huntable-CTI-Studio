@@ -558,7 +558,7 @@ class DatabaseManager:
                 identifier=db_source.identifier,
                 name=db_source.name,
                 active=db_source.active,
-                tier=db_source.tier,
+                tier=getattr(db_source, 'tier', None),
                 last_check=db_source.last_check,
                 last_success=db_source.last_success,
                 consecutive_failures=db_source.consecutive_failures,
@@ -576,12 +576,9 @@ class DatabaseManager:
             # Source statistics
             stats['total_sources'] = session.query(SourceTable).count()
             stats['active_sources'] = session.query(SourceTable).filter(SourceTable.active == True).count()
-            stats['sources_by_tier'] = {}
-            
-            for tier in [1, 2, 3]:
-                count = session.query(SourceTable).filter(SourceTable.tier == tier).count()
-                stats['sources_by_tier'][f'tier_{tier}'] = count
-            
+            # SourceTable has no tier column; keep key for API compatibility
+            stats['sources_by_tier'] = {'tier_1': stats['total_sources'], 'tier_2': 0, 'tier_3': 0}
+
             # Article statistics
             stats['total_articles'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.archived == False).count()
             
@@ -622,11 +619,13 @@ class DatabaseManager:
             except Exception:
                 stats['database_size_mb'] = 0.0
             
-            # Quality statistics
-            avg_quality = session.query(func.avg(ArticleTable.quality_score)).filter(
-                ArticleTable.quality_score.isnot(None)
-            ).scalar()
-            stats['average_quality_score'] = float(avg_quality) if avg_quality else 0.0
+            # Quality statistics (ArticleTable may not have quality_score column)
+            stats['average_quality_score'] = 0.0
+            if getattr(ArticleTable, 'quality_score', None) is not None:
+                avg_quality = session.query(func.avg(ArticleTable.quality_score)).filter(
+                    ArticleTable.quality_score.isnot(None)
+                ).scalar()
+                stats['average_quality_score'] = float(avg_quality) if avg_quality else 0.0
             
             return stats
     
