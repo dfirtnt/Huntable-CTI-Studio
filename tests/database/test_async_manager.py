@@ -263,3 +263,49 @@ class TestAsyncDatabaseManager:
         )
         
         assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_search_articles_by_lexical_terms(self, manager, mock_session_factory):
+        """Test search_articles_by_lexical_terms returns articles matching terms."""
+        from contextlib import asynccontextmanager
+        from tests.utils.async_mocks import AsyncMockSession
+
+        mock_session = AsyncMockSession()
+        mock_row = MagicMock()
+        mock_row.id = 1
+        mock_row.title = "Emotet delivery techniques"
+        mock_row.summary = "Summary"
+        mock_row.content = "Content about emotet"
+        mock_row.canonical_url = "https://example.com/1"
+        mock_row.published_at = None
+        mock_row.source_id = 1
+        mock_row.article_metadata = {}
+        mock_row.source_name = "Test Source"
+
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session_factory.return_value = mock_session
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_session
+
+        manager.get_session = mock_get_session
+
+        results = await manager.search_articles_by_lexical_terms(
+            terms=["emotet"],
+            limit=10,
+        )
+
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert results[0]["title"] == "Emotet delivery techniques"
+        assert results[0]["similarity"] == 0.35
+        assert results[0]["source_name"] == "Test Source"
+
+    @pytest.mark.asyncio
+    async def test_search_articles_by_lexical_terms_empty_terms(self, manager):
+        """Test search_articles_by_lexical_terms returns [] for empty terms."""
+        results = await manager.search_articles_by_lexical_terms(terms=[], limit=10)
+        assert results == []
