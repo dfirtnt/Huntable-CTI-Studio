@@ -6,7 +6,7 @@ The documentation has been reorganized under `/docs` and published with MkDocs M
 - Quick path: `docs/quickstart.md`
 - Concepts: `docs/concepts/` (huntables, agents, pipelines, observables)
 - How-to guides: `docs/howto/` (run locally, add feed, extract observables, generate Sigma, evaluate models)
-- Reference: `docs/reference/` (config, API, schemas, Sigma prompt, versioning)
+- Reference: `docs/reference/` (CLI, config, API, schemas, Sigma prompt, versioning)
 - Internals: `docs/internals/` (architecture, scoring, chunking, QA loops)
 - Contributing: `docs/contributing.md`
 
