@@ -2,20 +2,15 @@
 
 Checks that are **not** covered by existing (non-skipped) automated tests. Target: **≤30 minutes** total.
 
-**Reference:** gaps derived from test layout (`tests/api`, `tests/ui`, `tests/integration`, `tests/playwright`), skipped-test inventory (`tests/SKIPPED_TESTS.md`, `@pytest.mark.skip`), and app surface (`src/web/routes`, `src/cli/commands`).
+**Reference:** gaps derived from test layout (`tests/api`, `tests/ui`, `tests/cli`, `tests/integration`, `tests/playwright`), skipped-test inventory (`tests/SKIPPED_TESTS.md`, `@pytest.mark.skip`), and app surface (`src/web/routes`, `src/cli/commands`).
 
 ---
 
-## 1. CLI (no automated coverage)
+## 1. CLI help (automated)
 
-**Time: ~4 min**
+**Covered by:** `tests/cli/test_cli_help.py` (run: `python3 run_tests.py unit --paths tests/cli/test_cli_help.py`).
 
-| Step | Action | Pass condition |
-|------|--------|----------------|
-| 1.1 | `python3 -m src.cli.main --help` | Usage and subcommands listed |
-| 1.2 | `python3 -m src.cli.main collect --help` | Collect options shown |
-| 1.3 | `python3 -m src.cli.main backup --help` | Backup subcommands/options shown |
-| 1.4 | `python3 -m src.cli.main rescore --help` | Rescore options shown |
+Main `--help`, `collect --help`, `backup --help`, `rescore --help`, and `stats` (with mocked DB) are asserted there. No manual steps.
 
 ---
 
@@ -127,7 +122,7 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 | Area | Reason not covered by (non-skipped) tests | Manual time |
 |------|------------------------------------------|-------------|
-| CLI | No CLI test suite | ~4 min |
+| CLI help | Covered by `tests/cli/test_cli_help.py` | 0 |
 | Backup API/UI | No API tests for backup; UI doesn’t drive create/restore | ~5 min |
 | Diags | Per-check selectors missing; tests skipped | ~3 min |
 | Articles bulk delete | Manual check that bulk delete works | ~3 min |
@@ -137,7 +132,7 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 | Sigma queue empty/add | Tests skip when no rules in queue | ~3 min |
 | PDF + ML hunt pages | Smoke only | ~2 min |
 
-**Total: ~30 min**
+**Total: ~26 min** (CLI help automated)
 
 ---
 
