@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docs and tests updated: AGENTS.md, api.md, DO_NOT.md, TECHNICAL_READOUT, SIGMA_DETECTION_RULES, MANUAL_CHECKLIST, skip reasons
 
 ### Fixed
+- **sources.yaml parse error** (2026-01-29): Fixed YAML indentation for `sekoia_io_blog` list item (was 3 spaces under `sources`, causing "expected block end, but found block sequence start" at line 452)
 - **Retraining Complete panel broken data elements** (2026-01-28): GET `/api/model/retrain-status` used `latest_version.training_samples` (AttributeError—model has `training_data_size`). Fixed: use `training_data_size`; derive `evaluation_metrics` from `eval_confusion_matrix`; write minimal `training_samples`/`feedback_samples`/`annotation_samples` when DB enrichment fails.
 - **CommandLine / Hunt Queries eval parity with Process Lineage** (2026-01-27): (1) Subagent-eval model filtering only included `cmdline` and `process_lineage` — `hunt_queries` and `HuntQueriesExtract`/`HuntQueriesQA` added so eval runs for Hunt Queries filter models correctly. (2) `_extract_actual_count` for `hunt_queries` now explicitly uses `query_count`, then `count`, then `len(queries/items)` so completion handler gets the right actual count from `subresults["hunt_queries"]`.
 - **Hunt Query eval jobs stuck pending** (2026-01-27): (1) Runs with subagent "hunt_queries" create eval records with `subagent_name="hunt_queries"`, but the workflow completion handler only looked for `hunt_queries_edr` and `hunt_queries_sigma` — completion handler now also finds/updates `"hunt_queries"`. (2) Eval runs that skip SIGMA mark the execution completed inside `check_should_skip_sigma_for_eval` and return "end" without going through the post-graph block that calls `_update_subagent_eval_on_completion` — that block only runs when the graph returns to run_workflow and we re-query execution; the skip-sigma path now calls `_update_subagent_eval_on_completion` immediately when marking completed so eval records are updated. (3) Polling no longer clears the current run's execution map.
@@ -81,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `test_classification_badge_display`: Skipped—classification badges (Chosen/Rejected/Unclassified) are not shown on article list cards
 
 ### Added
+- **compare-sources CLI** (2026-01-29): New command to compare production DB source settings with `config/sources.yaml` — reports sources only in YAML, only in DB, and field-by-field differences (active, url, rss_url, check_frequency, lookback_days, min_content_length, rss_only). Run via `./run_cli.sh compare-sources`; optional standalone script `scripts/compare_sources_db_vs_yaml.py` for use outside Docker with `DATABASE_URL`
 - **Multi-Rule SIGMA Generation with Phased Approach** (2026-01-26): Enhanced SIGMA rule generation to support multiple rules per article
   - Refactored generation into 4 phases: multi-rule generation, validation, per-rule repair, artifact-driven expansion
   - Added defensive parsing for multiple rules (handles `---` separators, markdown code blocks, multiple `title:` entries)
@@ -94,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Addresses issue where only 1 rule was generated despite multiple observable types (cmdline + process_lineage)
 
 ### Changed
+- **sources.yaml RSS vs scraping** (2026-01-29): Updated source config so new installs get known-good RSS/scraping preferences — header comment documents RSS vs scraping and per-source fallbacks; Sekoia: set `rss_url` to category feed (was null with `rss_only: true`); Group-IB kept scraping-only with comment; VMRay and Microsoft Defender Endpoint: comments added for alternate feed URLs if primary fails
 - **Observables Mode Disabled** (2026-01-22): Disabled Observables annotation mode, marked as inactive for future release
   - Hidden Observables Mode button in article detail page (preserved in comments)
   - Disabled Huntability Mode button (non-clickable)
