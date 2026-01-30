@@ -3,32 +3,53 @@
 {% block title %}System Diagnostics & Health - Huntable CTI Studio{% endblock %}
 
 {% block content %}
+<style>
+/* Diags page: theme vars only (ui-designer.mdc) */
+.diags-card { background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border); border-radius: 0.5rem; box-shadow: 0 1px 3px var(--shadow-card); }
+.diags-heading { color: var(--text-primary); }
+.diags-muted { color: var(--text-muted-slate); }
+.diags-btn-secondary { background-color: var(--panel-bg-4); color: var(--text-primary); border: 1px solid var(--border-muted); }
+.diags-btn-secondary:hover { background-color: var(--panel-bg-5); border-color: var(--border-subtle); }
+.diags-pulse { background-color: var(--border-muted); }
+.diags-panel-hover:hover { background-color: var(--panel-bg-4); }
+.diags-status-success { color: var(--action-success-light); }
+.diags-status-warning { color: var(--action-warning); }
+.diags-status-error { color: var(--action-danger); }
+.diags-status-info { color: var(--action-info); }
+.diags-panel-success { background-color: var(--action-success-bg); border: 1px solid var(--action-success); color: var(--action-success-dark); }
+.diags-panel-warning { background-color: var(--action-warning-bg-light); border: 1px solid var(--border-warning); color: var(--action-warning-dark); }
+.diags-panel-error { background-color: var(--action-danger-bg); border: 1px solid var(--action-danger); color: var(--action-danger-hover); }
+.diags-panel-info { background-color: var(--action-info-bg); border: 1px solid var(--action-info); color: var(--action-info-dark); }
+.diags-panel-neutral { background-color: var(--panel-bg-4); border: 1px solid var(--mlops-card-border); color: var(--text-muted-slate); }
+.diags-overlay-bg { background-color: var(--shadow-overlay); }
+.diags-loading-spinner-bg { background-color: var(--action-info-fill); }
+.diags-loading-spinner { color: var(--action-info); }
+.diags-checkbox:focus { border-color: var(--border-focus); box-shadow: 0 0 0 2px var(--purple-border-15); }
+</style>
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+        <h1 class="text-3xl font-bold diags-heading mb-2 flex items-center gap-3">
             <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[63px] h-[63px]" />
             System Diagnostics & Health
         </h1>
-        <p class="text-gray-600 dark:text-gray-400">Monitor system health, background jobs, service status, and analytics</p>
+        <p class="diags-muted">Monitor system health, background jobs, service status, and analytics</p>
     </div>
 
     <!-- Quick Actions -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Quick Actions</h2>
+    <div class="diags-card p-6 mb-8">
+        <h2 class="text-xl font-semibold diags-heading mb-4">⚡ Quick Actions</h2>
         <div class="flex flex-wrap gap-4">
-            <button id="runAllHealthChecks" 
-                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <button id="runAllHealthChecks" type="button" class="btn-analyze inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--action-info)] transition-colors">
                 🏥 Run All Health Checks
             </button>
-            <button id="refreshJobData" 
-                    class="inline-flex items-center px-4 py-2 border border-gray-400 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <button id="refreshJobData" type="button" class="diags-btn-secondary inline-flex items-center px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--border-focus)] transition-colors">
                 🔄 Refresh Job Data
             </button>
             <label class="flex items-center">
-                <input type="checkbox" id="autoRefresh" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" checked>
-                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Auto-refresh (5s)</span>
+                <input type="checkbox" id="autoRefresh" class="diags-checkbox rounded border-[var(--border-muted)] shadow-sm" style="accent-color: var(--action-info);" checked>
+                <span class="ml-2 text-sm diags-muted">Auto-refresh (5s)</span>
             </label>
-            <div class="text-sm text-gray-500 dark:text-gray-400">
+            <div class="text-sm diags-muted">
                 Last updated: <span id="lastUpdated">Never</span>
             </div>
         </div>
@@ -36,21 +57,18 @@
 
     <!-- System Status Overview -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Overall Health Status -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🏥 System Health</h2>
-            <div id="overallHealthStatus" class="text-gray-600 dark:text-gray-400">
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">🏥 System Health</h2>
+            <div id="overallHealthStatus" class="diags-muted">
                 Click "Run All Health Checks" to get system status
             </div>
         </div>
-
-        <!-- Worker Status -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">👥 Worker Status</h2>
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">👥 Worker Status</h2>
             <div id="workerStatus" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                    <div class="h-4 diags-pulse rounded w-3/4"></div>
+                    <div class="h-4 diags-pulse rounded w-1/2 mt-2"></div>
                 </div>
             </div>
         </div>
@@ -58,18 +76,15 @@
 
     <!-- Detailed Health Checks -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Database Health -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🗄️ Database Health</h2>
-            <div id="databaseHealthContent" class="text-gray-600 dark:text-gray-400">
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">🗄️ Database Health</h2>
+            <div id="databaseHealthContent" class="diags-muted">
                 Click "Run All Health Checks" to check database status
             </div>
         </div>
-
-        <!-- Services Health -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔧 External Services</h2>
-            <div id="servicesHealthContent" class="text-gray-600 dark:text-gray-400">
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">🔧 External Services</h2>
+            <div id="servicesHealthContent" class="diags-muted">
                 Click "Run All Health Checks" to check external services
             </div>
         </div>
@@ -77,26 +92,23 @@
 
     <!-- Job Monitoring -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Queue Status -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Queue Status</h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Shows pending tasks per queue and which worker(s) consume each queue</p>
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">📊 Queue Status</h2>
+            <p class="text-xs diags-muted mb-3">Shows pending tasks per queue and which worker(s) consume each queue</p>
             <div id="queueStatus" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                    <div class="h-4 diags-pulse rounded w-3/4"></div>
+                    <div class="h-4 diags-pulse rounded w-1/2 mt-2"></div>
                 </div>
             </div>
         </div>
-
-        <!-- Active Tasks -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Active Tasks</h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Currently running tasks across all workers</p>
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">⚡ Active Tasks</h2>
+            <p class="text-xs diags-muted mb-3">Currently running tasks across all workers</p>
             <div id="activeTasks" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mt-2"></div>
+                    <div class="h-4 diags-pulse rounded w-full"></div>
+                    <div class="h-4 diags-pulse rounded w-2/3 mt-2"></div>
                 </div>
             </div>
         </div>
@@ -104,29 +116,26 @@
 
     <!-- Additional Health Checks -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Deduplication Health -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">🔍 Deduplication System</h2>
-            <div id="deduplicationHealthContent" class="text-gray-600 dark:text-gray-400">
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">🔍 Deduplication System</h2>
+            <div id="deduplicationHealthContent" class="diags-muted">
                 Click "Run All Health Checks" to check deduplication status
             </div>
         </div>
-
-        <!-- Celery Health -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚙️ Celery Workers</h2>
-            <div id="celeryHealthContent" class="text-gray-600 dark:text-gray-400">
+        <div class="diags-card p-6">
+            <h2 class="text-xl font-semibold diags-heading mb-4">⚙️ Celery Workers</h2>
+            <div id="celeryHealthContent" class="diags-muted">
                 Click "Run All Health Checks" to check background task processing
             </div>
         </div>
     </div>
 
     <!-- Job History -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
-        <div data-collapsible-panel="job-history" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📋 Recent Job History</h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Completed tasks with inferred worker/queue assignment</p>
-            <span id="job-history-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+    <div class="diags-card p-6 mb-8">
+        <div data-collapsible-panel="job-history" class="diags-panel-hover flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg transition-colors cursor-pointer">
+            <h2 class="text-xl font-semibold diags-heading">📋 Recent Job History</h2>
+            <p class="text-xs diags-muted mt-1">Completed tasks with inferred worker/queue assignment</p>
+            <span id="job-history-toggle" class="diags-muted transition-transform duration-200" aria-hidden="true">
                 <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
@@ -134,29 +143,27 @@
         </div>
         <div id="job-history-content" class="space-y-3 hidden">
             <div class="animate-pulse">
-                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
-                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
+                <div class="h-4 diags-pulse rounded w-full"></div>
+                <div class="h-4 diags-pulse rounded w-3/4 mt-2"></div>
+                <div class="h-4 diags-pulse rounded w-1/2 mt-2"></div>
             </div>
         </div>
     </div>
-
-
 </div>
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 hidden flex items-center justify-center">
-    <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+<div id="loadingOverlay" class="fixed inset-0 diags-overlay-bg backdrop-blur-sm overflow-y-auto h-full w-full z-50 hidden flex items-center justify-center">
+    <div class="diags-card rounded-xl p-6 max-w-md w-full mx-4">
         <div class="mt-3 text-center">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-500/20">
-                <svg class="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div class="diags-loading-spinner-bg mx-auto flex items-center justify-center h-12 w-12 rounded-full">
+                <svg class="animate-spin h-6 w-6 diags-loading-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
-            <h3 class="text-lg font-medium text-gray-50 mt-4">Running Diagnostics</h3>
+            <h3 class="text-lg font-medium diags-heading mt-4">Running Diagnostics</h3>
             <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-400" id="loadingMessage">Please wait...</p>
+                <p class="text-sm diags-muted" id="loadingMessage">Please wait...</p>
             </div>
         </div>
     </div>
@@ -281,12 +288,12 @@ function updateWorkerStatus(data) {
     console.log('Updating worker status with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading worker status</div>';
+        container.innerHTML = '<div class="diags-status-error">❌ Error loading worker status</div>';
         return;
     }
     
     if (data.status === 'timeout') {
-        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Worker status timeout - workers may be unresponsive</div>';
+        container.innerHTML = '<div class="diags-status-warning">⚠️ Worker status timeout - workers may be unresponsive</div>';
         return;
     }
 
@@ -299,7 +306,7 @@ function updateWorkerStatus(data) {
     console.log('Active queues:', activeQueues);
     
     if (activeWorkers.length === 0) {
-        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ No active workers</div>';
+        container.innerHTML = '<div class="diags-status-warning">⚠️ No active workers</div>';
         return;
     }
 
@@ -325,21 +332,15 @@ function updateWorkerStatus(data) {
         const workerType = isWorkflowWorker ? '🔄 Workflow' : '⚙️ General';
         
         html += `
-            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
                 <div>
-                    <div class="font-medium text-gray-900 dark:text-white">${workerType} Worker</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        ${worker}
-                    </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        Queues: ${queueNames} | Pool: ${processCount} processes
-                    </div>
+                    <div class="font-medium diags-heading">${workerType} Worker</div>
+                    <div class="text-sm diags-muted">${worker}</div>
+                    <div class="text-xs diags-muted mt-1">Queues: ${queueNames} | Pool: ${processCount} processes</div>
                 </div>
                 <div class="text-right">
-                    <div class="text-sm text-emerald-400">✅ Active</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
-                        Tasks: ${totalTasks}
-                    </div>
+                    <div class="text-sm diags-status-success">✅ Active</div>
+                    <div class="text-xs diags-muted">Tasks: ${totalTasks}</div>
                 </div>
             </div>
         `;
@@ -353,7 +354,7 @@ function updateQueueStatus(data) {
     console.log('Updating queue status with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading queue status</div>';
+        container.innerHTML = '<div class="diags-status-error">❌ Error loading queue status</div>';
         return;
     }
 
@@ -381,7 +382,7 @@ function updateQueueStatus(data) {
     }
     
     Object.entries(queues).forEach(([queueName, length]) => {
-        const statusColor = length > 0 ? 'text-orange-400' : 'text-emerald-400';
+        const statusClass = length > 0 ? 'diags-status-warning' : 'diags-status-success';
         const statusIcon = length > 0 ? '⏳' : '✅';
         const workers = queueToWorkers[queueName] || [];
         const workerInfo = workers.length > 0 
@@ -389,15 +390,15 @@ function updateQueueStatus(data) {
             : 'No active consumers';
         
         html += `
-            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
                 <div>
-                    <div class="font-medium text-gray-900 dark:text-white">${queueName}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Queue length</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">Consumed by: ${workerInfo}</div>
+                    <div class="font-medium diags-heading">${queueName}</div>
+                    <div class="text-sm diags-muted">Queue length</div>
+                    <div class="text-xs diags-muted mt-1">Consumed by: ${workerInfo}</div>
                 </div>
                 <div class="text-right">
-                    <div class="text-lg font-bold ${statusColor}">${length}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
+                    <div class="text-lg font-bold ${statusClass}">${length}</div>
+                    <div class="text-xs diags-muted">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
                 </div>
             </div>
         `;
@@ -411,12 +412,12 @@ function updateActiveTasks(data) {
     console.log('Updating active tasks with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading active tasks</div>';
+        container.innerHTML = '<div class="diags-status-error">❌ Error loading active tasks</div>';
         return;
     }
     
     if (data.status === 'timeout') {
-        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Active tasks timeout - workers may be unresponsive</div>';
+        container.innerHTML = '<div class="diags-status-warning">⚠️ Active tasks timeout - workers may be unresponsive</div>';
         return;
     }
 
@@ -436,7 +437,7 @@ function updateActiveTasks(data) {
     console.log('All tasks:', allTasks);
     
     if (allTasks.length === 0) {
-        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No active tasks</div>';
+        container.innerHTML = '<div class="diags-muted text-center py-8">No active tasks</div>';
         return;
     }
 
@@ -460,19 +461,15 @@ function updateActiveTasks(data) {
             : '';
         
         html += `
-            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
                 <div>
-                    <div class="font-medium text-gray-900 dark:text-white">${taskName}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        ${sourceId} | Started: ${startTime}
-                    </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        ${workerType} Worker${queueNames ? ` (${queueNames})` : ''}
-                    </div>
+                    <div class="font-medium diags-heading">${taskName}</div>
+                    <div class="text-sm diags-muted">${sourceId} | Started: ${startTime}</div>
+                    <div class="text-xs diags-muted mt-1">${workerType} Worker${queueNames ? ` (${queueNames})` : ''}</div>
                 </div>
                 <div class="text-right">
-                    <div class="text-sm text-blue-600 dark:text-blue-400">🔄 Running</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">ID: ${task.id.substring(0, 8)}...</div>
+                    <div class="text-sm diags-status-info">🔄 Running</div>
+                    <div class="text-xs diags-muted">ID: ${task.id.substring(0, 8)}...</div>
                 </div>
             </div>
         `;
@@ -486,7 +483,7 @@ function updateJobHistory(data) {
     console.log('Updating job history with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading job history</div>';
+        container.innerHTML = '<div class="diags-status-error">❌ Error loading job history</div>';
         return;
     }
 
@@ -494,7 +491,7 @@ function updateJobHistory(data) {
     console.log('Recent tasks:', tasks);
     
     if (tasks.length === 0) {
-        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No recent tasks</div>';
+        container.innerHTML = '<div class="diags-muted text-center py-8">No recent tasks</div>';
         return;
     }
 
@@ -533,21 +530,15 @@ function updateJobHistory(data) {
         const queueInfo = getTaskQueueInfo(taskName);
         
         html += `
-            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
                 <div>
-                    <div class="font-medium text-gray-900 dark:text-white">${task.task_id.substring(0, 8)}...</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        Completed: ${dateDone}
-                    </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        ${queueInfo.workerType} Worker (${queueInfo.queue} queue)
-                    </div>
+                    <div class="font-medium diags-heading">${task.task_id.substring(0, 8)}...</div>
+                    <div class="text-sm diags-muted">Completed: ${dateDone}</div>
+                    <div class="text-xs diags-muted mt-1">${queueInfo.workerType} Worker (${queueInfo.queue} queue)</div>
                 </div>
                 <div class="text-right">
                     <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
-                        ${resultText}
-                    </div>
+                    <div class="text-xs diags-muted">${resultText}</div>
                 </div>
             </div>
         `;
@@ -558,11 +549,11 @@ function updateJobHistory(data) {
 
 function getStatusColor(status) {
     switch (status) {
-        case 'SUCCESS': return 'text-emerald-400';
-        case 'FAILURE': return 'text-red-600 dark:text-red-400';
-        case 'PENDING': return 'text-yellow-600 dark:text-yellow-400';
-        case 'RETRY': return 'text-orange-600 dark:text-orange-400';
-        default: return 'text-gray-600 dark:text-gray-400';
+        case 'SUCCESS': return 'diags-status-success';
+        case 'FAILURE': return 'diags-status-error';
+        case 'PENDING': return 'diags-status-warning';
+        case 'RETRY': return 'diags-status-warning';
+        default: return 'diags-muted';
     }
 }
 
@@ -606,10 +597,10 @@ function formatTimestamp(timestamp) {
 
 function getHealthStatusColor(status) {
     switch (status) {
-        case 'healthy': return 'text-emerald-400';
-        case 'unhealthy': return 'text-red-600';
-        case 'error': return 'text-red-600';
-        default: return 'text-gray-600 dark:text-gray-300';
+        case 'healthy': return 'diags-status-success';
+        case 'unhealthy': return 'diags-status-error';
+        case 'error': return 'diags-status-error';
+        default: return 'diags-muted';
     }
 }
 
@@ -630,35 +621,35 @@ async function updateOverallHealthStatus() {
     const content = document.getElementById('overallHealthStatus');
     content.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="p-4 diags-panel-info rounded-lg">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">${getHealthStatusIcon(data.status)}</span>
                     <div>
-                        <h3 class="font-medium text-blue-900">System Status</h3>
+                        <h3 class="font-medium">System Status</h3>
                         <p class="text-sm font-bold ${getHealthStatusColor(data.status)}">${data.status.toUpperCase()}</p>
                     </div>
                 </div>
             </div>
-            <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div class="p-4 diags-panel-success rounded-lg">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">🕒</span>
                     <div>
-                        <h3 class="font-medium text-green-900">Last Check</h3>
-                        <p class="text-sm font-bold text-green-700">${formatTimestamp(data.timestamp)}</p>
+                        <h3 class="font-medium">Last Check</h3>
+                        <p class="text-sm font-bold">${formatTimestamp(data.timestamp)}</p>
                     </div>
                 </div>
             </div>
-            <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <div class="p-4 rounded-lg" style="background-color: var(--action-execute-fill); border: 1px solid var(--action-execute); color: var(--action-execute-dark);">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">📦</span>
                     <div>
-                        <h3 class="font-medium text-purple-900">Version</h3>
-                        <p class="text-sm font-bold text-purple-700">${data.version || '1.0.0'}</p>
+                        <h3 class="font-medium">Version</h3>
+                        <p class="text-sm font-bold">${data.version || '1.0.0'}</p>
                     </div>
                 </div>
             </div>
         </div>
-        ${data.error ? `<div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md"><p class="text-sm text-red-800">Error: ${data.error}</p></div>` : ''}
+        ${data.error ? `<div class="mt-4 p-3 diags-panel-error rounded-md"><p class="text-sm">Error: ${data.error}</p></div>` : ''}
     `;
 }
 
@@ -671,44 +662,39 @@ async function updateDatabaseHealth() {
         const db = data.database;
         content.innerHTML = `
             <div class="space-y-4">
-                <!-- Connection Status -->
-                <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="p-4 diags-panel-success rounded-lg">
                     <div class="flex items-center">
                         <span class="text-2xl mr-2">✅</span>
                         <div>
-                            <h3 class="font-medium text-green-900">Database Connection</h3>
-                            <p class="text-sm text-green-700">${db.connection}</p>
+                            <h3 class="font-medium">Database Connection</h3>
+                            <p class="text-sm">${db.connection}</p>
                         </div>
                     </div>
                 </div>
-
-                <!-- Statistics -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-medium text-blue-900">Total Articles</h3>
-                        <p class="text-2xl font-bold text-blue-600">${db.total_articles}</p>
+                    <div class="p-4 diags-panel-info rounded-lg">
+                        <h3 class="font-medium">Total Articles</h3>
+                        <p class="text-2xl font-bold">${db.total_articles}</p>
                     </div>
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-medium text-blue-900">Total Sources</h3>
-                        <p class="text-2xl font-bold text-blue-600">${db.total_sources}</p>
+                    <div class="p-4 diags-panel-info rounded-lg">
+                        <h3 class="font-medium">Total Sources</h3>
+                        <p class="text-2xl font-bold">${db.total_sources}</p>
                     </div>
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-medium text-blue-900">SimHash Coverage</h3>
-                        <p class="text-2xl font-bold text-blue-600">${db.simhash.coverage}</p>
+                    <div class="p-4 diags-panel-info rounded-lg">
+                        <h3 class="font-medium">SimHash Coverage</h3>
+                        <p class="text-2xl font-bold">${db.simhash.coverage}</p>
                     </div>
                 </div>
-
-                <!-- Corruption Stats -->
-                <div class="p-4 ${db.corruption && db.corruption.count === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                <div class="p-4 border rounded-lg ${db.corruption && db.corruption.count === 0 ? 'diags-panel-success' : 'diags-panel-error'}">
                     <div class="flex items-center mb-3">
                         <span class="text-2xl mr-2">${db.corruption && db.corruption.count === 0 ? '✅' : '❌'}</span>
                         <div>
-                            <h3 class="font-medium ${db.corruption && db.corruption.count === 0 ? 'text-green-900' : 'text-red-900'}">Content Integrity</h3>
-                            <p class="text-sm ${db.corruption && db.corruption.count === 0 ? 'text-green-700' : 'text-red-700'}">${db.corruption ? db.corruption.count : 0} corrupted articles found</p>
+                            <h3 class="font-medium">Content Integrity</h3>
+                            <p class="text-sm">${db.corruption ? db.corruption.count : 0} corrupted articles found</p>
                         </div>
                     </div>
                     ${db.corruption && db.corruption.count > 0 ? `
-                        <div class="mt-2 text-sm text-gray-600">
+                        <div class="mt-2 text-sm diags-muted">
                             <p class="font-medium mb-1">Examples:</p>
                             <ul class="list-disc list-inside pl-2">
                                 ${db.corruption.examples.map(ex => `<li>ID ${ex.id}: ${ex.title}</li>`).join('')}
@@ -722,12 +708,12 @@ async function updateDatabaseHealth() {
         
     } else {
         content.innerHTML = `
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="p-4 diags-panel-error rounded-lg">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">❌</span>
                     <div>
-                        <h3 class="font-medium text-red-900">Database Health Check Failed</h3>
-                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                        <h3 class="font-medium">Database Health Check Failed</h3>
+                        <p class="text-sm">${data.error || 'Unknown error'}</p>
                     </div>
                 </div>
             </div>
@@ -744,38 +730,35 @@ async function updateDeduplicationHealth() {
         const dedup = data.deduplication;
         content.innerHTML = `
             <div class="space-y-4">
-                <!-- Exact Duplicates -->
-                <div class="p-4 ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                <div class="p-4 border rounded-lg ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'diags-panel-success' : 'diags-panel-error'}">
                     <div class="flex items-center mb-3">
                         <span class="text-2xl mr-2">${dedup.exact_duplicates.content_hash_duplicates === 0 ? '✅' : '❌'}</span>
                         <div>
-                            <h3 class="font-medium ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'text-green-900' : 'text-red-900'}">Exact Duplicates</h3>
-                            <p class="text-sm ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'text-green-700' : 'text-red-700'}">${dedup.exact_duplicates.content_hash_duplicates} content hash duplicates found</p>
+                            <h3 class="font-medium">Exact Duplicates</h3>
+                            <p class="text-sm">${dedup.exact_duplicates.content_hash_duplicates} content hash duplicates found</p>
                         </div>
                     </div>
                 </div>
-
-                <!-- Near Duplicates -->
-                <div class="p-4 ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'} border rounded-lg">
+                <div class="p-4 border rounded-lg ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'diags-panel-success' : 'diags-panel-warning'}">
                     <div class="flex items-center mb-3">
                         <span class="text-2xl mr-2">${dedup.near_duplicates.potential_near_duplicates === 0 ? '✅' : '⚠️'}</span>
                         <div>
-                            <h3 class="font-medium ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'text-green-900' : 'text-yellow-900'}">Near Duplicates</h3>
-                            <p class="text-sm ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'text-green-700' : 'text-yellow-700'}">${dedup.near_duplicates.potential_near_duplicates} potential near-duplicates found</p>
+                            <h3 class="font-medium">Near Duplicates</h3>
+                            <p class="text-sm">${dedup.near_duplicates.potential_near_duplicates} potential near-duplicates found</p>
                         </div>
                     </div>
-                    <p class="text-sm text-gray-700">SimHash Coverage: ${dedup.near_duplicates.simhash_coverage}</p>
+                    <p class="text-sm diags-muted">SimHash Coverage: ${dedup.near_duplicates.simhash_coverage}</p>
                 </div>
             </div>
         `;
     } else {
         content.innerHTML = `
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="p-4 diags-panel-error rounded-lg">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">❌</span>
                     <div>
-                        <h3 class="font-medium text-red-900">Deduplication Health Check Failed</h3>
-                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                        <h3 class="font-medium">Deduplication Health Check Failed</h3>
+                        <p class="text-sm">${data.error || 'Unknown error'}</p>
                     </div>
                 </div>
             </div>
@@ -793,38 +776,34 @@ async function updateServicesHealth() {
         content.innerHTML = `
             <div class="space-y-4">
                 ${Object.entries(services).map(([serviceName, serviceData]) => `
-                    <div class="p-4 ${serviceData.status === 'healthy' || serviceData.status === 'not_configured' ? 
-                        (serviceData.status === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200') : 
-                        'bg-red-50 border-red-200'} border rounded-lg">
+                    <div class="p-4 border rounded-lg ${serviceData.status === 'healthy' ? 'diags-panel-success' : serviceData.status === 'not_configured' ? 'diags-panel-neutral' : 'diags-panel-error'}">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <span class="text-2xl mr-2">${getHealthStatusIcon(serviceData.status)}</span>
                                 <div>
-                                    <h3 class="font-medium ${serviceData.status === 'healthy' ? 'text-green-900' : 
-                                        serviceData.status === 'not_configured' ? 'text-gray-900' : 'text-red-900'}">${serviceName.toUpperCase()}</h3>
-                                    <p class="text-sm ${serviceData.status === 'healthy' ? 'text-green-700' : 
-                                        serviceData.status === 'not_configured' ? 'text-gray-700' : 'text-red-700'}">${serviceData.status}</p>
+                                    <h3 class="font-medium">${serviceName.toUpperCase()}</h3>
+                                    <p class="text-sm">${serviceData.status}</p>
                                 </div>
                             </div>
                             ${serviceData.status === 'healthy' ? `
-                                <div class="text-right text-sm text-gray-700">
+                                <div class="text-right text-sm diags-muted">
                                     ${serviceName === 'lmstudio' ? `
                                         <p class="font-medium">${serviceData.models_available} models available</p>
-                                        <p class="text-xs text-gray-600">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
+                                        <p class="text-xs">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
                                     ` : serviceName === 'langfuse' ? `
                                         <p class="font-medium">${serviceData.configured ? 'Configured' : 'Not configured'}</p>
-                                        ${serviceData.message ? `<p class="text-xs text-gray-600">${serviceData.message}</p>` : ''}
+                                        ${serviceData.message ? `<p class="text-xs">${serviceData.message}</p>` : ''}
                                     ` : serviceName === 'redis' ? `
                                         <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
                                     ` : ''}
                                 </div>
                             ` : serviceData.status === 'not_configured' ? `
-                                <div class="text-right text-sm text-gray-600">
+                                <div class="text-right text-sm diags-muted">
                                     <p class="font-medium">Not Configured</p>
                                     ${serviceData.message ? `<p class="text-xs">${serviceData.message}</p>` : ''}
                                 </div>
                             ` : `
-                                <div class="text-right text-sm text-red-700">
+                                <div class="text-right text-sm diags-status-error">
                                     <p class="font-medium">Error</p>
                                     <p class="text-xs">${serviceData.error || 'Unknown error'}</p>
                                 </div>
@@ -836,12 +815,12 @@ async function updateServicesHealth() {
         `;
     } else {
         content.innerHTML = `
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="p-4 diags-panel-error rounded-lg">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">❌</span>
                     <div>
-                        <h3 class="font-medium text-red-900">Services Health Check Failed</h3>
-                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                        <h3 class="font-medium">Services Health Check Failed</h3>
+                        <p class="text-sm">${data.error || 'Unknown error'}</p>
                     </div>
                 </div>
             </div>
@@ -859,17 +838,17 @@ async function updateCeleryHealth() {
         content.innerHTML = `
             <div class="space-y-4">
                 ${Object.entries(celery).map(([component, componentData]) => `
-                    <div class="p-4 ${componentData.status === 'healthy' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg">
+                    <div class="p-4 border rounded-lg ${componentData.status === 'healthy' ? 'diags-panel-success' : 'diags-panel-error'}">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <span class="text-2xl mr-2">${getHealthStatusIcon(componentData.status)}</span>
                                 <div>
-                                    <h3 class="font-medium ${componentData.status === 'healthy' ? 'text-green-900' : 'text-red-900'}">${component.toUpperCase()}</h3>
-                                    <p class="text-sm ${componentData.status === 'healthy' ? 'text-green-700' : 'text-red-700'}">${componentData.status}</p>
+                                    <h3 class="font-medium">${component.toUpperCase()}</h3>
+                                    <p class="text-sm">${componentData.status}</p>
                                 </div>
                             </div>
                             ${componentData.status === 'healthy' ? `
-                                <div class="text-right text-sm text-gray-700">
+                                <div class="text-right text-sm diags-muted">
                                     ${component === 'workers' ? `
                                         <p class="font-medium">${componentData.active_workers} active workers</p>
                                     ` : component === 'broker' ? `
@@ -879,7 +858,7 @@ async function updateCeleryHealth() {
                                     ` : ''}
                                 </div>
                             ` : `
-                                <div class="text-right text-sm text-red-700">
+                                <div class="text-right text-sm diags-status-error">
                                     <p class="font-medium">${componentData.error}</p>
                                 </div>
                             `}
@@ -890,12 +869,12 @@ async function updateCeleryHealth() {
         `;
     } else {
         content.innerHTML = `
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="p-4 diags-panel-error rounded-lg">
                 <div class="flex items-center">
                     <span class="text-2xl mr-2">❌</span>
                     <div>
-                        <h3 class="font-medium text-red-900">Celery Health Check Failed</h3>
-                        <p class="text-sm text-red-700">${data.error || 'Unknown error'}</p>
+                        <h3 class="font-medium">Celery Health Check Failed</h3>
+                        <p class="text-sm">${data.error || 'Unknown error'}</p>
                     </div>
                 </div>
             </div>
@@ -905,15 +884,15 @@ async function updateCeleryHealth() {
 
 
 
-
-
 function showError(message) {
     // Simple error display - could be enhanced with a toast notification
     console.error(message);
 
     // Show error in the UI
     const errorDiv = document.createElement('div');
-    errorDiv.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    errorDiv.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50';
+    errorDiv.style.backgroundColor = 'var(--action-danger)';
+    errorDiv.style.color = 'var(--text-emphasis)';
     errorDiv.textContent = message;
     document.body.appendChild(errorDiv);
 

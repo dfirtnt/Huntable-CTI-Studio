@@ -585,3 +585,76 @@ class TestMobileSpecificFeatures:
                 assert text_box["height"] > 0, "Text should be visible"
 
 
+class TestMobileNav:
+    """Test mobile navigation (hamburger menu) at viewport < 768px."""
+
+    @pytest.mark.ui
+    @pytest.mark.mobile
+    def test_mobile_hamburger_visible(self, page: Page):
+        """Test hamburger button visible at mobile viewport."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.set_viewport_size({"width": 375, "height": 667})
+        page.goto(f"{base_url}/")
+        page.wait_for_load_state("networkidle")
+
+        hamburger = page.locator("#mobile-nav-toggle")
+        expect(hamburger).to_be_visible()
+
+    @pytest.mark.ui
+    @pytest.mark.mobile
+    def test_mobile_menu_opens_on_click(self, page: Page):
+        """Test clicking hamburger opens mobile menu with six links."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.set_viewport_size({"width": 375, "height": 667})
+        page.goto(f"{base_url}/")
+        page.wait_for_load_state("networkidle")
+
+        menu = page.locator("#mobile-nav-menu")
+        expect(menu).to_have_class(/hidden/)
+        page.locator("#mobile-nav-toggle").click()
+        page.wait_for_timeout(200)
+        expect(menu).not_to_have_class(/hidden/)
+
+        # Six nav links: Articles, Sources, MLOps, Agents, Diags, Settings
+        links = menu.locator('a[href="/articles"], a[href="/sources"], a[href="/mlops"], a[href="/workflow"], a[href="/diags"], a[href="/settings"]')
+        expect(links).to_have_count(6)
+
+    @pytest.mark.ui
+    @pytest.mark.mobile
+    def test_mobile_menu_link_navigates_and_closes(self, page: Page):
+        """Test clicking a link in mobile menu navigates and closes menu."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.set_viewport_size({"width": 375, "height": 667})
+        page.goto(f"{base_url}/")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#mobile-nav-toggle").click()
+        page.wait_for_timeout(200)
+        menu = page.locator("#mobile-nav-menu")
+        expect(menu).to_be_visible()
+
+        menu.locator('a[href="/articles"]').first.click()
+        page.wait_for_url(f"{base_url}/articles", timeout=5000)
+        expect(page).to_have_url(f"{base_url}/articles")
+        # Menu should be closed after navigation
+        expect(menu).to_have_class(/hidden/)
+
+    @pytest.mark.ui
+    @pytest.mark.mobile
+    def test_mobile_menu_escape_closes(self, page: Page):
+        """Test Escape key closes mobile menu."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.set_viewport_size({"width": 375, "height": 667})
+        page.goto(f"{base_url}/")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#mobile-nav-toggle").click()
+        page.wait_for_timeout(200)
+        menu = page.locator("#mobile-nav-menu")
+        expect(menu).to_be_visible()
+
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(200)
+        expect(menu).to_have_class(/hidden/)
+
+

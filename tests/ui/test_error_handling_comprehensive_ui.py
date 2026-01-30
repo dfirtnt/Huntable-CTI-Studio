@@ -38,6 +38,19 @@ class Test404ErrorHandling:
         error_content = page.locator("body")
         expect(error_content).to_be_visible()
 
+    @pytest.mark.ui
+    @pytest.mark.error_handling
+    def test_404_error_page_uses_dark_theme(self, page: Page):
+        """Test 404 error page uses app dark theme (theme variables)."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/nonexistent-page", wait_until="domcontentloaded")
+        # Error template uses var(--panel-bg-0) on wrapper and var(--panel-bg-2) on card
+        wrapper = page.locator("div.min-h-screen").first
+        expect(wrapper).to_be_visible()
+        bg = wrapper.evaluate("el => window.getComputedStyle(el).backgroundColor")
+        # Should be a real color (rgb or rgba), not 'transparent' or empty
+        assert bg and bg != "transparent" and "rgb" in bg, "Error page wrapper should use theme background"
+
 
 class Test500ErrorHandling:
     """Test 500 error handling."""

@@ -82,3 +82,45 @@ class TestCollapsiblePanels:
             # Assert state changed back
             final_state = panel_header.get_attribute("aria-expanded")
             assert final_state == initial_state, f"State should return to initial after Space, was {initial_state}, got {final_state}"
+
+    def test_settings_backup_panel_toggles(self, page: Page):
+        """Test Settings Backup collapsible uses data-collapsible-panel and toggles."""
+        page.goto("http://localhost:8001/settings")
+        page.wait_for_load_state("networkidle")
+        header = page.locator('[data-collapsible-panel="backupConfig"]').first
+        content = page.locator("#backupConfig-content").first
+        expect(header).to_be_visible()
+        expect(content).to_be_visible()
+        initial_hidden = content.evaluate("el => el.classList.contains('hidden')")
+        header.click()
+        page.wait_for_timeout(200)
+        after_hidden = content.evaluate("el => el.classList.contains('hidden')")
+        assert initial_hidden != after_hidden
+
+    def test_settings_agentic_workflow_panel_toggles(self, page: Page):
+        """Test Settings Agentic Workflow collapsible toggles."""
+        page.goto("http://localhost:8001/settings")
+        page.wait_for_load_state("networkidle")
+        header = page.locator('[data-collapsible-panel="agenticWorkflowConfig"]').first
+        content = page.locator("#agenticWorkflowConfig-content").first
+        expect(header).to_be_visible()
+        expect(content).to_be_visible()
+        initial_hidden = content.evaluate("el => el.classList.contains('hidden')")
+        header.click()
+        page.wait_for_timeout(200)
+        after_hidden = content.evaluate("el => el.classList.contains('hidden')")
+        assert initial_hidden != after_hidden
+
+    def test_settings_github_pr_panel_toggles(self, page: Page):
+        """Test Settings GitHub PR collapsible toggles."""
+        page.goto("http://localhost:8001/settings")
+        page.wait_for_load_state("networkidle")
+        header = page.locator('[data-collapsible-panel="githubPRConfig"]').first
+        content = page.locator("#githubPRConfig-content").first
+        expect(header).to_be_visible()
+        expect(content).to_be_visible()
+        initial_hidden = content.evaluate("el => el.classList.contains('hidden')")
+        header.click()
+        page.wait_for_timeout(200)
+        after_hidden = content.evaluate("el => el.classList.contains('hidden')")
+        assert initial_hidden != after_hidden

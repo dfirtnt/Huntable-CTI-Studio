@@ -123,8 +123,7 @@
 
 {% block scripts %}
 <script>
-function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-    // Chart.js configuration for dark theme (guard if CDN not loaded yet)
+    // Chart.js configuration for dark theme (guard if CDN not loaded yet) — getThemeColor from base.html
     if (window.Chart && window.Chart.defaults) {
         Chart.defaults.color = '#9CA3AF';
         Chart.defaults.borderColor = '#374151';
