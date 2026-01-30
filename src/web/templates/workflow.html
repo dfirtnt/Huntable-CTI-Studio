@@ -38,21 +38,21 @@
 }
 
 .dark .log-fullscreen {
-    background: #1f2937 !important;
+    background: var(--color-bg-card) !important;
 }
 
 /* Ensure summary text colors are applied */
 #executionDetailContent details summary {
-    color: rgb(55 65 81) !important; /* text-gray-700 */
+    color: var(--text-gray-700) !important;
 }
 
 .dark #executionDetailContent details summary {
-    color: rgb(209 213 219) !important; /* text-gray-300 */
+    color: var(--text-gray-300) !important;
 }
 
 /* Override: View summaries with inline styles should be white */
 .dark #executionDetailContent details summary[style*="color"] {
-    color: #ffffff !important;
+    color: var(--text-emphasis) !important;
 }
 
 /* Process Lineage Extraction should be white - must come FIRST to override universal rule */
@@ -61,20 +61,20 @@
 .dark #executionDetailContent summary.process-lineage-extraction[class*="dark:text-gray"],
 .dark #executionDetailContent summary.process-lineage-extraction[class*="text-gray-400"],
 .dark #executionDetailContent summary.process-lineage-extraction[class*="dark:text-gray-300"] {
-    color: #ffffff !important;
+    color: var(--text-emphasis) !important;
 }
 
 .dark #executionDetailContent summary.process-lineage-extraction * {
-    color: #ffffff !important;
+    color: var(--text-emphasis) !important;
 }
 
 /* Ensure all View summary elements and their children are white - must come before universal rule */
 .dark #executionDetailContent summary[style*="color"],
 .dark #executionDetailContent summary[style*="color"] * {
-    color: #ffffff !important;
+    color: var(--text-emphasis) !important;
 }
 
-/* All text in execution detail view should be #111827 in dark mode */
+/* All text in execution detail view should be var(--text-body-dark) in dark mode */
 /* Apply to all elements except colored status elements, process-lineage-extraction, and View summaries */
 .dark #executionDetailContent,
 .dark #executionDetailContent div:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
@@ -82,7 +82,7 @@
 .dark #executionDetailContent p:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
 .dark #executionDetailContent strong:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
 .dark #executionDetailContent li:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]) {
-    color: #111827 !important;
+    color: var(--text-body-dark) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -91,8 +91,8 @@
 
 /* Root agents panel */
 .dark .agents-panel {
-    background: rgb(15, 20, 35) !important;
-    border: 1px solid rgba(139, 92, 246, 0.2) !important;
+    background: var(--panel-bg-1) !important;
+    border: 1px solid var(--purple-border-20) !important;
     border-radius: 16px !important;
 }
 
@@ -105,42 +105,42 @@
 
 /* Level 1: Top-level bordered panels */
 .dark .agents-panel > form > .border {
-    background: rgb(20, 28, 48) !important;
-    border-color: rgba(139, 92, 246, 0.15) !important;
+    background: var(--panel-bg-3) !important;
+    border-color: var(--purple-border-15) !important;
     border-radius: 12px !important;
 }
 
 /* Level 2: Panel content areas */
 .dark .agents-panel [id$="-content"]:not(.hidden) {
-    background: rgb(22, 30, 52) !important;
+    background: var(--panel-bg-4) !important;
 }
 
 /* Level 3: Nested bordered elements */
 .dark .agents-panel .border.rounded-lg {
-    background: rgb(26, 34, 56) !important;
-    border-color: rgba(99, 102, 241, 0.12) !important;
+    background: var(--panel-bg-5) !important;
+    border-color: var(--indigo-border-12) !important;
 }
 
 /* Level 4: Inner content blocks */
 .dark .agents-panel .bg-gray-50 {
-    background: rgb(30, 40, 65) !important;
-    border-color: rgba(129, 140, 248, 0.1) !important;
+    background: var(--panel-bg-6) !important;
+    border-color: var(--indigo-border-light) !important;
 }
 
 /* Input fields */
 .dark .agents-panel input:not([type="checkbox"]),
 .dark .agents-panel select,
 .dark .agents-panel textarea {
-    background: rgb(18, 24, 42) !important;
-    border-color: rgba(139, 92, 246, 0.25) !important;
-    color: rgb(241, 245, 249) !important;
+    background: var(--panel-bg-2) !important;
+    border-color: var(--purple-border-25) !important;
+    color: var(--text-input) !important;
 }
 
 .dark .agents-panel input:focus,
 .dark .agents-panel select:focus,
 .dark .agents-panel textarea:focus {
-    border-color: rgba(139, 92, 246, 0.5) !important;
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+    border-color: var(--purple-border-50) !important;
+    box-shadow: 0 0 0 3px var(--purple-shadow-15) !important;
     outline: none !important;
 }
 
@@ -153,7 +153,7 @@
 .dark .agents-panel h3.text-lg,
 .dark .agents-panel [data-collapsible-panel] h3,
 .dark .agents-panel [data-collapsible-panel] .text-gray-900 {
-    color: rgb(248, 250, 252) !important;
+    color: var(--text-primary) !important;
 }
 
 /* Headings - brightest white */
@@ -164,14 +164,14 @@
 .dark .agents-panel h5,
 .dark .agents-panel .text-gray-900,
 .dark .agents-panel .dark\:text-white {
-    color: rgb(248, 250, 252) !important;
+    color: var(--text-primary) !important;
 }
 
 /* Labels and secondary text */
 .dark .agents-panel label,
 .dark .agents-panel .text-gray-700,
 .dark .agents-panel .dark\:text-gray-300 {
-    color: rgb(203, 213, 225) !important;
+    color: var(--text-secondary) !important;
 }
 
 /* Helper/hint text */
@@ -180,17 +180,17 @@
 .dark .agents-panel .text-gray-500,
 .dark .agents-panel .text-gray-600,
 .dark .agents-panel .dark\:text-gray-400 {
-    color: rgb(160, 175, 200) !important;
+    color: var(--text-muted-slate) !important;
 }
 
 /* Toggle carets - bright */
 .dark .agents-panel [id$="-toggle"] {
-    color: rgb(248, 250, 252) !important;
+    color: var(--text-primary) !important;
 }
 
 /* Model names / mono text */
 .dark .agents-panel .font-mono {
-    color: rgb(196, 181, 253) !important;
+    color: var(--text-mono) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -199,20 +199,20 @@
 
 .dark .agents-panel .bg-green-100,
 .dark .agents-panel .dark\:bg-green-900 {
-    background: rgba(34, 197, 94, 0.2) !important;
-    color: rgb(134, 239, 172) !important;
+    background: var(--badge-green-bg) !important;
+    color: var(--badge-green-text) !important;
 }
 
 .dark .agents-panel .bg-yellow-100,
 .dark .agents-panel .dark\:bg-yellow-900\/30 {
-    background: rgba(234, 179, 8, 0.2) !important;
-    color: rgb(253, 224, 71) !important;
+    background: var(--badge-yellow-bg) !important;
+    color: var(--badge-yellow-text) !important;
 }
 
 .dark .agents-panel .bg-gray-200,
 .dark .agents-panel .dark\:bg-gray-700 {
-    background: rgba(71, 85, 105, 0.5) !important;
-    color: rgb(203, 213, 225) !important;
+    background: var(--badge-gray-bg) !important;
+    color: var(--text-secondary) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -222,20 +222,20 @@
 /* Override bg-gray-800 border border-gray-700 cards */
 .dark #tab-content-config > .bg-white,
 .dark #tab-content-config .bg-white.dark\:bg-gray-800 {
-    background: rgb(20, 28, 48) !important;
-    border-color: rgba(139, 92, 246, 0.15) !important;
+    background: var(--panel-bg-3) !important;
+    border-color: var(--purple-border-15) !important;
 }
 
 /* Current config display (bg-gray-50) */
 .dark #currentConfig {
-    background: rgb(26, 34, 56) !important;
-    border-color: rgba(99, 102, 241, 0.12) !important;
+    background: var(--panel-bg-5) !important;
+    border-color: var(--indigo-border-12) !important;
 }
 
 /* Workflow Overview section */
 .dark .bg-white.dark\:bg-gray-800.rounded-lg.shadow-lg.p-6:last-of-type {
-    background: rgb(15, 20, 35) !important;
-    border: 1px solid rgba(139, 92, 246, 0.2) !important;
+    background: var(--panel-bg-1) !important;
+    border: 1px solid var(--purple-border-20) !important;
 }
 
 /* Workflow step cards */
@@ -253,17 +253,17 @@
 .dark .dark\:bg-red-900\/20,
 .dark .bg-purple-50,
 .dark .dark\:bg-purple-900\/20 {
-    background: rgb(26, 34, 56) !important;
+    background: var(--panel-bg-5) !important;
 }
 
 /* Sub-agent cards in workflow overview */
 .dark .bg-white.dark\:bg-gray-800.rounded {
-    background: rgb(30, 40, 65) !important;
+    background: var(--panel-bg-6) !important;
 }
 
 /* Hover states */
 .dark .agents-panel [data-collapsible-panel]:hover {
-    background: rgba(139, 92, 246, 0.1) !important;
+    background: var(--purple-bg-10) !important;
 }
 
 </style>
@@ -307,7 +307,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="other-thresholds-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;" style="color: #f8fafc !important;">Junk Filter</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">Junk Filter</h3>
                         </div>
                         <span id="other-thresholds-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -334,7 +334,7 @@
                                        step="0.05"
                                        required
                                        oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
                                 <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                             </div>
@@ -346,7 +346,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="qa-settings-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">QA Settings</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">QA Settings</h3>
                         </div>
                         <span id="qa-settings-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -373,7 +373,7 @@
                                        step="1"
                                        required
                                        oninput="validateThreshold(this, 1, 3); autoSaveConfig()"
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Maximum number of times QA Agent will give feedback to counterpart agent (1-3)</p>
                                 <p id="qaMaxRetries-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                             </div>
@@ -385,7 +385,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="os-detection-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">OS Detection</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">OS Detection</h3>
                         </div>
                         <span id="os-detection-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
                     </div>
@@ -401,7 +401,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="rank-agent-configs-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Rank Agent Configs</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">Rank Agent Configs</h3>
                             <span id="rank-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                             <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                         </div>
@@ -409,7 +409,7 @@
                     </div>
                     <div id="rank-agent-configs-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <!-- Rank Agent Enabled Toggle -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -438,9 +438,9 @@
                             <div id="rank-agent-model-container"></div>
                         </div>
                         <!-- Test Buttons -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                             <div class="flex gap-2">
-                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="w-full px-4 py-2 bg-[#4b4e77] hover:bg-[#3d4063] text-white text-sm font-medium rounded-md transition-colors">
+                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="w-full px-4 py-2 btn-workflow text-white text-sm font-medium rounded-md transition-colors">
                                     🎯 Test with Custom ArticleID
                                 </button>
                             </div>
@@ -469,7 +469,7 @@
                                step="0.1"
                                            required
                                            oninput="validateThreshold(this, 0, 10); autoSaveConfig()"
-                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                     <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (0-10) to continue workflow</p>
                                     <p id="rankingThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                                 </div>
@@ -481,7 +481,7 @@
                             <div id="rank-agent-prompt-container"></div>
                         </div>
                         <!-- Rank QA Agent Toggle -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -504,7 +504,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="rank-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                        <div id="rank-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                             <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Rank QA Model Provider
                                 <button type="button" 
@@ -519,7 +519,7 @@
                             <select id="rankqa-provider"
                                     name="agent_models[RankAgentQA_provider]"
                                     onchange="onAgentProviderChange('rankqa')"
-                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm">
+                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm">
                                 <option value="lmstudio">LMStudio (Local)</option>
                                 <option value="openai">OpenAI (Cloud)</option>
                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -531,14 +531,14 @@
                                 <select id="rankqa-model"
                                         name="agent_models[RankAgentQA]"
                                         onchange="validateAgentModelOnChange('rankqa'); autoSaveModelChange()"
-                                        class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
+                                        class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
                                 </select>
                             </div>
                             <div data-agent-prefix="rankqa" data-provider="openai" class="hidden">
                                 <input type="text"
                                        id="rankqa-model-openai"
                                        name="agent_models[RankAgentQA]"
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
                                        placeholder="gpt-4o-mini"
                                        onchange="validateAgentModelOnChange('rankqa'); autoSaveModelChange()"
                                        oninput="validateAgentModelOnChange('rankqa'); autoSaveModelChange()">
@@ -547,7 +547,7 @@
                                 <input type="text"
                                        id="rankqa-model-anthropic"
                                        name="agent_models[RankAgentQA]"
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm"
                                        placeholder="claude-sonnet-4-5"
                                        onchange="validateAgentModelOnChange('rankqa'); autoSaveModelChange()"
                                        oninput="validateAgentModelOnChange('rankqa'); autoSaveModelChange()">
@@ -565,7 +565,7 @@
                                            step="0.1"
                                            value="0.1"
                                            onchange="autoSaveModelChange()"
-                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Temperature for QA evaluation (0.0-2.0 for OpenAI, 0.0-1.0 for LMStudio/Anthropic, default: 0.1)</p>
                                 </div>
                                 <div class="flex-1">
@@ -580,7 +580,7 @@
                                            step="0.01"
                                            value="0.9"
                                            onchange="autoSaveModelChange()"
-                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Top_P for QA evaluation (0.0-1.0, default: 0.9)</p>
                                 </div>
                             </div>
@@ -597,7 +597,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="extract-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">Extract Agents</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">Extract Agents</h3>
                             <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
                         </div>
                         <span id="extract-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -616,15 +616,15 @@
                         <!-- Sub-Agents Section -->
                         <div class="mt-6 pt-6 border-t-2 border-yellow-300 dark:border-yellow-700">
                             <div class="mb-4">
-                                <h4 class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-1">Extract Agents Sub-Agents</h4>
+                                <h4 class="text-sm font-semibold" style="color: var(--text-secondary) !important; mb-1">Extract Agents Sub-Agents</h4>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Specialized extraction agents orchestrated by the Supervisor</p>
                             </div>
                             <div class="space-y-3">
                                 <!-- CmdlineExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
+                                    <div id="cmdlineextract-panel-btn" data-collapsible-panel="cmdlineextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header-tint);">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">CmdlineExtract (Command Line Extraction)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">CmdlineExtract (Command Line Extraction)</h4>
                                             <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -632,7 +632,7 @@
                                     </div>
                                     <div id="cmdlineextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable CmdlineExtract</label>
@@ -648,7 +648,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -663,7 +663,7 @@
                                             <select id="cmdlineextract-provider"
                                                     name="agent_models[CmdlineExtract_provider]"
                                                     onchange="onAgentProviderChange('cmdlineextract')"
-                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -699,7 +699,7 @@
                                             </div>
                                         </div>
                                         <!-- Temperature and Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-3">
                                                 <div class="flex-1">
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
@@ -714,15 +714,15 @@
                                             </div>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="w-full px-3 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="w-full px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
                                         </div>
                                         <div id="cmdlineextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CmdlineExtract QA Agent</label>
@@ -735,7 +735,7 @@
                                             </div>
                                         </div>
                                         <!-- CmdLine QA Model -->
-                                        <div id="cmdlineextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                                        <div id="cmdlineextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 CmdLine QA Model Provider
                                                 <button type="button"
@@ -750,7 +750,7 @@
                                             <select id="cmdlineqa-provider"
                                                     name="agent_models[CmdLineQA_provider]"
                                                     onchange="onAgentProviderChange('cmdlineqa')"
-                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -789,7 +789,7 @@
                                                            step="0.1"
                                                            value="0.1"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                                 <div class="flex-1">
                                                     <label for="cmdlineqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
@@ -801,7 +801,7 @@
                                                            step="0.01"
                                                            value="0.9"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                             </div>
                                         </div>
@@ -813,9 +813,9 @@
 
                                 <!-- ProcTreeExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
+                                    <div data-collapsible-panel="proctreeextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header-tint);">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">ProcTreeExtract (Process Lineage)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">ProcTreeExtract (Process Lineage)</h4>
                                             <span id="proctreeextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -823,7 +823,7 @@
                                     </div>
                                     <div id="proctreeextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable ProcTreeExtract</label>
@@ -839,7 +839,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -854,7 +854,7 @@
                                             <select id="proctreeextract-provider"
                                                     name="agent_models[ProcTreeExtract_provider]"
                                                     onchange="onAgentProviderChange('proctreeextract')"
-                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -890,7 +890,7 @@
                                             </div>
                                         </div>
                                         <!-- Temperature and Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-3">
                                                 <div class="flex-1">
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
@@ -905,15 +905,15 @@
                                             </div>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="w-full px-3 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="w-full px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
                                         </div>
                                         <div id="proctreeextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">ProcTreeExtract QA Agent</label>
@@ -926,7 +926,7 @@
                                             </div>
                                         </div>
                                         <!-- ProcTree QA Model -->
-                                        <div id="proctreeextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                                        <div id="proctreeextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 ProcTree QA Model Provider
                                                 <button type="button"
@@ -941,7 +941,7 @@
                                             <select id="proctreeqa-provider"
                                                     name="agent_models[ProcTreeQA_provider]"
                                                     onchange="onAgentProviderChange('proctreeqa')"
-                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -982,7 +982,7 @@
                                                            step="0.1"
                                                            value="0.1"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                                 <div class="flex-1">
                                                     <label for="proctreeqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
@@ -994,7 +994,7 @@
                                                            step="0.01"
                                                            value="0.9"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                             </div>
                                         </div>
@@ -1004,9 +1004,9 @@
 
                                 <!-- HuntQueriesExtract Sub-Agent Panel -->
                                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg ml-4">
-                                    <div data-collapsible-panel="huntqueriesextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: rgba(35, 20, 72, 0.5);">
+                                    <div data-collapsible-panel="huntqueriesextract-agent-panel" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header-tint);">
                                         <div class="flex items-center gap-3">
-                                            <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">HuntQueriesExtract (Hunt Queries)</h4>
+                                            <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">HuntQueriesExtract (Hunt Queries)</h4>
                                             <span id="huntqueriesextract-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                             <span id="huntqueriesextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                                         </div>
@@ -1014,7 +1014,7 @@
                                     </div>
                                     <div id="huntqueriesextract-agent-panel-content" class="hidden p-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                         <!-- Enable/Disable Toggle -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Enable HuntQueriesExtract</label>
@@ -1030,7 +1030,7 @@
                                             </div>
                                         </div>
                                         <!-- Model Selection -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 Model Provider
                                                 <button type="button"
@@ -1045,7 +1045,7 @@
                                             <select id="huntqueriesextract-provider"
                                                     name="agent_models[HuntQueriesExtract_provider]"
                                                     onchange="onAgentProviderChange('huntqueriesextract')"
-                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -1081,7 +1081,7 @@
                                             </div>
                                         </div>
                                         <!-- Temperature and Top_P -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-3">
                                                 <div class="flex-1">
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
@@ -1096,15 +1096,15 @@
                                             </div>
                                         </div>
                                         <!-- Test Buttons -->
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-2">
-                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('HuntQueriesExtract', id);" class="w-full px-3 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-xs font-medium rounded-md transition-colors">
+                                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('HuntQueriesExtract', id);" class="w-full px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
                                         </div>
                                         <div id="huntqueriesextract-agent-prompt-container"></div>
-                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">HuntQueriesExtract QA Agent</label>
@@ -1117,7 +1117,7 @@
                                             </div>
                                         </div>
                                         <!-- HuntQueries QA Model -->
-                                        <div id="huntqueriesextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+                                        <div id="huntqueriesextract-agent-qa-configs" class="hidden bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 HuntQueries QA Model Provider
                                                 <button type="button"
@@ -1132,7 +1132,7 @@
                                             <select id="huntqueriesqa-provider"
                                                     name="agent_models[HuntQueriesQA_provider]"
                                                     onchange="onAgentProviderChange('huntqueriesqa')"
-                                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 <option value="lmstudio">LMStudio (Local)</option>
                                                 <option value="openai">OpenAI (Cloud)</option>
                                                 <option value="anthropic">Anthropic Claude (Cloud)</option>
@@ -1173,7 +1173,7 @@
                                                            step="0.1"
                                                            value="0.1"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                                 <div class="flex-1">
                                                     <label for="huntqueriesqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
@@ -1185,7 +1185,7 @@
                                                            step="0.01"
                                                            value="0.9"
                                                            onchange="autoSaveModelChange()"
-                                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
                                                 </div>
                                             </div>
                                         </div>
@@ -1202,7 +1202,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="sigma-agent-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">SIGMA Generator Agent</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">SIGMA Generator Agent</h3>
                             <span id="sigma-agent-enabled-pill" class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                         </div>
                         <span id="sigma-agent-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
@@ -1211,7 +1211,7 @@
                         <!-- SIGMA Agent Model -->
                         <div id="sigma-agent-model-container"></div>
                         <!-- Similarity Threshold -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                             <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Similarity Threshold
                                 <button type="button" 
@@ -1231,12 +1231,12 @@
                                    step="0.05"
                                    required
                                    oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
-                                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
                             <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                         </div>
                         <!-- SIGMA Agent Test Buttons -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                             <div class="flex items-start gap-2 mb-3 text-xs text-gray-600 dark:text-gray-300">
                                 <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" title="In live workflow, the SIGMA agent ingests observables produced by the Extract Agents, not raw article content.">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
@@ -1244,7 +1244,7 @@
                                 <p class="leading-snug">Test requests here run directly on article content. In the actual workflow, SIGMA generation ingests observables emitted by the Extract Agents (unless "Use Full Article Content" is enabled below).</p>
                             </div>
                             <div class="flex gap-2">
-                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm font-medium rounded-md transition-colors">
+                                <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 btn-workflow text-white text-sm font-medium rounded-md transition-colors">
                                     🎯 Test with Custom ArticleID
                                 </button>
                             </div>
@@ -1253,7 +1253,7 @@
                         <div id="sigma-agent-prompt-container">                        </div>
                         
                         <!-- SIGMA Use Full Article Content Toggle -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1281,14 +1281,14 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div class="w-full flex items-center justify-between p-4 text-left">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-lg font-semibold" style="color: #f8fafc !important;">💾 Configuration Presets</h3>
+                            <h3 class="text-lg font-semibold" style="color: var(--text-primary) !important;">💾 Configuration Presets</h3>
                         </div>
                     </div>
                     <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <p class="text-sm text-gray-600 dark:text-gray-400">Save and load presets from the server. Export to or import from local JSON files.</p>
                         <div class="flex flex-wrap gap-3">
                             <button type="button" onclick="saveConfigPreset()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium">💾 Save Preset</button>
-                            <button type="button" onclick="showConfigPresetList()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors font-medium">📂 Load Preset</button>
+                            <button type="button" onclick="showConfigPresetList()" class="px-4 py-2 btn-workflow text-white rounded-md transition-colors font-medium">📂 Load Preset</button>
                             <button type="button" onclick="showConfigVersionList()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors font-medium">🔄 Restore by version</button>
                             <button type="button" onclick="exportPresetToFile()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium">📤 Export Preset</button>
                             <label for="import-preset-input" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors font-medium cursor-pointer">📥 Import Preset</label>
@@ -1366,61 +1366,61 @@
         </div>
 
         <!-- Workflow Overview -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6" style="background: rgb(15, 20, 35) !important; border: 1px solid rgba(139, 92, 246, 0.2) !important;">
-            <h2 class="text-xl font-semibold" style="color: #f8fafc !important;">📊 Workflow Overview</h2>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6" style="background: var(--panel-bg-1) !important; border: 1px solid var(--purple-border-20) !important;">
+            <h2 class="text-xl font-semibold" style="color: var(--text-primary) !important;">📊 Workflow Overview</h2>
             <div class="space-y-4">
                 <!-- Main Workflow Steps -->
                 <div class="grid grid-cols-1 md:grid-cols-7 gap-3">
-                    <div class="text-center p-4 rounded-lg border" style="background: rgba(6, 182, 212, 0.15) !important; border-color: rgba(6, 182, 212, 0.3) !important;">
-                        <div class="text-2xl font-bold" style="color: #22d3ee !important;">0</div>
-                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">OS Detection</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-0-bg) !important; border-color: var(--step-0-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-0) !important;">0</div>
+                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">OS Detection</div>
                     </div>
-                    <div class="text-center p-4 rounded-lg border" style="background: rgba(59, 130, 246, 0.15) !important; border-color: rgba(59, 130, 246, 0.3) !important;">
-                        <div class="text-2xl font-bold" style="color: #60a5fa !important;">1</div>
-                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Junk Filter</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-1-bg) !important; border-color: var(--step-1-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-1) !important;">1</div>
+                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">Junk Filter</div>
                     </div>
-                    <div class="text-center p-4 rounded-lg border" style="background: rgba(34, 197, 94, 0.15) !important; border-color: rgba(34, 197, 94, 0.3) !important;">
-                        <div class="text-2xl font-bold" style="color: #4ade80 !important;">2</div>
-                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">LLM Ranking</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-2-bg) !important; border-color: var(--step-2-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-2) !important;">2</div>
+                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">LLM Ranking</div>
                     </div>
-                    <div class="text-center p-4 rounded-lg border-2 shadow-md" style="background: rgba(234, 179, 8, 0.2) !important; border-color: rgba(234, 179, 8, 0.5) !important;">
-                        <div class="text-2xl font-bold" style="color: #facc15 !important;">3</div>
-                        <div class="text-xs font-semibold mt-1" style="color: #f8fafc !important;">Extract Agents</div>
-                        <div class="mt-2 text-[10px] font-medium" style="color: #fde047 !important;">3 Sub-Agents</div>
+                    <div class="text-center p-4 rounded-lg border-2 shadow-md" style="background: var(--step-3-bg) !important; border-color: var(--step-3-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-3) !important;">3</div>
+                        <div class="text-xs font-semibold mt-1" style="color: var(--text-primary) !important;">Extract Agents</div>
+                        <div class="mt-2 text-[10px] font-medium" style="color: var(--badge-yellow-text) !important;">3 Sub-Agents</div>
                     </div>
-                    <div class="text-center p-4 rounded-lg border" style="background: rgba(249, 115, 22, 0.15) !important; border-color: rgba(249, 115, 22, 0.3) !important;">
-                        <div class="text-2xl font-bold" style="color: #fb923c !important;">4</div>
-                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Generate SIGMA</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-4-bg) !important; border-color: var(--step-4-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-4) !important;">4</div>
+                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">Generate SIGMA</div>
                     </div>
-                    <div class="text-center p-4 rounded-lg border" style="background: rgba(236, 72, 153, 0.15) !important; border-color: rgba(236, 72, 153, 0.3) !important;">
-                        <div class="text-2xl font-bold" style="color: #f472b6 !important;">5</div>
-                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Similarity Search</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-5-bg) !important; border-color: var(--step-5-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-5) !important;">5</div>
+                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">Similarity Search</div>
                     </div>
-                    <div class="text-center p-4 rounded-lg border" style="background: rgba(168, 85, 247, 0.15) !important; border-color: rgba(168, 85, 247, 0.3) !important;">
-                        <div class="text-2xl font-bold" style="color: #c084fc !important;">6</div>
-                        <div class="text-xs mt-1" style="color: #cbd5e1 !important;">Queue</div>
+                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-6-bg) !important; border-color: var(--step-6-border) !important;">
+                        <div class="text-2xl font-bold" style="color: var(--step-6) !important;">6</div>
+                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">Queue</div>
                     </div>
                 </div>
                 
                 <!-- Extract Agents Sub-Agents Detail -->
                 <div class="ml-0 md:ml-[calc(42.857%+0.75rem)] pl-0 md:pl-0">
-                    <div class="rounded-lg p-3 border" style="background: linear-gradient(to right, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.15)) !important; border-color: rgba(234, 179, 8, 0.3) !important;">
+                    <div class="rounded-lg p-3 border" style="background: var(--step-3-gradient) !important; border-color: var(--step-3-border-light) !important;">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="w-1 h-4 rounded-full" style="background: #eab308 !important;"></div>
-                            <span class="text-xs font-semibold" style="color: #cbd5e1 !important;">Extract Agents Sub-Agents:</span>
+                            <div class="w-1 h-4 rounded-full" style="background: var(--action-warning) !important;"></div>
+                            <span class="text-xs font-semibold" style="color: var(--text-secondary) !important;">Extract Agents Sub-Agents:</span>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
-                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">CmdLine</div>
-                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Extract</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: var(--panel-bg-6) !important; border-color: var(--indigo-border-15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: var(--text-secondary) !important;">CmdLine</div>
+                                <div class="text-[8px] mt-0.5" style="color: var(--text-muted-slate) !important;">Extract</div>
                             </div>
-                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
-                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">ProcTree</div>
-                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Lineage</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: var(--panel-bg-6) !important; border-color: var(--indigo-border-15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: var(--text-secondary) !important;">ProcTree</div>
+                                <div class="text-[8px] mt-0.5" style="color: var(--text-muted-slate) !important;">Lineage</div>
                             </div>
-                            <div class="rounded px-2 py-1.5 text-center border" style="background: rgb(30, 40, 65) !important; border-color: rgba(99, 102, 241, 0.15) !important;">
-                                <div class="text-[10px] font-semibold" style="color: #cbd5e1 !important;">Hunt Query</div>
-                                <div class="text-[8px] mt-0.5" style="color: #94a3b8 !important;">Query</div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: var(--panel-bg-6) !important; border-color: var(--indigo-border-15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: var(--text-secondary) !important;">Hunt Query</div>
+                                <div class="text-[8px] mt-0.5" style="color: var(--text-muted-slate) !important;">Query</div>
                             </div>
                         </div>
                     </div>
@@ -1556,7 +1556,7 @@
                         <button onclick="closeTriggerWorkflowModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
                             Cancel
                         </button>
-                        <button onclick="triggerWorkflow()" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md transition-colors">
+                        <button onclick="triggerWorkflow()" class="px-4 py-2 btn-workflow text-white rounded-md transition-colors">
                             Trigger
                         </button>
                     </div>
@@ -1640,7 +1640,7 @@
                         <!-- Content loaded dynamically -->
                     </div>
                     <div id="actionButtons" class="flex space-x-4 pt-4 border-t sticky bottom-0 bg-gray-800 border border-gray-700">
-                        <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md">
+                        <button onclick="approveRule(currentRuleId)" class="px-4 py-2 btn-workflow text-white rounded-md">
                             ✅ Approve
                         </button>
                         <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
@@ -2410,9 +2410,9 @@ function clearProviderModelError(agentPrefix) {
     if (modelContainer) {
         modelContainer.classList.remove('border-red-500', 'dark:border-red-500');
         // Restore appropriate gray border classes based on input type
-        // Check if it's a dark-themed input (has bg-[#0a0e1a] or similar)
-        const isDarkInput = modelContainer.classList.contains('bg-[#0a0e1a]') || 
-                           modelContainer.closest('.bg-\\[\\#0a0e1a\\]');
+        // Check if it's a dark-themed input (has bg-panel-0 or similar)
+        const isDarkInput = modelContainer.classList.contains('bg-panel-0') ||
+                           modelContainer.closest('.bg-panel-0');
         if (isDarkInput) {
             modelContainer.classList.add('border-gray-700');
         } else {
@@ -3113,7 +3113,7 @@ function renderAgentModels() {
             const isAllChecked = selectedOSArray.includes('All');
             
             return `
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                     <div class="flex items-center justify-between mb-3">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             ${agentLabels[agentName] || agentName}
@@ -3232,7 +3232,7 @@ function renderAgentModels() {
         const currentModel = (agentModels && agentModels[agentName]) || '';
         
         return `
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                 <div class="flex items-center justify-between mb-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         ${agentLabels[agentName] || agentName}
@@ -3913,7 +3913,7 @@ function renderAgentPrompts() {
         
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
-                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
+                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
                     <div class="flex items-center gap-3">
                         <h4 class="text-md font-semibold text-gray-900 dark:text-white">Prompt</h4>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -3921,7 +3921,7 @@ function renderAgentPrompts() {
                     <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
                 </div>
                 <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                         <div class="flex items-center justify-between mb-3">
                             <div>
                                 <h4 class="text-md font-semibold text-gray-900 dark:text-white">${displayName}</h4>
@@ -3943,7 +3943,7 @@ function renderAgentPrompts() {
                                         📜 History
                                     </button>
                                     <button onclick="editPrompt('${agentName}')" 
-                                            class="px-3 py-1 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
+                                            class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
                                         ✏️ Edit
                                     </button>
                                 `}
@@ -4153,7 +4153,7 @@ async function showPromptHistoryModal(agentName, versions) {
                             </div>
                             ${v.instructions ? `
                                 <div class="mb-4">
-                                    <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Instructions:</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-secondary) !important; mb-2">Instructions:</div>
                                     <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.instructions)}</div>
                                 </div>
                             ` : ''}
@@ -4165,7 +4165,7 @@ async function showPromptHistoryModal(agentName, versions) {
                                         <div class="space-y-3">
                                             ${promptParts.system ? `
                                                 <div>
-                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: #cbd5e1 !important;">
+                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: var(--text-secondary) !important;">
                                                         <span>🔧</span>
                                                         <span>System Prompt:</span>
                                                     </div>
@@ -4174,7 +4174,7 @@ async function showPromptHistoryModal(agentName, versions) {
                                             ` : ''}
                                             ${promptParts.user ? `
                                                 <div>
-                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: #cbd5e1 !important;">
+                                                    <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: var(--text-secondary) !important;">
                                                         <span>💬</span>
                                                         <span>User Prompt:</span>
                                                     </div>
@@ -4187,7 +4187,7 @@ async function showPromptHistoryModal(agentName, versions) {
                                     // Fallback: show raw prompt if parsing fails
                                     return `
                             <div>
-                                <div class="text-sm font-semibold" style="color: #cbd5e1 !important; mb-2">Prompt:</div>
+                                <div class="text-sm font-semibold" style="color: var(--text-secondary) !important; mb-2">Prompt:</div>
                                 <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.prompt)}</div>
                             </div>
                                     `;
@@ -4870,7 +4870,7 @@ function renderAgentModels(lmstudioModels) {
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
         const modelOptions = buildOptions(lmstudioModel, 'Select a model (required)');
         rankContainer.innerHTML = `
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <span>Rank Agent Model</span>
                     <button type="button" 
@@ -4940,7 +4940,7 @@ function renderAgentModels(lmstudioModels) {
         const lmstudioFallbackModel = currentFallbackProvider === 'lmstudio' ? currentFallbackModel : '';
         
         osContainer.innerHTML = `
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     OS Detection Model
                     <button type="button" 
@@ -5091,7 +5091,7 @@ function renderAgentModels(lmstudioModels) {
             return `<option value="${escapeHtml(modelId)}" ${lmstudioModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         extractContainer.innerHTML = `
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <span>Extract Agents Fallback Model</span>
                     <button type="button" 
@@ -5158,7 +5158,7 @@ function renderAgentModels(lmstudioModels) {
             return `<option value="${escapeHtml(modelId)}" ${lmstudioModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`;
         }).join('');
         sigmaContainer.innerHTML = `
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: rgb(26, 34, 56) !important;">
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3" style="background: var(--panel-bg-5) !important;">
                 <div class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <span>SIGMA Generator Agent Model</span>
                     <button type="button" 
@@ -6421,15 +6421,15 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
                 <div class="flex items-center gap-3">
-                    <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} Prompt</h4>
+                    <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">${escapeHtml(agentName)} Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
                 <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
             </div>
             <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
@@ -6450,7 +6450,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                     📜 History
                                 </button>
                                 <button onclick="editPrompt('${agentName}')" 
-                                        class="px-3 py-1 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
+                                        class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
                                     ✏️ Edit
                                 </button>
                             `}
@@ -6532,15 +6532,15 @@ function renderQAPrompt(agentName, containerId) {
     
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: #1d3067;">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
                 <div class="flex items-center gap-3">
-                    <h4 class="text-sm font-semibold" style="color: #f8fafc !important;">${escapeHtml(agentName)} QA Prompt</h4>
+                    <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">${escapeHtml(agentName)} QA Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
                 </div>
                 <span id="${panelId}-toggle" class="text-gray-700 dark:text-gray-200 text-sm font-medium transform transition-transform" aria-hidden="true">${isEditing ? '▲' : '▼'}</span>
             </div>
             <div id="${panelId}-content" class="${isEditing ? '' : 'hidden'} p-4 border-t border-gray-200 dark:border-gray-700">
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: rgb(26, 34, 56) !important;">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
@@ -6561,7 +6561,7 @@ function renderQAPrompt(agentName, containerId) {
                                     📜 History
                                 </button>
                                 <button onclick="editPrompt('${agentName}')" 
-                                        class="px-3 py-1 bg-[#4b4e77] hover:bg-[#7C3AED] text-white text-sm rounded-md transition-colors">
+                                        class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
                                     ✏️ Edit
                                 </button>
                             `}
@@ -9102,7 +9102,7 @@ function highlightCurrentStep(step) {
         const node = document.querySelector(`[data-step="${step}"]`);
         if (node) {
             node.style.filter = 'url(#glow)';
-            node.style.stroke = '#fbbf24';
+            node.style.stroke = 'var(--action-warning)';
             node.style.strokeWidth = '3';
         }
     }
@@ -9331,7 +9331,7 @@ async function viewExecution(executionId) {
                         .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
                         .join('');
                     similaritiesHtml = `<details class="mt-2 w-full">
-                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View OS Similarity Scores</summary>
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View OS Similarity Scores</summary>
                         <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
                             ${similaritiesList}
                         </div>
@@ -9348,7 +9348,7 @@ async function viewExecution(executionId) {
                 
                 const osInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -9395,7 +9395,7 @@ async function viewExecution(executionId) {
             if (exec.junk_filter_result) {
                 const originalContentPreview = exec.article_content_preview || '';
                 const contentInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Original Article Content</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Original Article Content</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -9421,7 +9421,7 @@ async function viewExecution(executionId) {
             // Step 2: Rank Article
             if (exec.ranking_score !== null && exec.ranking_score !== undefined) {
                 const rankingDetails = exec.ranking_reasoning ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Ranking Reasoning (Full LLM Output)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Ranking Reasoning (Full LLM Output)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         <!-- COMMENTED OUT: Truncation control -->
                         ${exec.ranking_reasoning}
@@ -9432,7 +9432,7 @@ async function viewExecution(executionId) {
                 // Show filtered content that was sent to ranking agent
                 const filteredContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const filteredContentDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Filtered Content Sent to Rank Agent (${filteredContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -9535,7 +9535,7 @@ async function viewExecution(executionId) {
                 // Show filtered content that was sent to extraction agent
                 const extractInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
                 const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${String(exec.article_content).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -9596,7 +9596,7 @@ async function viewExecution(executionId) {
                         const qaIssues = Array.isArray(qaResult?.issues) ? qaResult.issues : [];
                         
                         const itemsHtml = items.length > 0 ? `<details class="mt-2">
-                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: #ffffff !important;">View ${items.length} Items</summary>
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: var(--text-emphasis) !important;">View ${items.length} Items</summary>
                             <div class="mt-2 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs">
                                 <div class="space-y-2">
                                     ${items.slice(0, 20).map((item, idx) => {
@@ -9612,7 +9612,7 @@ async function viewExecution(executionId) {
                         </details>` : '';
                         
                         const rawHtml = raw && Object.keys(raw).length > 0 ? `<details class="mt-2">
-                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: #ffffff !important;">View Raw Agent Response</summary>
+                            <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200" style="color: var(--text-emphasis) !important;">View Raw Agent Response</summary>
                             <div class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
                                 ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                             </div>
@@ -9635,7 +9635,7 @@ async function viewExecution(executionId) {
                         </div>` : '';
                         
                         const isProcessLineage = subAgent.key === 'process_lineage';
-                        const subAgentStyle = 'style="color: #ffffff !important;"';
+                        const subAgentStyle = 'style="color: var(--text-emphasis) !important;"';
                         return `<details class="mt-2 border border-cyan-200 dark:border-cyan-700 rounded-lg overflow-hidden">
                             <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm ${isProcessLineage ? 'process-lineage-extraction' : ''}" ${subAgentStyle}>
                                 ${subAgent.icon} ${subAgent.display} <span class="text-white dark:text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
@@ -9682,21 +9682,21 @@ async function viewExecution(executionId) {
                     const supervisorDetails = `<div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                         <div>
                             <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
-                            <div class="mt-1 text-xs" style="color: #ffffff !important;">
-                                <div style="color: #ffffff !important;">• Sub-Agent Results: ${Object.keys(subresults).length} sub-agents</div>
+                            <div class="mt-1 text-xs" style="color: var(--text-emphasis) !important;">
+                                <div style="color: var(--text-emphasis) !important;">• Sub-Agent Results: ${Object.keys(subresults).length} sub-agents</div>
                                 ${Object.entries(subresults).map(([key, data]) => {
                                     const count = data?.count || data?.items?.length || 0;
                                     const displayName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                                    return `<div style="color: #ffffff !important;">• ${displayName}: ${count} items</div>`;
+                                    return `<div style="color: var(--text-emphasis) !important;">• ${displayName}: ${count} items</div>`;
                                 }).join('')}
                             </div>
                         </div>
                         <div>
                             <strong class="text-gray-900 dark:text-white text-sm">Outputs:</strong>
-                            <div class="mt-1 text-xs" style="color: #ffffff !important;">
-                                <div style="color: #ffffff !important;">• Total Observables: <strong style="color: #ffffff !important;">${discreteHuntablesCount}</strong></div>
-                                <div style="color: #ffffff !important;">• Aggregated from ${Object.keys(subresults).length} sub-agents</div>
-                                ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div style="color: #ffffff !important;">• Platforms: ${summary.platforms_detected.join(', ')}</div>` : ''}
+                            <div class="mt-1 text-xs" style="color: var(--text-emphasis) !important;">
+                                <div style="color: var(--text-emphasis) !important;">• Total Observables: <strong style="color: var(--text-emphasis) !important;">${discreteHuntablesCount}</strong></div>
+                                <div style="color: var(--text-emphasis) !important;">• Aggregated from ${Object.keys(subresults).length} sub-agents</div>
+                                ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div style="color: var(--text-emphasis) !important;">• Platforms: ${summary.platforms_detected.join(', ')}</div>` : ''}
                             </div>
                             ${exec.extraction_result.content ? `<details class="mt-2">
                                 <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Aggregated Content Summary</summary>
@@ -9908,7 +9908,7 @@ async function viewExecution(executionId) {
                     
                     return `
                     <details class="mt-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" ${idx === 0 ? 'open' : ''}>
-                        <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50 text-sm" style="color: #ffffff !important;">
+                        <summary class="cursor-pointer bg-gray-50 dark:bg-gray-900/30 px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/50 text-sm" style="color: var(--text-emphasis) !important;">
                             Rule ${idx + 1}: ${ruleTitle}
                         </summary>
                         <div class="p-4 bg-gray-800 border border-gray-700 space-y-4">
@@ -9970,7 +9970,7 @@ async function viewExecution(executionId) {
                             ` : ''}
                             
                             <details class="mt-2">
-                                <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200" style="color: #ffffff !important;">
+                                <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200" style="color: var(--text-emphasis) !important;">
                                     View Full Rule JSON
                                 </summary>
                                 <pre class="mt-2 bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(rule, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
@@ -9984,7 +9984,7 @@ async function viewExecution(executionId) {
                 // Show extracted content that was sent to SIGMA generation
                 const extractContentForSigma = exec.extraction_result?.content || '';
                 const extractContentDetails = extractContentForSigma ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Extracted Content Sent to SIGMA Agent</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Extracted Content Sent to SIGMA Agent</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${extractContentForSigma.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -9995,12 +9995,12 @@ async function viewExecution(executionId) {
                 
                 steps.push({
                     name: 'Step 4: Generate SIGMA',
-                    input: `<div class="space-y-1" style="color: #ffffff !important;">
-                        <div style="color: #ffffff !important;">• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
-                        <div style="color: #ffffff !important;">• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
-                        <div style="color: #ffffff !important;">• Article title: "${exec.article_title || 'N/A'}"</div>
-                        <div style="color: #ffffff !important;">• SigmaAgent prompt from workflow config</div>
-                        <div style="color: #ffffff !important;">• Model: <span class="font-mono text-xs" style="color: #ffffff !important;">${sigmaModel}</span></div>
+                    input: `<div class="space-y-1" style="color: var(--text-emphasis) !important;">
+                        <div style="color: var(--text-emphasis) !important;">• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
+                        <div style="color: var(--text-emphasis) !important;">• Observables: ${exec.extraction_result ? (exec.extraction_result.observables?.length || 0) : 0}</div>
+                        <div style="color: var(--text-emphasis) !important;">• Article title: "${exec.article_title || 'N/A'}"</div>
+                        <div style="color: var(--text-emphasis) !important;">• SigmaAgent prompt from workflow config</div>
+                        <div style="color: var(--text-emphasis) !important;">• Model: <span class="font-mono text-xs" style="color: var(--text-emphasis) !important;">${sigmaModel}</span></div>
                     </div>`,
                     inputDetails: extractContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
@@ -10016,7 +10016,7 @@ async function viewExecution(executionId) {
             if (exec.similarity_results !== null && exec.similarity_results !== undefined && Array.isArray(exec.similarity_results)) {
                 const maxSim = exec.similarity_results.length > 0 ? exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0) : 0;
                 const similarityDetails = exec.similarity_results.length > 0 ? `<details class="mt-2 w-full" open>
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100 font-medium" style="color: #ffffff !important;">🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100 font-medium" style="color: var(--text-emphasis) !important;">🔍 View Similarity Results (${exec.similarity_results.reduce((sum, r) => sum + (r.similar_rules?.length || 0), 0)} similar rules found)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs space-y-3">
                         ${exec.similarity_results.map((result, idx) => `
                             <div class="mb-3 p-3 bg-gray-800 border border-gray-700 rounded border border-gray-200 dark:border-gray-700">
@@ -10061,7 +10061,7 @@ async function viewExecution(executionId) {
                     `Rule ${idx + 1}: ${rule.title || 'Untitled'}` + (rule.description ? `\n${rule.description.substring(0, 200)}...` : '')
                 ).join('\n\n') : '';
                 const sigmaRulesInputDetails = sigmaRulesForSearch ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View SIGMA Rules Sent to Similarity Search</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View SIGMA Rules Sent to Similarity Search</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${sigmaRulesForSearch.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -10095,7 +10095,7 @@ async function viewExecution(executionId) {
             const queuedCount = exec.queued_rules_count || 0;
             const queuedRuleIds = exec.queued_rule_ids || [];
             const queueDetails = queuedCount > 0 ? `<details class="mt-2 w-full">
-                <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: #ffffff !important;">View Queued Rules</summary>
+                <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Queued Rules</summary>
                 <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
                     <div class="text-gray-700 dark:text-gray-300 mb-2">
                         <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(queuedRuleIds)})">${queuedCount} rule(s) queued for review</span>
@@ -10943,7 +10943,7 @@ function updateActionButtons() {
         `;
     } else {
         buttonContainer.innerHTML = `
-            <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-[#4b4e77] hover:bg-[#7C3AED] text-white rounded-md">
+            <button onclick="approveRule(currentRuleId)" class="px-4 py-2 btn-workflow text-white rounded-md">
                 ✅ Approve
             </button>
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">

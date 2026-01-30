@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { READABLE_TEXT_RGB, isReadableColor, isStatusColor } from './color-constants';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
@@ -142,14 +143,9 @@ test('verify View summary elements have correct text colors (static theme)', asy
   
   // Validate: View summaries should be consistent (either all white if they have inline styles, or all gray-700)
   // For now, just verify they have a valid color (not black/unreadable)
-  const validColors = actualColors.filter(c => {
-    // Accept white, light gray, or medium gray (readable on dark background)
-    return c.includes('255, 255, 255') || // white
-           c.includes('209, 213, 219') || // text-gray-300
-           c.includes('55, 65, 81') ||     // text-gray-700
-           c === '#ffffff' ||
-           c === 'white';
-  });
+  const validColors = actualColors.filter((c) =>
+    READABLE_TEXT_RGB.some((part) => c.includes(part)) || c === '#ffffff' || c === 'white'
+  );
   
   if (validColors.length === 0 && actualColors.length > 0) {
     throw new Error(`View summary elements have unreadable colors: ${actualColors.join(', ')}`);
@@ -190,14 +186,11 @@ test('verify View summary elements have correct text colors (static theme)', asy
         
         // Very dark colors (like black or near-black) on dark background are unreadable
         const isVeryDark = r < 50 && g < 50 && b < 50;
-        // Exclude colored status elements (red, green, yellow, blue, purple)
-        const isStatusColor = color.includes('rgb(239, 68, 68)') || // red
-                             color.includes('rgb(34, 197, 94)') || // green
-                             color.includes('rgb(234, 179, 8)') || // yellow
-                             color.includes('rgb(59, 130, 246)') || // blue
-                             color.includes('rgb(168, 85, 247)'); // purple
-        
-        if (isVeryDark && !isStatusColor && textPreview.length > 0 && !textPreview.includes('View')) {
+        // Exclude status colors and allowed readable text (e.g. body dark #111827)
+        const isStatus = isStatusColor(color);
+        const isReadable = isReadableColor(color);
+
+        if (isVeryDark && !isStatus && !isReadable && textPreview.length > 0 && !textPreview.includes('View')) {
           unreadableIssues.push(`"${textPreview}" has very dark color: ${color} (may be unreadable on dark background)`);
           if (unreadableIssues.length <= 10) {
             console.log(`⚠️  "${textPreview}" has very dark color: ${color}`);

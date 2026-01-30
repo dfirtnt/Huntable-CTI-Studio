@@ -189,19 +189,19 @@
             <!-- Custom Legend - Fixed and Centered -->
             <div class="flex justify-center items-center gap-6 mb-4 py-2">
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background-color: rgba(75, 192, 192, 1);"></div>
+                    <div class="w-4 h-4 rounded" style="background-color: var(--chart-cyan);"></div>
                     <span class="text-sm text-gray-700 dark:text-gray-300">Accuracy %</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background-color: rgba(255, 99, 132, 1);"></div>
+                    <div class="w-4 h-4 rounded" style="background-color: var(--chart-pink);"></div>
                     <span class="text-sm text-gray-700 dark:text-gray-300">Precision %</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background-color: rgba(54, 162, 235, 1);"></div>
+                    <div class="w-4 h-4 rounded" style="background-color: var(--chart-blue-light);"></div>
                     <span class="text-sm text-gray-700 dark:text-gray-300">Recall %</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background-color: rgba(255, 206, 86, 1);"></div>
+                    <div class="w-4 h-4 rounded" style="background-color: var(--action-warning);"></div>
                     <span class="text-sm text-gray-700 dark:text-gray-300">F1 Score %</span>
                 </div>
             </div>
@@ -219,6 +219,7 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
         let currentData = {
             stats: [],
             results: [],
@@ -487,8 +488,8 @@
                     datasets: [{
                     label: 'Accuracy %',
                     data: accuracyPoints,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: getThemeColor('--chart-cyan') || 'rgba(75, 192, 192, 1)',
+                    backgroundColor: getThemeColor('--chart-cyan-fill') || 'rgba(75, 192, 192, 0.2)',
                     borderWidth: 2,
                     fill: false,
                     tension: 0.1,
@@ -496,8 +497,8 @@
                     }, {
                     label: 'Precision %',
                     data: precisionPoints,
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: getThemeColor('--chart-pink') || 'rgba(255, 99, 132, 1)',
+                    backgroundColor: getThemeColor('--chart-pink-fill') || 'rgba(255, 99, 132, 0.2)',
                     borderWidth: 2,
                     fill: false,
                     tension: 0.1,
@@ -505,8 +506,8 @@
                     }, {
                     label: 'Recall %',
                     data: recallPoints,
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: getThemeColor('--chart-blue-light') || 'rgba(54, 162, 235, 1)',
+                    backgroundColor: getThemeColor('--chart-blue-light-fill') || 'rgba(54, 162, 235, 0.2)',
                     borderWidth: 2,
                     fill: false,
                     tension: 0.1,
@@ -514,8 +515,8 @@
                     }, {
                     label: 'F1 Score %',
                     data: f1Points,
-                    borderColor: 'rgba(255, 206, 86, 1)',
-                    backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                    borderColor: getThemeColor('--action-warning') || 'rgba(255, 206, 86, 1)',
+                    backgroundColor: getThemeColor('--badge-yellow-bg') || 'rgba(255, 206, 86, 0.2)',
                     borderWidth: 2,
                     fill: false,
                     tension: 0.1,

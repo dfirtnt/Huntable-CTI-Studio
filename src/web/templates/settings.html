@@ -36,7 +36,7 @@
                             <input type="time" 
                                    id="backupTime" 
                                    value="02:00"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for daily automated backups</p>
                         </div>
                         <div>
@@ -46,7 +46,7 @@
                             <input type="time" 
                                    id="cleanupTime" 
                                    value="03:00"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for weekly cleanup (Sundays)</p>
                         </div>
                     </div>
@@ -65,7 +65,7 @@
                                    value="7" 
                                    min="0" 
                                    max="30"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N daily backups</p>
                         </div>
                         <div>
@@ -77,7 +77,7 @@
                                    value="4" 
                                    min="0" 
                                    max="12"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N weekly backups</p>
                         </div>
                         <div>
@@ -89,7 +89,7 @@
                                    value="3" 
                                    min="0" 
                                    max="12"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N monthly backups</p>
                         </div>
                         <div>
@@ -102,7 +102,7 @@
                                    min="1" 
                                    max="1000"
                                    step="1"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Maximum total backup size</p>
                         </div>
                     </div>
@@ -180,7 +180,7 @@
                             <input type="text" 
                                    id="backupDirectory" 
                                    value="backups"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Directory to store backups</p>
                         </div>
                         <div>
@@ -188,7 +188,7 @@
                                 Backup Type
                             </label>
                             <select id="backupType" 
-                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <option value="full">Full System</option>
                                 <option value="database">Database Only</option>
                                 <option value="files">Files Only</option>
@@ -341,7 +341,7 @@
                         <input type="password"
                                id="workflowOpenaiApiKey"
                                placeholder="sk-..."
-                               class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                               class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         <button type="button"
                                 id="toggleWorkflowOpenaiApiKey"
                                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
@@ -370,7 +370,7 @@
                         <input type="password"
                                id="workflowAnthropicApiKey"
                                placeholder="sk-ant-..."
-                               class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                               class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         <button type="button"
                                 id="toggleWorkflowAnthropicApiKey"
                                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
@@ -399,7 +399,7 @@
                         <input type="password"
                                id="workflowGeminiApiKey"
                                placeholder="AIza..."
-                               class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                               class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         <button type="button"
                                 id="toggleWorkflowGeminiApiKey"
                                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
@@ -448,7 +448,7 @@
                              <input type="password"
                                     id="langfusePublicKey"
                                     placeholder="pk-..."
-                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                              <button type="button"
                                      id="toggleLangfusePublicKey"
                                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -470,7 +470,7 @@
                              <input type="password"
                                     id="langfuseSecretKey"
                                     placeholder="sk-..."
-                                    class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                              <button type="button"
                                      id="toggleLangfuseSecretKey"
                                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -490,7 +490,7 @@
                          <input type="text"
                                 id="langfuseHost"
                                 placeholder="https://cloud.langfuse.com"
-                                class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://cloud.langfuse.com</p>
                      </div>
 
@@ -502,7 +502,7 @@
                          <input type="text"
                                 id="langfuseProjectId"
                                 placeholder="your-project-id"
-                                class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Found in your Langfuse URL (e.g., https://us.cloud.langfuse.com/project/{project_id}/traces)</p>
                      </div>
 
@@ -566,7 +566,7 @@
                     <input type="text"
                            id="sigmaRepoPath"
                            placeholder="sigma-repo"
-                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Path to the SIGMA rules repository inside the container.
                         <br><strong>Docker:</strong> Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code> (mounted at <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">/app/sigma-repo</code>)
@@ -582,7 +582,7 @@
                     <input type="text"
                            id="githubRepo"
                            placeholder="dfirtnt/Huntable-SIGMA-Rules"
-                           class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
                     </p>
@@ -603,7 +603,7 @@
                             <input type="text"
                                    id="gitUserName"
                                    placeholder="Huntable CTI Studio"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         </div>
                         <div>
                             <label for="gitUserEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -612,7 +612,7 @@
                             <input type="email"
                                    id="gitUserEmail"
                                    placeholder="cti-studio@huntable.local"
-                                   class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         </div>
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { isReadableColor } from './color-constants';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 const TEST_ARTICLE_ID = process.env.ARTICLE_ID || '836';
@@ -726,13 +727,8 @@ test.describe.skip(
       }
       console.log(`View summary "${text}" has color: ${color}`);
       
-      // Check for readable color (white, light gray, or medium gray on dark background)
-      const isReadable = color.includes('255, 255, 255') || // white
-                        color.includes('209, 213, 219') || // text-gray-300
-                        color.includes('55, 65, 81') ||   // text-gray-700
-                        color === '#ffffff' ||
-                        color === 'white';
-      
+      const isReadable = isReadableColor(color);
+
       if (!isReadable) {
         colorIssues.push(`"${text}" has color: ${color} (may be unreadable)`);
       }
@@ -761,13 +757,8 @@ test.describe.skip(
           return window.getComputedStyle(el).color;
         });
         
-        // Check for readable color
-        const isReadable = color.includes('255, 255, 255') ||
-                          color.includes('209, 213, 219') ||
-                          color.includes('55, 65, 81') ||
-                          color === '#ffffff' ||
-                          color === 'white';
-        
+        const isReadable = isReadableColor(color);
+
         if (!isReadable) {
           colorIssues.push(`"${viewText}" has color: ${color} (may be unreadable)`);
         }

@@ -194,4 +194,13 @@ Not required for current “View summary + execution detail” checks; add if yo
 
 ---
 
+## Post-implementation policy (color-system normalization)
+
+After refactoring to theme-variables.css and CSS variables:
+
+- **No new literal hex/rgb colors** in app templates or JS; new colors must be added as variables in `src/web/static/css/theme-variables.css`.
+- **Browser extension** remains palette-aligned but **exempt** from var() enforcement unless explicitly refactored.
+
+---
+
 **Exit: PASS** — Report written; no code changes. Use this doc to normalize colors (CSS variables, single hex per semantic role) and fix the two one-digit differences in the extension and borders.

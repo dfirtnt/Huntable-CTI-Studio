@@ -156,6 +156,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 // Load scraper metrics data
 async function loadScraperMetrics() {
     try {
@@ -207,8 +208,8 @@ function renderCollectionRateChart(data) {
             datasets: [{
                 label: 'Articles Collected',
                 data: data.values || [],
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)',
                 tension: 0.1
             }]
         },
@@ -234,9 +235,9 @@ function renderSourceHealthChart(data) {
             datasets: [{
                 data: data.values || [],
                 backgroundColor: [
-                    'rgb(34, 197, 94)',  // Green for healthy
-                    'rgb(251, 191, 36)', // Yellow for warning
-                    'rgb(239, 68, 68)'   // Red for error
+                    getThemeColor('--action-success-light') || 'rgb(34, 197, 94)',
+                    getThemeColor('--action-warning') || 'rgb(251, 191, 36)',
+                    getThemeColor('--action-danger') || 'rgb(239, 68, 68)'
                 ]
             }]
         },
@@ -316,32 +317,32 @@ function createHuntScoreChart(labels, excellentData, goodData, moderateData, low
             datasets: [{
                 label: 'Excellent (80-100)',
                 data: excellentData,
-                backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                borderColor: 'rgb(34, 197, 94)',
+                backgroundColor: getThemeColor('--chart-green-fill') || 'rgba(34, 197, 94, 0.6)',
+                borderColor: getThemeColor('--action-success-light') || 'rgb(34, 197, 94)',
                 borderWidth: 1
             }, {
                 label: 'Good (60-79)',
                 data: goodData,
-                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
                 borderWidth: 1
             }, {
                 label: 'Moderate (40-59)',
                 data: moderateData,
-                backgroundColor: 'rgba(251, 191, 36, 0.8)',
-                borderColor: 'rgb(251, 191, 36)',
+                backgroundColor: getThemeColor('--action-warning-fill') || 'rgba(234, 179, 8, 0.6)',
+                borderColor: getThemeColor('--action-warning') || 'rgb(251, 191, 36)',
                 borderWidth: 1
             }, {
                 label: 'Low (20-39)',
                 data: lowData,
-                backgroundColor: 'rgba(249, 115, 22, 0.8)',
-                borderColor: 'rgb(249, 115, 22)',
+                backgroundColor: getThemeColor('--chart-orange-fill') || 'rgba(249, 115, 22, 0.8)',
+                borderColor: getThemeColor('--chart-orange') || 'rgb(249, 115, 22)',
                 borderWidth: 1
             }, {
                 label: 'Minimal (0-19)',
                 data: minimalData,
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                borderColor: 'rgb(239, 68, 68)',
+                backgroundColor: getThemeColor('--chart-red-fill') || 'rgba(239, 68, 68, 0.8)',
+                borderColor: getThemeColor('--action-danger') || 'rgb(239, 68, 68)',
                 borderWidth: 1
             }]
         },
@@ -377,8 +378,8 @@ function createHourlyChart(labels, data) {
             datasets: [{
                 label: 'Articles',
                 data: data,
-                backgroundColor: 'rgba(147, 51, 234, 0.8)',
-                borderColor: 'rgb(147, 51, 234)',
+                backgroundColor: getThemeColor('--chart-purple-fill') || 'rgba(147, 51, 234, 0.6)',
+                borderColor: getThemeColor('--purple-deep') || 'rgb(147, 51, 234)',
                 borderWidth: 1
             }]
         },

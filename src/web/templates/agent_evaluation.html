@@ -304,6 +304,7 @@ function copyCommand() {
 </script>
 
 <script>
+function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 // Load latest metrics
 {% if latest %}
 document.addEventListener('DOMContentLoaded', () => {
@@ -381,8 +382,8 @@ async function loadTrendCharts(agentName) {
                             datasets: [{
                                 label: metricKeys[i],
                                 data: trends.map(t => t.value),
-                                borderColor: 'rgb(59, 130, 246)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
+                                backgroundColor: getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)',
                                 tension: 0.1
                             }]
                         },
@@ -590,8 +591,8 @@ function renderScoreDistributionChart(distribution) {
             datasets: [{
                 label: 'Score Distribution',
                 data: buckets,
-                backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
                 borderWidth: 1
             }]
         },
@@ -646,15 +647,15 @@ function renderModelComparisonChart(modelComparison) {
             datasets: [{
                 label: 'Avg Score Mean',
                 data: scoreMeans,
-                backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
                 borderWidth: 1,
                 yAxisID: 'y'
             }, {
                 label: 'Threshold Accuracy (%)',
                 data: accuracies,
-                backgroundColor: 'rgba(34, 197, 94, 0.6)',
-                borderColor: 'rgb(34, 197, 94)',
+                backgroundColor: getThemeColor('--chart-green-fill') || 'rgba(34, 197, 94, 0.6)',
+                borderColor: getThemeColor('--action-success-light') || 'rgb(34, 197, 94)',
                 borderWidth: 1,
                 yAxisID: 'y1'
             }]
@@ -703,8 +704,8 @@ function renderThresholdAccuracyChart(trends) {
             datasets: [{
                 label: 'Threshold Accuracy',
                 data: sortedTrends.map(t => (t.value || 0) * 100),
-                borderColor: 'rgb(34, 197, 94)',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderColor: getThemeColor('--action-success-light') || 'rgb(34, 197, 94)',
+                backgroundColor: getThemeColor('--action-execute-fill') || 'rgba(34, 197, 94, 0.1)',
                 tension: 0.1,
                 fill: true
             }]
@@ -739,15 +740,15 @@ function renderScoreTrendsChart(meanTrends, stdTrends) {
             datasets: [{
                 label: 'Score Mean',
                 data: sortedMean.map(t => t.value || 0),
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)',
                 tension: 0.1,
                 yAxisID: 'y'
             }, {
                 label: 'Score Std Dev',
                 data: sortedStd.map(t => t.value || 0),
-                borderColor: 'rgb(239, 68, 68)',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderColor: getThemeColor('--action-danger') || 'rgb(239, 68, 68)',
+                backgroundColor: getThemeColor('--action-danger-fill') || 'rgba(239, 68, 68, 0.1)',
                 tension: 0.1,
                 yAxisID: 'y1'
             }]

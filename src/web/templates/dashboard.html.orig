@@ -123,6 +123,7 @@
 
 {% block scripts %}
 <script>
+function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
     // Chart.js configuration for dark theme (guard if CDN not loaded yet)
     if (window.Chart && window.Chart.defaults) {
         Chart.defaults.color = '#9CA3AF';
@@ -296,8 +297,8 @@
                 datasets: [{
                     label: 'Articles',
                     data: [],
-                    borderColor: '#10B981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderColor: getThemeColor('--action-execute') || '#10B981',
+                    backgroundColor: getThemeColor('--action-execute-fill') || 'rgba(16, 185, 129, 0.1)',
                     tension: 0.3,
                     fill: true
                 }]
@@ -321,7 +322,7 @@
                                 return context.parsed.y;
                             }
                         },
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: getThemeColor('--tooltip-bg') || 'rgba(0, 0, 0, 0.8)',
                         titleColor: '#fff',
                         bodyColor: '#fff',
                         borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -329,8 +330,8 @@
                     }
                 },
                 scales: {
-                    x: { grid: { color: '#374151' } },
-                    y: { grid: { color: '#374151' } }
+                    x: { grid: { color: getThemeColor('--border-muted') || '#374151' } },
+                    y: { grid: { color: getThemeColor('--border-muted') || '#374151' } }
                 }
             }
         });
@@ -342,8 +343,8 @@
                 datasets: [{
                     label: 'Articles',
                     data: [],
-                    borderColor: '#3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: getThemeColor('--action-info') || '#3B82F6',
+                    backgroundColor: getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)',
                     tension: 0.3,
                     fill: true
                 }]
@@ -367,7 +368,7 @@
                                 return context.parsed.y;
                             }
                         },
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: getThemeColor('--tooltip-bg') || 'rgba(0, 0, 0, 0.8)',
                         titleColor: '#fff',
                         bodyColor: '#fff',
                         borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -375,8 +376,8 @@
                     }
                 },
                 scales: {
-                    x: { grid: { color: '#374151' } },
-                    y: { grid: { color: '#374151' } }
+                    x: { grid: { color: getThemeColor('--border-muted') || '#374151' } },
+                    y: { grid: { color: getThemeColor('--border-muted') || '#374151' } }
                 }
             }
         });

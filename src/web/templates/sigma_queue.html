@@ -135,7 +135,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Original Rule:
                     </label>
-                    <textarea id="enrichOriginalRule" readonly rows="15" class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
+                    <textarea id="enrichOriginalRule" readonly rows="15" class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
                 </div>
                 <div id="enrichLoading" class="hidden text-center py-4">
                     <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -703,7 +703,7 @@ async function validateRule() {
                         ${data.validated_yaml ? `
                             <div class="mt-3">
                                 <p class="text-sm text-red-700 dark:text-red-300 mb-2">Last attempt's rule:</p>
-                                <pre class="text-xs bg-[#0a0e1a] border border-red-500/30 p-2 rounded-lg overflow-x-auto max-h-48 overflow-y-auto text-gray-300">${escapeHtml(data.validated_yaml)}</pre>
+                                <pre class="text-xs bg-panel-0 border border-red-500/30 p-2 rounded-lg overflow-x-auto max-h-48 overflow-y-auto text-gray-300">${escapeHtml(data.validated_yaml)}</pre>
                             </div>
                         ` : ''}
                     </div>
