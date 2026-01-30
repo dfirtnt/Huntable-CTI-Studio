@@ -830,22 +830,6 @@
         }
     }
 
-    function showNotification(message, type = 'info') {
-        // Simple notification - you can enhance this with a toast library
-        const alertClass = type === 'error' ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-100 dark:border-red-700' :
-                         type === 'success' ? 'bg-green-50 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-100 dark:border-green-700' :
-                         'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700';
-        
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 p-4 rounded-lg border ${alertClass} z-50 shadow-lg`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 5000);
-    }
-
     document.addEventListener("DOMContentLoaded", () => {
         fetchObservableSummary();
         fetchAnnotations();

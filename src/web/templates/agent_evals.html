@@ -53,6 +53,26 @@
 
 <div class="eval-page">
 <div class="container mx-auto px-4 py-8">
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Agent Evals</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
             <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,7 +353,7 @@ async function loadEvalArticles() {
     } catch (error) {
         console.error('Error loading eval articles:', error);
         articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
-        alert('Failed to load eval articles: ' + error.message);
+        showNotification('Failed to load eval articles: ' + error.message, 'error');
     } finally {
         loadBtn.disabled = false;
         loadBtn.textContent = 'Load Eval Articles';
@@ -458,7 +478,7 @@ async function loadDataset() {
                             div.replaceWith(newDiv);
                             updateRunButton();
                         } else {
-                            alert('Please enter a valid article ID');
+                            showNotification('Please enter a valid article ID', 'error');
                         }
                     };
                     
@@ -517,7 +537,7 @@ async function loadDataset() {
     } catch (error) {
         console.error('Error loading dataset:', error);
         articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
-        alert('Failed to load dataset: ' + error.message);
+        showNotification('Failed to load dataset: ' + error.message, 'error');
     } finally {
         loadBtn.disabled = false;
         loadBtn.textContent = 'Load Articles';
@@ -603,12 +623,12 @@ function showHelp(fieldName) {
 // Run evaluation
 async function runEvaluation() {
     if (selectedArticleUrls.size === 0) {
-        alert('Please select at least one article');
+        showNotification('Please select at least one article', 'error');
         return;
     }
     
     if (!activeConfig) {
-        alert('Active config not loaded. Please refresh the page.');
+        showNotification('Active config not loaded. Please refresh the page.', 'error');
         return;
     }
     
@@ -997,31 +1017,6 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     });
 }
 
-// Show notification function
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
-        type === 'success' ? 'bg-green-500 text-white' : 
-        type === 'error' ? 'bg-red-500 text-white' : 
-        type === 'info' ? 'bg-blue-500 text-white' : 'bg-yellow-500 text-white'
-    }`;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
-    
-    // Scroll to the right to show latest config versions
-    setTimeout(() => {
-        const scrollContainer = document.getElementById('resultsTableScrollContainer');
-        if (scrollContainer) {
-            scrollContainer.scrollLeft = scrollContainer.scrollWidth;
-        }
-    }, 0);
-}
-
 // Render subagent eval results with color-coded scores
 function renderSubagentResults(results) {
     const resultsTable = document.getElementById('resultsTable');
@@ -1107,23 +1102,6 @@ function renderSubagentResults(results) {
     
     html += '</tbody></table>';
     resultsTable.innerHTML = html;
-}
-
-// Show notification function
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
-        type === 'success' ? 'bg-green-500 text-white' : 
-        type === 'error' ? 'bg-red-500 text-white' : 
-        type === 'info' ? 'bg-blue-500 text-white' : 'bg-yellow-500 text-white'
-    }`;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
 }
 
 // Chart instance for MAE chart
@@ -2128,11 +2106,11 @@ async function exportEvalBundle(executionId, agentName) {
             }
         } else {
             const error = await response.json();
-            alert('❌ Error exporting bundle:\n\n' + (error.detail || 'Unknown error'));
+            showNotification('Error exporting bundle: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error exporting eval bundle:', error);
-        alert('Error exporting eval bundle: ' + error.message);
+        showNotification('Error exporting eval bundle: ' + error.message, 'error');
     } finally {
         button.disabled = false;
         button.textContent = originalText;

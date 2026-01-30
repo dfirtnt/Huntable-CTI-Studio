@@ -183,15 +183,15 @@ document.getElementById('workflowConfigForm').addEventListener('submit', async (
         });
         
         if (response.ok) {
-            alert('Configuration updated successfully!');
+            showNotification('Configuration updated successfully!', 'success');
             await loadConfig();
         } else {
             const error = await response.json();
-            alert('Error updating configuration: ' + (error.detail || 'Unknown error'));
+            showNotification('Error updating configuration: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error saving config:', error);
-        alert('Error saving configuration');
+        showNotification('Error saving configuration', 'error');
     }
 });
 

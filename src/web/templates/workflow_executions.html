@@ -240,7 +240,7 @@ async function viewExecution(executionId) {
     
     if (!modal || !contentDiv) {
         console.error('Modal elements not found. Modal:', !!modal, 'ContentDiv:', !!contentDiv);
-        alert('Error: Execution detail modal not found. Please refresh the page.');
+        showNotification('Execution detail modal not found. Please refresh the page.', 'error');
         return;
     }
     
@@ -1066,15 +1066,15 @@ async function cancelExecution(executionId) {
         const response = await fetch(`/api/workflow/executions/${executionId}/cancel`, { method: 'POST' });
         if (response.ok) {
             const data = await response.json();
-            alert(data.message || 'Execution cancelled successfully');
+            showNotification(data.message || 'Execution cancelled successfully', 'success');
             await loadExecutions();
         } else {
             const error = await response.json();
-            alert(error.detail || 'Error cancelling execution');
+            showNotification(error.detail || 'Error cancelling execution', 'error');
         }
     } catch (error) {
         console.error('Error cancelling execution:', error);
-        alert('Error cancelling execution: ' + error.message);
+        showNotification('Error cancelling execution: ' + error.message, 'error');
     }
 }
 
@@ -1084,14 +1084,14 @@ async function retryExecution(executionId) {
     try {
         const response = await fetch(`/api/workflow/executions/${executionId}/retry`, { method: 'POST' });
         if (response.ok) {
-            alert('Retry initiated successfully');
+            showNotification('Retry initiated successfully', 'success');
             await loadExecutions();
         } else {
-            alert('Error retrying execution');
+            showNotification('Error retrying execution', 'error');
         }
     } catch (error) {
         console.error('Error retrying execution:', error);
-        alert('Error retrying execution');
+        showNotification('Error retrying execution', 'error');
     }
 }
 
@@ -1173,23 +1173,23 @@ async function cleanupStaleExecutions() {
             } catch (e) {
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
             }
-            alert(`❌ Cleanup failed: ${errorMessage}`);
+            showNotification('Cleanup failed: ' + errorMessage, 'error');
             return;
         }
         
         const result = await response.json();
         
         if (result.success) {
-            alert(`✅ ${result.message}`);
+            showNotification(result.message, 'success');
             loadExecutions(); // Refresh the list
         } else {
             const errorMsg = result.message || result.error || JSON.stringify(result);
-            alert(`❌ Cleanup failed: ${errorMsg}`);
+            showNotification('Cleanup failed: ' + errorMsg, 'error');
         }
     } catch (error) {
         console.error('Cleanup error:', error);
         const errorMsg = error.message || error.toString() || 'Unknown error';
-        alert(`❌ Error cleaning up stale executions: ${errorMsg}`);
+        showNotification('Error cleaning up stale executions: ' + errorMsg, 'error');
     }
 }
 
@@ -1210,20 +1210,20 @@ async function triggerStuckExecutions() {
         
         if (response.ok) {
             if (data.count === 0) {
-                alert('✅ No pending executions found.');
+                showNotification('No pending executions found.', 'success');
             } else {
                 const message = `✅ Triggered ${data.count} execution(s)\n\n` +
                               `Successful: ${data.successful}\n` +
                               `Failed: ${data.failed}`;
-                alert(message);
+                showNotification(message, 'info');
             }
             await loadExecutions();
         } else {
-            alert('❌ Error: ' + (data.detail || 'Unknown error'));
+            showNotification('Error: ' + (data.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error triggering stuck executions:', error);
-        alert('Error triggering stuck executions: ' + error.message);
+        showNotification('Error triggering stuck executions: ' + error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -1274,9 +1274,7 @@ async function executeWorkflow() {
             const result = await response.json();
             closeExecuteModal();
             
-            alert('✅ Workflow execution started\n\n' +
-                  `Execution ID: ${result.execution_id}\n` +
-                  'Executing via Celery (Langfuse tracing if enabled).');
+            showNotification('Workflow execution started. Execution ID: ' + result.execution_id, 'success');
             
             // Refresh the executions list
             await loadExecutions();
@@ -1465,7 +1463,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         }
     } catch (error) {
         console.error('Error parsing rule data:', error);
-        alert('Error displaying rule details');
+        showNotification('Error displaying rule details', 'error');
     }
 }
 
@@ -1753,7 +1751,7 @@ window.previewQueuedRule = async function previewQueuedRule(ruleId) {
         const rule = rules.find(r => r.id === ruleId);
         
         if (!rule) {
-            alert(`Rule #${ruleId} not found in queue`);
+            showNotification('Rule #' + ruleId + ' not found in queue', 'error');
             return;
         }
         
@@ -1767,14 +1765,14 @@ window.previewQueuedRule = async function previewQueuedRule(ruleId) {
         const modal = document.getElementById('ruleModal');
         if (!modal) {
             console.error('ruleModal element not found!');
-            alert('Rule preview modal not found. Please refresh the page.');
+            showNotification('Rule preview modal not found. Please refresh the page.', 'error');
             return;
         }
         modal.classList.remove('hidden');
         console.log('Rule preview modal opened');
     } catch (error) {
         console.error('Error fetching queued rule:', error);
-        alert(`Error loading rule: ${error.message}`);
+        showNotification('Error loading rule: ' + error.message, 'error');
     }
 }
 
@@ -1884,11 +1882,11 @@ async function saveYamlEdit() {
                 renderQueuedRulePreview(currentQueuedRule);
             }
         } else {
-            alert('Error saving YAML changes');
+            showNotification('Error saving YAML changes', 'error');
         }
     } catch (error) {
         console.error('Error saving YAML:', error);
-        alert('Error saving YAML changes: ' + error.message);
+        showNotification('Error saving YAML changes: ' + error.message, 'error');
     }
 }
 
@@ -1948,16 +1946,16 @@ async function approveQueuedRule(ruleId) {
         });
         
         if (response.ok) {
-            alert('Rule approved successfully');
+            showNotification('Rule approved successfully', 'success');
             closeRuleModal();
             // Refresh executions to show updated status
             refreshExecutions();
         } else {
-            alert('Error approving rule');
+            showNotification('Error approving rule', 'error');
         }
     } catch (error) {
         console.error('Error approving rule:', error);
-        alert('Error approving rule');
+        showNotification('Error approving rule', 'error');
     }
 }
 
@@ -1983,26 +1981,26 @@ async function rejectQueuedRule(ruleId) {
         });
         
         if (response.ok) {
-            alert('Rule rejected');
+            showNotification('Rule rejected', 'info');
             closeRuleModal();
             // Refresh executions to show updated status
             refreshExecutions();
         } else {
-            alert('Error rejecting rule');
+            showNotification('Error rejecting rule', 'error');
         }
     } catch (error) {
         console.error('Error rejecting rule:', error);
-        alert('Error rejecting rule');
+        showNotification('Error rejecting rule', 'error');
     }
 }
 
 function openEnrichModalForQueue() {
-    alert('Enrich functionality is available from the SIGMA Queue page. Please navigate to /workflow#queue to use this feature.');
+    showNotification('Enrich is available from the SIGMA Queue page (/workflow#queue).', 'info');
 }
 
 async function checkSimilarRulesForQueuedRule() {
     if (!currentRuleId) {
-        alert('No rule selected');
+        showNotification('No rule selected', 'warning');
         return;
     }
     
@@ -2039,7 +2037,7 @@ async function checkSimilarRulesForQueuedRule() {
             } catch (e) {
                 errorMessage = response.statusText || errorMessage;
             }
-            alert('Error finding similar rules: ' + errorMessage);
+            showNotification('Error finding similar rules: ' + errorMessage, 'error');
             return;
         }
         
@@ -2050,19 +2048,19 @@ async function checkSimilarRulesForQueuedRule() {
             currentQueuedRule.similarity_scores = data.similar_rules;
             currentQueuedRule.max_similarity = Math.max(...data.similar_rules.map(r => r.similarity || 0));
             renderQueuedRulePreview(currentQueuedRule);
-            alert(`Found ${data.similar_rules.length} similar rules. Results updated in preview.`);
+            showNotification('Found ' + data.similar_rules.length + ' similar rules. Results updated in preview.', 'success');
         } else {
-            alert('No similar rules found.');
+            showNotification('No similar rules found.', 'info');
         }
     } catch (error) {
         const loadingEl = document.getElementById('similarRulesLoading');
         if (loadingEl) loadingEl.remove();
         
         if (error.name === 'AbortError') {
-            alert('Similarity search timed out. Please try again.');
+            showNotification('Similarity search timed out. Please try again.', 'warning');
         } else {
             console.error('Error checking similar rules:', error);
-            alert('Error checking similar rules: ' + error.message);
+            showNotification('Error checking similar rules: ' + error.message, 'error');
         }
     }
 }

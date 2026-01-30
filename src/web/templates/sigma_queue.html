@@ -49,7 +49,7 @@
     </div>
 
     <!-- Queue Table -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
@@ -465,15 +465,15 @@ async function approveRule(ruleId) {
         });
         
         if (response.ok) {
-            alert('Rule approved successfully');
+            showNotification('Rule approved successfully', 'success');
             closeRuleModal();
             await loadQueue();
         } else {
-            alert('Error approving rule');
+            showNotification('Error approving rule', 'error');
         }
     } catch (error) {
         console.error('Error approving rule:', error);
-        alert('Error approving rule');
+        showNotification('Error approving rule', 'error');
     }
 }
 
@@ -499,15 +499,15 @@ async function rejectRule(ruleId) {
         });
         
         if (response.ok) {
-            alert('Rule rejected');
+            showNotification('Rule rejected', 'info');
             closeRuleModal();
             await loadQueue();
         } else {
-            alert('Error rejecting rule');
+            showNotification('Error rejecting rule', 'error');
         }
     } catch (error) {
         console.error('Error rejecting rule:', error);
-        alert('Error rejecting rule');
+        showNotification('Error rejecting rule', 'error');
     }
 }
 
@@ -518,7 +518,7 @@ async function submitPR() {
     // Check if there are approved rules
     const approvedCount = parseInt(document.getElementById('approvedCount').textContent) || 0;
     if (approvedCount === 0) {
-        alert('No approved rules to submit. Please approve rules first.');
+        showNotification('No approved rules to submit. Please approve rules first.', 'warning');
         return;
     }
     
@@ -540,7 +540,7 @@ async function submitPR() {
         const result = await response.json();
         
         if (result.success) {
-            alert(`✅ PR created successfully!\n\nPR URL: ${result.pr_url}\nRules: ${result.rules_count}`);
+            showNotification('PR created successfully. Rules: ' + result.rules_count, 'success');
             // Reload queue to show updated status
             await loadQueue();
         } else {
@@ -548,11 +548,11 @@ async function submitPR() {
             if (result.branch) {
                 errorMsg += `\n\nBranch created: ${result.branch}\nYou may need to create the PR manually.`;
             }
-            alert(errorMsg);
+            showNotification(errorMsg, 'error');
         }
     } catch (error) {
         console.error('Error submitting PR:', error);
-        alert('❌ Error submitting PR: ' + error.message);
+        showNotification('Error submitting PR: ' + error.message, 'error');
     } finally {
         // Restore button
         btn.disabled = false;
@@ -582,7 +582,7 @@ function closeRuleModal() {
 
 async function validateRule() {
     if (!currentRuleId) {
-        alert('No rule selected');
+        showNotification('No rule selected', 'warning');
         return;
     }
     
@@ -605,7 +605,7 @@ async function validateRule() {
     }
     
     if (!apiKey) {
-        alert('Please configure your OpenAI API key in Settings first.');
+        showNotification('Please configure your OpenAI API key in Settings first.', 'error');
         return;
     }
     
@@ -724,13 +724,13 @@ async function validateRule() {
         if (loadingEl) loadingEl.remove();
         
         console.error('Error validating rule:', error);
-        alert('Error validating rule: ' + error.message);
+        showNotification('Error validating rule: ' + error.message, 'error');
     }
 }
 
 async function applyValidatedRule() {
     if (!window.validatedYaml) {
-        alert('No validated rule to apply');
+        showNotification('No validated rule to apply', 'warning');
         return;
     }
     
@@ -768,13 +768,13 @@ async function applyValidatedRule() {
             // Reload queue in background
             loadQueue().catch(err => console.error('Error reloading queue:', err));
             
-            alert('Validated rule applied successfully');
+            showNotification('Validated rule applied successfully', 'success');
         } else {
-            alert('Error applying validated rule');
+            showNotification('Error applying validated rule', 'error');
         }
     } catch (error) {
         console.error('Error applying validated rule:', error);
-        alert('Error applying validated rule');
+        showNotification('Error applying validated rule', 'error');
     }
 }
 
@@ -986,7 +986,7 @@ async function enrichRule() {
             
             if (!enrichResult || !comparisonView || !textarea || !toggleBtn) {
                 console.error('Missing elements for comparison view');
-                alert('Error: Could not display comparison view. Please check console.');
+                showNotification('Could not display comparison view. Please check console.', 'error');
                 return;
             }
             
@@ -1058,7 +1058,7 @@ async function enrichRule() {
 async function enrichRuleFurther() {
     // Use the current enriched rule as the base for further enrichment
     if (!currentEnrichedYaml) {
-        alert('No enriched rule to build upon. Please enrich the rule first.');
+        showNotification('No enriched rule to build upon. Please enrich the rule first.', 'warning');
         return;
     }
     
@@ -1188,7 +1188,7 @@ async function enrichRuleFurther() {
 async function applyEnrichedRule() {
     const enrichedYaml = document.getElementById('enrichedRuleYaml').value;
     if (!enrichedYaml.trim()) {
-        alert('No enriched rule to apply');
+        showNotification('No enriched rule to apply', 'warning');
         return;
     }
     
@@ -1221,11 +1221,11 @@ async function applyEnrichedRule() {
             // Reload queue in background to sync with server
             loadQueue().catch(err => console.error('Error reloading queue:', err));
         } else {
-            alert('Error applying enriched rule');
+            showNotification('Error applying enriched rule', 'error');
         }
     } catch (error) {
         console.error('Error applying enriched rule:', error);
-        alert('Error applying enriched rule');
+        showNotification('Error applying enriched rule', 'error');
     }
 }
 
@@ -1388,7 +1388,7 @@ let isSimilarRulesModalExpanded = false;
 async function checkSimilarRulesForQueue() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) {
-        alert('Rule not found');
+        showNotification('Rule not found', 'error');
         return;
     }
     
@@ -1434,7 +1434,7 @@ async function checkSimilarRulesForQueue() {
                 // If JSON parsing fails, use status text
                 errorMessage = response.statusText || errorMessage;
             }
-            alert('Error finding similar rules: ' + errorMessage);
+            showNotification('Error finding similar rules: ' + errorMessage, 'error');
             return;
         }
         
@@ -1638,7 +1638,7 @@ async function checkSimilarRulesForQueue() {
             const generatedRules = currentRuleParsed ? [currentRuleParsed] : [];
             showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules);
         } else {
-            alert('Failed to find similar rules: ' + (data.message || 'Unknown error'));
+            showNotification('Failed to find similar rules: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (error) {
         // Remove loading indicator
@@ -1647,9 +1647,9 @@ async function checkSimilarRulesForQueue() {
         
         console.error('Error checking similar rules:', error);
         if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-            alert('Request timed out - LLM reranking may still be processing. Try again in a moment.');
+            showNotification('Request timed out - LLM reranking may still be processing. Try again in a moment.', 'warning');
         } else {
-            alert('Error checking similar rules: ' + error.message);
+            showNotification('Error checking similar rules: ' + error.message, 'error');
         }
     }
 }

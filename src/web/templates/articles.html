@@ -4,6 +4,26 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Articles</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
     <div class="mb-8">
         <div class="flex items-center justify-between mb-2">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
@@ -74,14 +94,13 @@
                     <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
                            placeholder="Search titles, content, or use boolean logic..." 
                            title="{{ filters.search or '' }}"
-                           class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);"
-                           style="font-family: monospace;">
+                           class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm font-mono" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </button>
-                    <button type="button" id="search-help-btn" 
+                    <button type="button" id="search-help-btn" aria-label="Search syntax help"
                             class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -564,28 +583,6 @@
 
     // Note: Removed auto-submit on typing to prevent focus loss while entering text.
     
-    function showNotification(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 text-white';
-        if (type === 'success') {
-            notification.style.backgroundColor = 'var(--color-success)';
-        } else if (type === 'error') {
-            notification.style.backgroundColor = 'var(--color-error)';
-        } else {
-            notification.style.backgroundColor = 'var(--color-info)';
-        }
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
-    
-    
     // Dynamic sorting functionality
     function applySorting() {
         const sortBy = document.getElementById('sort-by').value;
@@ -934,7 +931,7 @@
         const articleIds = getSelectedArticleIds();
         
         if (articleIds.length === 0) {
-            alert('Please select at least one article.');
+            showNotification('Please select at least one article.', 'error');
             return;
         }
         
@@ -973,27 +970,6 @@
             console.error('Bulk action error:', error);
             showNotification('Failed to perform bulk action. Please try again.', 'error');
         }
-    }
-    
-    function showNotification(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg text-white';
-        if (type === 'success') {
-            notification.style.backgroundColor = 'var(--color-success)';
-        } else if (type === 'error') {
-            notification.style.backgroundColor = 'var(--color-error)';
-        } else {
-            notification.style.backgroundColor = 'var(--color-info)';
-        }
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
     }
     
     document.addEventListener('DOMContentLoaded', function() {

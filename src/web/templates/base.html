@@ -38,47 +38,15 @@
     <!-- Workflow Configuration Display Component -->
     <script src="/static/js/components/workflow-config-display.js"></script>
     
-    <!-- Custom styles -->
+    <!-- Custom styles (theme vars from theme-variables.css only) -->
     <style>
-        /* Color Token System - Semantic Colors Only */
-        :root {
-            /* Brand Accent - Purple ONLY */
-            --color-brand: #8b5cf6;
-            --color-brand-hover: #7c3aed;
-            --color-brand-light: #a78bfa;
-            --color-brand-dark: #6d28d9;
-            
-            /* Status Colors */
-            --color-success: #10b981;
-            --color-success-bg: rgba(16, 185, 129, 0.1);
-            --color-warning: #f59e0b;
-            --color-warning-bg: rgba(245, 158, 11, 0.1);
-            --color-error: #ef4444;
-            --color-error-bg: rgba(239, 68, 68, 0.1);
-            
-            /* Informational - Blue ONLY for links/info */
-            --color-info: #3b82f6;
-            --color-info-bg: rgba(59, 130, 246, 0.1);
-            
-            /* Neutral Surfaces - Subtle Contrast */
-            --color-bg-app: #111827;
-            --color-bg-content: #0a0e1a;
-            --color-bg-card: #1f2937;
-            --color-bg-panel: #374151;
-            --color-border: #374151;
-            --color-border-subtle: #4b5563;
-            --color-text-primary: #f9fafb;
-            --color-text-secondary: #d1d5db;
-            --color-text-muted: #9ca3af;
-        }
-        
         .gradient-bg {
-            background: var(--color-bg-app);
+            background: var(--panel-bg-0);
         }
         
         /* Navigation Styles */
         .nav-item {
-            color: var(--color-text-secondary);
+            color: var(--text-secondary);
             transition: color 0.2s ease;
             position: relative;
         }
@@ -89,7 +57,7 @@
         }
         
         .nav-item:hover {
-            color: var(--color-brand);
+            color: var(--purple-primary);
         }
         
         .nav-item:hover img {
@@ -97,7 +65,7 @@
         }
         
         .nav-item.active {
-            color: var(--color-brand);
+            color: var(--purple-primary);
             position: relative;
             text-shadow: 0 0 6px var(--purple-text-shadow);
         }
@@ -138,35 +106,35 @@
         }
         
         /* Quality - Use purple for hunt scores/quality (not status) */
-        .quality-excellent { 
-            background-color: var(--color-brand);
+        .quality-excellent {
+            background-color: var(--purple-primary);
             color: white;
         }
-        .quality-good { 
-            background-color: var(--color-brand-light);
+        .quality-good {
+            background-color: var(--purple-light);
             color: white;
         }
-        .quality-fair { 
-            background-color: var(--color-warning);
+        .quality-fair {
+            background-color: var(--action-warning);
             color: white;
         }
-        .quality-limited { 
-            background-color: var(--color-error);
+        .quality-limited {
+            background-color: var(--action-danger);
             color: white;
         }
         
         /* Priority - Use semantic colors */
-        .priority-high { 
-            background-color: var(--color-error);
+        .priority-high {
+            background-color: var(--action-danger);
             color: white;
         }
-        .priority-medium { 
-            background-color: var(--color-warning);
+        .priority-medium {
+            background-color: var(--action-warning);
             color: white;
         }
-        .priority-low { 
-            background-color: var(--color-text-muted);
-            color: var(--color-bg-app);
+        .priority-low {
+            background-color: var(--text-muted-slate);
+            color: var(--panel-bg-0);
         }
         
         /* Chat layout improvements */
@@ -199,20 +167,25 @@
         }
         
         .article-collapsible:hover {
-            background-color: var(--color-bg-panel);
+            background-color: var(--border-muted);
         }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--color-bg-app);">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--panel-bg-0);">
 
     <!-- Navigation -->
-    <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50" style="border-color: var(--color-border);">
+    <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50" style="border-color: var(--border-muted);" aria-label="Main navigation">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center h-[70px] justify-center">
+                <button id="mobile-nav-toggle" type="button" class="md:hidden flex-shrink-0 p-2 rounded-md mr-2 transition-colors" style="color: var(--text-secondary);" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav-menu">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
                 <div class="flex-shrink-0 mr-6">
                     <a href="/" class="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80">
                         <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
-                        <h1 class="text-xl font-bold leading-tight" style="color: var(--color-text-primary);">Huntable<br>CTI Studio</h1>
+                        <h1 class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</h1>
                     </a>
                 </div>
                 <div class="hidden md:flex items-center justify-center gap-8 flex-1">
@@ -244,15 +217,43 @@
                 <div class="flex-shrink-0 ml-6 invisible md:block" aria-hidden="true">
                     <div class="flex items-center gap-2">
                         <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
-                        <h1 class="text-xl font-bold leading-tight" style="color: var(--color-text-primary);">Huntable<br>CTI Studio</h1>
+                        <h1 class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</h1>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div id="mobile-nav-menu" class="hidden md:hidden border-t absolute left-0 right-0 top-[70px] z-40 py-4 px-4" style="background-color: var(--panel-bg-1); border-color: var(--border-muted);">
+            <div class="flex flex-col gap-1">
+                <a href="/articles" class="nav-item flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium">
+                    <img src="/static/icons/articles-icon.svg" alt="" class="w-[35px] h-[35px]" />
+                    Articles
+                </a>
+                <a href="/sources" class="nav-item flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium">
+                    <img src="/static/icons/sources-icon.svg" alt="" class="w-[35px] h-[35px]" />
+                    Sources
+                </a>
+                <a href="/mlops" class="nav-item flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium">
+                    <img src="/static/icons/mlops-icon.svg" alt="" class="w-[35px] h-[35px]" />
+                    MLOps
+                </a>
+                <a href="/workflow" class="nav-item flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium">
+                    <img src="/static/icons/agents-icon.svg" alt="" class="w-[35px] h-[35px]" />
+                    Agents
+                </a>
+                <a href="/diags" class="nav-item flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium">
+                    <img src="/static/icons/diags-icon.svg" alt="" class="w-[35px] h-[35px]" />
+                    Diags
+                </a>
+                <a href="/settings" class="nav-item flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium">
+                    <img src="/static/icons/settings-icon.svg" alt="" class="w-[35px] h-[35px]" />
+                    Settings
+                </a>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1" style="background-color: var(--color-bg-content);">
+    <main class="flex-1" style="background-color: var(--panel-bg-0);">
         {% block content %}{% endblock %}
     </main>
 
@@ -296,6 +297,23 @@
             }
         }
 
+        // Global toast notification (use theme vars; no literal hex)
+        function showNotification(message, type) {
+            type = type || 'info';
+            const bg = type === 'success' ? 'var(--action-execute)' : type === 'error' ? 'var(--action-danger)' : type === 'warning' ? 'var(--action-warning)' : 'var(--action-info)';
+            const el = document.createElement('div');
+            el.setAttribute('role', 'alert');
+            el.className = 'fixed top-4 right-4 z-[60] px-4 py-3 rounded-md shadow-lg text-white text-sm font-medium max-w-sm';
+            el.style.backgroundColor = bg;
+            el.style.color = 'var(--text-emphasis)';
+            el.style.border = '1px solid rgba(255,255,255,0.2)';
+            el.textContent = typeof message === 'string' ? message : String(message);
+            document.body.appendChild(el);
+            setTimeout(function() {
+                if (el.parentNode) el.remove();
+            }, 5000);
+        }
+        window.showNotification = showNotification;
 
         // Auto-refresh dashboard safely every 60 seconds (data-only refresh if available)
         if (window.location.pathname === '/') {
@@ -316,7 +334,7 @@
             const banner = document.createElement('div');
             banner.id = 'completionBanner';
             banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm text-white';
-            banner.style.backgroundColor = 'var(--color-success)';
+            banner.style.backgroundColor = 'var(--action-execute)';
             
             banner.innerHTML = `
                 <div class="flex items-center space-x-2">
@@ -384,6 +402,32 @@
         
         // Set active nav item on page load
         document.addEventListener('DOMContentLoaded', setActiveNavItem);
+        
+        // Mobile nav toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('mobile-nav-toggle');
+            const menu = document.getElementById('mobile-nav-menu');
+            if (!toggle || !menu) return;
+            function openMenu() {
+                menu.classList.remove('hidden');
+                toggle.setAttribute('aria-expanded', 'true');
+                toggle.setAttribute('aria-label', 'Close menu');
+            }
+            function closeMenu() {
+                menu.classList.add('hidden');
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.setAttribute('aria-label', 'Open menu');
+            }
+            toggle.addEventListener('click', function() {
+                if (menu.classList.contains('hidden')) openMenu(); else closeMenu();
+            });
+            menu.querySelectorAll('.nav-item').forEach(function(link) {
+                link.addEventListener('click', closeMenu);
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !menu.classList.contains('hidden')) closeMenu();
+            });
+        });
         
         /**
          * Global Collapsible Panel System
