@@ -211,6 +211,30 @@
   --text-print: #000000;
   --surface-print: #ffffff;
   --border-print: #cccccc;
+
+  /* Aliases for legacy --color-* usage in templates (do not add new; use canonical vars above) */
+  --color-brand: var(--purple-primary);
+  --color-brand-hover: var(--purple-hover);
+  --color-brand-light: var(--purple-light);
+  --color-brand-dark: #6d28d9;
+  --color-success: var(--action-execute);
+  --color-success-bg: var(--action-execute-fill);
+  --color-warning: var(--border-warning);
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+  --color-warning-text: var(--action-warning-dark);
+  --color-error: var(--action-danger);
+  --color-error-bg: var(--action-danger-fill);
+  --color-info: var(--action-info);
+  --color-info-bg: var(--action-info-fill);
+  --color-bg-app: var(--panel-bg-0);
+  --color-bg-content: var(--panel-bg-0);
+  --color-bg-card: var(--mlops-card-bg);
+  --color-bg-panel: var(--border-muted);
+  --color-border: var(--border-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted-slate);
 }
 
 /* ==========================================================================

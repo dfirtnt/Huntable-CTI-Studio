@@ -271,6 +271,26 @@
     window.initialCommercialModelCatalog = {{ provider_model_catalog | tojson | safe }};
 </script>
 <div class="container mx-auto px-4 py-8">
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Agents</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
             <img src="/static/icons/agents-icon.svg" alt="Agents" class="w-[63px] h-[63px]" />
@@ -1607,7 +1627,7 @@
         </div>
 
         <!-- Queue Table -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
@@ -3806,17 +3826,17 @@ async function bootstrapPromptsFromFiles() {
 
         if (response.ok) {
             const result = await response.json();
-            alert(`Successfully imported ${result.prompts_loaded.length} prompts:\n\n${result.prompts_loaded.join(', ')}`);
+            showNotification('Successfully imported ' + result.prompts_loaded.length + ' prompts', 'success');
             // Reload prompts and config
             await loadAgentPrompts();
             await loadConfig();
         } else {
             const error = await response.json();
-            alert('Error importing prompts: ' + (error.detail || 'Unknown error'));
+            showNotification('Error importing prompts: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error bootstrapping prompts:', error);
-        alert('Error importing prompts from files');
+        showNotification('Error importing prompts from files', 'error');
     }
 }
 
@@ -4023,7 +4043,7 @@ async function saveAgentPrompt(agentName) {
     const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
     const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
     if (!promptSystemElement || !promptUserElement) {
-        alert('Prompt elements not found');
+        showNotification('Prompt elements not found', 'error');
         return;
     }
     const systemVal = promptSystemElement.value || "";
@@ -4085,11 +4105,11 @@ async function saveAgentPrompt(agentName) {
             await loadConfig(true); // Reload config to get updated version (skip prompt reload since we just did it)
         } else {
             const error = await response.json();
-            alert('Error updating agent prompt: ' + (error.detail || 'Unknown error'));
+            showNotification('Error updating agent prompt: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error saving agent prompt:', error);
-        alert('Error saving agent prompt');
+        showNotification('Error saving agent prompt', 'error');
     }
 }
 
@@ -4097,7 +4117,7 @@ async function showPromptHistory(agentName) {
     try {
         const response = await fetch(`/api/workflow/config/prompts/${encodeURIComponent(agentName)}/versions`);
         if (!response.ok) {
-            alert('Error loading prompt history');
+            showNotification('Error loading prompt history', 'error');
             return;
         }
         
@@ -4105,7 +4125,7 @@ async function showPromptHistory(agentName) {
         showPromptHistoryModal(agentName, data.versions);
     } catch (error) {
         console.error('Error loading prompt history:', error);
-        alert('Error loading prompt history');
+        showNotification('Error loading prompt history', 'error');
     }
 }
 
@@ -4243,17 +4263,17 @@ async function rollbackPrompt(agentName, versionId) {
         
         if (response.ok) {
             const result = await response.json();
-            alert(`Rolled back ${agentName} successfully`);
+            showNotification('Rolled back ' + agentName + ' successfully', 'success');
             closePromptHistoryModal();
             await loadAgentPrompts();
             await loadConfig(true); // Skip prompt reload since we just did it
         } else {
             const error = await response.json();
-            alert('Error rolling back: ' + (error.detail || 'Unknown error'));
+            showNotification('Error rolling back: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error rolling back prompt:', error);
-        alert('Error rolling back prompt');
+        showNotification('Error rolling back prompt', 'error');
     }
 }
 
@@ -5529,7 +5549,7 @@ function promptForArticleId(defaultId = 2155) {
     if (articleId === null) return null; // User cancelled
     const parsedId = parseInt(articleId, 10);
     if (isNaN(parsedId) || parsedId <= 0) {
-        alert('Please enter a valid article ID (positive number)');
+        showNotification('Please enter a valid article ID (positive number)', 'error');
         return null;
     }
     return parsedId;
@@ -7070,10 +7090,10 @@ function exportPresetToFile() {
         URL.revokeObjectURL(url);
         
         // Show success message
-        alert(`✅ Preset saved as "${filename}"`);
+        showNotification('Preset saved as "' + filename + '"', 'success');
     } catch (error) {
         console.error('Error saving preset:', error);
-        alert('❌ Error saving preset: ' + error.message);
+        showNotification('Error saving preset: ' + error.message, 'error');
     }
 }
 
@@ -7151,7 +7171,7 @@ async function importPresetFromFile(event) {
         await applyPreset(preset);
         
         // Show success message
-        alert(`✅ Preset "${file.name}" loaded successfully!`);
+        showNotification('Preset "' + file.name + '" loaded successfully', 'success');
         
         // Reset file input
         event.target.value = '';
@@ -7160,7 +7180,7 @@ async function importPresetFromFile(event) {
         const errorMessage = error instanceof Error ? error.message : 
                            (typeof error === 'string' ? error : 
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert('❌ Error loading preset: ' + errorMessage);
+        showNotification('Error loading preset: ' + errorMessage, 'error');
         event.target.value = ''; // Reset file input
     }
 }
@@ -7218,7 +7238,7 @@ async function refreshConfigVersionList() {
     } catch (error) {
         console.error('Error refreshing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading versions: ${errorMessage}`);
+        showNotification('Error loading versions: ' + errorMessage, 'error');
     }
 }
 
@@ -7229,7 +7249,7 @@ async function showConfigVersionList() {
     } catch (error) {
         console.error('Error showing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading versions: ${errorMessage}`);
+        showNotification('Error loading versions: ' + errorMessage, 'error');
     }
 }
 
@@ -7248,11 +7268,11 @@ async function loadConfigByVersion(versionNumber) {
         }
         await applyPreset(data);
         closeConfigVersionListModal();
-        alert(`Configuration version ${versionNumber} loaded into form. Click Save to make it active.`);
+        showNotification('Configuration version ' + versionNumber + ' loaded. Click Save to make it active.', 'info');
     } catch (error) {
         console.error('Error loading config by version:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading version: ${errorMessage}`);
+        showNotification('Error loading version: ' + errorMessage, 'error');
     }
 }
 
@@ -7300,7 +7320,7 @@ async function refreshConfigPresetList() {
     } catch (error) {
         console.error('Error refreshing config preset list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading presets: ${errorMessage}`);
+        showNotification('Error loading presets: ' + errorMessage, 'error');
     }
 }
 
@@ -7311,7 +7331,7 @@ async function showConfigPresetList() {
     } catch (error) {
         console.error('Error showing config preset list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading presets: ${errorMessage}`);
+        showNotification('Error loading presets: ' + errorMessage, 'error');
     }
 }
 
@@ -7336,11 +7356,11 @@ async function saveConfigPreset() {
             const errorMsg = extractErrorMessage(data, `Failed to save preset (${response.status})`);
             throw new Error(errorMsg);
         }
-        alert(data.message || 'Preset saved');
+        showNotification(data.message || 'Preset saved', 'success');
     } catch (error) {
         console.error('Error saving config preset:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error saving preset: ${errorMessage}`);
+        showNotification('Error saving preset: ' + errorMessage, 'error');
     }
 }
 
@@ -7361,11 +7381,11 @@ async function loadConfigPresetById(presetId) {
         }
         await applyPreset(data);
         closeConfigPresetListModal();
-        alert('Preset loaded');
+        showNotification('Preset loaded', 'success');
     } catch (error) {
         console.error('Error loading config preset:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading preset: ${errorMessage}`);
+        showNotification('Error loading preset: ' + errorMessage, 'error');
     }
 }
 
@@ -7386,11 +7406,11 @@ async function deleteConfigPreset(presetId, name) {
             throw new Error(errorMsg);
         }
         await refreshConfigPresetList();
-        alert(`Preset "${name}" deleted`);
+        showNotification('Preset "' + name + '" deleted', 'success');
     } catch (error) {
         console.error('Error deleting config preset:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error deleting preset: ${errorMessage}`);
+        showNotification('Error deleting preset: ' + errorMessage, 'error');
     }
 }
 
@@ -7654,7 +7674,7 @@ async function saveAgentPrompt2(agentName) {
     const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
     const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
     if (!promptSystemElement || !promptUserElement) {
-        alert(`Prompt elements not found for ${agentName}.`);
+        showNotification('Prompt elements not found for ' + agentName, 'error');
         return;
     }
     const systemVal = promptSystemElement.value || "";
@@ -7890,14 +7910,14 @@ async function saveAgentPrompt2(agentName) {
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
                 console.error('Failed to parse error response:', e);
             }
-            alert(`Error updating agent prompt: ${errorMessage}\n\nCheck console (F12) for full details.`);
+            showNotification('Error updating agent prompt: ' + errorMessage, 'error');
             console.error('Full response status:', response.status);
             console.error('Full response headers:', Object.fromEntries(response.headers.entries()));
             console.error('Full response URL:', response.url);
         }
     } catch (error) {
         console.error('Error saving agent prompt:', error);
-        alert(`Error saving agent prompt: ${error.message || error}`);
+        showNotification('Error saving agent prompt: ' + (error.message || error), 'error');
     }
 }
 
@@ -8154,7 +8174,7 @@ async function showGenerateCommandsModal() {
     );
     
     if (lmstudioModels.length === 0) {
-        alert('No LMStudio models found in current configuration.');
+        showNotification('No LMStudio models found in current configuration.', 'warning');
         return;
     }
     
@@ -8716,7 +8736,7 @@ if (workflowConfigForm) {
     const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
     
     if (!junkFilterValid || !rankingValid || !similarityValid) {
-        alert('Please fix the validation errors before saving.');
+        showNotification('Please fix the validation errors before saving.', 'error');
         return;
     }
     
@@ -8822,7 +8842,7 @@ if (workflowConfigForm) {
     
     // Validate RankAgent model is set
     if (!formData.agent_models.RankAgent) {
-        alert('Rank Agent model is required. Please select a model from the dropdown.');
+        showNotification('Rank Agent model is required. Please select a model from the dropdown.', 'error');
         document.getElementById('rankagent-model-2')?.focus();
         return;
     }
@@ -9022,14 +9042,14 @@ if (workflowConfigForm) {
                     errorMessage = JSON.stringify(error.detail, null, 2);
                 }
             }
-            alert('Error updating configuration:\n\n' + errorMessage);
+            showNotification('Error updating configuration: ' + errorMessage, 'error');
             saveButton.disabled = false;
             saveButton.textContent = originalButtonText;
             updateSaveButtonState();
         }
     } catch (error) {
         console.error('Error saving config:', error);
-        alert('Error saving configuration');
+        showNotification('Error saving configuration', 'error');
         saveButton.disabled = false;
         saveButton.textContent = originalButtonText;
         updateSaveButtonState();
@@ -10214,25 +10234,19 @@ async function retryExecution(executionId, useLangGraphServer = false) {
         if (response.ok) {
             const result = await response.json();
             if (result.via_direct_execution) {
-                alert('✅ Retry completed\n\n' +
-                      'Execution finished synchronously.\n' +
-                      'Langfuse traces created (if enabled).\n' +
-                      'Click "Trace" button to view traces.');
+                showNotification('Retry completed. Execution finished synchronously.', 'success');
             } else {
-                alert('✅ Retry queued\n\n' +
-                      'Execution running in background via Celery.\n' +
-                      'Langfuse traces will be created (if enabled).\n' +
-                      'Check execution status to see progress.');
+                showNotification('Retry queued. Execution running in background.', 'success');
             }
             await loadExecutions();
         } else {
             const error = await response.json();
             const errorMsg = error.detail || 'Unknown error';
-            alert('❌ Error retrying execution:\n\n' + errorMsg);
+            showNotification('Error retrying execution: ' + errorMsg, 'error');
         }
     } catch (error) {
         console.error('Error retrying execution:', error);
-        alert('Error retrying execution');
+        showNotification('Error retrying execution', 'error');
     }
 }
 
@@ -10293,15 +10307,15 @@ async function debugInAgentChat(executionId) {
                     }
                 }, 500);
             } else {
-                alert('Unable to generate session URL. Please check Langfuse configuration.');
+                showNotification('Unable to generate session URL. Please check Langfuse configuration.', 'error');
             }
         } else {
             const error = await response.json();
-            alert('Error getting debug info: ' + (error.detail || 'Unknown error'));
+            showNotification('Error getting debug info: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error opening session:', error);
-        alert('Error opening session. Please check your configuration.');
+        showNotification('Error opening session. Please check your configuration.', 'error');
     }
 }
 
@@ -10529,20 +10543,20 @@ async function triggerStuckExecutions() {
         
         if (response.ok) {
             if (data.count === 0) {
-                alert('✅ No pending executions found.');
+                showNotification('No pending executions found.', 'success');
             } else {
                 const message = `✅ Triggered ${data.count} execution(s)\n\n` +
                               `Successful: ${data.successful}\n` +
                               `Failed: ${data.failed}`;
-                alert(message);
+                showNotification(message, 'info');
             }
             await loadExecutions();
         } else {
-            alert('❌ Error: ' + (data.detail || 'Unknown error'));
+            showNotification('Error: ' + (data.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error triggering stuck executions:', error);
-        alert('Error triggering stuck executions: ' + error.message);
+        showNotification('Error triggering stuck executions: ' + error.message, 'error');
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -10564,21 +10578,21 @@ async function cleanupStaleExecutions() {
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-            alert(`❌ Cleanup failed: ${errorData.detail || 'Unknown error'}`);
+            showNotification('Cleanup failed: ' + (errorData.detail || 'Unknown error'), 'error');
             return;
         }
         
         const result = await response.json();
         
         if (result.success) {
-            alert(`✅ ${result.message}`);
+            showNotification(result.message, 'success');
             refreshExecutions(); // Refresh the list
         } else {
-            alert(`❌ Cleanup failed: ${result.message || 'Unknown error'}`);
+            showNotification('Cleanup failed: ' + (result.message || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Cleanup error:', error);
-        alert(`❌ Error cleaning up stale executions: ${error.message}`);
+        showNotification('Error cleaning up stale executions: ' + error.message, 'error');
     }
 }
 
@@ -10597,21 +10611,21 @@ async function cancelAllRunningExecutions() {
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-            alert(`❌ Cancel failed: ${errorData.detail || 'Unknown error'}`);
+            showNotification('Cancel failed: ' + (errorData.detail || 'Unknown error'), 'error');
             return;
         }
         
         const result = await response.json();
         
         if (result.success) {
-            alert(`✅ ${result.message}`);
+            showNotification(result.message, 'success');
             refreshExecutions(); // Refresh the list
         } else {
-            alert(`❌ Cancel failed: ${result.message || 'Unknown error'}`);
+            showNotification('Cancel failed: ' + (result.message || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Cancel error:', error);
-        alert(`❌ Error cancelling executions: ${error.message}`);
+        showNotification('Error cancelling executions: ' + error.message, 'error');
     }
 }
 
@@ -10993,16 +11007,16 @@ async function approveRule(ruleId) {
         });
         
         if (response.ok) {
-            alert('Rule approved successfully');
+            showNotification('Rule approved successfully', 'success');
             closeRuleModal();
             await loadQueue();
         } else {
             const error = await response.json();
-            alert('Error approving rule: ' + (error.detail || 'Unknown error'));
+            showNotification('Error approving rule: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error approving rule:', error);
-        alert('Error approving rule');
+        showNotification('Error approving rule', 'error');
     }
 }
 
@@ -11028,16 +11042,16 @@ async function rejectRule(ruleId) {
         });
         
         if (response.ok) {
-            alert('Rule rejected');
+            showNotification('Rule rejected', 'info');
             closeRuleModal();
             await loadQueue();
         } else {
             const error = await response.json();
-            alert('Error rejecting rule: ' + (error.detail || 'Unknown error'));
+            showNotification('Error rejecting rule: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error rejecting rule:', error);
-        alert('Error rejecting rule');
+        showNotification('Error rejecting rule', 'error');
     }
 }
 
@@ -11048,7 +11062,7 @@ async function submitPR() {
     // Check if there are approved rules
     const approvedCount = parseInt(document.getElementById('approvedCount').textContent) || 0;
     if (approvedCount === 0) {
-        alert('No approved rules to submit. Please approve rules first.');
+        showNotification('No approved rules to submit. Please approve rules first.', 'warning');
         return;
     }
     
@@ -11070,7 +11084,7 @@ async function submitPR() {
         const result = await response.json();
         
         if (result.success) {
-            alert(`✅ PR created successfully!\n\nPR URL: ${result.pr_url}\nRules: ${result.rules_count}`);
+            showNotification('PR created successfully. Rules: ' + result.rules_count, 'success');
             // Reload queue to show updated status
             await loadQueue();
         } else {
@@ -11078,11 +11092,11 @@ async function submitPR() {
             if (result.branch) {
                 errorMsg += `\n\nBranch created: ${result.branch}\nYou may need to create the PR manually.`;
             }
-            alert(errorMsg);
+            showNotification(errorMsg, 'error');
         }
     } catch (error) {
         console.error('Error submitting PR:', error);
-        alert('❌ Error submitting PR: ' + error.message);
+        showNotification('Error submitting PR: ' + error.message, 'error');
     } finally {
         // Restore button
         btn.disabled = false;
@@ -11114,7 +11128,7 @@ function closeRuleModal() {
 
 async function validateRule() {
     if (!currentRuleId) {
-        alert('No rule selected');
+        showNotification('No rule selected', 'warning');
         return;
     }
     
@@ -11125,7 +11139,7 @@ async function validateRule() {
     const selectedModel = modelSelect ? modelSelect.value : 'gpt-4o-mini';
     
     if (!selectedProvider || !selectedModel) {
-        alert('Please select both a provider and model.');
+        showNotification('Please select both a provider and model.', 'error');
         return;
     }
     
@@ -11161,7 +11175,7 @@ async function validateRule() {
     }
     
     if (!apiKey && selectedProvider !== 'lmstudio') {
-        alert(`Please configure your ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} API key in Settings first.`);
+        showNotification('Please configure your ' + selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1) + ' API key in Settings first.', 'error');
         return;
     }
     
@@ -11245,7 +11259,7 @@ async function validateRule() {
         if (loadingEl) loadingEl.remove();
         
         console.error('Error validating rule:', error);
-        alert('Error validating rule: ' + error.message);
+        showNotification('Error validating rule: ' + error.message, 'error');
     }
 }
 
@@ -11596,7 +11610,7 @@ function closeValidationConversationModal() {
 
 async function applyValidatedRuleFromModal() {
     if (!window.validatedYaml) {
-        alert('No validated rule to apply');
+        showNotification('No validated rule to apply', 'warning');
         return;
     }
     
@@ -11631,19 +11645,19 @@ async function applyValidatedRuleFromModal() {
             // Reload queue in background
             loadQueue().catch(err => console.error('Error reloading queue:', err));
             
-            alert('Validated rule applied successfully');
+            showNotification('Validated rule applied successfully', 'success');
         } else {
-            alert('Error applying validated rule');
+            showNotification('Error applying validated rule', 'error');
         }
     } catch (error) {
         console.error('Error applying validated rule:', error);
-        alert('Error applying validated rule');
+        showNotification('Error applying validated rule', 'error');
     }
 }
 
 async function applyValidatedRule() {
     if (!window.validatedYaml) {
-        alert('No validated rule to apply');
+        showNotification('No validated rule to apply', 'warning');
         return;
     }
     
@@ -11681,13 +11695,13 @@ async function applyValidatedRule() {
             // Reload queue in background
             loadQueue().catch(err => console.error('Error reloading queue:', err));
             
-            alert('Validated rule applied successfully');
+            showNotification('Validated rule applied successfully', 'success');
         } else {
-            alert('Error applying validated rule');
+            showNotification('Error applying validated rule', 'error');
         }
     } catch (error) {
         console.error('Error applying validated rule:', error);
-        alert('Error applying validated rule');
+        showNotification('Error applying validated rule', 'error');
     }
 }
 
@@ -12094,7 +12108,7 @@ async function saveEnrichmentPrompt() {
     const userInstruction = document.getElementById('enrichInstruction').value.trim();
     
     if (!systemPrompt) {
-        alert('System prompt cannot be empty');
+        showNotification('System prompt cannot be empty', 'error');
         return;
     }
     
@@ -12120,10 +12134,10 @@ async function saveEnrichmentPrompt() {
             throw new Error(data.detail || 'Failed to save prompt');
         }
         
-        alert(`✅ Prompt saved as version ${data.version}`);
+        showNotification('Prompt saved as version ' + data.version, 'success');
     } catch (error) {
         console.error('Error saving prompt:', error);
-        alert(`Error saving prompt: ${error.message}`);
+        showNotification('Error saving prompt: ' + error.message, 'error');
     }
 }
 
@@ -12176,7 +12190,7 @@ async function showSigmaPromptHistory() {
         }
     } catch (error) {
         console.error('Error loading history:', error);
-        alert(`Error loading history: ${error.message}`);
+        showNotification('Error loading history: ' + error.message, 'error');
     }
 }
 
@@ -12200,10 +12214,10 @@ async function loadPromptVersion(versionId) {
         // Close history modal
         closePromptHistoryModal();
         
-        alert('✅ Prompt version loaded');
+        showNotification('Prompt version loaded', 'success');
     } catch (error) {
         console.error('Error loading prompt version:', error);
-        alert(`Error loading prompt version: ${error.message}`);
+        showNotification('Error loading prompt version: ' + error.message, 'error');
     }
 }
 
@@ -12214,12 +12228,12 @@ async function saveEnrichmentPreset() {
     const userInstruction = document.getElementById('enrichInstruction').value.trim();
     
     if (!provider || !model) {
-        alert('Please select both a provider and model');
+        showNotification('Please select both a provider and model', 'error');
         return;
     }
     
     if (!systemPrompt) {
-        alert('System prompt cannot be empty');
+        showNotification('System prompt cannot be empty', 'error');
         return;
     }
     
@@ -12253,10 +12267,10 @@ async function saveEnrichmentPreset() {
             throw new Error(data.detail || 'Failed to save preset');
         }
         
-        alert(`✅ Preset "${name}" ${data.message}`);
+        showNotification('Preset "' + name + '" ' + data.message, 'success');
     } catch (error) {
         console.error('Error saving preset:', error);
-        alert(`Error saving preset: ${error.message}`);
+        showNotification('Error saving preset: ' + error.message, 'error');
     }
 }
 
@@ -12317,7 +12331,7 @@ async function showPresetList() {
         const errorMessage = error instanceof Error ? error.message : 
                            (typeof error === 'string' ? error : 
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading presets: ${errorMessage}`);
+        showNotification('Error loading presets: ' + errorMessage, 'error');
     }
 }
 
@@ -12373,7 +12387,7 @@ async function loadPresetById(presetId, opts = {}) {
         
         if (!silent) {
             closePresetListModal();
-            alert(`✅ Preset "${data.name}" loaded`);
+            showNotification('Preset "' + data.name + '" loaded', 'success');
         }
     } catch (error) {
         console.error('Error loading preset:', error);
@@ -12381,7 +12395,7 @@ async function loadPresetById(presetId, opts = {}) {
         const errorMessage = error instanceof Error ? error.message : 
                            (typeof error === 'string' ? error : 
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error loading preset: ${errorMessage}`);
+        showNotification('Error loading preset: ' + errorMessage, 'error');
     }
 }
 
@@ -12420,13 +12434,13 @@ async function deletePreset(presetId, presetName) {
         // Reload preset list
         await showPresetList();
         
-        alert(`✅ Preset "${presetName}" deleted`);
+        showNotification('Preset "' + presetName + '" deleted', 'success');
     } catch (error) {
         console.error('Error deleting preset:', error);
         const errorMessage = error instanceof Error ? error.message : 
                            (typeof error === 'string' ? error : 
                            (error?.message || JSON.stringify(error) || 'Unknown error'));
-        alert(`Error deleting preset: ${errorMessage}`);
+        showNotification('Error deleting preset: ' + errorMessage, 'error');
     }
 }
 
@@ -12715,7 +12729,7 @@ async function enrichRule() {
             
             if (!enrichResult || !comparisonView || !textarea || !toggleBtn) {
                 console.error('Missing elements for comparison view');
-                alert('Error: Could not display comparison view. Please check console.');
+                showNotification('Could not display comparison view. Please check console.', 'error');
                 return;
             }
             
@@ -12790,7 +12804,7 @@ async function enrichRule() {
 async function applyEnrichedRule() {
     const enrichedYaml = document.getElementById('enrichedRuleYaml').value;
     if (!enrichedYaml.trim()) {
-        alert('No enriched rule to apply');
+        showNotification('No enriched rule to apply', 'warning');
         return;
     }
     
@@ -12823,11 +12837,11 @@ async function applyEnrichedRule() {
             // Reload queue in background to sync with server
             loadQueue().catch(err => console.error('Error reloading queue:', err));
         } else {
-            alert('Error applying enriched rule');
+            showNotification('Error applying enriched rule', 'error');
         }
     } catch (error) {
         console.error('Error applying enriched rule:', error);
-        alert('Error applying enriched rule');
+        showNotification('Error applying enriched rule', 'error');
     }
 }
 
@@ -12846,7 +12860,7 @@ if (enrichModal) {
 async function enrichRuleFurther() {
     // Use the current enriched rule as the base for further enrichment
     if (!currentEnrichedYaml) {
-        alert('No enriched rule to build upon. Please enrich the rule first.');
+        showNotification('No enriched rule to build upon. Please enrich the rule first.', 'warning');
         return;
     }
     
@@ -13150,7 +13164,7 @@ let isSimilarRulesModalExpanded = false;
 async function checkSimilarRulesForQueue() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) {
-        alert('Rule not found');
+        showNotification('Rule not found', 'error');
         return;
     }
     
@@ -13398,7 +13412,7 @@ async function checkSimilarRulesForQueue() {
             const generatedRules = currentRuleParsed ? [currentRuleParsed] : [];
             showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules, data.assessment_method);
         } else {
-            alert('Failed to find similar rules: ' + (data.message || 'Unknown error'));
+            showNotification('Failed to find similar rules: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (error) {
         // Remove loading indicator
@@ -13407,9 +13421,9 @@ async function checkSimilarRulesForQueue() {
         
         console.error('Error checking similar rules:', error);
         if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-            alert('Request timed out - LLM reranking may still be processing. Try again in a moment.');
+            showNotification('Request timed out - LLM reranking may still be processing. Try again in a moment.', 'warning');
         } else {
-            alert('Error checking similar rules: ' + error.message);
+            showNotification('Error checking similar rules: ' + error.message, 'error');
         }
     }
 }
@@ -14423,7 +14437,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         }
     } catch (error) {
         console.error('Error parsing rule data:', error);
-        alert('Error displaying rule details');
+        showNotification('Error displaying rule details', 'error');
     }
 }
 

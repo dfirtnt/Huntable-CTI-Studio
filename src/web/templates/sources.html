@@ -600,17 +600,17 @@ function saveSourceConfig() {
     const minLength = parseInt(document.getElementById('configMinContentLength').value);
     
     if (!days || days < 1 || days > 365) {
-        alert('Please enter a valid number between 1 and 365 days for lookback window.');
+        showNotification('Please enter a valid number between 1 and 365 days for lookback window.', 'error');
         return;
     }
     
     if (!checkFrequencyMinutes || checkFrequencyMinutes < 1 || checkFrequencyMinutes > 1440) {
-        alert('Please enter a valid number between 1 and 1440 minutes for check frequency.');
+        showNotification('Please enter a valid number between 1 and 1440 minutes for check frequency.', 'error');
         return;
     }
     
     if (!minLength || minLength < 0) {
-        alert('Please enter a valid non-negative number for minimum content length.');
+        showNotification('Please enter a valid non-negative number for minimum content length.', 'error');
         return;
     }
     
@@ -657,27 +657,6 @@ function saveSourceConfig() {
         saveBtn.textContent = originalText;
         saveBtn.disabled = false;
     });
-}
-
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg text-white';
-    if (type === 'success') {
-        notification.style.backgroundColor = 'var(--color-success)';
-    } else if (type === 'error') {
-        notification.style.backgroundColor = 'var(--color-error)';
-    } else {
-        notification.style.backgroundColor = 'var(--color-info)';
-    }
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
 }
 
 // Adhoc URL scraping functions

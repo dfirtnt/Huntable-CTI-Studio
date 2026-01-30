@@ -4,6 +4,26 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Settings</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
             <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[63px] h-[63px]" />
@@ -17,14 +37,16 @@
 
         <!-- Backup Configuration -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <div class="flex items-center justify-between cursor-pointer" onclick="toggleBackupConfig()">
+            <div id="backupConfig-header" data-collapsible-panel="backupConfig" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">💾 Backup Configuration</h2>
-                <svg id="backupConfigChevron" class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
+                <span id="backupConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </span>
             </div>
             
-            <div id="backupConfigContent" class="space-y-6 hidden">
+            <div id="backupConfig-content" class="space-y-6 hidden">
                 <!-- Backup Schedule -->
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🕐 Schedule</h3>
@@ -274,14 +296,16 @@
 
         <!-- Agentic Workflow Configuration -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <div class="flex items-center justify-between cursor-pointer" onclick="toggleAgenticWorkflowConfig()">
+            <div data-collapsible-panel="agenticWorkflowConfig" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🤖 Agentic Workflow Configuration</h2>
-                <svg id="agenticWorkflowConfigChevron" class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
+                <span id="agenticWorkflowConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </span>
             </div>
 
-            <div id="agenticWorkflowConfigContent" class="space-y-4 hidden">
+            <div id="agenticWorkflowConfig-content" class="space-y-4 hidden">
                 <!-- Model Provider Selection -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -521,14 +545,16 @@
 
         <!-- GitHub PR Configuration -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <div class="flex items-center justify-between cursor-pointer" onclick="toggleGitHubPRConfig()">
+            <div data-collapsible-panel="githubPRConfig" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📤 GitHub PR Configuration</h2>
-                <svg id="githubPRConfigChevron" class="w-5 h-5 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
+                <span id="githubPRConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </span>
             </div>
 
-            <div id="githubPRConfigContent" class="space-y-4 hidden">
+            <div id="githubPRConfig-content" class="space-y-4 hidden">
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Configure GitHub authentication and repository settings for submitting approved SIGMA rules as Pull Requests.
                 </p>
@@ -1339,48 +1365,6 @@
         setToggleState(toggleId, !currentState);
     }
     
-    // Toggle backup configuration section
-    function toggleBackupConfig() {
-        const content = document.getElementById('backupConfigContent');
-        const chevron = document.getElementById('backupConfigChevron');
-
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            content.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-
-    // Toggle agentic workflow configuration section
-    function toggleAgenticWorkflowConfig() {
-        const content = document.getElementById('agenticWorkflowConfigContent');
-        const chevron = document.getElementById('agenticWorkflowConfigChevron');
-
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            content.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-
-    // Toggle GitHub PR configuration section
-    function toggleGitHubPRConfig() {
-        const content = document.getElementById('githubPRConfigContent');
-        const chevron = document.getElementById('githubPRConfigChevron');
-
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            content.classList.add('hidden');
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-
     function cacheWorkflowProviderCatalog(catalog) {
         if (!catalog || typeof localStorage === 'undefined') return;
         try {
@@ -1883,28 +1867,6 @@
         statusDisplay.classList.remove('hidden');
     }
 
-    function showNotification(message, type) {
-        // Create notification element
-        var notification = document.createElement('div');
-        var className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm transform transition-all duration-300 ';
-        if (type === 'success') {
-            className += 'bg-green-500 text-white';
-        } else if (type === 'error') {
-            className += 'bg-red-500 text-white';
-        } else {
-            className += 'bg-blue-500 text-white';
-        }
-        notification.className = className;
-        notification.textContent = message;
-
-        document.body.appendChild(notification);
-
-        // Remove after 5 seconds
-        setTimeout(function() {
-            notification.remove();
-        }, 5000);
-    }
-    
     // Restore backup functions
     var selectedBackupName = null;
     

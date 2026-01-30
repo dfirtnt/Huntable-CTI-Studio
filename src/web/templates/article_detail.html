@@ -43,11 +43,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     const message = `Workflow triggered successfully! Execution ID: ${data.execution_id || 'N/A'}`;
-                    if (typeof showNotification === 'function') {
-                        showNotification(message, 'success');
-                    } else {
-                        alert(message);
-                    }
+                    showNotification(message, 'success');
                     
                     // Redirect to workflow executions page
                     window.location.href = '/workflow#executions';
@@ -60,11 +56,7 @@
                     }
                     
                     const errorMessage = errorData.detail || errorData.message || 'Failed to trigger workflow';
-                    if (typeof showNotification === 'function') {
-                        showNotification(`Error: ${errorMessage}`, 'error');
-                    } else {
-                        alert(`Error: ${errorMessage}`);
-                    }
+                    showNotification(`Error: ${errorMessage}`, 'error');
                     
                     // If there's an existing execution, offer to view it
                     if (errorMessage.includes('already has an active workflow execution')) {
@@ -82,11 +74,7 @@
             } catch (error) {
                 console.error('Error triggering workflow:', error);
                 const errorMsg = `Error: ${error.message}`;
-                if (typeof showNotification === 'function') {
-                    showNotification(errorMsg, 'error');
-                } else {
-                    alert(errorMsg);
-                }
+                showNotification(errorMsg, 'error');
             } finally {
                 // Re-enable button
                 if (btn) {
@@ -743,46 +731,26 @@
         try {
             const contentElement = document.getElementById('article-content');
             if (!contentElement) {
-                if (typeof showNotification === 'function') {
-                    showNotification('Article content element not found', 'error');
-                } else {
-                    alert('Article content element not found');
-                }
+                showNotification('Article content element not found', 'error');
                 return;
             }
             
             const textContent = contentElement.innerText || contentElement.textContent || '';
             
             if (!textContent.trim()) {
-                if (typeof showNotification === 'function') {
-                    showNotification('Article has no content to copy', 'error');
-                } else {
-                    alert('Article has no content to copy');
-                }
+                showNotification('Article has no content to copy', 'error');
                 return;
             }
             
             navigator.clipboard.writeText(textContent).then(() => {
-                if (typeof showNotification === 'function') {
-                    showNotification('Article content copied to clipboard!', 'success');
-                } else {
-                    alert('Article content copied to clipboard!');
-                }
+                showNotification('Article content copied to clipboard!', 'success');
             }).catch(error => {
                 console.error('Error copying to clipboard:', error);
-                if (typeof showNotification === 'function') {
-                    showNotification('Failed to copy article content', 'error');
-                } else {
-                    alert('Failed to copy article content');
-                }
+                showNotification('Failed to copy article content', 'error');
             });
         } catch (error) {
             console.error('Error copying article content:', error);
-            if (typeof showNotification === 'function') {
-                showNotification('Failed to copy article content', 'error');
-            } else {
-                alert('Failed to copy article content');
-            }
+            showNotification('Failed to copy article content', 'error');
         }
     }
     window.copyArticleContentToClipboard = copyArticleContentToClipboard;
@@ -4768,25 +4736,6 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
     
-    function showNotification(message, type) {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm ${
-            type === 'success' ? 'bg-emerald-500 text-white' : 
-            type === 'error' ? 'bg-red-500 text-white' : 
-            type === 'info' ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'
-        }`;
-        notification.textContent = message;
-        
-        // Add to page
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
-    
     function markOperationComplete(operationId, status = 'completed') {
         console.log('markOperationComplete called with:', operationId, status);
         
@@ -7673,14 +7622,7 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     function showCTIBERTHelp() {
-        alert('CTI-BERT IOC Extraction\n\n' +
-              'Uses IBM Research\'s CTI-BERT model (pre-trained on 1.2B cybersecurity tokens) for Named Entity Recognition-based IOC extraction.\n\n' +
-              'Features:\n' +
-              '• Domain-specific cybersecurity knowledge\n' +
-              '• Pattern-based extraction with semantic filtering\n' +
-              '• No API keys required (runs locally)\n' +
-              '• Extracts IPs, domains, URLs, hashes, file paths, registry keys, emails, mutexes, and more\n\n' +
-              'This method complements the standard IOC extraction by leveraging domain-specific language understanding.');
+        showNotification('CTI-BERT: Domain-specific NER-based IOC extraction. Runs locally, no API keys. Extracts IPs, domains, URLs, hashes, and more.', 'info');
     }
     
     async function showGPT4oRankingModal(analysis, data) {
@@ -8651,16 +8593,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Article deleted successfully!');
+                    showNotification('Article deleted successfully!', 'success');
                     // Redirect to articles page
                     window.location.href = '/articles';
                 } else {
-                    alert('Failed to delete article: ' + (data.message || 'Unknown error'));
+                    showNotification('Failed to delete article: ' + (data.message || 'Unknown error'), 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to delete article: ' + error.message);
+                showNotification('Failed to delete article: ' + error.message, 'error');
             });
         }
     }
@@ -9549,7 +9491,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             window.chunkDebugFullAnalysisInProgress = false;
         } catch (e) {
             console.error('Error in showChunkDebugResults:', e);
-            alert('Error displaying chunk debug results: ' + e.message);
+            showNotification('Error displaying chunk debug results: ' + e.message, 'error');
             return;
         }
         
