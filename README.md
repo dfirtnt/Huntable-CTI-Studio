@@ -2,7 +2,7 @@
 
 ## ** SECURITY WARNING **
 !! DO NOT DEPLOY IN HOSTILE NETWORK!!
-This app is a suite of utilities for processing open source intel. It is for reasearch learning and automation purposes. Code is NOT SECURE, and is not intended to be used in production!!
+This app is a suite of utilities for processing open source intel. It is for research, learning, and automation purposes. Code is NOT SECURE, and is not intended to be used in production!!
 ##
 
 **CTIScraper v5.0.0 "Callisto"** -  A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 33+ OSINT sources.
@@ -15,7 +15,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 
 ### Architecture
 - **7 microservices**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers, scheduler
-- **19 database tables**: Articles with embeddings, Sigma rules, workflow executions, chat logs
+- **28 database tables**: Articles with embeddings, Sigma rules, workflow executions, chat logs, eval presets, model versions, and more
 - **Multi-model AI**: OpenAI GPT-4, Anthropic Claude, LMStudio (local models)
 
 ### Agentic Workflow (6 Steps)
@@ -51,4 +51,3 @@ The documentation has been reorganized under `/docs` and is published with MkDoc
 - **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery + optional LangGraph server; start with `./start.sh`.
 
 For full details, begin at `docs/index.md`.
-# SIGMASimTest

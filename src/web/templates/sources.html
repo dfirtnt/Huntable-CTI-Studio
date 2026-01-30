@@ -298,7 +298,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">📄 Upload PDF Reports</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400" style="color: #a3b7d0;">
+                <p class="text-sm text-gray-500 dark:text-gray-400" style="color: var(--text-muted-blue);">
                     Upload PDF threat intelligence reports to automatically extract and analyze content
                 </p>
             </div>
@@ -498,7 +498,7 @@ function closeModal() {
                                     Lookback Window (days)
                                 </label>
                                 <input type="number" id="configLookbackDays" min="1" max="365" 
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                                        placeholder="Enter days (1-365)">
                                 <p class="mt-1 text-xs text-gray-400">
                                     How many days back this source should look for articles.
@@ -511,7 +511,7 @@ function closeModal() {
                                     Check Frequency (minutes)
                                 </label>
                                 <input type="number" id="configCheckFrequency" min="1" max="1440" 
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                                        placeholder="Enter minutes (1-1440)">
                                 <p class="mt-1 text-xs text-gray-400">
                                     How often this source should be checked for new content (minimum 1 minute).
@@ -524,7 +524,7 @@ function closeModal() {
                                     Minimum Content Length (characters)
                                 </label>
                                 <input type="number" id="configMinContentLength" min="0" 
-                                       class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                                        placeholder="Enter minimum characters">
                                 <p class="mt-1 text-xs text-gray-400">
                                     Articles shorter than this length will be filtered out.
@@ -1124,33 +1124,33 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
 </script>
 
     <!-- Manual URL Scraping Section -->
-    <div class="bg-white rounded-lg shadow-sm p-6" style="background-color: #1c2230;">
+    <div class="bg-white rounded-lg shadow-sm p-6" style="background-color: var(--panel-bg-alt);">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h2 class="text-xl font-bold text-gray-900 dark:text-white" style="color: #f1f5f9;">Manual URL Scraping</h2>
-                <p class="mt-1 text-sm text-gray-600" style="color: #a3b7d0;">Add one or more URLs (one per line) for batch scraping and analysis</p>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white" style="color: var(--text-input);">Manual URL Scraping</h2>
+                <p class="mt-1 text-sm text-gray-600" style="color: var(--text-muted-blue);">Add one or more URLs (one per line) for batch scraping and analysis</p>
             </div>
         </div>
         
         <form id="adhocUrlForm" class="space-y-4" method="post" action="javascript:void(0);" onsubmit="return false;">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label for="adhocUrl" class="block text-sm font-medium text-gray-700 mb-2" style="color: #f1f5f9;">
+                    <label for="adhocUrl" class="block text-sm font-medium text-gray-700 mb-2" style="color: var(--text-input);">
                         Article URLs (one per line)
                     </label>
                     <textarea id="adhocUrl" name="url" rows="6" required
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                            placeholder="https://example.com/article1&#10;https://example.com/article2&#10;https://example.com/article3"></textarea>
-                    <p class="mt-1 text-xs text-gray-500" style="color: #a3b7d0;">
+                    <p class="mt-1 text-xs text-gray-500" style="color: var(--text-muted-blue);">
                         Enter one or more URLs (one per line). Each URL will be scraped and processed.
                     </p>
-                    <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md" style="background-color: #374151; border-color: #4b5563;">
+                    <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md" style="background-color: var(--border-muted); border-color: var(--border-subtle);">
                         <div class="flex items-start">
                             <div class="flex-shrink-0">
-                                <span class="text-blue-600 text-sm" style="color: #3b82f6;">ℹ️</span>
+                                <span class="text-blue-600 text-sm" style="color: var(--action-info);">ℹ️</span>
                             </div>
                             <div class="ml-2">
-                                <p class="text-xs text-blue-800" style="color: #a3b7d0;">
+                                <p class="text-xs text-blue-800" style="color: var(--text-muted-blue);">
                                     <strong>Tip:</strong> Verify the URL opens correctly in your browser first. Some URLs may redirect to different domains or pages.
                                 </p>
                             </div>
@@ -1159,13 +1159,13 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                 </div>
                 
                 <div>
-                    <label for="adhocTitle" class="block text-sm font-medium text-gray-700 mb-2" style="color: #f1f5f9;">
+                    <label for="adhocTitle" class="block text-sm font-medium text-gray-700 mb-2" style="color: var(--text-input);">
                         Custom Title (Optional)
                     </label>
                     <input type="text" id="adhocTitle" name="title"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                            placeholder="Leave empty to auto-detect">
-                    <p class="mt-1 text-xs text-gray-500" style="color: #a3b7d0;">
+                    <p class="mt-1 text-xs text-gray-500" style="color: var(--text-muted-blue);">
                         Override the auto-detected title if needed
                     </p>
                 </div>
@@ -1175,7 +1175,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                 <div class="flex items-center space-x-4">
                     <label class="flex items-center">
                         <input type="checkbox" id="adhocForceScrape" name="force_scrape" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <span class="ml-2 text-sm text-gray-700" style="color: #f1f5f9;">Force scrape even if Article already in databse</span>
+                        <span class="ml-2 text-sm text-gray-700" style="color: var(--text-input);">Force scrape even if Article already in databse</span>
                         <div class="relative ml-2 group">
                             <span class="inline-flex items-center justify-center w-4 h-4 text-xs font-medium text-gray-500 bg-gray-200 rounded-full cursor-help hover:bg-gray-300 transition-colors">?</span>
                             <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -1197,10 +1197,10 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
         
         <!-- Scraping Status -->
         <div id="scrapingStatus" class="mt-4 hidden">
-            <div class="bg-blue-50 border border-blue-200 rounded-md p-4" style="background-color: #374151; border-color: #4b5563;">
+            <div class="bg-blue-50 border border-blue-200 rounded-md p-4" style="background-color: var(--border-muted); border-color: var(--border-subtle);">
                 <div class="flex items-center">
-                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" style="border-color: #3b82f6;"></div>
-                    <span class="text-sm text-blue-800" id="scrapingStatusText" style="color: #a3b7d0;">Scraping URL...</span>
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" style="border-color: var(--action-info);"></div>
+                    <span class="text-sm text-blue-800" id="scrapingStatusText" style="color: var(--text-muted-blue);">Scraping URL...</span>
                 </div>
             </div>
         </div>
@@ -1231,13 +1231,13 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
 
     <!-- Collection Status - Fixed Position -->
     <div id="collectionStatus" class="fixed top-4 right-4 z-50 w-96 hidden">
-        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 shadow-lg" style="background-color: #374151; border-color: #4b5563;">
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 shadow-lg" style="background-color: var(--border-muted); border-color: var(--border-subtle);">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center">
-                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" style="border-color: #3b82f6;"></div>
-                    <span class="text-sm text-blue-800" id="collectionStatusText" style="color: #a3b7d0;">Starting collection...</span>
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" style="border-color: var(--action-info);"></div>
+                    <span class="text-sm text-blue-800" id="collectionStatusText" style="color: var(--text-muted-blue);">Starting collection...</span>
                 </div>
-                <button id="closeCollectionStatus" class="text-blue-600 hover:text-blue-800 text-sm font-medium" style="color: #3b82f6;">
+                <button id="closeCollectionStatus" class="text-blue-600 hover:text-blue-800 text-sm font-medium" style="color: var(--action-info);">
                     ✕ Close
                 </button>
             </div>

@@ -285,6 +285,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 // Load hunt metrics data
 async function loadHuntMetrics() {
     try {
@@ -366,8 +367,8 @@ function renderScoreDistributionChart(data) {
             datasets: [{
                 label: 'Article Count',
                 data: data.values || [],
-                backgroundColor: 'rgba(147, 51, 234, 0.6)',
-                borderColor: 'rgb(147, 51, 234)',
+                backgroundColor: getThemeColor('--chart-purple-fill') || 'rgba(147, 51, 234, 0.6)',
+                borderColor: getThemeColor('--purple-deep') || 'rgb(147, 51, 234)',
                 borderWidth: 1
             }]
         },
@@ -393,8 +394,8 @@ function renderKeywordPerformanceChart(data) {
             datasets: [{
                 label: 'Match Count',
                 data: data.values || [],
-                backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
                 borderWidth: 1
             }]
         },
@@ -453,8 +454,8 @@ function renderScoreTrendsChart(data) {
             datasets: [{
                 label: 'Average Hunt Score',
                 data: data.values || [],
-                borderColor: 'rgb(147, 51, 234)',
-                backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                borderColor: getThemeColor('--purple-deep') || 'rgb(147, 51, 234)',
+                backgroundColor: getThemeColor('--purple-bg-10') || 'rgba(147, 51, 234, 0.1)',
                 tension: 0.1,
                 fill: true
             }]
@@ -485,8 +486,8 @@ function renderSourcePerformanceChart(data) {
             datasets: [{
                 label: 'Avg Hunt Score',
                 data: data.values || [],
-                backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
+                borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
                 borderWidth: 1
             }]
         },
@@ -513,20 +514,20 @@ function renderQualityDistributionChart(data) {
                 label: 'Article Count',
                 data: data.values || [],
                 backgroundColor: [
-                    'rgba(156, 163, 175, 0.6)',  // Gray for unscored
-                    'rgba(239, 68, 68, 0.6)',     // Red for no threats
-                    'rgba(245, 158, 11, 0.6)',   // Yellow for low quality
-                    'rgba(34, 197, 94, 0.6)',    // Green for medium quality
-                    'rgba(59, 130, 246, 0.6)',   // Blue for high quality
-                    'rgba(147, 51, 234, 0.6)'    // Purple for perfect
+                    getThemeColor('--chart-gray-fill') || 'rgba(156, 163, 175, 0.6)',
+                    getThemeColor('--chart-red-fill') ? getThemeColor('--chart-red-fill').replace('0.8', '0.6') : 'rgba(239, 68, 68, 0.6)',
+                    getThemeColor('--chart-warning-fill') || 'rgba(245, 158, 11, 0.6)',
+                    getThemeColor('--chart-green-fill') || 'rgba(34, 197, 94, 0.6)',
+                    getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
+                    getThemeColor('--chart-purple-fill') || 'rgba(147, 51, 234, 0.6)'
                 ],
                 borderColor: [
-                    'rgb(156, 163, 175)',
-                    'rgb(239, 68, 68)',
-                    'rgb(245, 158, 11)',
-                    'rgb(34, 197, 94)',
-                    'rgb(59, 130, 246)',
-                    'rgb(147, 51, 234)'
+                    getThemeColor('--chart-gray') || 'rgb(156, 163, 175)',
+                    getThemeColor('--action-danger') || 'rgb(239, 68, 68)',
+                    getThemeColor('--border-warning') || 'rgb(245, 158, 11)',
+                    getThemeColor('--action-success-light') || 'rgb(34, 197, 94)',
+                    getThemeColor('--action-info') || 'rgb(59, 130, 246)',
+                    getThemeColor('--purple-deep') || 'rgb(147, 51, 234)'
                 ],
                 borderWidth: 1
             }]

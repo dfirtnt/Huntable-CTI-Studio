@@ -151,71 +151,56 @@
         
         /* CSS changes from browser preview - text color only */
         dd.text-sm {
-            color: #d1d5db !important;
+            color: var(--text-gray-300) !important;
         }
         
         dd.text-sm * {
-            color: #d1d5db !important;
+            color: var(--text-gray-300) !important;
         }
         
         dd.text-sm.font-mono code {
-            color: #d1d5db !important;
+            color: var(--text-gray-300) !important;
         }
         
         /* JSON metadata pre element - make all text light grey */
-        pre.bg-\[#0a0e1a\],
-        pre[class*="bg-[#0a0e1a]"],
-        pre.font-mono.bg-\[#0a0e1a\],
-        pre.font-mono[class*="bg-[#0a0e1a]"] {
-            color: #d1d5db !important;
+        pre.bg-panel-0,
+        pre[class*="bg-panel-0"] {
+            color: var(--text-gray-300) !important;
         }
         
-        pre.bg-\[#0a0e1a\] *,
-        pre[class*="bg-[#0a0e1a]"] *,
-        pre.font-mono.bg-\[#0a0e1a\] *,
-        pre.font-mono[class*="bg-[#0a0e1a]"] *,
-        pre.bg-\[#0a0e1a\]::before,
-        pre.bg-\[#0a0e1a\]::after,
-        pre[class*="bg-[#0a0e1a]"]::before,
-        pre[class*="bg-[#0a0e1a]"]::after {
-            color: #d1d5db !important;
+        pre.bg-panel-0 *,
+        pre[class*="bg-panel-0"] *,
+        pre.bg-panel-0::before,
+        pre.bg-panel-0::after,
+        pre[class*="bg-panel-0"]::before,
+        pre[class*="bg-panel-0"]::after {
+            color: var(--text-gray-300) !important;
         }
         
-        /* Override any syntax highlighting or Tailwind text color classes */
-        pre.bg-\[#0a0e1a\] span,
-        pre.bg-\[#0a0e1a\] code,
-        pre.bg-\[#0a0e1a\] mark,
-        pre[class*="bg-[#0a0e1a]"] span,
-        pre[class*="bg-[#0a0e1a]"] code,
-        pre[class*="bg-[#0a0e1a]"] mark,
-        pre.font-mono.bg-\[#0a0e1a\] span,
-        pre.font-mono.bg-\[#0a0e1a\] code,
-        pre.font-mono.bg-\[#0a0e1a\] mark {
-            color: #d1d5db !important;
+        pre.bg-panel-0 span,
+        pre.bg-panel-0 code,
+        pre.bg-panel-0 mark,
+        pre[class*="bg-panel-0"] span,
+        pre[class*="bg-panel-0"] code,
+        pre[class*="bg-panel-0"] mark {
+            color: var(--text-gray-300) !important;
         }
         
-        /* Universal override for any element inside the pre */
-        pre[class*="bg-[#0a0e1a]"] *,
-        pre.bg-\[#0a0e1a\] * {
-            color: #d1d5db !important;
+        code.bg-panel-0,
+        code[class*="bg-panel-0"] {
+            color: var(--text-gray-300) !important;
+        }
+        
+        dd.text-sm code {
+            color: var(--text-gray-300) !important;
         }
         
         /* Mobile Annotation card styling */
         #mobile-annotation-instructions {
-            background-color: rgba(201, 189, 182, 1) !important;
-            border-color: rgba(29, 22, 22, 1) !important;
-            border-width: 1px !important;
-            border-style: solid !important;
-            box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.15) !important;
-            color: #ffffff !important;
-        }
-        
-        code[class*="bg-[#0a0e1a]"] {
-            color: #d1d5db !important;
-        }
-        
-        dd.text-sm code {
-            color: #d1d5db !important;
+            background-color: var(--surface-stone) !important;
+            border: 1px solid var(--border-stone-dark) !important;
+            box-shadow: 0px 4px 12px 0px var(--shadow-modal) !important;
+            color: var(--text-emphasis) !important;
         }
     </style>
     <!-- Breadcrumb -->
@@ -579,7 +564,7 @@
                                 </button>
                             </div>
                         </div>
-                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold bg-[#4b4e77] text-white rounded-lg hover:bg-[#7C3AED] transition-colors" onclick="markObservablesReviewed({{ article.id }})">
+                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold btn-workflow text-white rounded-lg transition-colors" onclick="markObservablesReviewed({{ article.id }})">
                             Reviewed (No Observables)
                         </button>
                         -->
@@ -609,8 +594,8 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: #111827;">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
-                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: rgb(0, 0, 0); background-color: rgba(182, 181, 175, 1); border: 1px solid rgb(245, 158, 11); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05);">{{ article.content|e }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark);">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-print); background-color: var(--surface-plain-bg); border: 1px solid var(--border-warning); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05);">{{ article.content|e }}</div>
             </div>
         </div>
     </div>
@@ -677,7 +662,7 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-400">Content Hash</dt>
                         <dd class="text-sm font-mono">
-                            <code class="bg-[#0a0e1a] text-gray-300 px-2 py-1 rounded font-mono text-sm cursor-pointer hover:bg-gray-700 transition-colors" onclick="navigator.clipboard.writeText('{{ article.content_hash }}').then(() => { const el = event.target; const orig = el.textContent; el.textContent = 'Copied!'; setTimeout(() => el.textContent = orig, 1000); })" title="Click to copy">{{ article.content_hash[:20] }}...</code>
+                            <code class="bg-panel-0 text-gray-300 px-2 py-1 rounded font-mono text-sm cursor-pointer hover:bg-gray-700 transition-colors" onclick="navigator.clipboard.writeText('{{ article.content_hash }}').then(() => { const el = event.target; const orig = el.textContent; el.textContent = 'Copied!'; setTimeout(() => el.textContent = orig, 1000); })" title="Click to copy">{{ article.content_hash[:20] }}...</code>
                         </dd>
                     </div>
                     <div>
@@ -705,7 +690,7 @@
         </div>
         
         {% if article.article_metadata %}
-        <pre class="bg-[#0a0e1a] border border-gray-700 p-4 rounded-lg text-sm overflow-x-auto font-mono" style="background-color: rgba(28, 22, 8, 1); color: #d1d5db !important;">{{ article.article_metadata|tojson(indent=2) }}</pre>
+        <pre class="bg-panel-0 border border-gray-700 p-4 rounded-lg text-sm overflow-x-auto font-mono" style="background-color: var(--panel-bg-0); color: var(--text-gray-300) !important;">{{ article.article_metadata|tojson(indent=2) }}</pre>
         {% endif %}
         </div>
     </div>
@@ -1438,35 +1423,35 @@ Please provide a detailed analysis based on the article content and the user's s
         matchedTexts.forEach(element => {
             // Skip pre elements (JSON metadata)
             if (element.tagName === 'PRE') {
-                element.style.setProperty('color', '#d1d5db', 'important');
+                element.style.setProperty('color', 'var(--text-gray-300)', 'important');
                 // Make all text inside light grey
                 const allText = element.querySelectorAll('*');
                 allText.forEach(el => {
-                    el.style.setProperty('color', '#d1d5db', 'important');
+                    el.style.setProperty('color', 'var(--text-gray-300)', 'important');
                 });
                 // Also set on the element itself
                 const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
                 let node;
                 while (node = walker.nextNode()) {
                     if (node.parentElement) {
-                        node.parentElement.style.setProperty('color', '#d1d5db', 'important');
+                        node.parentElement.style.setProperty('color', 'var(--text-gray-300)', 'important');
                     }
                 }
                 return;
             }
-            element.style.backgroundColor = '#c9c7c9';
-            element.style.border = '1px solid #f59e0b';
-            element.style.color = '#000000';
+            element.style.setProperty('background-color', 'var(--surface-highlight)', 'important');
+            element.style.setProperty('border', '1px solid var(--border-warning)', 'important');
+            element.style.setProperty('color', 'var(--text-print)', 'important');
         });
         
         // Force light grey text on JSON metadata pre element after a short delay
         setTimeout(() => {
-            const preElements = document.querySelectorAll('pre[class*="bg-[#0a0e1a]"], pre.bg-\\[\\#0a0e1a\\]');
+            const preElements = document.querySelectorAll('pre.bg-panel-0, pre[class*="bg-panel-0"]');
             preElements.forEach(pre => {
-                pre.style.setProperty('color', '#d1d5db', 'important');
+                pre.style.setProperty('color', 'var(--text-gray-300)', 'important');
                 const allElements = pre.querySelectorAll('*');
                 allElements.forEach(el => {
-                    el.style.setProperty('color', '#d1d5db', 'important');
+                    el.style.setProperty('color', 'var(--text-gray-300)', 'important');
                 });
             });
         }, 100);
@@ -1702,10 +1687,10 @@ Please provide a detailed analysis based on the article content and the user's s
                 const button = document.querySelector(`[data-observable-type="${type}"]`);
                 if (button) {
                     if (this.observableType === type) {
-                        button.classList.add('bg-[#4b4e77]', 'text-white');
+                        button.classList.add('btn-workflow', 'text-white');
                         button.classList.remove('bg-white', 'text-gray-700');
                     } else {
-                        button.classList.remove('bg-[#4b4e77]', 'text-white');
+                        button.classList.remove('btn-workflow', 'text-white');
                         button.classList.add('bg-white', 'text-gray-700');
                     }
                 }
@@ -2930,19 +2915,19 @@ Please provide a detailed analysis based on the article content and the user's s
                         margin-left: 8px;
                     }
                     .char-counter.good {
-                        background: #dcfce7;
-                        color: #15803d;
-                        border: 1px solid #16a34a;
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
                     }
                     .char-counter.short {
-                        background: #c9c7c9;
-                        color: #92400e;
-                        border: 1px solid #f59e0b;
+                        background: var(--surface-highlight);
+                        color: var(--action-warning-dark);
+                        border: 1px solid var(--border-warning);
                     }
                     .char-counter.long {
-                        background: #fee2e2;
-                        color: #dc2626;
-                        border: 1px solid #ef4444;
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
                     }
                     .length-guidance {
                         font-size: 12px;
@@ -2951,14 +2936,14 @@ Please provide a detailed analysis based on the article content and the user's s
                         border-left: 4px solid;
                     }
                     .length-guidance.short {
-                        background: #c9c7c9;
-                        color: #92400e;
-                        border-left-color: #f59e0b;
+                        background: var(--surface-highlight);
+                        color: var(--action-warning-dark);
+                        border-left-color: var(--border-warning);
                     }
                     .length-guidance.long {
-                        background: #fee2e2;
-                        color: #dc2626;
-                        border-left-color: #ef4444;
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border-left-color: var(--action-danger);
                     }
                 `;
                 document.head.appendChild(styles);
@@ -3107,27 +3092,27 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .char-counter.good {
-                        background: #dcfce7;
-                        color: #15803d;
-                        border: 1px solid #16a34a;
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
                     }
                     
                     .char-counter.short {
-                        background: #c9c7c9;
-                        color: #d97706;
-                        border: 1px solid #f59e0b;
+                        background: var(--surface-highlight);
+                        color: var(--action-warning);
+                        border: 1px solid var(--border-warning);
                     }
                     
                     .char-counter.acceptable {
-                        background: #dbeafe;
-                        color: #1d4ed8;
-                        border: 1px solid #3b82f6;
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border: 1px solid var(--action-info);
                     }
                     
                     .char-counter.long {
-                        background: #fef2f2;
-                        color: #dc2626;
-                        border: 1px solid #ef4444;
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
                     }
                     
                     .length-guidance {
@@ -3138,27 +3123,27 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .length-guidance.good {
-                        background: #dcfce7;
-                        color: #15803d;
-                        border: 1px solid #16a34a;
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
                     }
                     
                     .length-guidance.short {
-                        background: #c9c7c9;
-                        color: #d97706;
-                        border: 1px solid #f59e0b;
+                        background: var(--surface-highlight);
+                        color: var(--action-warning);
+                        border: 1px solid var(--border-warning);
                     }
                     
                     .length-guidance.acceptable {
-                        background: #dbeafe;
-                        color: #1d4ed8;
-                        border: 1px solid #3b82f6;
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border: 1px solid var(--action-info);
                     }
                     
                     .length-guidance.long {
-                        background: #fef2f2;
-                        color: #dc2626;
-                        border: 1px solid #ef4444;
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
                     }
                 `;
                 document.head.appendChild(styles);
@@ -3417,27 +3402,27 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .char-counter.good {
-                        background: #dcfce7;
-                        color: #15803d;
-                        border: 1px solid #16a34a;
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
                     }
                     
                     .char-counter.short {
-                        background: #c9c7c9;
-                        color: #92400e;
-                        border: 1px solid #f59e0b;
+                        background: var(--surface-highlight);
+                        color: var(--action-warning-dark);
+                        border: 1px solid var(--border-warning);
                     }
                     
                     .char-counter.acceptable {
-                        background: #dbeafe;
-                        color: #1e40af;
-                        border: 1px solid #3b82f6;
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border: 1px solid var(--action-info);
                     }
                     
                     .char-counter.long {
-                        background: #fee2e2;
-                        color: #dc2626;
-                        border: 1px solid #ef4444;
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
                     }
                     
                     .length-guidance {
@@ -3448,27 +3433,27 @@ Please provide a detailed analysis based on the article content and the user's s
                     }
                     
                     .length-guidance.good {
-                        background: #dcfce7;
-                        color: #15803d;
-                        border-left-color: #16a34a;
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border-left-color: var(--action-success);
                     }
                     
                     .length-guidance.short {
-                        background: #c9c7c9;
-                        color: #92400e;
-                        border-left-color: #f59e0b;
+                        background: var(--surface-highlight);
+                        color: var(--action-warning-dark);
+                        border-left-color: var(--border-warning);
                     }
                     
                     .length-guidance.acceptable {
-                        background: #dbeafe;
-                        color: #1e40af;
-                        border-left-color: #3b82f6;
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border-left-color: var(--action-info);
                     }
                     
                     .length-guidance.long {
-                        background: #fee2e2;
-                        color: #dc2626;
-                        border-left-color: #ef4444;
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border-left-color: var(--action-danger);
                     }
                 `;
                 document.head.appendChild(styles);
@@ -4057,10 +4042,10 @@ Please provide a detailed analysis based on the article content and the user's s
         document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
             const btnUsage = (button.dataset.datasetUsage || 'train').toLowerCase();
             if (btnUsage === currentUsage) {
-                button.classList.add('bg-[#4b4e77]', 'text-white');
+                button.classList.add('btn-workflow', 'text-white');
                 button.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
             } else {
-                button.classList.remove('bg-[#4b4e77]', 'text-white');
+                button.classList.remove('btn-workflow', 'text-white');
                 button.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
             }
         });
@@ -4488,7 +4473,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 color: black;
                 z-index: 99999;
                 overflow: visible;
-                box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                box-shadow: 0 0 20px var(--shadow-overlay);
                 box-sizing: border-box;
             `;
             
@@ -4513,9 +4498,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create a wrapper for the content with print-friendly styles
             const contentWrapper = document.createElement('div');
             contentWrapper.style.cssText = `
-                color: #000000;
-                background: #ffffff;
-                border: 1px solid #cccccc;
+                color: var(--text-print);
+                background: var(--surface-print);
+                border: 1px solid var(--border-print);
                 padding: 20px;
                 font-family: 'Courier New', 'Monaco', monospace;
                 font-size: 11pt;
@@ -4641,16 +4626,16 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Ensure highlight colors are visible for print (only Perfect and LOLBAS)
                 if (hasGreenBg) {
                     // Perfect keyword matches - green highlight
-                    el.style.setProperty('background-color', '#d1fae5', 'important'); // light green
-                    el.style.setProperty('color', '#065f46', 'important'); // dark green text
-                    el.style.setProperty('border', '1px solid #10b981', 'important');
+                    el.style.setProperty('background-color', 'var(--action-success-bg)', 'important');
+                    el.style.setProperty('color', 'var(--action-success-dark)', 'important');
+                    el.style.setProperty('border', '1px solid var(--action-success)', 'important');
                     el.style.setProperty('padding', '2px 4px', 'important');
                     el.style.setProperty('border-radius', '3px', 'important');
                 } else if (hasBlueBg) {
                     // LOLBAS matches - blue highlight
-                    el.style.setProperty('background-color', '#dbeafe', 'important');
-                    el.style.setProperty('color', '#1e40af', 'important');
-                    el.style.setProperty('border', '1px solid #3b82f6', 'important');
+                    el.style.setProperty('background-color', 'var(--action-info-bg)', 'important');
+                    el.style.setProperty('color', 'var(--action-info-dark)', 'important');
+                    el.style.setProperty('border', '1px solid var(--action-info)', 'important');
                     el.style.setProperty('padding', '2px 4px', 'important');
                     el.style.setProperty('border-radius', '3px', 'important');
                 } else {
@@ -4666,7 +4651,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             !color.includes('rgb(1,') && !color.includes('rgb(2,')) {
                             // Only change if it's not already a colored highlight
                             if (!hasGreenBg && !hasBlueBg) {
-                                el.style.setProperty('color', '#000000', 'important');
+                                el.style.setProperty('color', 'var(--text-print)', 'important');
                             }
                         }
                         
@@ -4689,7 +4674,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     // If parent has no color set, ensure it's black
                     const parentColor = window.getComputedStyle(parent).color;
                     if (!parentColor || parentColor === 'rgba(0, 0, 0, 0)' || parentColor === 'transparent') {
-                        parent.style.setProperty('color', '#000000', 'important');
+                        parent.style.setProperty('color', 'var(--text-print)', 'important');
                     }
                 }
             });
@@ -4714,7 +4699,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     scale: 2,
                     useCORS: true,
                     logging: false,
-                    backgroundColor: '#ffffff',
+                    backgroundColor: 'var(--surface-print)',
                     width: printContainer.offsetWidth,
                     height: printContainer.offsetHeight,
                     windowWidth: printContainer.scrollWidth || 800,
@@ -5029,13 +5014,13 @@ Please provide a detailed analysis based on the article content and the user's s
                     <h3 class="text-lg font-medium text-gray-50 mb-4">🤖 AL/ML Assistant</h3>
                     <p class="text-sm text-gray-400 mb-4">One shot LLM demos for this article's content. Uses LLM chosen in Settings Page</p>
                     
-                    <div class="mb-4 p-2 bg-[#0a0e1a] border border-gray-700 rounded text-xs text-gray-300" id="aiModelDisplay">
+                    <div class="mb-4 p-2 bg-panel-0 border border-gray-700 rounded text-xs text-gray-300" id="aiModelDisplay">
                         Using: ${modelDisplayText}
                     </div>
                     
                     <div class="space-y-3">
                         <button onclick="generateAIAnalysis('sigma')"
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
                                 title="${hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article'}">
                             <span class="mr-2">🔍</span>
                             ${hasSigmaRules ? 'Display SIGMA Rules' : 'One Shot SIGMA'}
@@ -5045,14 +5030,14 @@ Please provide a detailed analysis based on the article content and the user's s
                         
 
                         <button onclick="generateAIAnalysis('ranking')" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">📊</span>
                             ${rankingButtonText}
                         </button>
                         
                         
                         <button onclick="showCustomPromptModal()" 
-                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Custom Prompt
                         </button>
@@ -5063,13 +5048,13 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="space-y-3">
                             <button onclick="detectOS()" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">💻</span>
                                 Detect Operating System
                             </button>
 
                             <button onclick="showChunkDebugModal()" 
-                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <span class="mr-2">🔍</span>
                                 Junk Filter Tuning
                             </button>
@@ -5384,7 +5369,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         </button>
                         <div class="flex items-center space-x-2 text-sm text-gray-400">
                             <span>Press</span>
-                            <kbd class="px-2 py-1 bg-[#0a0e1a] border border-gray-700 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
+                            <kbd class="px-2 py-1 bg-panel-0 border border-gray-700 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
                             <span>or click outside to dismiss (operation continues)</span>
                         </div>
                     </div>
@@ -5763,7 +5748,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     
                     <div class="space-y-4">
                         <div class="flex items-center">
-                            <input type="checkbox" id="useFiltering" checked class="mr-3 w-4 h-4 rounded border-gray-600 bg-[#0a0e1a] text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900">
+                            <input type="checkbox" id="useFiltering" checked class="mr-3 w-4 h-4 rounded border-gray-600 bg-panel-0 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900">
                             <label for="useFiltering" class="text-sm text-gray-300">
                                 Enable content filtering to reduce costs
                             </label>
@@ -5773,7 +5758,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             <label for="minConfidence" class="block text-sm text-gray-300 mb-2">
                                 Confidence threshold:
                             </label>
-                            <select id="minConfidence" class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                            <select id="minConfidence" class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <option value="0.5">0.5 - Aggressive filtering (~60% cost savings)</option>
                                 <option value="0.7" selected>0.7 - Balanced filtering (~40% cost savings)</option>
                                 <option value="0.8">0.8 - Conservative filtering (~25% cost savings)</option>
@@ -5786,7 +5771,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         ${showQAAgent ? `
                         <div class="border-t border-gray-700 pt-4 mt-4">
                             <div class="flex items-center">
-                                <input type="checkbox" id="useQAAgent" checked class="mr-3 w-4 h-4 rounded border-gray-600 bg-[#0a0e1a] text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900">
+                                <input type="checkbox" id="useQAAgent" checked class="mr-3 w-4 h-4 rounded border-gray-600 bg-panel-0 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900">
                                 <label for="useQAAgent" class="text-sm text-gray-300">
                                     Enable QA Agent validation
                                 </label>
@@ -5988,7 +5973,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     </div>
                 </div>
                 
-                <div class="mb-4 p-3 bg-[#0a0e1a] border border-gray-700 rounded-lg">
+                <div class="mb-4 p-3 bg-panel-0 border border-gray-700 rounded-lg">
                     <div class="text-sm text-gray-300">
                         <p class="font-medium mb-1">🤖 AI Model:</p>
                         <p class="text-gray-400">${modelDisplayName}</p>
@@ -6001,7 +5986,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     </label>
                     <textarea id="customPrompt" 
                               rows="4" 
-                              class="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                              class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                               placeholder="Ask anything about this article. For example:&#10;- What are the main attack vectors mentioned?&#10;- How would I detect this threat in my network?&#10;- What are the key IOCs to monitor?&#10;- Explain the technical details in simple terms"></textarea>
                 </div>
                 
@@ -6314,7 +6299,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="mt-4 flex justify-end space-x-3">
                     <button onclick="showCustomPromptModal()" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                         <span class="mr-2">💬</span>
                         Ask a new question
                     </button>
@@ -6426,7 +6411,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     <h3 class="text-xl font-bold text-gray-900">📚 Custom Prompt History</h3>
                     <div class="flex space-x-3">
                         <button onclick="showCustomPromptModal()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                             <span class="mr-2">💬</span>
                             Ask New Question
                         </button>
@@ -6611,7 +6596,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: rgba(134, 153, 177, 1);">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🔍 One Shot - SIGMA Detection Rules</h3>
                     <div class="flex items-center space-x-2">
@@ -6690,28 +6675,28 @@ Please provide a detailed analysis based on the article content and the user's s
                 <div class="mt-4 flex justify-between items-center">
                     <div class="flex space-x-2">
                         <button onclick="regenerateSigmaRules()" 
-                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors">
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors">
                             🔄 Regenerate
                         </button>
                         <button id="checkSimilarRulesBtn" onclick="checkSimilarSigmaRules(false)" 
-                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Search for similar rules in SigmaHQ repository"
                                 disabled>
                             🔍 Similarity Search
                         </button>
                         <button id="regenerateSimilarRulesBtn" onclick="checkSimilarSigmaRules(true)"
-                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
                                 title="Re-run similar rules search (forces re-check)">
                             🔄 Regenerate Similar
                         </button>
                         <button id="embedArticleBtn" onclick="generateArticleEmbedding()" 
-                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Generate article embedding for semantic search"
                                 disabled>
                             🧬 Embed Article
                         </button>
                         <button id="sendToQueueBtn" onclick="sendRuleToQueue()" 
-                                class="px-4 py-2 bg-[#4b4e77] text-white rounded-md hover:bg-[#7C3AED] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 title="Send generated rule to SIGMA Queue for review"
                                 disabled>
                             📋 Send to Queue
@@ -7007,7 +6992,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: rgba(134, 153, 177, 1);">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🔍 Extracted IOCs</h3>
                     <div class="flex items-center space-x-2">
@@ -7422,7 +7407,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         <div class="mt-4 pt-4 border-t">
                             <button onclick="this.closest('.fixed').remove()" 
-                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#4b4e77] hover:bg-[#7C3AED] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 Close
                             </button>
                         </div>
@@ -7584,7 +7569,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: rgba(134, 153, 177, 1);">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🤖 CTI-BERT IOC Extraction</h3>
                     <div class="flex items-center space-x-2">
@@ -7727,7 +7712,7 @@ Please provide a detailed analysis based on the article content and the user's s
         const formattedAnalysis = analysis.replace(/\n/g, '<br>');
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: rgba(134, 153, 177, 1);">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">📊 ${data && (data.ai_model || data.model_name || data.model) ? (() => {
                         const model = data.ai_model || data.model_name || data.model;
@@ -8310,7 +8295,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: rgba(134, 153, 177, 1);">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900">🔍 Similar Rules in SigmaHQ Repository</h3>
                     <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-gray-600">
@@ -8502,7 +8487,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         ` : '';
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md max-h-[90vh] overflow-y-auto" style="background-color: rgba(134, 153, 177, 1);">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md max-h-[90vh] overflow-y-auto" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4 sticky top-0 bg-white border-b pb-4">
                     <div>
                         <h3 class="text-lg font-medium text-gray-900">🔍 Sigma Rule Details</h3>
@@ -9388,15 +9373,15 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         </div>
                     </div>
                     <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
-                        <div class="text-center p-2 bg-[#0a0e1a] border border-gray-700 rounded-lg">
+                        <div class="text-center p-2 bg-panel-0 border border-gray-700 rounded-lg">
                             <div class="font-semibold text-emerald-400">0.5 (Aggressive)</div>
                             <div class="text-gray-400">Keeps more chunks</div>
                         </div>
-                        <div class="text-center p-2 bg-[#0a0e1a] border border-purple-500/50 rounded-lg">
+                        <div class="text-center p-2 bg-panel-0 border border-purple-500/50 rounded-lg">
                             <div class="font-semibold text-blue-400">0.7 (Balanced)</div>
                             <div class="text-gray-400">Current setting</div>
                         </div>
-                        <div class="text-center p-2 bg-[#0a0e1a] border border-gray-700 rounded-lg">
+                        <div class="text-center p-2 bg-panel-0 border border-gray-700 rounded-lg">
                             <div class="font-semibold text-red-400">0.8 (Conservative)</div>
                             <div class="text-gray-400">Removes more chunks</div>
                         </div>
@@ -9485,7 +9470,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 <!-- Chunk Visualization -->
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-50 mb-3">📊 Chunk Visualization</h4>
-                    <div class="bg-[#0a0e1a] border border-gray-700 rounded-lg p-4">
+                    <div class="bg-panel-0 border border-gray-700 rounded-lg p-4">
                         <div id="chunkVisualizationContainer">
                             ${chunkVisualization}
                         </div>
@@ -9754,7 +9739,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="featureDetails${index}" class="hidden mt-2 bg-[#0a0e1a] border border-gray-700 rounded-lg p-3 text-xs">
+                    <div id="featureDetails${index}" class="hidden mt-2 bg-panel-0 border border-gray-700 rounded-lg p-3 text-xs">
                         <div class="grid grid-cols-2 gap-2">
                             ${Object.entries(chunk.features).map(([key, value]) => `
                                 <div class="flex justify-between">
@@ -9766,7 +9751,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     </div>
                 </div>
                 
-                <div class="text-sm bg-[#0a0e1a] border border-gray-700 rounded-lg p-3">
+                <div class="text-sm bg-panel-0 border border-gray-700 rounded-lg p-3">
                     <div class="flex justify-between items-center mb-2">
                         <span class="text-xs text-gray-400">Chunk Content (${chunk.length} chars)</span>
                         <!-- COMMENTED OUT: Truncation control button -->
@@ -10252,7 +10237,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         if (contentLength > contentLimit) {
             // Disable button and add explanation
             button.disabled = true;
-            button.className = button.className.replace('bg-[#4b4e77] hover:bg-[#7C3AED]', 'bg-gray-400 cursor-not-allowed');
+            button.className = button.className.replace('btn-workflow', 'bg-gray-400 cursor-not-allowed');
             button.removeAttribute('title'); // Remove tooltip to avoid grey box
             
             // Add warning icon
@@ -10439,7 +10424,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     
                     <!-- Actions -->
                     <div class="flex justify-end space-x-3">
-                        <button onclick="showFeedbackComparison()" class="px-4 py-2 bg-[#4b4e77] text-white rounded hover:bg-[#7C3AED] transition-colors">
+                        <button onclick="showFeedbackComparison()" class="px-4 py-2 btn-workflow text-white rounded transition-colors">
                             View Feedback Impact
                         </button>
                         <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">

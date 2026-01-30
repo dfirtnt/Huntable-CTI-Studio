@@ -405,9 +405,9 @@ class TextAnnotationManager {
             .annotation-menu {
                 position: fixed;
                 background: white;
-                border: 1px solid #e5e7eb;
+                border: 1px solid var(--border-default);
                 border-radius: 8px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+                box-shadow: 0 10px 25px var(--shadow-modal);
                 padding: 0;
                 opacity: 0;
                 transform: translateY(-10px);
@@ -432,7 +432,7 @@ class TextAnnotationManager {
             .annotation-menu-title {
                 font-size: 12px;
                 font-weight: 600;
-                color: #6b7280;
+                color: var(--text-muted);
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
@@ -448,7 +448,7 @@ class TextAnnotationManager {
                 align-items: center;
                 gap: 4px;
                 padding: 6px 10px;
-                border: 1px solid #e5e7eb;
+                border: 1px solid var(--border-default);
                 border-radius: 6px;
                 background: white;
                 cursor: pointer;
@@ -461,25 +461,25 @@ class TextAnnotationManager {
             
             .annotation-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 4px 12px var(--shadow-dropdown);
             }
             
             .annotation-btn-huntable:hover {
-                background: #dcfce7;
-                border-color: #16a34a;
-                color: #15803d;
+                background: var(--action-success-bg);
+                border-color: var(--action-success);
+                color: var(--action-success-dark);
             }
             
             .annotation-btn-not-huntable:hover {
-                background: #fef2f2;
-                border-color: #dc2626;
-                color: #dc2626;
+                background: var(--action-danger-bg);
+                border-color: var(--action-danger);
+                color: var(--action-danger);
             }
             
             .annotation-btn-cancel:hover {
-                background: #f3f4f6;
-                border-color: #9ca3af;
-                color: #6b7280;
+                background: var(--surface-light);
+                border-color: var(--text-secondary);
+                color: var(--text-muted);
             }
             
             .annotation-icon {
@@ -492,12 +492,12 @@ class TextAnnotationManager {
             
             .annotation-menu-preview {
                 padding-top: 8px;
-                border-top: 1px solid #f3f4f6;
+                border-top: 1px solid var(--surface-light);
             }
             
             .annotation-preview-text {
                 font-size: 11px;
-                color: #6b7280;
+                color: var(--text-muted);
                 font-style: italic;
                 line-height: 1.4;
             }
@@ -512,26 +512,26 @@ class TextAnnotationManager {
             
             .annotation-highlight:hover {
                 transform: scale(1.02);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 2px 8px var(--shadow-tooltip);
             }
             
             .annotation-huntable {
-                background-color: #dcfce7;
-                border: 1px solid #16a34a;
-                color: #15803d;
+                background-color: var(--action-success-bg);
+                border: 1px solid var(--action-success);
+                color: var(--action-success-dark);
             }
             
             .annotation-not_huntable {
-                background-color: #fef2f2;
-                border: 1px solid #dc2626;
-                color: #dc2626;
+                background-color: var(--action-danger-bg);
+                border: 1px solid var(--action-danger);
+                color: var(--action-danger);
             }
             
             .annotation-loading {
                 text-align: center;
                 padding: 8px;
                 font-size: 12px;
-                color: #6b7280;
+                color: var(--text-muted);
             }
             
             .annotation-notification {
@@ -555,19 +555,25 @@ class TextAnnotationManager {
             }
             
             .annotation-notification-success {
-                background: #16a34a;
+                background: var(--action-success);
             }
             
             .annotation-notification-error {
-                background: #dc2626;
+                background: var(--action-danger);
             }
             
             .annotation-notification-info {
-                background: #2563eb;
+                background: var(--action-info);
             }
         `;
         
         document.head.appendChild(styles);
+        if (typeof window !== 'undefined' && window.getComputedStyle) {
+            const v = document.documentElement && getComputedStyle(document.documentElement).getPropertyValue('--text-muted');
+            if (!v || v.trim() === '') {
+                console.warn('[annotation-manager] Theme CSS variables may not be loaded (--text-muted missing). Annotation menu colors may fallback incorrectly.');
+            }
+        }
     }
 }
 

@@ -51,6 +51,13 @@ No dependencies. Verifiable by grep and visual check.
 - Import READABLE_TEXT_RGB (or the shared `isReadableColor` helper) from the same constants file.
 - **isReadable (two places, ~729 and ~764):** Replace duplicated string literals with the shared constant (e.g. `READABLE_TEXT_RGB.some(part => color.includes(part)) || color === '#ffffff' || color === 'white'`).
 
+### 2.3 Update any other existing tests
+
+- **Inventory:** The only tests that currently assert on color values are [verify_text_colors.spec.ts](tests/playwright/verify_text_colors.spec.ts) and [workflow_executions.spec.ts](tests/playwright/workflow_executions.spec.ts) (Phase 2.1–2.2). Other tests that touch the same UI (e.g. [test_workflow_comprehensive_ui.py](tests/ui/test_workflow_comprehensive_ui.py), [test_annotation_ui_persistence.py](tests/ui/test_annotation_ui_persistence.py)) use IDs/roles/text, not color, so they should not need color-related changes.
+- **After Phase 2:** Run the full Playwright suite (`tests/playwright/`) and the UI test suite (`tests/ui/` or project’s test command). Fix any failure caused by the new shared constants (e.g. import path or helper signature).
+- **After Phase 4 (workflow refactor):** Run the full suite again. If any test selects by class names that are changed (e.g. from `bg-[#0a0e1a]` to `.bg-panel-0`), update those selectors. Today no test selects by those classes; workflow.html’s own JS references `bg-[#0a0e1a]` for isDarkInput—update that to the new class when introducing `.bg-panel-0`.
+- **Policy:** Any future test that asserts on computed color must use the shared constants (READABLE_TEXT_RGB, STATUS_COLOR_RGB or helpers) so a single change in [color-constants.ts](tests/playwright/color-constants.ts) keeps all specs in sync.
+
 ---
 
 ## Phase 3: Create theme CSS and wire it up
@@ -139,9 +146,10 @@ Add a short **policy note** after implementation (as a comment in [theme-variabl
 
 ## Validation (after each phase)
 
-- Run Playwright: `npx playwright test verify_text_colors workflow_executions` (or the relevant test paths).
-- Manually: workflow page (config + executions, dark theme), open execution detail modal, check panel hierarchy and View summary text; annotation menu on an article (hover states, success/error); extension popup (hover and borders).
-- Grep for remaining hardcoded hex in refactored files: `grep -n '#[0-9a-fA-F]\{6\}' src/web/templates/workflow.html src/web/static/js/annotation-manager*.js` (expect only leftovers that are intentional or in strings/comments).
+- **Phase 2:** Run Playwright color-related specs: `npx playwright test verify_text_colors workflow_executions`. Then run the **full** Playwright suite (`npx playwright test` or project command) and the **full** UI test suite (e.g. `pytest tests/ui/` or project command). Fix any failures (e.g. import path for color-constants).
+- **Phase 4:** Run the full Playwright and UI test suites again. Fix any selector or assertion failures caused by workflow.html refactor (e.g. class renames).
+- **Manual:** Workflow page (config + executions, dark theme), open execution detail modal, check panel hierarchy and View summary text; annotation menu on an article (hover states, success/error); extension popup (hover and borders).
+- **Grep:** Remaining hardcoded hex in refactored files: `grep -n '#[0-9a-fA-F]\{6\}' src/web/templates/workflow.html src/web/static/js/annotation-manager*.js` (expect only leftovers that are intentional or in strings/comments).
 
 ---
 

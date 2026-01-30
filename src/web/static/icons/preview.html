@@ -5,10 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Icon Preview - Huntable CTI Studio</title>
     <style>
+        :root {
+            --preview-bg: #1a1a2e;
+            --preview-text: #e0e0e0;
+            --preview-emphasis: #ffffff;
+            --preview-card: #16213e;
+            --preview-border: #2a2a4e;
+            --preview-gradient-start: #8B5CF6;
+            --preview-gradient-end: #7C3AED;
+            --preview-muted: #aaaaaa;
+            --preview-deep: #0f1624;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #e0e0e0;
+            background: var(--preview-bg);
+            color: var(--preview-text);
             padding: 40px;
             margin: 0;
         }
@@ -19,7 +30,7 @@
         }
         
         h1 {
-            color: #fff;
+            color: var(--preview-emphasis);
             margin-bottom: 10px;
         }
         
@@ -32,15 +43,15 @@
         }
         
         .icon-card {
-            background: #16213e;
+            background: var(--preview-card);
             border-radius: 16px;
             padding: 30px;
             text-align: center;
-            border: 1px solid #2a2a4e;
+            border: 1px solid var(--preview-border);
         }
         
         .icon-container {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--preview-gradient-start) 0%, var(--preview-gradient-end) 100%);
             border-radius: 12px;
             padding: 30px;
             margin-bottom: 20px;
@@ -54,12 +65,12 @@
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 10px;
-            color: #fff;
+            color: var(--preview-emphasis);
         }
         
         .icon-description {
             font-size: 14px;
-            color: #aaa;
+            color: var(--preview-muted);
             line-height: 1.5;
         }
         
@@ -69,7 +80,7 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
-            background: #0f1624;
+            background: var(--preview-deep);
             border-radius: 8px;
             margin-top: 15px;
         }

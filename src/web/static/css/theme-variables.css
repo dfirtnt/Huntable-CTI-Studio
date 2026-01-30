@@ -1,0 +1,258 @@
+/**
+ * THEME VARIABLES — Canonical source for theme colors
+ *
+ * Policy (post color-system normalization):
+ * - No new literal hex/rgb colors in app templates or JS; new colors must be
+ *   added as variables here.
+ * - Browser extension remains palette-aligned but exempt from var() enforcement
+ *   unless explicitly refactored.
+ *
+ * Tailwind arbitrary color classes (e.g. bg-[#0a0e1a]) are discouraged;
+ * use these variables and utility classes instead.
+ *
+ * Color clusters: Greens → action-success*; Blues → action-info; Yellows →
+ * action-warning, step-3; Purples → purple-primary, purple-deep; Grays →
+ * text-muted, text-muted-slate.
+ */
+
+/* ==========================================================================
+   THEME VARIABLES
+   ========================================================================== */
+
+:root {
+
+/* ---------------------------------------------------------------------------
+   1. PANEL BACKGROUNDS (dark theme depth hierarchy)
+   --------------------------------------------------------------------------- */
+  --panel-bg-0: #0a0e1a;
+  --panel-bg-1: #0f1423;
+  --panel-bg-2: #12182a;
+  --panel-bg-3: #141c30;
+  --panel-bg-4: #161e34;
+  --panel-bg-5: #1a2238;
+  --panel-bg-6: #1e2841;
+  --panel-header: #1d3067;
+  --panel-bg-alt: #1c2230;
+
+/* ---------------------------------------------------------------------------
+   2. TEXT HIERARCHY
+   --------------------------------------------------------------------------- */
+  --text-primary: #f8fafc;
+  --text-emphasis: #ffffff;
+  --text-secondary: #cbd5e1;
+  --text-muted: #6b7280;           /* gray-500 */
+  --text-body-dark: #111827;
+  --text-input: #f1f5f9;
+  --text-mono: #c4b5fd;
+  --text-muted-slate: #94a3b8;     /* slate-400; canonical muted on dark */
+  --text-muted-blue: #a3b7d0;      /* intentional blue tint (sources/adhoc) */
+  --text-gray-300: #d1d5db;
+  --text-gray-700: #374151;
+
+/* ---------------------------------------------------------------------------
+   3. BRAND COLORS (purple/violet)
+   --------------------------------------------------------------------------- */
+  --purple-primary: #8b5cf6;       /* violet-500 */
+  --purple-hover: #7c3aed;         /* violet-600 */
+  --purple-light: #a78bfa;         /* violet-400 */
+  --purple-muted: #4b4e77;
+  --purple-bg: #1d3067;
+  --purple-deep: #9333ea;          /* violet-600; chart purple */
+  --purple-bg-light: #f3e8ff;
+  --purple-dark-text: #6b21a8;
+  --purple-border-20: rgba(139, 92, 246, 0.2);
+  --purple-border-15: rgba(139, 92, 246, 0.15);
+  --purple-border-25: rgba(139, 92, 246, 0.25);
+  --purple-border-50: rgba(139, 92, 246, 0.5);
+  --purple-bg-10: rgba(139, 92, 246, 0.1);
+  --purple-shadow-15: rgba(139, 92, 246, 0.15);
+  --purple-glow: rgba(122, 79, 255, 0.9);
+  --purple-text-shadow: rgba(139, 92, 246, 0.8);
+  --purple-shadow: rgba(124, 58, 237, 0.25);
+  --panel-header-tint: rgba(35, 20, 72, 0.5);
+  --indigo-border-12: rgba(99, 102, 241, 0.12);
+  --indigo-border-15: rgba(99, 102, 241, 0.15);
+  --indigo-border-light: rgba(129, 140, 248, 0.1);
+
+/* ---------------------------------------------------------------------------
+   4. SEMANTIC ACTIONS (success, warning, info, danger, execute)
+   --------------------------------------------------------------------------- */
+  /* Success — Tailwind green-600/700/500/100 */
+  --action-success: #16a34a;       /* green-600 / bg-green-600 */
+  --action-success-dark: #15803d; /* green-700 / bg-green-700 */
+  --action-success-light: #22c55e;/* green-500; also chart green */
+  --action-success-bg: #dcfce7;   /* green-100 / bg-green-100 */
+  /* Warning — yellow-500; chart yellow */
+  --action-warning: #eab308;       /* yellow-500 */
+  --action-warning-fill: rgba(234, 179, 8, 0.6); /* chart bar fill; standard 0.6 */
+  --action-warning-dark: #92400e;
+  --action-warning-bg-light: #fef9c3;
+  --action-warning-shadow: rgba(244, 162, 97, 0.25);
+  --border-warning: #f59e0b;
+  /* Info — blue-500 */
+  --action-info: #3b82f6;          /* blue-500 / bg-blue-500 */
+  --action-info-dark: #1e40af;
+  --action-info-bg: #dbeafe;
+  --action-info-hover: #2563eb;
+  --action-info-shadow: rgba(59, 130, 246, 0.25);
+  --action-info-fill: rgba(59, 130, 246, 0.1);
+  /* Execute — emerald */
+  --action-execute: #10b981;       /* emerald-500 */
+  --action-execute-dark: #059669;  /* emerald-600; hover/dark */
+  --action-execute-fill: rgba(16, 185, 129, 0.1);
+  --action-execute-shadow: rgba(16, 185, 129, 0.25);
+  /* Danger — red-600 */
+  --action-danger: #dc2626;        /* red-600 / bg-red-600 */
+  --action-danger-bg: #fef2f2;    /* red-50 */
+  --action-danger-fill: rgba(239, 68, 68, 0.1);
+  --action-danger-hover: #b91c1c;
+
+/* ---------------------------------------------------------------------------
+   5. STEP COLORS (workflow overview)
+   --------------------------------------------------------------------------- */
+  --step-0: #22d3ee;   /* cyan */
+  --step-1: #60a5fa;   /* blue */
+  --step-2: #4ade80;   /* green */
+  --step-3: #facc15;   /* yellow-400 */
+  --step-4: #fb923c;   /* orange */
+  --step-5: #f472b6;   /* pink */
+  --step-6: #c084fc;   /* violet */
+
+/* ---------------------------------------------------------------------------
+   6. STEP STATUS (execution modal bg/border)
+   --------------------------------------------------------------------------- */
+  --step-0-bg: rgba(6, 182, 212, 0.15);
+  --step-0-border: rgba(6, 182, 212, 0.3);
+  --step-1-bg: rgba(59, 130, 246, 0.15);
+  --step-1-border: rgba(59, 130, 246, 0.3);
+  --step-2-bg: rgba(34, 197, 94, 0.15);
+  --step-2-border: rgba(34, 197, 94, 0.3);
+  --step-3-bg: rgba(234, 179, 8, 0.2);
+  --step-3-border: rgba(234, 179, 8, 0.5);
+  --step-3-border-light: rgba(234, 179, 8, 0.3);
+  --step-3-gradient: linear-gradient(to right, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.15));
+  --step-4-bg: rgba(249, 115, 22, 0.15);
+  --step-4-border: rgba(249, 115, 22, 0.3);
+  --step-5-bg: rgba(236, 72, 153, 0.15);
+  --step-5-border: rgba(236, 72, 153, 0.3);
+  --step-6-bg: rgba(168, 85, 247, 0.15);
+  --step-6-border: rgba(168, 85, 247, 0.3);
+
+/* ---------------------------------------------------------------------------
+   7. BADGES
+   --------------------------------------------------------------------------- */
+  --badge-green-text: #86efac;
+  --badge-green-bg: rgba(34, 197, 94, 0.2);
+  --badge-yellow-text: #fde047;
+  --badge-yellow-bg: rgba(234, 179, 8, 0.2);
+  --badge-red-text: #fca5a5;
+  --badge-red-bg: rgba(239, 68, 68, 0.2);
+  --badge-blue-text: #93c5fd;
+  --badge-blue-bg: rgba(59, 130, 246, 0.2);
+  --badge-gray-bg: rgba(71, 85, 105, 0.5);
+
+/* ---------------------------------------------------------------------------
+   8. BORDERS & SURFACES
+   --------------------------------------------------------------------------- */
+  --border-default: #e5e7eb;
+  --border-muted: #374151;
+  --border-subtle: #4b5563;
+  --border-focus: var(--purple-primary);
+  --surface-light: #f3f4f6;
+  --surface-highlight: #c9c7c9;
+  --surface-stone: #c9bdb6;        /* article_detail mobile card */
+  --border-stone-dark: #1d1616;
+  --surface-modal-muted: #8699b1;  /* modal overlays; global for reuse */
+  --surface-plain-bg: #b6b5af;     /* plain text view; global for reuse */
+
+/* ---------------------------------------------------------------------------
+   9. SHADOWS
+   --------------------------------------------------------------------------- */
+  --shadow-card: rgba(0, 0, 0, 0.1);
+  --shadow-modal: rgba(0, 0, 0, 0.15);
+  --shadow-dropdown: rgba(0, 0, 0, 0.1);
+  --shadow-tooltip: rgba(0, 0, 0, 0.1);
+  --shadow-overlay: rgba(0, 0, 0, 0.3);
+  --tooltip-bg: rgba(0, 0, 0, 0.8);
+
+/* ---------------------------------------------------------------------------
+   10. CHARTS (Chart.js palette) — standard fill opacity 0.6
+   --------------------------------------------------------------------------- */
+  --chart-border: rgba(113, 113, 122, 0.2);
+  --chart-grid: rgba(113, 113, 122, 0.1);
+  --chart-grid-muted: rgba(156, 163, 175, 0.1);
+  --chart-orange: #f97316;
+  --chart-orange-fill: rgba(249, 115, 22, 0.6);
+  --chart-green-fill: rgba(34, 197, 94, 0.6);
+  --chart-blue-fill: rgba(59, 130, 246, 0.6);
+  --chart-red-fill: rgba(239, 68, 68, 0.6);
+  --chart-purple-fill: rgba(147, 51, 234, 0.6);
+  --chart-gray: #9ca3af;           /* gray-400 */
+  --chart-gray-fill: rgba(156, 163, 175, 0.6);
+  --chart-warning-fill: rgba(245, 158, 11, 0.6);
+  /* ML hunt comparison (Chart.js series) — distinct shades */
+  --chart-cyan: #4bc0c0;
+  --chart-cyan-fill: rgba(75, 192, 192, 0.2);
+  --chart-pink: #ff6384;
+  --chart-pink-fill: rgba(255, 99, 132, 0.2);
+  --chart-blue-light: #36a2eb;     /* Chart.js recall series */
+  --chart-blue-light-fill: rgba(54, 162, 235, 0.2);
+
+/* ---------------------------------------------------------------------------
+   11. COMPONENT-SPECIFIC (global to avoid per-page CSS; use vars for consistency)
+   --------------------------------------------------------------------------- */
+  /* Eval pages */
+  --eval-text-primary: #b0b8c4;
+  --eval-card-bg: rgba(255, 255, 255, 0.03);
+  /* MLOps cards */
+  --mlops-card-bg: #1f2937;        /* gray-800 */
+  --mlops-card-border: #374151;    /* gray-700 */
+  /* Print / plain view */
+  --text-print: #000000;
+  --surface-print: #ffffff;
+  --border-print: #cccccc;
+}
+
+/* ==========================================================================
+   12. UTILITY CLASSES
+   ========================================================================== */
+
+/* Panel background (replaces Tailwind arbitrary bg-[#0a0e1a]) */
+.bg-panel-0 {
+  background-color: var(--panel-bg-0);
+}
+
+.btn-analyze {
+  background-color: var(--action-info);
+}
+.btn-analyze:hover {
+  background-color: var(--action-info-hover);
+}
+
+.btn-manage {
+  background-color: var(--purple-primary);
+}
+.btn-manage:hover {
+  background-color: var(--purple-hover);
+}
+
+.btn-execute {
+  background-color: var(--action-execute);
+}
+.btn-execute:hover {
+  background-color: var(--action-execute-dark);
+}
+
+.btn-danger {
+  background-color: var(--action-danger);
+}
+.btn-danger:hover {
+  background-color: var(--action-danger-hover);
+}
+
+.btn-workflow {
+  background-color: var(--purple-muted);
+}
+.btn-workflow:hover {
+  background-color: var(--purple-hover);
+}

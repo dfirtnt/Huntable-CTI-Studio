@@ -8,38 +8,38 @@
         min-height: 100vh;
     }
     .mlops-card {
-        background: rgba(31, 41, 55, 1) !important;
-        border: 1px solid rgba(55, 65, 81, 1);
+        background: var(--mlops-card-bg) !important;
+        border: 1px solid var(--mlops-card-border);
     }
     .mlops-desc-text {
-        color: #B0B8C4;
+        color: var(--eval-text-primary);
     }
     .mlops-subtitle {
-        color: #8B92A0;
+        color: var(--text-muted-slate);
     }
     .btn-blue {
-        background-color: #3B82F6;
+        background-color: var(--action-info);
         transition: all 0.2s ease;
     }
     .btn-blue:hover {
-        background-color: #4F8FF7;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        background-color: var(--action-info);
+        box-shadow: 0 4px 12px var(--action-info-shadow);
     }
     .btn-purple {
-        background-color: #9333EA;
+        background-color: var(--purple-deep);
         transition: all 0.2s ease;
     }
     .btn-purple:hover {
-        background-color: #9D5BFF;
-        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+        background-color: var(--purple-light);
+        box-shadow: 0 4px 12px var(--purple-shadow);
     }
     .btn-green {
-        background-color: rgba(245, 158, 11, 1);
+        background-color: var(--border-warning);
         transition: all 0.2s ease;
     }
     .btn-green:hover {
-        background-color: #E89F5A;
-        box-shadow: 0 4px 12px rgba(244, 162, 97, 0.25);
+        background-color: var(--action-warning);
+        box-shadow: 0 4px 12px var(--action-warning-shadow);
     }
 </style>
 

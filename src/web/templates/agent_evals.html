@@ -8,21 +8,21 @@
         min-height: 100vh;
     }
     .eval-card {
-        background: rgba(255, 255, 255, 0.03) !important;
+        background: var(--eval-card-bg) !important;
     }
     .eval-desc-text {
-        color: #B0B8C4;
+        color: var(--eval-text-primary);
     }
     .eval-subtitle {
-        color: #8B92A0;
+        color: var(--text-muted-slate);
     }
     .btn-green {
-        background-color: #10B981;
+        background-color: var(--action-execute);
         transition: all 0.2s ease;
     }
     .btn-green:hover {
-        background-color: #059669;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        background-color: var(--action-execute-dark);
+        box-shadow: 0 4px 12px var(--action-execute-shadow);
     }
     .comparison-table {
         overflow-x: auto;
@@ -34,19 +34,19 @@
         font-weight: 500;
     }
     .status-exact {
-        background-color: #10B981;
+        background-color: var(--action-execute);
         color: white;
     }
     .status-mismatch {
-        background-color: #EF4444;
+        background-color: var(--action-danger);
         color: white;
     }
     .status-pending {
-        background-color: #F59E0B;
+        background-color: var(--action-warning);
         color: white;
     }
     .status-warning {
-        background-color: #F59E0B;
+        background-color: var(--action-warning);
         color: white;
     }
 </style>
@@ -206,6 +206,7 @@
 </div>
 
 <script>
+function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 let evalArticles = [];
 let activeConfig = null;
 let selectedArticleUrls = new Set();
@@ -1207,12 +1208,20 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         maeChart.destroy();
     }
     
-    // Determine color based on nMAE values
+    // Determine color based on nMAE values (theme vars)
+    const themeMuted = getThemeColor('--text-muted') || '#9ca3af';
+    const themeSuccess = getThemeColor('--action-execute') || '#10b981';
+    const themeWarning = getThemeColor('--action-warning') || '#f59e0b';
+    const themeDanger = getThemeColor('--action-danger') || '#ef4444';
+    const themeInfo = getThemeColor('--action-info') || '#3b82f6';
+    const themeInfoFill = getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)';
+    const themeSuccessFill = getThemeColor('--action-execute-fill') || 'rgba(16, 185, 129, 0.1)';
+    const themeChartMuted = getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)';
     const nmaeColors = windowNmaeData.map(nmae => {
-        if (nmae == null || isNaN(nmae)) return '#9CA3AF';
-        if (nmae <= 0.2) return '#10B981';
-        if (nmae <= 0.5) return '#F59E0B';
-        return '#EF4444';
+        if (nmae == null || isNaN(nmae)) return themeMuted;
+        if (nmae <= 0.2) return themeSuccess;
+        if (nmae <= 0.5) return themeWarning;
+        return themeDanger;
     });
     
     maeChart = new Chart(ctx, {
@@ -1222,8 +1231,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
             datasets: [{
                 label: 'Normalized Mean Absolute Error (nMAE)',
                 data: windowNmaeData,
-                borderColor: '#3B82F6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: themeInfo,
+                backgroundColor: themeInfoFill,
                 borderWidth: 2,
                 pointRadius: 5,
                 pointBackgroundColor: nmaeColors,
@@ -1235,12 +1244,12 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
             }, {
                 label: 'Mean Absolute Error (MAE)',
                 data: windowMaeData,
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: themeSuccess,
+                backgroundColor: themeSuccessFill,
                 borderWidth: 2,
                 pointRadius: 5,
-                pointBackgroundColor: '#10B981',
-                pointBorderColor: '#10B981',
+                pointBackgroundColor: themeSuccess,
+                pointBorderColor: themeSuccess,
                 pointHoverRadius: 7,
                 tension: 0.1,
                 fill: false,
@@ -1254,11 +1263,11 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 legend: {
                     display: true,
                     labels: {
-                        color: '#9CA3AF'
+                        color: themeMuted
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    backgroundColor: getThemeColor('--tooltip-bg') || 'rgba(0, 0, 0, 0.8)',
                     titleColor: '#fff',
                     bodyColor: '#fff',
                     callbacks: {
@@ -1299,13 +1308,13 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                     title: {
                         display: true,
                         text: 'Normalized MAE (nMAE)',
-                        color: '#3B82F6'
+                        color: themeInfo
                     },
                     ticks: {
-                        color: '#9CA3AF'
+                        color: themeMuted
                     },
                     grid: {
-                        color: 'rgba(156, 163, 175, 0.1)'
+                        color: themeChartMuted
                     }
                 },
                 y1: {
@@ -1316,10 +1325,10 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                     title: {
                         display: true,
                         text: 'Mean Absolute Error (MAE)',
-                        color: '#10B981'
+                        color: themeSuccess
                     },
                     ticks: {
-                        color: '#9CA3AF'
+                        color: themeMuted
                     },
                     grid: {
                         drawOnChartArea: false
@@ -1327,7 +1336,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 },
                 x: {
                     ticks: {
-                        color: '#9CA3AF',
+                        color: themeMuted,
                         maxRotation: 45,
                         minRotation: 45,
                         maxTicksLimit: 200, // Show all labels (set high enough for all versions)
@@ -1335,7 +1344,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                         stepSize: 1 // Show every label
                     },
                     grid: {
-                        color: 'rgba(156, 163, 175, 0.1)'
+                        color: themeChartMuted
                     }
                 }
             }

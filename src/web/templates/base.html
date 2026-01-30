@@ -11,6 +11,9 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/static/icons/huntable-icon.svg">
     
+    <!-- Theme variables (canonical source for app colors) -->
+    <link rel="stylesheet" href="/static/css/theme-variables.css">
+    
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -96,7 +99,7 @@
         .nav-item.active {
             color: var(--color-brand);
             position: relative;
-            text-shadow: 0 0 6px rgba(139, 92, 246, 0.8);
+            text-shadow: 0 0 6px var(--purple-text-shadow);
         }
         
         .nav-item.active img {
@@ -110,9 +113,9 @@
             right: -0.5rem;
             bottom: 0;
             height: 2px;
-            background: linear-gradient(90deg, #9f7aea, #7c3aed, #a855f7);
+            background: linear-gradient(90deg, var(--purple-light), var(--purple-hover), var(--purple-primary));
             border-radius: 1px;
-            box-shadow: 0 0 8px rgba(122, 79, 255, 0.9);
+            box-shadow: 0 0 8px var(--purple-glow);
         }
         
         .nav-brand-accent {
@@ -125,7 +128,7 @@
         
         .card-hover:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px var(--shadow-card);
         }
         
         .card {
