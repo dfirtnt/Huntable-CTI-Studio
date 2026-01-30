@@ -304,8 +304,7 @@ function copyCommand() {
 </script>
 
 <script>
-function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-// Load latest metrics
+// Load latest metrics (getThemeColor from base.html)
 {% if latest %}
 document.addEventListener('DOMContentLoaded', () => {
     const metrics = {{ latest.metrics | tojson }};

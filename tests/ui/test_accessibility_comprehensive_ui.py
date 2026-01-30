@@ -161,6 +161,27 @@ class TestARIALabels:
             # Modal should have aria-label or aria-labelledby
             assert aria_label or aria_labelledby, "Modal should have aria-label or aria-labelledby"
 
+    @pytest.mark.ui
+    @pytest.mark.accessibility
+    def test_nav_has_main_aria_label(self, page: Page):
+        """Test main nav has aria-label for screen readers."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/")
+        page.wait_for_load_state("networkidle")
+        nav = page.locator('nav[aria-label="Main navigation"]')
+        expect(nav).to_be_visible()
+
+    @pytest.mark.ui
+    @pytest.mark.accessibility
+    def test_articles_search_help_aria_label(self, page: Page):
+        """Test articles search syntax help button has aria-label."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles")
+        page.wait_for_load_state("networkidle")
+        help_btn = page.locator('button[aria-label="Search syntax help"]')
+        if help_btn.count() > 0:
+            expect(help_btn.first).to_be_visible()
+
 
 class TestFocusManagement:
     """Test focus management features."""

@@ -156,8 +156,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-// Load scraper metrics data
+// Load scraper metrics data (getThemeColor from base.html)
 async function loadScraperMetrics() {
     try {
         // Load overview metrics
@@ -236,7 +235,7 @@ function renderSourceHealthChart(data) {
                 data: data.values || [],
                 backgroundColor: [
                     getThemeColor('--action-success-light') || 'rgb(34, 197, 94)',
-                    getThemeColor('--action-warning') || 'rgb(251, 191, 36)',
+                    getThemeColor('--action-warning') || '#eab308',
                     getThemeColor('--action-danger') || 'rgb(239, 68, 68)'
                 ]
             }]
@@ -330,18 +329,18 @@ function createHuntScoreChart(labels, excellentData, goodData, moderateData, low
                 label: 'Moderate (40-59)',
                 data: moderateData,
                 backgroundColor: getThemeColor('--action-warning-fill') || 'rgba(234, 179, 8, 0.6)',
-                borderColor: getThemeColor('--action-warning') || 'rgb(251, 191, 36)',
+                borderColor: getThemeColor('--action-warning') || '#eab308',
                 borderWidth: 1
             }, {
                 label: 'Low (20-39)',
                 data: lowData,
-                backgroundColor: getThemeColor('--chart-orange-fill') || 'rgba(249, 115, 22, 0.8)',
+                backgroundColor: getThemeColor('--chart-orange-fill') || 'rgba(249, 115, 22, 0.6)',
                 borderColor: getThemeColor('--chart-orange') || 'rgb(249, 115, 22)',
                 borderWidth: 1
             }, {
                 label: 'Minimal (0-19)',
                 data: minimalData,
-                backgroundColor: getThemeColor('--chart-red-fill') || 'rgba(239, 68, 68, 0.8)',
+                backgroundColor: getThemeColor('--chart-red-fill') || 'rgba(239, 68, 68, 0.6)',
                 borderColor: getThemeColor('--action-danger') || 'rgb(239, 68, 68)',
                 borderWidth: 1
             }]

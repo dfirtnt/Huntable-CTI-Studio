@@ -4437,8 +4437,8 @@ Please provide a detailed analysis based on the article content and the user's s
                 padding: 40px;
                 margin: 0;
                 font-family: Arial, sans-serif;
-                background: white;
-                color: black;
+                background: var(--surface-print);
+                color: var(--text-print);
                 z-index: 99999;
                 overflow: visible;
                 box-shadow: 0 0 20px var(--shadow-overlay);
@@ -4448,7 +4448,7 @@ Please provide a detailed analysis based on the article content and the user's s
             // Add title
             const titleElement = document.createElement('h1');
             titleElement.textContent = articleTitle;
-            titleElement.style.cssText = 'font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #000; line-height: 1.4;';
+            titleElement.style.cssText = 'font-size: 24px; font-weight: bold; margin-bottom: 20px; color: var(--text-print); line-height: 1.4;';
             printContainer.appendChild(titleElement);
             
             // Get HTML content to preserve highlights

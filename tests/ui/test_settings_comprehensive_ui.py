@@ -790,18 +790,17 @@ class TestSettingsPersistence:
     @pytest.mark.ui
     @pytest.mark.settings
     def test_success_notification_display(self, page: Page):
-        """Test success notification display."""
+        """Test global toast notification (showNotification) displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("networkidle")
-        
-        # Verify notification exists
-        success_notification = page.locator("#successNotification")
-        expect(success_notification).to_be_visible()
-        
-        # Verify it's hidden initially (translate-x-full)
-        transform_style = success_notification.evaluate("el => window.getComputedStyle(el).transform")
-        # Should be translated off-screen initially
+        # Global showNotification creates a toast with role=alert
+        has_fn = page.evaluate("typeof window.showNotification === 'function'")
+        assert has_fn, "Global showNotification should exist"
+        page.evaluate("window.showNotification('Test save success', 'success')")
+        page.wait_for_timeout(300)
+        toast = page.locator('[role="alert"]:has-text("Test save success")')
+        expect(toast).to_be_visible()
 
 
 class TestSettingsLoading:

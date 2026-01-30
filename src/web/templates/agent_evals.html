@@ -208,6 +208,7 @@
                         <button id="chartNextBtn" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                             Next →
                         </button>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1" title="Chart shows 25 config versions at a time">(← Prev for older runs)</span>
                     </div>
                 </div>
                 <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
@@ -226,7 +227,6 @@
 </div>
 
 <script>
-function getThemeColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 let evalArticles = [];
 let activeConfig = null;
 let selectedArticleUrls = new Set();
@@ -1139,13 +1139,16 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     // Sort by config version
     validAggregates.sort((a, b) => parseInt(a.config_version) - parseInt(b.config_version));
     
-    // Store all data for windowing
+    // Coerce to numbers so Chart.js always gets numerics (handles API string values; fixes cmdline MAE line not showing)
+    const toNum = (v) => { if (v == null) return null; const n = Number(v); return (n !== n) ? null : n; };
+    const nmaeNums = validAggregates.map(agg => toNum(agg.mean_absolute_error));
+    const maeNums = validAggregates.map(agg => toNum(agg.raw_mae));
     allChartData = {
         aggregates: validAggregates,
         modelsByVersion: modelsByVersion,
         labels: validAggregates.map(agg => `v${agg.config_version}`),
-        nmaeData: validAggregates.map(agg => agg.mean_absolute_error),
-        maeData: validAggregates.map(agg => agg.raw_mae != null && !isNaN(agg.raw_mae) ? agg.raw_mae : null),
+        nmaeData: nmaeNums,
+        maeData: maeNums,
         versions: validAggregates.map(agg => agg.config_version)
     };
     
@@ -1231,6 +1234,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 pointHoverRadius: 7,
                 tension: 0.1,
                 fill: false,
+                spanGaps: true,
                 yAxisID: 'y1'
             }]
         },
@@ -1246,8 +1250,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 },
                 tooltip: {
                     backgroundColor: getThemeColor('--tooltip-bg') || 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
+                    titleColor: getThemeColor('--text-emphasis') || '#ffffff',
+                    bodyColor: getThemeColor('--text-emphasis') || '#ffffff',
                     callbacks: {
                         title: function(context) {
                             const index = context[0].dataIndex;
@@ -1300,6 +1304,12 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                     display: true,
                     position: 'right',
                     beginAtZero: true,
+                    suggestedMin: 0,
+                    suggestedMax: (() => {
+                        const vals = windowMaeData.filter(v => v != null && !isNaN(v));
+                        if (vals.length === 0) return 5;
+                        return Math.max(5, Math.ceil(Math.max(...vals) * 1.1));
+                    })(),
                     title: {
                         display: true,
                         text: 'Mean Absolute Error (MAE)',
