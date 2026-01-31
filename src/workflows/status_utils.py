@@ -8,8 +8,7 @@ terminations) and to extract termination metadata for presentation layers.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
-
+from typing import Any
 
 # Common termination reasons
 TERMINATION_REASON_RANK_THRESHOLD = "rank_below_threshold"
@@ -18,15 +17,15 @@ TERMINATION_REASON_NON_WINDOWS_OS = "non_windows_os_detected"
 
 
 def _prepare_termination_payload(
-    reason: Optional[str],
+    reason: str | None,
     step: str,
-    details: Optional[Dict[str, Any]] = None,
-) -> Optional[Dict[str, Any]]:
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """Create a normalized termination payload for storage in error_log."""
     if not reason:
         return None
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "reason": reason,
         "step": step,
         "recorded_at": datetime.now().isoformat(),
@@ -41,8 +40,8 @@ def mark_execution_completed(
     step: str,
     *,
     db_session: Any = None,
-    reason: Optional[str] = None,
-    details: Optional[Dict[str, Any]] = None,
+    reason: str | None = None,
+    details: dict[str, Any] | None = None,
     commit: bool = False,
 ) -> None:
     """
@@ -78,9 +77,7 @@ def mark_execution_completed(
         db_session.commit()
 
 
-def extract_termination_info(
-    error_log: Optional[Dict[str, Any]]
-) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+def extract_termination_info(error_log: dict[str, Any] | None) -> tuple[str | None, dict[str, Any] | None]:
     """Extract termination reason and payload from an execution error_log."""
     if not isinstance(error_log, dict):
         return None, None

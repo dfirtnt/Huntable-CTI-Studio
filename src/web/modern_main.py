@@ -4,13 +4,11 @@ FastAPI application entrypoint for the Huntable CTI Studio platform.
 
 from __future__ import annotations
 
-import asyncio
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator
 
-from celery import Celery
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -49,9 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Only sync from YAML for brand new builds (initial setup)
         # Database values take precedence for existing installations
         if disable_auto_sync:
-            logger.info(
-                "Source auto-sync disabled via DISABLE_SOURCE_AUTO_SYNC. Using database values only."
-            )
+            logger.info("Source auto-sync disabled via DISABLE_SOURCE_AUTO_SYNC. Using database values only.")
         elif not existing_identifiers or len(existing_identifiers) < 5:
             # Brand new build: seed from YAML
             config_path = Path(os.getenv("SOURCES_CONFIG", "config/sources.yaml"))
@@ -80,9 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             stats["total_articles"],
         )
 
-        updated_agents = await async_db_manager.set_robots_user_agent_for_all(
-            DEFAULT_SOURCE_USER_AGENT
-        )
+        updated_agents = await async_db_manager.set_robots_user_agent_for_all(DEFAULT_SOURCE_USER_AGENT)
         if updated_agents:
             logger.info("Normalized robots user-agent for %s sources", updated_agents)
 

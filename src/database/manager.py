@@ -1,19 +1,17 @@
 """Database manager for threat intelligence aggregator with deduplication support."""
 
-import asyncio
-import os
-from typing import List, Optional, Dict, Any, Set, Tuple
-from datetime import datetime, timedelta
-from sqlalchemy import create_engine, text, and_, or_, desc, func
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 import logging
+import os
+from datetime import datetime, timedelta
+from typing import Any
 
-from src.database.models import Base, SourceTable, ArticleTable, SourceCheckTable, ContentHashTable, URLTrackingTable, SimHashBucketTable
-from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter, SourceHealth
-from src.models.article import Article, ArticleCreate, ArticleUpdate, ArticleFilter
-from src.services.deduplication import DeduplicationService
+from sqlalchemy import create_engine, desc, func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, sessionmaker
+
+from src.database.models import ArticleTable, Base, ContentHashTable, SourceCheckTable, SourceTable, URLTrackingTable
+from src.models.article import Article, ArticleCreate, ArticleFilter
+from src.models.source import Source, SourceCreate, SourceFilter, SourceHealth, SourceUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +20,15 @@ class DatabaseManager:
     """Database manager for efficient operations with conflict resolution."""
 
     # Reuse engines/sessionmakers per connection string to avoid creating new pools on every instantiation
-    _engine_cache: Dict[str, Any] = {}
-    _session_cache: Dict[str, sessionmaker] = {}
-    
+    _engine_cache: dict[str, Any] = {}
+    _session_cache: dict[str, sessionmaker] = {}
+
     def __init__(
         self,
         database_url: str = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password@postgres:5432/cti_scraper"),
         echo: bool = False,
         pool_size: int = 10,
-        max_overflow: int = 20
+        max_overflow: int = 20,
     ):
         # Convert asyncpg URLs to psycopg2 for synchronous operations
         if "+asyncpg" in database_url:
@@ -49,35 +47,27 @@ class DatabaseManager:
 
         self.database_url = database_url
         self.echo = echo
-        
+
         # Create engine with appropriate settings
         if database_url.startswith("sqlite"):
             # SQLite specific settings
-            self.engine = create_engine(
-                database_url,
-                echo=echo,
-                connect_args={"check_same_thread": False}
-            )
+            self.engine = create_engine(database_url, echo=echo, connect_args={"check_same_thread": False})
         else:
             # PostgreSQL settings
             self.engine = create_engine(
-                database_url,
-                echo=echo,
-                pool_size=pool_size,
-                max_overflow=max_overflow,
-                pool_pre_ping=True
+                database_url, echo=echo, pool_size=pool_size, max_overflow=max_overflow, pool_pre_ping=True
             )
-        
+
         # Create session factory
         self.SessionLocal = sessionmaker(bind=self.engine)
 
         # Cache engine/sessionmaker for reuse across requests
         self._engine_cache[cache_key] = self.engine
         self._session_cache[cache_key] = self.SessionLocal
-        
+
         # Initialize database
         self.create_tables()
-    
+
     def create_tables(self) -> None:
         """Create all database tables."""
         try:
@@ -86,13 +76,13 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
             raise
-    
+
     def get_session(self) -> Session:
         """Get database session."""
         return self.SessionLocal()
-    
+
     # Source management methods
-    
+
     def create_source(self, source_data: SourceCreate) -> Source:
         """Create a new source."""
         with self.get_session() as session:
@@ -106,185 +96,189 @@ class DatabaseManager:
                     check_frequency=source_data.check_frequency,
                     lookback_days=source_data.lookback_days,
                     active=source_data.active,
-                    config=source_data.config.dict() if source_data.config else {}
+                    config=source_data.config.dict() if source_data.config else {},
                 )
-                
+
                 session.add(db_source)
                 session.commit()
                 session.refresh(db_source)
-                
+
                 logger.info(f"Created source: {db_source.identifier}")
                 return self._db_source_to_model(db_source)
-                
+
             except IntegrityError as e:
                 session.rollback()
                 logger.error(f"Source with identifier '{source_data.identifier}' already exists")
-                raise ValueError(f"Source identifier must be unique") from e
+                raise ValueError("Source identifier must be unique") from e
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to create source: {e}")
                 raise
-    
-    def get_source(self, source_id: int) -> Optional[Source]:
+
+    def get_source(self, source_id: int) -> Source | None:
         """Get source by ID."""
         with self.get_session() as session:
             db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
             return self._db_source_to_model(db_source) if db_source else None
-    
-    def get_source_by_identifier(self, identifier: str) -> Optional[Source]:
+
+    def get_source_by_identifier(self, identifier: str) -> Source | None:
         """Get source by identifier."""
         with self.get_session() as session:
             db_source = session.query(SourceTable).filter(SourceTable.identifier == identifier).first()
             return self._db_source_to_model(db_source) if db_source else None
-    
-    def list_sources(self, filter_params: Optional[SourceFilter] = None) -> List[Source]:
+
+    def list_sources(self, filter_params: SourceFilter | None = None) -> list[Source]:
         """List sources with optional filtering."""
         with self.get_session() as session:
             query = session.query(SourceTable)
-            
+
             if filter_params:
                 if filter_params.active is not None:
                     query = query.filter(SourceTable.active == filter_params.active)
-                
+
                 if filter_params.identifier_contains:
                     query = query.filter(SourceTable.identifier.contains(filter_params.identifier_contains))
-                
+
                 if filter_params.name_contains:
                     query = query.filter(SourceTable.name.contains(filter_params.name_contains))
-                
+
                 if filter_params.consecutive_failures_gte is not None:
                     query = query.filter(SourceTable.consecutive_failures >= filter_params.consecutive_failures_gte)
-                
+
                 if filter_params.last_check_before:
                     query = query.filter(SourceTable.last_check < filter_params.last_check_before)
-                
+
                 # Apply pagination
                 query = query.offset(filter_params.offset).limit(filter_params.limit)
-            
+
             db_sources = query.all()
             return [self._db_source_to_model(db_source) for db_source in db_sources]
-    
-    def update_source(self, source_id: int, update_data: SourceUpdate) -> Optional[Source]:
+
+    def update_source(self, source_id: int, update_data: SourceUpdate) -> Source | None:
         """Update source."""
         with self.get_session() as session:
             try:
                 db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
-                
+
                 if not db_source:
                     return None
-                
+
                 # Update fields
                 update_dict = update_data.dict(exclude_unset=True)
                 for field, value in update_dict.items():
-                    if field == 'config' and value:
+                    if field == "config" and value:
                         setattr(db_source, field, value.dict())
                     else:
                         setattr(db_source, field, value)
-                
+
                 session.commit()
                 session.refresh(db_source)
-                
+
                 logger.info(f"Updated source: {db_source.identifier}")
                 return self._db_source_to_model(db_source)
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to update source {source_id}: {e}")
                 raise
-    
+
     def delete_source(self, source_id: int) -> bool:
         """Delete source and all associated data."""
         with self.get_session() as session:
             try:
                 db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
-                
+
                 if not db_source:
                     return False
-                
+
                 session.delete(db_source)
                 session.commit()
-                
+
                 logger.info(f"Deleted source: {db_source.identifier}")
                 return True
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to delete source {source_id}: {e}")
                 raise
-    
+
     def update_source_health(self, source_id: int, success: bool, response_time: float = 0.0) -> None:
         """Update source health metrics."""
         with self.get_session() as session:
             try:
                 db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
-                
+
                 if not db_source:
                     return
-                
+
                 # Update metrics
                 if success:
                     db_source.consecutive_failures = 0
                     db_source.last_success = datetime.now()
                 else:
                     db_source.consecutive_failures += 1
-                
+
                 db_source.last_check = datetime.now()
-                
+
                 # Update average response time
                 if db_source.average_response_time == 0.0:
                     db_source.average_response_time = response_time
                 else:
                     db_source.average_response_time = (db_source.average_response_time + response_time) / 2
-                
+
                 session.commit()
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to update source health for {source_id}: {e}")
                 raise
-    
+
     # Article management methods
-    
-    def create_articles_bulk(self, articles: List[ArticleCreate]) -> Tuple[List[Article], List[str]]:
+
+    def create_articles_bulk(self, articles: list[ArticleCreate]) -> tuple[list[Article], list[str]]:
         """
         Bulk create articles with conflict resolution.
-        
+
         Returns:
             Tuple of (created_articles, errors)
         """
         if not articles:
             return [], []
-        
+
         created_articles = []
         errors = []
-        
+
         with self.get_session() as session:
             try:
                 for article_data in articles:
                     try:
                         # Check for existing article by content hash
-                        existing = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
-                            ArticleTable.content_hash == article_data.content_hash
-                        ).first()
-                        
+                        existing = (
+                            session.query(ArticleTable)
+                            .filter(ArticleTable.archived == False)
+                            .filter(ArticleTable.content_hash == article_data.content_hash)
+                            .first()
+                        )
+
                         if existing:
                             errors.append(f"Duplicate content hash: {article_data.title[:50]}...")
                             continue
-                        
+
                         # Extract word count from metadata
-                        word_count = article_data.article_metadata.get('word_count', 0)
-                        
+                        word_count = article_data.article_metadata.get("word_count", 0)
+
                         # Compute SimHash for near-duplicate detection
                         from src.utils.simhash import compute_article_simhash
+
                         simhash, simhash_bucket = compute_article_simhash(article_data.content, article_data.title)
-                        
+
                         # Create database record
                         db_article = ArticleTable(
                             source_id=article_data.source_id,
                             canonical_url=article_data.canonical_url,
                             title=article_data.title,
                             published_at=article_data.published_at,
-                            modified_at=getattr(article_data, 'modified_at', None),
+                            modified_at=getattr(article_data, "modified_at", None),
                             authors=article_data.authors,
                             tags=article_data.tags,
                             summary=article_data.summary,
@@ -293,78 +287,94 @@ class DatabaseManager:
                             simhash=simhash,
                             simhash_bucket=simhash_bucket,
                             article_metadata=article_data.article_metadata,
-                            word_count=word_count
+                            word_count=word_count,
                         )
-                        
+
                         session.add(db_article)
                         session.flush()  # Get ID without committing
-                        
+
                         # Create content hash record
                         content_hash_record = ContentHashTable(
-                            content_hash=article_data.content_hash,
-                            article_id=db_article.id
+                            content_hash=article_data.content_hash, article_id=db_article.id
                         )
                         session.add(content_hash_record)
-                        
+
                         # Convert to model
                         article = self._db_article_to_model(db_article)
                         created_articles.append(article)
-                        
+
                     except Exception as e:
                         logger.error(f"Failed to create article '{article_data.title[:50]}...': {e}")
                         errors.append(f"Error creating article: {e}")
                         continue
-                
+
                 # Commit all successful articles
                 session.commit()
-                
+
                 # Automatically run chunk analysis for articles with hunt_score > 50
                 # This calculates ML hunt score automatically
                 for created_article in created_articles:
-                    hunt_score = created_article.article_metadata.get('threat_hunting_score', 0) if created_article.article_metadata else 0
+                    hunt_score = (
+                        created_article.article_metadata.get("threat_hunting_score", 0)
+                        if created_article.article_metadata
+                        else 0
+                    )
                     if hunt_score > 50:
                         try:
                             # Run chunk analysis in background (non-blocking)
                             from src.worker.celery_app import run_chunk_analysis
+
                             run_chunk_analysis.delay(created_article.id)
-                            logger.info(f"Triggered automatic chunk analysis for article {created_article.id} (hunt_score: {hunt_score})")
+                            logger.info(
+                                f"Triggered automatic chunk analysis for article {created_article.id} (hunt_score: {hunt_score})"
+                            )
                         except Exception as e:
                             logger.warning(f"Failed to trigger chunk analysis for article {created_article.id}: {e}")
-                
+
                 # Update source article count
                 if created_articles:
                     source_id = articles[0].source_id
                     self._update_source_article_count(session, source_id)
-                
+
                 logger.info(f"Created {len(created_articles)} articles, {len(errors)} errors")
-                
+
                 return created_articles, errors
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Bulk article creation failed: {e}")
                 raise
-    
-    def get_article(self, article_id: int) -> Optional[Article]:
+
+    def get_article(self, article_id: int) -> Article | None:
         """Get article by ID."""
         with self.get_session() as session:
-            db_article = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.id == article_id).first()
+            db_article = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.archived == False)
+                .filter(ArticleTable.id == article_id)
+                .first()
+            )
             return self._db_article_to_model(db_article) if db_article else None
-    
-    def get_article_including_archived(self, article_id: int) -> Optional[Article]:
+
+    def get_article_including_archived(self, article_id: int) -> Article | None:
         """Get article by ID, including archived articles."""
         with self.get_session() as session:
             db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
             return self._db_article_to_model(db_article) if db_article else None
-    
-    def update_article(self, article_id: int, article: Article) -> Optional[Article]:
+
+    def update_article(self, article_id: int, article: Article) -> Article | None:
         """Update article by ID."""
         with self.get_session() as session:
             try:
-                db_article = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.id == article_id).first()
+                db_article = (
+                    session.query(ArticleTable)
+                    .filter(ArticleTable.archived == False)
+                    .filter(ArticleTable.id == article_id)
+                    .first()
+                )
                 if not db_article:
                     return None
-                
+
                 # Update fields
                 db_article.title = article.title
                 db_article.content = article.content
@@ -375,23 +385,23 @@ class DatabaseManager:
                 db_article.article_metadata = article.article_metadata
                 db_article.word_count = article.word_count
                 db_article.updated_at = datetime.now()
-                
+
                 session.commit()
                 return self._db_article_to_model(db_article)
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to update article {article_id}: {e}")
                 raise
-    
-    def update_article_including_archived(self, article_id: int, article: Article) -> Optional[Article]:
+
+    def update_article_including_archived(self, article_id: int, article: Article) -> Article | None:
         """Update article by ID, including archived articles."""
         with self.get_session() as session:
             try:
                 db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
                 if not db_article:
                     return None
-                
+
                 # Update fields
                 db_article.title = article.title
                 db_article.content = article.content
@@ -402,88 +412,98 @@ class DatabaseManager:
                 db_article.article_metadata = article.article_metadata
                 db_article.word_count = article.word_count
                 db_article.updated_at = datetime.now()
-                
+
                 session.commit()
                 return self._db_article_to_model(db_article)
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to update article {article_id}: {e}")
                 raise
-    
-    def list_articles_including_archived(self) -> List[Article]:
+
+    def list_articles_including_archived(self) -> list[Article]:
         """List all articles including archived ones."""
         with self.get_session() as session:
             query = session.query(ArticleTable)
             query = query.order_by(desc(ArticleTable.published_at))
             db_articles = query.all()
             return [self._db_article_to_model(db_article) for db_article in db_articles]
-    
-    def list_articles(self, filter_params: Optional[ArticleFilter] = None) -> List[Article]:
+
+    def list_articles(self, filter_params: ArticleFilter | None = None) -> list[Article]:
         """List articles with optional filtering."""
         with self.get_session() as session:
-            query = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.archived == False)
-            
+            query = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.archived == False)
+                .filter(ArticleTable.archived == False)
+            )
+
             if filter_params:
                 if filter_params.source_id is not None:
                     query = query.filter(ArticleTable.source_id == filter_params.source_id)
-                
+
                 if filter_params.author:
                     query = query.filter(ArticleTable.authors.contains([filter_params.author]))
-                
+
                 if filter_params.tag:
                     query = query.filter(ArticleTable.tags.contains([filter_params.tag]))
-                
+
                 if filter_params.published_after:
                     query = query.filter(ArticleTable.published_at >= filter_params.published_after)
-                
+
                 if filter_params.published_before:
                     query = query.filter(ArticleTable.published_at <= filter_params.published_before)
-                
+
                 if filter_params.content_contains:
                     query = query.filter(ArticleTable.content.contains(filter_params.content_contains))
-                
+
                 if filter_params.processing_status:
                     query = query.filter(ArticleTable.processing_status == filter_params.processing_status)
-                
+
                 # Apply pagination
                 query = query.offset(filter_params.offset).limit(filter_params.limit)
-            
+
             # Order by publication date (newest first)
             query = query.order_by(desc(ArticleTable.published_at))
-            
+
             db_articles = query.all()
             return [self._db_article_to_model(db_article) for db_article in db_articles]
-    
-    def get_articles_without_embeddings(self) -> List[Dict[str, Any]]:
+
+    def get_articles_without_embeddings(self) -> list[dict[str, Any]]:
         """Get all articles that don't have embeddings yet."""
         try:
             with self.get_session() as session:
-                result = session.query(ArticleTable).filter(
-                    ArticleTable.embedding.is_(None)
-                ).order_by(ArticleTable.created_at).all()
-                
+                result = (
+                    session.query(ArticleTable)
+                    .filter(ArticleTable.embedding.is_(None))
+                    .order_by(ArticleTable.created_at)
+                    .all()
+                )
+
                 # Convert to dictionary format for the worker
                 articles = []
                 for article in result:
-                    articles.append({
-                        'id': article.id,
-                        'title': article.title,
-                        'content': article.content,
-                        'summary': article.summary,
-                        'tags': article.tags or [],
-                        'source_name': article.source.name if article.source else 'Unknown',
-                        'article_metadata': article.article_metadata or {}
-                    })
-                
+                    articles.append(
+                        {
+                            "id": article.id,
+                            "title": article.title,
+                            "content": article.content,
+                            "summary": article.summary,
+                            "tags": article.tags or [],
+                            "source_name": article.source.name if article.source else "Unknown",
+                            "article_metadata": article.article_metadata or {},
+                        }
+                    )
+
                 return articles
-                
+
         except Exception as e:
             logger.error(f"Failed to get articles without embeddings: {e}")
             return []
-    
-    def update_article_embedding(self, article_id: int, embedding: List[float], 
-                               model_name: str = "all-mpnet-base-v2") -> bool:
+
+    def update_article_embedding(
+        self, article_id: int, embedding: list[float], model_name: str = "all-mpnet-base-v2"
+    ) -> bool:
         """Update article with embedding."""
         try:
             with self.get_session() as session:
@@ -495,35 +515,34 @@ class DatabaseManager:
                     session.commit()
                     return True
                 return False
-                
+
         except Exception as e:
             logger.error(f"Failed to update article embedding: {e}")
             return False
-    
-    def get_existing_content_hashes(self, limit: int = 10000) -> Set[str]:
+
+    def get_existing_content_hashes(self, limit: int = 10000) -> set[str]:
         """Get set of existing content hashes for deduplication."""
         with self.get_session() as session:
             hashes = session.query(ContentHashTable.content_hash).limit(limit).all()
             return {hash_tuple[0] for hash_tuple in hashes}
-    
+
     # Source check tracking
-    
-    
-    def get_existing_urls(self, limit: int = 10000) -> Set[str]:
+
+    def get_existing_urls(self, limit: int = 10000) -> set[str]:
         """Get set of existing canonical URLs for deduplication."""
         with self.get_session() as session:
             urls = session.query(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit).all()
             return {url_tuple[0] for url_tuple in urls}
-    
+
     def record_source_check(
         self,
         source_id: int,
         success: bool,
         method: str,
         articles_found: int = 0,
-        response_time: Optional[float] = None,
-        error_message: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        response_time: float | None = None,
+        error_message: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """Record a source check for tracking and analysis."""
         with self.get_session() as session:
@@ -535,113 +554,129 @@ class DatabaseManager:
                     articles_found=articles_found,
                     response_time=response_time,
                     error_message=error_message,
-                    check_metadata=metadata or {}
+                    check_metadata=metadata or {},
                 )
-                
+
                 session.add(check_record)
                 session.commit()
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to record source check: {e}")
-    
-    def get_source_health_status(self, source_id: int) -> Optional[SourceHealth]:
+
+    def get_source_health_status(self, source_id: int) -> SourceHealth | None:
         """Get detailed health status for a source."""
         with self.get_session() as session:
             db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
-            
+
             if not db_source:
                 return None
-            
+
             return SourceHealth(
                 source_id=db_source.id,
                 identifier=db_source.identifier,
                 name=db_source.name,
                 active=db_source.active,
-                tier=getattr(db_source, 'tier', None),
+                tier=getattr(db_source, "tier", None),
                 last_check=db_source.last_check,
                 last_success=db_source.last_success,
                 consecutive_failures=db_source.consecutive_failures,
                 average_response_time=db_source.average_response_time,
-                total_articles=db_source.total_articles
+                total_articles=db_source.total_articles,
             )
-    
+
     # Statistics and reporting
-    
-    def get_database_stats(self) -> Dict[str, Any]:
+
+    def get_database_stats(self) -> dict[str, Any]:
         """Get overall database statistics."""
         with self.get_session() as session:
             stats = {}
-            
+
             # Source statistics
-            stats['total_sources'] = session.query(SourceTable).count()
-            stats['active_sources'] = session.query(SourceTable).filter(SourceTable.active == True).count()
+            stats["total_sources"] = session.query(SourceTable).count()
+            stats["active_sources"] = session.query(SourceTable).filter(SourceTable.active == True).count()
             # SourceTable has no tier column; keep key for API compatibility
-            stats['sources_by_tier'] = {'tier_1': stats['total_sources'], 'tier_2': 0, 'tier_3': 0}
+            stats["sources_by_tier"] = {"tier_1": stats["total_sources"], "tier_2": 0, "tier_3": 0}
 
             # Article statistics
-            stats['total_articles'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.archived == False).count()
-            
+            stats["total_articles"] = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.archived == False)
+                .filter(ArticleTable.archived == False)
+                .count()
+            )
+
             # Articles by date range
             now = datetime.now()
             day_ago = now - timedelta(days=1)
             week_ago = now - timedelta(days=7)
             month_ago = now - timedelta(days=30)
-            
-            stats['articles_last_day'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
-                ArticleTable.discovered_at >= day_ago
-            ).count()
-            
-            stats['articles_last_week'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
-                ArticleTable.discovered_at >= week_ago
-            ).count()
-            
-            stats['articles_last_month'] = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(
-                ArticleTable.discovered_at >= month_ago
-            ).count()
-            
+
+            stats["articles_last_day"] = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.archived == False)
+                .filter(ArticleTable.discovered_at >= day_ago)
+                .count()
+            )
+
+            stats["articles_last_week"] = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.archived == False)
+                .filter(ArticleTable.discovered_at >= week_ago)
+                .count()
+            )
+
+            stats["articles_last_month"] = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.archived == False)
+                .filter(ArticleTable.discovered_at >= month_ago)
+                .count()
+            )
+
             # Add missing fields for web interface
-            stats['articles_last_24h'] = stats['articles_last_day']
-            
+            stats["articles_last_24h"] = stats["articles_last_day"]
+
             # Calculate database size (approximate for SQLite)
             try:
                 if self.database_url.startswith("sqlite"):
                     # For SQLite, get file size
                     import os
+
                     db_file = self.database_url.replace("sqlite:///", "")
                     if os.path.exists(db_file):
-                        stats['database_size_mb'] = round(os.path.getsize(db_file) / (1024 * 1024), 2)
+                        stats["database_size_mb"] = round(os.path.getsize(db_file) / (1024 * 1024), 2)
                     else:
-                        stats['database_size_mb'] = 0.0
+                        stats["database_size_mb"] = 0.0
                 else:
                     # For PostgreSQL, estimate size
-                    stats['database_size_mb'] = 0.0
+                    stats["database_size_mb"] = 0.0
             except Exception:
-                stats['database_size_mb'] = 0.0
-            
+                stats["database_size_mb"] = 0.0
+
             # Quality statistics (ArticleTable may not have quality_score column)
-            stats['average_quality_score'] = 0.0
-            if getattr(ArticleTable, 'quality_score', None) is not None:
-                avg_quality = session.query(func.avg(ArticleTable.quality_score)).filter(
-                    ArticleTable.quality_score.isnot(None)
-                ).scalar()
-                stats['average_quality_score'] = float(avg_quality) if avg_quality else 0.0
-            
+            stats["average_quality_score"] = 0.0
+            if getattr(ArticleTable, "quality_score", None) is not None:
+                avg_quality = (
+                    session.query(func.avg(ArticleTable.quality_score))
+                    .filter(ArticleTable.quality_score.isnot(None))
+                    .scalar()
+                )
+                stats["average_quality_score"] = float(avg_quality) if avg_quality else 0.0
+
             return stats
-    
+
     # Utility methods
-    
+
     def _db_source_to_model(self, db_source: SourceTable) -> Source:
         """Convert database source to Pydantic model."""
-        from src.models.source import SourceConfig
-        
+
         # Handle nested config structure: if config has a 'config' key, use that
         # Otherwise use config directly
         source_config = db_source.config if db_source.config else {}
-        if isinstance(source_config, dict) and 'config' in source_config and len(source_config) > 1:
+        if isinstance(source_config, dict) and "config" in source_config and len(source_config) > 1:
             # Nested structure: extract the inner config
-            source_config = source_config.get('config', {})
-        
+            source_config = source_config.get("config", {})
+
         return Source(
             id=db_source.id,
             identifier=db_source.identifier,
@@ -656,9 +691,9 @@ class DatabaseManager:
             last_success=db_source.last_success,
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
-            average_response_time=db_source.average_response_time
+            average_response_time=db_source.average_response_time,
         )
-    
+
     def _db_article_to_model(self, db_article: ArticleTable) -> Article:
         """Convert database article to Pydantic model."""
         return Article(
@@ -683,36 +718,35 @@ class DatabaseManager:
             processing_status=db_article.processing_status,
             collected_at=db_article.discovered_at,
             created_at=db_article.created_at,
-            updated_at=db_article.updated_at
+            updated_at=db_article.updated_at,
         )
-    
+
     def _update_source_article_count(self, session: Session, source_id: int) -> None:
         """Update the total article count for a source."""
-        count = session.query(ArticleTable).filter(ArticleTable.archived == False).filter(ArticleTable.source_id == source_id).count()
-        session.query(SourceTable).filter(SourceTable.id == source_id).update(
-            {'total_articles': count}
+        count = (
+            session.query(ArticleTable)
+            .filter(ArticleTable.archived == False)
+            .filter(ArticleTable.source_id == source_id)
+            .count()
         )
-    
-    def cleanup_old_data(self, days_to_keep: int = 90) -> Dict[str, int]:
+        session.query(SourceTable).filter(SourceTable.id == source_id).update({"total_articles": count})
+
+    def cleanup_old_data(self, days_to_keep: int = 90) -> dict[str, int]:
         """Clean up old data to manage database size."""
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
-        
+
         with self.get_session() as session:
             try:
                 # Clean up old source checks
-                old_checks = session.query(SourceCheckTable).filter(
-                    SourceCheckTable.check_time < cutoff_date
-                ).delete()
-                
+                old_checks = session.query(SourceCheckTable).filter(SourceCheckTable.check_time < cutoff_date).delete()
+
                 # Clean up old URL tracking
-                old_urls = session.query(URLTrackingTable).filter(
-                    URLTrackingTable.last_checked < cutoff_date
-                ).delete()
-                
+                old_urls = session.query(URLTrackingTable).filter(URLTrackingTable.last_checked < cutoff_date).delete()
+
                 session.commit()
-                
+
                 logger.info(f"Cleaned up {old_checks} old source checks and {old_urls} old URL records")
-                
+
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to cleanup old data: {e}")
@@ -721,20 +755,20 @@ class DatabaseManager:
     def create_chunk_feedback(self, feedback_data: dict):
         """Create chunk classification feedback entry."""
         from src.database.models import ChunkClassificationFeedbackTable
-        
+
         with self.get_session() as session:
             try:
                 feedback = ChunkClassificationFeedbackTable(
-                    article_id=feedback_data['article_id'],
-                    chunk_id=feedback_data['chunk_id'],
-                    chunk_text=feedback_data['chunk_text'],
-                    model_classification=feedback_data['model_classification'],
-                    model_confidence=feedback_data['model_confidence'],
-                    model_reason=feedback_data.get('model_reason', ''),
-                    is_correct=feedback_data['is_correct'],
-                    user_classification=feedback_data.get('user_classification', ''),
-                    comment=feedback_data.get('comment', ''),
-                    used_for_training=feedback_data.get('used_for_training', False)
+                    article_id=feedback_data["article_id"],
+                    chunk_id=feedback_data["chunk_id"],
+                    chunk_text=feedback_data["chunk_text"],
+                    model_classification=feedback_data["model_classification"],
+                    model_confidence=feedback_data["model_confidence"],
+                    model_reason=feedback_data.get("model_reason", ""),
+                    is_correct=feedback_data["is_correct"],
+                    user_classification=feedback_data.get("user_classification", ""),
+                    comment=feedback_data.get("comment", ""),
+                    used_for_training=feedback_data.get("used_for_training", False),
                 )
                 session.add(feedback)
                 session.commit()
@@ -747,12 +781,14 @@ class DatabaseManager:
     def get_unused_chunk_feedback(self):
         """Get all unused chunk feedback for training."""
         from src.database.models import ChunkClassificationFeedbackTable
-        
+
         with self.get_session() as session:
             try:
-                feedback_records = session.query(ChunkClassificationFeedbackTable).filter(
-                    ChunkClassificationFeedbackTable.used_for_training == False
-                ).all()
+                feedback_records = (
+                    session.query(ChunkClassificationFeedbackTable)
+                    .filter(ChunkClassificationFeedbackTable.used_for_training == False)
+                    .all()
+                )
                 return feedback_records
             except Exception as e:
                 logger.error(f"Failed to get unused chunk feedback: {e}")
@@ -761,12 +797,14 @@ class DatabaseManager:
     def mark_chunk_feedback_as_used(self) -> int:
         """Mark all unused chunk feedback as used. Returns count."""
         from src.database.models import ChunkClassificationFeedbackTable
-        
+
         with self.get_session() as session:
             try:
-                result = session.query(ChunkClassificationFeedbackTable).filter(
-                    ChunkClassificationFeedbackTable.used_for_training == False
-                ).update({'used_for_training': True})
+                result = (
+                    session.query(ChunkClassificationFeedbackTable)
+                    .filter(ChunkClassificationFeedbackTable.used_for_training == False)
+                    .update({"used_for_training": True})
+                )
                 session.commit()
                 return result
             except Exception as e:

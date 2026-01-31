@@ -5,16 +5,18 @@ Migration script to create app_settings table.
 This table stores user preferences that override environment variables.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine, text
-from src.database.models import Base, AppSettingsTable
 import logging
+
+from sqlalchemy import create_engine, text
+
+from src.database.models import AppSettingsTable
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

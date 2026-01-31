@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ def _basic_checks(candidate: str, article: str) -> bool:
     return True
 
 
-def qa_validate(final_candidates: List[str], article: str) -> List[str]:
+def qa_validate(final_candidates: list[str], article: str) -> list[str]:
     """
     Use a small LLM to re-check borderline cases.
     Must output the same or reduced list.

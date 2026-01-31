@@ -10,13 +10,14 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 from src.utils.content import ThreatHuntingScorer
 
 logger = logging.getLogger(__name__)
 
 
-def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
+def highlight_keywords(content: str, metadata: dict[str, Any]) -> str:
     """
     Highlight discriminator keywords in article content.
 
@@ -31,8 +32,8 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
         return content
 
     # Get all keyword matches
-    all_keywords: List[Tuple[str, str, str]] = []
-    keyword_types: Dict[str, Tuple[str, str]] = {
+    all_keywords: list[tuple[str, str, str]] = []
+    keyword_types: dict[str, tuple[str, str]] = {
         "perfect_keyword_matches": (
             "perfect",
             "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700",
@@ -68,9 +69,7 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
 
     # Check if content is already highlighted (contains HTML spans)
     if "<span class=" in content:
-        logger.warning(
-            "Content already contains HTML spans, skipping keyword highlighting to avoid nested spans"
-        )
+        logger.warning("Content already contains HTML spans, skipping keyword highlighting to avoid nested spans")
         return content
 
     matches = []
@@ -158,17 +157,13 @@ def highlight_keywords(content: str, metadata: Dict[str, Any]) -> str:
             f"{matched_text}</span>"
         )
         highlighted_content = (
-            highlighted_content[: match["start"]]
-            + highlight_span
-            + highlighted_content[match["end"] :]
+            highlighted_content[: match["start"]] + highlight_span + highlighted_content[match["end"] :]
         )
 
     return highlighted_content
 
 
-def strftime_filter(
-    value: Optional[datetime], format_string: str = "%Y-%m-%d %H:%M:%S"
-) -> str:
+def strftime_filter(value: datetime | None, format_string: str = "%Y-%m-%d %H:%M:%S") -> str:
     """Format a datetime object using strftime."""
     if value is None:
         return "N/A"

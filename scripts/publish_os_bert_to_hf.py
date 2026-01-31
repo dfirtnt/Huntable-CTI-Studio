@@ -12,7 +12,6 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-from typing import Optional
 
 try:
     from huggingface_hub import HfApi, create_repo, login
@@ -25,7 +24,7 @@ def load_metadata(model_dir: Path) -> dict:
     """Load training metadata if available."""
     metadata_path = model_dir / "training_metadata.json"
     if metadata_path.exists():
-        with open(metadata_path, 'r') as f:
+        with open(metadata_path) as f:
             return json.load(f)
     return {}
 
@@ -37,13 +36,13 @@ def create_model_card(model_dir: Path, repo_id: str, metadata: dict) -> str:
     labels = metadata.get("labels", ["Windows", "Linux", "MacOS", "multiple", "Unknown"])
     training_samples = metadata.get("training_samples", "Unknown")
     test_samples = metadata.get("test_samples", "Unknown")
-    
+
     test_metrics = metadata.get("test_metrics", {})
     accuracy = test_metrics.get("accuracy", 0.0)
     f1 = test_metrics.get("f1", 0.0)
     precision = test_metrics.get("precision", 0.0)
     recall = test_metrics.get("recall", 0.0)
-    
+
     model_card = f"""---
 license: apache-2.0
 tags:
@@ -72,14 +71,14 @@ OS-BERT is fine-tuned from {base_model} for multi-class OS classification. It id
 
 **Base Model:** {base_model}  
 **Task:** Multi-class classification  
-**Classes:** {', '.join(labels)}  
+**Classes:** {", ".join(labels)}  
 **Number of Labels:** {num_labels}
 
 ## Intended Use
 
 - **Primary Use**: Classify threat intelligence articles by target operating system
 - **Domain**: Cybersecurity threat intelligence
-- **Classes**: {', '.join(labels)}
+- **Classes**: {", ".join(labels)}
 
 ## Training Data
 
@@ -150,56 +149,32 @@ Apache 2.0
 
 def main():
     parser = argparse.ArgumentParser(description="Publish OS-BERT to HuggingFace")
-    parser.add_argument(
-        '--model-dir',
-        type=Path,
-        required=True,
-        help='Directory containing fine-tuned model'
-    )
-    parser.add_argument(
-        '--repo-id',
-        type=str,
-        required=True,
-        help='HuggingFace repository ID (e.g., username/os-bert)'
-    )
-    parser.add_argument(
-        '--commit-message',
-        type=str,
-        default='Upload OS-BERT model',
-        help='Commit message for upload'
-    )
-    parser.add_argument(
-        '--token',
-        type=str,
-        default=None,
-        help='HuggingFace token (or set HF_TOKEN env var)'
-    )
-    parser.add_argument(
-        '--private',
-        action='store_true',
-        help='Make repository private'
-    )
-    
+    parser.add_argument("--model-dir", type=Path, required=True, help="Directory containing fine-tuned model")
+    parser.add_argument("--repo-id", type=str, required=True, help="HuggingFace repository ID (e.g., username/os-bert)")
+    parser.add_argument("--commit-message", type=str, default="Upload OS-BERT model", help="Commit message for upload")
+    parser.add_argument("--token", type=str, default=None, help="HuggingFace token (or set HF_TOKEN env var)")
+    parser.add_argument("--private", action="store_true", help="Make repository private")
+
     args = parser.parse_args()
-    
+
     if not args.model_dir.exists():
         print(f"Error: Model directory not found: {args.model_dir}")
         return
-    
+
     # Check required files
     required_files = ["config.json", "pytorch_model.bin"]
     missing_files = [f for f in required_files if not (args.model_dir / f).exists()]
     if missing_files:
         print(f"Error: Missing required files: {missing_files}")
-        print(f"Make sure you've fine-tuned the model first.")
+        print("Make sure you've fine-tuned the model first.")
         return
-    
-    print("="*80)
+
+    print("=" * 80)
     print("PUBLISHING OS-BERT TO HUGGINGFACE")
-    print("="*80)
-    
+    print("=" * 80)
+
     # Login
-    print(f"\nLogging in to HuggingFace...")
+    print("\nLogging in to HuggingFace...")
     try:
         if args.token:
             login(token=args.token)
@@ -209,63 +184,54 @@ def main():
         print(f"Error logging in: {e}")
         print("Set HF_TOKEN environment variable or use --token flag")
         return
-    
+
     # Load metadata
     metadata = load_metadata(args.model_dir)
-    
+
     # Create model card
-    print(f"\nCreating model card...")
+    print("\nCreating model card...")
     model_card = create_model_card(args.model_dir, args.repo_id, metadata)
-    
+
     # Save model card
     readme_path = args.model_dir / "README.md"
-    with open(readme_path, 'w') as f:
+    with open(readme_path, "w") as f:
         f.write(model_card)
     print(f"✅ Model card saved to {readme_path}")
-    
+
     # Create repository
     print(f"\nCreating repository: {args.repo_id}...")
     api = HfApi()
     try:
-        create_repo(
-            repo_id=args.repo_id,
-            repo_type="model",
-            private=args.private,
-            exist_ok=True
-        )
-        print(f"✅ Repository created/exists")
+        create_repo(repo_id=args.repo_id, repo_type="model", private=args.private, exist_ok=True)
+        print("✅ Repository created/exists")
     except Exception as e:
         print(f"⚠️  Repository creation: {e}")
-    
+
     # Upload model
-    print(f"\nUploading model to HuggingFace...")
+    print("\nUploading model to HuggingFace...")
     print(f"  Repository: {args.repo_id}")
     print(f"  Directory: {args.model_dir}")
-    
+
     try:
         api.upload_folder(
-            folder_path=str(args.model_dir),
-            repo_id=args.repo_id,
-            repo_type="model",
-            commit_message=args.commit_message
+            folder_path=str(args.model_dir), repo_id=args.repo_id, repo_type="model", commit_message=args.commit_message
         )
-        print(f"\n✅ Model uploaded successfully!")
+        print("\n✅ Model uploaded successfully!")
         print(f"✅ View at: https://huggingface.co/{args.repo_id}")
     except Exception as e:
         print(f"\n❌ Upload failed: {e}")
         return
-    
-    print(f"\n" + "="*80)
+
+    print("\n" + "=" * 80)
     print("PUBLICATION COMPLETE")
-    print("="*80)
-    print(f"\nYour model is now available at:")
+    print("=" * 80)
+    print("\nYour model is now available at:")
     print(f"  https://huggingface.co/{args.repo_id}")
-    print(f"\nTo use it:")
-    print(f"  from transformers import AutoTokenizer, AutoModelForSequenceClassification")
+    print("\nTo use it:")
+    print("  from transformers import AutoTokenizer, AutoModelForSequenceClassification")
     print(f"  tokenizer = AutoTokenizer.from_pretrained('{args.repo_id}')")
     print(f"  model = AutoModelForSequenceClassification.from_pretrained('{args.repo_id}')")
 
 
 if __name__ == "__main__":
     main()
-

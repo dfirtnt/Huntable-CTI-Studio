@@ -4,51 +4,48 @@ Modern Async Database Manager for CTI Scraper
 Uses PostgreSQL with SQLAlchemy async for production-grade performance.
 """
 
-import os
-import asyncio
 import logging
-from typing import List, Optional, Dict, Any, AsyncGenerator, Set
-from datetime import datetime, timedelta
+import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from typing import Any, Optional
 
-from sqlalchemy.ext.asyncio import (
-    create_async_engine,
-    AsyncSession,
-    async_sessionmaker,
-    AsyncEngine,
-)
 from sqlalchemy import (
-    select,
-    update,
-    delete,
-    func,
-    and_,
-    or_,
-    desc,
-    text,
-    Float,
     Numeric,
     String,
+    and_,
+    delete,
+    desc,
+    func,
+    or_,
+    select,
+    text,
+    update,
 )
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import selectinload
 
 from src.database.models import (
-    Base,
-    SourceTable,
-    ArticleTable,
-    SourceCheckTable,
     ArticleAnnotationTable,
+    ArticleTable,
+    Base,
+    SourceCheckTable,
+    SourceTable,
 )
-from src.models.source import Source, SourceCreate, SourceUpdate, SourceFilter
-from src.models.article import Article, ArticleCreate, ArticleUpdate, ArticleListFilter
 from src.models.annotation import (
+    AnnotationStats,
     ArticleAnnotation,
     ArticleAnnotationCreate,
     ArticleAnnotationUpdate,
-    ArticleAnnotationFilter,
-    AnnotationStats,
 )
+from src.models.article import Article, ArticleCreate, ArticleListFilter, ArticleUpdate
+from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
 from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
@@ -59,7 +56,7 @@ class AsyncDatabaseManager:
 
     def __init__(
         self,
-        database_url: Optional[str] = None,
+        database_url: str | None = None,
         echo: bool = False,
         pool_size: int = 20,
         max_overflow: int = 30,
@@ -81,15 +78,14 @@ class AsyncDatabaseManager:
         if database_url is None:
             if os.getenv("APP_ENV") == "test":
                 database_url = os.getenv(
-                    "TEST_DATABASE_URL",
-                    "postgresql+asyncpg://cti_user:cti_password@localhost:5433/cti_scraper_test"
+                    "TEST_DATABASE_URL", "postgresql+asyncpg://cti_user:cti_password@localhost:5433/cti_scraper_test"
                 )
             else:
                 database_url = os.getenv(
                     "DATABASE_URL",
                     "postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper",
                 )
-        
+
         self.database_url = database_url
         self.echo = echo
 
@@ -137,14 +133,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to create tables: {e}")
             raise
 
-    async def get_database_stats(self) -> Dict[str, Any]:
+    async def get_database_stats(self) -> dict[str, Any]:
         """Get comprehensive database statistics."""
         try:
             async with self.get_session() as session:
                 # Count sources
-                sources_result = await session.execute(
-                    select(func.count(SourceTable.id))
-                )
+                sources_result = await session.execute(select(func.count(SourceTable.id)))
                 total_sources = sources_result.scalar()
 
                 # Count active sources
@@ -191,9 +185,7 @@ class AsyncDatabaseManager:
                 # Database size (approximate)
                 # Calculate size based on content length
                 content_size_result = await session.execute(
-                    select(func.sum(func.length(ArticleTable.content))).where(
-                        ArticleTable.archived == False
-                    )
+                    select(func.sum(func.length(ArticleTable.content))).where(ArticleTable.archived == False)
                 )
                 total_content_bytes = content_size_result.scalar() or 0
 
@@ -223,37 +215,25 @@ class AsyncDatabaseManager:
                 annotation_stats = {}
 
                 # Total annotations
-                total_annotations_result = await session.execute(
-                    text("SELECT COUNT(*) FROM article_annotations")
-                )
-                annotation_stats["total_annotations"] = (
-                    total_annotations_result.scalar() or 0
-                )
+                total_annotations_result = await session.execute(text("SELECT COUNT(*) FROM article_annotations"))
+                annotation_stats["total_annotations"] = total_annotations_result.scalar() or 0
 
                 # Huntable vs not_huntable annotations
                 huntable_result = await session.execute(
-                    text(
-                        "SELECT COUNT(*) FROM article_annotations WHERE annotation_type = 'huntable'"
-                    )
+                    text("SELECT COUNT(*) FROM article_annotations WHERE annotation_type = 'huntable'")
                 )
                 annotation_stats["huntable_annotations"] = huntable_result.scalar() or 0
 
                 not_huntable_result = await session.execute(
-                    text(
-                        "SELECT COUNT(*) FROM article_annotations WHERE annotation_type = 'not_huntable'"
-                    )
+                    text("SELECT COUNT(*) FROM article_annotations WHERE annotation_type = 'not_huntable'")
                 )
-                annotation_stats["not_huntable_annotations"] = (
-                    not_huntable_result.scalar() or 0
-                )
+                annotation_stats["not_huntable_annotations"] = not_huntable_result.scalar() or 0
 
                 # Articles with annotations
                 articles_with_annotations_result = await session.execute(
                     text("SELECT COUNT(DISTINCT article_id) FROM article_annotations")
                 )
-                annotation_stats["articles_with_annotations"] = (
-                    articles_with_annotations_result.scalar() or 0
-                )
+                annotation_stats["articles_with_annotations"] = articles_with_annotations_result.scalar() or 0
 
                 return {
                     "total_sources": total_sources,
@@ -271,7 +251,7 @@ class AsyncDatabaseManager:
             logger.error(f"Error getting database stats: {e}")
             raise
 
-    async def get_corruption_stats(self) -> Dict[str, Any]:
+    async def get_corruption_stats(self) -> dict[str, Any]:
         """Get statistics about corrupted articles."""
         try:
             async with self.get_session() as session:
@@ -294,10 +274,7 @@ class AsyncDatabaseManager:
                     .limit(5)
                 )
                 example_result = await session.execute(example_query)
-                examples = [
-                    {"id": row.id, "title": row.title}
-                    for row in example_result.fetchall()
-                ]
+                examples = [{"id": row.id, "title": row.title} for row in example_result.fetchall()]
 
                 return {"corrupted_count": corrupted_count, "examples": examples}
         except Exception as e:
@@ -308,17 +285,13 @@ class AsyncDatabaseManager:
         """Count total annotated chunks available for training."""
         async with self.get_session() as session:
             try:
-                result = await session.execute(
-                    text("SELECT COUNT(*) FROM article_annotations")
-                )
+                result = await session.execute(text("SELECT COUNT(*) FROM article_annotations"))
                 return result.scalar() or 0
             except Exception as e:
                 logger.error(f"Error counting annotated chunks: {e}")
                 return 0
 
-    async def list_sources(
-        self, filter_params: Optional[SourceFilter] = None
-    ) -> List[Source]:
+    async def list_sources(self, filter_params: SourceFilter | None = None) -> list[Source]:
         """List all sources with optional filtering."""
         try:
             async with self.get_session() as session:
@@ -328,9 +301,7 @@ class AsyncDatabaseManager:
                     if filter_params.active is not None:
                         query = query.where(SourceTable.active == filter_params.active)
                     if filter_params.name_contains:
-                        query = query.where(
-                            SourceTable.name.contains(filter_params.name_contains)
-                        )
+                        query = query.where(SourceTable.name.contains(filter_params.name_contains))
 
                 query = query.order_by(SourceTable.name)
                 result = await session.execute(query)
@@ -342,7 +313,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to list sources: {e}")
             return []
 
-    async def list_source_identifiers(self) -> Set[str]:
+    async def list_source_identifiers(self) -> set[str]:
         """Return set of all source identifiers."""
         try:
             async with self.get_session() as session:
@@ -371,15 +342,13 @@ class AsyncDatabaseManager:
                     await self.update_source(source.id, SourceUpdate(config=config))
                     updated += 1
                 except Exception as inner_exc:  # noqa: BLE001
-                    logger.error(
-                        f"Failed to update user agent for source {source.identifier}: {inner_exc}"
-                    )
+                    logger.error(f"Failed to update user agent for source {source.identifier}: {inner_exc}")
             return updated
         except Exception as e:
             logger.error(f"Failed to update robots user agents: {e}")
             return updated
 
-    async def create_source(self, source_data: SourceCreate) -> Optional[Source]:
+    async def create_source(self, source_data: SourceCreate) -> Source | None:
         """Create a new source."""
         try:
             async with self.get_session() as session:
@@ -389,16 +358,10 @@ class AsyncDatabaseManager:
                     name=source_data.name,
                     url=source_data.url,
                     rss_url=source_data.rss_url,
-                    check_frequency=source_data.config.check_frequency
-                    if source_data.config
-                    else 3600,
-                    lookback_days=source_data.config.lookback_days
-                    if source_data.config
-                    else 180,
+                    check_frequency=source_data.config.check_frequency if source_data.config else 3600,
+                    lookback_days=source_data.config.lookback_days if source_data.config else 180,
                     active=source_data.active,
-                    config=source_data.config.model_dump(exclude_none=True)
-                    if source_data.config
-                    else {},
+                    config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
                     consecutive_failures=0,
                     total_articles=0,
                     average_response_time=0.0,
@@ -417,13 +380,11 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to create source: {e}")
             return None
 
-    async def get_source(self, source_id: int) -> Optional[Source]:
+    async def get_source(self, source_id: int) -> Source | None:
         """Get a specific source by ID."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
                 db_source = result.scalar_one_or_none()
 
                 if db_source:
@@ -434,16 +395,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get source {source_id}: {e}")
             return None
 
-    async def update_source_min_content_length(
-        self, source_id: int, min_content_length: int
-    ) -> Optional[Dict[str, Any]]:
+    async def update_source_min_content_length(self, source_id: int, min_content_length: int) -> dict[str, Any] | None:
         """Update source minimum content length in config."""
         try:
             async with self.get_session() as session:
                 # Get the source
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -473,30 +430,22 @@ class AsyncDatabaseManager:
                 }
 
         except Exception as e:
-            logger.error(
-                f"Failed to update min_content_length for source {source_id}: {e}"
-            )
+            logger.error(f"Failed to update min_content_length for source {source_id}: {e}")
             raise
 
-    async def update_source(
-        self, source_id: int, update_data: SourceUpdate
-    ) -> Optional[Source]:
+    async def update_source(self, source_id: int, update_data: SourceUpdate) -> Source | None:
         """Update a source with proper transaction handling."""
         try:
             async with self.get_session() as session:
                 # Get the source
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
                     return None
 
                 # Update fields
-                update_dict = update_data.model_dump(
-                    exclude_unset=True, exclude_none=True
-                )
+                update_dict = update_data.model_dump(exclude_unset=True, exclude_none=True)
                 for field, value in update_dict.items():
                     if field == "config" and value:
                         # Handle config: extract inner config if SourceConfig model
@@ -504,9 +453,7 @@ class AsyncDatabaseManager:
                             # SourceConfig Pydantic model: extract inner 'config' field
                             config_dict = value.model_dump(exclude_none=True)
                             # If it has a nested 'config' key, use that (the actual config)
-                            if "config" in config_dict and isinstance(
-                                config_dict["config"], dict
-                            ):
+                            if "config" in config_dict and isinstance(config_dict["config"], dict):
                                 config_dict = config_dict["config"]
                             # Remove check_frequency and lookback_days (separate columns)
                             config_dict.pop("check_frequency", None)
@@ -517,19 +464,14 @@ class AsyncDatabaseManager:
                             config_dict.pop("check_frequency", None)
                             config_dict.pop("lookback_days", None)
                             # If nested structure exists, extract inner config
-                            if "config" in config_dict and isinstance(
-                                config_dict["config"], dict
-                            ):
+                            if "config" in config_dict and isinstance(config_dict["config"], dict):
                                 config_dict = config_dict["config"]
                         else:
                             config_dict = {}
 
                         # If existing config has nested structure, merge with inner config
                         existing_config = db_source.config if db_source.config else {}
-                        if (
-                            isinstance(existing_config, dict)
-                            and "config" in existing_config
-                        ):
+                        if isinstance(existing_config, dict) and "config" in existing_config:
                             existing_inner = existing_config.get("config", {})
                             if existing_inner and isinstance(existing_inner, dict):
                                 config_dict = {**existing_inner, **config_dict}
@@ -566,14 +508,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to delete source {source_id}: {e}")
             raise
 
-    async def toggle_source_status(self, source_id: int) -> Optional[Dict[str, Any]]:
+    async def toggle_source_status(self, source_id: int) -> dict[str, Any] | None:
         """Toggle source active status with proper transaction handling."""
         try:
             async with self.get_session() as session:
                 # Get the source
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -589,9 +529,7 @@ class AsyncDatabaseManager:
                 await session.commit()
                 await session.refresh(db_source)
 
-                logger.info(
-                    f"Successfully toggled source {source_id} from {old_status} to {new_status}"
-                )
+                logger.info(f"Successfully toggled source {source_id} from {old_status} to {new_status}")
 
                 return {
                     "source_id": source_id,
@@ -605,15 +543,11 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to toggle source {source_id}: {e}")
             raise
 
-    async def update_source_health(
-        self, source_id: int, success: bool, response_time: float = 0.0
-    ):
+    async def update_source_health(self, source_id: int, success: bool, response_time: float = 0.0):
         """Update source health metrics."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -632,9 +566,7 @@ class AsyncDatabaseManager:
                 if db_source.average_response_time == 0.0:
                     db_source.average_response_time = response_time
                 else:
-                    db_source.average_response_time = (
-                        db_source.average_response_time + response_time
-                    ) / 2
+                    db_source.average_response_time = (db_source.average_response_time + response_time) / 2
 
                 await session.commit()
 
@@ -650,25 +582,18 @@ class AsyncDatabaseManager:
                 # Count articles for this source
                 result = await session.execute(
                     select(func.count(ArticleTable.id))
-                    .where(
-                        (ArticleTable.archived == False)
-                        | (ArticleTable.archived.is_(None))
-                    )
+                    .where((ArticleTable.archived == False) | (ArticleTable.archived.is_(None)))
                     .where(ArticleTable.source_id == source_id)
                 )
                 article_count = result.scalar()
 
                 # Update the source's total_articles field
                 await session.execute(
-                    update(SourceTable)
-                    .where(SourceTable.id == source_id)
-                    .values(total_articles=article_count)
+                    update(SourceTable).where(SourceTable.id == source_id).values(total_articles=article_count)
                 )
 
                 await session.commit()
-                logger.info(
-                    f"Updated source {source_id} article count to {article_count}"
-                )
+                logger.info(f"Updated source {source_id} article count to {article_count}")
 
         except Exception as e:
             logger.error(f"Failed to update source article count for {source_id}: {e}")
@@ -680,9 +605,9 @@ class AsyncDatabaseManager:
         success: bool,
         method: str,
         articles_found: int = 0,
-        response_time: Optional[float] = None,
-        error_message: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        response_time: float | None = None,
+        error_message: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """Record a source check for tracking and analysis."""
         try:
@@ -711,8 +636,8 @@ class AsyncDatabaseManager:
     async def list_articles(
         self,
         article_filter: Optional["ArticleListFilter"] = None,
-        limit: Optional[int] = None,
-    ) -> List[Article]:
+        limit: int | None = None,
+    ) -> list[Article]:
         """List articles with optional filtering and sorting."""
         try:
             async with self.get_session() as session:
@@ -723,46 +648,29 @@ class AsyncDatabaseManager:
                 logger.info(f"Article filter received: {article_filter}")
                 if article_filter:
                     if article_filter.source_id is not None:
-                        query = query.where(
-                            ArticleTable.source_id == article_filter.source_id
-                        )
+                        query = query.where(ArticleTable.source_id == article_filter.source_id)
 
                     if article_filter.published_after is not None:
-                        query = query.where(
-                            ArticleTable.published_at >= article_filter.published_after
-                        )
+                        query = query.where(ArticleTable.published_at >= article_filter.published_after)
 
                     if article_filter.published_before is not None:
-                        query = query.where(
-                            ArticleTable.published_at <= article_filter.published_before
-                        )
+                        query = query.where(ArticleTable.published_at <= article_filter.published_before)
 
                     if article_filter.processing_status is not None:
-                        query = query.where(
-                            ArticleTable.processing_status
-                            == article_filter.processing_status
-                        )
+                        query = query.where(ArticleTable.processing_status == article_filter.processing_status)
 
                     if article_filter.content_contains is not None:
-                        query = query.where(
-                            ArticleTable.content.contains(
-                                article_filter.content_contains
-                            )
-                        )
+                        query = query.where(ArticleTable.content.contains(article_filter.content_contains))
 
                     # Apply sorting
-                    logger.info(
-                        f"Sorting by: {article_filter.sort_by}, order: {article_filter.sort_order}"
-                    )
+                    logger.info(f"Sorting by: {article_filter.sort_by}, order: {article_filter.sort_order}")
                     if article_filter.sort_by == "threat_hunting_score":
                         # Special handling for threat_hunting_score which is stored in metadata
                         # Handle null values by using COALESCE to provide a default value
                         threat_score_expr = func.cast(
                             func.coalesce(
                                 func.cast(
-                                    ArticleTable.article_metadata[
-                                        "threat_hunting_score"
-                                    ],
+                                    ArticleTable.article_metadata["threat_hunting_score"],
                                     String,
                                 ),
                                 "0",
@@ -779,9 +687,7 @@ class AsyncDatabaseManager:
                         ml_hunt_score_expr = func.cast(
                             func.coalesce(
                                 func.cast(
-                                    ArticleTable.article_metadata[
-                                        "ml_hunt_score"
-                                    ],
+                                    ArticleTable.article_metadata["ml_hunt_score"],
                                     String,
                                 ),
                                 "0",
@@ -798,9 +704,7 @@ class AsyncDatabaseManager:
                         threat_score_expr = func.cast(
                             func.coalesce(
                                 func.cast(
-                                    ArticleTable.article_metadata[
-                                        "threat_hunting_score"
-                                    ],
+                                    ArticleTable.article_metadata["threat_hunting_score"],
                                     String,
                                 ),
                                 "0",
@@ -818,9 +722,7 @@ class AsyncDatabaseManager:
                             threat_score_expr = func.cast(
                                 func.coalesce(
                                     func.cast(
-                                        ArticleTable.article_metadata[
-                                            "threat_hunting_score"
-                                        ],
+                                        ArticleTable.article_metadata["threat_hunting_score"],
                                         String,
                                     ),
                                     "0",
@@ -828,21 +730,15 @@ class AsyncDatabaseManager:
                                 Numeric,
                             )
                             if article_filter.sort_order == "desc":
-                                query = query.order_by(
-                                    desc(sort_field), desc(threat_score_expr)
-                                )
+                                query = query.order_by(desc(sort_field), desc(threat_score_expr))
                             else:
-                                query = query.order_by(
-                                    sort_field, desc(threat_score_expr)
-                                )
+                                query = query.order_by(sort_field, desc(threat_score_expr))
                         else:
                             # Fallback to threat_hunting_score only
                             threat_score_expr = func.cast(
                                 func.coalesce(
                                     func.cast(
-                                        ArticleTable.article_metadata[
-                                            "threat_hunting_score"
-                                        ],
+                                        ArticleTable.article_metadata["threat_hunting_score"],
                                         String,
                                     ),
                                     "0",
@@ -886,9 +782,7 @@ class AsyncDatabaseManager:
                                     f"Found DFIR article {len(dfir_rows)}: ID={db_article.id}, Title={db_article.title[:30]}..."
                                 )
 
-                    logger.info(
-                        f"Query returned {len(rows)} total rows, {len(dfir_rows)} DFIR rows"
-                    )
+                    logger.info(f"Query returned {len(rows)} total rows, {len(dfir_rows)} DFIR rows")
                 except Exception as debug_e:
                     logger.error(f"Debug error: {debug_e}")
 
@@ -912,17 +806,13 @@ class AsyncDatabaseManager:
 
                     # Get actual annotation count for this article
                     try:
-                        annotation_count_query = select(
-                            func.count(ArticleAnnotationTable.id)
-                        ).where(ArticleAnnotationTable.article_id == article.id)
-                        annotation_count_result = await session.execute(
-                            annotation_count_query
+                        annotation_count_query = select(func.count(ArticleAnnotationTable.id)).where(
+                            ArticleAnnotationTable.article_id == article.id
                         )
+                        annotation_count_result = await session.execute(annotation_count_query)
                         annotation_count = annotation_count_result.scalar() or 0
                     except Exception as e:
-                        logger.error(
-                            f"Failed to get annotation count for article {article.id}: {e}"
-                        )
+                        logger.error(f"Failed to get annotation count for article {article.id}: {e}")
                         annotation_count = 0
 
                     # Add annotation count to metadata
@@ -938,9 +828,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to list articles: {e}")
             return []
 
-    async def get_articles_count(
-        self, source_id: Optional[int] = None, processing_status: Optional[str] = None
-    ) -> int:
+    async def get_articles_count(self, source_id: int | None = None, processing_status: str | None = None) -> int:
         """Get total count of articles with optional filtering."""
         try:
             async with self.get_session() as session:
@@ -955,9 +843,7 @@ class AsyncDatabaseManager:
                     query = query.where(ArticleTable.source_id == source_id)
 
                 if processing_status is not None:
-                    query = query.where(
-                        ArticleTable.processing_status == processing_status
-                    )
+                    query = query.where(ArticleTable.processing_status == processing_status)
 
                 result = await session.execute(query)
                 return result.scalar()
@@ -966,13 +852,11 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get articles count: {e}")
             return 0
 
-    async def get_article(self, article_id: int) -> Optional[Article]:
+    async def get_article(self, article_id: int) -> Article | None:
         """Get a specific article by ID."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleTable).where(ArticleTable.id == article_id)
-                )
+                result = await session.execute(select(ArticleTable).where(ArticleTable.id == article_id))
                 db_article = result.scalar_one_or_none()
 
                 if db_article:
@@ -983,15 +867,11 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get article {article_id}: {e}")
             return None
 
-    async def get_article_by_url(self, canonical_url: str) -> Optional[Article]:
+    async def get_article_by_url(self, canonical_url: str) -> Article | None:
         """Get a specific article by canonical URL."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleTable).where(
-                        ArticleTable.canonical_url == canonical_url
-                    )
-                )
+                result = await session.execute(select(ArticleTable).where(ArticleTable.canonical_url == canonical_url))
                 db_article = result.scalar_one_or_none()
 
                 if db_article:
@@ -1002,7 +882,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get article by URL {canonical_url}: {e}")
             return None
 
-    async def list_articles_by_source(self, source_id: int) -> List[Article]:
+    async def list_articles_by_source(self, source_id: int) -> list[Article]:
         """Get all articles for a specific source."""
         try:
             async with self.get_session() as session:
@@ -1015,15 +895,13 @@ class AsyncDatabaseManager:
                 result = await session.execute(query)
                 db_articles = result.scalars().all()
 
-                return [
-                    self._db_article_to_model(db_article) for db_article in db_articles
-                ]
+                return [self._db_article_to_model(db_article) for db_article in db_articles]
 
         except Exception as e:
             logger.error(f"Failed to list articles by source {source_id}: {e}")
             return []
 
-    async def create_article(self, article: ArticleCreate) -> Optional[Article]:
+    async def create_article(self, article: ArticleCreate) -> Article | None:
         """Create a new article in the database with deduplication."""
         try:
             async with self.get_session() as session:
@@ -1040,23 +918,16 @@ class AsyncDatabaseManager:
                 if not created:
                     logger.info(f"Duplicate article detected: {article.title}")
                     # Update existing article metadata with threat hunting scoring
-                    if (
-                        article.article_metadata
-                        and "threat_hunting_score" in article.article_metadata
-                    ):
+                    if article.article_metadata and "threat_hunting_score" in article.article_metadata:
                         new_article.article_metadata = article.article_metadata
                         await session.commit()
-                        logger.info(
-                            f"Updated existing article metadata with threat hunting scoring"
-                        )
+                        logger.info("Updated existing article metadata with threat hunting scoring")
                     # Return the existing article
                     return self._db_article_to_model(new_article)
 
                 # Log similar articles if found
                 if similar_articles:
-                    logger.info(
-                        f"Created article with {len(similar_articles)} similar articles: {article.title}"
-                    )
+                    logger.info(f"Created article with {len(similar_articles)} similar articles: {article.title}")
 
                 await session.commit()
                 await session.refresh(new_article)
@@ -1065,13 +936,12 @@ class AsyncDatabaseManager:
 
                 # Get hunt score once for both workflow and chunk analysis
                 hunt_score = (
-                    new_article.article_metadata.get("threat_hunting_score", 0)
-                    if new_article.article_metadata
-                    else 0
+                    new_article.article_metadata.get("threat_hunting_score", 0) if new_article.article_metadata else 0
                 )
 
                 # Get threshold from workflow config
                 from src.database.models import AgenticWorkflowConfigTable
+
                 config_result = await session.execute(
                     select(AgenticWorkflowConfigTable)
                     .where(AgenticWorkflowConfigTable.is_active == True)
@@ -1079,7 +949,11 @@ class AsyncDatabaseManager:
                     .limit(1)
                 )
                 config = config_result.scalar_one_or_none()
-                threshold = config.auto_trigger_hunt_score_threshold if config and hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
+                threshold = (
+                    config.auto_trigger_hunt_score_threshold
+                    if config and hasattr(config, "auto_trigger_hunt_score_threshold")
+                    else 60.0
+                )
 
                 # Check if workflow should be triggered
                 # Only trigger if RegexHuntScore > threshold
@@ -1092,9 +966,7 @@ class AsyncDatabaseManager:
                             f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score} > {threshold})"
                         )
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to trigger workflow for article {new_article.id}: {e}"
-                        )
+                        logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
                 else:
                     logger.debug(
                         f"Skipping workflow trigger for article {new_article.id} (hunt_score: {hunt_score} <= {threshold})"
@@ -1112,9 +984,7 @@ class AsyncDatabaseManager:
                             f"Triggered automatic chunk analysis for article {new_article.id} (hunt_score: {hunt_score})"
                         )
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to trigger chunk analysis for article {new_article.id}: {e}"
-                        )
+                        logger.warning(f"Failed to trigger chunk analysis for article {new_article.id}: {e}")
 
                 return self._db_article_to_model(new_article)
 
@@ -1122,16 +992,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to create article: {e}")
             return None
 
-    async def update_article(
-        self, article_id: int, update_data: ArticleUpdate
-    ) -> Optional[Article]:
+    async def update_article(self, article_id: int, update_data: ArticleUpdate) -> Article | None:
         """Update an existing article."""
         try:
             async with self.get_session() as session:
                 # Get the article
-                result = await session.execute(
-                    select(ArticleTable).where(ArticleTable.id == article_id)
-                )
+                result = await session.execute(select(ArticleTable).where(ArticleTable.id == article_id))
                 db_article = result.scalar_one_or_none()
 
                 if not db_article:
@@ -1142,7 +1008,7 @@ class AsyncDatabaseManager:
                 for field, value in update_dict.items():
                     if field == "article_metadata" and value:
                         # Replace metadata entirely (caller is responsible for merging)
-                        setattr(db_article, "article_metadata", value)
+                        db_article.article_metadata = value
                     else:
                         setattr(db_article, field, value)
 
@@ -1168,9 +1034,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Get the article title for logging (handle duplicates by taking first)
-                result = await session.execute(
-                    select(ArticleTable).where(ArticleTable.id == article_id)
-                )
+                result = await session.execute(select(ArticleTable).where(ArticleTable.id == article_id))
                 db_articles = result.scalars().all()
 
                 if not db_articles:
@@ -1182,9 +1046,7 @@ class AsyncDatabaseManager:
                 # Delete related records first to avoid foreign key constraints
                 # Delete from article_annotations table
                 await session.execute(
-                    text(
-                        "DELETE FROM article_annotations WHERE article_id = :article_id"
-                    ),
+                    text("DELETE FROM article_annotations WHERE article_id = :article_id"),
                     {"article_id": article_id},
                 )
 
@@ -1221,9 +1083,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleTable.content_hash)
-                    .where(ArticleTable.archived == False)
-                    .limit(limit)
+                    select(ArticleTable.content_hash).where(ArticleTable.archived == False).limit(limit)
                 )
                 hashes = result.scalars().all()
                 return set(hashes)
@@ -1237,9 +1097,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleTable.canonical_url)
-                    .where(ArticleTable.archived == False)
-                    .limit(limit)
+                    select(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit)
                 )
                 urls = result.scalars().all()
                 return set(urls)
@@ -1252,16 +1110,14 @@ class AsyncDatabaseManager:
         """Get the actual total count of articles in the database."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    text("SELECT COUNT(*) FROM articles WHERE archived = FALSE")
-                )
+                result = await session.execute(text("SELECT COUNT(*) FROM articles WHERE archived = FALSE"))
                 count = result.scalar()
                 return count or 0
         except Exception as e:
             logger.error(f"Failed to get total article count: {e}")
             return 0
 
-    async def get_source_quality_stats(self) -> List[Dict[str, Any]]:
+    async def get_source_quality_stats(self) -> list[dict[str, Any]]:
         """Get quality statistics for all sources."""
         try:
             async with self.get_session() as session:
@@ -1315,7 +1171,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get source quality stats: {e}")
             return []
 
-    async def get_source_hunt_scores(self) -> List[Dict[str, Any]]:
+    async def get_source_hunt_scores(self) -> list[dict[str, Any]]:
         """Get hunt score statistics for all sources."""
         try:
             async with self.get_session() as session:
@@ -1351,12 +1207,8 @@ class AsyncDatabaseManager:
                         "active": row.active,
                         "total_articles": row.total_articles,
                         "scored_articles": row.scored_articles,
-                        "avg_hunt_score": float(row.avg_hunt_score)
-                        if row.avg_hunt_score
-                        else 0.0,
-                        "max_hunt_score": float(row.max_hunt_score)
-                        if row.max_hunt_score
-                        else 0.0,
+                        "avg_hunt_score": float(row.avg_hunt_score) if row.avg_hunt_score else 0.0,
+                        "max_hunt_score": float(row.max_hunt_score) if row.max_hunt_score else 0.0,
                     }
                     for row in rows
                 ]
@@ -1370,11 +1222,7 @@ class AsyncDatabaseManager:
         # Handle nested config structure: if config has a 'config' key, use that
         # Otherwise use config directly
         source_config = db_source.config if db_source.config else {}
-        if (
-            isinstance(source_config, dict)
-            and "config" in source_config
-            and len(source_config) > 1
-        ):
+        if isinstance(source_config, dict) and "config" in source_config and len(source_config) > 1:
             # Nested structure: extract the inner config
             source_config = source_config.get("config", {})
 
@@ -1427,7 +1275,7 @@ class AsyncDatabaseManager:
             embedded_at=db_article.embedded_at,
         )
 
-    async def get_deduplication_stats(self) -> Dict[str, Any]:
+    async def get_deduplication_stats(self) -> dict[str, Any]:
         """Get deduplication system statistics."""
         try:
             async with self.get_session() as session:
@@ -1445,8 +1293,7 @@ class AsyncDatabaseManager:
 
                 stats["content_hash_duplicates"] = len(duplicate_hashes)
                 stats["duplicate_details"] = [
-                    {"hash": row[0][:10] + "...", "count": row[1]}
-                    for row in duplicate_hashes[:10]
+                    {"hash": row[0][:10] + "...", "count": row[1]} for row in duplicate_hashes[:10]
                 ]
 
                 # SimHash coverage
@@ -1476,9 +1323,7 @@ class AsyncDatabaseManager:
                 result = await session.execute(text(bucket_query))
                 buckets = result.fetchall()
 
-                stats["bucket_distribution"] = [
-                    {"bucket_id": row[0], "articles_count": row[1]} for row in buckets
-                ]
+                stats["bucket_distribution"] = [{"bucket_id": row[0], "articles_count": row[1]} for row in buckets]
 
                 if buckets:
                     stats["most_active_bucket"] = [buckets[0][0], buckets[0][1]]
@@ -1500,9 +1345,7 @@ class AsyncDatabaseManager:
                     .where(ArticleTable.archived == False)
                 )
                 if total_articles > 0:
-                    stats["duplicate_rate"] = round(
-                        (stats["content_hash_duplicates"] / total_articles) * 100, 1
-                    )
+                    stats["duplicate_rate"] = round((stats["content_hash_duplicates"] / total_articles) * 100, 1)
                 else:
                     stats["duplicate_rate"] = 0
 
@@ -1521,7 +1364,7 @@ class AsyncDatabaseManager:
                 "duplicate_rate": 0,
             }
 
-    async def get_performance_metrics(self) -> List[Dict[str, Any]]:
+    async def get_performance_metrics(self) -> list[dict[str, Any]]:
         """Get database performance metrics."""
         try:
             async with self.get_session() as session:
@@ -1561,9 +1404,7 @@ class AsyncDatabaseManager:
                 # Recent articles query
                 start_time = time.time()
                 result = await session.execute(
-                    select(ArticleTable.id)
-                    .order_by(desc(ArticleTable.discovered_at))
-                    .limit(10)
+                    select(ArticleTable.id).order_by(desc(ArticleTable.discovered_at)).limit(10)
                 )
                 query_time = (time.time() - start_time) * 1000
                 metrics.append(
@@ -1580,7 +1421,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get performance metrics: {e}")
             return []
 
-    async def get_ingestion_analytics(self) -> Dict[str, Any]:
+    async def get_ingestion_analytics(self) -> dict[str, Any]:
         """Get ingestion analytics and trends."""
         try:
             async with self.get_session() as session:
@@ -1594,17 +1435,11 @@ class AsyncDatabaseManager:
                 )
                 total_sources = await session.scalar(select(func.count(SourceTable.id)))
 
-                logger.info(
-                    f"Ingestion analytics: {total_articles} articles, {total_sources} sources"
-                )
+                logger.info(f"Ingestion analytics: {total_articles} articles, {total_sources} sources")
 
                 # Date range queries
-                earliest_query = select(func.min(ArticleTable.discovered_at)).where(
-                    ArticleTable.archived == False
-                )
-                latest_query = select(func.max(ArticleTable.discovered_at)).where(
-                    ArticleTable.archived == False
-                )
+                earliest_query = select(func.min(ArticleTable.discovered_at)).where(ArticleTable.archived == False)
+                latest_query = select(func.max(ArticleTable.discovered_at)).where(ArticleTable.archived == False)
 
                 earliest_article = await session.scalar(earliest_query)
                 latest_article = await session.scalar(latest_query)
@@ -1612,12 +1447,8 @@ class AsyncDatabaseManager:
                 analytics["total_stats"] = {
                     "total_articles": total_articles or 0,
                     "total_sources": total_sources or 0,
-                    "earliest_article": earliest_article.isoformat()
-                    if earliest_article
-                    else None,
-                    "latest_article": latest_article.isoformat()
-                    if latest_article
-                    else None,
+                    "earliest_article": earliest_article.isoformat() if earliest_article else None,
+                    "latest_article": latest_article.isoformat() if latest_article else None,
                 }
 
                 # Daily trends (last 30 days)
@@ -1656,10 +1487,7 @@ class AsyncDatabaseManager:
                 result = await session.execute(text(hourly_query))
                 hourly_data = {row[0]: row[1] for row in result.fetchall()}
 
-                hourly_distribution = [
-                    {"hour": i, "articles_count": hourly_data.get(i, 0)}
-                    for i in range(24)
-                ]
+                hourly_distribution = [{"hour": i, "articles_count": hourly_data.get(i, 0)} for i in range(24)]
                 analytics["hourly_distribution"] = hourly_distribution
 
                 # Source breakdown (last 7 days)
@@ -1695,15 +1523,9 @@ class AsyncDatabaseManager:
                             "chosen_count": chosen,
                             "rejected_count": rejected,
                             "unclassified_count": unclassified,
-                            "chosen_ratio": f"{round((chosen / total) * 100, 1)}%"
-                            if total > 0
-                            else "0%",
-                            "rejected_ratio": f"{round((rejected / total) * 100, 1)}%"
-                            if total > 0
-                            else "0%",
-                            "unclassified_ratio": f"{round((unclassified / total) * 100, 1)}%"
-                            if total > 0
-                            else "0%",
+                            "chosen_ratio": f"{round((chosen / total) * 100, 1)}%" if total > 0 else "0%",
+                            "rejected_ratio": f"{round((rejected / total) * 100, 1)}%" if total > 0 else "0%",
+                            "unclassified_ratio": f"{round((unclassified / total) * 100, 1)}%" if total > 0 else "0%",
                         }
                     )
 
@@ -1751,15 +1573,13 @@ class AsyncDatabaseManager:
 
     # Annotation management methods
 
-    async def create_annotation(
-        self, annotation_data: ArticleAnnotationCreate
-    ) -> Optional[ArticleAnnotation]:
+    async def create_annotation(self, annotation_data: ArticleAnnotationCreate) -> ArticleAnnotation | None:
         """Create a new annotation."""
         try:
             async with self.get_session() as session:
                 # Get used_for_training from annotation_data if it exists, otherwise default to False
-                used_for_training = getattr(annotation_data, 'used_for_training', False)
-                
+                used_for_training = getattr(annotation_data, "used_for_training", False)
+
                 db_annotation = ArticleAnnotationTable(
                     article_id=annotation_data.article_id,
                     user_id=None,  # Set to None for now
@@ -1789,14 +1609,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to create annotation: {e}", exc_info=True)
             raise  # Re-raise to get better error messages
 
-    async def get_annotation(self, annotation_id: int) -> Optional[ArticleAnnotation]:
+    async def get_annotation(self, annotation_id: int) -> ArticleAnnotation | None:
         """Get a specific annotation by ID."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleAnnotationTable).where(
-                        ArticleAnnotationTable.id == annotation_id
-                    )
+                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
                 )
                 db_annotation = result.scalar_one_or_none()
 
@@ -1808,7 +1626,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get annotation {annotation_id}: {e}")
             return None
 
-    async def get_article_annotations(self, article_id: int) -> List[ArticleAnnotation]:
+    async def get_article_annotations(self, article_id: int) -> list[ArticleAnnotation]:
         """Get all annotations for a specific article."""
         try:
             async with self.get_session() as session:
@@ -1819,10 +1637,7 @@ class AsyncDatabaseManager:
                 )
                 db_annotations = result.scalars().all()
 
-                return [
-                    self._db_annotation_to_model(annotation)
-                    for annotation in db_annotations
-                ]
+                return [self._db_annotation_to_model(annotation) for annotation in db_annotations]
 
         except Exception as e:
             logger.error(f"Failed to get annotations for article {article_id}: {e}")
@@ -1830,14 +1645,12 @@ class AsyncDatabaseManager:
 
     async def update_annotation(
         self, annotation_id: int, update_data: ArticleAnnotationUpdate
-    ) -> Optional[ArticleAnnotation]:
+    ) -> ArticleAnnotation | None:
         """Update an existing annotation."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleAnnotationTable).where(
-                        ArticleAnnotationTable.id == annotation_id
-                    )
+                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
                 )
                 db_annotation = result.scalar_one_or_none()
 
@@ -1884,9 +1697,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    delete(ArticleAnnotationTable).where(
-                        ArticleAnnotationTable.id == annotation_id
-                    )
+                    delete(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
                 )
 
                 if result.rowcount > 0:
@@ -1904,9 +1715,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Get total counts
-                total_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id))
-                )
+                total_result = await session.execute(select(func.count(ArticleAnnotationTable.id)))
                 total_annotations = total_result.scalar() or 0
 
                 # Counts by type
@@ -1916,17 +1725,13 @@ class AsyncDatabaseManager:
                         func.count(ArticleAnnotationTable.id),
                     ).group_by(ArticleAnnotationTable.annotation_type)
                 )
-                counts_by_type = {
-                    row[0]: row[1] for row in type_counts_result.all()
-                }
+                counts_by_type = {row[0]: row[1] for row in type_counts_result.all()}
 
                 huntable_count = counts_by_type.get("huntable", 0)
                 not_huntable_count = counts_by_type.get("not_huntable", 0)
 
                 # Get average confidence
-                avg_confidence_result = await session.execute(
-                    select(func.avg(ArticleAnnotationTable.confidence_score))
-                )
+                avg_confidence_result = await session.execute(select(func.avg(ArticleAnnotationTable.confidence_score)))
                 average_confidence = avg_confidence_result.scalar() or 0.0
 
                 # Get most annotated article
@@ -1940,21 +1745,11 @@ class AsyncDatabaseManager:
                     .limit(1)
                 )
                 most_annotated_row = most_annotated_result.first()
-                most_annotated_article = (
-                    most_annotated_row[0] if most_annotated_row else None
-                )
+                most_annotated_article = most_annotated_row[0] if most_annotated_row else None
 
                 # Calculate percentages
-                huntable_percentage = (
-                    (huntable_count / total_annotations * 100)
-                    if total_annotations > 0
-                    else 0
-                )
-                not_huntable_percentage = (
-                    (not_huntable_count / total_annotations * 100)
-                    if total_annotations > 0
-                    else 0
-                )
+                huntable_percentage = (huntable_count / total_annotations * 100) if total_annotations > 0 else 0
+                not_huntable_percentage = (not_huntable_count / total_annotations * 100) if total_annotations > 0 else 0
 
                 return AnnotationStats(
                     total_annotations=total_annotations,
@@ -1980,9 +1775,7 @@ class AsyncDatabaseManager:
                 counts_by_type={},
             )
 
-    def _db_annotation_to_model(
-        self, db_annotation: ArticleAnnotationTable
-    ) -> ArticleAnnotation:
+    def _db_annotation_to_model(self, db_annotation: ArticleAnnotationTable) -> ArticleAnnotation:
         """Convert database annotation to Pydantic model."""
         return ArticleAnnotation(
             id=db_annotation.id,
@@ -2001,42 +1794,28 @@ class AsyncDatabaseManager:
             usage=db_annotation.usage,
         )
 
-    async def get_annotation_with_article_info(
-        self, annotation_id: int
-    ) -> Optional[ArticleAnnotationTable]:
+    async def get_annotation_with_article_info(self, annotation_id: int) -> ArticleAnnotationTable | None:
         """Get annotation with article and source information for embedding generation."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
                     select(ArticleAnnotationTable)
-                    .options(
-                        selectinload(ArticleAnnotationTable.article).selectinload(
-                            ArticleTable.source
-                        )
-                    )
+                    .options(selectinload(ArticleAnnotationTable.article).selectinload(ArticleTable.source))
                     .where(ArticleAnnotationTable.id == annotation_id)
                 )
                 return result.scalar_one_or_none()
 
         except Exception as e:
-            logger.error(
-                f"Failed to get annotation with article info {annotation_id}: {e}"
-            )
+            logger.error(f"Failed to get annotation with article info {annotation_id}: {e}")
             return None
 
-    async def get_annotations_with_article_info(
-        self, annotation_ids: List[int]
-    ) -> List[ArticleAnnotationTable]:
+    async def get_annotations_with_article_info(self, annotation_ids: list[int]) -> list[ArticleAnnotationTable]:
         """Get multiple annotations with article and source information."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
                     select(ArticleAnnotationTable)
-                    .options(
-                        selectinload(ArticleAnnotationTable.article).selectinload(
-                            ArticleTable.source
-                        )
-                    )
+                    .options(selectinload(ArticleAnnotationTable.article).selectinload(ArticleTable.source))
                     .where(ArticleAnnotationTable.id.in_(annotation_ids))
                 )
                 return result.scalars().all()
@@ -2045,7 +1824,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get annotations with article info: {e}")
             return []
 
-    async def get_annotations_without_embeddings(self) -> List[ArticleAnnotationTable]:
+    async def get_annotations_without_embeddings(self) -> list[ArticleAnnotationTable]:
         """Get all annotations that don't have embeddings yet."""
         try:
             async with self.get_session() as session:
@@ -2063,7 +1842,7 @@ class AsyncDatabaseManager:
     async def update_annotation_embedding(
         self,
         annotation_id: int,
-        embedding: List[float],
+        embedding: list[float],
         model_name: str = "all-mpnet-base-v2",
     ) -> bool:
         """Update annotation with its embedding vector."""
@@ -2086,16 +1865,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update annotation embedding {annotation_id}: {e}")
             return False
 
-    async def get_annotation_by_id(
-        self, annotation_id: int
-    ) -> Optional[ArticleAnnotationTable]:
+    async def get_annotation_by_id(self, annotation_id: int) -> ArticleAnnotationTable | None:
         """Get a single annotation by ID."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleAnnotationTable).where(
-                        ArticleAnnotationTable.id == annotation_id
-                    )
+                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
                 )
                 return result.scalar_one_or_none()
 
@@ -2103,16 +1878,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get annotation {annotation_id}: {e}")
             return None
 
-    async def get_annotations_by_ids(
-        self, annotation_ids: List[int]
-    ) -> List[ArticleAnnotationTable]:
+    async def get_annotations_by_ids(self, annotation_ids: list[int]) -> list[ArticleAnnotationTable]:
         """Get multiple annotations by their IDs."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleAnnotationTable).where(
-                        ArticleAnnotationTable.id.in_(annotation_ids)
-                    )
+                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id.in_(annotation_ids))
                 )
                 return result.scalars().all()
 
@@ -2122,11 +1893,11 @@ class AsyncDatabaseManager:
 
     async def search_similar_annotations(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 10,
         threshold: float = 0.7,
-        annotation_type: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        annotation_type: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Search for similar annotations using cosine similarity."""
         try:
             async with self.get_session() as session:
@@ -2158,9 +1929,7 @@ class AsyncDatabaseManager:
 
                 # Add annotation type filter if specified
                 if annotation_type:
-                    query = query.where(
-                        ArticleAnnotationTable.annotation_type == annotation_type
-                    )
+                    query = query.where(ArticleAnnotationTable.annotation_type == annotation_type)
 
                 # Execute query with vector similarity
                 # Convert embedding list to string format for pgvector
@@ -2185,30 +1954,24 @@ class AsyncDatabaseManager:
                             }
                         )
 
-                logger.debug(
-                    f"Found {len(similar_annotations)} similar annotations above threshold {threshold}"
-                )
+                logger.debug(f"Found {len(similar_annotations)} similar annotations above threshold {threshold}")
                 return similar_annotations
 
         except Exception as e:
             logger.error(f"Failed to search similar annotations: {e}")
             return []
 
-    async def get_embedding_stats(self) -> Dict[str, Any]:
+    async def get_embedding_stats(self) -> dict[str, Any]:
         """Get statistics about embeddings in the database."""
         try:
             async with self.get_session() as session:
                 # Count total annotations
-                total_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id))
-                )
+                total_result = await session.execute(select(func.count(ArticleAnnotationTable.id)))
                 total_annotations = total_result.scalar() or 0
 
                 # Count annotations with embeddings
                 embedded_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        ArticleAnnotationTable.embedding.is_not(None)
-                    )
+                    select(func.count(ArticleAnnotationTable.id)).where(ArticleAnnotationTable.embedding.is_not(None))
                 )
                 embedded_count = embedded_result.scalar() or 0
 
@@ -2234,11 +1997,7 @@ class AsyncDatabaseManager:
                 not_huntable_embedded = not_huntable_embedded_result.scalar() or 0
 
                 # Calculate percentages
-                embedding_coverage = (
-                    (embedded_count / total_annotations * 100)
-                    if total_annotations > 0
-                    else 0
-                )
+                embedding_coverage = (embedded_count / total_annotations * 100) if total_annotations > 0 else 0
 
                 return {
                     "total_annotations": total_annotations,
@@ -2261,16 +2020,12 @@ class AsyncDatabaseManager:
             }
 
     # Article embedding methods
-    async def get_article_with_source_info(
-        self, article_id: int
-    ) -> Optional[ArticleTable]:
+    async def get_article_with_source_info(self, article_id: int) -> ArticleTable | None:
         """Get article with source information for embedding generation."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleTable)
-                    .options(selectinload(ArticleTable.source))
-                    .where(ArticleTable.id == article_id)
+                    select(ArticleTable).options(selectinload(ArticleTable.source)).where(ArticleTable.id == article_id)
                 )
                 return result.scalar_one_or_none()
 
@@ -2278,9 +2033,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get article with source info {article_id}: {e}")
             return None
 
-    async def get_articles_with_source_info(
-        self, article_ids: List[int]
-    ) -> List[ArticleTable]:
+    async def get_articles_with_source_info(self, article_ids: list[int]) -> list[ArticleTable]:
         """Get multiple articles with source information."""
         try:
             async with self.get_session() as session:
@@ -2295,14 +2048,12 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get articles with source info: {e}")
             return []
 
-    async def get_articles_without_embeddings(self) -> List[ArticleTable]:
+    async def get_articles_without_embeddings(self) -> list[ArticleTable]:
         """Get all articles that don't have embeddings yet."""
         try:
             async with self.get_session() as session:
                 result = await session.execute(
-                    select(ArticleTable)
-                    .where(ArticleTable.embedding.is_(None))
-                    .order_by(ArticleTable.created_at)
+                    select(ArticleTable).where(ArticleTable.embedding.is_(None)).order_by(ArticleTable.created_at)
                 )
                 return result.scalars().all()
 
@@ -2310,7 +2061,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get articles without embeddings: {e}")
             return []
 
-    async def get_article_by_id(self, article_id: int) -> Optional[Dict[str, Any]]:
+    async def get_article_by_id(self, article_id: int) -> dict[str, Any] | None:
         """Get article by ID with source information."""
         try:
             async with self.get_session() as session:
@@ -2341,7 +2092,7 @@ class AsyncDatabaseManager:
     async def update_article_embedding(
         self,
         article_id: int,
-        embedding: List[float],
+        embedding: list[float],
         model_name: str = "all-mpnet-base-v2",
     ) -> bool:
         """Update article with its embedding vector."""
@@ -2366,11 +2117,11 @@ class AsyncDatabaseManager:
 
     async def search_similar_articles(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 10,
         threshold: float = 0.7,
-        source_id: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        source_id: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Search for similar articles using cosine similarity."""
         try:
             async with self.get_session() as session:
@@ -2411,22 +2162,16 @@ class AsyncDatabaseManager:
                 # Filter by similarity threshold and format results
                 similar_articles = []
                 for row in result:
-                    similarity = float(
-                        row[9]
-                    )  # similarity is the 10th column (index 9) after adding article_metadata
+                    similarity = float(row[9])  # similarity is the 10th column (index 9) after adding article_metadata
                     if similarity >= threshold:
                         similar_articles.append(
                             {
                                 "id": row.id,
                                 "title": row.title,
                                 "summary": row.summary,
-                                "content": row.content[:500] + "..."
-                                if len(row.content) > 500
-                                else row.content,
+                                "content": row.content[:500] + "..." if len(row.content) > 500 else row.content,
                                 "canonical_url": row.canonical_url,
-                                "published_at": row.published_at.isoformat()
-                                if row.published_at
-                                else None,
+                                "published_at": row.published_at.isoformat() if row.published_at else None,
                                 "source_id": row.source_id,
                                 "source_name": row.source_name,
                                 "metadata": row.article_metadata,
@@ -2434,9 +2179,7 @@ class AsyncDatabaseManager:
                             }
                         )
 
-                logger.debug(
-                    f"Found {len(similar_articles)} similar articles above threshold {threshold}"
-                )
+                logger.debug(f"Found {len(similar_articles)} similar articles above threshold {threshold}")
                 return similar_articles
 
         except Exception as e:
@@ -2445,9 +2188,9 @@ class AsyncDatabaseManager:
 
     async def search_articles_by_lexical_terms(
         self,
-        terms: List[str],
+        terms: list[str],
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search articles by title/content containing any of the terms (case-insensitive).
         Returns format compatible with search_similar_articles (similarity=0.35 placeholder)."""
         if not terms:
@@ -2504,7 +2247,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to search articles by lexical terms: {e}")
             return []
 
-    async def get_article_embedding_stats(self) -> Dict[str, Any]:
+    async def get_article_embedding_stats(self) -> dict[str, Any]:
         """Get statistics about article embeddings in the database."""
         try:
             async with self.get_session() as session:
@@ -2549,18 +2292,14 @@ class AsyncDatabaseManager:
                             "total_articles": row.total,
                             "embedded_articles": row.embedded,
                             "coverage_percent": round(
-                                (row.embedded / row.total * 100)
-                                if row.total > 0
-                                else 0,
+                                (row.embedded / row.total * 100) if row.total > 0 else 0,
                                 1,
                             ),
                         }
                     )
 
                 # Calculate percentages
-                embedding_coverage = (
-                    (embedded_count / total_articles * 100) if total_articles > 0 else 0
-                )
+                embedding_coverage = (embedded_count / total_articles * 100) if total_articles > 0 else 0
 
                 return {
                     "total_articles": total_articles,

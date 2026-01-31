@@ -4,7 +4,7 @@ Observable extraction model evaluation API endpoints.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -15,10 +15,10 @@ router = APIRouter(prefix="/api/observables/evaluation", tags=["Observable Evalu
 
 
 @router.post("/run")
-async def api_run_observable_evaluation(body: Dict[str, Any] | None = None):
+async def api_run_observable_evaluation(body: dict[str, Any] | None = None):
     """
     Run evaluation for an observable extraction model.
-    
+
     Request body:
     - model_name: Name of the model (e.g., "CMD")
     - model_version: Version identifier
@@ -34,22 +34,22 @@ async def api_run_observable_evaluation(body: Dict[str, Any] | None = None):
     usages = body.get("usages", ["eval", "gold"])
     model_path = body.get("model_path")
     overlap_threshold = body.get("overlap_threshold", 0.5)
-    
+
     if not model_version:
         raise HTTPException(status_code=400, detail="model_version is required")
-    
+
     if observable_type not in ["CMD", "PROC_LINEAGE"]:
         raise HTTPException(status_code=400, detail=f"Unsupported observable_type: {observable_type}")
-    
+
     if not isinstance(usages, list) or not all(u in ("eval", "gold") for u in usages):
         raise HTTPException(status_code=400, detail="usages must be a list containing 'eval' and/or 'gold'")
-    
+
     try:
         from src.services.observable_evaluation.pipeline import ObservableEvaluationPipeline
-        
+
         db_manager = DatabaseManager()
         session = db_manager.get_session()
-        
+
         try:
             pipeline = ObservableEvaluationPipeline(session)
             result = pipeline.run_evaluation(
@@ -60,32 +60,26 @@ async def api_run_observable_evaluation(body: Dict[str, Any] | None = None):
                 model_path=model_path,
                 overlap_threshold=overlap_threshold,
             )
-            
+
             # Check if any evaluations failed
             evaluations = result.get("evaluations", {})
-            has_errors = any(
-                isinstance(metrics, dict) and "error" in metrics
-                for metrics in evaluations.values()
-            )
-            
+            has_errors = any(isinstance(metrics, dict) and "error" in metrics for metrics in evaluations.values())
+
             if has_errors:
                 error_messages = [
                     f"{usage}: {metrics.get('error', 'Unknown error')}"
                     for usage, metrics in evaluations.items()
                     if isinstance(metrics, dict) and "error" in metrics
                 ]
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Evaluation failed: {'; '.join(error_messages)}"
-                )
-            
+                raise HTTPException(status_code=400, detail=f"Evaluation failed: {'; '.join(error_messages)}")
+
             return {
                 "success": True,
                 "result": result,
             }
         finally:
             session.close()
-            
+
     except Exception as exc:
         logger.error(f"Observable evaluation error: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -93,15 +87,15 @@ async def api_run_observable_evaluation(body: Dict[str, Any] | None = None):
 
 @router.get("/metrics")
 async def api_get_observable_metrics(
-    model_name: Optional[str] = None,
-    model_version: Optional[str] = None,
-    observable_type: Optional[str] = None,
-    usage: Optional[str] = None,
+    model_name: str | None = None,
+    model_version: str | None = None,
+    observable_type: str | None = None,
+    usage: str | None = None,
     limit: int = 100,
 ):
     """
     Retrieve observable model metrics from the database.
-    
+
     Query parameters:
     - model_name: Filter by model name
     - model_version: Filter by model version
@@ -111,10 +105,10 @@ async def api_get_observable_metrics(
     """
     try:
         from src.services.observable_evaluation.pipeline import ObservableEvaluationPipeline
-        
+
         db_manager = DatabaseManager()
         session = db_manager.get_session()
-        
+
         try:
             pipeline = ObservableEvaluationPipeline(session)
             metrics = pipeline.get_metrics(
@@ -124,7 +118,7 @@ async def api_get_observable_metrics(
                 usage=usage,
                 limit=limit,
             )
-            
+
             return {
                 "success": True,
                 "metrics": metrics,
@@ -132,7 +126,7 @@ async def api_get_observable_metrics(
             }
         finally:
             session.close()
-            
+
     except Exception as exc:
         logger.error(f"Error retrieving observable metrics: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -140,21 +134,21 @@ async def api_get_observable_metrics(
 
 @router.get("/metrics/aggregated")
 async def api_get_aggregated_metrics(
-    model_name: Optional[str] = None,
-    model_version: Optional[str] = None,
-    observable_type: Optional[str] = None,
+    model_name: str | None = None,
+    model_version: str | None = None,
+    observable_type: str | None = None,
 ):
     """
     Get aggregated metrics grouped by model version and usage.
-    
+
     Returns metrics organized by version and dataset usage (eval/gold).
     """
     try:
         from src.services.observable_evaluation.pipeline import ObservableEvaluationPipeline
-        
+
         db_manager = DatabaseManager()
         session = db_manager.get_session()
-        
+
         try:
             pipeline = ObservableEvaluationPipeline(session)
             all_metrics = pipeline.get_metrics(
@@ -163,32 +157,32 @@ async def api_get_aggregated_metrics(
                 observable_type=observable_type,
                 limit=1000,  # Get more for aggregation
             )
-            
+
             # Group by model_version and usage
-            aggregated: Dict[str, Dict[str, Dict[str, Any]]] = {}
-            
+            aggregated: dict[str, dict[str, dict[str, Any]]] = {}
+
             for metric in all_metrics:
                 version = metric["model_version"]
                 usage = metric["dataset_usage"]
                 metric_name = metric["metric_name"]
                 metric_value = metric["metric_value"]
-                
+
                 if version not in aggregated:
                     aggregated[version] = {"eval": {}, "gold": {}}
-                
+
                 # Store as float for numeric metrics, preserve integers for counts
                 if isinstance(metric_value, (int, float)):
                     aggregated[version][usage][metric_name] = float(metric_value)
                 else:
                     aggregated[version][usage][metric_name] = metric_value
-            
+
             return {
                 "success": True,
                 "aggregated": aggregated,
             }
         finally:
             session.close()
-            
+
     except Exception as exc:
         logger.error(f"Error aggregating observable metrics: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -196,29 +190,29 @@ async def api_get_aggregated_metrics(
 
 @router.get("/failures")
 async def api_get_evaluation_failures(
-    model_name: Optional[str] = None,
-    model_version: Optional[str] = None,
-    observable_type: Optional[str] = None,
-    failure_type: Optional[str] = None,
+    model_name: str | None = None,
+    model_version: str | None = None,
+    observable_type: str | None = None,
+    failure_type: str | None = None,
     limit: int = 100,
 ):
     """
     Get failure taxonomy for inspection.
-    
+
     Returns failure records grouped by failure type, showing which articles
     had which types of failures.
     """
     try:
         from src.database.models import ObservableEvaluationFailureTable
-        
+
         db_manager = DatabaseManager()
         session = db_manager.get_session()
-        
+
         try:
             from sqlalchemy import select
-            
+
             query = select(ObservableEvaluationFailureTable)
-            
+
             if model_name:
                 query = query.where(ObservableEvaluationFailureTable.model_name == model_name)
             if model_version:
@@ -227,23 +221,25 @@ async def api_get_evaluation_failures(
                 query = query.where(ObservableEvaluationFailureTable.observable_type == observable_type)
             if failure_type:
                 query = query.where(ObservableEvaluationFailureTable.failure_type == failure_type)
-            
+
             query = query.order_by(ObservableEvaluationFailureTable.computed_at.desc()).limit(limit)
-            
+
             results = session.execute(query).scalars().all()
-            
+
             # Group by failure type
             failures_by_type = defaultdict(list)
             for r in results:
-                failures_by_type[r.failure_type].append({
-                    "article_id": r.article_id,
-                    "failure_count": r.failure_count,
-                    "zero_fp_pass": r.zero_fp_pass,
-                    "total_predictions": r.total_predictions,
-                    "total_gold_spans": r.total_gold_spans,
-                    "computed_at": r.computed_at.isoformat() if r.computed_at else None,
-                })
-            
+                failures_by_type[r.failure_type].append(
+                    {
+                        "article_id": r.article_id,
+                        "failure_count": r.failure_count,
+                        "zero_fp_pass": r.zero_fp_pass,
+                        "total_predictions": r.total_predictions,
+                        "total_gold_spans": r.total_gold_spans,
+                        "computed_at": r.computed_at.isoformat() if r.computed_at else None,
+                    }
+                )
+
             return {
                 "success": True,
                 "failures_by_type": dict(failures_by_type),
@@ -251,8 +247,7 @@ async def api_get_evaluation_failures(
             }
         finally:
             session.close()
-            
+
     except Exception as exc:
         logger.error(f"Error retrieving failure taxonomy: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

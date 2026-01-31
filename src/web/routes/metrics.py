@@ -78,4 +78,3 @@ async def api_metrics_volume():
     except Exception as exc:  # noqa: BLE001
         logger.error("Volume metrics error: %s", exc)
         return {"daily": {"2025-01-01": 0}, "hourly": {"00": 0}}
-

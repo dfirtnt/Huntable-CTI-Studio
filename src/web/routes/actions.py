@@ -111,4 +111,3 @@ async def api_generate_report():
     except Exception as exc:  # noqa: BLE001
         logger.error("Generate report error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

@@ -3,14 +3,12 @@
 Loads YAML definitions and synchronizes the database accordingly.
 """
 
-import asyncio
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 from src.core.source_manager import SourceConfigLoader
-from src.models.source import Source, SourceCreate, SourceUpdate
 from src.database.async_manager import AsyncDatabaseManager
+from src.models.source import Source, SourceCreate, SourceUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +38,13 @@ class SourceSyncService:
 
     async def _sync_to_db(
         self,
-        source_configs: List[SourceCreate],
+        source_configs: list[SourceCreate],
         remove_missing: bool,
-    ) -> List[Source]:
+    ) -> list[Source]:
         existing_sources = await self.db_manager.list_sources()
         existing_by_identifier = {src.identifier: src for src in existing_sources}
 
-        synced_sources: List[Source] = []
+        synced_sources: list[Source] = []
 
         for config in source_configs:
             identifier = config.identifier
@@ -54,7 +52,7 @@ class SourceSyncService:
 
             if existing:
                 # Extract config: SourceConfig model has inner 'config' dict
-                if hasattr(config.config, 'config'):
+                if hasattr(config.config, "config"):
                     # SourceConfig Pydantic model: extract inner config dict
                     config_dict = config.config.config if isinstance(config.config.config, dict) else {}
                 elif isinstance(config.config, dict):
@@ -62,19 +60,18 @@ class SourceSyncService:
                     config_dict = config.config
                 else:
                     config_dict = {}
-                
+
                 # SourceUpdate.config expects a SourceConfig model, not a dict
                 # Create SourceConfig with the inner config dict properly set
                 # Use check_frequency and lookback_days from the SourceCreate's config model
                 from src.models.source import SourceConfig
-                check_freq = config.config.check_frequency if hasattr(config.config, 'check_frequency') else 3600
-                lookback = config.config.lookback_days if hasattr(config.config, 'lookback_days') else 180
+
+                check_freq = config.config.check_frequency if hasattr(config.config, "check_frequency") else 3600
+                lookback = config.config.lookback_days if hasattr(config.config, "lookback_days") else 180
                 source_config_model = SourceConfig(
-                    check_frequency=check_freq,
-                    lookback_days=lookback,
-                    config=config_dict
+                    check_frequency=check_freq, lookback_days=lookback, config=config_dict
                 )
-                
+
                 update_data = SourceUpdate(
                     name=config.name,
                     url=config.url,
@@ -110,9 +107,10 @@ async def sync_sources(config_path: str, db_manager: AsyncDatabaseManager) -> in
 def sync_sources_blocking(config_path: str, db_manager: AsyncDatabaseManager) -> int:
     """
     Synchronous wrapper for sync_sources.
-    
+
     WARNING: Do not call this from within a running event loop.
     Use sync_sources() directly with await in async contexts.
     """
     from src.utils.async_tools import run_sync
+
     return run_sync(sync_sources(config_path, db_manager))

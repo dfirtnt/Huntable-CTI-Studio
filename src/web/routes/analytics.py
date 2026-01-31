@@ -4,9 +4,7 @@ Analytics endpoints for scraper and hunt metrics.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List
 
 from fastapi import APIRouter
 
@@ -116,20 +114,14 @@ async def api_scraper_source_health():
                     elif isinstance(last_success, str):
                         # Handle different date formats
                         if last_success.endswith("Z"):
-                            last_success_date = datetime.fromisoformat(
-                                last_success.replace("Z", "+00:00")
-                            ).date()
+                            last_success_date = datetime.fromisoformat(last_success.replace("Z", "+00:00")).date()
                         else:
-                            last_success_date = datetime.fromisoformat(
-                                last_success
-                            ).date()
+                            last_success_date = datetime.fromisoformat(last_success).date()
                     else:
                         error_count += 1
                         continue
 
-                    days_since_success = (
-                        datetime.now().date() - last_success_date
-                    ).days
+                    days_since_success = (datetime.now().date() - last_success_date).days
 
                     if days_since_success <= 0:  # Same day or recent
                         healthy_count += 1
@@ -138,9 +130,7 @@ async def api_scraper_source_health():
                     else:
                         error_count += 1
                 except (ValueError, AttributeError) as e:
-                    logger.error(
-                        f"Date parsing error for {getattr(source, 'name', 'Unknown')}: {e}"
-                    )
+                    logger.error(f"Date parsing error for {getattr(source, 'name', 'Unknown')}: {e}")
                     error_count += 1
             else:
                 error_count += 1
@@ -163,9 +153,7 @@ async def api_scraper_source_performance():
 
         # Get source breakdown data
         source_breakdown = ingestion_data.get("source_breakdown", [])
-        source_breakdown_dict = {
-            item.get("source_name"): item for item in source_breakdown
-        }
+        source_breakdown_dict = {item.get("source_name"): item for item in source_breakdown}
 
         performance_data = []
         for source in sources:
@@ -178,9 +166,7 @@ async def api_scraper_source_performance():
             # Get articles count for today from source breakdown
             articles_today = 0
             if source_name in source_breakdown_dict:
-                articles_today = source_breakdown_dict[source_name].get(
-                    "articles_count", 0
-                )
+                articles_today = source_breakdown_dict[source_name].get("articles_count", 0)
 
             # Determine status
             last_success = getattr(source, "last_success", None)
@@ -193,20 +179,14 @@ async def api_scraper_source_performance():
                     elif isinstance(last_success, str):
                         # Handle different date formats
                         if last_success.endswith("Z"):
-                            last_success_date = datetime.fromisoformat(
-                                last_success.replace("Z", "+00:00")
-                            ).date()
+                            last_success_date = datetime.fromisoformat(last_success.replace("Z", "+00:00")).date()
                         else:
-                            last_success_date = datetime.fromisoformat(
-                                last_success
-                            ).date()
+                            last_success_date = datetime.fromisoformat(last_success).date()
                     else:
                         status = "error"
                         continue
 
-                    days_since_success = (
-                        datetime.now().date() - last_success_date
-                    ).days
+                    days_since_success = (datetime.now().date() - last_success_date).days
 
                     if days_since_success > 2:
                         status = "error"
@@ -580,11 +560,7 @@ async def api_hunt_advanced_metrics():
             efficiency_row = efficiency_result.fetchone()
             scoring_efficiency = (
                 round(
-                    (
-                        efficiency_row.scored_articles
-                        / efficiency_row.total_articles
-                        * 100
-                    ),
+                    (efficiency_row.scored_articles / efficiency_row.total_articles * 100),
                     1,
                 )
                 if efficiency_row.total_articles > 0
@@ -617,9 +593,7 @@ async def api_hunt_advanced_metrics():
             perfect_result = await session.execute(perfect_query)
             perfect_row = perfect_result.fetchone()
             perfect_match_rate = (
-                round(
-                    (perfect_row.perfect_matches / perfect_row.scored_articles * 100), 1
-                )
+                round((perfect_row.perfect_matches / perfect_row.scored_articles * 100), 1)
                 if perfect_row.scored_articles > 0
                 else 0
             )
@@ -666,14 +640,10 @@ async def api_hunt_recent_high_scores():
             articles = [
                 {
                     "id": row.id,
-                    "title": row.title[:60] + "..."
-                    if len(row.title) > 60
-                    else row.title,
+                    "title": row.title[:60] + "..." if len(row.title) > 60 else row.title,
                     "source_name": row.source_name,
                     "hunt_score": int(row.hunt_score),
-                    "created_at": row.created_at.strftime("%Y-%m-%d")
-                    if row.created_at
-                    else "Unknown",
+                    "created_at": row.created_at.strftime("%Y-%m-%d") if row.created_at else "Unknown",
                 }
                 for row in rows
             ]
@@ -716,9 +686,7 @@ async def api_hunt_demo_articles():
                     {
                         "id": row.id,
                         "title": row.title,
-                        "published_at": row.published_at.isoformat()
-                        if row.published_at
-                        else None,
+                        "published_at": row.published_at.isoformat() if row.published_at else None,
                         "word_count": row.word_count,
                         "article_metadata": row.article_metadata or {},
                         "source_id": row.source_id,
@@ -766,9 +734,7 @@ async def api_hunt_demo_sources():
                         "name": row.name,
                         "identifier": row.identifier,
                         "article_count": row.article_count or 0,
-                        "avg_hunt_score": float(row.avg_hunt_score)
-                        if row.avg_hunt_score
-                        else 0.0,
+                        "avg_hunt_score": float(row.avg_hunt_score) if row.avg_hunt_score else 0.0,
                         "classified_count": row.classified_count or 0,
                     }
                 )
@@ -902,52 +868,32 @@ async def api_hunt_demo_ml_models():
                     {
                         "version_number": row.version_number,
                         "accuracy": float(row.accuracy) if row.accuracy else 0.0,
-                        "precision_huntable": float(row.precision_huntable)
-                        if row.precision_huntable
-                        else 0.0,
+                        "precision_huntable": float(row.precision_huntable) if row.precision_huntable else 0.0,
                         "precision_not_huntable": float(row.precision_not_huntable)
                         if row.precision_not_huntable
                         else 0.0,
-                        "recall_huntable": float(row.recall_huntable)
-                        if row.recall_huntable
-                        else 0.0,
-                        "recall_not_huntable": float(row.recall_not_huntable)
-                        if row.recall_not_huntable
-                        else 0.0,
-                        "f1_score_huntable": float(row.f1_score_huntable)
-                        if row.f1_score_huntable
-                        else 0.0,
-                        "f1_score_not_huntable": float(row.f1_score_not_huntable)
-                        if row.f1_score_not_huntable
-                        else 0.0,
-                        "eval_accuracy": float(row.eval_accuracy)
-                        if row.eval_accuracy
-                        else 0.0,
+                        "recall_huntable": float(row.recall_huntable) if row.recall_huntable else 0.0,
+                        "recall_not_huntable": float(row.recall_not_huntable) if row.recall_not_huntable else 0.0,
+                        "f1_score_huntable": float(row.f1_score_huntable) if row.f1_score_huntable else 0.0,
+                        "f1_score_not_huntable": float(row.f1_score_not_huntable) if row.f1_score_not_huntable else 0.0,
+                        "eval_accuracy": float(row.eval_accuracy) if row.eval_accuracy else 0.0,
                         "eval_precision_huntable": float(row.eval_precision_huntable)
                         if row.eval_precision_huntable
                         else 0.0,
-                        "eval_precision_not_huntable": float(
-                            row.eval_precision_not_huntable
-                        )
+                        "eval_precision_not_huntable": float(row.eval_precision_not_huntable)
                         if row.eval_precision_not_huntable
                         else 0.0,
-                        "eval_recall_huntable": float(row.eval_recall_huntable)
-                        if row.eval_recall_huntable
-                        else 0.0,
+                        "eval_recall_huntable": float(row.eval_recall_huntable) if row.eval_recall_huntable else 0.0,
                         "eval_recall_not_huntable": float(row.eval_recall_not_huntable)
                         if row.eval_recall_not_huntable
                         else 0.0,
                         "eval_f1_score_huntable": float(row.eval_f1_score_huntable)
                         if row.eval_f1_score_huntable
                         else 0.0,
-                        "eval_f1_score_not_huntable": float(
-                            row.eval_f1_score_not_huntable
-                        )
+                        "eval_f1_score_not_huntable": float(row.eval_f1_score_not_huntable)
                         if row.eval_f1_score_not_huntable
                         else 0.0,
-                        "trained_at": row.trained_at.isoformat()
-                        if row.trained_at
-                        else None,
+                        "trained_at": row.trained_at.isoformat() if row.trained_at else None,
                     }
                 )
 

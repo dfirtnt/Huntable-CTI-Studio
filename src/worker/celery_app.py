@@ -4,11 +4,10 @@ Celery Application for CTI Scraper Background Tasks
 Handles source checking, article collection, and other async operations.
 """
 
-import os
 import logging
+import os
 import time
-import sys
-from typing import List, Optional
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -24,9 +23,7 @@ redis_url = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL")
 if redis_url:
     os.environ["CELERY_BROKER_URL"] = redis_url
     os.environ["CELERY_RESULT_BACKEND"] = redis_url
-    logger.debug(
-        "Set CELERY_BROKER_URL and CELERY_RESULT_BACKEND environment variables"
-    )
+    logger.debug("Set CELERY_BROKER_URL and CELERY_RESULT_BACKEND environment variables")
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault("CELERY_CONFIG_MODULE", "src.worker.celeryconfig")
@@ -35,9 +32,7 @@ os.environ.setdefault("CELERY_CONFIG_MODULE", "src.worker.celeryconfig")
 # This is the most reliable way to set it
 if redis_url:
     celery_app = Celery("cti_scraper", broker=redis_url, backend=redis_url)
-    logger.info(
-        f"Celery app created with Redis URL from environment: {redis_url.split('@')[0]}@***"
-    )
+    logger.info(f"Celery app created with Redis URL from environment: {redis_url.split('@')[0]}@***")
 else:
     celery_app = Celery("cti_scraper")
 
@@ -45,6 +40,7 @@ else:
 if os.getenv("APP_ENV") == "test":
     try:
         from tests.utils.test_environment import assert_test_environment
+
         assert_test_environment()
         logger.info("Test environment guard passed for Celery app")
     except ImportError:
@@ -72,9 +68,7 @@ celery_app.conf.task_queues = celeryconfig.task_queues
 celery_app.conf.task_always_eager = celeryconfig.task_always_eager
 celery_app.conf.task_eager_propagates = celeryconfig.task_eager_propagates
 celery_app.conf.task_ignore_result = celeryconfig.task_ignore_result
-celery_app.conf.task_store_errors_even_if_ignored = (
-    celeryconfig.task_store_errors_even_if_ignored
-)
+celery_app.conf.task_store_errors_even_if_ignored = celeryconfig.task_store_errors_even_if_ignored
 celery_app.conf.result_expires = celeryconfig.result_expires
 celery_app.conf.result_persistent = celeryconfig.result_persistent
 celery_app.conf.worker_send_task_events = celeryconfig.worker_send_task_events
@@ -83,9 +77,7 @@ celery_app.conf.worker_log_format = celeryconfig.worker_log_format
 celery_app.conf.worker_task_log_format = celeryconfig.worker_task_log_format
 celery_app.conf.worker_direct = celeryconfig.worker_direct
 celery_app.conf.worker_redirect_stdouts = celeryconfig.worker_redirect_stdouts
-celery_app.conf.worker_redirect_stdouts_level = (
-    celeryconfig.worker_redirect_stdouts_level
-)
+celery_app.conf.worker_redirect_stdouts_level = celeryconfig.worker_redirect_stdouts_level
 celery_app.conf.task_acks_late = celeryconfig.task_acks_late
 celery_app.conf.task_reject_on_worker_lost = celeryconfig.task_reject_on_worker_lost
 celery_app.conf.task_remote_tracebacks = celeryconfig.task_remote_tracebacks
@@ -95,9 +87,7 @@ if redis_url:
     if celery_app.conf.broker_url == redis_url:
         logger.debug("Broker URL successfully set from environment")
     else:
-        logger.error(
-            f"CRITICAL: Broker URL mismatch! Expected: {redis_url[:30]}..., Got: {celery_app.conf.broker_url}"
-        )
+        logger.error(f"CRITICAL: Broker URL mismatch! Expected: {redis_url[:30]}..., Got: {celery_app.conf.broker_url}")
 
 # Load task modules from all registered app configs.
 celery_app.autodiscover_tasks()
@@ -105,6 +95,7 @@ celery_app.autodiscover_tasks()
 # Ensure local task modules are registered
 import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
+
 # Optional: test_agents module (only used in test endpoints)
 try:
     import src.worker.tasks.test_agents  # noqa: E402,F401
@@ -165,9 +156,10 @@ def check_all_sources(self):
     """Check all active sources for new content."""
     try:
         import asyncio
-        from src.database.async_manager import AsyncDatabaseManager
+
         from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
+        from src.database.async_manager import AsyncDatabaseManager
 
         async def run_source_check():
             """Run the actual source checking."""
@@ -177,9 +169,7 @@ def check_all_sources(self):
                 sources = await db.list_sources()
                 active_sources = [s for s in sources if getattr(s, "active", True)]
 
-                logger.info(
-                    f"Checking {len(active_sources)} active sources for new content..."
-                )
+                logger.info(f"Checking {len(active_sources)} active sources for new content...")
 
                 if not active_sources:
                     return {
@@ -189,10 +179,7 @@ def check_all_sources(self):
 
                 # Initialize processor for deduplication
                 # Use maximum lookback_days from all sources, or default to 90
-                max_age_days = max(
-                    (getattr(s, 'lookback_days', None) or 90 for s in active_sources),
-                    default=90
-                )
+                max_age_days = max((getattr(s, "lookback_days", None) or 90 for s in active_sources), default=90)
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
                     max_age_days=max_age_days,
@@ -241,9 +228,7 @@ def check_all_sources(self):
                                             await db.create_article(article)
                                             saved_count += 1
                                         except Exception as e:
-                                            logger.error(
-                                                f"Error storing article from {source.name}: {e}"
-                                            )
+                                            logger.error(f"Error storing article from {source.name}: {e}")
                                             continue
 
                                 filtered_count = len(dedup_result.duplicates)
@@ -251,48 +236,30 @@ def check_all_sources(self):
                                 total_articles_filtered += filtered_count
 
                                 logger.info(f"    - Saved: {saved_count} articles")
-                                logger.info(
-                                    f"    - Duplicates filtered: {filtered_count} articles"
-                                )
+                                logger.info(f"    - Duplicates filtered: {filtered_count} articles")
 
                             elif collection_success:
-                                logger.info(
-                                    f"  ✓ {source.name}: 0 articles found via {fetch_result.method}"
-                                )
+                                logger.info(f"  ✓ {source.name}: 0 articles found via {fetch_result.method}")
 
                             else:
                                 error_msg = fetch_result.error
-                                logger.error(
-                                    f"  ✗ {source.name}: Fetch failed - {error_msg}"
-                                )
+                                logger.error(f"  ✗ {source.name}: Fetch failed - {error_msg}")
 
                         except Exception as e:
                             error_msg = str(e)
                             logger.error(f"  ✗ {source.name}: Error - {e}")
 
                         finally:
-                            response_time = (
-                                fetch_result.response_time
-                                if fetch_result
-                                else time.time() - start_time
-                            )
+                            response_time = fetch_result.response_time if fetch_result else time.time() - start_time
                             method = fetch_result.method if fetch_result else "unknown"
                             articles_found = len(articles)
 
                             try:
-                                logger.info(
-                                    f"About to update source {source.id} health and article count"
-                                )
-                                await db.update_source_health(
-                                    source.id, collection_success, response_time
-                                )
-                                logger.info(
-                                    f"Health updated, now updating article count for source {source.id}"
-                                )
+                                logger.info(f"About to update source {source.id} health and article count")
+                                await db.update_source_health(source.id, collection_success, response_time)
+                                logger.info(f"Health updated, now updating article count for source {source.id}")
                                 await db.update_source_article_count(source.id)
-                                logger.info(
-                                    f"Article count updated for source {source.id}"
-                                )
+                                logger.info(f"Article count updated for source {source.id}")
 
                                 await db.record_source_check(
                                     source_id=source.id,
@@ -303,26 +270,20 @@ def check_all_sources(self):
                                     error_message=error_msg,
                                 )
 
-                                logger.info(
-                                    f"Updated source {source.id} health and article count"
-                                )
+                                logger.info(f"Updated source {source.id} health and article count")
                             except Exception as e:
-                                logger.error(
-                                    f"Failed to update health metrics for {source.name}: {e}"
-                                )
+                                logger.error(f"Failed to update health metrics for {source.name}: {e}")
                                 import traceback
 
                                 logger.error(f"Traceback: {traceback.format_exc()}")
 
                 # Log overall statistics
                 processor_stats = processor.get_statistics()
-                logger.info(f"Processing complete:")
+                logger.info("Processing complete:")
                 logger.info(f"  - Total collected: {total_articles_collected}")
                 logger.info(f"  - Total saved: {total_articles_saved}")
                 logger.info(f"  - Total filtered: {total_articles_filtered}")
-                logger.info(
-                    f"  - Duplicates removed: {processor_stats['duplicates_removed']}"
-                )
+                logger.info(f"  - Duplicates removed: {processor_stats['duplicates_removed']}")
 
                 return {
                     "status": "success",
@@ -385,6 +346,7 @@ def embed_new_articles(self, batch_size: int = 50):
     """Generate embeddings for new articles that don't have them yet."""
     try:
         import asyncio
+
         from src.database.async_manager import AsyncDatabaseManager
 
         async def run_retroactive_embedding():
@@ -403,9 +365,7 @@ def embed_new_articles(self, batch_size: int = 50):
                     }
 
                 total_articles = len(articles_without_embeddings)
-                logger.info(
-                    f"Starting daily embedding generation for {total_articles} articles"
-                )
+                logger.info(f"Starting daily embedding generation for {total_articles} articles")
 
                 # Process in batches
                 article_ids = [article.id for article in articles_without_embeddings]
@@ -463,9 +423,10 @@ def check_source(self, source_identifier: str):
     """Check a specific source by identifier for new content."""
     try:
         import asyncio
-        from src.database.async_manager import AsyncDatabaseManager
+
         from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
+        from src.database.async_manager import AsyncDatabaseManager
 
         async def run_source_check():
             """Run the actual source checking."""
@@ -491,13 +452,11 @@ def check_source(self, source_identifier: str):
                         "message": f"Source '{source.name}' is not active",
                     }
 
-                logger.info(
-                    f"Checking source {source.name} (ID: {source.id}) for new content..."
-                )
+                logger.info(f"Checking source {source.name} (ID: {source.id}) for new content...")
 
                 # Initialize processor for deduplication
                 # Use source's lookback_days if available, otherwise default to 90
-                max_age_days = getattr(source, 'lookback_days', None) or 90
+                max_age_days = getattr(source, "lookback_days", None) or 90
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
                     max_age_days=max_age_days,
@@ -536,22 +495,16 @@ def check_source(self, source_identifier: str):
                                         await db.create_article(article)
                                         saved_count += 1
                                     except Exception as e:
-                                        logger.error(
-                                            f"Error storing article from {source.name}: {e}"
-                                        )
+                                        logger.error(f"Error storing article from {source.name}: {e}")
                                         continue
 
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
 
-                            logger.info(
-                                f"    - Collected: {len(fetch_result.articles)} articles"
-                            )
+                            logger.info(f"    - Collected: {len(fetch_result.articles)} articles")
                             logger.info(f"    - Saved: {saved_count} new articles")
-                            logger.info(
-                                f"    - Duplicates filtered: {duplicates_filtered} articles"
-                            )
+                            logger.info(f"    - Duplicates filtered: {duplicates_filtered} articles")
 
                             collection_success = True
 
@@ -565,11 +518,9 @@ def check_source(self, source_identifier: str):
                                 "method": fetch_result.method,
                                 "message": f"Successfully collected {saved_count} new articles from {source.name} via {fetch_result.method}",
                             }
-                        elif fetch_result.success:
+                        if fetch_result.success:
                             logger.info(f"  ✓ {source.name}: No new articles found")
-                            collection_success = (
-                                True  # No articles is still a successful check
-                            )
+                            collection_success = True  # No articles is still a successful check
 
                             return {
                                 "status": "success",
@@ -578,21 +529,16 @@ def check_source(self, source_identifier: str):
                                 "articles_collected": 0,
                                 "articles_saved": 0,
                                 "duplicates_filtered": 0,
-                                "method": fetch_result.method
-                                if fetch_result
-                                else "none",
+                                "method": fetch_result.method if fetch_result else "none",
                                 "message": f"No new articles found for {source.name}",
                             }
-                        else:
-                            logger.error(
-                                f"  ✗ {source.name}: Fetch failed - {fetch_result.error}"
-                            )
-                            collection_success = False
-                            return {
-                                "status": "error",
-                                "source_id": source.id,
-                                "message": fetch_result.error or "Unknown error",
-                            }
+                        logger.error(f"  ✗ {source.name}: Fetch failed - {fetch_result.error}")
+                        collection_success = False
+                        return {
+                            "status": "error",
+                            "source_id": source.id,
+                            "message": fetch_result.error or "Unknown error",
+                        }
 
                     except Exception as e:
                         logger.error(f"Error collecting from {source.name}: {e}")
@@ -606,23 +552,13 @@ def check_source(self, source_identifier: str):
                         # Update source health metrics with actual success/failure status
                         try:
                             response_time = time.time() - start_time
-                            await db.update_source_health(
-                                source.id, collection_success, response_time
-                            )
+                            await db.update_source_health(source.id, collection_success, response_time)
                             await db.update_source_article_count(source.id)
 
                             # Record source check for historical tracking
                             method = fetch_result.method if fetch_result else "unknown"
-                            articles_found = (
-                                len(fetch_result.articles)
-                                if fetch_result and fetch_result.articles
-                                else 0
-                            )
-                            error_msg = (
-                                fetch_result.error
-                                if fetch_result and not fetch_result.success
-                                else None
-                            )
+                            articles_found = len(fetch_result.articles) if fetch_result and fetch_result.articles else 0
+                            error_msg = fetch_result.error if fetch_result and not fetch_result.success else None
 
                             await db.record_source_check(
                                 source_id=source.id,
@@ -633,13 +569,9 @@ def check_source(self, source_identifier: str):
                                 error_message=error_msg,
                             )
 
-                            logger.info(
-                                f"Updated source {source.id} health and article count"
-                            )
+                            logger.info(f"Updated source {source.id} health and article count")
                         except Exception as health_error:
-                            logger.error(
-                                f"Failed to update health for source {source.id}: {health_error}"
-                            )
+                            logger.error(f"Failed to update health for source {source.id}: {health_error}")
 
             except Exception as e:
                 logger.error(f"Source check failed: {e}")
@@ -658,10 +590,11 @@ def check_source(self, source_identifier: str):
 
 
 @celery_app.task(bind=True, max_retries=3)
-def trigger_agentic_workflow(self, article_id: int, execution_id: Optional[int] = None):
+def trigger_agentic_workflow(self, article_id: int, execution_id: int | None = None):
     """Trigger agentic workflow for an article with high hunt score."""
     try:
         import asyncio
+
         from src.database.manager import DatabaseManager
         from src.workflows.agentic_workflow import run_workflow
 
@@ -673,17 +606,13 @@ def trigger_agentic_workflow(self, article_id: int, execution_id: Optional[int] 
 
                 try:
                     result = await run_workflow(article_id, db_session, execution_id=execution_id)
-                    logger.info(
-                        f"Agentic workflow completed for article {article_id}: {result.get('success', False)}"
-                    )
+                    logger.info(f"Agentic workflow completed for article {article_id}: {result.get('success', False)}")
                     return result
                 finally:
                     db_session.close()
 
             except Exception as e:
-                logger.error(
-                    f"Error running agentic workflow for article {article_id}: {e}"
-                )
+                logger.error(f"Error running agentic workflow for article {article_id}: {e}")
                 # Convert to new exception to avoid serializing ArticleTable in traceback
                 raise Exception(f"Workflow execution failed: {str(e)}") from None
 
@@ -742,6 +671,7 @@ def generate_article_embedding(self, article_id: int):
     """Generate embedding for a single article."""
     try:
         import asyncio
+
         from src.database.async_manager import AsyncDatabaseManager
         from src.services.embedding_service import get_embedding_service
 
@@ -772,9 +702,7 @@ def generate_article_embedding(self, article_id: int):
                     article_content=article.content,
                     summary=article.summary,
                     tags=article.tags,
-                    article_metadata=article.article_metadata
-                    if hasattr(article, "article_metadata")
-                    else {},
+                    article_metadata=article.article_metadata if hasattr(article, "article_metadata") else {},
                 )
 
                 embedding = embedding_service.generate_embedding(enriched_text)
@@ -795,9 +723,7 @@ def generate_article_embedding(self, article_id: int):
                 }
 
             except Exception as e:
-                logger.error(
-                    f"Embedding generation failed for article {article_id}: {e}"
-                )
+                logger.error(f"Embedding generation failed for article {article_id}: {e}")
                 raise e
             finally:
                 await db.close()
@@ -812,11 +738,12 @@ def generate_article_embedding(self, article_id: int):
 
 
 @celery_app.task(bind=True, max_retries=3)
-def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32):
+def batch_generate_embeddings(self, article_ids: list[int], batch_size: int = 32):
     """Generate embeddings for multiple articles in batches."""
     try:
         import asyncio
         import time
+
         from src.database.async_manager import AsyncDatabaseManager
         from src.services.embedding_service import get_embedding_service
 
@@ -843,7 +770,7 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
 
                 write_log(f"🚀 Starting embedding generation for {total_articles} articles")
                 write_log(f"📦 Batch size: {batch_size}")
-                write_log(f"⏳ Processing in batches...\n")
+                write_log("⏳ Processing in batches...\n")
 
                 # Process in batches
                 for i in range(0, len(article_ids), batch_size):
@@ -857,14 +784,14 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                     articles = await db.get_articles_with_source_info(batch_ids)
 
                     # Filter out already embedded articles
-                    articles_to_process = [
-                        article for article in articles if article.embedding is None
-                    ]
+                    articles_to_process = [article for article in articles if article.embedding is None]
 
                     if not articles_to_process:
                         skipped_count = len(batch_ids)
                         total_skipped += skipped_count
-                        write_log(f"⏭️  Batch {batch_num}: All articles already have embeddings (skipped {skipped_count})")
+                        write_log(
+                            f"⏭️  Batch {batch_num}: All articles already have embeddings (skipped {skipped_count})"
+                        )
                         continue
 
                     write_log(f"🔄 Batch {batch_num}: Processing {len(articles_to_process)} articles...")
@@ -881,18 +808,14 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                             article_content=article.content,
                             summary=article.summary,
                             tags=article.tags,
-                            article_metadata=article.article_metadata
-                            if hasattr(article, "article_metadata")
-                            else {},
+                            article_metadata=article.article_metadata if hasattr(article, "article_metadata") else {},
                         )
                         texts_to_embed.append(enriched_text)
                         article_mapping.append(article.id)
 
                     # Generate embeddings in batch
                     write_log(f"🧬 Generating embeddings for batch {batch_num}...")
-                    embeddings = embedding_service.generate_embeddings_batch(
-                        texts_to_embed, batch_size
-                    )
+                    embeddings = embedding_service.generate_embeddings_batch(texts_to_embed, batch_size)
 
                     # Store embeddings
                     write_log(f"💾 Storing embeddings for batch {batch_num}...")
@@ -905,9 +828,7 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                             )
                             total_processed += 1
                         except Exception as e:
-                            logger.error(
-                                f"Failed to store embedding for article {article_id}: {e}"
-                            )
+                            logger.error(f"Failed to store embedding for article {article_id}: {e}")
                             write_log(f"❌ Failed to store embedding for article {article_id}: {e}")
                             total_errors += 1
 
@@ -916,14 +837,14 @@ def batch_generate_embeddings(self, article_ids: List[int], batch_size: int = 32
                     write_log(f"✅ Batch {batch_num} complete: {len(articles_to_process)} processed")
                     write_log(f"📈 Overall progress: {total_processed}/{total_articles} ({progress_pct:.1f}%)\n")
 
-                write_log("\n" + "="*50)
+                write_log("\n" + "=" * 50)
                 write_log("✅ Embedding Generation Complete!")
-                write_log(f"📊 Results:")
+                write_log("📊 Results:")
                 write_log(f"   • Processed: {total_processed} articles")
                 write_log(f"   • Skipped: {total_skipped} articles (already embedded)")
                 write_log(f"   • Errors: {total_errors} articles")
                 write_log(f"⏱️  Finished at {time.strftime('%H:%M:%S')}")
-                write_log("="*50)
+                write_log("=" * 50)
 
                 logger.info(
                     f"Batch embedding complete: {total_processed} processed, {total_skipped} skipped, {total_errors} errors"
@@ -958,6 +879,7 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
     try:
         import asyncio
         import time
+
         from src.database.async_manager import AsyncDatabaseManager
 
         # Initialize log file in worker container
@@ -992,9 +914,7 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
                     }
 
                 total_articles = len(articles_without_embeddings)
-                logger.info(
-                    f"Starting retroactive embedding for {total_articles} articles"
-                )
+                logger.info(f"Starting retroactive embedding for {total_articles} articles")
 
                 # Process in batches
                 article_ids = [article.id for article in articles_without_embeddings]
@@ -1034,9 +954,10 @@ def collect_from_source(self, source_id: int):
     """Collect new content from a specific source."""
     try:
         import asyncio
-        from src.database.manager import DatabaseManager
+
         from src.core.fetcher import ContentFetcher
         from src.core.processor import ContentProcessor
+        from src.database.manager import DatabaseManager
 
         async def run_source_collection():
             """Run the actual source collection."""
@@ -1057,13 +978,11 @@ def collect_from_source(self, source_id: int):
                         "message": f"Source {source.name} is not active",
                     }
 
-                logger.info(
-                    f"Collecting content from {source.name} (ID: {source_id})..."
-                )
+                logger.info(f"Collecting content from {source.name} (ID: {source_id})...")
 
                 # Initialize processor for deduplication
                 # Use source's lookback_days if available, otherwise default to 90
-                max_age_days = getattr(source, 'lookback_days', None) or 90
+                max_age_days = getattr(source, "lookback_days", None) or 90
                 processor = ContentProcessor(
                     similarity_threshold=0.85,
                     max_age_days=max_age_days,
@@ -1082,18 +1001,27 @@ def collect_from_source(self, source_id: int):
                     try:
                         # Fetch articles using hierarchical strategy
                         fetch_result = await fetcher.fetch_source(source)
-                        
+
                         # Extract RSS parsing stats if available
-                        rss_parsing_stats = getattr(fetch_result, 'rss_parsing_stats', {})
-                        
+                        rss_parsing_stats = getattr(fetch_result, "rss_parsing_stats", {})
+
                         # Filter out dummy articles created just to carry stats
-                        real_articles = [
-                            a for a in fetch_result.articles 
-                            if not (
-                                (hasattr(a, 'article_metadata') and a.article_metadata and a.article_metadata.get('is_dummy', False)) or
-                                (hasattr(a, 'metadata') and a.metadata and a.metadata.get('is_dummy', False))
-                            )
-                        ] if fetch_result.articles else []
+                        real_articles = (
+                            [
+                                a
+                                for a in fetch_result.articles
+                                if not (
+                                    (
+                                        hasattr(a, "article_metadata")
+                                        and a.article_metadata
+                                        and a.article_metadata.get("is_dummy", False)
+                                    )
+                                    or (hasattr(a, "metadata") and a.metadata and a.metadata.get("is_dummy", False))
+                                )
+                            ]
+                            if fetch_result.articles
+                            else []
+                        )
 
                         if fetch_result.success and real_articles:
                             logger.info(
@@ -1101,9 +1029,7 @@ def collect_from_source(self, source_id: int):
                             )
 
                             # Process articles through deduplication
-                            dedup_result = await processor.process_articles(
-                                real_articles, existing_hashes
-                            )
+                            dedup_result = await processor.process_articles(real_articles, existing_hashes)
 
                             # Save deduplicated articles using sync database manager
                             saved_count = 0
@@ -1123,16 +1049,12 @@ def collect_from_source(self, source_id: int):
                                         summary=article.summary,
                                         content=article.content,
                                         content_hash=article.content_hash,
-                                        article_metadata=getattr(
-                                            article, "metadata", {}
-                                        ),
+                                        article_metadata=getattr(article, "metadata", {}),
                                     )
                                     article_creates.append(article_create)
 
                                 # Bulk create articles
-                                created_articles, errors = db.create_articles_bulk(
-                                    article_creates
-                                )
+                                created_articles, errors = db.create_articles_bulk(article_creates)
                                 saved_count = len(created_articles)
 
                                 if errors:
@@ -1141,22 +1063,18 @@ def collect_from_source(self, source_id: int):
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
-                            
-                            # Extract detailed filtering stats
-                            filter_stats = dedup_result.stats if hasattr(dedup_result, 'stats') else {}
-                            quality_filtered = filter_stats.get('quality_filtered', 0)
-                            hash_duplicates = filter_stats.get('hash_duplicates', 0)
-                            url_duplicates = filter_stats.get('url_duplicates', 0)
-                            similarity_duplicates = filter_stats.get('similarity_duplicates', 0)
-                            validation_failures = filter_stats.get('validation_failures', 0)
 
-                            logger.info(
-                                f"    - Collected: {len(fetch_result.articles)} articles"
-                            )
+                            # Extract detailed filtering stats
+                            filter_stats = dedup_result.stats if hasattr(dedup_result, "stats") else {}
+                            quality_filtered = filter_stats.get("quality_filtered", 0)
+                            hash_duplicates = filter_stats.get("hash_duplicates", 0)
+                            url_duplicates = filter_stats.get("url_duplicates", 0)
+                            similarity_duplicates = filter_stats.get("similarity_duplicates", 0)
+                            validation_failures = filter_stats.get("validation_failures", 0)
+
+                            logger.info(f"    - Collected: {len(fetch_result.articles)} articles")
                             logger.info(f"    - Saved: {saved_count} new articles")
-                            logger.info(
-                                f"    - Total filtered: {filtered_count} articles"
-                            )
+                            logger.info(f"    - Total filtered: {filtered_count} articles")
                             if quality_filtered > 0:
                                 logger.info(f"      • Quality filtered: {quality_filtered}")
                             if hash_duplicates > 0:
@@ -1189,28 +1107,21 @@ def collect_from_source(self, source_id: int):
                                 "response_time": fetch_result.response_time,
                                 "message": f"Collected {len(real_articles)} articles via {fetch_result.method}, saved {saved_count} after deduplication",
                             }
-                        else:
-                            logger.info(f"  ✓ {source.name}: 0 articles found")
-                            collection_success = (
-                                True  # No articles is still a successful check
-                            )
+                        logger.info(f"  ✓ {source.name}: 0 articles found")
+                        collection_success = True  # No articles is still a successful check
 
-                            return {
-                                "status": "success",
-                                "source_id": source_id,
-                                "source_name": source.name,
-                                "articles_collected": 0,
-                                "articles_saved": 0,
-                                "articles_filtered": 0,
-                                "rss_parsing_stats": rss_parsing_stats,
-                                "method": fetch_result.method
-                                if fetch_result
-                                else "none",
-                                "response_time": fetch_result.response_time
-                                if fetch_result
-                                else 0,
-                                "message": f"No new articles found for {source.name}",
-                            }
+                        return {
+                            "status": "success",
+                            "source_id": source_id,
+                            "source_name": source.name,
+                            "articles_collected": 0,
+                            "articles_saved": 0,
+                            "articles_filtered": 0,
+                            "rss_parsing_stats": rss_parsing_stats,
+                            "method": fetch_result.method if fetch_result else "none",
+                            "response_time": fetch_result.response_time if fetch_result else 0,
+                            "message": f"No new articles found for {source.name}",
+                        }
 
                     except Exception as e:
                         logger.error(f"  ✗ {source.name}: Error - {e}")
@@ -1224,25 +1135,15 @@ def collect_from_source(self, source_id: int):
                         # Update source health metrics with actual success/failure status
                         try:
                             response_time = time.time() - start_time
-                            db.update_source_health(
-                                source_id, collection_success, response_time
-                            )
+                            db.update_source_health(source_id, collection_success, response_time)
                             # Update article count using the private method
                             with db.get_session() as session:
                                 db._update_source_article_count(session, source_id)
 
                             # Record source check for historical tracking
                             method = fetch_result.method if fetch_result else "unknown"
-                            articles_found = (
-                                len(fetch_result.articles)
-                                if fetch_result and fetch_result.articles
-                                else 0
-                            )
-                            error_msg = (
-                                fetch_result.error
-                                if fetch_result and not fetch_result.success
-                                else None
-                            )
+                            articles_found = len(fetch_result.articles) if fetch_result and fetch_result.articles else 0
+                            error_msg = fetch_result.error if fetch_result and not fetch_result.success else None
 
                             db.record_source_check(
                                 source_id=source_id,
@@ -1253,13 +1154,9 @@ def collect_from_source(self, source_id: int):
                                 error_message=error_msg,
                             )
 
-                            logger.info(
-                                f"Updated source {source_id} health and article count"
-                            )
+                            logger.info(f"Updated source {source_id} health and article count")
                         except Exception as health_error:
-                            logger.error(
-                                f"Failed to update health for source {source_id}: {health_error}"
-                            )
+                            logger.error(f"Failed to update health for source {source_id}: {health_error}")
 
             except Exception as e:
                 logger.error(f"Source collection failed: {e}")
@@ -1306,9 +1203,7 @@ def sync_sigma_rules(self, force_reindex=False):
             # Index rules (this also generates embeddings)
             indexed_count = sync_service.index_rules(session, force_reindex=force_reindex)
 
-            logger.info(
-                f"Sigma sync complete: {indexed_count} rules indexed with embeddings"
-            )
+            logger.info(f"Sigma sync complete: {indexed_count} rules indexed with embeddings")
 
             return {
                 "status": "success",

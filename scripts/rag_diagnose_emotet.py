@@ -5,7 +5,6 @@ Checks: lexical Emotet articles, embedding search results at 0.38 threshold.
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -22,8 +21,7 @@ async def main():
     # 1. Lexical: articles containing "emotet" in title or content
     all_articles = await async_db_manager.list_articles()
     emotet_lexical = [
-        a for a in all_articles
-        if "emotet" in (a.title or "").lower() or "emotet" in (a.content or "").lower()
+        a for a in all_articles if "emotet" in (a.title or "").lower() or "emotet" in (a.content or "").lower()
     ]
     print(f"Lexical 'emotet' matches: {len(emotet_lexical)} articles")
     for a in emotet_lexical[:10]:
@@ -31,12 +29,8 @@ async def main():
 
     # 2. Embedding search: top 50, threshold 0.38 (original behavior: top 5)
     rag = get_rag_service()
-    results_5 = await rag.find_similar_content(
-        query=query, top_k=5, threshold=threshold, use_chunks=False
-    )
-    results_50 = await rag.find_similar_content(
-        query=query, top_k=50, threshold=threshold, use_chunks=False
-    )
+    results_5 = await rag.find_similar_content(query=query, top_k=5, threshold=threshold, use_chunks=False)
+    results_50 = await rag.find_similar_content(query=query, top_k=50, threshold=threshold, use_chunks=False)
     print(f"\nEmbedding search (threshold={threshold}):")
     print(f"  top_k=5:  {len(results_5)} articles")
     print(f"  top_k=50: {len(results_50)} articles")

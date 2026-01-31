@@ -56,6 +56,7 @@ async def api_get_chunk_feedback(article_id: int, chunk_id: int):
     """Get existing feedback for a specific chunk."""
     try:
         from sqlalchemy import desc, select
+
         from src.database.models import ChunkClassificationFeedbackTable
 
         async with async_db_manager.get_session() as session:
@@ -88,4 +89,3 @@ async def api_get_chunk_feedback(article_id: int, chunk_id: int):
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to get chunk feedback: %s", exc)
         raise HTTPException(status_code=500, detail=f"Failed to get chunk feedback: {exc}") from exc
-

@@ -9,10 +9,10 @@ Exit when nMAE <= 0.2 or 25 eval runs. Requires web app and Celery worker runnin
 
 Run from project root with venv: .venv/bin/python3 scripts/run_prompt_tuning_subagent.py [--max-runs N] [--dry-run]
 """
+
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -32,7 +32,7 @@ POLL_TIMEOUT = 3600  # 1h max wait per run
 
 
 def load_cmdline_urls() -> list[str]:
-    with open(CONFIG_EVAL_ARTICLES, "r") as f:
+    with open(CONFIG_EVAL_ARTICLES) as f:
         data = yaml.safe_load(f)
     entries = (data.get("subagents") or {}).get(SUBAGENT) or []
     return [e.get("url") for e in entries if e.get("url")]
@@ -92,7 +92,11 @@ def wait_until_complete(base_url: str, run_config_version: int) -> None:
     deadline = time.monotonic() + POLL_TIMEOUT
     while time.monotonic() < deadline:
         data = get_results(base_url)
-        pending = [x for x in data.get("results", []) if x.get("status") == "pending" and x.get("config_version") == run_config_version]
+        pending = [
+            x
+            for x in data.get("results", [])
+            if x.get("status") == "pending" and x.get("config_version") == run_config_version
+        ]
         if not pending:
             return
         time.sleep(POLL_INTERVAL)
@@ -100,10 +104,16 @@ def wait_until_complete(base_url: str, run_config_version: int) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run prompt-tuning subagent (cmdline evals until nMAE<=0.2 or 25 runs)")
-    parser.add_argument("--base-url", default=os.environ.get("CTI_SCRAPER_URL", "http://localhost:8001"), help="Web app base URL")
+    parser = argparse.ArgumentParser(
+        description="Run prompt-tuning subagent (cmdline evals until nMAE<=0.2 or 25 runs)"
+    )
+    parser.add_argument(
+        "--base-url", default=os.environ.get("CTI_SCRAPER_URL", "http://localhost:8001"), help="Web app base URL"
+    )
     parser.add_argument("--max-runs", type=int, default=MAX_RUNS, help=f"Max eval runs (default {MAX_RUNS})")
-    parser.add_argument("--dry-run", action="store_true", help="Only run one eval and print aggregate, no config changes")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Only run one eval and print aggregate, no config changes"
+    )
     args = parser.parse_args()
     base_url = args.base_url.rstrip("/")
 
@@ -183,7 +193,10 @@ def main() -> int:
         # Step temperature down by 0.1, floor 0; or if already 0, try 0.2 then 0.1
         next_temp = max(0.0, current_temp - 0.1) if current_temp > 0 else 0.2
         models[key_temp] = round(next_temp, 2)
-        payload = {"agent_models": models, "description": f"Prompt-tuning run {run_count}: CmdlineExtract_temperature={next_temp}"}
+        payload = {
+            "agent_models": models,
+            "description": f"Prompt-tuning run {run_count}: CmdlineExtract_temperature={next_temp}",
+        }
         try:
             updated = put_config(base_url, payload)
             run_config_version = updated.get("version", run_config_version)

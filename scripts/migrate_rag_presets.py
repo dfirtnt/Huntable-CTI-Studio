@@ -6,16 +6,18 @@ This table stores RAG chat presets (provider, model, max_results, similarity_thr
 for the Threat Intelligence Chat feature.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine
-from src.database.models import Base, RagPresetTable
 import logging
+
+from sqlalchemy import create_engine
+
+from src.database.models import Base, RagPresetTable
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

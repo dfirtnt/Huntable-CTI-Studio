@@ -17,8 +17,8 @@ import json
 import os
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List
 
 import requests
 
@@ -30,30 +30,30 @@ class ProviderConfig:
     name: str
     env_var: str
     url: str
-    headers_builder: Callable[[str], Dict[str, str]]
-    filter_fn: Callable[[List[str]], List[str]]
-    params_builder: Callable[[str], Dict[str, str]] = lambda _: {}
+    headers_builder: Callable[[str], dict[str, str]]
+    filter_fn: Callable[[list[str]], list[str]]
+    params_builder: Callable[[str], dict[str, str]] = lambda _: {}
 
 
-def default_headers(api_key: str) -> Dict[str, str]:
+def default_headers(api_key: str) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
 
-def openai_filter(model_ids: List[str]) -> List[str]:
+def openai_filter(model_ids: list[str]) -> list[str]:
     pattern = re.compile(r"^(gpt|o\d|o[1-9]|o-|o[a-z]|omni|text-davinci|davinci|curie|babbage|ada)", re.IGNORECASE)
     filtered = [mid for mid in model_ids if pattern.match(mid)]
     return sorted(set(filtered))
 
 
-def anthropic_filter(model_ids: List[str]) -> List[str]:
+def anthropic_filter(model_ids: list[str]) -> list[str]:
     filtered = [mid for mid in model_ids if mid.lower().startswith("claude")]
     return sorted(set(filtered))
 
 
-def gemini_filter(model_ids: List[str]) -> List[str]:
+def gemini_filter(model_ids: list[str]) -> list[str]:
     cleaned = []
     for mid in model_ids:
         if not mid:
@@ -94,7 +94,7 @@ PROVIDERS = [
 ]
 
 
-def fetch_models(provider: ProviderConfig) -> List[str]:
+def fetch_models(provider: ProviderConfig) -> list[str]:
     api_key = os.getenv(provider.env_var)
     if not api_key:
         print(f"⚠️  {provider.name}: missing {provider.env_var}; retaining existing list.", file=sys.stderr)
@@ -114,7 +114,7 @@ def fetch_models(provider: ProviderConfig) -> List[str]:
 
     data = response.json()
     # OpenAI returns {data: [{id: ...}, ...]}, Anthropic returns {data: [{id/name/model}...]}
-    raw_ids: List[str] = []
+    raw_ids: list[str] = []
     if isinstance(data, dict):
         payload = data.get("data") or data.get("models") or data
         if isinstance(payload, list):
@@ -141,7 +141,7 @@ def fetch_models(provider: ProviderConfig) -> List[str]:
 def main(write: bool) -> None:
     existing = load_catalog()
 
-    new_catalog: Dict[str, List[str]] = {}
+    new_catalog: dict[str, list[str]] = {}
     for provider in PROVIDERS:
         fetched = fetch_models(provider)
         if fetched:

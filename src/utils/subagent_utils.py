@@ -1,5 +1,6 @@
 """Utilities for normalizing subagent identifiers."""
-from typing import Any, Optional, Set, Tuple
+
+from typing import Any
 
 # Maps lower-cased agent names to their canonical subagent alias
 AGENT_TO_SUBAGENT = {
@@ -41,7 +42,7 @@ __all__ = [
 ]
 
 
-def normalize_subagent_name(value: Any) -> Optional[str]:
+def normalize_subagent_name(value: Any) -> str | None:
     """Return the canonical alias for a given subagent identifier."""
     if value is None:
         return None
@@ -53,9 +54,9 @@ def normalize_subagent_name(value: Any) -> Optional[str]:
     return SUBAGENT_CANONICAL.get(normalized)
 
 
-def build_subagent_lookup_values(raw_subagent: Optional[str]) -> Tuple[Optional[str], Set[str]]:
+def build_subagent_lookup_values(raw_subagent: str | None) -> tuple[str | None, set[str]]:
     """Return canonical alias plus a set of matchable subagent names for querying."""
-    candidates: Set[str] = set()
+    candidates: set[str] = set()
 
     if raw_subagent:
         raw_value = str(raw_subagent).strip()

@@ -5,7 +5,7 @@ Helper utilities for working with OpenAI responses.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def build_openai_payload(
     token_limit: int,
     model: str,
     use_responses_api: bool,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Construct the request payload for OpenAI chat or responses endpoints."""
     if use_responses_api:
         return {
@@ -87,7 +87,7 @@ def truncate_content_for_tokens(content: str, max_tokens: int = 5000) -> str:
     return truncated + "\n\n[Content truncated due to size limits]"
 
 
-def flatten_text_segments(payload: Any) -> List[str]:
+def flatten_text_segments(payload: Any) -> list[str]:
     """Recursively collect text segments from OpenAI response payloads."""
     if payload is None:
         return []
@@ -95,12 +95,12 @@ def flatten_text_segments(payload: Any) -> List[str]:
         text = payload.strip()
         return [text] if text else []
     if isinstance(payload, (list, tuple)):
-        segments: List[str] = []
+        segments: list[str] = []
         for item in payload:
             segments.extend(flatten_text_segments(item))
         return segments
     if isinstance(payload, dict):
-        segments: List[str] = []
+        segments: list[str] = []
         if "text" in payload:
             segments.extend(flatten_text_segments(payload["text"]))
         if "value" in payload:
@@ -116,16 +116,14 @@ def flatten_text_segments(payload: Any) -> List[str]:
 
 
 def extract_openai_summary(
-    response_data: Dict[str, Any],
+    response_data: dict[str, Any],
     use_responses_api: bool,
-) -> Tuple[str, Optional[str], List[str]]:
+) -> tuple[str, str | None, list[str]]:
     """Extract summary text, model name, and assistant text segments."""
-    logger.info(
-        "Extracting summary from response with use_responses_api=%s", use_responses_api
-    )
+    logger.info("Extracting summary from response with use_responses_api=%s", use_responses_api)
 
     model_name = response_data.get("model")
-    text_segments: List[str] = []
+    text_segments: list[str] = []
 
     if use_responses_api:
         if "output_text" in response_data:
@@ -179,4 +177,3 @@ __all__ = [
     "flatten_text_segments",
     "extract_openai_summary",
 ]
-

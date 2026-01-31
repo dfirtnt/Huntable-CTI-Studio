@@ -18,21 +18,18 @@ Features:
 - Configurable via YAML configuration
 """
 
-import os
-import sys
+import concurrent.futures
+import fnmatch
 import gzip
+import hashlib
+import json
+import os
 import shutil
 import subprocess
-import json
-import hashlib
-import tarfile
-import tempfile
-import threading
-import concurrent.futures
+import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
-import fnmatch
+from typing import Any
 
 # Add src to path for imports
 src_path = Path(__file__).parent.parent / "src"
@@ -131,14 +128,14 @@ def calculate_checksum(file_path: Path) -> str:
         return ""
 
 
-def get_gitignore_patterns() -> List[str]:
+def get_gitignore_patterns() -> list[str]:
     """Read .gitignore patterns."""
     gitignore_path = Path(".gitignore")
     patterns = []
 
     if gitignore_path.exists():
         try:
-            with open(gitignore_path, "r") as f:
+            with open(gitignore_path) as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#"):
@@ -149,16 +146,14 @@ def get_gitignore_patterns() -> List[str]:
     return patterns
 
 
-def should_ignore_path(path: Path, ignore_patterns: List[str]) -> bool:
+def should_ignore_path(path: Path, ignore_patterns: list[str]) -> bool:
     """Check if path should be ignored based on .gitignore patterns."""
     path_str = str(path)
 
     for pattern in ignore_patterns:
         # Handle directory patterns
         if pattern.endswith("/"):
-            if fnmatch.fnmatch(path_str, pattern.rstrip("/")) or fnmatch.fnmatch(
-                path_str, pattern + "*"
-            ):
+            if fnmatch.fnmatch(path_str, pattern.rstrip("/")) or fnmatch.fnmatch(path_str, pattern + "*"):
                 return True
         # Handle file patterns
         elif fnmatch.fnmatch(path.name, pattern) or fnmatch.fnmatch(path_str, pattern):
@@ -167,9 +162,7 @@ def should_ignore_path(path: Path, ignore_patterns: List[str]) -> bool:
     return False
 
 
-def validate_critical_files(
-    directory: Path, patterns: List[str]
-) -> Tuple[List[Path], List[str]]:
+def validate_critical_files(directory: Path, patterns: list[str]) -> tuple[list[Path], list[str]]:
     """Validate critical files exist and are readable."""
     valid_files = []
     errors = []
@@ -191,7 +184,7 @@ def validate_critical_files(
     return valid_files, errors
 
 
-def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
+def backup_database(backup_dir: Path, compress: bool = True) -> dict[str, Any]:
     """Backup PostgreSQL database using existing backup_database_v3.py logic."""
     print("🗄️  Backing up database...")
 
@@ -222,29 +215,31 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
         # Validate backup file exists and is not empty before moving
         if not source_path.exists():
             raise RuntimeError(f"Database backup file not found at {source_path}")
-        
+
         file_size = source_path.stat().st_size
         if file_size == 0:
             # Clean up empty backup file
             if source_path.exists():
                 source_path.unlink()
             raise RuntimeError(f"Database backup file is empty at {source_path}")
-        
+
         # Verify backup contains valid SQL content
         try:
-            with open(source_path, 'r') as f:
+            with open(source_path) as f:
                 first_line = f.readline().strip()
                 content_sample = f.read(1000)
-            
-            if not (first_line.startswith("-- PostgreSQL database dump") or 
-                    first_line.startswith("--") or
-                    "CREATE" in content_sample or
-                    "COPY" in content_sample or
-                    "INSERT" in content_sample):
+
+            if not (
+                first_line.startswith("-- PostgreSQL database dump")
+                or first_line.startswith("--")
+                or "CREATE" in content_sample
+                or "COPY" in content_sample
+                or "INSERT" in content_sample
+            ):
                 # Clean up invalid backup file
                 if source_path.exists():
                     source_path.unlink()
-                raise RuntimeError(f"Database backup file does not contain valid SQL content")
+                raise RuntimeError("Database backup file does not contain valid SQL content")
         except Exception as e:
             # Clean up on validation error
             if source_path.exists():
@@ -273,9 +268,8 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
             compressed_filename = f"{backup_filename}.gz"
             compressed_filepath = backup_dir / compressed_filename
 
-            with open(backup_filepath, "rb") as f_in:
-                with gzip.open(compressed_filepath, "wb") as f_out:
-                    shutil.copyfileobj(f_in, f_out)
+            with open(backup_filepath, "rb") as f_in, gzip.open(compressed_filepath, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
             backup_filepath.unlink()
             backup_filepath = compressed_filepath
@@ -305,8 +299,8 @@ def backup_database(backup_dir: Path, compress: bool = True) -> Dict[str, Any]:
 
 
 def backup_directory(
-    source_dir: Path, backup_dir: Path, component_name: str, ignore_patterns: List[str], respect_gitignore: bool = True
-) -> Dict[str, Any]:
+    source_dir: Path, backup_dir: Path, component_name: str, ignore_patterns: list[str], respect_gitignore: bool = True
+) -> dict[str, Any]:
     """Backup a directory with optional .gitignore respect."""
     print(f"📁 Backing up {component_name}...")
 
@@ -334,11 +328,7 @@ def backup_directory(
 
             # Filter out ignored directories (if respecting .gitignore)
             if respect_gitignore:
-                dirs[:] = [
-                    d
-                    for d in dirs
-                    if not should_ignore_path(root_path / d, ignore_patterns)
-                ]
+                dirs[:] = [d for d in dirs if not should_ignore_path(root_path / d, ignore_patterns)]
 
             for file in files:
                 file_path = root_path / file
@@ -383,7 +373,7 @@ def backup_directory(
         }
 
 
-def backup_docker_volume(volume_name: str, backup_dir: Path) -> Dict[str, Any]:
+def backup_docker_volume(volume_name: str, backup_dir: Path) -> dict[str, Any]:
     """Backup a Docker volume to tar.gz."""
     print(f"🐳 Backing up Docker volume: {volume_name}")
 
@@ -456,9 +446,9 @@ def backup_docker_volume(volume_name: str, backup_dir: Path) -> Dict[str, Any]:
 
 
 def create_system_backup(
-    backup_dir: Optional[str] = None,
-    compress: Optional[bool] = None,
-    verify: Optional[bool] = None,
+    backup_dir: str | None = None,
+    compress: bool | None = None,
+    verify: bool | None = None,
 ) -> str:
     """Create a comprehensive system backup."""
 
@@ -502,9 +492,7 @@ def create_system_backup(
             "outputs": config.outputs,
             "logs": config.logs,
         }
-        backup_components = [
-            (name, Path(name)) for name, enabled in components.items() if enabled
-        ]
+        backup_components = [(name, Path(name)) for name, enabled in components.items() if enabled]
     else:
         backup_components = [
             ("models", Path("models")),
@@ -536,11 +524,7 @@ def create_system_backup(
 
             # Submit Docker volume backups
             volume_futures = {}
-            volumes_to_backup = (
-                config.volume_list
-                if config and config.docker_volumes
-                else DOCKER_VOLUMES
-            )
+            volumes_to_backup = config.volume_list if config and config.docker_volumes else DOCKER_VOLUMES
             for volume_name in volumes_to_backup:
                 future = executor.submit(backup_docker_volume, volume_name, backup_path)
                 volume_futures[volume_name] = future
@@ -554,9 +538,7 @@ def create_system_backup(
                 backup_results["components"]["database"] = db_result
                 print(f"✅ Database backup completed: {db_result['size_mb']:.2f} MB")
             except Exception as e:
-                backup_results["components"]["database"] = {
-                    "errors": [f"Database backup failed: {e}"]
-                }
+                backup_results["components"]["database"] = {"errors": [f"Database backup failed: {e}"]}
                 print(f"❌ Database backup failed: {e}")
 
             # Directory backups
@@ -565,34 +547,24 @@ def create_system_backup(
                     result = future.result(timeout=120)  # 2 minute timeout
                     backup_results["components"][component_name] = result
                     if result["errors"]:
-                        print(
-                            f"⚠️  {component_name} backup completed with errors: {len(result['errors'])} errors"
-                        )
+                        print(f"⚠️  {component_name} backup completed with errors: {len(result['errors'])} errors")
                     else:
                         print(
                             f"✅ {component_name} backup completed: {result['files']} files, {result['size_mb']:.2f} MB"
                         )
                 except Exception as e:
-                    backup_results["components"][component_name] = {
-                        "errors": [f"{component_name} backup failed: {e}"]
-                    }
+                    backup_results["components"][component_name] = {"errors": [f"{component_name} backup failed: {e}"]}
                     print(f"❌ {component_name} backup failed: {e}")
 
             # Docker volume backups
             for volume_name, future in volume_futures.items():
                 try:
                     result = future.result(timeout=300)  # 5 minute timeout
-                    backup_results["components"][f"docker_volume_{volume_name}"] = (
-                        result
-                    )
+                    backup_results["components"][f"docker_volume_{volume_name}"] = result
                     if result["errors"]:
-                        print(
-                            f"⚠️  {volume_name} volume backup completed with errors: {result['errors']}"
-                        )
+                        print(f"⚠️  {volume_name} volume backup completed with errors: {result['errors']}")
                     else:
-                        print(
-                            f"✅ {volume_name} volume backup completed: {result['size_mb']:.2f} MB"
-                        )
+                        print(f"✅ {volume_name} volume backup completed: {result['size_mb']:.2f} MB")
                 except Exception as e:
                     backup_results["components"][f"docker_volume_{volume_name}"] = {
                         "errors": [f"{volume_name} volume backup failed: {e}"]
@@ -605,23 +577,15 @@ def create_system_backup(
             validation_errors = []
 
             # Use configured critical patterns or defaults
-            critical_patterns = (
-                config.critical_patterns if config else CRITICAL_PATTERNS
-            )
+            critical_patterns = config.critical_patterns if config else CRITICAL_PATTERNS
 
             for component, patterns in critical_patterns.items():
                 if component in backup_results["components"]:
-                    component_path = Path(
-                        backup_results["components"][component].get("backup_dir", "")
-                    )
+                    component_path = Path(backup_results["components"][component].get("backup_dir", ""))
                     if component_path.exists():
-                        valid_files, errors = validate_critical_files(
-                            component_path, patterns
-                        )
+                        valid_files, errors = validate_critical_files(component_path, patterns)
                         if errors:
-                            validation_errors.extend(
-                                [f"{component}: {error}" for error in errors]
-                            )
+                            validation_errors.extend([f"{component}: {error}" for error in errors])
 
             if validation_errors:
                 backup_results["validation_errors"] = validation_errors
@@ -642,7 +606,7 @@ def create_system_backup(
 
         backup_results["total_size_mb"] = total_size
 
-        print(f"\n🎉 System backup completed successfully!")
+        print("\n🎉 System backup completed successfully!")
         print(f"   📁 Location: {backup_path}")
         print(f"   📊 Total size: {total_size:.2f} MB")
         print(f"   📋 Metadata: {metadata_filepath}")
@@ -666,11 +630,7 @@ def list_system_backups(backup_dir: str = "backups") -> None:
         return
 
     # Find system backup directories
-    system_backups = [
-        d
-        for d in backup_path.iterdir()
-        if d.is_dir() and d.name.startswith("system_backup_")
-    ]
+    system_backups = [d for d in backup_path.iterdir() if d.is_dir() and d.name.startswith("system_backup_")]
 
     if not system_backups:
         print("📁 No system backups found.")
@@ -686,7 +646,7 @@ def list_system_backups(backup_dir: str = "backups") -> None:
 
         if metadata_file.exists():
             try:
-                with open(metadata_file, "r") as f:
+                with open(metadata_file) as f:
                     metadata = json.load(f)
 
                 timestamp = metadata.get("timestamp", "Unknown")
@@ -708,7 +668,7 @@ def list_system_backups(backup_dir: str = "backups") -> None:
             except Exception as e:
                 print(f"   ⚠️  Could not read metadata: {e}")
         else:
-            print(f"   ⚠️  No metadata file found")
+            print("   ⚠️  No metadata file found")
 
         print()
 
@@ -717,17 +677,11 @@ def main():
     """Main entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="CTI Scraper Comprehensive System Backup Tool"
-    )
-    parser.add_argument(
-        "--backup-dir", default="backups", help="Backup directory (default: backups)"
-    )
+    parser = argparse.ArgumentParser(description="CTI Scraper Comprehensive System Backup Tool")
+    parser.add_argument("--backup-dir", default="backups", help="Backup directory (default: backups)")
     parser.add_argument("--no-compress", action="store_true", help="Skip compression")
     parser.add_argument("--no-verify", action="store_true", help="Skip file validation")
-    parser.add_argument(
-        "--list", action="store_true", help="List available system backups"
-    )
+    parser.add_argument("--list", action="store_true", help="List available system backups")
 
     args = parser.parse_args()
 

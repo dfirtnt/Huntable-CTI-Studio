@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import logging
 
-from src.worker.celery_app import celery_app
 from src.services.observable_training import (
-    run_observable_training_job,
     SUPPORTED_OBSERVABLE_TYPES,
+    run_observable_training_job,
 )
+from src.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +34,8 @@ def train_observable_extractor(self, observable_type: str = "CMD", train_model: 
             result.get("processed_count"),
         )
         if result.get("model_training", {}).get("success"):
-            logger.info(
-                "%s model training completed: %s",
-                observable_type,
-                result["model_training"].get("model_path")
-            )
+            logger.info("%s model training completed: %s", observable_type, result["model_training"].get("model_path"))
         return result
     except Exception as exc:  # noqa: BLE001
         logger.error("Observable training (%s) failed: %s", observable_type, exc)
-        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))

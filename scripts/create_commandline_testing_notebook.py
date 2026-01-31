@@ -20,14 +20,10 @@ notebook_content = {
                 "\n",
                 "**Model Types**:\n",
                 "- LLM models: LMStudio, Anthropic, OpenAI\n",
-                "- Embedding models: CTI-BERT (pattern-based extraction with semantic validation)"
-            ]
+                "- Embedding models: CTI-BERT (pattern-based extraction with semantic validation)",
+            ],
         },
-        {
-            "cell_type": "markdown",
-            "metadata": {},
-            "source": ["## 1. Setup and Imports"]
-        },
+        {"cell_type": "markdown", "metadata": {}, "source": ["## 1. Setup and Imports"]},
         {
             "cell_type": "code",
             "execution_count": None,
@@ -55,15 +51,11 @@ notebook_content = {
                 "from src.utils.content_filter import ContentFilter\n",
                 "from src.services.llm_service import LLMService\n",
                 "\n",
-                "print(f\"Project root: {project_root}\")\n",
-                "print(f\"Python path includes: {project_root in sys.path}\")"
-            ]
+                'print(f"Project root: {project_root}")\n',
+                'print(f"Python path includes: {project_root in sys.path}")',
+            ],
         },
-        {
-            "cell_type": "markdown",
-            "metadata": {},
-            "source": ["## 2. Configuration"]
-        },
+        {"cell_type": "markdown", "metadata": {}, "source": ["## 2. Configuration"]},
         {
             "cell_type": "code",
             "execution_count": None,
@@ -142,24 +134,17 @@ notebook_content = {
                 "SEED = 42\n",
                 "JUNK_FILTER_THRESHOLD = 0.8\n",
                 "\n",
-                "print(f\"Available LLM models: {len(LLM_MODELS)}\")\n",
-                "print(f\"Available embedding models: {len(EMBEDDING_MODELS)}\")"
-            ]
-        }
+                'print(f"Available LLM models: {len(LLM_MODELS)}")\n',
+                'print(f"Available embedding models: {len(EMBEDDING_MODELS)}")',
+            ],
+        },
     ],
     "metadata": {
-        "kernelspec": {
-            "display_name": "Python 3",
-            "language": "python",
-            "name": "python3"
-        },
-        "language_info": {
-            "name": "python",
-            "version": "3.9.0"
-        }
+        "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+        "language_info": {"name": "python", "version": "3.9.0"},
     },
     "nbformat": 4,
-    "nbformat_minor": 4
+    "nbformat_minor": 4,
 }
 
 # Add remaining cells (truncated for brevity - full version would include all cells)
@@ -170,10 +155,9 @@ if __name__ == "__main__":
     # For now, save a basic version
     output_path = Path("notebooks/test_commandline_observables.ipynb")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, 'w') as f:
+
+    with open(output_path, "w") as f:
         json.dump(notebook_content, f, indent=1)
-    
+
     print(f"✅ Notebook created at: {output_path}")
     print("Note: This is a basic template. Full notebook with all cells needs to be generated.")
-

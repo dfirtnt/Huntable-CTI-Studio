@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List
 
 try:
     import yaml
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 # Base patterns supplied by specification
 PATTERN_EXE_WITH_ARGS = r'(?:"?[A-Za-z]:\\+[^"\s]+\.\w{3,4}"?(?:\s+[^\r\n]+))'
-PATTERN_BARE_EXE_WITH_ARGS = r'(?:[A-Za-z0-9_\-]+\.exe)(?:\s+[^\r\n]+)'
-PATTERN_POWERSHELL = r'(?:powershell(?:\.exe)?)\s+[^\r\n]+'
+PATTERN_BARE_EXE_WITH_ARGS = r"(?:[A-Za-z0-9_\-]+\.exe)(?:\s+[^\r\n]+)"
+PATTERN_POWERSHELL = r"(?:powershell(?:\.exe)?)\s+[^\r\n]+"
 PATTERN_SYSTEM32_UTILS = r'(?:"?C:\\+Windows\\+System32\\+(?:net|ipconfig|setspn|quser)\.exe"?\s+[^\r\n]+)'
 
 # Additional pattern to better capture quoted executables containing spaces
@@ -62,7 +62,7 @@ def _iter_patterns() -> Iterable[re.Pattern]:
             logger.warning("Skipping invalid regex pattern %s: %s", pattern, exc)
 
 
-def extract_candidate_lines(text: str) -> List[str]:
+def extract_candidate_lines(text: str) -> list[str]:
     """
     Return list of raw candidate command-line strings from the article.
     These are NOT validated; high recall, low precision.

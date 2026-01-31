@@ -4,17 +4,15 @@ Article annotation API endpoints.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Body, HTTPException
 
 from src.database.async_manager import async_db_manager
 from src.models.annotation import (
+    ALL_ANNOTATION_TYPES,
+    ANNOTATION_MODE_TYPES,
+    ANNOTATION_USAGE_VALUES,
     ArticleAnnotationCreate,
     ArticleAnnotationUpdate,
-    ANNOTATION_MODE_TYPES,
-    ALL_ANNOTATION_TYPES,
-    ANNOTATION_USAGE_VALUES,
 )
 from src.models.article import ArticleUpdate
 from src.web.dependencies import logger
@@ -37,9 +35,7 @@ async def create_annotation(article_id: int, annotation_data: dict):
             )
 
         text_length = len(annotation_data.get("selected_text", ""))
-        if annotation_type in ANNOTATION_MODE_TYPES["huntability"] and (
-            text_length < 950 or text_length > 1050
-        ):
+        if annotation_type in ANNOTATION_MODE_TYPES["huntability"] and (text_length < 950 or text_length > 1050):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -218,28 +214,27 @@ async def list_annotations(
 ):
     """List annotations with optional filters."""
     try:
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
         from src.database.models import ArticleAnnotationTable
 
         async with async_db_manager.get_session() as session:
             query = select(ArticleAnnotationTable)
-            
+
             if annotation_type:
                 query = query.where(ArticleAnnotationTable.annotation_type == annotation_type)
             if usage:
                 query = query.where(ArticleAnnotationTable.usage == usage)
             if used_for_training is not None:
                 query = query.where(ArticleAnnotationTable.used_for_training == used_for_training)
-            
+
             query = query.order_by(ArticleAnnotationTable.id.desc()).limit(limit).offset(offset)
-            
+
             result = await session.execute(query)
             db_annotations = result.scalars().all()
-            
-            annotations = [
-                async_db_manager._db_annotation_to_model(ann) for ann in db_annotations
-            ]
-            
+
+            annotations = [async_db_manager._db_annotation_to_model(ann) for ann in db_annotations]
+
             # Get total count
             count_query = select(func.count(ArticleAnnotationTable.id))
             if annotation_type:
@@ -248,10 +243,10 @@ async def list_annotations(
                 count_query = count_query.where(ArticleAnnotationTable.usage == usage)
             if used_for_training is not None:
                 count_query = count_query.where(ArticleAnnotationTable.used_for_training == used_for_training)
-            
+
             count_result = await session.execute(count_query)
             total = count_result.scalar()
-            
+
             return {
                 "success": True,
                 "annotations": annotations,

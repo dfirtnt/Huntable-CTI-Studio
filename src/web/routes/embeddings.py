@@ -35,8 +35,8 @@ async def api_update_embeddings(request: Request):
     Trigger embedding update for articles without embeddings.
     """
     try:
-        import time
         from celery import Celery
+
         from src.services.rag_service import get_rag_service
 
         body = await request.json()
@@ -75,7 +75,7 @@ async def get_embedding_logs():
         import subprocess
 
         log_file = "/tmp/embedding_logs.txt"
-        
+
         # First, try reading from log file inside Docker container (most reliable)
         try:
             result = subprocess.run(
@@ -84,7 +84,7 @@ async def get_embedding_logs():
                 text=True,
                 timeout=5,
             )
-            
+
             if result.returncode == 0 and result.stdout:
                 content = result.stdout.strip()
                 if content:
@@ -94,7 +94,7 @@ async def get_embedding_logs():
             logger.debug("Docker command not found, trying host filesystem")
             if os.path.exists(log_file):
                 try:
-                    with open(log_file, "r") as file:
+                    with open(log_file) as file:
                         content = file.read().strip()
                     if content:
                         return {"success": True, "logs": content}
@@ -170,7 +170,7 @@ async def api_generate_embedding(article_id: int):
         has_embedding = article.embedding is not None
         if isinstance(article.embedding, list):
             has_embedding = len(article.embedding) > 0
-        
+
         if has_embedding:
             return {
                 "status": "already_embedded",
@@ -189,4 +189,3 @@ async def api_generate_embedding(article_id: int):
     except Exception as exc:  # noqa: BLE001
         logger.error("Generate embedding error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

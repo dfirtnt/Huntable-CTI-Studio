@@ -4,30 +4,19 @@ AI-powered article analysis endpoints.
 
 from __future__ import annotations
 
-import os
-import json
 import asyncio
+import os
 import re
 from datetime import datetime
-from typing import Dict, Optional, List, Any
 from email.utils import parsedate_to_datetime
+from typing import Any
 
 import httpx
-
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
-from src.services.sigma_validator import validate_sigma_rule
 from src.services.provider_model_catalog import load_catalog, update_provider_models
-from src.services.cmdline_caliper import command_line_caliper_extractor
-from src.utils.llm_optimizer import (
-    estimate_llm_cost,
-    estimate_gpt4o_cost,
-    optimize_article_content,
-)  # Backward compatibility
 from src.utils.prompt_loader import format_prompt
-from src.utils.ioc_extractor import HybridIOCExtractor
-from src.worker.celery_app import celery_app
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/articles", tags=["Articles", "AI"])
@@ -41,16 +30,16 @@ OPENAI_MODEL_PATTERN = re.compile(
 )
 
 
-def _filter_openai_models(model_ids: List[str]) -> List[str]:
+def _filter_openai_models(model_ids: list[str]) -> list[str]:
     filtered = [model_id for model_id in model_ids if OPENAI_MODEL_PATTERN.match(model_id)]
     return sorted(set(filtered))
 
 
-def _filter_anthropic_models(model_ids: List[str]) -> List[str]:
+def _filter_anthropic_models(model_ids: list[str]) -> list[str]:
     return sorted({model_id for model_id in model_ids if model_id.lower().startswith("claude")})
 
 
-def _filter_gemini_models(model_ids: List[str]) -> List[str]:
+def _filter_gemini_models(model_ids: list[str]) -> list[str]:
     cleaned = []
     for model_id in model_ids:
         if not model_id:
@@ -61,7 +50,7 @@ def _filter_gemini_models(model_ids: List[str]) -> List[str]:
     return sorted(set(cleaned))
 
 
-async def _fetch_openai_models(api_key: str) -> List[str]:
+async def _fetch_openai_models(api_key: str) -> list[str]:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -80,7 +69,7 @@ async def _fetch_openai_models(api_key: str) -> List[str]:
         return []
 
 
-async def _fetch_anthropic_models(api_key: str) -> List[str]:
+async def _fetch_anthropic_models(api_key: str) -> list[str]:
     headers = {
         "x-api-key": api_key,
         "Content-Type": "application/json",
@@ -89,7 +78,9 @@ async def _fetch_anthropic_models(api_key: str) -> List[str]:
     params = {"limit": 200}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get("https://api.anthropic.com/v1/models", headers=headers, params=params, timeout=20.0)
+            response = await client.get(
+                "https://api.anthropic.com/v1/models", headers=headers, params=params, timeout=20.0
+            )
         if response.status_code != 200:
             logger.warning(f"Anthropic models API returned {response.status_code}: {response.text[:200]}")
             return []
@@ -107,11 +98,13 @@ async def _fetch_anthropic_models(api_key: str) -> List[str]:
         return []
 
 
-async def _fetch_gemini_models(api_key: str) -> List[str]:
+async def _fetch_gemini_models(api_key: str) -> list[str]:
     params = {"key": api_key}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get("https://generativelanguage.googleapis.com/v1beta/models", params=params, timeout=20.0)
+            response = await client.get(
+                "https://generativelanguage.googleapis.com/v1beta/models", params=params, timeout=20.0
+            )
         if response.status_code != 200:
             logger.warning(f"Gemini models API returned {response.status_code}: {response.text[:200]}")
             return []
@@ -128,7 +121,7 @@ async def _fetch_gemini_models(api_key: str) -> List[str]:
         return []
 
 
-async def _refresh_provider_catalog(provider: str, api_key: str) -> Dict[str, List[str]]:
+async def _refresh_provider_catalog(provider: str, api_key: str) -> dict[str, list[str]]:
     fetcher_map = {
         "openai": _fetch_openai_models,
         "anthropic": _fetch_anthropic_models,
@@ -145,9 +138,10 @@ async def _refresh_provider_catalog(provider: str, api_key: str) -> Dict[str, Li
     catalog = update_provider_models(provider, models)
     return {"models": models, "catalog": catalog}
 
+
 async def _call_anthropic_with_retry(
     api_key: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     anthropic_api_url: str = "https://api.anthropic.com/v1/messages",
     max_retries: int = 5,
     base_delay: float = 1.0,
@@ -178,7 +172,7 @@ async def _call_anthropic_with_retry(
         "anthropic-version": "2023-06-01",
     }
 
-    def _parse_retry_after(retry_after_header: Optional[str]) -> float:
+    def _parse_retry_after(retry_after_header: str | None) -> float:
         """Parse retry-after header (seconds or HTTP date)."""
         if not retry_after_header:
             return 30.0
@@ -187,17 +181,11 @@ async def _call_anthropic_with_retry(
         except ValueError:
             try:
                 retry_date = parsedate_to_datetime(retry_after_header)
-                now = (
-                    datetime.now(retry_date.tzinfo)
-                    if retry_date.tzinfo
-                    else datetime.now()
-                )
+                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
                 delta = retry_date - now
                 return max(0.0, delta.total_seconds())
             except (ValueError, TypeError):
-                logger.warning(
-                    f"Could not parse retry-after header: {retry_after_header}, using 30s default"
-                )
+                logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
                 return 30.0
 
     last_exception = None
@@ -205,9 +193,7 @@ async def _call_anthropic_with_retry(
     for attempt in range(max_retries):
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.post(
-                    anthropic_api_url, headers=headers, json=payload, timeout=timeout
-                )
+                response = await client.post(anthropic_api_url, headers=headers, json=payload, timeout=timeout)
 
                 # Success
                 if response.status_code == 200:
@@ -215,9 +201,7 @@ async def _call_anthropic_with_retry(
 
                 # Rate limit (429) - retry with exponential backoff
                 if response.status_code == 429:
-                    retry_after = _parse_retry_after(
-                        response.headers.get("retry-after")
-                    )
+                    retry_after = _parse_retry_after(response.headers.get("retry-after"))
                     delay = max(retry_after, base_delay * (2**attempt))
                     delay = min(delay, max_delay)
 
@@ -229,15 +213,12 @@ async def _call_anthropic_with_retry(
                         )
                         await asyncio.sleep(delay)
                         continue
-                    else:
-                        error_detail = response.text
-                        logger.error(
-                            f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}"
-                        )
-                        raise HTTPException(
-                            status_code=429,
-                            detail=f"Anthropic API rate limit exceeded: {error_detail}",
-                        )
+                    error_detail = response.text
+                    logger.error(f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}")
+                    raise HTTPException(
+                        status_code=429,
+                        detail=f"Anthropic API rate limit exceeded: {error_detail}",
+                    )
 
                 # Other errors - retry with exponential backoff for 5xx, fail fast for 4xx
                 if 500 <= response.status_code < 600:
@@ -253,9 +234,7 @@ async def _call_anthropic_with_retry(
 
                 # Client errors (4xx) - don't retry
                 error_detail = response.text
-                logger.error(
-                    f"Anthropic API client error ({response.status_code}): {error_detail}"
-                )
+                logger.error(f"Anthropic API client error ({response.status_code}): {error_detail}")
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Anthropic API error: {error_detail}",
@@ -264,9 +243,7 @@ async def _call_anthropic_with_retry(
             except httpx.TimeoutException as e:
                 delay = min(base_delay * (2**attempt), max_delay)
                 if attempt < max_retries - 1:
-                    logger.warning(
-                        f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
-                    )
+                    logger.warning(f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
                     await asyncio.sleep(delay)
                     last_exception = e
                     continue
@@ -278,9 +255,7 @@ async def _call_anthropic_with_retry(
             except Exception as e:
                 delay = min(base_delay * (2**attempt), max_delay)
                 if attempt < max_retries - 1:
-                    logger.warning(
-                        f"Anthropic API error: {e}. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
-                    )
+                    logger.warning(f"Anthropic API error: {e}. Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
                     await asyncio.sleep(delay)
                     last_exception = e
                     continue
@@ -291,15 +266,11 @@ async def _call_anthropic_with_retry(
 
     # Should not reach here, but handle edge case
     if last_exception:
-        raise HTTPException(
-            status_code=500, detail=f"Anthropic API failed after {max_retries} attempts"
-        )
-    raise HTTPException(
-        status_code=500, detail=f"Anthropic API failed after {max_retries} attempts"
-    )
+        raise HTTPException(status_code=500, detail=f"Anthropic API failed after {max_retries} attempts")
+    raise HTTPException(status_code=500, detail=f"Anthropic API failed after {max_retries} attempts")
 
 
-def _get_lmstudio_settings() -> Dict[str, Any]:
+def _get_lmstudio_settings() -> dict[str, Any]:
     """
     Get recommended LMStudio settings for deterministic scoring.
 
@@ -314,25 +285,21 @@ def _get_lmstudio_settings() -> Dict[str, Any]:
     return {
         "temperature": float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0")),
         "top_p": float(os.getenv("LMSTUDIO_TOP_P", "0.9")),
-        "seed": int(os.getenv("LMSTUDIO_SEED", "42"))
-        if os.getenv("LMSTUDIO_SEED")
-        else None,
+        "seed": int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None,
     }
 
 
-def _lmstudio_url_candidates() -> List[str]:
+def _lmstudio_url_candidates() -> list[str]:
     """
     Generate ordered LMStudio base URL candidates.
     Ensures compatibility whether LMSTUDIO_API_URL includes /v1 or not.
     """
-    raw_url = os.getenv(
-        "LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1"
-    ).strip()
+    raw_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1").strip()
     if not raw_url:
         raw_url = "http://host.docker.internal:1234/v1"
 
     normalized = raw_url.rstrip("/")
-    candidates: List[str] = [normalized]
+    candidates: list[str] = [normalized]
 
     if not normalized.lower().endswith("/v1"):
         candidates.append(f"{normalized}/v1")
@@ -361,12 +328,12 @@ def _lmstudio_url_candidates() -> List[str]:
 
 
 async def _post_lmstudio_chat(
-    payload: Dict,
+    payload: dict,
     *,
     model_name: str,
     timeout: float,
     failure_context: str,
-) -> Dict:
+) -> dict:
     """
     Call LMStudio /chat/completions with automatic fallback handling.
 
@@ -407,9 +374,7 @@ async def _post_lmstudio_chat(
                         detail="LMStudio request timeout - the model may be slow or overloaded",
                     )
                 # Try next URL
-                logger.warning(
-                    f"LMStudio timeout at {lmstudio_url}, trying next URL..."
-                )
+                logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
                 continue
             except httpx.ConnectError as e:
                 last_error_detail = f"Cannot connect to {lmstudio_url}: {str(e)}"
@@ -420,9 +385,7 @@ async def _post_lmstudio_chat(
                         detail=f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
                     )
                 # Try next URL
-                logger.warning(
-                    f"LMStudio connection failed at {lmstudio_url}, trying next URL..."
-                )
+                logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                 continue
             except Exception as e:  # pragma: no cover - defensive logging
                 last_error_detail = f"Error at {lmstudio_url}: {str(e)}"
@@ -437,9 +400,7 @@ async def _post_lmstudio_chat(
 
             if response.status_code == 200:
                 if idx > 0:
-                    logger.info(
-                        f"LMStudio request succeeded using fallback URL {lmstudio_url}"
-                    )
+                    logger.info(f"LMStudio request succeeded using fallback URL {lmstudio_url}")
                 return response.json()
 
             # Improved error detail extraction
@@ -455,9 +416,7 @@ async def _post_lmstudio_chat(
                 error_message = error_text
 
             last_error_detail = f"{response.status_code} - {error_message}"
-            logger.error(
-                f"LMStudio API error ({failure_context}) at {lmstudio_url}: {last_error_detail}"
-            )
+            logger.error(f"LMStudio API error ({failure_context}) at {lmstudio_url}: {last_error_detail}")
             logger.error(f"Full response body: {error_text}")
 
             if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
@@ -472,7 +431,8 @@ async def _post_lmstudio_chat(
             error_lower = error_message.lower()
             if response.status_code == 400 and (
                 "context length" in error_lower
-                or "model" in error_lower and "not loaded" in error_lower
+                or "model" in error_lower
+                and "not loaded" in error_lower
                 or "no model" in error_lower
             ):
                 raise HTTPException(
@@ -514,9 +474,7 @@ async def api_test_openai_key(request: Request):
                 detail="Invalid API key format. OpenAI keys should start with 'sk-'",
             )
         if len(api_key) < 20:
-            logger.error(
-                f"❌ API key validation failed: too short (length: {len(api_key)})"
-            )
+            logger.error(f"❌ API key validation failed: too short (length: {len(api_key)})")
             raise HTTPException(
                 status_code=400,
                 detail="API key appears to be truncated or invalid (too short)",
@@ -551,22 +509,18 @@ async def api_test_openai_key(request: Request):
                     "models": refresh_result.get("models"),
                     "catalog": refresh_result.get("catalog"),
                 }
-            elif response.status_code == 401:
+            if response.status_code == 401:
                 # Try to extract more details from the error
                 try:
                     error_json = response.json()
-                    error_message = error_json.get("error", {}).get(
-                        "message", "Invalid API key"
-                    )
+                    error_message = error_json.get("error", {}).get("message", "Invalid API key")
                     logger.error(f"❌ OpenAI API key test failed: {error_message}")
                     return {
                         "valid": False,
                         "message": f"Invalid API key: {error_message}",
                     }
                 except:
-                    logger.error(
-                        f"❌ OpenAI API key test failed with 401, response: {response.text}"
-                    )
+                    logger.error(f"❌ OpenAI API key test failed with 401, response: {response.text}")
                     return {"valid": False, "message": "Invalid API key"}
             else:
                 return {"valid": False, "message": f"API error: {response.status_code}"}
@@ -615,10 +569,9 @@ async def api_test_anthropic_key(request: Request):
                     "models": refresh_result.get("models"),
                     "catalog": refresh_result.get("catalog"),
                 }
-            elif response.status_code == 401:
+            if response.status_code == 401:
                 return {"valid": False, "message": "Invalid API key"}
-            else:
-                return {"valid": False, "message": f"API error: {response.status_code}"}
+            return {"valid": False, "message": f"API error: {response.status_code}"}
 
     except httpx.TimeoutException:
         raise HTTPException(status_code=408, detail="Request timeout")
@@ -655,11 +608,12 @@ async def api_test_gemini_key(request: Request):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-async def _get_hf_token() -> Optional[str]:
+async def _get_hf_token() -> str | None:
     """Load Hugging Face token from AppSettings or environment."""
     token = None
     try:
         from sqlalchemy import select
+
         from src.database.models import AppSettingsTable
 
         async with async_db_manager.get_session() as session:
@@ -713,9 +667,7 @@ async def api_test_hf_key(request: Request):
             data = response.json()
             username = data.get("name") or data.get("email") or "Hugging Face user"
             orgs = data.get("orgs") or []
-            gated_orgs = [
-                org.get("name") for org in orgs if isinstance(org, dict) and org.get("name")
-            ]
+            gated_orgs = [org.get("name") for org in orgs if isinstance(org, dict) and org.get("name")]
             message_parts = [f"Token valid for {username}"]
             if gated_orgs:
                 message_parts.append(f"Orgs: {', '.join(gated_orgs)}")
@@ -733,9 +685,7 @@ async def api_test_hf_key(request: Request):
             )
 
         detail = response.text[:200] if response.text else "Unknown Hugging Face error"
-        logger.warning(
-            f"Hugging Face token validation failed: {response.status_code} - {detail}"
-        )
+        logger.warning(f"Hugging Face token validation failed: {response.status_code} - {detail}")
         raise HTTPException(
             status_code=response.status_code,
             detail=f"Hugging Face API returned {response.status_code}: {detail}",
@@ -744,14 +694,10 @@ async def api_test_hf_key(request: Request):
     except HTTPException:
         raise
     except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=408, detail="Request timeout when contacting Hugging Face API"
-        )
+        raise HTTPException(status_code=408, detail="Request timeout when contacting Hugging Face API")
     except httpx.HTTPError as exc:
         logger.error(f"Hugging Face token validation HTTP error: {exc}")
-        raise HTTPException(
-            status_code=502, detail="Network error when contacting Hugging Face API"
-        )
+        raise HTTPException(status_code=502, detail="Network error when contacting Hugging Face API")
     except Exception as exc:
         logger.error(f"Unexpected Hugging Face token validation error: {exc}")
         raise HTTPException(status_code=500, detail="Failed to validate Hugging Face token")
@@ -764,20 +710,17 @@ async def _get_current_lmstudio_model() -> str:
     """
     # Check database setting first (highest priority - user preference from UI)
     try:
-        from src.database.async_manager import async_db_manager
-        from src.database.models import AppSettingsTable
         from sqlalchemy import select
 
+        from src.database.async_manager import async_db_manager
+        from src.database.models import AppSettingsTable
+
         async with async_db_manager.get_session() as session:
-            result = await session.execute(
-                select(AppSettingsTable).where(AppSettingsTable.key == "lmstudio_model")
-            )
+            result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == "lmstudio_model"))
             setting = result.scalar_one_or_none()
 
             if setting and setting.value:
-                logger.info(
-                    f"Using LMSTUDIO_MODEL from database setting: {setting.value}"
-                )
+                logger.info(f"Using LMSTUDIO_MODEL from database setting: {setting.value}")
                 return setting.value
     except Exception as e:
         logger.debug(f"Could not fetch lmstudio_model from database: {e}")
@@ -796,9 +739,7 @@ async def _get_current_lmstudio_model() -> str:
                 try:
                     response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
                 except httpx.HTTPError as e:
-                    logger.debug(
-                        f"LMStudio model lookup failed via {lmstudio_url}: {e}"
-                    )
+                    logger.debug(f"LMStudio model lookup failed via {lmstudio_url}: {e}")
                     continue
 
                 if response.status_code == 200:
@@ -815,21 +756,14 @@ async def _get_current_lmstudio_model() -> str:
                                 "bge-",
                                 "gte-",
                             ]
-                            return any(
-                                indicator in model_name.lower()
-                                for indicator in embedding_indicators
-                            )
+                            return any(indicator in model_name.lower() for indicator in embedding_indicators)
 
                         chat_models = [m for m in models if not is_embedding_model(m)]
                         if chat_models:
-                            logger.info(
-                                f"LMStudio chat model from API: {chat_models[0]}"
-                            )
+                            logger.info(f"LMStudio chat model from API: {chat_models[0]}")
                             return chat_models[0]
                         # If no chat models, return first model
-                        logger.warning(
-                            f"No chat models found, using first model: {models[0]}"
-                        )
+                        logger.warning(f"No chat models found, using first model: {models[0]}")
                         return models[0]
                 elif response.status_code == 404 and idx < len(lmstudio_urls) - 1:
                     logger.warning(
@@ -837,9 +771,7 @@ async def _get_current_lmstudio_model() -> str:
                     )
                     continue
                 else:
-                    logger.debug(
-                        f"LMStudio /models request returned {response.status_code} from {lmstudio_url}"
-                    )
+                    logger.debug(f"LMStudio /models request returned {response.status_code} from {lmstudio_url}")
 
     except Exception as e:
         logger.warning(f"Could not fetch current LMStudio model: {e}")
@@ -860,9 +792,7 @@ async def api_get_lmstudio_models():
                     response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
                 except httpx.HTTPError as e:
                     last_error = str(e)
-                    logger.debug(
-                        f"LMStudio models fetch failed via {lmstudio_url}: {e}"
-                    )
+                    logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
                     continue
 
                 if response.status_code == 200:
@@ -879,10 +809,7 @@ async def api_get_lmstudio_models():
                             "bge-",
                             "gte-",
                         ]
-                        return any(
-                            indicator in model_name.lower()
-                            for indicator in embedding_indicators
-                        )
+                        return any(indicator in model_name.lower() for indicator in embedding_indicators)
 
                     chat_models = [m for m in all_models if not is_embedding_model(m)]
                     embedding_models = [m for m in all_models if is_embedding_model(m)]
@@ -891,9 +818,7 @@ async def api_get_lmstudio_models():
                     models = chat_models if chat_models else all_models
 
                     if idx > 0:
-                        logger.info(
-                            f"LMStudio models fetched using fallback URL {lmstudio_url}"
-                        )
+                        logger.info(f"LMStudio models fetched using fallback URL {lmstudio_url}")
 
                     return {
                         "success": True,
@@ -910,10 +835,7 @@ async def api_get_lmstudio_models():
                 logger.error(f"LMStudio /models returned {last_error}")
 
                 if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
-                    logger.warning(
-                        "LMStudio /models endpoint returned 404. "
-                        "Retrying with alternate base URL."
-                    )
+                    logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
                     continue
 
             return {
@@ -959,9 +881,7 @@ async def api_get_lmstudio_embedding_models():
                     response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
                 except httpx.HTTPError as e:
                     last_error = str(e)
-                    logger.debug(
-                        f"LMStudio models fetch failed via {lmstudio_url}: {e}"
-                    )
+                    logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
                     continue
 
                 if response.status_code == 200:
@@ -978,17 +898,12 @@ async def api_get_lmstudio_embedding_models():
                             "gte-",
                             "text-embedding",
                         ]
-                        return any(
-                            indicator in model_name.lower()
-                            for indicator in embedding_indicators
-                        )
+                        return any(indicator in model_name.lower() for indicator in embedding_indicators)
 
                     embedding_models = [m for m in all_models if is_embedding_model(m)]
 
                     if idx > 0:
-                        logger.info(
-                            f"LMStudio embedding models fetched using fallback URL {lmstudio_url}"
-                        )
+                        logger.info(f"LMStudio embedding models fetched using fallback URL {lmstudio_url}")
 
                     return {
                         "success": True,
@@ -1001,10 +916,7 @@ async def api_get_lmstudio_embedding_models():
                 logger.error(f"LMStudio /models returned {last_error}")
 
                 if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
-                    logger.warning(
-                        "LMStudio /models endpoint returned 404. "
-                        "Retrying with alternate base URL."
-                    )
+                    logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
                     continue
 
             return {
@@ -1068,43 +980,35 @@ async def api_test_lmstudio_connection(request: Request):
             failure_context="LMStudio connection test failed",
         )
 
-        response_text = (
-            result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        )
+        response_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
         return {
             "valid": True,
             "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'",
         }
 
     except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=408, detail="Request timeout - LMStudio may be starting up"
-        )
+        raise HTTPException(status_code=408, detail="Request timeout - LMStudio may be starting up")
     except httpx.ConnectError:
-        raise HTTPException(
-            status_code=503, detail="Cannot connect to LMStudio service"
-        )
+        raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service")
     except Exception as e:
         logger.error(f"LMStudio connection test error: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"LMStudio connection test failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"LMStudio connection test failed: {str(e)}")
 
 
 @test_router.post("/load-lmstudio-model")
 async def api_load_lmstudio_model(request: Request):
     """Load a model in LMStudio using the CLI."""
     try:
-        import subprocess
         import shutil
-        
+        import subprocess
+
         body = await request.json()
         model_name = body.get("model_name")
         context_length = body.get("context_length", 16384)
-        
+
         if not model_name:
             raise HTTPException(status_code=400, detail="model_name is required")
-        
+
         # Find lms CLI
         lms_cmd = shutil.which("lms")
         if not lms_cmd:
@@ -1114,20 +1018,20 @@ async def api_load_lmstudio_model(request: Request):
             else:
                 raise HTTPException(
                     status_code=503,
-                    detail="LMStudio CLI not found. Install from https://lmstudio.ai/ or ensure it's in PATH: ~/.cache/lm-studio/bin/lms"
+                    detail="LMStudio CLI not found. Install from https://lmstudio.ai/ or ensure it's in PATH: ~/.cache/lm-studio/bin/lms",
                 )
-        
+
         logger.info(f"Loading model {model_name} with context length {context_length}...")
-        
+
         # Load model
         try:
             result = subprocess.run(
                 [lms_cmd, "load", model_name, "--context-length", str(context_length), "--yes"],
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
             )
-            
+
             if result.returncode == 0:
                 # Wait a moment for model to be ready
                 await asyncio.sleep(2)
@@ -1135,27 +1039,20 @@ async def api_load_lmstudio_model(request: Request):
                     "success": True,
                     "message": f"Model {model_name} loaded successfully",
                     "model_name": model_name,
-                    "context_length": context_length
+                    "context_length": context_length,
                 }
-            else:
-                error_output = result.stderr or result.stdout
-                logger.error(f"Failed to load model: {error_output}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to load model: {error_output[:500]}"
-                )
+            error_output = result.stderr or result.stdout
+            logger.error(f"Failed to load model: {error_output}")
+            raise HTTPException(status_code=500, detail=f"Failed to load model: {error_output[:500]}")
         except subprocess.TimeoutExpired:
             raise HTTPException(
                 status_code=504,
-                detail="Timeout loading model (60s). Model may be too large or LMStudio may be unresponsive."
+                detail="Timeout loading model (60s). Model may be too large or LMStudio may be unresponsive.",
             )
         except Exception as e:
             logger.error(f"Error loading model: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error loading model: {str(e)}"
-            )
-            
+            raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1168,19 +1065,16 @@ async def api_test_langfuse_connection(request: Request):
     """Test Langfuse connection and configuration."""
     try:
         from sqlalchemy import select
+
         from src.database.models import AppSettingsTable
 
         async with async_db_manager.get_session() as session:
             # Get Langfuse settings from database (same priority as debug endpoint)
-            async def _get_langfuse_setting(
-                key: str, env_key: str, default: Optional[str] = None
-            ) -> Optional[str]:
+            async def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) -> str | None:
                 """Get Langfuse setting from database first, then fall back to environment variable."""
                 # Check database setting first
                 try:
-                    result = await session.execute(
-                        select(AppSettingsTable).where(AppSettingsTable.key == key)
-                    )
+                    result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
                     setting = result.scalar_one_or_none()
                     if setting and setting.value:
                         return setting.value
@@ -1194,18 +1088,10 @@ async def api_test_langfuse_connection(request: Request):
 
                 return default
 
-            public_key = await _get_langfuse_setting(
-                "LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY"
-            )
-            secret_key = await _get_langfuse_setting(
-                "LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY"
-            )
-            host = await _get_langfuse_setting(
-                "LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com"
-            )
-            project_id = await _get_langfuse_setting(
-                "LANGFUSE_PROJECT_ID", "LANGFUSE_PROJECT_ID"
-            )
+            public_key = await _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
+            secret_key = await _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
+            host = await _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+            project_id = await _get_langfuse_setting("LANGFUSE_PROJECT_ID", "LANGFUSE_PROJECT_ID")
 
             # Validate required settings
             if not public_key:
@@ -1223,24 +1109,22 @@ async def api_test_langfuse_connection(request: Request):
             # Try to initialize Langfuse client and validate keys with actual API call
             try:
                 from langfuse import Langfuse
-                from langfuse.types import TraceContext
                 from langfuse.api.client import AsyncFernLangfuse
                 from langfuse.api.core.api_error import ApiError
-                from langfuse.api.resources.commons.errors.unauthorized_error import (
-                    UnauthorizedError,
-                )
                 from langfuse.api.resources.commons.errors.access_denied_error import (
                     AccessDeniedError,
                 )
+                from langfuse.api.resources.commons.errors.unauthorized_error import (
+                    UnauthorizedError,
+                )
+                from langfuse.types import TraceContext
 
                 base_url = host.rstrip("/")
 
                 # Validate the provided credentials against Langfuse's official API.
                 # Using the Fern client guarantees we hit the correct endpoint and
                 # get structured errors (401/403) instead of ambiguous responses.
-                async with httpx.AsyncClient(
-                    timeout=10.0, follow_redirects=True
-                ) as fern_http_client:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as fern_http_client:
                     fern_client = AsyncFernLangfuse(
                         base_url=base_url,
                         username=public_key,
@@ -1263,18 +1147,13 @@ async def api_test_langfuse_connection(request: Request):
                             "message": "Langfuse API keys are not authorized. Please check your keys and permissions.",
                         }
                     except ApiError as api_error:
-                        error_detail = getattr(api_error, "body", None) or str(
-                            api_error
-                        )
+                        error_detail = getattr(api_error, "body", None) or str(api_error)
                         return {
                             "valid": False,
                             "message": f"Langfuse API error: {error_detail}. Please check your Host URL and keys.",
                         }
 
-                resolved_project_id = (
-                    project_id
-                    or (project_response.data[0].id if project_response.data else None)
-                )
+                resolved_project_id = project_id or (project_response.data[0].id if project_response.data else None)
 
                 # If auth passed, also test the SDK client can create and flush data
                 langfuse_client = Langfuse(
@@ -1335,9 +1214,9 @@ async def api_test_langfuse_connection(request: Request):
 async def api_rank_with_gpt4o(article_id: int, request: Request):
     """API endpoint for SIGMA huntability ranking using Workflow config (prompt and model)."""
     try:
+        from src.database.manager import DatabaseManager
         from src.services.llm_service import LLMService
         from src.services.workflow_trigger_service import WorkflowTriggerService
-        from src.database.manager import DatabaseManager
 
         # Get the article
         article = await async_db_manager.get_article(article_id)
@@ -1350,25 +1229,21 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         use_filtering = body.get("use_filtering", True)  # Enable filtering by default
         min_confidence = body.get("min_confidence", 0.7)  # Confidence threshold
         force_regenerate = body.get("force_regenerate", False)  # Force regeneration
-        
+
         # Extract API key from request (header preferred, fallback to body)
         api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
         api_key = api_key_raw.strip() if api_key_raw else None
-        
+
         # Extract AI model from request
         ai_model = body.get("ai_model", "chatgpt")
 
         logger.info(
             f"Ranking request for article {article_id}, force_regenerate: {force_regenerate}, ai_model: {ai_model}"
-            )
+        )
 
         # Check for existing ranking data (unless force regeneration is requested)
         if not force_regenerate:
-            existing_ranking = (
-                article.article_metadata.get("gpt4o_ranking")
-                if article.article_metadata
-                else None
-            )
+            existing_ranking = article.article_metadata.get("gpt4o_ranking") if article.article_metadata else None
             if existing_ranking:
                 logger.info(f"Returning existing ranking for article {article_id}")
                 return {
@@ -1378,22 +1253,16 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     "analyzed_at": existing_ranking.get("analyzed_at", ""),
                     "model_used": existing_ranking.get("model_used", ""),
                     "model_name": existing_ranking.get("model_name", ""),
-                    "optimization_options": existing_ranking.get(
-                        "optimization_options", {}
-                    ),
+                    "optimization_options": existing_ranking.get("optimization_options", {}),
                     "content_filtering": existing_ranking.get("content_filtering", {}),
                 }
 
         # Prepare the article content for analysis
         if not article.content:
-            raise HTTPException(
-                status_code=400, detail="Article content is required for analysis"
-            )
+            raise HTTPException(status_code=400, detail="Article content is required for analysis")
 
         # Use content filtering for high-value chunks if enabled
-        content_filtering_enabled = (
-            os.getenv("CONTENT_FILTERING_ENABLED", "true").lower() == "true"
-        )
+        content_filtering_enabled = os.getenv("CONTENT_FILTERING_ENABLED", "true").lower() == "true"
         optimization_result = {}
 
         if content_filtering_enabled and use_filtering:
@@ -1415,13 +1284,9 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 else:
                     # Fallback to original content if filtering fails
                     content_to_analyze = article.content
-                    logger.warning(
-                        "Content filtering failed for ranking, using original content"
-                    )
+                    logger.warning("Content filtering failed for ranking, using original content")
             except Exception as e:
-                logger.error(
-                    f"Content filtering error for ranking: {e}, using original content"
-                )
+                logger.error(f"Content filtering error for ranking: {e}, using original content")
                 content_to_analyze = article.content
         else:
             # Use original content if filtering is disabled
@@ -1437,34 +1302,36 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         try:
             trigger_service = WorkflowTriggerService(db_session)
             config_obj = trigger_service.get_active_config()
-            
+
             if not config_obj:
-                        raise HTTPException(
-                            status_code=500,
-                    detail="No active workflow configuration found. Please configure the workflow first."
+                raise HTTPException(
+                    status_code=500,
+                    detail="No active workflow configuration found. Please configure the workflow first.",
                 )
-            
+
             # Get RankAgent prompt from config
             rank_prompt_template = None
             if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
                 rank_prompt_data = config_obj.agent_prompts["RankAgent"]
                 if isinstance(rank_prompt_data.get("prompt"), str):
                     rank_prompt_template = rank_prompt_data["prompt"]
-                    logger.info(f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)")
-            
+                    logger.info(
+                        f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)"
+                    )
+
             if not rank_prompt_template:
-                    raise HTTPException(
+                raise HTTPException(
                     status_code=400,
-                    detail="RankAgent prompt not configured in workflow. Please configure the RankAgent prompt in Workflow settings."
+                    detail="RankAgent prompt not configured in workflow. Please configure the RankAgent prompt in Workflow settings.",
                 )
-            
+
             # Get agent models from config
             agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
-            
+
             # Initialize LLMService with config models
             llm_service = LLMService(config_models=agent_models)
             llm_service._current_article_id = article_id
-            
+
             # Override API keys and provider from request if provided (client-side settings take precedence)
             if api_key:
                 if ai_model == "chatgpt":
@@ -1473,7 +1340,9 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     # Override provider and model for ranking
                     llm_service.provider_rank = "openai"
                     llm_service.model_rank = llm_service.provider_defaults.get("openai", "gpt-4o-mini")
-                    logger.info(f"Using OpenAI API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}")
+                    logger.info(
+                        f"Using OpenAI API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}"
+                    )
                 elif ai_model == "anthropic":
                     # Extract Anthropic key if provided
                     anthropic_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
@@ -1484,28 +1353,30 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                         # Override provider and model for ranking
                         llm_service.provider_rank = "anthropic"
                         llm_service.model_rank = llm_service.provider_defaults.get("anthropic", "claude-sonnet-4-5")
-                        logger.info(f"Using Anthropic API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}")
-            
+                        logger.info(
+                            f"Using Anthropic API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}"
+                        )
+
             # Validate provider is enabled and has API key
             if llm_service.provider_rank == "openai":
                 if not llm_service.workflow_openai_enabled or not llm_service.openai_api_key:
                     raise HTTPException(
                         status_code=400,
-                        detail="OpenAI provider is not enabled or API key is missing. Please configure it in Settings."
+                        detail="OpenAI provider is not enabled or API key is missing. Please configure it in Settings.",
                     )
             elif llm_service.provider_rank == "anthropic":
                 if not llm_service.workflow_anthropic_enabled or not llm_service.anthropic_api_key:
                     raise HTTPException(
                         status_code=400,
-                        detail="Anthropic provider is not enabled or API key is missing. Please configure it in Settings."
+                        detail="Anthropic provider is not enabled or API key is missing. Please configure it in Settings.",
                     )
-            
+
             # Get ground truth details for logging
-            hunt_score = article.article_metadata.get('threat_hunting_score') if article.article_metadata else None
-            ml_score = article.article_metadata.get('ml_hunt_score') if article.article_metadata else None
+            hunt_score = article.article_metadata.get("threat_hunting_score") if article.article_metadata else None
+            ml_score = article.article_metadata.get("ml_hunt_score") if article.article_metadata else None
             ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
             ground_truth_rank = ground_truth_details.get("ground_truth_rank")
-            
+
             # Call LLMService.rank_article() with workflow config prompt
             ranking_result = await llm_service.rank_article(
                 title=article.title,
@@ -1515,21 +1386,21 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 prompt_template=rank_prompt_template,
                 article_id=article.id,
                 ground_truth_rank=ground_truth_rank,
-                ground_truth_details=ground_truth_details
+                ground_truth_details=ground_truth_details,
             )
-            
+
             # Extract score and reasoning from ranking result
             score = ranking_result.get("score")
             reasoning = ranking_result.get("reasoning", "")
             warnings = ranking_result.get("warnings")
-            
+
             # Format analysis similar to original endpoint format
             analysis = f"Score: {score}/10\n\nReasoning:\n{reasoning}"
-            
+
             # Get model name from LLMService
             model_name = llm_service.model_rank or "unknown"
             model_used = "workflow_config"
-            
+
         finally:
             db_session.close()
 
@@ -1545,15 +1416,11 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             "optimization_options": optimization_options,
             "content_filtering": {
                 "enabled": content_filtering_enabled and use_filtering,
-                "min_confidence": min_confidence
-                if content_filtering_enabled and use_filtering
-                else None,
+                "min_confidence": min_confidence if content_filtering_enabled and use_filtering else None,
                 "tokens_saved": optimization_result.get("tokens_saved", 0)
                 if content_filtering_enabled and use_filtering
                 else 0,
-                "cost_reduction_percent": optimization_result.get(
-                    "cost_reduction_percent", 0
-                )
+                "cost_reduction_percent": optimization_result.get("cost_reduction_percent", 0)
                 if content_filtering_enabled and use_filtering
                 else 0,
             },
@@ -1573,9 +1440,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
             "model_used": model_used,
             "model_name": model_name,
             "optimization_options": optimization_options,
-            "content_filtering": article.article_metadata["gpt4o_ranking"][
-                "content_filtering"
-            ],
+            "content_filtering": article.article_metadata["gpt4o_ranking"]["content_filtering"],
             "warnings": warnings if warnings else None,
         }
 
@@ -1611,9 +1476,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
         # Prepare the article content for analysis
         if not article.content:
-            raise HTTPException(
-                status_code=400, detail="Article content is required for analysis"
-            )
+            raise HTTPException(status_code=400, detail="Article content is required for analysis")
 
         # Use full content (no hardcoded truncation)
         content_to_analyze = article.content
@@ -1659,9 +1522,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
             if response.status_code != 200:
                 error_detail = response.text
                 logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(
-                    status_code=500, detail=f"OpenAI API error: {error_detail}"
-                )
+                raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
 
             result = response.json()
             analysis = result["choices"][0]["message"]["content"]
@@ -1734,21 +1595,15 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
         # Prepare the article content for analysis
         if not article.content:
-            raise HTTPException(
-                status_code=400, detail="Article content is required for analysis"
-            )
+            raise HTTPException(status_code=400, detail="Article content is required for analysis")
 
         # Import the optimizer
         from src.utils.llm_optimizer import optimize_article_content
 
         # Optimize content if filtering is enabled
         if use_filtering:
-            logger.info(
-                f"Optimizing content for article {article_id} with confidence threshold {min_confidence}"
-            )
-            optimization_result = await optimize_article_content(
-                article.content, min_confidence
-            )
+            logger.info(f"Optimizing content for article {article_id} with confidence threshold {min_confidence}")
+            optimization_result = await optimize_article_content(article.content, min_confidence)
 
             if optimization_result["success"]:
                 content_to_analyze = optimization_result["filtered_content"]
@@ -1817,9 +1672,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             if response.status_code != 200:
                 error_detail = response.text
                 logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(
-                    status_code=500, detail=f"OpenAI API error: {error_detail}"
-                )
+                raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
 
             result = response.json()
             analysis = result["choices"][0]["message"]["content"]
@@ -1864,9 +1717,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
                 "original_length": len(article.content),
                 "filtered_length": len(content_to_analyze),
                 "reduction_percent": round(
-                    (len(article.content) - len(content_to_analyze))
-                    / max(len(article.content), 1)
-                    * 100,
+                    (len(article.content) - len(content_to_analyze)) / max(len(article.content), 1) * 100,
                     1,
                 )
                 if use_filtering
@@ -1885,10 +1736,11 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 async def api_extract_observables(article_id: int, request: Request):
     """Extract observables (IOCs and behavioral indicators) from an article using Extract Observables model."""
     try:
+        from pathlib import Path
+
+        from src.database.manager import DatabaseManager
         from src.services.llm_service import LLMService
         from src.services.workflow_trigger_service import WorkflowTriggerService
-        from src.database.manager import DatabaseManager
-        from pathlib import Path
 
         # Get the article
         article = await async_db_manager.get_article(article_id)
@@ -1899,11 +1751,7 @@ async def api_extract_observables(article_id: int, request: Request):
         body = await request.json()
         optimization_options = body.get("optimization_options", {})
         use_filtering = optimization_options.get("useFiltering", True)
-        min_confidence = (
-            float(optimization_options.get("minConfidence", 0.8))
-            if use_filtering
-            else 1.0
-        )
+        min_confidence = float(optimization_options.get("minConfidence", 0.8)) if use_filtering else 1.0
 
         # Get user's QA agent preference (overrides workflow config if set)
         use_qa_agent_user = optimization_options.get("useQAAgent")
@@ -1914,11 +1762,7 @@ async def api_extract_observables(article_id: int, request: Request):
         try:
             trigger_service = WorkflowTriggerService(db_session)
             config_obj = trigger_service.get_active_config()
-            agent_models = (
-                config_obj.agent_models
-                if config_obj and config_obj.agent_models
-                else {}
-            )
+            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
 
             # Check if QA is enabled for ExtractAgent
             # Use user preference if provided, otherwise use workflow config
@@ -1931,11 +1775,7 @@ async def api_extract_observables(article_id: int, request: Request):
             # Get ExtractAgent prompt from config (use for observables extraction)
             prompt_config_dict = None
             instructions_template_str = None
-            if (
-                config_obj
-                and config_obj.agent_prompts
-                and "ExtractAgent" in config_obj.agent_prompts
-            ):
+            if config_obj and config_obj.agent_prompts and "ExtractAgent" in config_obj.agent_prompts:
                 agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
                 # Parse prompt JSON
                 if isinstance(agent_prompt_data.get("prompt"), str):
@@ -1944,10 +1784,7 @@ async def api_extract_observables(article_id: int, request: Request):
                     try:
                         prompt_config_dict = json.loads(agent_prompt_data["prompt"])
                         # Handle nested JSON if present
-                        if (
-                            isinstance(prompt_config_dict, dict)
-                            and len(prompt_config_dict) == 1
-                        ):
+                        if isinstance(prompt_config_dict, dict) and len(prompt_config_dict) == 1:
                             first_value = next(iter(prompt_config_dict.values()))
                             if isinstance(first_value, dict):
                                 prompt_config_dict = first_value
@@ -1966,14 +1803,10 @@ async def api_extract_observables(article_id: int, request: Request):
         llm_service = LLMService(config_models=agent_models)
 
         # Use ExtractAgent prompt from config if available, otherwise fall back to ExtractObservables file
-        use_workflow_prompt = (
-            prompt_config_dict is not None and instructions_template_str is not None
-        )
+        use_workflow_prompt = prompt_config_dict is not None and instructions_template_str is not None
         prompt_file = None
         if not use_workflow_prompt:
-            prompt_file = (
-                Path(__file__).parent.parent.parent / "prompts" / "ExtractObservables"
-            )
+            prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractObservables"
             if not prompt_file.exists():
                 raise HTTPException(
                     status_code=500,
@@ -1989,9 +1822,7 @@ async def api_extract_observables(article_id: int, request: Request):
             filter_result = content_filter.filter_content(
                 article.content,
                 min_confidence=min_confidence,
-                hunt_score=article.article_metadata.get("threat_hunting_score", 0)
-                if article.article_metadata
-                else 0,
+                hunt_score=article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0,
                 article_id=article.id,
             )
         else:
@@ -2049,11 +1880,7 @@ async def api_extract_observables(article_id: int, request: Request):
         monitor_task = asyncio.create_task(monitor_disconnection())
 
         # QA retry loop - get max retries from config
-        max_qa_retries = (
-            config_obj.qa_max_retries
-            if config_obj and hasattr(config_obj, "qa_max_retries")
-            else 5
-        )
+        max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
         qa_feedback = None
         extraction_result = None
         qa_results = {}
@@ -2065,9 +1892,7 @@ async def api_extract_observables(article_id: int, request: Request):
                 import json
 
                 agent_prompt = (
-                    json.dumps(prompt_config_dict, indent=2)
-                    if prompt_config_dict
-                    else instructions_template_str[:5000]
+                    json.dumps(prompt_config_dict, indent=2) if prompt_config_dict else instructions_template_str[:5000]
                 )
 
             # QA retry loop
@@ -2099,9 +1924,7 @@ async def api_extract_observables(article_id: int, request: Request):
                     )
 
                 # Wait for either completion or cancellation
-                done, pending = await asyncio.wait(
-                    [extraction_task, monitor_task], return_when=asyncio.FIRST_COMPLETED
-                )
+                done, pending = await asyncio.wait([extraction_task, monitor_task], return_when=asyncio.FIRST_COMPLETED)
 
                 # Cancel remaining tasks
                 for task in pending:
@@ -2113,12 +1936,8 @@ async def api_extract_observables(article_id: int, request: Request):
 
                 # Check if cancellation was requested
                 if cancellation_event.is_set():
-                    logger.info(
-                        f"Observables extraction cancelled for article {article_id}"
-                    )
-                    raise HTTPException(
-                        status_code=499, detail="Client cancelled the request"
-                    )
+                    logger.info(f"Observables extraction cancelled for article {article_id}")
+                    raise HTTPException(status_code=499, detail="Client cancelled the request")
 
                 # Get the result
                 extraction_result = await extraction_task
@@ -2147,45 +1966,32 @@ async def api_extract_observables(article_id: int, request: Request):
                     break
 
                 # Generate feedback for retry
-                qa_feedback = await qa_service.generate_feedback(
-                    qa_result, "ExtractAgent"
-                )
+                qa_feedback = await qa_service.generate_feedback(qa_result, "ExtractAgent")
 
                 # If critical failure on last attempt, log warning but continue
-                if (
-                    qa_result.get("verdict") == "critical_failure"
-                    and qa_attempt == max_qa_retries - 1
-                ):
+                if qa_result.get("verdict") == "critical_failure" and qa_attempt == max_qa_retries - 1:
                     logger.warning(
                         f"QA critical failure after {max_qa_retries} attempts for observables extraction: {qa_result.get('summary', 'Unknown error')}"
                     )
 
             # Extract warnings from extraction result
             extraction_warnings = extraction_result.get("warnings")
-            
+
             return {
                 "success": True,
                 "article_id": article_id,
                 "extraction": extraction_result,
                 "metadata": {
-                    "atomic_count": extraction_result.get("metadata", {}).get(
-                        "atomic_count", 0
-                    ),
-                    "behavioral_count": extraction_result.get("metadata", {}).get(
-                        "behavioral_count", 0
-                    ),
-                    "total_observables": extraction_result.get("metadata", {}).get(
-                        "observable_count", 0
-                    ),
+                    "atomic_count": extraction_result.get("metadata", {}).get("atomic_count", 0),
+                    "behavioral_count": extraction_result.get("metadata", {}).get("behavioral_count", 0),
+                    "total_observables": extraction_result.get("metadata", {}).get("observable_count", 0),
                 },
                 "qa_results": qa_results if qa_results else None,
                 "warnings": extraction_warnings if extraction_warnings else None,
             }
 
         except asyncio.CancelledError:
-            logger.info(
-                f"Observables extraction task cancelled for article {article_id}"
-            )
+            logger.info(f"Observables extraction task cancelled for article {article_id}")
             raise HTTPException(status_code=499, detail="Client cancelled the request")
         finally:
             # Clean up monitor task
@@ -2200,9 +2006,7 @@ async def api_extract_observables(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"Error extracting observables: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to extract observables: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to extract observables: {str(e)}")
 
 
 @router.post("/{article_id}/extract-iocs")
@@ -2220,9 +2024,7 @@ async def api_extract_iocs(article_id: int, request: Request):
         # For Anthropic, check X-Anthropic-API-Key header, for OpenAI check X-OpenAI-API-Key
         api_key_raw = None
         if body.get("ai_model", "chatgpt") == "anthropic":
-            api_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get(
-                "api_key"
-            )
+            api_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
         else:
             api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)
@@ -2258,9 +2060,7 @@ async def api_extract_iocs(article_id: int, request: Request):
             filter_result = content_filter.filter_content(
                 article.content,
                 min_confidence=0.9,  # Use least aggressive filter (similar to Extract Observables)
-                hunt_score=article.article_metadata.get("threat_hunting_score", 0)
-                if article.article_metadata
-                else 0,
+                hunt_score=article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0,
                 article_id=article.id,
             )
 
@@ -2271,9 +2071,7 @@ async def api_extract_iocs(article_id: int, request: Request):
                     "content_filtering": {
                         "enabled": True,
                         "cost_savings": filter_result.cost_savings,
-                        "chunks_removed": len(filter_result.removed_chunks)
-                        if filter_result.removed_chunks
-                        else 0,
+                        "chunks_removed": len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,
                         "min_confidence": 0.9,
                     }
                 }
@@ -2281,9 +2079,7 @@ async def api_extract_iocs(article_id: int, request: Request):
                     f"Content filtering applied: {filter_result.cost_savings:.1%} cost savings, {len(filter_result.removed_chunks) if filter_result.removed_chunks else 0} chunks removed"
                 )
             else:
-                logger.info(
-                    "Content filter did not find huntable content, using original content for LLM validation"
-                )
+                logger.info("Content filter did not find huntable content, using original content for LLM validation")
 
         # Create a cancellation event
         cancellation_event = asyncio.Event()
@@ -2300,9 +2096,7 @@ async def api_extract_iocs(article_id: int, request: Request):
                         # Only check the property, not as a callable
                         is_disconnected = request.is_disconnected
                         if isinstance(is_disconnected, bool) and is_disconnected:
-                            logger.info(
-                                f"Client disconnected, cancelling IOCs extraction for article {article_id}"
-                            )
+                            logger.info(f"Client disconnected, cancelling IOCs extraction for article {article_id}")
                             cancellation_event.set()
                             break
                 except Exception as e:
@@ -2326,9 +2120,7 @@ async def api_extract_iocs(article_id: int, request: Request):
             )
 
             # Wait for either completion or cancellation
-            done, pending = await asyncio.wait(
-                [extraction_task, monitor_task], return_when=asyncio.FIRST_COMPLETED
-            )
+            done, pending = await asyncio.wait([extraction_task, monitor_task], return_when=asyncio.FIRST_COMPLETED)
 
             # Cancel remaining tasks
             for task in pending:
@@ -2341,9 +2133,7 @@ async def api_extract_iocs(article_id: int, request: Request):
             # Check if cancellation was requested
             if cancellation_event.is_set():
                 logger.info(f"IOCs extraction cancelled for article {article_id}")
-                raise HTTPException(
-                    status_code=499, detail="Client cancelled the request"
-                )
+                raise HTTPException(status_code=499, detail="Client cancelled the request")
 
             # Get the result
             result = await extraction_task
@@ -2358,8 +2148,7 @@ async def api_extract_iocs(article_id: int, request: Request):
                     "confidence": result.confidence,
                     "extracted_at": datetime.now().isoformat(),
                     "ai_model": ai_model,
-                    "use_llm_validation": result.extraction_method
-                    == "hybrid",  # Store actual validation status
+                    "use_llm_validation": result.extraction_method == "hybrid",  # Store actual validation status
                     "processing_time": result.processing_time,
                     "raw_count": result.raw_count,
                     "validated_count": result.validated_count,
@@ -2382,12 +2171,8 @@ async def api_extract_iocs(article_id: int, request: Request):
                 "raw_count": result.raw_count,
                 "validated_count": result.validated_count,
                 "debug_info": result.metadata if debug_mode else None,
-                "llm_prompt": result.metadata.get("prompt")
-                if result.metadata
-                else None,
-                "llm_response": result.metadata.get("response")
-                if result.metadata
-                else None,
+                "llm_prompt": result.metadata.get("prompt") if result.metadata else None,
+                "llm_response": result.metadata.get("response") if result.metadata else None,
                 "error": None if len(result.iocs) > 0 else "No IOCs found",
             }
 
@@ -2495,17 +2280,13 @@ async def api_detect_os(article_id: int, request: Request):
         body = await request.json()
         use_classifier = body.get("use_classifier", True)
         use_fallback = body.get("use_fallback", True)
-        use_junk_filter = body.get(
-            "use_junk_filter", True
-        )  # Enable junk filter by default
-        junk_filter_threshold = body.get(
-            "junk_filter_threshold", 0.8
-        )  # Default threshold
+        use_junk_filter = body.get("use_junk_filter", True)  # Enable junk filter by default
+        junk_filter_threshold = body.get("junk_filter_threshold", 0.8)  # Default threshold
 
         # Import OS detection service and content filter
+        from src.database.manager import DatabaseManager
         from src.services.os_detection_service import OSDetectionService
         from src.services.workflow_trigger_service import WorkflowTriggerService
-        from src.database.manager import DatabaseManager
         from src.utils.content_filter import ContentFilter
 
         # Get OS detection config from workflow config
@@ -2514,22 +2295,15 @@ async def api_detect_os(article_id: int, request: Request):
         try:
             trigger_service = WorkflowTriggerService(db_session)
             config_obj = trigger_service.get_active_config()
-            agent_models = (
-                config_obj.agent_models
-                if config_obj and config_obj.agent_models
-                else {}
-            )
-            embedding_model = agent_models.get(
-                "OSDetectionAgent_embedding", "ibm-research/CTI-BERT"
-            )
+            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
+            embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
             fallback_model = agent_models.get("OSDetectionAgent_fallback")
 
             # Get junk filter threshold from config if not provided in request
             if config_obj and not body.get("junk_filter_threshold"):
                 junk_filter_threshold = (
                     config_obj.junk_filter_threshold
-                    if hasattr(config_obj, "junk_filter_threshold")
-                    and config_obj.junk_filter_threshold
+                    if hasattr(config_obj, "junk_filter_threshold") and config_obj.junk_filter_threshold
                     else 0.8
                 )
         finally:
@@ -2540,11 +2314,7 @@ async def api_detect_os(article_id: int, request: Request):
         filtering_metadata = None
         if use_junk_filter:
             content_filter = ContentFilter()
-            hunt_score = (
-                article.article_metadata.get("threat_hunting_score", 0)
-                if article.article_metadata
-                else 0
-            )
+            hunt_score = article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
             filter_result = content_filter.filter_content(
                 article.content,
                 min_confidence=junk_filter_threshold,
@@ -2557,19 +2327,11 @@ async def api_detect_os(article_id: int, request: Request):
                 "threshold": junk_filter_threshold,
                 "original_length": len(article.content),
                 "filtered_length": len(content_to_analyze),
-                "reduction_percent": (
-                    (len(article.content) - len(content_to_analyze))
-                    / len(article.content)
-                    * 100
-                )
+                "reduction_percent": ((len(article.content) - len(content_to_analyze)) / len(article.content) * 100)
                 if len(article.content) > 0
                 else 0,
-                "chunks_removed": filter_result.chunks_removed
-                if hasattr(filter_result, "chunks_removed")
-                else None,
-                "chunks_kept": filter_result.chunks_kept
-                if hasattr(filter_result, "chunks_kept")
-                else None,
+                "chunks_removed": filter_result.chunks_removed if hasattr(filter_result, "chunks_removed") else None,
+                "chunks_kept": filter_result.chunks_kept if hasattr(filter_result, "chunks_kept") else None,
             }
         else:
             filtering_metadata = {"enabled": False}
@@ -2654,9 +2416,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
         # Support both OpenAI and Anthropic headers
         api_key_raw = (
-            request.headers.get("X-OpenAI-API-Key")
-            or request.headers.get("X-Anthropic-API-Key")
-            or body.get("api_key")
+            request.headers.get("X-OpenAI-API-Key") or request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
         )
 
         # DEBUG: Log raw key before any processing
@@ -2677,23 +2437,15 @@ async def api_generate_sigma(article_id: int, request: Request):
 
         # DEBUG: Log after stripping
         if api_key:
-            logger.info(
-                f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
-            )
+            logger.info(f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}")
 
         ai_model = body.get("ai_model", "chatgpt")
         author_name = body.get("author_name", "Huntable CTI Studio User")
         force_regenerate = body.get("force_regenerate", False)
-        skip_matching = body.get(
-            "skip_matching", False
-        )  # Option to skip matching phase
+        skip_matching = body.get("skip_matching", False)  # Option to skip matching phase
 
         # Log the received AI model for debugging (mask API key for security)
-        api_key_preview = (
-            f"{api_key[:8]}...{api_key[-4:]}"
-            if api_key and len(api_key) > 12
-            else "None"
-        )
+        api_key_preview = f"{api_key[:8]}...{api_key[-4:]}" if api_key and len(api_key) > 12 else "None"
         logger.info(
             f"🤖 SIGMA generation requested with ai_model='{ai_model}', api_key provided: {bool(api_key)}, api_key preview: {api_key_preview}"
         )
@@ -2713,9 +2465,9 @@ async def api_generate_sigma(article_id: int, request: Request):
         if not skip_matching:
             try:
                 from src.database.manager import DatabaseManager
-                from src.services.sigma_matching_service import SigmaMatchingService
-                from src.services.sigma_coverage_service import SigmaCoverageService
                 from src.database.models import SigmaRuleTable
+                from src.services.sigma_coverage_service import SigmaCoverageService
+                from src.services.sigma_matching_service import SigmaMatchingService
 
                 logger.info(f"Matching article {article_id} to existing Sigma rules...")
 
@@ -2726,21 +2478,13 @@ async def api_generate_sigma(article_id: int, request: Request):
                 coverage_service = SigmaCoverageService(db_session)
 
                 # Match at article level (no threshold - return all sorted by similarity)
-                article_matches = matching_service.match_article_to_rules(
-                    article_id, threshold=0.0, limit=10
-                )
+                article_matches = matching_service.match_article_to_rules(article_id, threshold=0.0, limit=10)
 
                 # Process matches and classify coverage
                 for match in article_matches:
-                    rule = (
-                        db_session.query(SigmaRuleTable)
-                        .filter_by(rule_id=match["rule_id"])
-                        .first()
-                    )
+                    rule = db_session.query(SigmaRuleTable).filter_by(rule_id=match["rule_id"]).first()
                     if rule:
-                        classification = coverage_service.classify_match(
-                            article_id, rule, match["similarity"]
-                        )
+                        classification = coverage_service.classify_match(article_id, rule, match["similarity"])
 
                         # Store match in database
                         matching_service.store_match(
@@ -2751,9 +2495,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                             coverage_status=classification["coverage_status"],
                             coverage_confidence=classification["coverage_confidence"],
                             coverage_reasoning=classification["coverage_reasoning"],
-                            matched_discriminators=classification[
-                                "matched_discriminators"
-                            ],
+                            matched_discriminators=classification["matched_discriminators"],
                             matched_lolbas=classification["matched_lolbas"],
                             matched_intelligence=classification["matched_intelligence"],
                         )
@@ -2767,12 +2509,8 @@ async def api_generate_sigma(article_id: int, request: Request):
                                 "level": match.get("level"),
                                 "status": match.get("status"),
                                 "coverage_status": classification["coverage_status"],
-                                "coverage_confidence": classification[
-                                    "coverage_confidence"
-                                ],
-                                "matched_behaviors": classification[
-                                    "matched_discriminators"
-                                ][:5],
+                                "coverage_confidence": classification["coverage_confidence"],
+                                "matched_behaviors": classification["matched_discriminators"][:5],
                             }
                         )
 
@@ -2793,9 +2531,7 @@ async def api_generate_sigma(article_id: int, request: Request):
 
                 # Phase 2: Decision - skip generation if well covered
                 if coverage_summary["covered"] >= 2 and not force_regenerate:
-                    logger.info(
-                        "Article is well covered by existing Sigma rules, skipping generation"
-                    )
+                    logger.info("Article is well covered by existing Sigma rules, skipping generation")
                     return {
                         "success": True,
                         "matched_rules": matched_rules,
@@ -2807,17 +2543,11 @@ async def api_generate_sigma(article_id: int, request: Request):
                     }
 
             except Exception as e:
-                logger.warning(
-                    f"Error during Sigma matching: {e}. Proceeding with generation."
-                )
+                logger.warning(f"Error during Sigma matching: {e}. Proceeding with generation.")
                 # Continue to generation phase even if matching fails
 
         # Check for existing SIGMA rules (unless force regeneration is requested)
-        if (
-            not force_regenerate
-            and article.article_metadata
-            and article.article_metadata.get("sigma_rules")
-        ):
+        if not force_regenerate and article.article_metadata and article.article_metadata.get("sigma_rules"):
             existing_rules = article.article_metadata.get("sigma_rules")
             return {
                 "success": True,
@@ -2843,24 +2573,25 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Load active workflow config to use SigmaAgent settings
         from src.database.manager import DatabaseManager
         from src.database.models import AgenticWorkflowConfigTable
-        
+
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
+            config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .first()
+            )
+
             if not config:
                 logger.warning("No active workflow configuration found, using defaults")
                 config = None
         except Exception as e:
             logger.warning(f"Error loading workflow config: {e}, using defaults")
             config = None
-        
+
         # Get SigmaAgent prompt from config if available
         sigma_prompt_template = None
         sigma_system_prompt = None
@@ -2871,26 +2602,24 @@ async def api_generate_sigma(article_id: int, request: Request):
                 logger.info(f"Using SigmaAgent prompt from workflow config (len={len(sigma_prompt_template)} chars)")
             if isinstance(sigma_prompt_data.get("system_prompt"), str):
                 sigma_system_prompt = sigma_prompt_data["system_prompt"]
-                logger.info(f"Using SigmaAgent system prompt from workflow config (len={len(sigma_system_prompt)} chars)")
+                logger.info(
+                    f"Using SigmaAgent system prompt from workflow config (len={len(sigma_system_prompt)} chars)"
+                )
             if not isinstance(sigma_prompt_data.get("prompt"), str):
                 logger.warning("SigmaAgent prompt in config is not a string, using default")
         else:
             logger.info("No SigmaAgent prompt in workflow config, using default prompt")
-        
+
         # Get agent models from config
         agent_models = config.agent_models if config and config.agent_models else {}
-        
+
         # Apply content filtering to optimize for SIGMA generation
         from src.utils.llm_optimizer import optimize_article_content
 
         # Use content filtering with high confidence threshold for SIGMA generation
         min_confidence = 0.7
-        logger.info(
-            f"Optimizing content for SIGMA generation with confidence threshold {min_confidence}"
-        )
-        optimization_result = await optimize_article_content(
-            article.content, min_confidence
-        )
+        logger.info(f"Optimizing content for SIGMA generation with confidence threshold {min_confidence}")
+        optimization_result = await optimize_article_content(article.content, min_confidence)
 
         if optimization_result["success"]:
             content_to_analyze = optimization_result["filtered_content"]
@@ -2905,9 +2634,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                 f"{chunks_removed} chunks removed"
             )
         else:
-            logger.warning(
-                "Content optimization failed for SIGMA generation, using original content"
-            )
+            logger.warning("Content optimization failed for SIGMA generation, using original content")
             content_to_analyze = article.content
             cost_savings = 0.0
             tokens_saved = 0
@@ -2915,18 +2642,20 @@ async def api_generate_sigma(article_id: int, request: Request):
 
         # Use SigmaGenerationService with workflow config (same as test_sigma_agent_task)
         from src.services.sigma_generation_service import SigmaGenerationService
-        
+
         # Determine provider from config or fallback to ai_model parameter
         sigma_provider = agent_models.get("SigmaAgent_provider") if agent_models else None
         if not sigma_provider:
             # Fallback: use ai_model parameter (lmstudio or chatgpt)
             sigma_provider = "lmstudio" if ai_model == "lmstudio" else "openai"
-        
-        logger.info(f"Using SigmaGenerationService with provider={sigma_provider}, config_models={'present' if agent_models else 'default'}")
-        
+
+        logger.info(
+            f"Using SigmaGenerationService with provider={sigma_provider}, config_models={'present' if agent_models else 'default'}"
+        )
+
         # Initialize service with config
         sigma_service = SigmaGenerationService(config_models=agent_models)
-        
+
         # Generate SIGMA rules using service
         generation_result = await sigma_service.generate_sigma_rules(
             article_title=article.title,
@@ -2941,25 +2670,25 @@ async def api_generate_sigma(article_id: int, request: Request):
             article_id=article_id,
             qa_feedback=None,
             sigma_prompt_template=sigma_prompt_template,  # Use prompt from config if available
-            sigma_system_prompt=sigma_system_prompt  # Use system prompt from config if available
+            sigma_system_prompt=sigma_system_prompt,  # Use system prompt from config if available
         )
-        
+
         # Extract results from service
-        rules = generation_result.get('rules', []) if generation_result else []
-        sigma_errors = generation_result.get('errors')
-        sigma_metadata = generation_result.get('metadata', {}) if generation_result else {}
-        validation_results = sigma_metadata.get('validation_results', [])
-        conversation_log = sigma_metadata.get('conversation_log', [])
-        
+        rules = generation_result.get("rules", []) if generation_result else []
+        sigma_errors = generation_result.get("errors")
+        sigma_metadata = generation_result.get("metadata", {}) if generation_result else {}
+        validation_results = sigma_metadata.get("validation_results", [])
+        conversation_log = sigma_metadata.get("conversation_log", [])
+
         # Track truncation warnings
         sigma_content_truncation_warning = None
         sigma_prompt_truncation_warning = None
         sigma_response_truncation_warning = None
-        
+
         # Close DB session
         if db_session:
             db_session.close()
-        
+
         # Legacy compatibility: Convert rules to old format if needed
         # (SigmaGenerationService already returns proper format, but ensure compatibility)
         formatted_rules = []
@@ -2968,15 +2697,12 @@ async def api_generate_sigma(article_id: int, request: Request):
                 formatted_rules.append(rule)
             else:
                 # Fallback: create dict from rule content
-                formatted_rules.append({
-                    "content": str(rule),
-                    "title": "Generated Rule",
-                    "level": "medium",
-                    "validated": True
-                })
-        
+                formatted_rules.append(
+                    {"content": str(rule), "title": "Generated Rule", "level": "medium", "validated": True}
+                )
+
         rules = formatted_rules
-        
+
         # Define helper function for API calls based on ai_model (kept for backward compatibility, not used)
         async def call_llm_api(prompt_text: str) -> str:
             """Call the appropriate LLM API based on ai_model setting."""
@@ -2991,10 +2717,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                 lmstudio_settings = _get_lmstudio_settings()
 
                 # For reasoning models like Deepseek-R1, need more tokens for reasoning + output
-                is_reasoning_model = (
-                    "r1" in lmstudio_model.lower()
-                    or "reasoning" in lmstudio_model.lower()
-                )
+                is_reasoning_model = "r1" in lmstudio_model.lower() or "reasoning" in lmstudio_model.lower()
                 max_tokens = 2000 if is_reasoning_model else 800
 
                 payload = {
@@ -3027,14 +2750,9 @@ async def api_generate_sigma(article_id: int, request: Request):
 
                 # For Deepseek-R1: prefer content if it exists and looks like YAML
                 # Otherwise, try to extract YAML from reasoning_content
-                if content_text and (
-                    content_text.strip().startswith("title:")
-                    or "title:" in content_text[:100]
-                ):
+                if content_text and (content_text.strip().startswith("title:") or "title:" in content_text[:100]):
                     output = content_text
-                    logger.debug(
-                        "Using 'content' field for SIGMA generation (contains YAML)"
-                    )
+                    logger.debug("Using 'content' field for SIGMA generation (contains YAML)")
                 elif reasoning_text:
                     # Try to extract YAML from reasoning_content
                     import re
@@ -3052,9 +2770,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     else:
                         # No YAML found in reasoning, use reasoning as-is
                         output = reasoning_text
-                        logger.debug(
-                            "Using 'reasoning_content' field for SIGMA generation (no YAML pattern found)"
-                        )
+                        logger.debug("Using 'reasoning_content' field for SIGMA generation (no YAML pattern found)")
                 else:
                     output = content_text or reasoning_text or ""
 
@@ -3076,120 +2792,105 @@ async def api_generate_sigma(article_id: int, request: Request):
                     )
 
                 return output
-            else:
-                # Use OpenAI API (chatgpt)
-                # Verify API key is valid before making request
-                if not api_key:
-                    error_detail = (
-                        "OpenAI API key is missing. Please configure it in Settings."
-                    )
-                    logger.error(f"❌ OpenAI API key is None or empty when calling API")
-                    raise HTTPException(status_code=400, detail=error_detail)
+            # Use OpenAI API (chatgpt)
+            # Verify API key is valid before making request
+            if not api_key:
+                error_detail = "OpenAI API key is missing. Please configure it in Settings."
+                logger.error("❌ OpenAI API key is None or empty when calling API")
+                raise HTTPException(status_code=400, detail=error_detail)
 
-                # Validate API key format before making request
-                if not api_key.startswith("sk-"):
-                    error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
-                    logger.error(
-                        f"❌ API key validation failed: does not start with 'sk-' (length: {len(api_key)})"
-                    )
-                    raise HTTPException(status_code=400, detail=error_detail)
-                if len(api_key) < 20:
-                    error_detail = "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
-                    logger.error(
-                        f"❌ API key validation failed: too short (length: {len(api_key)})"
-                    )
-                    raise HTTPException(status_code=400, detail=error_detail)
-                # OpenAI API keys are typically 51 chars (sk-) or 100+ chars (sk-proj-)
-                # If key is suspiciously short for a proj key, warn
-                if api_key.startswith("sk-proj-") and len(api_key) < 100:
-                    logger.warning(
-                        f"⚠️ API key appears truncated: sk-proj- key with length {len(api_key)} (expected 100+ chars)"
-                    )
-
-                # Log API key info (masked) for debugging
-                api_key_len = len(api_key) if api_key else 0
-                api_key_start = api_key[:8] if api_key and len(api_key) >= 8 else "N/A"
-                api_key_end = api_key[-4:] if api_key and len(api_key) >= 4 else "N/A"
-                logger.info(
-                    f"🔑 Making OpenAI API call with api_key length: {api_key_len}, starts_with: {api_key_start}..., ends_with: ...{api_key_end}"
+            # Validate API key format before making request
+            if not api_key.startswith("sk-"):
+                error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
+                logger.error(f"❌ API key validation failed: does not start with 'sk-' (length: {len(api_key)})")
+                raise HTTPException(status_code=400, detail=error_detail)
+            if len(api_key) < 20:
+                error_detail = (
+                    "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
+                )
+                logger.error(f"❌ API key validation failed: too short (length: {len(api_key)})")
+                raise HTTPException(status_code=400, detail=error_detail)
+            # OpenAI API keys are typically 51 chars (sk-) or 100+ chars (sk-proj-)
+            # If key is suspiciously short for a proj key, warn
+            if api_key.startswith("sk-proj-") and len(api_key) < 100:
+                logger.warning(
+                    f"⚠️ API key appears truncated: sk-proj- key with length {len(api_key)} (expected 100+ chars)"
                 )
 
-                async with httpx.AsyncClient() as client:
-                    try:
-                        response = await client.post(
-                            "https://api.openai.com/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {api_key}",
-                                "Content-Type": "application/json",
-                            },
-                            json={
-                                "model": "gpt-4o-mini",
-                                "messages": [
-                                    {
-                                        "role": "system",
-                                        "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks.",
-                                    },
-                                    {"role": "user", "content": prompt_text},
-                                ],
-                                "max_tokens": 4000,
-                                "temperature": 0.2,
-                            },
-                            timeout=120.0,
-                        )
+            # Log API key info (masked) for debugging
+            api_key_len = len(api_key) if api_key else 0
+            api_key_start = api_key[:8] if api_key and len(api_key) >= 8 else "N/A"
+            api_key_end = api_key[-4:] if api_key and len(api_key) >= 4 else "N/A"
+            logger.info(
+                f"🔑 Making OpenAI API call with api_key length: {api_key_len}, starts_with: {api_key_start}..., ends_with: ...{api_key_end}"
+            )
 
-                        if response.status_code == 429:
-                            error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
-                            logger.warning(f"OpenAI rate limit hit: {response.text}")
-                            raise HTTPException(status_code=429, detail=error_detail)
-                        elif response.status_code != 200:
-                            error_detail = f"OpenAI API error: {response.status_code}"
-                            if response.status_code == 401:
-                                # Try to get more details from the response
-                                try:
-                                    error_json = response.json()
-                                    error_message = error_json.get("error", {}).get(
-                                        "message", "Unknown error"
-                                    )
-                                    logger.error(
-                                        f"❌ OpenAI 401 error details: {error_message}, full response: {response.text}"
-                                    )
-                                    error_detail = f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings."
-                                except:
-                                    logger.error(
-                                        f"❌ OpenAI 401 error, response text: {response.text}"
-                                    )
-                                    error_detail = "OpenAI API key is invalid or expired. Please check your API key in Settings."
-                            elif response.status_code == 402:
-                                error_detail = "OpenAI API billing issue. Please check your account billing."
-                            else:
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = await client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "gpt-4o-mini",
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks.",
+                                },
+                                {"role": "user", "content": prompt_text},
+                            ],
+                            "max_tokens": 4000,
+                            "temperature": 0.2,
+                        },
+                        timeout=120.0,
+                    )
+
+                    if response.status_code == 429:
+                        error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
+                        logger.warning(f"OpenAI rate limit hit: {response.text}")
+                        raise HTTPException(status_code=429, detail=error_detail)
+                    if response.status_code != 200:
+                        error_detail = f"OpenAI API error: {response.status_code}"
+                        if response.status_code == 401:
+                            # Try to get more details from the response
+                            try:
+                                error_json = response.json()
+                                error_message = error_json.get("error", {}).get("message", "Unknown error")
                                 logger.error(
-                                    f"OpenAI API error {response.status_code}: {response.text}"
+                                    f"❌ OpenAI 401 error details: {error_message}, full response: {response.text}"
                                 )
-                            raise HTTPException(status_code=500, detail=error_detail)
-                    except httpx.HTTPError as e:
-                        logger.error(f"❌ HTTP error calling OpenAI API: {e}")
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Network error calling OpenAI API: {str(e)}",
-                        )
-                    except Exception as e:
-                        logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
-                        raise HTTPException(
-                            status_code=500, detail=f"Unexpected error: {str(e)}"
-                        )
+                                error_detail = f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings."
+                            except:
+                                logger.error(f"❌ OpenAI 401 error, response text: {response.text}")
+                                error_detail = (
+                                    "OpenAI API key is invalid or expired. Please check your API key in Settings."
+                                )
+                        elif response.status_code == 402:
+                            error_detail = "OpenAI API billing issue. Please check your account billing."
+                        else:
+                            logger.error(f"OpenAI API error {response.status_code}: {response.text}")
+                        raise HTTPException(status_code=500, detail=error_detail)
+                except httpx.HTTPError as e:
+                    logger.error(f"❌ HTTP error calling OpenAI API: {e}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Network error calling OpenAI API: {str(e)}",
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
+                    raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
-                    result = response.json()
-                    return result["choices"][0]["message"]["content"]
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
 
         # Log final results
-        if validation_results and all(result.get('is_valid', False) for result in validation_results):
-            logger.info(
-                f"SIGMA generation completed successfully after {len(conversation_log)} attempts"
-            )
+        if validation_results and all(result.get("is_valid", False) for result in validation_results):
+            logger.info(f"SIGMA generation completed successfully after {len(conversation_log)} attempts")
         else:
-            logger.warning(
-                f"SIGMA generation completed with errors after {len(conversation_log)} attempts"
-            )
+            logger.warning(f"SIGMA generation completed with errors after {len(conversation_log)} attempts")
 
         # Get model name for metadata from config or fallback
         if agent_models and agent_models.get("SigmaAgent"):
@@ -3201,11 +2902,11 @@ async def api_generate_sigma(article_id: int, request: Request):
 
         # Update article metadata with generated SIGMA rules
         current_metadata = article.article_metadata or {}
-        
+
         # Get temperature and top_p from config if available
         sigma_temperature = agent_models.get("SigmaAgent_temperature", 0.0) if agent_models else 0.0
         sigma_top_p = agent_models.get("SigmaAgent_top_p", 0.9) if agent_models else 0.9
-        
+
         current_metadata["sigma_rules"] = {
             "rules": rules,
             "metadata": {
@@ -3260,9 +2961,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                 "title": rule.get("title"),
                                 "description": rule.get("description"),
                             },
-                            "similar_existing_rules": similar_matches[
-                                :5
-                            ],  # Top 5 matches
+                            "similar_existing_rules": similar_matches[:5],  # Top 5 matches
                         }
                     )
 
@@ -3278,7 +2977,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             sigma_warnings.append(sigma_prompt_truncation_warning)
         if sigma_response_truncation_warning:
             sigma_warnings.append(sigma_response_truncation_warning)
-        
+
         return {
             "success": len(rules) > 0,
             "rules": rules,
@@ -3287,9 +2986,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             "coverage_summary": coverage_summary,
             "similar_rules": similar_rules_by_generated,  # Similarity results for each generated rule
             "cached": False,
-            "error": None
-            if len(rules) > 0
-            else "No valid SIGMA rules could be generated",
+            "error": None if len(rules) > 0 else "No valid SIGMA rules could be generated",
             "warnings": sigma_warnings if sigma_warnings else None,
         }
 
@@ -3300,9 +2997,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def calculate_semantic_overlap(
-    generated_rule: Dict, sigmahq_rule: Dict
-) -> Dict[str, Any]:
+def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict[str, Any]:
     """
     Calculate semantic overlap between two SIGMA rules by comparing actual detection values.
 
@@ -3314,7 +3009,7 @@ def calculate_semantic_overlap(
         Dictionary with overlap metrics
     """
 
-    def extract_values_from_detection(detection: Dict, field_name: str) -> Set[str]:
+    def extract_values_from_detection(detection: dict, field_name: str) -> Set[str]:
         """Extract all values for a specific field from detection logic."""
         values = set()
         if not isinstance(detection, dict):
@@ -3350,20 +3045,12 @@ def calculate_semantic_overlap(
 
         # Extract process/image names
         gen_processes = extract_values_from_detection(gen_detection, "image")
-        gen_processes.update(
-            extract_values_from_detection(gen_detection, "initiatingprocess")
-        )
-        gen_processes.update(
-            extract_values_from_detection(gen_detection, "parentimage")
-        )
+        gen_processes.update(extract_values_from_detection(gen_detection, "initiatingprocess"))
+        gen_processes.update(extract_values_from_detection(gen_detection, "parentimage"))
 
         sig_processes = extract_values_from_detection(sig_detection, "image")
-        sig_processes.update(
-            extract_values_from_detection(sig_detection, "initiatingprocess")
-        )
-        sig_processes.update(
-            extract_values_from_detection(sig_detection, "parentimage")
-        )
+        sig_processes.update(extract_values_from_detection(sig_detection, "initiatingprocess"))
+        sig_processes.update(extract_values_from_detection(sig_detection, "parentimage"))
 
         # Extract file paths
         gen_paths = extract_values_from_detection(gen_detection, "path")
@@ -3381,13 +3068,9 @@ def calculate_semantic_overlap(
         sig_cmdline = extract_values_from_detection(sig_detection, "commandline")
 
         # Calculate overlaps
-        process_overlap = (
-            len(gen_processes & sig_processes) if gen_processes and sig_processes else 0
-        )
+        process_overlap = len(gen_processes & sig_processes) if gen_processes and sig_processes else 0
         path_overlap = len(gen_paths & sig_paths) if gen_paths and sig_paths else 0
-        cmdline_overlap = (
-            len(gen_cmdline & sig_cmdline) if gen_cmdline and sig_cmdline else 0
-        )
+        cmdline_overlap = len(gen_cmdline & sig_cmdline) if gen_cmdline and sig_cmdline else 0
 
         # Calculate ratios
         total_gen_indicators = len(gen_processes) + len(gen_paths) + len(gen_cmdline)
@@ -3400,9 +3083,7 @@ def calculate_semantic_overlap(
         else:
             # Use average of indicators from both rules as denominator
             avg_indicators = (total_gen_indicators + total_sig_indicators) / 2
-            semantic_overlap_ratio = (
-                total_overlaps / avg_indicators if avg_indicators > 0 else 0.0
-            )
+            semantic_overlap_ratio = total_overlaps / avg_indicators if avg_indicators > 0 else 0.0
 
         return {
             "semantic_overlap_ratio": min(1.0, semantic_overlap_ratio),
@@ -3434,9 +3115,7 @@ def calculate_semantic_overlap(
 
 
 @router.get("/{article_id}/sigma-matches")
-async def api_get_sigma_matches(
-    article_id: int, force: bool = False
-):
+async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
     Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules
     using behavioral novelty assessment.
@@ -3459,23 +3138,19 @@ async def api_get_sigma_matches(
         article = await async_db_manager.get_article(article_id)
 
         if not article:
-            raise HTTPException(
-                status_code=404, detail=f"Article {article_id} not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
 
         # OPTIONAL CACHE: If not forcing, return cached matches from article metadata when available
         # Only use cache if it's from the new novelty assessment system with proper classification (version 2.1+)
-        if (
-            not force
-            and article.article_metadata
-            and article.article_metadata.get("sigma_similar_cache")
-        ):
+        if not force and article.article_metadata and article.article_metadata.get("sigma_similar_cache"):
             cached = article.article_metadata.get("sigma_similar_cache")
             cache_version = cached.get("cache_version", "1.0")  # Old caches don't have version
-            
+
             # Invalidate old caches (version < 2.1) - need to regenerate with proper novelty_label classification
             if cache_version < "2.1":
-                logger.info(f"Invalidating old cache (version {cache_version}), regenerating with novelty_label classification")
+                logger.info(
+                    f"Invalidating old cache (version {cache_version}), regenerating with novelty_label classification"
+                )
             else:
                 return {
                     "success": True,
@@ -3490,9 +3165,7 @@ async def api_get_sigma_matches(
         # Get generated SIGMA rules from article metadata
         generated_rules = []
         if article.article_metadata and article.article_metadata.get("sigma_rules"):
-            generated_rules = article.article_metadata.get("sigma_rules", {}).get(
-                "rules", []
-            )
+            generated_rules = article.article_metadata.get("sigma_rules", {}).get("rules", [])
 
         if not generated_rules:
             return {
@@ -3535,11 +3208,9 @@ async def api_get_sigma_matches(
                     # Behavioral novelty assessment (per build spec)
                     # Uses canonicalization, atomic predicates, and structural similarity metrics
                     # No LLM reranking - purely algorithmic as per specification
-                    similar_matches = (
-                        matching_service.compare_proposed_rule_to_embeddings(
-                            proposed_rule=normalized_rule,
-                            threshold=0.0,  # No threshold - get top matches
-                        )
+                    similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                        proposed_rule=normalized_rule,
+                        threshold=0.0,  # No threshold - get top matches
                     )
 
                     logger.debug(
@@ -3550,26 +3221,20 @@ async def api_get_sigma_matches(
                     # Also store reference to generated rule for semantic analysis
                     for match in similar_matches:
                         rule_id = match.get("rule_id")
-                        if rule_id not in all_matches or match.get(
+                        if rule_id not in all_matches or match.get("similarity", 0) > all_matches[rule_id].get(
                             "similarity", 0
-                        ) > all_matches[rule_id].get("similarity", 0):
-                            match["_generated_rule"] = (
-                                normalized_rule  # Store for semantic overlap calculation
-                            )
+                        ):
+                            match["_generated_rule"] = normalized_rule  # Store for semantic overlap calculation
                             all_matches[rule_id] = match
                 except Exception as e:
-                    logger.error(
-                        f"Error comparing rule '{generated_rule.get('title', 'Unknown')}': {e}"
-                    )
+                    logger.error(f"Error comparing rule '{generated_rule.get('title', 'Unknown')}': {e}")
                     import traceback
 
                     logger.error(traceback.format_exc())
                     continue
 
             # Sort by similarity (descending) and return top matches
-            matches = sorted(
-                all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True
-            )[:20]
+            matches = sorted(all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True)[:20]
 
             # Classify each match using behavioral novelty assessment (per spec)
             # Use novelty_label directly from behavioral metrics
@@ -3580,17 +3245,17 @@ async def api_get_sigma_matches(
                 logic_shape_raw = match.get("logic_shape_similarity")
                 # Handle None (early exit case) - treat as perfect match for classification
                 logic_shape = 1.0 if logic_shape_raw is None else logic_shape_raw
-                
+
                 # Debug logging
                 logic_shape_display = "N/A" if match.get("logic_shape_similarity") is None else f"{logic_shape:.3f}"
                 logger.debug(
                     f"Classifying match '{match.get('rule_id', 'unknown')}': "
                     f"atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display}"
                 )
-                
+
                 # Check for exact hash match (duplicate)
                 is_exact_match = match.get("exact_hash_match", False)
-                
+
                 # Classify using behavioral novelty thresholds (per spec)
                 # DUPLICATE: atom_jaccard > 0.95 AND logic_similarity > 0.95
                 # SIMILAR: atom_jaccard > 0.80
@@ -3600,17 +3265,23 @@ async def api_get_sigma_matches(
                     logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (exact hash match)")
                 elif atom_jaccard > 0.95 and logic_shape > 0.95:
                     novelty_label = "DUPLICATE"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})")
+                    logger.debug(
+                        f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})"
+                    )
                 elif atom_jaccard > 0.80:
                     novelty_label = "SIMILAR"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f})")
+                    logger.debug(
+                        f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f})"
+                    )
                 else:
                     novelty_label = "NOVEL"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})")
-                
+                    logger.debug(
+                        f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})"
+                    )
+
                 # Store novelty classification
                 match["novelty_label"] = novelty_label
-                
+
                 # Map novelty_label to coverage_status for UI display
                 # DUPLICATE → covered, SIMILAR → extend, NOVEL → new
                 if novelty_label == "DUPLICATE":
@@ -3634,15 +3305,9 @@ async def api_get_sigma_matches(
                 "success": True,
                 "matches": matches,
                 "coverage_summary": {
-                    "covered": len(
-                        [m for m in matches if m.get("coverage_status") == "covered"]
-                    ),
-                    "extend": len(
-                        [m for m in matches if m.get("coverage_status") == "extend"]
-                    ),
-                    "new": len(
-                        [m for m in matches if m.get("coverage_status") == "new"]
-                    ),
+                    "covered": len([m for m in matches if m.get("coverage_status") == "covered"]),
+                    "extend": len([m for m in matches if m.get("coverage_status") == "extend"]),
+                    "new": len([m for m in matches if m.get("coverage_status") == "new"]),
                     "total": len(matches),
                 },
                 "assessment_method": "behavioral_novelty",
@@ -3656,7 +3321,7 @@ async def api_get_sigma_matches(
                     "coverage_summary": result["coverage_summary"],
                     "cached_at": datetime.now().isoformat(),
                     "cache_version": "2.1",  # Mark as novelty_label-based classification cache
-                    "assessment_method": "behavioral_novelty"
+                    "assessment_method": "behavioral_novelty",
                 }
                 from src.models.article import ArticleUpdate
 
@@ -3680,10 +3345,10 @@ async def api_get_sigma_matches(
 async def api_get_sigma_rule_yaml(rule_id: str):
     """Get the YAML file contents for a specific Sigma rule (reconstructed from database)."""
     try:
+        import yaml
+
         from src.database.manager import DatabaseManager
         from src.database.models import SigmaRuleTable
-        import yaml
-        from collections import OrderedDict
 
         db_manager = DatabaseManager()
         session = db_manager.get_session()
@@ -3693,9 +3358,7 @@ async def api_get_sigma_rule_yaml(rule_id: str):
             rule = session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
 
             if not rule:
-                raise HTTPException(
-                    status_code=404, detail=f"Sigma rule '{rule_id}' not found"
-                )
+                raise HTTPException(status_code=404, detail=f"Sigma rule '{rule_id}' not found")
 
             # Reconstruct YAML from database fields (using regular dict, not OrderedDict)
             rule_dict = {}
@@ -3776,12 +3439,9 @@ async def api_get_sigma_rule_details(rule_id: str):
             rule = session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
 
             if not rule:
-                raise HTTPException(
-                    status_code=404, detail=f"Sigma rule '{rule_id}' not found"
-                )
+                raise HTTPException(status_code=404, detail=f"Sigma rule '{rule_id}' not found")
 
             # Convert to dictionary with proper JSON serialization
-            import json
 
             def convert_value(value):
                 if value is None:
@@ -3803,12 +3463,8 @@ async def api_get_sigma_rule_details(rule_id: str):
                 "status": rule.status,
                 "author": rule.author,
                 "date": rule.date.isoformat() if rule.date else None,
-                "rule_references": list(rule.rule_references)
-                if rule.rule_references
-                else [],
-                "false_positives": list(rule.false_positives)
-                if rule.false_positives
-                else [],
+                "rule_references": list(rule.rule_references) if rule.rule_references else [],
+                "false_positives": list(rule.false_positives) if rule.false_positives else [],
                 "fields": list(rule.fields) if rule.fields else [],
                 "file_path": rule.file_path,
                 "repo_commit_sha": rule.repo_commit_sha,

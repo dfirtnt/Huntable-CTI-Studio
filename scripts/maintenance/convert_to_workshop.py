@@ -6,12 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict
 
 
-def convert_to_workshop(
-    input_path: Path, output_path: Path, observable_type: str = "CMD"
-) -> None:
+def convert_to_workshop(input_path: Path, output_path: Path, observable_type: str = "CMD") -> None:
     """
     Rebuild full text + span from observable export JSONL.
 
@@ -19,7 +16,7 @@ def convert_to_workshop(
     Workshop training expects `{text, spans:[{start,end,label}]}` lines.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    records: list[Dict[str, object]] = []
+    records: list[dict[str, object]] = []
     with input_path.open("r", encoding="utf-8") as source:
         for line in source:
             if not line.strip():
@@ -54,9 +51,7 @@ def convert_to_workshop(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Rebuild Workshop span records from observable export JSONL."
-    )
+    parser = argparse.ArgumentParser(description="Rebuild Workshop span records from observable export JSONL.")
     parser.add_argument(
         "--input",
         "-i",

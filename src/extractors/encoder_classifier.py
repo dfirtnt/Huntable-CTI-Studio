@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Sequence
 from functools import lru_cache
-from typing import List, Optional, Sequence, Tuple
 
 try:
     import numpy as np
@@ -32,10 +32,10 @@ SIMILARITY_MARGIN = 0.05
 DEFAULT_MODEL = os.getenv("CMDLINE_ENCODER_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
 _encoder = None
-_reference_embeddings: Optional[Tuple[np.ndarray, np.ndarray]] = None
+_reference_embeddings: tuple[np.ndarray, np.ndarray] | None = None
 
 
-def _dedupe_preserve_order(items: Sequence[str]) -> List[str]:
+def _dedupe_preserve_order(items: Sequence[str]) -> list[str]:
     seen = set()
     result: list[str] = []
     for item in items:
@@ -66,7 +66,7 @@ def _load_encoder():
     return _encoder
 
 
-def _compute_reference_embeddings(encoder) -> Tuple[np.ndarray, np.ndarray]:
+def _compute_reference_embeddings(encoder) -> tuple[np.ndarray, np.ndarray]:
     global _reference_embeddings
     if _reference_embeddings is not None:
         return _reference_embeddings

@@ -5,8 +5,8 @@ This is needed for PDF uploads to work.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -48,9 +48,8 @@ async def ensure_manual_source():
         if created_source:
             print(f"Successfully created manual source with ID: {created_source.id}")
             return True
-        else:
-            print("Failed to create manual source")
-            return False
+        print("Failed to create manual source")
+        return False
 
     except Exception as e:
         print(f"Error ensuring manual source: {e}")

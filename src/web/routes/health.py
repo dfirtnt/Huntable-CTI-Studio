@@ -5,9 +5,8 @@ Health and diagnostics endpoints for the Huntable CTI Studio FastAPI application
 from __future__ import annotations
 
 import os
-import socket
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -19,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """Health check endpoint for monitoring."""
     try:
         stats = await async_db_manager.get_database_stats()
@@ -39,7 +38,7 @@ async def health_check() -> Dict[str, Any]:
 
 
 @router.get("/api/health")
-async def api_health_check() -> Dict[str, Any]:
+async def api_health_check() -> dict[str, Any]:
     """API health check endpoint."""
     try:
         stats = await async_db_manager.get_database_stats()
@@ -63,7 +62,7 @@ async def api_health_check() -> Dict[str, Any]:
 
 
 @router.get("/api/health/database")
-async def api_database_health() -> Dict[str, Any]:
+async def api_database_health() -> dict[str, Any]:
     """Database health check with detailed statistics."""
     try:
         stats = await async_db_manager.get_database_stats()
@@ -103,7 +102,7 @@ async def api_database_health() -> Dict[str, Any]:
 
 
 @router.get("/api/health/deduplication")
-async def api_deduplication_health() -> Dict[str, Any]:
+async def api_deduplication_health() -> dict[str, Any]:
     """Deduplication system health check."""
     try:
         dedup_stats = await async_db_manager.get_deduplication_stats()
@@ -112,9 +111,7 @@ async def api_deduplication_health() -> Dict[str, Any]:
             "timestamp": datetime.now().isoformat(),
             "deduplication": {
                 "exact_duplicates": {
-                    "content_hash_duplicates": dedup_stats.get(
-                        "content_hash_duplicates", 0
-                    ),
+                    "content_hash_duplicates": dedup_stats.get("content_hash_duplicates", 0),
                     "duplicate_details": dedup_stats.get("duplicate_details", []),
                 },
                 "near_duplicates": {
@@ -137,10 +134,10 @@ async def api_deduplication_health() -> Dict[str, Any]:
 
 
 @router.get("/api/health/services")
-async def api_services_health() -> Dict[str, Any]:
+async def api_services_health() -> dict[str, Any]:
     """External services health check."""
     try:
-        services_status: Dict[str, Any] = {}
+        services_status: dict[str, Any] = {}
 
         # Check Redis
         try:
@@ -164,9 +161,7 @@ async def api_services_health() -> Dict[str, Any]:
 
         # Check LMStudio
         try:
-            lmstudio_url = os.getenv(
-                "LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1"
-            )
+            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
                 if response.status_code == 200:
@@ -174,10 +169,7 @@ async def api_services_health() -> Dict[str, Any]:
                     services_status["lmstudio"] = {
                         "status": "healthy",
                         "models_available": len(models_data.get("data", [])),
-                        "models": [
-                            model.get("id", "unknown")
-                            for model in models_data.get("data", [])
-                        ],
+                        "models": [model.get("id", "unknown") for model in models_data.get("data", [])],
                     }
                 else:
                     services_status["lmstudio"] = {
@@ -247,10 +239,10 @@ async def api_services_health() -> Dict[str, Any]:
 
 
 @router.get("/api/health/celery")
-async def api_celery_health() -> Dict[str, Any]:
+async def api_celery_health() -> dict[str, Any]:
     """Celery workers health check."""
     try:
-        celery_status: Dict[str, Any] = {}
+        celery_status: dict[str, Any] = {}
 
         try:
             from src.worker.celery_app import celery_app
@@ -298,7 +290,7 @@ async def api_celery_health() -> Dict[str, Any]:
 
 
 @router.get("/api/health/ingestion")
-async def api_ingestion_health() -> Dict[str, Any]:
+async def api_ingestion_health() -> dict[str, Any]:
     """Ingestion analytics health check."""
     try:
         ingestion_stats = await async_db_manager.get_ingestion_analytics()

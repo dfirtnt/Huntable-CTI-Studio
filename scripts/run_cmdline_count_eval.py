@@ -13,10 +13,10 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-from langfuse import Langfuse, Evaluation
-from langfuse.experiment import ExperimentItem, ExperimentItemResult
+from langfuse import Evaluation, Langfuse
+from langfuse.experiment import ExperimentItem
 
 from src.services.llm_service import LLMService
 
@@ -42,17 +42,17 @@ def get_langfuse_client() -> Langfuse:
     )
 
 
-def load_prompt_config() -> Dict[str, Any]:
+def load_prompt_config() -> dict[str, Any]:
     """Load CmdlineExtract prompt configuration."""
     prompt_path = Path("src/prompts/CmdlineExtract")
     if not prompt_path.exists():
         raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
-    
-    with open(prompt_path, 'r', encoding='utf-8') as f:
+
+    with open(prompt_path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def normalize_agent_output(extractor_result: Dict[str, Any]) -> Dict[str, Any]:
+def normalize_agent_output(extractor_result: dict[str, Any]) -> dict[str, Any]:
     """Convert extractor output to evaluation contract format."""
     # Handle both cmdline_items and items keys
     commands = extractor_result.get("cmdline_items") or extractor_result.get("items", [])
@@ -64,7 +64,7 @@ def normalize_agent_output(extractor_result: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def get_predicted_count(agent_output: Dict[str, Any]) -> int:
+def get_predicted_count(agent_output: dict[str, Any]) -> int:
     """Extract predicted count from agent output following COUNT HANDLING RULES."""
     if "count" in agent_output and isinstance(agent_output["count"], int):
         return agent_output["count"]
@@ -77,20 +77,30 @@ def get_predicted_count(agent_output: Dict[str, Any]) -> int:
 
 def _run_async_in_thread(coro):
     """Run async coroutine in a new thread with its own event loop."""
+
     def run_in_thread():
         return asyncio.run(coro)
-    
+
     with ThreadPoolExecutor() as executor:
         future = executor.submit(run_in_thread)
         return future.result()
 
 
-def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version: str, llm_service: LLMService, prompt_config: Dict[str, Any], config_models: Dict[str, str] = None, **kwargs) -> Dict[str, Any]:
+def cmdline_extraction_task(
+    *,
+    item: ExperimentItem,
+    model: str,
+    prompt_version: str,
+    llm_service: LLMService,
+    prompt_config: dict[str, Any],
+    config_models: dict[str, str] = None,
+    **kwargs,
+) -> dict[str, Any]:
     """Task function: runs LLM-based command-line extractor on dataset item."""
     article_text = item.input.get("article_text", "")
     article_title = item.input.get("article_title", "")
     article_url = item.input.get("article_url", "")
-    
+
     # Create the async coroutine
     # Get provider from config_models if provided, otherwise infer from model name
     provider = None
@@ -104,7 +114,7 @@ def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version:
             provider = "anthropic"
         else:
             provider = "lmstudio"
-    
+
     coro = llm_service.run_extraction_agent(
         agent_name="CmdlineExtract",
         content=article_text,
@@ -116,9 +126,9 @@ def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version:
         execution_id=None,
         model_name=model,
         temperature=0.0,
-        provider=provider  # Pass provider from config or inferred
+        provider=provider,  # Pass provider from config or inferred
     )
-    
+
     # Run async code - handle event loop gracefully
     try:
         loop = asyncio.get_running_loop()
@@ -127,7 +137,7 @@ def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version:
     except RuntimeError:
         # No event loop running, can use asyncio.run()
         extractor_result = asyncio.run(coro)
-    
+
     agent_output = normalize_agent_output(extractor_result)
     return agent_output
 
@@ -135,36 +145,28 @@ def cmdline_extraction_task(*, item: ExperimentItem, model: str, prompt_version:
 def count_diff_evaluator(*, input, output, expected_output=None, **kwargs) -> Evaluation:
     """Evaluator: computes absolute difference between predicted and expected count."""
     if not expected_output:
-        return Evaluation(
-            name="count_diff",
-            value=None,
-            comment="No ground truth expected_count",
-            data_type="NUMERIC"
-        )
-    
+        return Evaluation(name="count_diff", value=None, comment="No ground truth expected_count", data_type="NUMERIC")
+
     expected_count = None
     if isinstance(expected_output, dict):
         expected_count = expected_output.get("expected_count")
     elif isinstance(expected_output, (int, float)):
         expected_count = int(expected_output)
-    
+
     if expected_count is None:
         return Evaluation(
-            name="count_diff",
-            value=None,
-            comment="Missing expected_count in expected_output",
-            data_type="NUMERIC"
+            name="count_diff", value=None, comment="Missing expected_count in expected_output", data_type="NUMERIC"
         )
-    
+
     predicted_count = get_predicted_count(output)
     count_diff = abs(predicted_count - expected_count)
-    
+
     return Evaluation(
         name="count_diff",
         value=count_diff,
         data_type="NUMERIC",
         comment=f"Predicted: {predicted_count}, Expected: {expected_count}",
-        metadata={"predicted_count": predicted_count, "expected_count": expected_count}
+        metadata={"predicted_count": predicted_count, "expected_count": expected_count},
     )
 
 
@@ -172,35 +174,32 @@ def count_exact_match_evaluator(*, input, output, expected_output=None, **kwargs
     """Evaluator: checks if predicted count exactly matches expected count."""
     if not expected_output:
         return Evaluation(
-            name="count_exact_match",
-            value=None,
-            comment="No ground truth expected_count",
-            data_type="NUMERIC"
+            name="count_exact_match", value=None, comment="No ground truth expected_count", data_type="NUMERIC"
         )
-    
+
     expected_count = None
     if isinstance(expected_output, dict):
         expected_count = expected_output.get("expected_count")
     elif isinstance(expected_output, (int, float)):
         expected_count = int(expected_output)
-    
+
     if expected_count is None:
         return Evaluation(
             name="count_exact_match",
             value=None,
             comment="Missing expected_count in expected_output",
-            data_type="NUMERIC"
+            data_type="NUMERIC",
         )
-    
+
     predicted_count = get_predicted_count(output)
     count_exact_match = 1 if predicted_count == expected_count else 0
-    
+
     return Evaluation(
         name="count_exact_match",
         value=count_exact_match,
         data_type="NUMERIC",
         comment="Exact match" if count_exact_match == 1 else "Mismatch",
-        metadata={"predicted_count": predicted_count, "expected_count": expected_count}
+        metadata={"predicted_count": predicted_count, "expected_count": expected_count},
     )
 
 
@@ -222,7 +221,7 @@ def run_evaluation(model: str, prompt_version: str) -> None:
         provider = "openai"
     elif model.startswith("claude-"):
         provider = "anthropic"
-    
+
     config_models = {
         "ExtractAgent": model,
         "ExtractAgent_provider": provider,
@@ -232,7 +231,7 @@ def run_evaluation(model: str, prompt_version: str) -> None:
         "SigmaAgent_provider": provider,
     }
     llm_service = LLMService(config_models=config_models)
-    
+
     # Load prompt configuration
     prompt_config = load_prompt_config()
 
@@ -244,7 +243,7 @@ def run_evaluation(model: str, prompt_version: str) -> None:
             prompt_version=prompt_version,
             llm_service=llm_service,
             prompt_config=prompt_config,
-            **kwargs
+            **kwargs,
         )
 
     # Run experiment using Langfuse evaluation framework
@@ -264,12 +263,12 @@ def run_evaluation(model: str, prompt_version: str) -> None:
 
     logger.info(f"Experiment completed: {result.dataset_run_id}")
     logger.info(f"Items processed: {len(result.item_results)}")
-    
+
     for item_result in result.item_results:
         trace_id = item_result.trace_id
         output = item_result.output
         predicted_count = get_predicted_count(output)
-        
+
         logger.info(f"Trace {trace_id}: predicted_count={predicted_count}")
         for evaluation in item_result.evaluations:
             logger.info(f"  {evaluation.name}: {evaluation.value} - {evaluation.comment}")
@@ -293,4 +292,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

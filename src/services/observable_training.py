@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from sqlalchemy import case, func, select, update
 
@@ -24,13 +24,13 @@ SUPPORTED_OBSERVABLE_TYPES = ["CMD", "PROC_LINEAGE"]
 BASE_DATASET_DIR = Path("outputs/evaluation_data/observables")
 BASE_ARTIFACT_DIR = Path("outputs/observables")
 MANIFEST_FILENAME = "manifest.json"
-OBSERVABLE_USAGE_VALUES: Tuple[str, ...] = ("train", "eval", "gold")
+OBSERVABLE_USAGE_VALUES: tuple[str, ...] = ("train", "eval", "gold")
 
 
-async def get_observable_training_summary() -> Dict[str, Any]:
+async def get_observable_training_summary() -> dict[str, Any]:
     """Return annotation counts, directories, and artifact metadata per observable."""
     counts = await _aggregate_counts()
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "supported_types": SUPPORTED_OBSERVABLE_TYPES,
         "types": {},
     }
@@ -49,32 +49,30 @@ async def get_observable_training_summary() -> Dict[str, Any]:
             "latest_artifact": manifest_versions[0] if manifest_versions else None,
         }
 
-    summary["total_annotations"] = sum(
-        info["counts"]["total"] for info in summary["types"].values()
-    )
+    summary["total_annotations"] = sum(info["counts"]["total"] for info in summary["types"].values())
     return summary
 
 
-def run_observable_training_job(observable_type: str, train_model: bool = True) -> Dict[str, Any]:
+def run_observable_training_job(observable_type: str, train_model: bool = True) -> dict[str, Any]:
     """
     Export unused annotations for the observable, create a new artifact, and optionally train a model.
-    
+
     Args:
         observable_type: Type of observable (CMD, PROC_LINEAGE)
         train_model: If True, train a model after exporting dataset (default: True)
     """
     # Export dataset (this now correctly excludes gold/eval annotations)
     result = export_observable_dataset(observable_type, usage="train")
-    
+
     # If dataset export failed or no data, return early
     if result.get("status") != "completed":
         return result
-    
+
     # Train model if requested
     if train_model and observable_type == "CMD":
         try:
             from src.services.model_training import train_cmd_extractor_model
-            
+
             dataset_path = Path(result.get("dataset_path"))
             if dataset_path.exists():
                 training_result = train_cmd_extractor_model(
@@ -86,15 +84,12 @@ def run_observable_training_job(observable_type: str, train_model: bool = True) 
                 logger.info(f"Model training completed for {observable_type}")
         except Exception as e:
             logger.error(f"Model training failed for {observable_type}: {e}")
-            result["model_training"] = {
-                "success": False,
-                "error": str(e)
-            }
-    
+            result["model_training"] = {"success": False, "error": str(e)}
+
     return result
 
 
-def export_observable_dataset(observable_type: str, usage: str = "train") -> Dict[str, Any]:
+def export_observable_dataset(observable_type: str, usage: str = "train") -> dict[str, Any]:
     """Export annotations for a specific usage intent."""
     usage = usage.lower()
     if usage not in OBSERVABLE_USAGE_VALUES:
@@ -102,9 +97,7 @@ def export_observable_dataset(observable_type: str, usage: str = "train") -> Dic
     return _export_observable_dataset(observable_type, usage, mark_training=(usage == "train"))
 
 
-def _export_observable_dataset(
-    observable_type: str, usage: str, mark_training: bool
-) -> Dict[str, Any]:
+def _export_observable_dataset(observable_type: str, usage: str, mark_training: bool) -> dict[str, Any]:
     observable_type = observable_type.upper()
     if observable_type not in SUPPORTED_OBSERVABLE_TYPES:
         raise ValueError(f"Unsupported observable type '{observable_type}'")
@@ -152,7 +145,7 @@ def _export_observable_dataset(
         dataset_path = dataset_dir / f"{prefix}_{timestamp}.jsonl"
         _write_dataset(dataset_path, annotations, observable_type)
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "status": "completed",
             "processed_count": len(annotations),
             "dataset_path": str(dataset_path),
@@ -193,17 +186,16 @@ def _export_observable_dataset(
         session.close()
 
 
-def _get_paths(observable_type: str) -> Tuple[Path, Path, Path]:
+def _get_paths(observable_type: str) -> tuple[Path, Path, Path]:
     dataset_dir = BASE_DATASET_DIR / observable_type.lower()
     artifact_dir = BASE_ARTIFACT_DIR / observable_type.lower()
     manifest_path = artifact_dir / MANIFEST_FILENAME
     return dataset_dir, artifact_dir, manifest_path
 
 
-async def _aggregate_counts() -> Dict[str, Dict[str, int]]:
-    counts: Dict[str, Dict[str, int]] = {
-        observable: {"total": 0, "used": 0, "unused": 0}
-        for observable in SUPPORTED_OBSERVABLE_TYPES
+async def _aggregate_counts() -> dict[str, dict[str, int]]:
+    counts: dict[str, dict[str, int]] = {
+        observable: {"total": 0, "used": 0, "unused": 0} for observable in SUPPORTED_OBSERVABLE_TYPES
     }
     async with async_db_manager.get_session() as session:
         query = (
@@ -232,9 +224,7 @@ async def _aggregate_counts() -> Dict[str, Dict[str, int]]:
     return counts
 
 
-def _write_dataset(
-    dataset_path: Path, annotations: List[ArticleAnnotationTable], observable_type: str
-) -> None:
+def _write_dataset(dataset_path: Path, annotations: list[ArticleAnnotationTable], observable_type: str) -> None:
     with dataset_path.open("w", encoding="utf-8") as dataset_file:
         for annotation in annotations:
             payload = {
@@ -252,7 +242,7 @@ def _write_dataset(
             dataset_file.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
-def _load_manifest(manifest_path: Path) -> Dict[str, Any]:
+def _load_manifest(manifest_path: Path) -> dict[str, Any]:
     if manifest_path.exists():
         try:
             return json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -261,7 +251,7 @@ def _load_manifest(manifest_path: Path) -> Dict[str, Any]:
     return {"versions": [], "active_version": None}
 
 
-def _update_manifest(manifest_path: Path, artifact_payload: Dict[str, Any]) -> None:
+def _update_manifest(manifest_path: Path, artifact_payload: dict[str, Any]) -> None:
     manifest = _load_manifest(manifest_path)
     versions = manifest.get("versions", [])
     versions.insert(0, artifact_payload)

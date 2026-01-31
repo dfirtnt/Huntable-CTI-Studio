@@ -5,22 +5,19 @@ This module implements machine learning-based filtering to identify
 and exclude "not huntable" content before sending to GPT-4o.
 """
 
-import re
-import json
-import hashlib
 import logging
-from typing import List, Dict, Tuple, Optional
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 # Optional ML dependencies - make imports optional for test environments
 try:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.metrics import classification_report, accuracy_score
     import numpy as np
     import pandas as pd
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics import accuracy_score, classification_report
+    from sklearn.model_selection import train_test_split
 
     SKLEARN_AVAILABLE = True
 except ImportError:
@@ -35,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Import perfect discriminators from threat hunting scorer
 from .content import HUNT_SCORING_KEYWORDS
-from .sentence_splitter import find_sentence_boundaries, count_sentences
+from .sentence_splitter import count_sentences, find_sentence_boundaries
 
 
 @dataclass
@@ -46,10 +43,10 @@ class FilterResult:
     reason: str
     score: float
     cost_estimate: float
-    metadata: Optional[Dict] = None
+    metadata: dict | None = None
     is_huntable: bool = True
-    filtered_content: Optional[str] = None
-    removed_chunks: Optional[List] = None
+    filtered_content: str | None = None
+    removed_chunks: list | None = None
     cost_savings: float = 0.0
     confidence: float = 0.0
 
@@ -86,7 +83,7 @@ class FilterConfig:
             and 0.0 <= self.cost_threshold <= 1.0
         )
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert config to dictionary."""
         return {
             "min_content_length": self.min_content_length,
@@ -101,7 +98,7 @@ class FilterConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "FilterConfig":
+    def from_dict(cls, data: dict) -> "FilterConfig":
         """Create config from dictionary."""
         return cls(**data)
 
@@ -114,9 +111,7 @@ class ContentFilter:
     before sending to GPT-4o, reducing costs by filtering out irrelevant content.
     """
 
-    def __init__(
-        self, config: Optional[FilterConfig] = None, model_path: Optional[str] = None
-    ):
+    def __init__(self, config: FilterConfig | None = None, model_path: str | None = None):
         self.config = config or FilterConfig()
         self.model = None
         self.vectorizer = None
@@ -136,21 +131,16 @@ class ContentFilter:
             from .content import ThreatHuntingScorer
 
             # Use Hunt Scoring system to check for perfect discriminators
-            hunt_result = ThreatHuntingScorer.score_threat_hunting_content(
-                "Content Filter Analysis", text
-            )
+            hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", text)
             perfect_matches = hunt_result.get("perfect_keyword_matches", [])
 
             return len(perfect_matches) > 0
         except Exception as e:
-            logger.warning(
-                f"Error checking perfect keywords: {e}, falling back to pattern-based only"
-            )
+            logger.warning(f"Error checking perfect keywords: {e}, falling back to pattern-based only")
             return False
 
-    def _load_pattern_rules(self) -> Dict[str, List[str]]:
+    def _load_pattern_rules(self) -> dict[str, list[str]]:
         """Load pattern-based rules for content classification using Hunt Scoring patterns."""
-        from .content import HUNT_SCORING_KEYWORDS
         import re
 
         # Separate perfect discriminators from other huntable patterns
@@ -177,9 +167,7 @@ class ContentFilter:
         # Add LOLBAS executables (excluding those already in perfect discriminators)
         perfect_patterns_set = set(perfect_patterns)
         for pattern in HUNT_SCORING_KEYWORDS["lolbas_executables"]:
-            escaped_pattern = (
-                re.escape(pattern) if not pattern.startswith("r") else pattern
-            )
+            escaped_pattern = re.escape(pattern) if not pattern.startswith("r") else pattern
             # Only add if not already in perfect patterns
             if escaped_pattern not in perfect_patterns_set:
                 other_huntable_patterns.append(escaped_pattern)
@@ -212,9 +200,9 @@ class ContentFilter:
     def extract_features(
         self,
         text: str,
-        hunt_score: Optional[float] = None,
+        hunt_score: float | None = None,
         include_new_features: bool = False,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Extract features from text for ML classification with hunt score integration."""
         text_lower = text.lower()
 
@@ -234,19 +222,11 @@ class ContentFilter:
             "char_count": len(text),
             "word_count": len(text.split()),
             "sentence_count": count_sentences(text),
-            "avg_word_length": np.mean([len(word) for word in text.split()])
-            if text.split()
-            else 0,
+            "avg_word_length": np.mean([len(word) for word in text.split()]) if text.split() else 0,
             # Technical content indicators
-            "command_count": len(
-                re.findall(
-                    r"\b(powershell|cmd|bash|ssh|curl|wget|invoke)\b", text_lower
-                )
-            ),
+            "command_count": len(re.findall(r"\b(powershell|cmd|bash|ssh|curl|wget|invoke)\b", text_lower)),
             "url_count": len(re.findall(r"http[s]?://[^\s]+", text)),
-            "ip_count": len(
-                re.findall(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", text)
-            ),
+            "ip_count": len(re.findall(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", text)),
             "file_path_count": len(re.findall(r"[A-Za-z]:\\\\[^\s]+|/[^\s]+", text)),
             "process_count": len(
                 re.findall(
@@ -284,9 +264,7 @@ class ContentFilter:
         # Add new features only if requested
         if include_new_features:
             features["perfect_pattern_count"] = sum(
-                1
-                for pattern in self.pattern_rules["perfect_patterns"]
-                if re.search(pattern, text_lower, re.IGNORECASE)
+                1 for pattern in self.pattern_rules["perfect_patterns"] if re.search(pattern, text_lower, re.IGNORECASE)
             )
             features["other_huntable_pattern_count"] = sum(
                 1
@@ -297,24 +275,16 @@ class ContentFilter:
         # Calculate ratios
         if features["word_count"] > 0:
             if include_new_features:
-                features["perfect_pattern_ratio"] = (
-                    features["perfect_pattern_count"] / features["word_count"]
-                )
+                features["perfect_pattern_ratio"] = features["perfect_pattern_count"] / features["word_count"]
                 features["other_huntable_pattern_ratio"] = (
                     features["other_huntable_pattern_count"] / features["word_count"]
                 )
             features["huntable_pattern_ratio"] = (
                 features["huntable_pattern_count"] / features["word_count"]
             )  # Backward compatibility
-            features["not_huntable_pattern_ratio"] = (
-                features["not_huntable_pattern_count"] / features["word_count"]
-            )
-            features["technical_term_ratio"] = (
-                features["technical_term_count"] / features["word_count"]
-            )
-            features["marketing_term_ratio"] = (
-                features["marketing_term_count"] / features["word_count"]
-            )
+            features["not_huntable_pattern_ratio"] = features["not_huntable_pattern_count"] / features["word_count"]
+            features["technical_term_ratio"] = features["technical_term_count"] / features["word_count"]
+            features["marketing_term_ratio"] = features["marketing_term_count"] / features["word_count"]
         else:
             if include_new_features:
                 features["perfect_pattern_ratio"] = 0
@@ -327,12 +297,8 @@ class ContentFilter:
         # Add hunt score as feature if available
         if hunt_score is not None:
             features["hunt_score"] = hunt_score / 100.0  # Normalize to 0-1 range
-            features["hunt_score_high"] = (
-                1.0 if hunt_score >= 70 else 0.0
-            )  # High quality threshold
-            features["hunt_score_medium"] = (
-                1.0 if 30 <= hunt_score < 70 else 0.0
-            )  # Medium quality
+            features["hunt_score_high"] = 1.0 if hunt_score >= 70 else 0.0  # High quality threshold
+            features["hunt_score_medium"] = 1.0 if 30 <= hunt_score < 70 else 0.0  # Medium quality
             features["hunt_score_low"] = 1.0 if hunt_score < 30 else 0.0  # Low quality
         else:
             features["hunt_score"] = 0.0
@@ -342,9 +308,7 @@ class ContentFilter:
 
         return features
 
-    def chunk_content(
-        self, content: str, chunk_size: int = 1000, overlap: int = 200
-    ) -> List[Tuple[int, int, str]]:
+    def chunk_content(self, content: str, chunk_size: int = 1000, overlap: int = 200) -> list[tuple[int, int, str]]:
         """
         Split content into overlapping chunks for analysis.
 
@@ -391,22 +355,18 @@ class ContentFilter:
 
         return chunks
 
-    def train_model(
-        self, training_data_path: str = "highlighted_text_classifications.csv"
-    ):
+    def train_model(self, training_data_path: str = "highlighted_text_classifications.csv"):
         """Train the ML model on annotated data."""
         if not SKLEARN_AVAILABLE:
-            raise ImportError(
-                "scikit-learn is required for model training. "
-                "Install it with: pip install scikit-learn"
-            )
+            raise ImportError("scikit-learn is required for model training. Install it with: pip install scikit-learn")
 
         import time
+
         from sklearn.metrics import (
+            classification_report,
+            f1_score,
             precision_score,
             recall_score,
-            f1_score,
-            classification_report,
         )
 
         start_time = time.time()
@@ -428,9 +388,7 @@ class ContentFilter:
             y = np.array(y)
 
             # Split data
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=42, stratify=y
-            )
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
             # Train model
             self.model = RandomForestClassifier(
@@ -451,11 +409,7 @@ class ContentFilter:
 
             logger.info(f"Model trained successfully. Accuracy: {accuracy:.3f}")
             logger.info("Classification Report:")
-            logger.info(
-                classification_report(
-                    y_test, y_pred, target_names=["Not Huntable", "Huntable"]
-                )
-            )
+            logger.info(classification_report(y_test, y_pred, target_names=["Not Huntable", "Huntable"]))
 
             # Save model
             import joblib
@@ -470,9 +424,7 @@ class ContentFilter:
                 "training_duration_seconds": training_duration,
                 "test_set_size": len(y_test),
                 "accuracy": float(accuracy),
-                "precision_huntable": float(precision[1])
-                if len(precision) > 1
-                else 0.0,
+                "precision_huntable": float(precision[1]) if len(precision) > 1 else 0.0,
                 "precision_not_huntable": float(precision[0]),
                 "recall_huntable": float(recall[1]) if len(recall) > 1 else 0.0,
                 "recall_not_huntable": float(recall[0]),
@@ -505,9 +457,10 @@ class ContentFilter:
             return False
 
         try:
-            import joblib
             import os
             from datetime import datetime
+
+            import joblib
 
             self.model = joblib.load(self.model_path)
 
@@ -526,9 +479,7 @@ class ContentFilter:
             self.model_version = "unknown"
             return False
 
-    def predict_huntability(
-        self, text: str, hunt_score: Optional[float] = None
-    ) -> Tuple[bool, float]:
+    def predict_huntability(self, text: str, hunt_score: float | None = None) -> tuple[bool, float]:
         """
         Predict if text is huntable using ML model with hunt score integration.
 
@@ -545,9 +496,7 @@ class ContentFilter:
 
         try:
             # Use backward compatibility by default (27 features)
-            features = self.extract_features(
-                text, hunt_score, include_new_features=False
-            )
+            features = self.extract_features(text, hunt_score, include_new_features=False)
             feature_vector = np.array(list(features.values())).reshape(1, -1)
 
             # Get prediction and probability
@@ -567,16 +516,12 @@ class ContentFilter:
             logger.error(f"Error in ML prediction: {e}")
             return self._pattern_based_classification(text, hunt_score)
 
-    def _pattern_based_classification(
-        self, text: str, hunt_score: Optional[float] = None
-    ) -> Tuple[bool, float]:
+    def _pattern_based_classification(self, text: str, hunt_score: float | None = None) -> tuple[bool, float]:
         """Pattern-based classification using Hunt Scoring system results."""
         from .content import ThreatHuntingScorer
 
         # Use Hunt Scoring system as the source of truth
-        hunt_result = ThreatHuntingScorer.score_threat_hunting_content(
-            "Content Filter Analysis", text
-        )
+        hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", text)
 
         # Extract scores from Hunt Scoring result
         perfect_score = hunt_result.get("perfect_keyword_matches", [])
@@ -586,12 +531,7 @@ class ContentFilter:
         negative_score = hunt_result.get("negative_matches", [])
 
         # Calculate total positive indicators
-        positive_indicators = (
-            len(perfect_score)
-            + len(good_score)
-            + len(lolbas_score)
-            + len(intelligence_score)
-        )
+        positive_indicators = len(perfect_score) + len(good_score) + len(lolbas_score) + len(intelligence_score)
         negative_indicators = len(negative_score)
 
         # Classification based on Hunt Scoring logic
@@ -606,9 +546,7 @@ class ContentFilter:
             # Fallback confidence based on pattern counts
             total_patterns = positive_indicators + negative_indicators
             if total_patterns > 0:
-                confidence = (
-                    max(positive_indicators, negative_indicators) / total_patterns
-                )
+                confidence = max(positive_indicators, negative_indicators) / total_patterns
             else:
                 confidence = 0.0
 
@@ -623,8 +561,8 @@ class ContentFilter:
         content: str,
         min_confidence: float = 0.7,
         chunk_size: int = 1000,
-        hunt_score: Optional[float] = None,
-        article_id: Optional[int] = None,
+        hunt_score: float | None = None,
+        article_id: int | None = None,
         store_analysis: bool = False,
     ) -> FilterResult:
         """
@@ -666,13 +604,9 @@ class ContentFilter:
             has_perfect = self._has_perfect_keywords(chunk_text)
             if has_perfect:
                 # Perfect keywords override ML prediction for filtering (keep chunk)
-                huntable_chunks.append(
-                    (start_offset, end_offset, chunk_text, confidence)
-                )
+                huntable_chunks.append((start_offset, end_offset, chunk_text, confidence))
             elif is_huntable and confidence >= min_confidence:
-                huntable_chunks.append(
-                    (start_offset, end_offset, chunk_text, confidence)
-                )
+                huntable_chunks.append((start_offset, end_offset, chunk_text, confidence))
             else:
                 removed_chunks.append(
                     {
@@ -680,17 +614,15 @@ class ContentFilter:
                         "start_offset": start_offset,
                         "end_offset": end_offset,
                         "confidence": confidence,
-                        "reason": "Low huntability confidence"
-                        if not is_huntable
-                        else "Below confidence threshold",
+                        "reason": "Low huntability confidence" if not is_huntable else "Below confidence threshold",
                     }
                 )
 
         # Store chunk analysis if requested and article_id provided
         if store_analysis and article_id and hunt_score and hunt_score > 50:
             try:
-                from src.services.chunk_analysis_service import ChunkAnalysisService
                 from src.database.manager import DatabaseManager
+                from src.services.chunk_analysis_service import ChunkAnalysisService
 
                 # Store analysis results using predictions we already computed
                 db_manager = DatabaseManager()
@@ -698,16 +630,12 @@ class ContentFilter:
                 try:
                     service = ChunkAnalysisService(db)
                     model_version = getattr(self, "model_version", "unknown")
-                    service.store_chunk_analysis(
-                        article_id, all_chunks, all_ml_predictions, model_version
-                    )
+                    service.store_chunk_analysis(article_id, all_chunks, all_ml_predictions, model_version)
                 finally:
                     db.close()
 
             except Exception as e:
-                logger.warning(
-                    f"Failed to store chunk analysis for article {article_id}: {e}"
-                )
+                logger.warning(f"Failed to store chunk analysis for article {article_id}: {e}")
 
         # Reconstruct filtered content
         filtered_content = " ".join([chunk[2] for chunk in huntable_chunks])
@@ -715,31 +643,21 @@ class ContentFilter:
         # Calculate cost savings
         original_tokens = len(content) // 4  # Rough token estimate
         filtered_tokens = len(filtered_content) // 4
-        cost_savings = (
-            (original_tokens - filtered_tokens) / original_tokens
-            if original_tokens > 0
-            else 0
-        )
+        cost_savings = (original_tokens - filtered_tokens) / original_tokens if original_tokens > 0 else 0
 
         return FilterResult(
             passed=len(huntable_chunks) > 0,
-            reason="Content filtered successfully"
-            if len(huntable_chunks) > 0
-            else "No huntable content found",
-            score=sum(chunk[3] for chunk in huntable_chunks) / len(huntable_chunks)
-            if huntable_chunks
-            else 0,
+            reason="Content filtered successfully" if len(huntable_chunks) > 0 else "No huntable content found",
+            score=sum(chunk[3] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
             cost_estimate=len(filtered_content) // 4,  # Rough token estimate
             is_huntable=len(huntable_chunks) > 0,
-            confidence=sum(chunk[3] for chunk in huntable_chunks) / len(huntable_chunks)
-            if huntable_chunks
-            else 0,
+            confidence=sum(chunk[3] for chunk in huntable_chunks) / len(huntable_chunks) if huntable_chunks else 0,
             filtered_content=filtered_content,
             removed_chunks=removed_chunks,
             cost_savings=cost_savings,
         )
 
-    def filter_article(self, article: Dict) -> FilterResult:
+    def filter_article(self, article: dict) -> FilterResult:
         """Filter a single article based on configuration."""
         self._total_processed += 1
 
@@ -763,38 +681,28 @@ class ContentFilter:
         # Check title length first
         if len(title) < self.config.min_title_length:
             self._failed_count += 1
-            return FilterResult(
-                passed=False, reason="Title too short", score=0.0, cost_estimate=0.0
-            )
+            return FilterResult(passed=False, reason="Title too short", score=0.0, cost_estimate=0.0)
 
         if len(title) > self.config.max_title_length:
             self._failed_count += 1
-            return FilterResult(
-                passed=False, reason="Title too long", score=0.0, cost_estimate=0.0
-            )
+            return FilterResult(passed=False, reason="Title too long", score=0.0, cost_estimate=0.0)
 
         # Check content length
         if len(content) < self.config.min_content_length:
             self._failed_count += 1
-            return FilterResult(
-                passed=False, reason="Content too short", score=0.0, cost_estimate=0.0
-            )
+            return FilterResult(passed=False, reason="Content too short", score=0.0, cost_estimate=0.0)
 
         if len(content) > self.config.max_content_length:
             self._failed_count += 1
-            return FilterResult(
-                passed=False, reason="Content too long", score=0.0, cost_estimate=0.0
-            )
+            return FilterResult(passed=False, reason="Content too long", score=0.0, cost_estimate=0.0)
 
         # Check age
         if "published_at" in article:
-            from datetime import datetime, timedelta
+            from datetime import datetime
 
             if isinstance(article["published_at"], str):
                 try:
-                    published_at = datetime.fromisoformat(
-                        article["published_at"].replace("Z", "+00:00")
-                    )
+                    published_at = datetime.fromisoformat(article["published_at"].replace("Z", "+00:00"))
                 except:
                     published_at = datetime.now()
             else:
@@ -802,20 +710,14 @@ class ContentFilter:
 
             if (datetime.now() - published_at).days > self.config.max_age_days:
                 self._failed_count += 1
-                return FilterResult(
-                    passed=False, reason="Article too old", score=0.0, cost_estimate=0.0
-                )
+                return FilterResult(passed=False, reason="Article too old", score=0.0, cost_estimate=0.0)
 
         # Calculate quality score
         if self.config.enable_ml_filtering:
             ml_result = self.get_ml_prediction(article)
             if ml_result:
-                quality_score = ml_result.get(
-                    "quality_score", self.calculate_quality_score(article)
-                )
-                cost_estimate = ml_result.get(
-                    "cost_estimate", self.calculate_cost_estimate(article)
-                )
+                quality_score = ml_result.get("quality_score", self.calculate_quality_score(article))
+                cost_estimate = ml_result.get("cost_estimate", self.calculate_cost_estimate(article))
             else:
                 quality_score = self.calculate_quality_score(article)
                 cost_estimate = self.calculate_cost_estimate(article)
@@ -833,10 +735,7 @@ class ContentFilter:
             )
 
         # Check cost estimate (already calculated above)
-        if (
-            self.config.enable_cost_optimization
-            and cost_estimate > self.config.cost_threshold
-        ):
+        if self.config.enable_cost_optimization and cost_estimate > self.config.cost_threshold:
             self._failed_count += 1
             return FilterResult(
                 passed=False,
@@ -857,7 +756,7 @@ class ContentFilter:
             cost_estimate=cost_estimate,
         )
 
-    def calculate_quality_score(self, article: Dict) -> float:
+    def calculate_quality_score(self, article: dict) -> float:
         """Calculate quality score for an article."""
         score = 0.0
 
@@ -908,7 +807,7 @@ class ContentFilter:
 
         return min(1.0, score)
 
-    def calculate_cost_estimate(self, article: Dict) -> float:
+    def calculate_cost_estimate(self, article: dict) -> float:
         """Calculate cost estimate for processing an article."""
         content = article.get("content", "")
 
@@ -924,7 +823,7 @@ class ContentFilter:
 
         return min(1.0, base_cost)
 
-    async def filter_articles_batch(self, articles: List[Dict]) -> List[FilterResult]:
+    async def filter_articles_batch(self, articles: list[dict]) -> list[FilterResult]:
         """Filter multiple articles in batch."""
         results = []
         for article in articles:
@@ -932,21 +831,17 @@ class ContentFilter:
             results.append(result)
         return results
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get filter statistics."""
         return {
             "total_processed": self._total_processed,
             "passed_count": self._passed_count,
             "failed_count": self._failed_count,
-            "pass_rate": self._passed_count / self._total_processed
-            if self._total_processed > 0
-            else 0.0,
-            "average_quality_score": sum(self._quality_scores)
-            / len(self._quality_scores)
+            "pass_rate": self._passed_count / self._total_processed if self._total_processed > 0 else 0.0,
+            "average_quality_score": sum(self._quality_scores) / len(self._quality_scores)
             if self._quality_scores
             else 0.0,
-            "average_cost_estimate": sum(self._cost_estimates)
-            / len(self._cost_estimates)
+            "average_cost_estimate": sum(self._cost_estimates) / len(self._cost_estimates)
             if self._cost_estimates
             else 0.0,
         }
@@ -963,7 +858,7 @@ class ContentFilter:
         """Update filter configuration."""
         self.config = config
 
-    def get_ml_prediction(self, article: Dict) -> Dict:
+    def get_ml_prediction(self, article: dict) -> dict:
         """Get ML prediction for an article (placeholder)."""
         return {
             "quality_score": self.calculate_quality_score(article),
@@ -994,7 +889,7 @@ if __name__ == "__main__":
 
         result = filter_system.filter_content(sample_content)
 
-        logger.info(f"Filter Result:")
+        logger.info("Filter Result:")
         logger.info(f"  Is Huntable: {result.is_huntable}")
         logger.info(f"  Confidence: {result.confidence:.3f}")
         logger.info(f"  Cost Savings: {result.cost_savings:.1%}")

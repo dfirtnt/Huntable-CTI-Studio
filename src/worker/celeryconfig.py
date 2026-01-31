@@ -10,76 +10,78 @@ import os
 # CRITICAL: Read from environment, but celery_app.py will override via conf.update()
 # This allows celery_app.py to set it with password before config_from_object runs
 # We set a default here, but it will be overridden if REDIS_URL is set
-_redis_url = os.getenv('REDIS_URL') or os.getenv('CELERY_BROKER_URL')
+_redis_url = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL")
 if _redis_url:
     # Use the environment variable value
     broker_url = _redis_url
     result_backend = _redis_url
 else:
     # Fallback to default (no password) only if REDIS_URL not set
-    broker_url = 'redis://redis:6379/0'
-    result_backend = 'redis://redis:6379/0'
+    broker_url = "redis://redis:6379/0"
+    result_backend = "redis://redis:6379/0"
 
 # Task settings
-task_serializer = 'json'
-accept_content = ['json']
-result_serializer = 'json'
-timezone = 'UTC'
+task_serializer = "json"
+accept_content = ["json"]
+result_serializer = "json"
+timezone = "UTC"
 enable_utc = True
 
 # Worker settings
 worker_prefetch_multiplier = 1
-worker_max_tasks_per_child = int(os.getenv('CELERY_MAX_TASKS_PER_CHILD', '50'))  # Configurable, default 50 to prevent memory leaks
+worker_max_tasks_per_child = int(
+    os.getenv("CELERY_MAX_TASKS_PER_CHILD", "50")
+)  # Configurable, default 50 to prevent memory leaks
 worker_disable_rate_limits = False
 
 # Task routing
 task_routes = {
-    'src.worker.celery_app.check_all_sources': {'queue': 'source_checks'},
-    'src.worker.celery_app.cleanup_old_data': {'queue': 'maintenance'},
-    'src.worker.celery_app.generate_daily_report': {'queue': 'reports'},
-    'src.worker.celery_app.test_source_connectivity': {'queue': 'connectivity'},
-    'src.worker.celery_app.collect_from_source': {'queue': 'collection'},
-    'src.worker.celery_app.trigger_agentic_workflow': {'queue': 'workflows'},
-    'src.worker.celery_app.sync_sigma_rules': {'queue': 'maintenance'},
-    'test.test_sub_agent': {'queue': 'workflows'},
-    'test.test_rank_agent': {'queue': 'workflows'},
-    'test.test_sigma_agent': {'queue': 'workflows'},
+    "src.worker.celery_app.check_all_sources": {"queue": "source_checks"},
+    "src.worker.celery_app.cleanup_old_data": {"queue": "maintenance"},
+    "src.worker.celery_app.generate_daily_report": {"queue": "reports"},
+    "src.worker.celery_app.test_source_connectivity": {"queue": "connectivity"},
+    "src.worker.celery_app.collect_from_source": {"queue": "collection"},
+    "src.worker.celery_app.trigger_agentic_workflow": {"queue": "workflows"},
+    "src.worker.celery_app.sync_sigma_rules": {"queue": "maintenance"},
+    "test.test_sub_agent": {"queue": "workflows"},
+    "test.test_rank_agent": {"queue": "workflows"},
+    "test.test_sigma_agent": {"queue": "workflows"},
 }
 
 # Queue definitions
-task_default_queue = 'default'
+task_default_queue = "default"
 task_queues = {
-    'default': {
-        'exchange': 'default',
-        'routing_key': 'default',
+    "default": {
+        "exchange": "default",
+        "routing_key": "default",
     },
-    'source_checks': {
-        'exchange': 'source_checks',
-        'routing_key': 'source_checks',
+    "source_checks": {
+        "exchange": "source_checks",
+        "routing_key": "source_checks",
     },
-    'priority_checks': {
-        'exchange': 'priority_checks',
-        'routing_key': 'priority_checks',
+    "priority_checks": {
+        "exchange": "priority_checks",
+        "routing_key": "priority_checks",
     },
-    'maintenance': {
-        'exchange': 'maintenance',
-        'routing_key': 'maintenance',
+    "maintenance": {
+        "exchange": "maintenance",
+        "routing_key": "maintenance",
     },
-    'reports': {
-        'exchange': 'reports',
-        'routing_key': 'reports',
+    "reports": {
+        "exchange": "reports",
+        "routing_key": "reports",
     },
-    'connectivity': {
-        'exchange': 'connectivity',
-        'routing_key': 'connectivity',
+    "connectivity": {
+        "exchange": "connectivity",
+        "routing_key": "connectivity",
     },
-    'collection': {
-        'exchange': 'collection',
-        'routing_key': 'collection',
+    "collection": {
+        "exchange": "collection",
+        "routing_key": "collection",
     },
-    'workflows': {
-        'exchange': 'workflows',
-        'routing_key': 'workflows',
+    "workflows": {
+        "exchange": "workflows",
+        "routing_key": "workflows",
     },
 }
 
@@ -98,17 +100,19 @@ worker_send_task_events = True
 task_send_sent_event = True
 
 # Logging
-worker_log_format = '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s'
-worker_task_log_format = '[%(asctime)s: %(levelname)s/%(processName)s] [%(task_name)s(%(task_id)s)] %(message)s'
+worker_log_format = "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s"
+worker_task_log_format = "[%(asctime)s: %(levelname)s/%(processName)s] [%(task_name)s(%(task_id)s)] %(message)s"
 
 # Security
 worker_direct = False
 worker_redirect_stdouts = True
-worker_redirect_stdouts_level = 'INFO'
+worker_redirect_stdouts_level = "INFO"
 
 # Performance
 worker_prefetch_multiplier = 1
-worker_max_tasks_per_child = int(os.getenv('CELERY_MAX_TASKS_PER_CHILD', '50'))  # Configurable, default 50 to prevent memory leaks
+worker_max_tasks_per_child = int(
+    os.getenv("CELERY_MAX_TASKS_PER_CHILD", "50")
+)  # Configurable, default 50 to prevent memory leaks
 worker_disable_rate_limits = False
 
 # Error handling

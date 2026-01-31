@@ -8,7 +8,7 @@ See docs/OpenAI_Chat_Models_Reference.md for model specs.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -26,16 +26,16 @@ def openai_is_reasoning_model(model_name: str) -> bool:
 
 def openai_build_chat_payload(
     model_name: str,
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     *,
     max_tokens: int = 2000,
     temperature: float = 0.3,
-    use_reasoning: Optional[bool] = None,
-) -> Dict[str, Any]:
+    use_reasoning: bool | None = None,
+) -> dict[str, Any]:
     """Build Chat Completions payload. use_reasoning=None infers from model name."""
     if use_reasoning is None:
         use_reasoning = openai_is_reasoning_model(model_name)
-    payload: Dict[str, Any] = {"model": model_name, "messages": messages}
+    payload: dict[str, Any] = {"model": model_name, "messages": messages}
     if use_reasoning:
         payload["max_completion_tokens"] = max_tokens
     else:
@@ -47,7 +47,7 @@ def openai_build_chat_payload(
 async def openai_chat_completions(
     api_key: str,
     model_name: str,
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     *,
     max_tokens: int = 2000,
     temperature: float = 0.3,
@@ -62,9 +62,7 @@ async def openai_chat_completions(
 
     model_name = (model_name or "").strip() or "gpt-4o-mini"
     use_reasoning = openai_is_reasoning_model(model_name)
-    payload = openai_build_chat_payload(
-        model_name, messages, max_tokens=max_tokens, temperature=temperature
-    )
+    payload = openai_build_chat_payload(model_name, messages, max_tokens=max_tokens, temperature=temperature)
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -82,10 +80,7 @@ async def openai_chat_completions(
             return result["choices"][0]["message"]["content"]
 
         error_text = response.text.lower()
-        is_param_error = (
-            "unsupported parameter" in error_text
-            or "unrecognized request argument" in error_text
-        )
+        is_param_error = "unsupported parameter" in error_text or "unrecognized request argument" in error_text
 
         if response.status_code == 400 and is_param_error:
             # Retry with opposite param set (handles new/unknown models)
