@@ -23,9 +23,7 @@ logger = logging.getLogger("cti_scraper.web")
 
 # Environment configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-DEFAULT_SOURCE_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
-)
+DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
 
 # Template environment with custom filters
 templates = Jinja2Templates(directory="src/web/templates")

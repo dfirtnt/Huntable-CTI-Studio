@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -16,11 +15,11 @@ router = APIRouter(prefix="/api/ml-hunt-comparison", tags=["ML Hunt Comparison"]
 
 
 @router.get("/stats")
-async def get_model_comparison_stats(model_version: Optional[str] = None):
+async def get_model_comparison_stats(model_version: str | None = None):
     """Get comparison statistics for model versions."""
     try:
-        from src.services.chunk_analysis_service import ChunkAnalysisService
         from src.database.manager import DatabaseManager
+        from src.services.chunk_analysis_service import ChunkAnalysisService
 
         db_manager = DatabaseManager()
         sync_db = db_manager.get_session()
@@ -37,20 +36,20 @@ async def get_model_comparison_stats(model_version: Optional[str] = None):
 
 @router.get("/results")
 async def get_chunk_analysis_results(
-    article_id: Optional[int] = None,
-    model_version: Optional[str] = None,
-    hunt_score_min: Optional[float] = None,
-    hunt_score_max: Optional[float] = None,
-    ml_prediction: Optional[bool] = None,
-    hunt_prediction: Optional[bool] = None,
-    agreement: Optional[bool] = None,
+    article_id: int | None = None,
+    model_version: str | None = None,
+    hunt_score_min: float | None = None,
+    hunt_score_max: float | None = None,
+    ml_prediction: bool | None = None,
+    hunt_prediction: bool | None = None,
+    agreement: bool | None = None,
     limit: int = 100,
     offset: int = 0,
 ):
     """Get chunk analysis results with filtering."""
     try:
-        from src.services.chunk_analysis_service import ChunkAnalysisService
         from src.database.manager import DatabaseManager
+        from src.services.chunk_analysis_service import ChunkAnalysisService
 
         db_manager = DatabaseManager()
         sync_db = db_manager.get_session()
@@ -79,8 +78,8 @@ async def get_chunk_analysis_results(
 async def get_available_model_versions():
     """Get list of available model versions."""
     try:
-        from src.services.chunk_analysis_service import ChunkAnalysisService
         from src.database.manager import DatabaseManager
+        from src.services.chunk_analysis_service import ChunkAnalysisService
 
         db_manager = DatabaseManager()
         sync_db = db_manager.get_session()
@@ -124,7 +123,7 @@ async def get_backfill_logs():
         import subprocess
 
         log_file = "/tmp/backfill_logs.txt"
-        
+
         # First, try reading from log file inside Docker container (most reliable)
         try:
             result = subprocess.run(
@@ -133,7 +132,7 @@ async def get_backfill_logs():
                 text=True,
                 timeout=5,
             )
-            
+
             if result.returncode == 0 and result.stdout:
                 content = result.stdout.strip()
                 if content:
@@ -143,7 +142,7 @@ async def get_backfill_logs():
             logger.debug("Docker command not found, trying host filesystem")
             if os.path.exists(log_file):
                 try:
-                    with open(log_file, "r") as file:
+                    with open(log_file) as file:
                         content = file.read().strip()
                     if content:
                         return {"success": True, "logs": content}
@@ -212,14 +211,14 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
         import traceback
 
         log_file = "/tmp/backfill_logs.txt"
-        
+
         # Ensure log file directory exists and is writable
         try:
             with open(log_file, "w") as file:
                 file.write("🚀 Starting article processing...\n")
                 file.write(f"📅 Started at {time.strftime('%H:%M:%S')}\n")
                 file.write(f"📊 Processing articles with hunt_score > {min_hunt_score}\n")
-                file.write(f"🤖 Using ML model with {min_confidence*100:.0f}% confidence threshold\n")
+                file.write(f"🤖 Using ML model with {min_confidence * 100:.0f}% confidence threshold\n")
                 file.write("⏳ This may take several minutes...\n\n")
             logger.info(f"Initialized log file at {log_file}")
         except Exception as log_init_error:
@@ -235,23 +234,23 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
             sync_db = None
             try:
                 logger.info(f"Background task started: processing articles with hunt_score > {min_hunt_score}")
-                
+
                 # Write to log file
                 try:
                     with open(log_file, "a") as file:
                         file.write(f"[{time.strftime('%H:%M:%S')}] Initializing database connection...\n")
                 except Exception:
                     pass  # Log file write failed, continue with logger
-                
+
                 db_manager = DatabaseManager()
                 sync_db = db_manager.get_session()
-                
+
                 try:
                     with open(log_file, "a") as file:
                         file.write(f"[{time.strftime('%H:%M:%S')}] Starting chunk analysis backfill service...\n")
                 except Exception:
                     pass
-                
+
                 service = ChunkAnalysisBackfillService(sync_db)
                 results = service.backfill_all(
                     min_hunt_score=min_hunt_score,
@@ -271,24 +270,26 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
                 except Exception:
                     pass
 
-                logger.info(f"Backfill completed: {results.get('successful', 0)}/{results.get('total_eligible', 0)} successful")
+                logger.info(
+                    f"Backfill completed: {results.get('successful', 0)}/{results.get('total_eligible', 0)} successful"
+                )
                 return results
-                
+
             except Exception as task_error:  # noqa: BLE001
                 error_msg = str(task_error)
                 error_trace = traceback.format_exc()
                 logger.error(f"Error in background processing task: {error_msg}\n{error_trace}")
-                
+
                 # Write error to log file
                 try:
                     with open(log_file, "a") as file:
-                        file.write(f"\n❌ Processing Failed!\n")
+                        file.write("\n❌ Processing Failed!\n")
                         file.write(f"Error: {error_msg}\n")
                         file.write(f"Time: {time.strftime('%H:%M:%S')}\n")
                         file.write(f"Traceback:\n{error_trace}\n")
                 except Exception:
                     pass  # Log file write failed, error already logged
-                
+
                 raise  # Re-raise to ensure task failure is visible
             finally:
                 if sync_db:
@@ -315,7 +316,7 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
 
         # Create background task with error handling
         task = asyncio.create_task(process_articles())
-        
+
         # Add done callback to log completion/failure
         def task_done_callback(task):
             try:
@@ -323,7 +324,7 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
                     logger.error(f"Background task failed: {task.exception()}")
             except Exception:
                 pass
-        
+
         task.add_done_callback(task_done_callback)
 
         return {
@@ -341,9 +342,9 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
 async def get_comparison_summary():
     """Get summary statistics for the comparison."""
     try:
-        from src.services.chunk_analysis_service import ChunkAnalysisService
-        from src.database.models import MLModelVersionTable
         from src.database.manager import DatabaseManager
+        from src.database.models import MLModelVersionTable
+        from src.services.chunk_analysis_service import ChunkAnalysisService
 
         db_manager = DatabaseManager()
         sync_db = db_manager.get_session()

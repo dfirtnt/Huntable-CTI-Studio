@@ -43,9 +43,7 @@ async def api_sources_failing():
             consecutive_failures = getattr(source, "consecutive_failures", 0)
             if consecutive_failures > 0:
                 last_success = source.last_success
-                last_success_str = (
-                    last_success.strftime("%Y-%m-%d") if last_success else "Never"
-                )
+                last_success_str = last_success.strftime("%Y-%m-%d") if last_success else "Never"
 
                 failing_sources.append(
                     {
@@ -136,9 +134,7 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
         min_content_length = request.get("min_content_length")
 
         if min_content_length is None:
-            raise HTTPException(
-                status_code=400, detail="min_content_length is required"
-            )
+            raise HTTPException(status_code=400, detail="min_content_length is required")
 
         if not isinstance(min_content_length, int) or min_content_length < 0:
             raise HTTPException(
@@ -146,9 +142,7 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
                 detail="min_content_length must be a non-negative integer",
             )
 
-        result = await async_db_manager.update_source_min_content_length(
-            source_id, min_content_length
-        )
+        result = await async_db_manager.update_source_min_content_length(source_id, min_content_length)
         if not result:
             raise HTTPException(status_code=404, detail="Source not found")
 
@@ -173,14 +167,10 @@ async def api_update_source_lookback(source_id: int, request: dict):
             try:
                 lookback_days = int(lookback_days)
             except ValueError as exc:
-                raise HTTPException(
-                    status_code=400, detail="lookback_days must be a valid integer"
-                ) from exc
+                raise HTTPException(status_code=400, detail="lookback_days must be a valid integer") from exc
 
         if lookback_days < 1 or lookback_days > 365:
-            raise HTTPException(
-                status_code=400, detail="lookback_days must be between 1 and 365"
-            )
+            raise HTTPException(status_code=400, detail="lookback_days must be between 1 and 365")
 
         source = await async_db_manager.get_source(source_id)
         if not source:
@@ -191,9 +181,7 @@ async def api_update_source_lookback(source_id: int, request: dict):
         if not updated_source:
             raise HTTPException(status_code=500, detail="Failed to update source")
 
-        logger.info(
-            "Updated lookback window for source %s to %s days", source_id, lookback_days
-        )
+        logger.info("Updated lookback window for source %s to %s days", source_id, lookback_days)
 
         return {
             "success": True,
@@ -215,20 +203,17 @@ async def api_update_source_check_frequency(source_id: int, request: dict):
         check_frequency = request.get("check_frequency")
 
         if not check_frequency or not isinstance(check_frequency, int):
-            raise HTTPException(
-                status_code=400, detail="check_frequency must be a valid integer"
-            )
+            raise HTTPException(status_code=400, detail="check_frequency must be a valid integer")
 
         if check_frequency < 60:
-            raise HTTPException(
-                status_code=400, detail="check_frequency must be at least 60 seconds"
-            )
+            raise HTTPException(status_code=400, detail="check_frequency must be at least 60 seconds")
 
         source = await async_db_manager.get_source(source_id)
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
 
         from sqlalchemy import update
+
         from src.database.models import SourceTable
 
         async with async_db_manager.get_session() as session:
@@ -250,10 +235,7 @@ async def api_update_source_check_frequency(source_id: int, request: dict):
 
         return {
             "success": True,
-            "message": (
-                f"Check frequency updated to {check_frequency} seconds "
-                f"({check_frequency // 60} minutes)"
-            ),
+            "message": (f"Check frequency updated to {check_frequency} seconds ({check_frequency // 60} minutes)"),
             "check_frequency": check_frequency,
         }
 
@@ -275,9 +257,7 @@ async def api_source_stats(source_id: int):
         articles = await async_db_manager.list_articles_by_source(source_id)
 
         total_articles = len(articles)
-        avg_content_length = sum(
-            len(article.content or "") for article in articles
-        ) / max(total_articles, 1)
+        avg_content_length = sum(len(article.content or "") for article in articles) / max(total_articles, 1)
 
         threat_hunting_scores = []
         for article in articles:
@@ -287,9 +267,7 @@ async def api_source_stats(source_id: int):
                     threat_hunting_scores.append(score)
 
         avg_threat_hunting_score = (
-            sum(threat_hunting_scores) / len(threat_hunting_scores)
-            if threat_hunting_scores
-            else 0.0
+            sum(threat_hunting_scores) / len(threat_hunting_scores) if threat_hunting_scores else 0.0
         )
 
         articles_by_date: dict[str, int] = {}

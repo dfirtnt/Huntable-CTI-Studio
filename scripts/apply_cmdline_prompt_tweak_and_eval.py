@@ -9,6 +9,7 @@ and from inline/list enumerations; this edit targets those without changing stru
 Usage: .venv/bin/python3 scripts/apply_cmdline_prompt_tweak_and_eval.py [--base-url URL]
 Requires: web app and Celery worker running.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,7 +38,7 @@ TWEAK_SENTENCE = (
 
 
 def load_cmdline_urls() -> list[str]:
-    with open(CONFIG_EVAL_ARTICLES, "r") as f:
+    with open(CONFIG_EVAL_ARTICLES) as f:
         data = yaml.safe_load(f)
     entries = (data.get("subagents") or {}).get(SUBAGENT) or []
     return [e.get("url") for e in entries if e.get("url")]
@@ -90,7 +91,8 @@ def wait_until_complete(base_url: str, config_version: int) -> None:
     while time.monotonic() < deadline:
         data = get_results(base_url)
         pending = [
-            x for x in data.get("results", [])
+            x
+            for x in data.get("results", [])
             if x.get("status") == "pending" and x.get("config_version") == config_version
         ]
         if not pending:

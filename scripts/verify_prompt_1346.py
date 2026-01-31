@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Verify if the provided prompt matches config 1346."""
 
-import sys
 import json
+import sys
 
 # Prompt from user query
 user_prompt = """ROLE:
@@ -31,7 +31,7 @@ GLOBAL OUTPUT RULES
 2) No explanations, reasoning, markdown, comments, or extra text.
 3) JSON MUST be parseable by json.loads().
 4) Response MUST start with { and end with }.
-5) Escape Windows backslashes for JSON (each \ becomes \\).
+5) Escape Windows backslashes for JSON (each \\ becomes \\).
 6) Preserve original casing, spacing, quoting, and ordering EXACTLY.
 7) Deduplicate ONLY exact string matches.
 
@@ -168,12 +168,24 @@ Output ONLY the JSON object."""
 
 # Get prompt from database
 import subprocess
+
 result = subprocess.run(
-    ['docker', 'exec', 'cti_postgres', 'psql', '-U', 'cti_user', '-d', 'cti_scraper', 
-     '-t', '-A', '-c', 
-     "SELECT agent_prompts->'CmdlineExtract'->>'prompt' as prompt FROM agentic_workflow_config WHERE version = 1346 AND agent_prompts IS NOT NULL AND agent_prompts ? 'CmdlineExtract';"],
+    [
+        "docker",
+        "exec",
+        "cti_postgres",
+        "psql",
+        "-U",
+        "cti_user",
+        "-d",
+        "cti_scraper",
+        "-t",
+        "-A",
+        "-c",
+        "SELECT agent_prompts->'CmdlineExtract'->>'prompt' as prompt FROM agentic_workflow_config WHERE version = 1346 AND agent_prompts IS NOT NULL AND agent_prompts ? 'CmdlineExtract';",
+    ],
     capture_output=True,
-    text=True
+    text=True,
 )
 
 if result.returncode != 0:
@@ -187,11 +199,11 @@ if not db_prompt_json:
 
 # Parse JSON and extract the 'role' field
 db_prompt_obj = json.loads(db_prompt_json)
-db_prompt = db_prompt_obj.get('role', '')
+db_prompt = db_prompt_obj.get("role", "")
 
 # Normalize both prompts for comparison (strip trailing whitespace, normalize newlines)
-user_prompt_norm = user_prompt.strip().replace('\r\n', '\n')
-db_prompt_norm = db_prompt.strip().replace('\r\n', '\n')
+user_prompt_norm = user_prompt.strip().replace("\r\n", "\n")
+db_prompt_norm = db_prompt.strip().replace("\r\n", "\n")
 
 print("=" * 80)
 print("PROMPT COMPARISON")
@@ -204,7 +216,7 @@ if user_prompt_norm == db_prompt_norm:
     print("\n✅ PROMPTS ARE IDENTICAL")
 else:
     print("\n❌ PROMPTS ARE DIFFERENT")
-    
+
     # Find first difference
     min_len = min(len(user_prompt_norm), len(db_prompt_norm))
     for i in range(min_len):
@@ -217,7 +229,7 @@ else:
             print(f"\nDB prompt (around position {i}):")
             print(repr(db_prompt_norm[start:end]))
             break
-    
+
     # Check if it's just whitespace differences
-    if user_prompt_norm.replace(' ', '').replace('\n', '') == db_prompt_norm.replace(' ', '').replace('\n', ''):
+    if user_prompt_norm.replace(" ", "").replace("\n", "") == db_prompt_norm.replace(" ", "").replace("\n", ""):
         print("\n⚠️  Differences appear to be only whitespace/newline formatting")

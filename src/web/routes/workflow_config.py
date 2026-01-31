@@ -4,15 +4,14 @@ API routes for agentic workflow configuration management.
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable, WorkflowConfigPresetTable
-from src.services.sigma_generation_service import SigmaGenerationService
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +20,7 @@ router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 
 class WorkflowConfigResponse(BaseModel):
     """Response model for workflow configuration."""
+
     id: int
     min_hunt_score: float
     ranking_threshold: float
@@ -29,10 +29,10 @@ class WorkflowConfigResponse(BaseModel):
     auto_trigger_hunt_score_threshold: float
     version: int
     is_active: bool
-    description: Optional[str]
-    agent_prompts: Optional[Dict[str, Any]] = None
-    agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow None values
-    qa_enabled: Optional[Dict[str, bool]] = None
+    description: str | None
+    agent_prompts: dict[str, Any] | None = None
+    agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow None values
+    qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool = False
     qa_max_retries: int = 5
     rank_agent_enabled: bool = True
@@ -42,38 +42,44 @@ class WorkflowConfigResponse(BaseModel):
 
 class WorkflowConfigUpdate(BaseModel):
     """Request model for updating workflow configuration."""
-    min_hunt_score: Optional[float] = Field(None, ge=0.0, le=100.0)
-    ranking_threshold: Optional[float] = Field(None, ge=0.0, le=10.0, description="Must be between 0.0 and 10.0")
-    similarity_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
-    junk_filter_threshold: Optional[float] = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
-    auto_trigger_hunt_score_threshold: Optional[float] = Field(None, ge=0.0, le=100.0, description="RegexHuntScore threshold for auto-triggering workflows (0-100)")
-    description: Optional[str] = None
-    agent_prompts: Optional[Dict[str, Any]] = None
-    agent_models: Optional[Dict[str, Any]] = None  # Changed from Dict[str, str] to allow numeric temperatures
-    qa_enabled: Optional[Dict[str, bool]] = None
-    sigma_fallback_enabled: Optional[bool] = None
-    rank_agent_enabled: Optional[bool] = None
-    qa_max_retries: Optional[int] = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
+
+    min_hunt_score: float | None = Field(None, ge=0.0, le=100.0)
+    ranking_threshold: float | None = Field(None, ge=0.0, le=10.0, description="Must be between 0.0 and 10.0")
+    similarity_threshold: float | None = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
+    junk_filter_threshold: float | None = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
+    auto_trigger_hunt_score_threshold: float | None = Field(
+        None, ge=0.0, le=100.0, description="RegexHuntScore threshold for auto-triggering workflows (0-100)"
+    )
+    description: str | None = None
+    agent_prompts: dict[str, Any] | None = None
+    agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow numeric temperatures
+    qa_enabled: dict[str, bool] | None = None
+    sigma_fallback_enabled: bool | None = None
+    rank_agent_enabled: bool | None = None
+    qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
 
 
 class AgentPromptUpdate(BaseModel):
     """Request model for updating agent prompts."""
+
     agent_name: str
-    prompt: Optional[str] = None
-    instructions: Optional[str] = None
-    change_description: Optional[str] = None
+    prompt: str | None = None
+    instructions: str | None = None
+    change_description: str | None = None
 
 
 class RollbackRequest(BaseModel):
     """Request model for rolling back agent prompts."""
+
     version_id: int
 
 
 class SaveConfigPresetRequest(BaseModel):
     """Request model for saving a workflow config preset."""
+
     name: str
-    description: Optional[str] = None
-    config: Dict[str, Any]
+    description: str | None = None
+    config: dict[str, Any]
 
 
 @router.get("/config", response_model=WorkflowConfigResponse)
@@ -82,14 +88,15 @@ async def get_workflow_config(request: Request):
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
+            config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .first()
+            )
+
             if not config:
                 # Create default config
                 config = AgenticWorkflowConfigTable(
@@ -103,26 +110,30 @@ async def get_workflow_config(request: Request):
                     description="Default configuration",
                     sigma_fallback_enabled=False,
                     qa_enabled={},
-                    qa_max_retries=5
+                    qa_max_retries=5,
                 )
                 db_session.add(config)
                 db_session.commit()
                 db_session.refresh(config)
-            
+
             # Ensure agent_models, agent_prompts, and qa_enabled are properly serialized
             # JSONB fields should already be dicts, but ensure they're not None
             agent_models = config.agent_models if config.agent_models is not None else {}
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             qa_enabled = config.qa_enabled if config.qa_enabled is not None else {}
-            
+
             # Get auto_trigger_hunt_score_threshold, handling both attribute access and potential None
             auto_trigger_threshold = 60.0  # default
             try:
-                if hasattr(config, 'auto_trigger_hunt_score_threshold'):
-                    auto_trigger_threshold = config.auto_trigger_hunt_score_threshold if config.auto_trigger_hunt_score_threshold is not None else 60.0
+                if hasattr(config, "auto_trigger_hunt_score_threshold"):
+                    auto_trigger_threshold = (
+                        config.auto_trigger_hunt_score_threshold
+                        if config.auto_trigger_hunt_score_threshold is not None
+                        else 60.0
+                    )
             except (AttributeError, TypeError):
                 pass
-            
+
             return WorkflowConfigResponse(
                 id=config.id,
                 min_hunt_score=config.min_hunt_score,
@@ -136,15 +147,17 @@ async def get_workflow_config(request: Request):
                 agent_prompts=agent_prompts,
                 agent_models=agent_models,
                 qa_enabled=qa_enabled,
-                sigma_fallback_enabled=config.sigma_fallback_enabled if hasattr(config, 'sigma_fallback_enabled') else False,
-                qa_max_retries=config.qa_max_retries if hasattr(config, 'qa_max_retries') else 5,
-                rank_agent_enabled=config.rank_agent_enabled if hasattr(config, 'rank_agent_enabled') else True,
+                sigma_fallback_enabled=config.sigma_fallback_enabled
+                if hasattr(config, "sigma_fallback_enabled")
+                else False,
+                qa_max_retries=config.qa_max_retries if hasattr(config, "qa_max_retries") else 5,
+                rank_agent_enabled=config.rank_agent_enabled if hasattr(config, "rank_agent_enabled") else True,
                 created_at=config.created_at.isoformat(),
-                updated_at=config.updated_at.isoformat()
+                updated_at=config.updated_at.isoformat(),
             )
         finally:
             db_session.close()
-            
+
     except Exception as e:
         logger.error(f"Error getting workflow config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -156,15 +169,17 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
             # Deactivate current active config
             # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).with_for_update().first()  # Lock the row to prevent concurrent updates
+            current_config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .with_for_update()
+                .first()
+            )  # Lock the row to prevent concurrent updates
 
             if current_config:
                 current_config.is_active = False
@@ -172,30 +187,77 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 new_version = current_config.version + 1
             else:
                 new_version = 1
-            
+
             # Validate thresholds
-            ranking_threshold = config_update.ranking_threshold if config_update.ranking_threshold is not None else (current_config.ranking_threshold if current_config else 6.0)
-            similarity_threshold = config_update.similarity_threshold if config_update.similarity_threshold is not None else (current_config.similarity_threshold if current_config else 0.5)
-            junk_filter_threshold = config_update.junk_filter_threshold if config_update.junk_filter_threshold is not None else (current_config.junk_filter_threshold if current_config else 0.8)
-            auto_trigger_hunt_score_threshold = config_update.auto_trigger_hunt_score_threshold if config_update.auto_trigger_hunt_score_threshold is not None else (current_config.auto_trigger_hunt_score_threshold if current_config and hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0)
-            
+            ranking_threshold = (
+                config_update.ranking_threshold
+                if config_update.ranking_threshold is not None
+                else (current_config.ranking_threshold if current_config else 6.0)
+            )
+            similarity_threshold = (
+                config_update.similarity_threshold
+                if config_update.similarity_threshold is not None
+                else (current_config.similarity_threshold if current_config else 0.5)
+            )
+            junk_filter_threshold = (
+                config_update.junk_filter_threshold
+                if config_update.junk_filter_threshold is not None
+                else (current_config.junk_filter_threshold if current_config else 0.8)
+            )
+            auto_trigger_hunt_score_threshold = (
+                config_update.auto_trigger_hunt_score_threshold
+                if config_update.auto_trigger_hunt_score_threshold is not None
+                else (
+                    current_config.auto_trigger_hunt_score_threshold
+                    if current_config and hasattr(current_config, "auto_trigger_hunt_score_threshold")
+                    else 60.0
+                )
+            )
+
             if not (0.0 <= ranking_threshold <= 10.0):
-                raise HTTPException(status_code=400, detail=f"Ranking threshold must be between 0.0 and 10.0, got {ranking_threshold}")
+                raise HTTPException(
+                    status_code=400, detail=f"Ranking threshold must be between 0.0 and 10.0, got {ranking_threshold}"
+                )
             if not (0.0 <= similarity_threshold <= 1.0):
-                raise HTTPException(status_code=400, detail=f"Similarity threshold must be between 0.0 and 1.0, got {similarity_threshold}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Similarity threshold must be between 0.0 and 1.0, got {similarity_threshold}",
+                )
             if not (0.0 <= junk_filter_threshold <= 1.0):
-                raise HTTPException(status_code=400, detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}",
+                )
             if not (0.0 <= auto_trigger_hunt_score_threshold <= 100.0):
-                raise HTTPException(status_code=400, detail=f"Auto trigger hunt score threshold must be between 0.0 and 100.0, got {auto_trigger_hunt_score_threshold}")
-            
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Auto trigger hunt score threshold must be between 0.0 and 100.0, got {auto_trigger_hunt_score_threshold}",
+                )
+
             # Create new config version
-            sigma_fallback = config_update.sigma_fallback_enabled if config_update.sigma_fallback_enabled is not None else (current_config.sigma_fallback_enabled if current_config and hasattr(current_config, 'sigma_fallback_enabled') else False)
-            qa_max_retries = config_update.qa_max_retries if config_update.qa_max_retries is not None else (current_config.qa_max_retries if current_config and hasattr(current_config, 'qa_max_retries') else 5)
-            
+            sigma_fallback = (
+                config_update.sigma_fallback_enabled
+                if config_update.sigma_fallback_enabled is not None
+                else (
+                    current_config.sigma_fallback_enabled
+                    if current_config and hasattr(current_config, "sigma_fallback_enabled")
+                    else False
+                )
+            )
+            qa_max_retries = (
+                config_update.qa_max_retries
+                if config_update.qa_max_retries is not None
+                else (
+                    current_config.qa_max_retries if current_config and hasattr(current_config, "qa_max_retries") else 5
+                )
+            )
+
             # Validate qa_max_retries
             if not (1 <= qa_max_retries <= 20):
-                raise HTTPException(status_code=400, detail=f"QA max retries must be between 1 and 20, got {qa_max_retries}")
-            
+                raise HTTPException(
+                    status_code=400, detail=f"QA max retries must be between 1 and 20, got {qa_max_retries}"
+                )
+
             # Merge agent_models instead of replacing (preserve existing models when updating)
             merged_agent_models = None
             if config_update.agent_models is not None:
@@ -218,20 +280,53 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 for key in keys_to_remove:
                     if key in merged_agent_models:
                         del merged_agent_models[key]
-                logger.info(f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})")
+                logger.info(
+                    f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})"
+                )
             elif current_config:
                 merged_agent_models = current_config.agent_models
-            
+
             # Determine final values for new config
-            final_min_hunt_score = config_update.min_hunt_score if config_update.min_hunt_score is not None else (current_config.min_hunt_score if current_config else 97.0)
-            final_description = config_update.description or (current_config.description if current_config else "Updated configuration")
-            final_agent_prompts = config_update.agent_prompts if config_update.agent_prompts is not None else (current_config.agent_prompts if current_config else None)
-            final_qa_enabled = config_update.qa_enabled if config_update.qa_enabled is not None else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
-            final_rank_agent_enabled = config_update.rank_agent_enabled if config_update.rank_agent_enabled is not None else (current_config.rank_agent_enabled if current_config and hasattr(current_config, 'rank_agent_enabled') and current_config.rank_agent_enabled is not None else True)
-            
+            final_min_hunt_score = (
+                config_update.min_hunt_score
+                if config_update.min_hunt_score is not None
+                else (current_config.min_hunt_score if current_config else 97.0)
+            )
+            final_description = config_update.description or (
+                current_config.description if current_config else "Updated configuration"
+            )
+            final_agent_prompts = (
+                config_update.agent_prompts
+                if config_update.agent_prompts is not None
+                else (current_config.agent_prompts if current_config else None)
+            )
+            final_qa_enabled = (
+                config_update.qa_enabled
+                if config_update.qa_enabled is not None
+                else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
+            )
+            final_rank_agent_enabled = (
+                config_update.rank_agent_enabled
+                if config_update.rank_agent_enabled is not None
+                else (
+                    current_config.rank_agent_enabled
+                    if current_config
+                    and hasattr(current_config, "rank_agent_enabled")
+                    and current_config.rank_agent_enabled is not None
+                    else True
+                )
+            )
+
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
             if final_agent_prompts:
-                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA"]
+                extraction_agents = [
+                    "CmdlineExtract",
+                    "ProcTreeExtract",
+                    "HuntQueriesExtract",
+                    "CmdLineQA",
+                    "ProcTreeQA",
+                    "HuntQueriesQA",
+                ]
                 for agent_name, prompt_data in final_agent_prompts.items():
                     if agent_name in extraction_agents and isinstance(prompt_data, dict):
                         prompt_str = prompt_data.get("prompt")
@@ -241,23 +336,23 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                             except json.JSONDecodeError as e:
                                 raise HTTPException(
                                     status_code=400,
-                                    detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}"
+                                    detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
                                 )
-            
+
             # Check if the new config would be identical to the current one
             if current_config:
                 # Compare all fields
-                
+
                 configs_identical = (
-                    abs(current_config.min_hunt_score - final_min_hunt_score) < 0.0001 and
-                    abs(current_config.ranking_threshold - ranking_threshold) < 0.0001 and
-                    abs(current_config.similarity_threshold - similarity_threshold) < 0.0001 and
-                    abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001 and
-                    current_config.sigma_fallback_enabled == sigma_fallback and
-                    current_config.qa_max_retries == qa_max_retries and
-                    getattr(current_config, 'rank_agent_enabled', True) == final_rank_agent_enabled
+                    abs(current_config.min_hunt_score - final_min_hunt_score) < 0.0001
+                    and abs(current_config.ranking_threshold - ranking_threshold) < 0.0001
+                    and abs(current_config.similarity_threshold - similarity_threshold) < 0.0001
+                    and abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001
+                    and current_config.sigma_fallback_enabled == sigma_fallback
+                    and current_config.qa_max_retries == qa_max_retries
+                    and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
                 )
-                
+
                 # Deep compare JSONB fields
                 if configs_identical:
                     # Compare agent_models
@@ -265,35 +360,37 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     new_models = merged_agent_models or {}
                     if json.dumps(current_models, sort_keys=True) != json.dumps(new_models, sort_keys=True):
                         configs_identical = False
-                
+
                 if configs_identical:
                     # Compare qa_enabled
                     current_qa = current_config.qa_enabled or {}
                     new_qa = final_qa_enabled or {}
                     if json.dumps(current_qa, sort_keys=True) != json.dumps(new_qa, sort_keys=True):
                         configs_identical = False
-                
+
                 if configs_identical:
                     # Compare agent_prompts
                     current_prompts = current_config.agent_prompts or {}
                     new_prompts = final_agent_prompts or {}
                     if json.dumps(current_prompts, sort_keys=True) != json.dumps(new_prompts, sort_keys=True):
                         configs_identical = False
-                
+
                 if configs_identical:
                     # No changes detected - reactivate current config and return it
                     current_config.is_active = True
                     db_session.commit()
                     db_session.refresh(current_config)
                     logger.info(f"No changes detected - keeping current config version {current_config.version}")
-                    
+
                     return WorkflowConfigResponse(
                         id=current_config.id,
                         min_hunt_score=current_config.min_hunt_score,
                         ranking_threshold=current_config.ranking_threshold,
                         similarity_threshold=current_config.similarity_threshold,
                         junk_filter_threshold=current_config.junk_filter_threshold,
-                        auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
+                        auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
+                        if hasattr(current_config, "auto_trigger_hunt_score_threshold")
+                        else 60.0,
                         version=current_config.version,
                         is_active=current_config.is_active,
                         description=current_config.description,
@@ -302,11 +399,13 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         qa_enabled=current_config.qa_enabled,
                         sigma_fallback_enabled=current_config.sigma_fallback_enabled,
                         qa_max_retries=current_config.qa_max_retries,
-                        rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
+                        rank_agent_enabled=current_config.rank_agent_enabled
+                        if hasattr(current_config, "rank_agent_enabled")
+                        else True,
                         created_at=current_config.created_at.isoformat(),
-                        updated_at=current_config.updated_at.isoformat()
+                        updated_at=current_config.updated_at.isoformat(),
                     )
-            
+
             # Create new config version (only if changes were detected)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=final_min_hunt_score,
@@ -322,22 +421,24 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 qa_enabled=final_qa_enabled,
                 sigma_fallback_enabled=sigma_fallback,
                 qa_max_retries=qa_max_retries,
-                rank_agent_enabled=final_rank_agent_enabled
+                rank_agent_enabled=final_rank_agent_enabled,
             )
-            
+
             db_session.add(new_config)
             db_session.commit()
             db_session.refresh(new_config)
-            
+
             logger.info(f"Updated workflow config to version {new_version}")
-            
+
             return WorkflowConfigResponse(
                 id=new_config.id,
                 min_hunt_score=new_config.min_hunt_score,
                 ranking_threshold=new_config.ranking_threshold,
                 similarity_threshold=new_config.similarity_threshold,
                 junk_filter_threshold=new_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=new_config.auto_trigger_hunt_score_threshold if hasattr(new_config, 'auto_trigger_hunt_score_threshold') else 60.0,
+                auto_trigger_hunt_score_threshold=new_config.auto_trigger_hunt_score_threshold
+                if hasattr(new_config, "auto_trigger_hunt_score_threshold")
+                else 60.0,
                 version=new_config.version,
                 is_active=new_config.is_active,
                 description=new_config.description,
@@ -346,13 +447,13 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
                 qa_max_retries=new_config.qa_max_retries,
-                rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, 'rank_agent_enabled') else True,
+                rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
                 created_at=new_config.created_at.isoformat(),
-                updated_at=new_config.updated_at.isoformat()
+                updated_at=new_config.updated_at.isoformat(),
             )
         finally:
             db_session.close()
-            
+
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -365,9 +466,11 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            existing = db_session.query(WorkflowConfigPresetTable).filter(
-                WorkflowConfigPresetTable.name == save_request.name
-            ).first()
+            existing = (
+                db_session.query(WorkflowConfigPresetTable)
+                .filter(WorkflowConfigPresetTable.name == save_request.name)
+                .first()
+            )
             if existing:
                 existing.description = save_request.description
                 existing.config_json = save_request.config
@@ -409,9 +512,7 @@ async def list_config_presets(request: Request):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            presets = db_session.query(WorkflowConfigPresetTable).order_by(
-                WorkflowConfigPresetTable.name.asc()
-            ).all()
+            presets = db_session.query(WorkflowConfigPresetTable).order_by(WorkflowConfigPresetTable.name.asc()).all()
             preset_list = [
                 {
                     "id": p.id,
@@ -437,9 +538,7 @@ async def get_config_preset(request: Request, preset_id: int):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            row = db_session.query(WorkflowConfigPresetTable).filter(
-                WorkflowConfigPresetTable.id == preset_id
-            ).first()
+            row = db_session.query(WorkflowConfigPresetTable).filter(WorkflowConfigPresetTable.id == preset_id).first()
             if not row:
                 raise HTTPException(status_code=404, detail="Preset not found")
             out = {
@@ -468,9 +567,7 @@ async def delete_config_preset(request: Request, preset_id: int):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            row = db_session.query(WorkflowConfigPresetTable).filter(
-                WorkflowConfigPresetTable.id == preset_id
-            ).first()
+            row = db_session.query(WorkflowConfigPresetTable).filter(WorkflowConfigPresetTable.id == preset_id).first()
             if not row:
                 raise HTTPException(status_code=404, detail="Preset not found")
             db_session.delete(row)
@@ -485,7 +582,7 @@ async def delete_config_preset(request: Request, preset_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> Dict[str, Any]:
+def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, Any]:
     """Build preset-shaped dict from agentic_workflow_config row for applyPreset()."""
     return {
         "version": "1.0",
@@ -497,7 +594,9 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> Dict[str, 
         "agent_models": config.agent_models if config.agent_models is not None else {},
         "qa_enabled": config.qa_enabled if config.qa_enabled is not None else {},
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False) or False,
-        "rank_agent_enabled": getattr(config, "rank_agent_enabled", True) if getattr(config, "rank_agent_enabled", None) is not None else True,
+        "rank_agent_enabled": getattr(config, "rank_agent_enabled", True)
+        if getattr(config, "rank_agent_enabled", None) is not None
+        else True,
         "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
         "extract_agent_settings": {"disabled_agents": []},
         "agent_prompts": config.agent_prompts if config.agent_prompts is not None else {},
@@ -511,9 +610,9 @@ async def list_config_versions(request: Request):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            rows = db_session.query(AgenticWorkflowConfigTable).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).all()
+            rows = (
+                db_session.query(AgenticWorkflowConfigTable).order_by(AgenticWorkflowConfigTable.version.desc()).all()
+            )
             return {
                 "success": True,
                 "versions": [
@@ -542,9 +641,11 @@ async def get_config_by_version(request: Request, version_number: int):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.version == version_number
-            ).first()
+            config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.version == version_number)
+                .first()
+            )
             if not config:
                 raise HTTPException(status_code=404, detail=f"No config with version {version_number}")
             return _config_row_to_preset_dict(config)
@@ -563,33 +664,38 @@ async def get_agent_prompts(request: Request):
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
             # Use with_for_update(skip_locked=True) to ensure we get the latest committed data
             # This prevents race conditions where a new config was just created but not yet visible
             # skip_locked=True allows the query to proceed even if another transaction has a lock
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).with_for_update(skip_locked=True).first()
-            
+            config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .with_for_update(skip_locked=True)
+                .first()
+            )
+
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
+
             # Get model names from config first, then fall back to environment
             import os
+
             default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
             rank_model_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
             extract_model_env = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
             sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
-            
+
             # Use config models if available, otherwise fall back to env vars
             agent_models = config.agent_models if config.agent_models is not None else {}
-            rank_model = agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            rank_model = (
+                agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            )
             extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
             sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
-            
+
             # IMPORTANT: Only return prompts from database (what workflow actually uses)
             # The workflow has NO file fallback - it requires prompts to be in the database
             # Showing file-based prompts in UI would be misleading
@@ -598,11 +704,14 @@ async def get_agent_prompts(request: Request):
 
             # Sub-agents list for model assignment
             sub_agents = [
-                "CmdlineExtract", "CmdLineQA",
-                "ProcTreeExtract", "ProcTreeQA",
-                "HuntQueriesExtract", "HuntQueriesQA"
+                "CmdlineExtract",
+                "CmdLineQA",
+                "ProcTreeExtract",
+                "ProcTreeQA",
+                "HuntQueriesExtract",
+                "HuntQueriesQA",
             ]
-            
+
             # Deleted subagents that should be filtered out
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract", "SigQA", "RegQA", "EventCodeQA"}
 
@@ -612,12 +721,12 @@ async def get_agent_prompts(request: Request):
                     # Skip deleted agents
                     if agent_name in deleted_agents:
                         continue
-                    
+
                     # Preserve ExtractAgentSettings (contains disabled_agents list)
                     if agent_name == "ExtractAgentSettings":
                         prompts_dict[agent_name] = prompt_data
                         continue
-                    
+
                     # Add model info if not in database prompt data
                     if "model" not in prompt_data:
                         if agent_name == "ExtractAgent":
@@ -635,7 +744,7 @@ async def get_agent_prompts(request: Request):
             return {"prompts": prompts_dict}
         finally:
             db_session.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -649,44 +758,50 @@ async def get_agent_prompt(request: Request, agent_name: str):
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
+            config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .first()
+            )
+
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
+
             if not config.agent_prompts or agent_name not in config.agent_prompts:
                 raise HTTPException(status_code=404, detail=f"Prompt not found for agent {agent_name}")
-            
+
             prompt_data = config.agent_prompts[agent_name]
-            
+
             # Also get from AgentPromptVersionTable if available for metadata
-            prompt_version = db_session.query(AgentPromptVersionTable).filter(
-                AgentPromptVersionTable.agent_name == agent_name,
-                AgentPromptVersionTable.workflow_config_version == config.version
-            ).order_by(AgentPromptVersionTable.version.desc()).first()
-            
+            prompt_version = (
+                db_session.query(AgentPromptVersionTable)
+                .filter(
+                    AgentPromptVersionTable.agent_name == agent_name,
+                    AgentPromptVersionTable.workflow_config_version == config.version,
+                )
+                .order_by(AgentPromptVersionTable.version.desc())
+                .first()
+            )
+
             result = {
                 "agent_name": agent_name,
                 "workflow_config_version": config.version,
                 "prompt": prompt_data.get("prompt", ""),
                 "instructions": prompt_data.get("instructions", ""),
             }
-            
+
             if prompt_version:
                 result["prompt_version"] = prompt_version.version
                 result["created_at"] = prompt_version.created_at.isoformat() if prompt_version.created_at else None
                 result["change_description"] = prompt_version.change_description
-            
+
             return result
         finally:
             db_session.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -700,20 +815,22 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
             # CRITICAL: Use order_by to ensure we get the latest active config
             # This prevents race conditions where another operation creates a new config
             # between when we query and when we update
-            current_config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).with_for_update().first()  # Lock the row to prevent concurrent updates
-            
+            current_config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .with_for_update()
+                .first()
+            )  # Lock the row to prevent concurrent updates
+
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            
+
             # Get existing prompts or create new dict
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
 
@@ -725,79 +842,103 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             current_config.is_active = False
             db_session.flush()  # Ensure old config is deactivated before creating new one
             new_version = current_config.version + 1
-            
+
             # Update or create agent prompt
             if prompt_update.agent_name not in agent_prompts:
                 agent_prompts[prompt_update.agent_name] = {}
-            
+
             # Validate JSON format for extraction agents
             if prompt_update.prompt is not None:
-                extraction_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA"]
+                extraction_agents = [
+                    "CmdlineExtract",
+                    "ProcTreeExtract",
+                    "HuntQueriesExtract",
+                    "CmdLineQA",
+                    "ProcTreeQA",
+                    "HuntQueriesQA",
+                ]
                 if prompt_update.agent_name in extraction_agents:
                     try:
                         json.loads(prompt_update.prompt)
                     except json.JSONDecodeError as e:
                         raise HTTPException(
                             status_code=400,
-                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}"
+                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
                         )
                 agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
             if prompt_update.instructions is not None:
                 agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
-            
+
             # Create new config version - preserve all fields including agent_models and qa_enabled
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
+                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
+                if hasattr(current_config, "auto_trigger_hunt_score_threshold")
+                else 60.0,
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Updated configuration",
                 agent_prompts=agent_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
-                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
-                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
-                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled
+                if hasattr(current_config, "sigma_fallback_enabled")
+                else False,
+                rank_agent_enabled=current_config.rank_agent_enabled
+                if hasattr(current_config, "rank_agent_enabled")
+                else True,
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
             )
-            
+
             db_session.add(new_config)
             db_session.flush()  # Flush to get new_config.id
-            
+
             # Save version history
             # Get the highest version number for this agent
-            max_version = db_session.query(func.max(AgentPromptVersionTable.version)).filter(
-                AgentPromptVersionTable.agent_name == prompt_update.agent_name
-            ).scalar() or 0
-            
+            max_version = (
+                db_session.query(func.max(AgentPromptVersionTable.version))
+                .filter(AgentPromptVersionTable.agent_name == prompt_update.agent_name)
+                .scalar()
+                or 0
+            )
+
             # Always save version history for all agents (same behavior as CmdlineExtract)
             # Use the new prompt/instructions if provided, otherwise use the old ones
             version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
-            version_instructions = prompt_update.instructions if prompt_update.instructions is not None else old_instructions
-            
+            version_instructions = (
+                prompt_update.instructions if prompt_update.instructions is not None else old_instructions
+            )
+
             prompt_version = AgentPromptVersionTable(
                 agent_name=prompt_update.agent_name,
                 prompt=version_prompt,
                 instructions=version_instructions,
                 version=max_version + 1,
                 workflow_config_version=new_version,
-                change_description=prompt_update.change_description
+                change_description=prompt_update.change_description,
             )
-            
+
             db_session.add(prompt_version)
             db_session.commit()
-            
-            logger.debug(f"Saved prompt version history for {prompt_update.agent_name}: version={max_version + 1}, workflow_config_version={new_version}")
+
+            logger.debug(
+                f"Saved prompt version history for {prompt_update.agent_name}: version={max_version + 1}, workflow_config_version={new_version}"
+            )
             db_session.refresh(new_config)
-            
+
             logger.info(f"Updated agent prompt for {prompt_update.agent_name} in config version {new_version}")
-            
-            return {"success": True, "message": f"Agent prompt updated for {prompt_update.agent_name}", "version": new_version}
+
+            return {
+                "success": True,
+                "message": f"Agent prompt updated for {prompt_update.agent_name}",
+                "version": new_version,
+            }
         finally:
             db_session.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -811,14 +952,15 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
-            versions = db_session.query(AgentPromptVersionTable).filter(
-                AgentPromptVersionTable.agent_name == agent_name
-            ).order_by(
-                AgentPromptVersionTable.version.desc()
-            ).all()
-            
+            versions = (
+                db_session.query(AgentPromptVersionTable)
+                .filter(AgentPromptVersionTable.agent_name == agent_name)
+                .order_by(AgentPromptVersionTable.version.desc())
+                .all()
+            )
+
             return {
                 "agent_name": agent_name,
                 "versions": [
@@ -829,14 +971,14 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
                         "instructions": v.instructions,
                         "workflow_config_version": v.workflow_config_version,
                         "change_description": v.change_description,
-                        "created_at": v.created_at.isoformat()
+                        "created_at": v.created_at.isoformat(),
                     }
                     for v in versions
-                ]
+                ],
             }
         finally:
             db_session.close()
-            
+
     except Exception as e:
         logger.error(f"Error getting prompt versions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -848,14 +990,19 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
             # First try agent_prompt_versions table
-            prompt_version = db_session.query(AgentPromptVersionTable).filter(
-                AgentPromptVersionTable.agent_name == agent_name,
-                AgentPromptVersionTable.workflow_config_version == config_version
-            ).order_by(AgentPromptVersionTable.version.desc()).first()
-            
+            prompt_version = (
+                db_session.query(AgentPromptVersionTable)
+                .filter(
+                    AgentPromptVersionTable.agent_name == agent_name,
+                    AgentPromptVersionTable.workflow_config_version == config_version,
+                )
+                .order_by(AgentPromptVersionTable.version.desc())
+                .first()
+            )
+
             if prompt_version:
                 return {
                     "agent_name": agent_name,
@@ -865,14 +1012,16 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
                     "instructions": prompt_version.instructions,
                     "prompt_version": prompt_version.version,
                     "created_at": prompt_version.created_at.isoformat() if prompt_version.created_at else None,
-                    "change_description": prompt_version.change_description
+                    "change_description": prompt_version.change_description,
                 }
-            
+
             # Fall back to workflow config's agent_prompts JSONB
-            config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.version == config_version
-            ).first()
-            
+            config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.version == config_version)
+                .first()
+            )
+
             if config and config.agent_prompts and agent_name in config.agent_prompts:
                 prompt_data = config.agent_prompts[agent_name]
                 return {
@@ -882,13 +1031,18 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
                     "prompt": prompt_data.get("prompt", ""),
                     "instructions": prompt_data.get("instructions", ""),
                 }
-            
+
             # If not found, find most recent version before this one
-            prev_version = db_session.query(AgentPromptVersionTable).filter(
-                AgentPromptVersionTable.agent_name == agent_name,
-                AgentPromptVersionTable.workflow_config_version < config_version
-            ).order_by(AgentPromptVersionTable.workflow_config_version.desc()).first()
-            
+            prev_version = (
+                db_session.query(AgentPromptVersionTable)
+                .filter(
+                    AgentPromptVersionTable.agent_name == agent_name,
+                    AgentPromptVersionTable.workflow_config_version < config_version,
+                )
+                .order_by(AgentPromptVersionTable.workflow_config_version.desc())
+                .first()
+            )
+
             if prev_version:
                 return {
                     "agent_name": agent_name,
@@ -898,13 +1052,15 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
                     "instructions": prev_version.instructions,
                     "prompt_version": prev_version.version,
                     "inherited_from": prev_version.workflow_config_version,
-                    "note": f"Config v{config_version} inherits from v{prev_version.workflow_config_version}"
+                    "note": f"Config v{config_version} inherits from v{prev_version.workflow_config_version}",
                 }
-            
-            raise HTTPException(status_code=404, detail=f"Prompt not found for {agent_name} at config version {config_version}")
+
+            raise HTTPException(
+                status_code=404, detail=f"Prompt not found for {agent_name} at config version {config_version}"
+            )
         finally:
             db_session.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -918,25 +1074,31 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        
+
         try:
             # Get the version to rollback to
-            target_version = db_session.query(AgentPromptVersionTable).filter(
-                AgentPromptVersionTable.id == rollback_request.version_id,
-                AgentPromptVersionTable.agent_name == agent_name
-            ).first()
-            
+            target_version = (
+                db_session.query(AgentPromptVersionTable)
+                .filter(
+                    AgentPromptVersionTable.id == rollback_request.version_id,
+                    AgentPromptVersionTable.agent_name == agent_name,
+                )
+                .first()
+            )
+
             if not target_version:
                 raise HTTPException(status_code=404, detail="Version not found")
-            
+
             # Get current active config
             # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).with_for_update().first()  # Lock the row to prevent concurrent updates
-            
+            current_config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .with_for_update()
+                .first()
+            )  # Lock the row to prevent concurrent updates
+
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
 
@@ -944,61 +1106,71 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             current_config.is_active = False
             db_session.flush()  # Ensure old config is deactivated before creating new one
             new_version = current_config.version + 1
-            
+
             # Get existing prompts
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
-            
+
             # Restore prompt from target version
-            agent_prompts[agent_name] = {
-                "prompt": target_version.prompt,
-                "instructions": target_version.instructions
-            }
-            
+            agent_prompts[agent_name] = {"prompt": target_version.prompt, "instructions": target_version.instructions}
+
             # Create new config version
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
+                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
+                if hasattr(current_config, "auto_trigger_hunt_score_threshold")
+                else 60.0,
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Rolled back configuration",
                 agent_prompts=agent_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
-                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
-                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
-                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled
+                if hasattr(current_config, "sigma_fallback_enabled")
+                else False,
+                rank_agent_enabled=current_config.rank_agent_enabled
+                if hasattr(current_config, "rank_agent_enabled")
+                else True,
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
             )
-            
+
             db_session.add(new_config)
             db_session.flush()
-            
+
             # Create new version entry for rollback
-            max_version = db_session.query(func.max(AgentPromptVersionTable.version)).filter(
-                AgentPromptVersionTable.agent_name == agent_name
-            ).scalar() or 0
-            
+            max_version = (
+                db_session.query(func.max(AgentPromptVersionTable.version))
+                .filter(AgentPromptVersionTable.agent_name == agent_name)
+                .scalar()
+                or 0
+            )
+
             prompt_version = AgentPromptVersionTable(
                 agent_name=agent_name,
                 prompt=target_version.prompt,
                 instructions=target_version.instructions,
                 version=max_version + 1,
                 workflow_config_version=new_version,
-                change_description=f"Rolled back to version {target_version.version}"
+                change_description=f"Rolled back to version {target_version.version}",
             )
-            
+
             db_session.add(prompt_version)
             db_session.commit()
             db_session.refresh(new_config)
-            
+
             logger.info(f"Rolled back agent prompt for {agent_name} to version {target_version.version}")
-            
-            return {"success": True, "message": f"Rolled back {agent_name} to version {target_version.version}", "version": new_version}
+
+            return {
+                "success": True,
+                "message": f"Rolled back {agent_name} to version {target_version.version}",
+                "version": new_version,
+            }
         finally:
             db_session.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1008,6 +1180,7 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
 
 class TestSubAgentRequest(BaseModel):
     """Request model for testing a sub-agent."""
+
     article_id: int = Field(2155, description="Article ID to test with")
     agent_name: str = Field(..., description="Name of the sub-agent (e.g., CmdlineExtract, ProcTreeExtract)")
     use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
@@ -1016,6 +1189,7 @@ class TestSubAgentRequest(BaseModel):
 
 class TestRankAgentRequest(BaseModel):
     """Request model for testing Rank Agent."""
+
     article_id: int = Field(2155, description="Article ID to test with")
     use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
     junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
@@ -1023,6 +1197,7 @@ class TestRankAgentRequest(BaseModel):
 
 class TestSigmaAgentRequest(BaseModel):
     """Request model for testing SIGMA generation agent."""
+
     article_id: int = Field(2155, description="Article ID to test with")
     use_junk_filter: bool = Field(True, description="Whether to apply content filtering")
     junk_filter_threshold: float = Field(0.8, description="Content filter confidence threshold")
@@ -1034,69 +1209,77 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
     """Test a sub-agent extraction on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_sub_agent_task
-        
+
         # Dispatch task to worker
         task = test_sub_agent_task.delay(
             agent_name=test_request.agent_name,
             article_id=test_request.article_id,
             use_junk_filter=test_request.use_junk_filter,
-            junk_filter_threshold=test_request.junk_filter_threshold
+            junk_filter_threshold=test_request.junk_filter_threshold,
         )
-        
+
         return {
             "success": True,
             "task_id": task.id,
             "status": "pending",
-            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status.",
         }
-            
+
     except HTTPException:
         raise
     except Exception as e:
         error_msg = str(e).lower()
         error_type = type(e).__name__
-        
+
         # Check for chained exceptions - prioritize the original error over generator cleanup errors
         original_error = e
-        if hasattr(e, '__cause__') and e.__cause__:
+        if hasattr(e, "__cause__") and e.__cause__:
             original_error = e.__cause__
-        elif hasattr(e, '__context__') and e.__context__:
+        elif hasattr(e, "__context__") and e.__context__:
             original_error = e.__context__
-        
+
         original_error_msg = str(original_error).lower()
-        
+
         # If the original error is NOT a generator error, use that instead
         if "generator" not in original_error_msg and "generator" in error_msg:
             # Generator error is masking a real error - use the original error
             error_msg = original_error_msg
             error_type = type(original_error).__name__
             e = original_error
-        
+
         # Check if error is related to LMStudio being busy/unavailable
         # Only flag as "busy" for genuine connection failures or timeouts, not connection attempts in progress
         # Don't flag generator errors as busy if they're masking a real error (like 400)
         is_generator_error_only = (
-            "generator didn't stop after throw" in error_msg and
-            "400" not in error_msg and
-            "context length" not in error_msg and
-            "invalid request" not in error_msg
+            "generator didn't stop after throw" in error_msg
+            and "400" not in error_msg
+            and "context length" not in error_msg
+            and "invalid request" not in error_msg
         )
-        
+
         is_lmstudio_busy = (
             # Generator errors (Langfuse cleanup issues) - but only if not masking a real error
-            is_generator_error_only or
+            is_generator_error_only
+            or
             # Actual connection failures (refused, not reachable)
-            ("cannot connect" in error_msg and ("refused" in error_msg or "not reachable" in error_msg or "name resolution" in error_msg)) or
+            (
+                "cannot connect" in error_msg
+                and ("refused" in error_msg or "not reachable" in error_msg or "name resolution" in error_msg)
+            )
+            or
             # Timeout errors (but not if it's a connection timeout during initial setup)
-            ("timeout" in error_msg and ("request timeout" in error_msg or "read timeout" in error_msg)) or
+            ("timeout" in error_msg and ("request timeout" in error_msg or "read timeout" in error_msg))
+            or
             # Overloaded errors
-            "overloaded" in error_msg or
+            "overloaded" in error_msg
+            or
             # HTTP 503/429 (service unavailable/too many requests)
-            ("503" in error_msg or "429" in error_msg) or
+            ("503" in error_msg or "429" in error_msg)
+            or
             # Connection errors that are actual failures (not in-progress)
             (error_type == "ConnectError" and "refused" in error_msg)
         )
-        
+
         if is_lmstudio_busy:
             logger.warning(f"Error testing sub-agent (LMStudio may be busy): {e}")
             raise HTTPException(
@@ -1105,27 +1288,27 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                     "LMStudio appears to be busy or unavailable. "
                     "The model may be processing another request. "
                     "Would you like to wait and try again, or retry later?"
-                )
+                ),
             )
-        else:
-            logger.error(f"Error testing sub-agent: {e}", exc_info=True)
-            # Format error message for better user experience
-            error_detail = str(e)
-            
-            # Extract key information from common error patterns
-            if "context length" in error_detail.lower():
-                # Extract the key message from JSON error if present
-                import re
-                json_match = re.search(r'"error":"([^"]+)"', error_detail)
-                if json_match:
-                    core_message = json_match.group(1)
-                    error_detail = f"Context length error: {core_message}"
-                else:
-                    # Fallback: extract the key part
-                    if "greater than the context length" in error_detail:
-                        error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
-            
-            raise HTTPException(status_code=500, detail=error_detail)
+        logger.error(f"Error testing sub-agent: {e}", exc_info=True)
+        # Format error message for better user experience
+        error_detail = str(e)
+
+        # Extract key information from common error patterns
+        if "context length" in error_detail.lower():
+            # Extract the key message from JSON error if present
+            import re
+
+            json_match = re.search(r'"error":"([^"]+)"', error_detail)
+            if json_match:
+                core_message = json_match.group(1)
+                error_detail = f"Context length error: {core_message}"
+            else:
+                # Fallback: extract the key part
+                if "greater than the context length" in error_detail:
+                    error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
+
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/config/prompts/bootstrap")
@@ -1137,18 +1320,21 @@ async def bootstrap_prompts_from_files(request: Request):
 
         try:
             # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = db_session.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).with_for_update().first()  # Lock the row to prevent concurrent updates
+            current_config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .with_for_update()
+                .first()
+            )  # Lock the row to prevent concurrent updates
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
 
             # Load prompts from files
-            from pathlib import Path
             import os
+            from pathlib import Path
+
             prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
             default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
@@ -1157,7 +1343,9 @@ async def bootstrap_prompts_from_files(request: Request):
             sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
 
             agent_models = current_config.agent_models if current_config.agent_models is not None else {}
-            rank_model = agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            rank_model = (
+                agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
+            )
             extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
             sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
 
@@ -1166,55 +1354,40 @@ async def bootstrap_prompts_from_files(request: Request):
             # RankAgent
             rank_prompt_path = prompts_dir / "lmstudio_sigma_ranking.txt"
             if rank_prompt_path.exists():
-                with open(rank_prompt_path, 'r') as f:
-                    loaded_prompts["RankAgent"] = {
-                        "prompt": f.read(),
-                        "instructions": ""
-                    }
+                with open(rank_prompt_path) as f:
+                    loaded_prompts["RankAgent"] = {"prompt": f.read(), "instructions": ""}
 
             # SigmaAgent
             sigma_prompt_path = prompts_dir / "sigma_generation.txt"
             if sigma_prompt_path.exists():
-                with open(sigma_prompt_path, 'r') as f:
-                    loaded_prompts["SigmaAgent"] = {
-                        "prompt": f.read(),
-                        "instructions": ""
-                    }
+                with open(sigma_prompt_path) as f:
+                    loaded_prompts["SigmaAgent"] = {"prompt": f.read(), "instructions": ""}
 
             # QAAgent
             qa_agent_path = prompts_dir / "QAAgentCMD"
             if qa_agent_path.exists():
-                with open(qa_agent_path, 'r') as f:
-                    loaded_prompts["QAAgent"] = {
-                        "prompt": f.read(),
-                        "instructions": ""
-                    }
+                with open(qa_agent_path) as f:
+                    loaded_prompts["QAAgent"] = {"prompt": f.read(), "instructions": ""}
 
             # Sub-Agents
             sub_agents = [
                 ("CmdlineExtract", "CmdLineQA"),
                 ("ProcTreeExtract", "ProcTreeQA"),
-                ("HuntQueriesExtract", "HuntQueriesQA")
+                ("HuntQueriesExtract", "HuntQueriesQA"),
             ]
 
             for agent_name, qa_name in sub_agents:
                 # Load Extraction Agent
                 agent_path = prompts_dir / agent_name
                 if agent_path.exists():
-                    with open(agent_path, 'r') as f:
-                        loaded_prompts[agent_name] = {
-                            "prompt": f.read(),
-                            "instructions": ""
-                        }
+                    with open(agent_path) as f:
+                        loaded_prompts[agent_name] = {"prompt": f.read(), "instructions": ""}
 
                 # Load QA Agent
                 qa_path = prompts_dir / qa_name
                 if qa_path.exists():
-                    with open(qa_path, 'r') as f:
-                        loaded_prompts[qa_name] = {
-                            "prompt": f.read(),
-                            "instructions": ""
-                        }
+                    with open(qa_path) as f:
+                        loaded_prompts[qa_name] = {"prompt": f.read(), "instructions": ""}
 
             if not loaded_prompts:
                 raise HTTPException(status_code=404, detail="No prompt files found to bootstrap from")
@@ -1230,16 +1403,22 @@ async def bootstrap_prompts_from_files(request: Request):
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold if hasattr(current_config, 'auto_trigger_hunt_score_threshold') else 60.0,
+                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
+                if hasattr(current_config, "auto_trigger_hunt_score_threshold")
+                else 60.0,
                 version=new_version,
                 is_active=True,
                 description="Bootstrapped prompts from files",
                 agent_prompts=loaded_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
-                sigma_fallback_enabled=current_config.sigma_fallback_enabled if hasattr(current_config, 'sigma_fallback_enabled') else False,
-                rank_agent_enabled=current_config.rank_agent_enabled if hasattr(current_config, 'rank_agent_enabled') else True,
-                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, 'qa_max_retries') else 5
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled
+                if hasattr(current_config, "sigma_fallback_enabled")
+                else False,
+                rank_agent_enabled=current_config.rank_agent_enabled
+                if hasattr(current_config, "rank_agent_enabled")
+                else True,
+                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
             )
 
             db_session.add(new_config)
@@ -1252,7 +1431,7 @@ async def bootstrap_prompts_from_files(request: Request):
                 "success": True,
                 "message": f"Successfully bootstrapped {len(loaded_prompts)} agent prompts from files",
                 "version": new_version,
-                "prompts_loaded": list(loaded_prompts.keys())
+                "prompts_loaded": list(loaded_prompts.keys()),
             }
         finally:
             db_session.close()
@@ -1269,36 +1448,20 @@ async def get_test_status(request: Request, task_id: str):
     """Get the status and result of a test task."""
     try:
         from celery.result import AsyncResult
+
         from src.worker.celery_app import celery_app
-        
+
         task_result = AsyncResult(task_id, app=celery_app)
-        
+
         if task_result.ready():
             if task_result.successful():
                 result = task_result.result
-                return {
-                    "success": True,
-                    "task_id": task_id,
-                    "status": "completed",
-                    "result": result
-                }
-            else:
-                # Task failed
-                error = str(task_result.result) if task_result.result else "Unknown error"
-                return {
-                    "success": False,
-                    "task_id": task_id,
-                    "status": "failed",
-                    "error": error
-                }
-        else:
-            # Task still running
-            return {
-                "success": True,
-                "task_id": task_id,
-                "status": "pending",
-                "message": "Test is still running in worker"
-            }
+                return {"success": True, "task_id": task_id, "status": "completed", "result": result}
+            # Task failed
+            error = str(task_result.result) if task_result.result else "Unknown error"
+            return {"success": False, "task_id": task_id, "status": "failed", "error": error}
+        # Task still running
+        return {"success": True, "task_id": task_id, "status": "pending", "message": "Test is still running in worker"}
     except Exception as e:
         logger.error(f"Error checking test status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -1309,20 +1472,20 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
     """Test SIGMA generation agent on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_sigma_agent_task
-        
+
         # Dispatch task to worker
         task = test_sigma_agent_task.delay(
             article_id=test_request.article_id,
             use_junk_filter=test_request.use_junk_filter,
             junk_filter_threshold=test_request.junk_filter_threshold,
-            max_attempts=test_request.max_attempts
+            max_attempts=test_request.max_attempts,
         )
-        
+
         return {
             "success": True,
             "task_id": task.id,
             "status": "pending",
-            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status.",
         }
 
     except HTTPException:
@@ -1330,12 +1493,12 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
     except Exception as e:
         error_msg = str(e).lower()
         is_lmstudio_busy = (
-            "busy" in error_msg or
-            "unavailable" in error_msg or
-            "overloaded" in error_msg or
-            "503" in error_msg or
-            "429" in error_msg or
-            ("timeout" in error_msg and "read" in error_msg)
+            "busy" in error_msg
+            or "unavailable" in error_msg
+            or "overloaded" in error_msg
+            or "503" in error_msg
+            or "429" in error_msg
+            or ("timeout" in error_msg and "read" in error_msg)
         )
 
         if is_lmstudio_busy:
@@ -1346,7 +1509,7 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
                     "LMStudio appears to be busy or unavailable. "
                     "The model may be processing another request. "
                     "Would you like to wait and try again, or retry later?"
-                )
+                ),
             )
 
         logger.error(f"Error testing SIGMA agent: {e}", exc_info=True)
@@ -1358,68 +1521,76 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
     """Test Rank Agent on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_rank_agent_task
-        
+
         # Dispatch task to worker
         task = test_rank_agent_task.delay(
             article_id=test_request.article_id,
             use_junk_filter=test_request.use_junk_filter,
-            junk_filter_threshold=test_request.junk_filter_threshold
+            junk_filter_threshold=test_request.junk_filter_threshold,
         )
-        
+
         return {
             "success": True,
             "task_id": task.id,
             "status": "pending",
-            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status.",
         }
-            
+
     except HTTPException:
         raise
     except Exception as e:
         error_msg = str(e).lower()
         error_type = type(e).__name__
-        
+
         # Check for chained exceptions - prioritize the original error over generator cleanup errors
         original_error = e
-        if hasattr(e, '__cause__') and e.__cause__:
+        if hasattr(e, "__cause__") and e.__cause__:
             original_error = e.__cause__
-        elif hasattr(e, '__context__') and e.__context__:
+        elif hasattr(e, "__context__") and e.__context__:
             original_error = e.__context__
-        
+
         original_error_msg = str(original_error).lower()
-        
+
         # If the original error is NOT a generator error, use that instead
         if "generator" not in original_error_msg and "generator" in error_msg:
             # Generator error is masking a real error - use the original error
             error_msg = original_error_msg
             error_type = type(original_error).__name__
             e = original_error
-        
+
         # Check if error is related to LMStudio being busy/unavailable
         # Only flag as "busy" for genuine connection failures or timeouts, not connection attempts in progress
         # Don't flag generator errors as busy if they're masking a real error (like 400)
         is_generator_error_only = (
-            "generator didn't stop after throw" in error_msg and
-            "400" not in error_msg and
-            "context length" not in error_msg and
-            "invalid request" not in error_msg
+            "generator didn't stop after throw" in error_msg
+            and "400" not in error_msg
+            and "context length" not in error_msg
+            and "invalid request" not in error_msg
         )
-        
+
         is_lmstudio_busy = (
             # Generator errors (Langfuse cleanup issues) - but only if not masking a real error
-            is_generator_error_only or
+            is_generator_error_only
+            or
             # Actual connection failures (refused, not reachable)
-            ("cannot connect" in error_msg and ("refused" in error_msg or "not reachable" in error_msg or "name resolution" in error_msg)) or
+            (
+                "cannot connect" in error_msg
+                and ("refused" in error_msg or "not reachable" in error_msg or "name resolution" in error_msg)
+            )
+            or
             # Timeout errors (but not if it's a connection timeout during initial setup)
-            ("timeout" in error_msg and ("request timeout" in error_msg or "read timeout" in error_msg)) or
+            ("timeout" in error_msg and ("request timeout" in error_msg or "read timeout" in error_msg))
+            or
             # Overloaded errors
-            "overloaded" in error_msg or
+            "overloaded" in error_msg
+            or
             # HTTP 503/429 (service unavailable/too many requests)
-            ("503" in error_msg or "429" in error_msg) or
+            ("503" in error_msg or "429" in error_msg)
+            or
             # Connection errors that are actual failures (not in-progress)
             (error_type == "ConnectError" and "refused" in error_msg)
         )
-        
+
         if is_lmstudio_busy:
             logger.warning(f"Error testing Rank Agent (LMStudio may be busy): {e}")
             raise HTTPException(
@@ -1428,24 +1599,24 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
                     "LMStudio appears to be busy or unavailable. "
                     "The model may be processing another request. "
                     "Would you like to wait and try again, or retry later?"
-                )
+                ),
             )
-        else:
-            logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
-            # Format error message for better user experience
-            error_detail = str(e)
-            
-            # Extract key information from common error patterns
-            if "context length" in error_detail.lower():
-                # Extract the key message from JSON error if present
-                import re
-                json_match = re.search(r'"error":"([^"]+)"', error_detail)
-                if json_match:
-                    core_message = json_match.group(1)
-                    error_detail = f"Context length error: {core_message}"
-                else:
-                    # Fallback: extract the key part
-                    if "greater than the context length" in error_detail:
-                        error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
-            
-            raise HTTPException(status_code=500, detail=error_detail)
+        logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
+        # Format error message for better user experience
+        error_detail = str(e)
+
+        # Extract key information from common error patterns
+        if "context length" in error_detail.lower():
+            # Extract the key message from JSON error if present
+            import re
+
+            json_match = re.search(r'"error":"([^"]+)"', error_detail)
+            if json_match:
+                core_message = json_match.group(1)
+                error_detail = f"Context length error: {core_message}"
+            else:
+                # Fallback: extract the key part
+                if "greater than the context length" in error_detail:
+                    error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
+
+        raise HTTPException(status_code=500, detail=error_detail)

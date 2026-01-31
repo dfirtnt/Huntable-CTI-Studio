@@ -6,16 +6,18 @@ This table stores workflow configuration presets (thresholds, agent models,
 QA toggles, prompts, etc.) for the workflow #config page.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine
-from src.database.models import Base, WorkflowConfigPresetTable
 import logging
+
+from sqlalchemy import create_engine
+
+from src.database.models import Base, WorkflowConfigPresetTable
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,12 +42,7 @@ def run_migration():
 
         # Create table using SQLAlchemy metadata
         logger.info("Creating workflow_config_presets table...")
-        Base.metadata.create_all(
-            engine,
-            tables=[
-                WorkflowConfigPresetTable.__table__
-            ]
-        )
+        Base.metadata.create_all(engine, tables=[WorkflowConfigPresetTable.__table__])
 
         logger.info("Migration completed successfully")
         return True

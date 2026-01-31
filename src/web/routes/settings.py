@@ -3,8 +3,8 @@ API endpoints for managing application settings.
 """
 
 import logging
-from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Request
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.database.async_manager import async_db_manager
@@ -17,13 +17,15 @@ router = APIRouter(prefix="/api/settings", tags=["Settings"])
 
 class SettingUpdate(BaseModel):
     """Request model for updating a setting."""
+
     key: str
-    value: Optional[str] = None
+    value: str | None = None
 
 
 class SettingsBulkUpdate(BaseModel):
     """Request model for bulk update."""
-    settings: Dict[str, Optional[str]]
+
+    settings: dict[str, str | None]
 
 
 @router.get("")
@@ -32,16 +34,11 @@ async def get_all_settings():
     try:
         async with async_db_manager.get_session() as session:
             from sqlalchemy import select
+
             result = await session.execute(select(AppSettingsTable))
             settings = result.scalars().all()
 
-            return {
-                "success": True,
-                "settings": {
-                    setting.key: setting.value
-                    for setting in settings
-                }
-            }
+            return {"success": True, "settings": {setting.key: setting.value for setting in settings}}
 
     except Exception as e:
         logger.error(f"Error fetching settings: {e}")
@@ -54,18 +51,12 @@ async def get_setting(key: str):
     try:
         async with async_db_manager.get_session() as session:
             from sqlalchemy import select
-            result = await session.execute(
-                select(AppSettingsTable).where(AppSettingsTable.key == key)
-            )
+
+            result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
             setting = result.scalar_one_or_none()
 
             if not setting:
-                return {
-                    "success": True,
-                    "key": key,
-                    "value": None,
-                    "exists": False
-                }
+                return {"success": True, "key": key, "value": None, "exists": False}
 
             return {
                 "success": True,
@@ -73,7 +64,7 @@ async def get_setting(key: str):
                 "value": setting.value,
                 "description": setting.description,
                 "category": setting.category,
-                "exists": True
+                "exists": True,
             }
 
     except Exception as e:
@@ -86,13 +77,12 @@ async def update_setting(update: SettingUpdate):
     """Update or create a setting."""
     try:
         async with async_db_manager.get_session() as session:
-            from sqlalchemy import select
             from datetime import datetime
 
+            from sqlalchemy import select
+
             # Check if setting exists
-            result = await session.execute(
-                select(AppSettingsTable).where(AppSettingsTable.key == update.key)
-            )
+            result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == update.key))
             setting = result.scalar_one_or_none()
 
             if setting:
@@ -105,7 +95,7 @@ async def update_setting(update: SettingUpdate):
                 setting = AppSettingsTable(
                     key=update.key,
                     value=update.value,
-                    category='user'  # User-created settings
+                    category="user",  # User-created settings
                 )
                 session.add(setting)
                 logger.info(f"Created new setting: {update.key} = {update.value}")
@@ -116,7 +106,7 @@ async def update_setting(update: SettingUpdate):
                 "success": True,
                 "key": update.key,
                 "value": update.value,
-                "message": "Setting updated successfully"
+                "message": "Setting updated successfully",
             }
 
     except Exception as e:
@@ -129,8 +119,9 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
     """Update multiple settings at once."""
     try:
         async with async_db_manager.get_session() as session:
-            from sqlalchemy import select
             from datetime import datetime
+
+            from sqlalchemy import select
 
             updated_keys = []
             errors = []
@@ -138,9 +129,7 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
             for key, value in update.settings.items():
                 try:
                     # Check if setting exists
-                    result = await session.execute(
-                        select(AppSettingsTable).where(AppSettingsTable.key == key)
-                    )
+                    result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
                     setting = result.scalar_one_or_none()
 
                     if setting:
@@ -149,11 +138,7 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
                         setting.updated_at = datetime.now()
                     else:
                         # Create new
-                        setting = AppSettingsTable(
-                            key=key,
-                            value=value,
-                            category='user'
-                        )
+                        setting = AppSettingsTable(key=key, value=value, category="user")
                         session.add(setting)
 
                     updated_keys.append(key)
@@ -170,7 +155,7 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
                 "success": len(errors) == 0,
                 "updated_keys": updated_keys,
                 "errors": errors,
-                "message": f"Updated {len(updated_keys)} settings"
+                "message": f"Updated {len(updated_keys)} settings",
             }
 
     except Exception as e:
@@ -183,21 +168,17 @@ async def delete_setting(key: str):
     """Delete a setting (revert to environment variable)."""
     try:
         async with async_db_manager.get_session() as session:
-            from sqlalchemy import select, delete
+            from sqlalchemy import delete, select
 
             # Check if setting exists
-            result = await session.execute(
-                select(AppSettingsTable).where(AppSettingsTable.key == key)
-            )
+            result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
             setting = result.scalar_one_or_none()
 
             if not setting:
                 raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
 
             # Delete the setting
-            await session.execute(
-                delete(AppSettingsTable).where(AppSettingsTable.key == key)
-            )
+            await session.execute(delete(AppSettingsTable).where(AppSettingsTable.key == key))
             await session.commit()
 
             logger.info(f"Deleted setting: {key}")
@@ -205,7 +186,7 @@ async def delete_setting(key: str):
             return {
                 "success": True,
                 "key": key,
-                "message": "Setting deleted successfully (will revert to environment variable)"
+                "message": "Setting deleted successfully (will revert to environment variable)",
             }
 
     except HTTPException:

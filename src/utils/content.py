@@ -1,15 +1,17 @@
 """Content processing utilities."""
 
-import re
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from dateutil import parser as date_parser
 import hashlib
-from bs4 import BeautifulSoup, Tag
 
 # Temporarily disabled due to Python 3 compatibility issues
 # from readability import Document
 import logging
+import re
+from datetime import datetime
+from typing import Any
+
+from bs4 import BeautifulSoup
+from dateutil import parser as date_parser
+
 from .sentence_splitter import split_sentences
 
 logger = logging.getLogger(__name__)
@@ -98,23 +100,11 @@ class ContentCleaner:
 
         for pattern in unwanted_patterns:
             for element in soup.find_all(
-                attrs={
-                    "class": lambda x: x
-                    and any(
-                        pattern.lower() in str(x).lower()
-                        for pattern in unwanted_patterns
-                    )
-                }
+                attrs={"class": lambda x: x and any(pattern.lower() in str(x).lower() for pattern in unwanted_patterns)}
             ):
                 element.decompose()
             for element in soup.find_all(
-                attrs={
-                    "id": lambda x: x
-                    and any(
-                        pattern.lower() in str(x).lower()
-                        for pattern in unwanted_patterns
-                    )
-                }
+                attrs={"id": lambda x: x and any(pattern.lower() in str(x).lower() for pattern in unwanted_patterns)}
             ):
                 element.decompose()
 
@@ -134,17 +124,14 @@ class ContentCleaner:
         main_content = None
         for selector in content_selectors:
             main_content = soup.select_one(selector)
-            if (
-                main_content and len(main_content.get_text(strip=True)) > 50
-            ):  # Lower threshold
+            if main_content and len(main_content.get_text(strip=True)) > 50:  # Lower threshold
                 break
 
         if main_content:
             # Extract clean text from main content
             return ContentCleaner.html_to_text(str(main_content))
-        else:
-            # Fallback: extract from body but clean aggressively
-            return ContentCleaner.html_to_text(str(soup))
+        # Fallback: extract from body but clean aggressively
+        return ContentCleaner.html_to_text(str(soup))
 
     @staticmethod
     def basic_html_clean(html: str) -> str:
@@ -152,18 +139,12 @@ class ContentCleaner:
         soup = BeautifulSoup(html, "lxml")
 
         # Remove unwanted elements
-        for tag in soup(
-            ["script", "style", "nav", "header", "footer", "aside", "advertisement"]
-        ):
+        for tag in soup(["script", "style", "nav", "header", "footer", "aside", "advertisement"]):
             tag.decompose()
 
         # Remove attributes that might cause issues
         for tag in soup.find_all():
-            tag.attrs = {
-                k: v
-                for k, v in tag.attrs.items()
-                if k in ["href", "src", "alt", "title"]
-            }
+            tag.attrs = {k: v for k, v in tag.attrs.items() if k in ["href", "src", "alt", "title"]}
 
         return str(soup)
 
@@ -184,9 +165,7 @@ class ContentCleaner:
             soup = BeautifulSoup(html, "lxml")
 
             # Add line breaks for block elements before extracting text
-            for tag in soup.find_all(
-                ["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "br"]
-            ):
+            for tag in soup.find_all(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "br"]):
                 tag.insert_after("\n")
 
             # Extract text
@@ -225,9 +204,7 @@ class ContentCleaner:
             # Remove control characters and other problematic characters
             # Keep only printable ASCII and common Unicode characters
             cleaned = "".join(
-                char
-                for char in text
-                if (char.isprintable() or char.isspace()) and ord(char) < 65536
+                char for char in text if (char.isprintable() or char.isspace()) and ord(char) < 65536
             )  # Basic Multilingual Plane
 
             # Remove any remaining problematic sequences
@@ -239,9 +216,7 @@ class ContentCleaner:
             cleaned = re.sub(r"‚Äö√Ñ√¥", "'", cleaned)
 
             # Additional cleanup for other encoding issues
-            cleaned = re.sub(
-                r"[^\x00-\x7F]+", " ", cleaned
-            )  # Replace remaining non-ASCII with spaces
+            cleaned = re.sub(r"[^\x00-\x7F]+", " ", cleaned)  # Replace remaining non-ASCII with spaces
 
             return cleaned
         except Exception as e:
@@ -294,11 +269,9 @@ class ContentCleaner:
         """Calculate SHA256 hash of content for deduplication."""
         # Normalize content for hashing
         normalized_title = ContentCleaner.normalize_whitespace(title.lower())
-        normalized_content = ContentCleaner.normalize_whitespace(
-            ContentCleaner.html_to_text(content).lower()
-        )
+        normalized_content = ContentCleaner.normalize_whitespace(ContentCleaner.html_to_text(content).lower())
 
-        combined = f"{normalized_title}\n{normalized_content}".encode("utf-8")
+        combined = f"{normalized_title}\n{normalized_content}".encode()
         return hashlib.sha256(combined).hexdigest()
 
 
@@ -306,7 +279,7 @@ class DateExtractor:
     """Utility class for extracting and parsing dates."""
 
     @staticmethod
-    def parse_date(date_str: str) -> Optional[datetime]:
+    def parse_date(date_str: str) -> datetime | None:
         """Parse date string to datetime object."""
         if not date_str:
             return None
@@ -330,7 +303,7 @@ class DateExtractor:
             return None
 
     @staticmethod
-    def extract_date_from_url(url: str) -> Optional[datetime]:
+    def extract_date_from_url(url: str) -> datetime | None:
         """Extract date from URL path if possible."""
         # Look for YYYY/MM/DD or YYYY-MM-DD patterns
         date_patterns = [
@@ -355,7 +328,7 @@ class MetadataExtractor:
     """Utility class for extracting metadata from HTML."""
 
     @staticmethod
-    def extract_meta_tags(soup: BeautifulSoup) -> Dict[str, str]:
+    def extract_meta_tags(soup: BeautifulSoup) -> dict[str, str]:
         """Extract all meta tag content."""
         meta_data = {}
 
@@ -370,7 +343,7 @@ class MetadataExtractor:
         return meta_data
 
     @staticmethod
-    def extract_opengraph(soup: BeautifulSoup) -> Dict[str, str]:
+    def extract_opengraph(soup: BeautifulSoup) -> dict[str, str]:
         """Extract OpenGraph metadata."""
         og_data = {}
 
@@ -385,7 +358,7 @@ class MetadataExtractor:
         return og_data
 
     @staticmethod
-    def extract_twitter_cards(soup: BeautifulSoup) -> Dict[str, str]:
+    def extract_twitter_cards(soup: BeautifulSoup) -> dict[str, str]:
         """Extract Twitter Card metadata."""
         twitter_data = {}
 
@@ -400,7 +373,7 @@ class MetadataExtractor:
         return twitter_data
 
     @staticmethod
-    def extract_canonical_url(soup: BeautifulSoup) -> Optional[str]:
+    def extract_canonical_url(soup: BeautifulSoup) -> str | None:
         """Extract canonical URL from link tag."""
         canonical = soup.find("link", {"rel": "canonical"})
         if canonical:
@@ -408,7 +381,7 @@ class MetadataExtractor:
         return None
 
     @staticmethod
-    def extract_authors(soup: BeautifulSoup) -> List[str]:
+    def extract_authors(soup: BeautifulSoup) -> list[str]:
         """Extract author information from various sources."""
         authors = []
 
@@ -451,7 +424,7 @@ class MetadataExtractor:
         return cleaned_authors[:5]  # Limit to 5 authors
 
     @staticmethod
-    def extract_tags(soup: BeautifulSoup) -> List[str]:
+    def extract_tags(soup: BeautifulSoup) -> list[str]:
         """Extract tags/categories from various sources."""
         tags = set()
 
@@ -480,9 +453,7 @@ class MetadataExtractor:
         return sorted(list(tags))[:10]  # Limit to 10 tags
 
 
-def validate_content(
-    title: str, content: str, url: str, source_config: Optional[Dict[str, Any]] = None
-) -> List[str]:
+def validate_content(title: str, content: str, url: str, source_config: dict[str, Any] | None = None) -> list[str]:
     """
     Validate content and return list of issues.
 
@@ -532,9 +503,7 @@ def validate_content(
             min_length = source_config["min_content_length"]
 
         if content_length < min_length:
-            issues.append(
-                f"Content too short (minimum {min_length} chars, found {content_length})"
-            )
+            issues.append(f"Content too short (minimum {min_length} chars, found {content_length})")
 
     if not url or not url.strip():
         issues.append("Missing URL")
@@ -586,9 +555,7 @@ def _is_garbage_content(content: str) -> bool:
     if consecutive_count >= 3:
         max_consecutive = max(max_consecutive, consecutive_count)
 
-    if (
-        max_consecutive >= 5
-    ):  # Increase threshold to 5 or more consecutive problematic chars
+    if max_consecutive >= 5:  # Increase threshold to 5 or more consecutive problematic chars
         # Too many consecutive problematic chars detected
         return True
 
@@ -1205,7 +1172,7 @@ class ThreatHuntingScorer:
     """Enhanced scoring for threat hunting and malware analysis content."""
 
     @staticmethod
-    def score_threat_hunting_content(title: str, content: str) -> Dict[str, Any]:
+    def score_threat_hunting_content(title: str, content: str) -> dict[str, Any]:
         """
         Score content for threat hunting quality using Windows malware keywords.
 
@@ -1312,7 +1279,7 @@ class ThreatHuntingScorer:
             # from being completely wiped out, while still penalizing appropriately
             percentage_reduction = min(0.2, len(negative_matches) * 0.06)
             base_score = base_score * (1.0 - percentage_reduction)
-        
+
         # Subtract flat penalty
         threat_hunting_score = base_score - negative_penalty
 
@@ -1426,21 +1393,21 @@ class ThreatHuntingScorer:
         if keyword.lower() in partial_match_keywords:
             # Allow partial matches for these keywords
             return escaped_keyword
-        elif keyword.lower() in wildcard_keywords:
+        if keyword.lower() in wildcard_keywords:
             # Allow wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
             return escaped_keyword + r"\w*"
-        elif keyword in symbol_keywords:
+        if keyword in symbol_keywords:
             # For symbols, don't use word boundaries
             return escaped_keyword
-        elif keyword.startswith("-") or keyword.endswith("-"):
+        if keyword.startswith("-") or keyword.endswith("-"):
             # For keywords with leading/trailing hyphens, use letter boundaries instead of word boundaries
             return r"(?<![a-zA-Z])" + escaped_keyword + r"(?![a-zA-Z])"
-        elif keyword.startswith("."):
+        if keyword.startswith("."):
             # For extension-only keywords (like .exe, .dll, .bat, .ps1), only match when
             # they appear as actual file extensions (preceded by alphanumeric characters)
             # This prevents false positives when the extension doesn't appear in the content
             return r"[a-zA-Z0-9_]" + escaped_keyword + r"\b"
-        elif keyword.endswith(".exe"):
+        if keyword.endswith(".exe"):
             # For .exe executables, always require .exe extension to avoid false positives
             # with common English words (e.g., "services", "system", "process")
             base_name = keyword[:-4]  # Remove .exe
@@ -1449,11 +1416,10 @@ class ThreatHuntingScorer:
             if len(base_name) <= 3:
                 # Match: base.exe OR base followed by non-word char (space, punctuation, etc.)
                 return r"\b" + re.escape(base_name) + r"(\.exe\b|(?![a-zA-Z0-9]))"
-            else:
-                # For longer names, require .exe extension to prevent false positives
-                # with common words (e.g., "services" in "cloud services")
-                return r"\b" + re.escape(base_name) + r"\.exe\b"
-        elif keyword.endswith(".dll"):
+            # For longer names, require .exe extension to prevent false positives
+            # with common words (e.g., "services" in "cloud services")
+            return r"\b" + re.escape(base_name) + r"\.exe\b"
+        if keyword.endswith(".dll"):
             # For .dll files, match both with and without .dll extension
             base_name = keyword[:-4]  # Remove .dll
             # For short base names (2-3 chars), require either .dll extension or
@@ -1461,16 +1427,14 @@ class ThreatHuntingScorer:
             if len(base_name) <= 3:
                 # Match: base.dll OR base followed by non-word char (space, punctuation, etc.)
                 return r"\b" + re.escape(base_name) + r"(\.dll\b|(?![a-zA-Z0-9]))"
-            else:
-                # For longer names, use standard word boundary matching
-                return r"\b" + re.escape(base_name) + r"(\.dll)?\b"
-        elif " " in keyword:
+            # For longer names, use standard word boundary matching
+            return r"\b" + re.escape(base_name) + r"(\.dll)?\b"
+        if " " in keyword:
             # For multi-word phrases, ensure word boundaries at start and end
             # but allow flexible matching in the middle
             return r"\b" + escaped_keyword + r"\b"
-        else:
-            # Use word boundaries for other keywords
-            return r"\b" + escaped_keyword + r"\b"
+        # Use word boundaries for other keywords
+        return r"\b" + escaped_keyword + r"\b"
 
 
 class ContentExtractor:
@@ -1522,7 +1486,7 @@ class ContentExtractor:
         except Exception:
             return ""
 
-    def extract_keywords(self, html: str) -> List[str]:
+    def extract_keywords(self, html: str) -> list[str]:
         """Extract keywords from HTML."""
         try:
             soup = BeautifulSoup(html, "lxml")
@@ -1562,9 +1526,9 @@ class ContentExtractor:
             soup = BeautifulSoup(html, "lxml")
 
             # Try meta published time (both property and name attributes)
-            meta_date = soup.find(
-                "meta", {"property": "article:published_time"}
-            ) or soup.find("meta", {"name": "article:published_time"})
+            meta_date = soup.find("meta", {"property": "article:published_time"}) or soup.find(
+                "meta", {"name": "article:published_time"}
+            )
             if meta_date and meta_date.get("content"):
                 return meta_date.get("content").strip()
 
@@ -1591,7 +1555,7 @@ class ContentExtractor:
         except Exception:
             return ""
 
-    def extract_all_metadata(self, html: str) -> Dict[str, Any]:
+    def extract_all_metadata(self, html: str) -> dict[str, Any]:
         """Extract all metadata from HTML."""
         return {
             "title": self.extract_title(html),

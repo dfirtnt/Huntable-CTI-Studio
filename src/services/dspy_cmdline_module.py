@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 
 def _normalize_cmd(cmd: str) -> str:
@@ -20,12 +20,12 @@ def _normalize_cmd(cmd: str) -> str:
     return cmd
 
 
-def load_cmdline_eval_dataset(eval_path: Path | str) -> Dict[int, List[str]]:
+def load_cmdline_eval_dataset(eval_path: Path | str) -> dict[int, list[str]]:
     """Load article_id -> cmdline_items ground truth from the eval JSON."""
     path = Path(eval_path)
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
-    evals: Dict[int, List[str]] = {}
+    evals: dict[int, list[str]] = {}
     for entry in data:
         aid = int(entry["article_id"])
         items = [_normalize_cmd(x) for x in entry.get("cmdline_items", []) if x.strip()]
@@ -33,9 +33,7 @@ def load_cmdline_eval_dataset(eval_path: Path | str) -> Dict[int, List[str]]:
     return evals
 
 
-def evaluate_predictions(
-    predictions: Dict[int, List[str]], ground_truth: Dict[int, List[str]]
-) -> Dict[str, Any]:
+def evaluate_predictions(predictions: dict[int, list[str]], ground_truth: dict[int, list[str]]) -> dict[str, Any]:
     """Placeholder scorer kept for compatibility; returns zeros."""
     return {"precision": 0.0, "recall": 0.0, "f1": 0.0, "tp": 0, "fp": 0, "fn": 0}
 

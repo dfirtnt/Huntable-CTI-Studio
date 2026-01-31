@@ -7268,7 +7268,7 @@ async function loadConfigByVersion(versionNumber) {
         }
         await applyPreset(data);
         closeConfigVersionListModal();
-        showNotification('Configuration version ' + versionNumber + ' loaded. Click Save to make it active.', 'info');
+        showNotification('Config v' + versionNumber + ' loaded (prompts + models). Click Save to make it active.', 'info');
     } catch (error) {
         console.error('Error loading config by version:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -7545,48 +7545,16 @@ async function applyPreset(preset) {
             });
         }
         
-        // Apply agent prompts
+        // Apply agent prompts to form state only (do NOT PUT per prompt).
+        // Each PUT /config/prompts creates a new config version that copies agent_models from
+        // the current active config, so prompts would be restored but temperature/qa/etc. would
+        // stay from the previous version. By loading prompts into form state, one Save creates
+        // a single new version with both preset prompts and preset agent_models.
         if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
-            console.log('🔄 Restoring agent prompts from preset...');
-            const promptPromises = [];
-            
-            for (const [agentName, promptData] of Object.entries(preset.agent_prompts)) {
-                if (promptData && promptData.prompt) {
-                    const promptPayload = {
-                        agent_name: agentName,
-                        prompt: promptData.prompt,
-                        instructions: promptData.instructions || null
-                    };
-                    
-                    const promise = fetch('/api/workflow/config/prompts', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(promptPayload)
-                    }).then(response => {
-                        if (!response.ok) {
-                            console.error(`❌ Failed to restore prompt for ${agentName}:`, response.status);
-                            return response.json().then(err => {
-                                throw new Error(`Failed to restore prompt for ${agentName}: ${err.detail || 'Unknown error'}`);
-                            });
-                        }
-                        console.log(`✅ Restored prompt for ${agentName}`);
-                        return response.json();
-                    }).catch(error => {
-                        console.error(`❌ Error restoring prompt for ${agentName}:`, error);
-                        throw error;
-                    });
-                    
-                    promptPromises.push(promise);
-                }
-            }
-            
-            // Wait for all prompts to be restored
-            if (promptPromises.length > 0) {
-                await Promise.all(promptPromises);
-                // Reload prompts to update UI
-                await loadAgentPrompts();
-                console.log('✅ All agent prompts restored from preset');
-            }
+            console.log('🔄 Loading agent prompts from preset into form (Save to apply)...');
+            agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
+            renderAgentPrompts();
+            console.log('✅ Agent prompts loaded from preset. Click Save to make this config active.');
         }
         
         // Trigger auto-save handlers to update UI state

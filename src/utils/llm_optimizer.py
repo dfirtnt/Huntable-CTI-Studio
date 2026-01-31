@@ -8,51 +8,55 @@ Note: Cost calculations use GPT-4o pricing as a reference estimate.
 Actual costs may vary by LLM provider.
 """
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from src.utils.content_filter import ContentFilter, FilterResult
+from typing import Any
+
+from src.utils.content_filter import ContentFilter
 
 logger = logging.getLogger(__name__)
+
 
 class LLMOptimizer:
     """
     Optimizes LLM usage by filtering content before sending to the API.
-    
+
     This class integrates with LLM ranking systems to:
     1. Filter out non-huntable content chunks
     2. Provide cost estimates based on filtered content (using GPT-4o pricing as reference)
     3. Maintain analysis quality while reducing costs
-    
+
     Note: Cost calculations use GPT-4o pricing ($5.00 per 1M input tokens) as a reference.
     Actual costs will vary by LLM provider.
     """
-    
-    def __init__(self, model_path: Optional[str] = None):
+
+    def __init__(self, model_path: str | None = None):
         self.content_filter = ContentFilter(model_path)
         self.filter_stats = {
-            'total_requests': 0,
-            'total_cost_savings': 0.0,
-            'total_tokens_saved': 0,
-            'avg_cost_reduction': 0.0
+            "total_requests": 0,
+            "total_cost_savings": 0.0,
+            "total_tokens_saved": 0,
+            "avg_cost_reduction": 0.0,
         }
-    
-    async def optimize_content(self, content: str, 
-                               min_confidence: float = 0.7,
-                               chunk_size: int = 1000,
-                               article_id: Optional[int] = None,
-                               store_analysis: bool = False) -> Dict[str, Any]:
+
+    async def optimize_content(
+        self,
+        content: str,
+        min_confidence: float = 0.7,
+        chunk_size: int = 1000,
+        article_id: int | None = None,
+        store_analysis: bool = False,
+    ) -> dict[str, Any]:
         """
         Optimize content for LLM analysis by filtering non-huntable chunks.
-        
+
         Args:
             content: Full article content
             min_confidence: Minimum confidence threshold for keeping chunks
             chunk_size: Size of chunks to analyze
             article_id: Article ID for storing chunk analysis
             store_analysis: Whether to store chunk analysis results
-            
+
         Returns:
             Dictionary with optimized content and metadata
         """
@@ -60,81 +64,82 @@ class LLMOptimizer:
             # Load model if not already loaded
             if not self.content_filter.model:
                 self.content_filter.load_model()
-            
+
             # Filter content
             filter_result = self.content_filter.filter_content(
-                content, min_confidence, chunk_size,
-                article_id=article_id, store_analysis=store_analysis
+                content, min_confidence, chunk_size, article_id=article_id, store_analysis=store_analysis
             )
-            
+
             # Calculate cost estimates (using GPT-4o pricing as reference)
             original_tokens = len(content) // 4  # Rough estimate
             filtered_tokens = len(filter_result.filtered_content) // 4
             tokens_saved = original_tokens - filtered_tokens
-            
+
             # Cost calculation uses GPT-4o pricing as reference ($5.00 per 1M input tokens)
             # Note: Actual costs will vary by LLM provider
             cost_savings = (tokens_saved / 1000000) * 5.00
-            
+
             # Update stats
-            self.filter_stats['total_requests'] += 1
-            self.filter_stats['total_cost_savings'] += cost_savings
-            self.filter_stats['total_tokens_saved'] += tokens_saved
-            self.filter_stats['avg_cost_reduction'] = (
-                self.filter_stats['total_cost_savings'] / self.filter_stats['total_requests']
+            self.filter_stats["total_requests"] += 1
+            self.filter_stats["total_cost_savings"] += cost_savings
+            self.filter_stats["total_tokens_saved"] += tokens_saved
+            self.filter_stats["avg_cost_reduction"] = (
+                self.filter_stats["total_cost_savings"] / self.filter_stats["total_requests"]
             )
-            
-            logger.info(f"Content optimization completed. "
-                       f"Tokens saved: {tokens_saved:,}, "
-                       f"Cost savings (estimated): ${cost_savings:.4f}")
-            
+
+            logger.info(
+                f"Content optimization completed. "
+                f"Tokens saved: {tokens_saved:,}, "
+                f"Cost savings (estimated): ${cost_savings:.4f}"
+            )
+
             return {
-                'success': True,
-                'original_content': content,
-                'filtered_content': filter_result.filtered_content,
-                'original_tokens': original_tokens,
-                'filtered_tokens': filtered_tokens,
-                'tokens_saved': tokens_saved,
-                'cost_savings': cost_savings,
-                'cost_reduction_percent': filter_result.cost_savings * 100,
-                'is_huntable': filter_result.is_huntable,
-                'confidence': filter_result.confidence,
-                'removed_chunks': filter_result.removed_chunks,
-                'chunks_removed': len(filter_result.removed_chunks),
-                'chunks_kept': len(filter_result.filtered_content.split()) // (chunk_size // 10),  # Rough estimate
-                'optimization_stats': self.filter_stats.copy()
+                "success": True,
+                "original_content": content,
+                "filtered_content": filter_result.filtered_content,
+                "original_tokens": original_tokens,
+                "filtered_tokens": filtered_tokens,
+                "tokens_saved": tokens_saved,
+                "cost_savings": cost_savings,
+                "cost_reduction_percent": filter_result.cost_savings * 100,
+                "is_huntable": filter_result.is_huntable,
+                "confidence": filter_result.confidence,
+                "removed_chunks": filter_result.removed_chunks,
+                "chunks_removed": len(filter_result.removed_chunks),
+                "chunks_kept": len(filter_result.filtered_content.split()) // (chunk_size // 10),  # Rough estimate
+                "optimization_stats": self.filter_stats.copy(),
             }
-            
+
         except Exception as e:
             logger.error(f"Content optimization failed: {e}")
             return {
-                'success': False,
-                'error': str(e),
-                'original_content': content,
-                'filtered_content': content,  # Fallback to original
-                'original_tokens': len(content) // 4,
-                'filtered_tokens': len(content) // 4,
-                'tokens_saved': 0,
-                'cost_savings': 0.0,
-                'cost_reduction_percent': 0.0,
-                'is_huntable': True,  # Assume huntable if filtering fails
-                'confidence': 0.5,
-                'removed_chunks': [],
-                'chunks_removed': 0,
-                'chunks_kept': 1,
-                'optimization_stats': self.filter_stats.copy()
+                "success": False,
+                "error": str(e),
+                "original_content": content,
+                "filtered_content": content,  # Fallback to original
+                "original_tokens": len(content) // 4,
+                "filtered_tokens": len(content) // 4,
+                "tokens_saved": 0,
+                "cost_savings": 0.0,
+                "cost_reduction_percent": 0.0,
+                "is_huntable": True,  # Assume huntable if filtering fails
+                "confidence": 0.5,
+                "removed_chunks": [],
+                "chunks_removed": 0,
+                "chunks_kept": 1,
+                "optimization_stats": self.filter_stats.copy(),
             }
-    
-    def get_cost_estimate(self, content: str, use_filtering: bool = True) -> Dict[str, Any]:
+
+    def get_cost_estimate(self, content: str, use_filtering: bool = True) -> dict[str, Any]:
         """
         Get cost estimate for LLM analysis with optional filtering.
-        
+
         Note: Uses GPT-4o pricing as reference. Actual costs vary by LLM provider.
-        
+
         Args:
             content: Article content
             use_filtering: Whether to apply content filtering
-            
+
         Returns:
             Cost estimation details (based on GPT-4o pricing as reference)
         """
@@ -142,13 +147,14 @@ class LLMOptimizer:
             if use_filtering:
                 # Use synchronous content filter instead of async optimization
                 from src.utils.content_filter import ContentFilter
+
                 content_filter = ContentFilter()
                 if not content_filter.model:
                     content_filter.load_model()
-                
+
                 # Apply filtering synchronously
                 filter_result = content_filter.filter_content(content, min_confidence=0.7)
-                
+
                 if filter_result.is_huntable:
                     # Calculate tokens for filtered content
                     filtered_tokens = len(filter_result.filtered_content) // 4
@@ -163,30 +169,30 @@ class LLMOptimizer:
             else:
                 input_tokens = len(content) // 4
                 cost_savings = 0.0
-            
+
             # Cost calculation uses GPT-4o pricing as reference
             # Input: $5.00 per 1M tokens, Output: $15.00 per 1M tokens
             prompt_tokens = 1508  # From existing implementation
             total_input_tokens = input_tokens + prompt_tokens
             max_output_tokens = 2000
-            
+
             input_cost = (total_input_tokens / 1000000) * 5.00
             output_cost = (max_output_tokens / 1000000) * 15.00
             total_cost = input_cost + output_cost
-            
+
             return {
-                'input_tokens': total_input_tokens,
-                'output_tokens': max_output_tokens,
-                'input_cost': input_cost,
-                'output_cost': output_cost,
-                'total_cost': total_cost,
-                'cost_savings': cost_savings,
-                'filtering_enabled': use_filtering,
-                'estimated_content_tokens': input_tokens,
-                'prompt_tokens': prompt_tokens,
-                'pricing_note': 'Costs estimated using GPT-4o pricing as reference. Actual costs vary by LLM provider.'
+                "input_tokens": total_input_tokens,
+                "output_tokens": max_output_tokens,
+                "input_cost": input_cost,
+                "output_cost": output_cost,
+                "total_cost": total_cost,
+                "cost_savings": cost_savings,
+                "filtering_enabled": use_filtering,
+                "estimated_content_tokens": input_tokens,
+                "prompt_tokens": prompt_tokens,
+                "pricing_note": "Costs estimated using GPT-4o pricing as reference. Actual costs vary by LLM provider.",
             }
-            
+
         except Exception as e:
             logger.error(f"Cost estimation failed: {e}")
             # Fallback calculation
@@ -194,53 +200,58 @@ class LLMOptimizer:
             prompt_tokens = 1508
             total_input_tokens = input_tokens + prompt_tokens
             max_output_tokens = 2000
-            
+
             input_cost = (total_input_tokens / 1000000) * 5.00
             output_cost = (max_output_tokens / 1000000) * 15.00
             total_cost = input_cost + output_cost
-            
+
             return {
-                'input_tokens': total_input_tokens,
-                'output_tokens': max_output_tokens,
-                'input_cost': input_cost,
-                'output_cost': output_cost,
-                'total_cost': total_cost,
-                'cost_savings': 0.0,
-                'filtering_enabled': False,
-                'estimated_content_tokens': input_tokens,
-                'prompt_tokens': prompt_tokens,
-                'pricing_note': 'Costs estimated using GPT-4o pricing as reference. Actual costs vary by LLM provider.',
-                'error': str(e)
+                "input_tokens": total_input_tokens,
+                "output_tokens": max_output_tokens,
+                "input_cost": input_cost,
+                "output_cost": output_cost,
+                "total_cost": total_cost,
+                "cost_savings": 0.0,
+                "filtering_enabled": False,
+                "estimated_content_tokens": input_tokens,
+                "prompt_tokens": prompt_tokens,
+                "pricing_note": "Costs estimated using GPT-4o pricing as reference. Actual costs vary by LLM provider.",
+                "error": str(e),
             }
-    
-    def get_optimization_stats(self) -> Dict[str, Any]:
+
+    def get_optimization_stats(self) -> dict[str, Any]:
         """Get current optimization statistics."""
         return {
-            'total_requests': self.filter_stats['total_requests'],
-            'total_cost_savings': self.filter_stats['total_cost_savings'],
-            'total_tokens_saved': self.filter_stats['total_tokens_saved'],
-            'avg_cost_reduction': self.filter_stats['avg_cost_reduction'],
-            'avg_tokens_saved_per_request': (
-                self.filter_stats['total_tokens_saved'] / max(self.filter_stats['total_requests'], 1)
+            "total_requests": self.filter_stats["total_requests"],
+            "total_cost_savings": self.filter_stats["total_cost_savings"],
+            "total_tokens_saved": self.filter_stats["total_tokens_saved"],
+            "avg_cost_reduction": self.filter_stats["avg_cost_reduction"],
+            "avg_tokens_saved_per_request": (
+                self.filter_stats["total_tokens_saved"] / max(self.filter_stats["total_requests"], 1)
             ),
-            'total_cost_savings_percent': (
-                self.filter_stats['total_cost_savings'] / max(self.filter_stats['total_cost_savings'] + 0.01, 1) * 100
+            "total_cost_savings_percent": (
+                self.filter_stats["total_cost_savings"] / max(self.filter_stats["total_cost_savings"] + 0.01, 1) * 100
             ),
-            'pricing_note': 'Cost savings estimated using GPT-4o pricing as reference. Actual savings vary by LLM provider.'
+            "pricing_note": "Cost savings estimated using GPT-4o pricing as reference. Actual savings vary by LLM provider.",
         }
+
 
 # Global optimizer instance
 llm_optimizer = LLMOptimizer()
 
+
 # Convenience functions for integration
-async def optimize_article_content(content: str, min_confidence: float = 0.7, 
-                                 article_metadata: Optional[Dict[str, Any]] = None,
-                                 content_hash: Optional[str] = None,
-                                 article_id: Optional[int] = None,
-                                 store_analysis: bool = False) -> Dict[str, Any]:
+async def optimize_article_content(
+    content: str,
+    min_confidence: float = 0.7,
+    article_metadata: dict[str, Any] | None = None,
+    content_hash: str | None = None,
+    article_id: int | None = None,
+    store_analysis: bool = False,
+) -> dict[str, Any]:
     """
     Optimize article content for LLM analysis with smart chunk caching.
-    
+
     Args:
         content: Full article content
         min_confidence: Minimum confidence threshold for keeping chunks
@@ -248,7 +259,7 @@ async def optimize_article_content(content: str, min_confidence: float = 0.7,
         content_hash: Content hash for cache validation
         article_id: Article ID for storing chunk analysis
         store_analysis: Whether to store chunk analysis results
-        
+
     Returns:
         Dictionary with optimized content and metadata
     """
@@ -256,71 +267,75 @@ async def optimize_article_content(content: str, min_confidence: float = 0.7,
     if article_metadata and content_hash:
         cached_result = _get_cached_chunks(article_metadata, content_hash, min_confidence)
         if cached_result:
-            logger.info(f"Using cached chunks for content optimization (cache hit)")
+            logger.info("Using cached chunks for content optimization (cache hit)")
             return cached_result
-    
+
     # Generate chunks if not cached
     result = await llm_optimizer.optimize_content(
         content, min_confidence, article_id=article_id, store_analysis=store_analysis
     )
-    
+
     # Store in cache if we have article metadata
-    if article_metadata and content_hash and result['success']:
+    if article_metadata and content_hash and result["success"]:
         _store_cached_chunks(article_metadata, content_hash, min_confidence, result)
-        logger.info(f"Cached chunks for future use (cache miss)")
-    
+        logger.info("Cached chunks for future use (cache miss)")
+
     return result
 
-def _get_cached_chunks(article_metadata: Dict[str, Any], content_hash: str, 
-                      min_confidence: float) -> Optional[Dict[str, Any]]:
+
+def _get_cached_chunks(
+    article_metadata: dict[str, Any], content_hash: str, min_confidence: float
+) -> dict[str, Any] | None:
     """
     Retrieve cached chunks from article metadata if valid.
-    
+
     Args:
         article_metadata: Article metadata dictionary
         content_hash: Current content hash for validation
         min_confidence: Confidence threshold for validation
-        
+
     Returns:
         Cached optimization result or None if cache miss/invalid
     """
     try:
-        cached_chunks = article_metadata.get('content_chunks')
+        cached_chunks = article_metadata.get("content_chunks")
         if not cached_chunks:
             return None
-        
+
         # Validate cache
         if not _is_cache_valid(cached_chunks, content_hash, min_confidence):
             return None
-        
+
         # Return cached result
         return {
-            'success': True,
-            'original_content': cached_chunks.get('original_content', ''),
-            'filtered_content': cached_chunks.get('filtered_content', ''),
-            'original_tokens': cached_chunks.get('original_tokens', 0),
-            'filtered_tokens': cached_chunks.get('filtered_tokens', 0),
-            'tokens_saved': cached_chunks.get('tokens_saved', 0),
-            'cost_savings': cached_chunks.get('cost_savings', 0.0),
-            'cost_reduction_percent': cached_chunks.get('cost_reduction_percent', 0.0),
-            'is_huntable': cached_chunks.get('is_huntable', True),
-            'confidence': cached_chunks.get('confidence', 0.5),
-            'removed_chunks': cached_chunks.get('removed_chunks', []),
-            'chunks_removed': cached_chunks.get('chunks_removed', 0),
-            'chunks_kept': cached_chunks.get('chunks_kept', 1),
-            'cached': True,
-            'cache_hit': True
+            "success": True,
+            "original_content": cached_chunks.get("original_content", ""),
+            "filtered_content": cached_chunks.get("filtered_content", ""),
+            "original_tokens": cached_chunks.get("original_tokens", 0),
+            "filtered_tokens": cached_chunks.get("filtered_tokens", 0),
+            "tokens_saved": cached_chunks.get("tokens_saved", 0),
+            "cost_savings": cached_chunks.get("cost_savings", 0.0),
+            "cost_reduction_percent": cached_chunks.get("cost_reduction_percent", 0.0),
+            "is_huntable": cached_chunks.get("is_huntable", True),
+            "confidence": cached_chunks.get("confidence", 0.5),
+            "removed_chunks": cached_chunks.get("removed_chunks", []),
+            "chunks_removed": cached_chunks.get("chunks_removed", 0),
+            "chunks_kept": cached_chunks.get("chunks_kept", 1),
+            "cached": True,
+            "cache_hit": True,
         }
-        
+
     except Exception as e:
         logger.warning(f"Error retrieving cached chunks: {e}")
         return None
 
-def _store_cached_chunks(article_metadata: Dict[str, Any], content_hash: str,
-                        min_confidence: float, result: Dict[str, Any]) -> None:
+
+def _store_cached_chunks(
+    article_metadata: dict[str, Any], content_hash: str, min_confidence: float, result: dict[str, Any]
+) -> None:
     """
     Store optimization result in article metadata cache.
-    
+
     Args:
         article_metadata: Article metadata dictionary (will be modified)
         content_hash: Content hash for validation
@@ -329,81 +344,83 @@ def _store_cached_chunks(article_metadata: Dict[str, Any], content_hash: str,
     """
     try:
         # Store cache entry
-        article_metadata['content_chunks'] = {
-            'content_hash': content_hash,
-            'chunked_at': datetime.now().isoformat(),
-            'min_confidence': min_confidence,
-            'original_content': result.get('original_content', ''),
-            'filtered_content': result.get('filtered_content', ''),
-            'original_tokens': result.get('original_tokens', 0),
-            'filtered_tokens': result.get('filtered_tokens', 0),
-            'tokens_saved': result.get('tokens_saved', 0),
-            'cost_savings': result.get('cost_savings', 0.0),
-            'cost_reduction_percent': result.get('cost_reduction_percent', 0.0),
-            'is_huntable': result.get('is_huntable', True),
-            'confidence': result.get('confidence', 0.5),
-            'removed_chunks': result.get('removed_chunks', []),
-            'chunks_removed': result.get('chunks_removed', 0),
-            'chunks_kept': result.get('chunks_kept', 1)
+        article_metadata["content_chunks"] = {
+            "content_hash": content_hash,
+            "chunked_at": datetime.now().isoformat(),
+            "min_confidence": min_confidence,
+            "original_content": result.get("original_content", ""),
+            "filtered_content": result.get("filtered_content", ""),
+            "original_tokens": result.get("original_tokens", 0),
+            "filtered_tokens": result.get("filtered_tokens", 0),
+            "tokens_saved": result.get("tokens_saved", 0),
+            "cost_savings": result.get("cost_savings", 0.0),
+            "cost_reduction_percent": result.get("cost_reduction_percent", 0.0),
+            "is_huntable": result.get("is_huntable", True),
+            "confidence": result.get("confidence", 0.5),
+            "removed_chunks": result.get("removed_chunks", []),
+            "chunks_removed": result.get("chunks_removed", 0),
+            "chunks_kept": result.get("chunks_kept", 1),
         }
-        
+
         logger.debug(f"Cached chunks for content hash {content_hash[:8]}...")
-        
+
     except Exception as e:
         logger.warning(f"Error storing cached chunks: {e}")
 
-def _is_cache_valid(cached_chunks: Dict[str, Any], content_hash: str, 
-                   min_confidence: float) -> bool:
+
+def _is_cache_valid(cached_chunks: dict[str, Any], content_hash: str, min_confidence: float) -> bool:
     """
     Validate cached chunks for reuse.
-    
+
     Args:
         cached_chunks: Cached chunks data
         content_hash: Current content hash
         min_confidence: Current confidence threshold
-        
+
     Returns:
         True if cache is valid for reuse
     """
     try:
         # Check content hash
-        if cached_chunks.get('content_hash') != content_hash:
+        if cached_chunks.get("content_hash") != content_hash:
             return False
-        
+
         # Check confidence threshold (if different, need to re-filter)
-        if cached_chunks.get('min_confidence') != min_confidence:
+        if cached_chunks.get("min_confidence") != min_confidence:
             return False
-        
+
         # Check age (optional TTL - 7 days)
-        chunked_at = cached_chunks.get('chunked_at')
+        chunked_at = cached_chunks.get("chunked_at")
         if chunked_at:
             try:
-                cache_time = datetime.fromisoformat(chunked_at.replace('Z', '+00:00'))
+                cache_time = datetime.fromisoformat(chunked_at.replace("Z", "+00:00"))
                 age = datetime.now() - cache_time.replace(tzinfo=None)
                 if age > timedelta(days=7):
                     return False
             except (ValueError, TypeError):
                 # If we can't parse the date, invalidate cache
                 return False
-        
+
         return True
-        
+
     except Exception as e:
         logger.warning(f"Error validating cache: {e}")
         return False
 
-def estimate_llm_cost(content: str, use_filtering: bool = True) -> Dict[str, Any]:
+
+def estimate_llm_cost(content: str, use_filtering: bool = True) -> dict[str, Any]:
     """
     Estimate LLM cost with optional content filtering.
-    
+
     Note: Uses GPT-4o pricing as reference. Actual costs vary by LLM provider.
     """
     return llm_optimizer.get_cost_estimate(content, use_filtering)
 
-def get_optimization_stats() -> Dict[str, Any]:
+
+def get_optimization_stats() -> dict[str, Any]:
     """Get current optimization statistics."""
     return llm_optimizer.get_optimization_stats()
 
+
 # Backward compatibility aliases
 estimate_gpt4o_cost = estimate_llm_cost
-

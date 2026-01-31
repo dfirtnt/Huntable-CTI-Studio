@@ -4,14 +4,14 @@ Observable extractor training API endpoints.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
 from src.services.observable_training import (
+    SUPPORTED_OBSERVABLE_TYPES,
     get_observable_training_summary,
     run_observable_training_job,
-    SUPPORTED_OBSERVABLE_TYPES,
 )
 from src.web.dependencies import logger
 
@@ -35,10 +35,10 @@ async def api_observable_training_summary():
 
 
 @router.post("/run")
-async def api_run_cmd_training(body: Dict[str, Any] | None = None):
+async def api_run_cmd_training(body: dict[str, Any] | None = None):
     """
     Trigger observable extractor training (dataset export + model training).
-    
+
     The training process:
     1. Exports unused 'train' annotations (excludes gold/eval)
     2. Creates versioned dataset and artifact

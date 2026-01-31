@@ -5,7 +5,6 @@ Dashboard data endpoint.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any, Dict
 
 from fastapi import APIRouter
 
@@ -55,8 +54,8 @@ async def api_dashboard_data():
         uptime = (active_sources / total_sources * 100) if total_sources > 0 else 0
 
         recent_articles = await async_db_manager.list_articles(limit=1000)
-        daily_data: Dict[str, int] = {}
-        hourly_data: Dict[str, int] = {}
+        daily_data: dict[str, int] = {}
+        hourly_data: dict[str, int] = {}
 
         for i in range(10):
             date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
@@ -75,9 +74,7 @@ async def api_dashboard_data():
             if created_at_str:
                 try:
                     # Parse timestamp - if it has timezone info, convert to local time
-                    parsed = datetime.fromisoformat(
-                        str(created_at_str).replace("Z", "+00:00")
-                    )
+                    parsed = datetime.fromisoformat(str(created_at_str).replace("Z", "+00:00"))
                     if parsed.tzinfo is not None:
                         # Convert to local time and remove timezone info
                         parsed = parsed.astimezone().replace(tzinfo=None)
@@ -105,9 +102,7 @@ async def api_dashboard_data():
                 failing_sources.append(
                     {
                         "name": getattr(source, "name", "Unknown Source"),
-                        "last_success": last_success.isoformat()
-                        if last_success
-                        else "Never",
+                        "last_success": last_success.isoformat() if last_success else "Never",
                         "last_success_text": _format_time_ago(last_success),
                         "consecutive_failures": consecutive_failures,
                     }
@@ -171,9 +166,7 @@ async def api_dashboard_data():
                 }
             )
 
-        recent_activities.sort(
-            key=lambda item: item.get("timestamp", datetime.min), reverse=True
-        )
+        recent_activities.sort(key=lambda item: item.get("timestamp", datetime.min), reverse=True)
         recent_activities = recent_activities[:4]
 
         async with async_db_manager.get_session() as session:
@@ -201,11 +194,7 @@ async def api_dashboard_data():
             efficiency_row = efficiency_result.fetchone()
             filter_efficiency = (
                 round(
-                    (
-                        efficiency_row.scored_articles
-                        / efficiency_row.total_articles
-                        * 100
-                    ),
+                    (efficiency_row.scored_articles / efficiency_row.total_articles * 100),
                     1,
                 )
                 if efficiency_row.total_articles > 0
@@ -257,9 +246,7 @@ async def api_dashboard_data():
                     "hunt_score": round(hunt_score, 1),
                     "published_at": published_at_str,
                     "url": db_article.canonical_url,
-                    "source_name": db_article.source_name
-                    if hasattr(db_article, "source_name")
-                    else "Unknown Source",
+                    "source_name": db_article.source_name if hasattr(db_article, "source_name") else "Unknown Source",
                 }
             )
 

@@ -5,10 +5,10 @@ Handles triggering the agentic workflow when articles with high hunt scores are 
 """
 
 import logging
-from typing import Optional
+
 from sqlalchemy.orm import Session
 
-from src.database.models import ArticleTable, AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable
+from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.worker.celery_app import trigger_agentic_workflow
 
 logger = logging.getLogger(__name__)
@@ -16,20 +16,21 @@ logger = logging.getLogger(__name__)
 
 class WorkflowTriggerService:
     """Service for triggering agentic workflow on articles."""
-    
+
     def __init__(self, db_session: Session):
         """Initialize workflow trigger service with database session."""
         self.db = db_session
-    
-    def get_active_config(self) -> Optional[AgenticWorkflowConfigTable]:
+
+    def get_active_config(self) -> AgenticWorkflowConfigTable | None:
         """Get the active workflow configuration."""
         try:
-            config = self.db.query(AgenticWorkflowConfigTable).filter(
-                AgenticWorkflowConfigTable.is_active == True
-            ).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            ).first()
-            
+            config = (
+                self.db.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .first()
+            )
+
             if not config:
                 # Create default config if none exists
                 config = AgenticWorkflowConfigTable(
@@ -41,25 +42,25 @@ class WorkflowTriggerService:
                     version=1,
                     is_active=True,
                     description="Default configuration",
-                    qa_enabled={}
+                    qa_enabled={},
                 )
                 self.db.add(config)
                 self.db.commit()
                 logger.info("Created default agentic workflow configuration")
-            
+
             return config
-            
+
         except Exception as e:
             logger.error(f"Error getting workflow config: {e}")
             return None
-    
+
     def should_trigger_workflow(self, article: ArticleTable) -> bool:
         """
         Check if workflow should be triggered for an article.
-        
+
         Args:
             article: Article to check
-        
+
         Returns:
             True if workflow should be triggered
         """
@@ -67,63 +68,74 @@ class WorkflowTriggerService:
             config = self.get_active_config()
             if not config:
                 return False
-            
+
             # Get hunt score from article metadata
-            hunt_score = article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0
-            
+            hunt_score = article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
+
             # Get threshold from config
-            threshold = config.auto_trigger_hunt_score_threshold if hasattr(config, 'auto_trigger_hunt_score_threshold') else 60.0
-            
+            threshold = (
+                config.auto_trigger_hunt_score_threshold
+                if hasattr(config, "auto_trigger_hunt_score_threshold")
+                else 60.0
+            )
+
             # Only trigger if RegexHuntScore > threshold
             if hunt_score <= threshold:
                 logger.debug(f"Article {article.id} hunt score {hunt_score} <= {threshold}, skipping workflow trigger")
                 return False
-            
+
             # Check if workflow already running or completed for this article
             # Also check for stuck pending executions (older than 5 minutes)
             from datetime import datetime, timedelta
+
             cutoff_time = datetime.now() - timedelta(minutes=5)
-            
-            existing_execution = self.db.query(AgenticWorkflowExecutionTable).filter(
-                AgenticWorkflowExecutionTable.article_id == article.id,
-                AgenticWorkflowExecutionTable.status.in_(['pending', 'running'])
-            ).first()
-            
+
+            existing_execution = (
+                self.db.query(AgenticWorkflowExecutionTable)
+                .filter(
+                    AgenticWorkflowExecutionTable.article_id == article.id,
+                    AgenticWorkflowExecutionTable.status.in_(["pending", "running"]),
+                )
+                .first()
+            )
+
             if existing_execution:
                 # Check if it's a stuck pending execution (older than 5 minutes and never started)
-                if (existing_execution.status == 'pending' and 
-                    existing_execution.created_at < cutoff_time and 
-                    existing_execution.started_at is None):
+                if (
+                    existing_execution.status == "pending"
+                    and existing_execution.created_at < cutoff_time
+                    and existing_execution.started_at is None
+                ):
                     logger.warning(
                         f"Found stuck pending execution {existing_execution.id} for article {article.id} "
                         f"(created {existing_execution.created_at}, never started). Marking as failed."
                     )
-                    existing_execution.status = 'failed'
+                    existing_execution.status = "failed"
                     existing_execution.error_message = (
-                        existing_execution.error_message or 
-                        f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
+                        existing_execution.error_message
+                        or f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
                     )
                     existing_execution.completed_at = datetime.now()
                     self.db.commit()
                     # Allow new execution to be created
                     return True
-                
+
                 logger.debug(f"Article {article.id} already has active workflow execution {existing_execution.id}")
                 return False
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error checking if workflow should trigger for article {article.id}: {e}")
             return False
-    
+
     def trigger_workflow(self, article_id: int) -> bool:
         """
         Trigger agentic workflow for an article.
-        
+
         Args:
             article_id: ID of article to process
-        
+
         Returns:
             True if workflow was triggered successfully
         """
@@ -132,38 +144,42 @@ class WorkflowTriggerService:
             if not article:
                 logger.error(f"Article {article_id} not found")
                 return False
-            
+
             if not self.should_trigger_workflow(article):
                 return False
-            
+
             # Create execution record
             config = self.get_active_config()
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
-                status='pending',
+                status="pending",
                 config_snapshot={
-                    'min_hunt_score': config.min_hunt_score,
-                    'ranking_threshold': config.ranking_threshold,
-                    'similarity_threshold': config.similarity_threshold,
-                    'junk_filter_threshold': config.junk_filter_threshold,
-                    'agent_models': config.agent_models,
-                    'qa_enabled': config.qa_enabled if config and config.qa_enabled is not None else {},
-                    'rank_agent_enabled': config.rank_agent_enabled if config and hasattr(config, 'rank_agent_enabled') else True,
-                    'config_id': config.id,
-                    'config_version': config.version
-                } if config else None
+                    "min_hunt_score": config.min_hunt_score,
+                    "ranking_threshold": config.ranking_threshold,
+                    "similarity_threshold": config.similarity_threshold,
+                    "junk_filter_threshold": config.junk_filter_threshold,
+                    "agent_models": config.agent_models,
+                    "qa_enabled": config.qa_enabled if config and config.qa_enabled is not None else {},
+                    "rank_agent_enabled": config.rank_agent_enabled
+                    if config and hasattr(config, "rank_agent_enabled")
+                    else True,
+                    "config_id": config.id,
+                    "config_version": config.version,
+                }
+                if config
+                else None,
             )
             self.db.add(execution)
             self.db.commit()
             self.db.refresh(execution)
-            
+
             logger.info(f"Triggering agentic workflow for article {article_id} (execution_id: {execution.id})")
-            
+
             # Dispatch Celery task
             trigger_agentic_workflow.delay(article_id)
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error triggering workflow for article {article_id}: {e}")
             return False

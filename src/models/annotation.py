@@ -1,9 +1,9 @@
 """Pydantic models for ArticleAnnotation entities."""
 
 from datetime import datetime
-from typing import Optional, Dict, Any
-from pydantic import BaseModel
+from typing import Any
 
+from pydantic import BaseModel
 
 # Annotation type constants
 ANNOTATION_MODE_TYPES = {
@@ -28,52 +28,56 @@ ANNOTATION_USAGE_VALUES = ["train", "eval", "gold"]
 
 class ArticleAnnotationCreate(BaseModel):
     """Model for creating a new annotation."""
+
     article_id: int
     annotation_type: str
     selected_text: str
     start_position: int
     end_position: int
-    context_before: Optional[str] = None
-    context_after: Optional[str] = None
+    context_before: str | None = None
+    context_after: str | None = None
     confidence_score: float = 1.0
     usage: str = "train"
-    user_id: Optional[int] = None
+    user_id: int | None = None
 
 
 class ArticleAnnotationUpdate(BaseModel):
     """Model for updating an annotation."""
-    annotation_type: Optional[str] = None
-    selected_text: Optional[str] = None
-    start_position: Optional[int] = None
-    end_position: Optional[int] = None
-    context_before: Optional[str] = None
-    context_after: Optional[str] = None
-    confidence_score: Optional[float] = None
+
+    annotation_type: str | None = None
+    selected_text: str | None = None
+    start_position: int | None = None
+    end_position: int | None = None
+    context_before: str | None = None
+    context_after: str | None = None
+    confidence_score: float | None = None
     # Note: usage cannot be changed after creation
 
 
 class ArticleAnnotationFilter(BaseModel):
     """Filter parameters for listing annotations."""
-    article_id: Optional[int] = None
-    annotation_type: Optional[str] = None
-    usage: Optional[str] = None
+
+    article_id: int | None = None
+    annotation_type: str | None = None
+    usage: str | None = None
 
 
 class ArticleAnnotation(BaseModel):
     """Complete annotation model."""
+
     id: int
     article_id: int
-    user_id: Optional[int] = None
+    user_id: int | None = None
     annotation_type: str
     selected_text: str
     start_position: int
     end_position: int
-    context_before: Optional[str] = None
-    context_after: Optional[str] = None
+    context_before: str | None = None
+    context_after: str | None = None
     confidence_score: float
-    embedding: Optional[Any] = None  # Vector type
-    embedding_model: Optional[str] = None
-    embedded_at: Optional[datetime] = None
+    embedding: Any | None = None  # Vector type
+    embedding_model: str | None = None
+    embedded_at: datetime | None = None
     used_for_training: bool
     usage: str
     created_at: datetime
@@ -84,6 +88,7 @@ class ArticleAnnotation(BaseModel):
 
 class AnnotationStats(BaseModel):
     """Statistics about annotations."""
+
     total: int
-    by_type: Dict[str, int]
-    by_usage: Dict[str, int]
+    by_type: dict[str, int]
+    by_usage: dict[str, int]

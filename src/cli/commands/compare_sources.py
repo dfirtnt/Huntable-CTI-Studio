@@ -6,9 +6,10 @@ from pathlib import Path
 
 import click
 
-from ..context import CLIContext
 from src.core.source_manager import SourceConfigLoader
 from src.database.async_manager import AsyncDatabaseManager
+
+from ..context import CLIContext
 
 
 def _source_row(db_source) -> dict:
@@ -59,7 +60,9 @@ pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 
 
 @click.command("compare-sources")
-@click.option("--config-path", default=None, help="Path to sources YAML (default: SOURCES_CONFIG or config/sources.yaml)")
+@click.option(
+    "--config-path", default=None, help="Path to sources YAML (default: SOURCES_CONFIG or config/sources.yaml)"
+)
 @pass_context
 def compare_sources(ctx: CLIContext, config_path: str):
     """Compare production DB source settings vs sources.yaml."""
@@ -130,7 +133,9 @@ def compare_sources(ctx: CLIContext, config_path: str):
         if not only_yaml and not only_db and not field_diffs:
             click.echo("No differences: DB and YAML match (identifier set and compared fields).")
         else:
-            click.echo("Tip: ./run_cli.sh sync-sources to overwrite DB with YAML (or --no-remove to keep DB-only sources).")
+            click.echo(
+                "Tip: ./run_cli.sh sync-sources to overwrite DB with YAML (or --no-remove to keep DB-only sources)."
+            )
 
         await db_manager.close()
 

@@ -53,11 +53,12 @@ async def api_jobs_status():
     """Get current status of all Celery jobs using Celery inspect API."""
     try:
         import asyncio
+
         from src.worker.celery_app import celery_app
-        
+
         # Use Celery's inspect API to get active tasks directly from workers
         inspect = celery_app.control.inspect(timeout=1.0)  # 1 second timeout
-        
+
         # Helper to run sync inspect calls with timeout
         def run_inspect(func_name):
             try:
@@ -66,43 +67,25 @@ async def api_jobs_status():
             except Exception as e:
                 logger.warning(f"Failed to get {func_name}: {e}")
                 return {}
-        
+
         # Get active tasks from all workers (with timeout handling)
-        active_tasks = await asyncio.wait_for(
-            asyncio.to_thread(run_inspect, 'active'),
-            timeout=2.0
-        )
-        
+        active_tasks = await asyncio.wait_for(asyncio.to_thread(run_inspect, "active"), timeout=2.0)
+
         # Get worker stats
-        stats = await asyncio.wait_for(
-            asyncio.to_thread(run_inspect, 'stats'),
-            timeout=2.0
-        )
-        
+        stats = await asyncio.wait_for(asyncio.to_thread(run_inspect, "stats"), timeout=2.0)
+
         # Get registered tasks
-        registered = await asyncio.wait_for(
-            asyncio.to_thread(run_inspect, 'registered'),
-            timeout=2.0
-        )
-        
+        registered = await asyncio.wait_for(asyncio.to_thread(run_inspect, "registered"), timeout=2.0)
+
         # Get scheduled tasks
-        scheduled = await asyncio.wait_for(
-            asyncio.to_thread(run_inspect, 'scheduled'),
-            timeout=2.0
-        )
-        
+        scheduled = await asyncio.wait_for(asyncio.to_thread(run_inspect, "scheduled"), timeout=2.0)
+
         # Get reserved tasks
-        reserved = await asyncio.wait_for(
-            asyncio.to_thread(run_inspect, 'reserved'),
-            timeout=2.0
-        )
-        
+        reserved = await asyncio.wait_for(asyncio.to_thread(run_inspect, "reserved"), timeout=2.0)
+
         # Get active queues for each worker
-        active_queues = await asyncio.wait_for(
-            asyncio.to_thread(run_inspect, 'active_queues'),
-            timeout=2.0
-        )
-        
+        active_queues = await asyncio.wait_for(asyncio.to_thread(run_inspect, "active_queues"), timeout=2.0)
+
         return {
             "status": "success",
             "timestamp": datetime.now().isoformat(),
@@ -113,7 +96,7 @@ async def api_jobs_status():
             "registered_tasks": registered,
             "active_queues": active_queues,
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Celery inspect timeout")
         return {
             "status": "timeout",
@@ -229,4 +212,3 @@ async def api_jobs_history(limit: int = 50):
             "timestamp": datetime.now().isoformat(),
             "error": str(exc),
         }
-

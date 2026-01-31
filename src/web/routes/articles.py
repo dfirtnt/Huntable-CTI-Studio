@@ -4,8 +4,6 @@ Core article management API routes.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
@@ -15,11 +13,11 @@ from src.web.dependencies import logger
 class SimpleFilter:
     def __init__(
         self,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         sort_by: str = "published_at",
         sort_order: str = "desc",
-        source_id: Optional[int] = None,
-        processing_status: Optional[str] = None,
+        source_id: int | None = None,
+        processing_status: str | None = None,
     ):
         self.limit = limit
         self.sort_by = sort_by
@@ -37,11 +35,11 @@ router = APIRouter(prefix="/api/articles", tags=["Articles"])
 
 @router.get("")
 async def api_articles_list(
-    limit: Optional[int] = 100,
+    limit: int | None = 100,
     sort_by: str = "published_at",
     sort_order: str = "desc",
-    source_id: Optional[int] = None,
-    processing_status: Optional[str] = None,
+    source_id: int | None = None,
+    processing_status: str | None = None,
 ):
     """API endpoint for listing articles with sorting and filtering."""
     logger.debug("=" * 50)
@@ -163,19 +161,21 @@ async def api_get_article(article_id: int):
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
-        
+
         # Convert to dict, handling embedding field (numpy array/list)
         article_dict = article.dict()
-        
+
         # Ensure embedding is serializable
-        if 'embedding' in article_dict:
-            if article_dict['embedding'] is not None:
+        if "embedding" in article_dict:
+            if article_dict["embedding"] is not None:
                 # Convert to list if it's a numpy array or other type
-                if hasattr(article_dict['embedding'], 'tolist'):
-                    article_dict['embedding'] = article_dict['embedding'].tolist()
-                elif not isinstance(article_dict['embedding'], list):
-                    article_dict['embedding'] = list(article_dict['embedding']) if hasattr(article_dict['embedding'], '__iter__') else []
-        
+                if hasattr(article_dict["embedding"], "tolist"):
+                    article_dict["embedding"] = article_dict["embedding"].tolist()
+                elif not isinstance(article_dict["embedding"], list):
+                    article_dict["embedding"] = (
+                        list(article_dict["embedding"]) if hasattr(article_dict["embedding"], "__iter__") else []
+                    )
+
         return article_dict
     except HTTPException:
         raise

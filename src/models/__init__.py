@@ -1,28 +1,28 @@
 """Pydantic models for CTI Scraper."""
 
-from src.models.source import (
-    Source,
-    SourceCreate,
-    SourceUpdate,
-    SourceFilter,
-    SourceConfig,
-    SourceHealth,
+from src.models.annotation import (
+    ALL_ANNOTATION_TYPES,
+    ANNOTATION_MODE_TYPES,
+    ANNOTATION_USAGE_VALUES,
+    AnnotationStats,
+    ArticleAnnotation,
+    ArticleAnnotationCreate,
+    ArticleAnnotationFilter,
+    ArticleAnnotationUpdate,
 )
 from src.models.article import (
     Article,
     ArticleCreate,
-    ArticleUpdate,
     ArticleListFilter,
+    ArticleUpdate,
 )
-from src.models.annotation import (
-    ArticleAnnotation,
-    ArticleAnnotationCreate,
-    ArticleAnnotationUpdate,
-    ArticleAnnotationFilter,
-    AnnotationStats,
-    ANNOTATION_MODE_TYPES,
-    ALL_ANNOTATION_TYPES,
-    ANNOTATION_USAGE_VALUES,
+from src.models.source import (
+    Source,
+    SourceConfig,
+    SourceCreate,
+    SourceFilter,
+    SourceHealth,
+    SourceUpdate,
 )
 
 __all__ = [

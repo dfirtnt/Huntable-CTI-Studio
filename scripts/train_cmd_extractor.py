@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from services.observable_training import (  # noqa: E402
     SUPPORTED_OBSERVABLE_TYPES,
-    run_observable_training_job,
     export_observable_dataset,
+    run_observable_training_job,
 )
 
 

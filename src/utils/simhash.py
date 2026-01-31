@@ -1,50 +1,83 @@
 """SimHash implementation for near-duplicate detection."""
 
 import hashlib
-from typing import List, Set, Tuple
 import re
 from collections import Counter
 
 
 class SimHash:
     """SimHash implementation for detecting near-duplicate content."""
-    
+
     def __init__(self, hash_bits: int = 64):
         self.hash_bits = hash_bits
-        self.max_hash = 2 ** hash_bits - 1
-    
-    def _tokenize(self, text: str) -> List[str]:
+        self.max_hash = 2**hash_bits - 1
+
+    def _tokenize(self, text: str) -> list[str]:
         """Tokenize text into features for SimHash."""
         # Convert to lowercase and split into words
         text = text.lower()
         # Remove punctuation and split
-        tokens = re.findall(r'\b\w+\b', text)
+        tokens = re.findall(r"\b\w+\b", text)
         # Filter out very short tokens and common stop words
         stop_words = {
-            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-            'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did',
-            'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "can",
+            "this",
+            "that",
+            "these",
+            "those",
         }
         return [token for token in tokens if len(token) > 2 and token not in stop_words]
-    
+
     def _get_feature_hash(self, feature: str) -> int:
         """Get hash value for a feature."""
-        hash_obj = hashlib.md5(feature.encode('utf-8'))
+        hash_obj = hashlib.md5(feature.encode("utf-8"))
         # Convert to integer and take modulo to fit in hash_bits
-        return int(hash_obj.hexdigest(), 16) % (2 ** self.hash_bits)
-    
-    def _get_feature_vector(self, features: List[str]) -> List[int]:
+        return int(hash_obj.hexdigest(), 16) % (2**self.hash_bits)
+
+    def _get_feature_vector(self, features: list[str]) -> list[int]:
         """Convert features to a vector of hash values."""
         return [self._get_feature_hash(feature) for feature in features]
-    
-    def _get_weighted_vector(self, features: List[str]) -> List[int]:
+
+    def _get_weighted_vector(self, features: list[str]) -> list[int]:
         """Get weighted vector based on feature frequency."""
         # Count feature frequencies
         feature_counts = Counter(features)
-        
+
         # Initialize vector with zeros
         vector = [0] * self.hash_bits
-        
+
         # Add weighted contributions for each feature
         for feature, count in feature_counts.items():
             feature_hash = self._get_feature_hash(feature)
@@ -54,42 +87,42 @@ class SimHash:
                     vector[i] += count
                 else:
                     vector[i] -= count
-        
+
         return vector
-    
+
     def compute_simhash(self, text: str) -> int:
         """Compute SimHash for given text."""
         # Tokenize text
         features = self._tokenize(text)
-        
+
         if not features:
             return 0
-        
+
         # Get weighted vector
         vector = self._get_weighted_vector(features)
-        
+
         # Convert to SimHash
         simhash = 0
         for i, weight in enumerate(vector):
             if weight > 0:
-                simhash |= (1 << i)
-        
+                simhash |= 1 << i
+
         return simhash
-    
+
     def compute_simhash_bucket(self, simhash: int, num_buckets: int = 16) -> int:
         """Compute bucket number for SimHash (for efficient lookup)."""
         return simhash % num_buckets
-    
+
     def hamming_distance(self, simhash1: int, simhash2: int) -> int:
         """Calculate Hamming distance between two SimHashes."""
         xor_result = simhash1 ^ simhash2
-        return bin(xor_result).count('1')
-    
+        return bin(xor_result).count("1")
+
     def is_similar(self, simhash1: int, simhash2: int, threshold: int = 3) -> bool:
         """Check if two SimHashes are similar (within threshold)."""
         return self.hamming_distance(simhash1, simhash2) <= threshold
-    
-    def find_similar_hashes(self, target_simhash: int, simhash_list: List[int], threshold: int = 3) -> List[int]:
+
+    def find_similar_hashes(self, target_simhash: int, simhash_list: list[int], threshold: int = 3) -> list[int]:
         """Find all SimHashes similar to target within threshold."""
         similar = []
         for simhash in simhash_list:
@@ -102,7 +135,7 @@ class SimHash:
 simhash_calculator = SimHash(hash_bits=64)
 
 
-def compute_article_simhash(content: str, title: str = "") -> Tuple[int, int]:
+def compute_article_simhash(content: str, title: str = "") -> tuple[int, int]:
     """Compute SimHash for article content and title."""
     # Combine content and title for SimHash calculation
     full_text = f"{title} {content}"

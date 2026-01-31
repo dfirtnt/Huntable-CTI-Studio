@@ -1,10 +1,7 @@
 """CLI utility functions."""
 
-import asyncio
 from rich.console import Console
 from rich.table import Table
-from rich.progress import Progress
-from rich.panel import Panel
 
 from src.core.fetcher import FetchResult
 
@@ -19,7 +16,7 @@ def _display_fetch_results(fetch_results: list[FetchResult]):
     table.add_column("Status", justify="center")
     table.add_column("Articles", justify="right")
     table.add_column("Time", justify="right")
-    
+
     for result in fetch_results:
         status = "[green]✓[/green]" if result.success else "[red]✗[/red]"
         table.add_row(
@@ -27,7 +24,7 @@ def _display_fetch_results(fetch_results: list[FetchResult]):
             result.method,
             status,
             str(len(result.articles)),
-            f"{result.response_time:.2f}s"
+            f"{result.response_time:.2f}s",
         )
-    
+
     console.print(table)

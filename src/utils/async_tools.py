@@ -5,8 +5,9 @@ Provides helpers to safely bridge async and sync code without event loop conflic
 """
 
 import asyncio
-from typing import TypeVar, Coroutine, Any
 import logging
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -16,18 +17,18 @@ T = TypeVar("T")
 def run_sync(coro: Coroutine[Any, Any, T], *, allow_running_loop: bool = False) -> T:
     """
     Safely run an async coroutine from sync code.
-    
+
     This function raises RuntimeError if called from within a running event loop
     (unless allow_running_loop=True), preventing the "Runner.run() cannot be called
     from a running event loop" error in Python 3.14+.
-    
+
     Args:
         coro: The coroutine to run
         allow_running_loop: If True, allows calling from a running loop (not recommended)
-        
+
     Returns:
         The result of the coroutine
-        
+
     Raises:
         RuntimeError: If called from a running event loop (unless allow_running_loop=True)
     """
@@ -41,10 +42,10 @@ def run_sync(coro: Coroutine[Any, Any, T], *, allow_running_loop: bool = False) 
             )
             # Use a thread executor to run in a separate loop
             from concurrent.futures import ThreadPoolExecutor
-            
+
             def run_in_thread():
                 return asyncio.run(coro)
-            
+
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(run_in_thread)
                 return future.result()
@@ -63,16 +64,17 @@ def run_sync(coro: Coroutine[Any, Any, T], *, allow_running_loop: bool = False) 
 def ensure_async_context(func):
     """
     Decorator to ensure a function is only called from async context.
-    
+
     Raises RuntimeError if called from sync context.
     """
+
     def wrapper(*args, **kwargs):
         try:
             asyncio.get_running_loop()
         except RuntimeError:
             raise RuntimeError(
-                f"{func.__name__}() must be called from async context. "
-                "Use 'await' instead of calling directly."
+                f"{func.__name__}() must be called from async context. Use 'await' instead of calling directly."
             )
         return func(*args, **kwargs)
+
     return wrapper

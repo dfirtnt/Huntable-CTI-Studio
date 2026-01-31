@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     from sentence_transformers import SentenceTransformer, util
@@ -38,7 +38,7 @@ PROTOTYPE_COMMANDS = [
 ]
 
 # Command-like regex used for fallback extraction (wrap in a capture group for reuse)
-COMMAND_REGEX = re.compile(r'''(?xi)
+COMMAND_REGEX = re.compile(r"""(?xi)
 (?:
     # PowerShell one-liners
     \biex\s*\([^\r\n]{5,}\)
@@ -68,7 +68,7 @@ COMMAND_REGEX = re.compile(r'''(?xi)
     # Bare executables with arguments only
     \b[a-zA-Z0-9_.-]+\.exe\s+[^\r\n]{1,500}
 )
-''')
+""")
 
 
 class CommandLineCaliperExtractor:
@@ -77,8 +77,8 @@ class CommandLineCaliperExtractor:
     def __init__(
         self,
         model_name: str = DEFAULT_MODEL_NAME,
-        device: Optional[str] = None,
-        hf_token_env: Optional[List[str]] = None,
+        device: str | None = None,
+        hf_token_env: list[str] | None = None,
     ):
         self.model_name = model_name
         self.device = device
@@ -87,12 +87,12 @@ class CommandLineCaliperExtractor:
             "HF_API_TOKEN",
             "HUGGINGFACE_HUB_TOKEN",
         ]
-        self._model: Optional[SentenceTransformer] = None
+        self._model: SentenceTransformer | None = None
         self._prototype_embeddings = None
-        self._override_token: Optional[str] = None
+        self._override_token: str | None = None
 
     @property
-    def auth_token(self) -> Optional[str]:
+    def auth_token(self) -> str | None:
         if self._override_token:
             return self._override_token
         for env_var in self.hf_token_env:
@@ -101,7 +101,7 @@ class CommandLineCaliperExtractor:
                 return token
         return None
 
-    def set_auth_token(self, token: Optional[str]) -> None:
+    def set_auth_token(self, token: str | None) -> None:
         """Allow callers to provide a token (e.g., from AppSettings) without mutating env."""
         self._override_token = token or None
 
@@ -113,7 +113,7 @@ class CommandLineCaliperExtractor:
                 "sentence-transformers is required for CMDCaliper extraction. "
                 "Install it with `pip install sentence-transformers`."
             )
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         if self.device:
             kwargs["device"] = self.device
         token = self.auth_token
@@ -132,10 +132,8 @@ class CommandLineCaliperExtractor:
             logger.error("Failed to load CMDCaliper model %s: %s", self.model_name, exc)
             raise
 
-    def _extract_candidate_lines(
-        self, content: str, max_candidates: int = MAX_CANDIDATES
-    ) -> List[Dict[str, Any]]:
-        candidates: List[Dict[str, Any]] = []
+    def _extract_candidate_lines(self, content: str, max_candidates: int = MAX_CANDIDATES) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
         min_words = 2
 
         # Primary segmentation: newlines
@@ -182,7 +180,7 @@ class CommandLineCaliperExtractor:
         # Extract embedded command-like substrings from existing segments to tighten noisy lines
         command_pattern = COMMAND_REGEX
         if candidates:
-            expanded: List[Dict[str, Any]] = []
+            expanded: list[dict[str, Any]] = []
             for candidate in candidates:
                 # Targeted subcommand extraction around .exe tokens
                 for sub in re.finditer(
@@ -242,9 +240,7 @@ class CommandLineCaliperExtractor:
 
         return candidates
 
-    def _extract_context(
-        self, content: str, start: int, end: int, window: int = COMMAND_CONTEXT_WINDOW
-    ) -> str:
+    def _extract_context(self, content: str, start: int, end: int, window: int = COMMAND_CONTEXT_WINDOW) -> str:
         left = max(0, start - window)
         right = min(len(content), end + window)
         snippet = content[left:right]
@@ -256,7 +252,7 @@ class CommandLineCaliperExtractor:
         similarity_threshold: float = 0.7,
         max_results: int = 20,
         max_candidates: int = 200,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Extract command-line-like sentences using CMDCaliper embeddings.
 
@@ -281,10 +277,9 @@ class CommandLineCaliperExtractor:
             return []
 
         texts = [cand["text"] for cand in candidates]
-        embeddings = self._model.encode(
-            texts, convert_to_tensor=True, normalize_embeddings=True
-        )
+        embeddings = self._model.encode(texts, convert_to_tensor=True, normalize_embeddings=True)
         similarity_matrix = util.cos_sim(embeddings, self._prototype_embeddings)
+
         def _dedupe(entries):
             seen = set()
             unique = []
@@ -295,8 +290,10 @@ class CommandLineCaliperExtractor:
                 seen.add(key)
                 unique.append(entry)
             return unique
+
         def _has_arguments(text: str) -> bool:
             return bool(re.search(r"\.exe\b\s+\S", text, re.IGNORECASE))
+
         results = []
         for idx, candidate in enumerate(candidates):
             scores = similarity_matrix[idx]

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
@@ -114,9 +113,7 @@ async def settings_page(request: Request):
 async def diags_page(request: Request):
     """System diagnostics and health monitoring page combining jobs, health checks, and analytics."""
     try:
-        return templates.TemplateResponse(
-            "diags.html", {"request": request, "environment": ENVIRONMENT}
-        )
+        return templates.TemplateResponse("diags.html", {"request": request, "environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Diagnostics page error: %s", exc)
         return templates.TemplateResponse(
@@ -130,9 +127,7 @@ async def diags_page(request: Request):
 async def scraper_metrics_page(request: Request):
     """Scraper metrics analytics page."""
     try:
-        return templates.TemplateResponse(
-            "scraper_metrics.html", {"request": request, "environment": ENVIRONMENT}
-        )
+        return templates.TemplateResponse("scraper_metrics.html", {"request": request, "environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Scraper metrics page error: %s", exc)
         return templates.TemplateResponse(
@@ -146,9 +141,7 @@ async def scraper_metrics_page(request: Request):
 async def hunt_metrics_page(request: Request):
     """Hunt scoring metrics analytics page."""
     try:
-        return templates.TemplateResponse(
-            "hunt_metrics.html", {"request": request, "environment": ENVIRONMENT}
-        )
+        return templates.TemplateResponse("hunt_metrics.html", {"request": request, "environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Hunt metrics page error: %s", exc)
         return templates.TemplateResponse(
@@ -162,9 +155,7 @@ async def hunt_metrics_page(request: Request):
 async def hunt_metrics_demo_page(request: Request):
     """Advanced hunt scoring metrics demo page with multidimensional visualizations."""
     try:
-        return templates.TemplateResponse(
-            "hunt_metrics_demo.html", {"request": request, "environment": ENVIRONMENT}
-        )
+        return templates.TemplateResponse("hunt_metrics_demo.html", {"request": request, "environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Hunt metrics demo page error: %s", exc)
         return templates.TemplateResponse(
@@ -226,16 +217,16 @@ async def sources_list(request: Request):
 @router.get("/articles", response_class=HTMLResponse)
 async def articles_list(
     request: Request,
-    search: Optional[str] = None,
-    source: Optional[str] = None,
-    source_id: Optional[int] = None,
-    threat_hunting_range: Optional[str] = None,
-    ml_hunt_range: Optional[str] = None,
-    per_page: Optional[int] = 100,
-    page: Optional[int] = 1,
+    search: str | None = None,
+    source: str | None = None,
+    source_id: int | None = None,
+    threat_hunting_range: str | None = None,
+    ml_hunt_range: str | None = None,
+    per_page: int | None = 100,
+    page: int | None = 1,
     sort_by: str = "published_at",
     sort_order: str = "desc",
-    title_only: Optional[bool] = False,
+    title_only: bool | None = False,
 ):
     """Articles listing page with sorting and filtering."""
     try:
@@ -250,9 +241,7 @@ async def articles_list(
         if search:
             if title_only:
                 filtered_articles = [
-                    article
-                    for article in filtered_articles
-                    if search.lower() in article.title.lower()
+                    article for article in filtered_articles if search.lower() in article.title.lower()
                 ]
             else:
                 articles_dict = [
@@ -270,25 +259,13 @@ async def articles_list(
 
                 filtered_dicts = parse_boolean_search(search, articles_dict)
                 filtered_article_ids = {article["id"] for article in filtered_dicts}
-                filtered_articles = [
-                    article
-                    for article in filtered_articles
-                    if article.id in filtered_article_ids
-                ]
+                filtered_articles = [article for article in filtered_articles if article.id in filtered_article_ids]
 
         if source_id:
-            filtered_articles = [
-                article
-                for article in filtered_articles
-                if article.source_id == source_id
-            ]
+            filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
         elif source and source.isdigit():
             source_id = int(source)
-            filtered_articles = [
-                article
-                for article in filtered_articles
-                if article.source_id == source_id
-            ]
+            filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
 
         if threat_hunting_range:
             try:
@@ -298,9 +275,7 @@ async def articles_list(
                         article
                         for article in filtered_articles
                         if article.article_metadata
-                        and min_score
-                        <= article.article_metadata.get("threat_hunting_score", 0)
-                        <= max_score
+                        and min_score <= article.article_metadata.get("threat_hunting_score", 0) <= max_score
                     ]
             except (ValueError, TypeError):
                 pass
@@ -314,9 +289,7 @@ async def articles_list(
                         for article in filtered_articles
                         if article.article_metadata
                         and article.article_metadata.get("ml_hunt_score") is not None
-                        and min_score
-                        <= article.article_metadata.get("ml_hunt_score", 0)
-                        <= max_score
+                        and min_score <= article.article_metadata.get("ml_hunt_score", 0) <= max_score
                     ]
             except (ValueError, TypeError):
                 pass
@@ -338,29 +311,21 @@ async def articles_list(
         elif sort_by == "annotation_count":
             filtered_articles.sort(
                 key=lambda x: int(x.article_metadata.get("annotation_count", 0))
-                if x.article_metadata
-                and x.article_metadata.get("annotation_count") is not None
+                if x.article_metadata and x.article_metadata.get("annotation_count") is not None
                 else 0,
                 reverse=(sort_order == "desc"),
             )
         elif sort_by == "word_count":
-            filtered_articles.sort(
-                key=lambda x: x.word_count or 0, reverse=(sort_order == "desc")
-            )
+            filtered_articles.sort(key=lambda x: x.word_count or 0, reverse=(sort_order == "desc"))
         else:
-            sort_attr = (
-                getattr(filtered_articles[0], sort_by, None)
-                if filtered_articles
-                else None
-            )
+            sort_attr = getattr(filtered_articles[0], sort_by, None) if filtered_articles else None
             if sort_attr is not None:
                 if sort_order == "desc":
                     filtered_articles.sort(
                         key=lambda x: (
                             getattr(x, sort_by, ""),
                             -float(x.article_metadata.get("threat_hunting_score", 0))
-                            if x.article_metadata
-                            and x.article_metadata.get("threat_hunting_score")
+                            if x.article_metadata and x.article_metadata.get("threat_hunting_score")
                             else 0,
                         ),
                         reverse=True,
@@ -370,19 +335,15 @@ async def articles_list(
                         key=lambda x: (
                             getattr(x, sort_by, ""),
                             float(x.article_metadata.get("threat_hunting_score", 0))
-                            if x.article_metadata
-                            and x.article_metadata.get("threat_hunting_score")
+                            if x.article_metadata and x.article_metadata.get("threat_hunting_score")
                             else 0,
                         ),
                         reverse=False,
                     )
             else:
                 filtered_articles.sort(
-                    key=lambda x: float(
-                        x.article_metadata.get("threat_hunting_score", 0)
-                    )
-                    if x.article_metadata
-                    and x.article_metadata.get("threat_hunting_score")
+                    key=lambda x: float(x.article_metadata.get("threat_hunting_score", 0))
+                    if x.article_metadata and x.article_metadata.get("threat_hunting_score")
                     else 0,
                     reverse=True,
                 )
@@ -457,19 +418,10 @@ async def article_detail(request: Request, article_id: int):
                 "request": request,
                 "article": article,
                 "source": source,
-                "chatgpt_content_limit": int(
-                    os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")
-                ),
-                "anthropic_content_limit": int(
-                    os.getenv("ANTHROPIC_CONTENT_LIMIT", "1000000")
-                ),
-                "content_filtering_enabled": os.getenv(
-                    "CONTENT_FILTERING_ENABLED", "true"
-                ).lower()
-                == "true",
-                "content_filtering_confidence": float(
-                    os.getenv("CONTENT_FILTERING_CONFIDENCE", "0.7")
-                ),
+                "chatgpt_content_limit": int(os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")),
+                "anthropic_content_limit": int(os.getenv("ANTHROPIC_CONTENT_LIMIT", "1000000")),
+                "content_filtering_enabled": os.getenv("CONTENT_FILTERING_ENABLED", "true").lower() == "true",
+                "content_filtering_confidence": float(os.getenv("CONTENT_FILTERING_CONFIDENCE", "0.7")),
             },
         )
     except Exception as exc:
@@ -490,25 +442,19 @@ async def pdf_upload_page():
 @router.get("/jobs", response_class=HTMLResponse)
 async def jobs_page(request: Request):
     """Job monitoring page."""
-    return templates.TemplateResponse(
-        "jobs.html", {"request": request, "environment": ENVIRONMENT}
-    )
+    return templates.TemplateResponse("jobs.html", {"request": request, "environment": ENVIRONMENT})
 
 
 @router.get("/ml-hunt-comparison", response_class=HTMLResponse)
 async def ml_hunt_comparison_page(request: Request):
     """ML vs Hunt scoring comparison page."""
-    return templates.TemplateResponse(
-        "ml_hunt_comparison.html", {"request": request, "environment": ENVIRONMENT}
-    )
+    return templates.TemplateResponse("ml_hunt_comparison.html", {"request": request, "environment": ENVIRONMENT})
 
 
 @router.get("/observables-training", response_class=HTMLResponse)
 async def observable_training_page(request: Request):
     """Observable extractor training dashboard."""
-    return templates.TemplateResponse(
-        "observable_training.html", {"request": request, "environment": ENVIRONMENT}
-    )
+    return templates.TemplateResponse("observable_training.html", {"request": request, "environment": ENVIRONMENT})
 
 
 @router.get("/sigma-ab-test", response_class=HTMLResponse)
@@ -529,9 +475,7 @@ async def sigma_ab_test_page(request: Request):
 async def sigma_similarity_test_page(request: Request):
     """SIGMA rule cosine similarity testing interface."""
     try:
-        return templates.TemplateResponse(
-            "sigma_similarity_test.html", {"request": request}
-        )
+        return templates.TemplateResponse("sigma_similarity_test.html", {"request": request})
     except Exception as exc:
         logger.error("SIGMA similarity test page error: %s", exc)
         return templates.TemplateResponse(

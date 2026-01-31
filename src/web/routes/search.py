@@ -4,8 +4,6 @@ Search-related API routes for articles.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
@@ -18,10 +16,10 @@ router = APIRouter(tags=["Search"])
 @router.get("/api/articles/search")
 async def api_search_articles(
     q: str,
-    source_id: Optional[int] = None,
-    threat_hunting_min: Optional[int] = None,
-    limit: Optional[int] = 100,
-    offset: Optional[int] = 0,
+    source_id: int | None = None,
+    threat_hunting_min: int | None = None,
+    limit: int | None = 100,
+    offset: int | None = 0,
 ):
     """Search articles with wildcard and boolean support."""
     try:
@@ -150,4 +148,3 @@ async def api_similar_articles(article_id: int, limit: int = 10, threshold: floa
     except Exception as exc:  # noqa: BLE001
         logger.error("Similar articles error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

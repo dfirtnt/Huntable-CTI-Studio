@@ -18,10 +18,7 @@ sys.path.insert(0, str(project_root))
 from src.database.manager import DatabaseManager
 from src.database.models import SubagentEvaluationTable
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -32,23 +29,26 @@ def update_article_expected_count(article_id: int, expected_count: int, subagent
     """
     db_manager = DatabaseManager()
     db_session = db_manager.get_session()
-    
+
     try:
         # Find all eval records for this article and subagent
-        eval_records = db_session.query(SubagentEvaluationTable).filter(
-            SubagentEvaluationTable.article_id == article_id,
-            SubagentEvaluationTable.subagent_name == subagent_name
-        ).all()
-        
+        eval_records = (
+            db_session.query(SubagentEvaluationTable)
+            .filter(
+                SubagentEvaluationTable.article_id == article_id, SubagentEvaluationTable.subagent_name == subagent_name
+            )
+            .all()
+        )
+
         if not eval_records:
             logger.warning(f"No SubagentEvaluation records found for article_id={article_id}, subagent={subagent_name}")
             return 0
-        
+
         updated_count = 0
         for record in eval_records:
             old_expected = record.expected_count
             record.expected_count = expected_count
-            
+
             # Recalculate score if actual_count is set
             if record.actual_count is not None:
                 record.score = record.actual_count - expected_count
@@ -64,13 +64,13 @@ def update_article_expected_count(article_id: int, expected_count: int, subagent
                     f"expected_count {old_expected} -> {expected_count} "
                     f"(actual_count not set yet)"
                 )
-            
+
             updated_count += 1
-        
+
         db_session.commit()
         logger.info(f"✅ Updated {updated_count} SubagentEvaluation record(s) for article {article_id}")
         return updated_count
-        
+
     except Exception as e:
         logger.error(f"Error updating expected_count: {e}", exc_info=True)
         db_session.rollback()
@@ -84,14 +84,12 @@ def main():
     parser.add_argument("--article-id", type=int, required=True, help="Article ID to update")
     parser.add_argument("--expected-count", type=int, required=True, help="New expected_count value")
     parser.add_argument("--subagent", type=str, default="cmdline", help="Subagent name (default: cmdline)")
-    
+
     args = parser.parse_args()
-    
+
     try:
         count = update_article_expected_count(
-            article_id=args.article_id,
-            expected_count=args.expected_count,
-            subagent_name=args.subagent
+            article_id=args.article_id, expected_count=args.expected_count, subagent_name=args.subagent
         )
         sys.exit(0 if count > 0 else 1)
     except Exception as e:

@@ -4,27 +4,21 @@ Improved Database Backup Script v3
 Uses PostgreSQL native pg_dump for reliable backups
 """
 
-import os
-import sys
 import json
-import subprocess
 import logging
+import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
-import tempfile
-from typing import Optional
 
 # Database configuration
 DB_CONFIG = {
-    "host": os.getenv(
-        "POSTGRES_HOST", "cti_postgres"
-    ),  # Container name for Docker network
+    "host": os.getenv("POSTGRES_HOST", "cti_postgres"),  # Container name for Docker network
     "port": os.getenv("POSTGRES_PORT", "5432"),
     "database": os.getenv("POSTGRES_DB", "cti_scraper"),
     "user": os.getenv("POSTGRES_USER", "cti_user"),
-    "password": os.getenv(
-        "POSTGRES_PASSWORD", "cti_password"
-    ),  # Use environment variable
+    "password": os.getenv("POSTGRES_PASSWORD", "cti_password"),  # Use environment variable
 }
 
 # Backup directory - use environment variable or default to relative path
@@ -33,9 +27,7 @@ BACKUP_DIR = Path(BACKUP_DIR_ENV)
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 # Logging setup
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -71,9 +63,7 @@ def get_database_stats():
             sql_query,
         ]
 
-        result = subprocess.run(
-            cmd, env=env, capture_output=True, text=True, timeout=30
-        )
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=30)
 
         if result.returncode != 0:
             logger.warning(f"Failed to get database stats (return code {result.returncode}): {result.stderr}")
@@ -86,7 +76,7 @@ def get_database_stats():
         if not lines:
             logger.warning("No output from database stats query")
             return None
-        
+
         # Use the first non-empty line
         parts = lines[0].split("|")
         if len(parts) >= 3:
@@ -106,7 +96,7 @@ def get_database_stats():
         return None
 
 
-def create_backup(backup_dir: Optional[str] = None):
+def create_backup(backup_dir: str | None = None):
     """Create a database backup using pg_dump"""
     global BACKUP_DIR
 
@@ -246,9 +236,8 @@ def main():
     if result and result["success"]:
         print(json.dumps(result, indent=2))
         return 0
-    else:
-        logger.error("Backup failed")
-        return 1
+    logger.error("Backup failed")
+    return 1
 
 
 if __name__ == "__main__":

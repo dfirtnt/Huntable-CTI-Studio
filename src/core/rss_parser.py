@@ -1,16 +1,15 @@
 """RSS/Atom feed parser for threat intelligence sources."""
 
-import asyncio
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-import feedparser
 import logging
-from urllib.parse import urljoin
+from datetime import datetime
+from typing import Any
 
-from src.models.article import Article, ArticleCreate
+import feedparser
+
+from src.models.article import ArticleCreate
 from src.models.source import Source
+from src.utils.content import ContentCleaner, DateExtractor
 from src.utils.http import HTTPClient
-from src.utils.content import DateExtractor, ContentCleaner, MetadataExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class RSSParser:
     def __init__(self, http_client: HTTPClient):
         self.http_client = http_client
 
-    async def parse_feed(self, source: Source) -> List[ArticleCreate]:
+    async def parse_feed(self, source: Source) -> list[ArticleCreate]:
         """
         Parse RSS/Atom feed and extract articles.
 
@@ -41,68 +40,63 @@ class RSSParser:
 
         # Configure robots.txt settings if available
         if isinstance(source.config, dict) and "robots" in source.config:
-            self.http_client.configure_source_robots(
-                source.identifier, source.config["robots"]
-            )
+            self.http_client.configure_source_robots(source.identifier, source.config["robots"])
 
         try:
             # Fetch RSS feed with source-specific robots configuration
-            response = await self.http_client.get(
-                source.rss_url, source_id=source.identifier
-            )
+            response = await self.http_client.get(source.rss_url, source_id=source.identifier)
             response.raise_for_status()
 
             # Parse with feedparser
             feed_data = feedparser.parse(response.text)
 
             if feed_data.bozo and feed_data.bozo_exception:
-                logger.warning(
-                    f"Feed parsing warning for {source.name}: {feed_data.bozo_exception}"
-                )
+                logger.warning(f"Feed parsing warning for {source.name}: {feed_data.bozo_exception}")
 
             # Extract articles with statistics tracking
             articles = []
             stats = {
-                'total_entries': len(feed_data.entries),
-                'parsed_successfully': 0,
-                'filtered_url_regex': 0,
-                'filtered_title': 0,
-                'filtered_content': 0,
-                'parse_errors': 0,
+                "total_entries": len(feed_data.entries),
+                "parsed_successfully": 0,
+                "filtered_url_regex": 0,
+                "filtered_title": 0,
+                "filtered_content": 0,
+                "parse_errors": 0,
             }
-            
+
             for entry in feed_data.entries:
                 try:
                     article, filter_reason = await self._parse_entry_with_stats(entry, source)
                     if article:
                         articles.append(article)
-                        stats['parsed_successfully'] += 1
+                        stats["parsed_successfully"] += 1
                     else:
                         # Track why it was filtered
-                        if filter_reason == 'url_regex':
-                            stats['filtered_url_regex'] += 1
-                        elif filter_reason == 'title':
-                            stats['filtered_title'] += 1
-                        elif filter_reason == 'content':
-                            stats['filtered_content'] += 1
+                        if filter_reason == "url_regex":
+                            stats["filtered_url_regex"] += 1
+                        elif filter_reason == "title":
+                            stats["filtered_title"] += 1
+                        elif filter_reason == "content":
+                            stats["filtered_content"] += 1
                 except Exception as e:
                     logger.error(f"Failed to parse entry in {source.name}: {e}")
-                    stats['parse_errors'] += 1
+                    stats["parse_errors"] += 1
                     continue
 
             logger.info(f"Extracted {len(articles)} articles from {source.name} (stats: {stats})")
-            
+
             # Store stats in articles article_metadata for later retrieval (even if empty)
             for article in articles:
-                if not hasattr(article, 'article_metadata') or not article.article_metadata:
+                if not hasattr(article, "article_metadata") or not article.article_metadata:
                     article.article_metadata = {}
-                article.article_metadata['rss_parsing_stats'] = stats
-            
+                article.article_metadata["rss_parsing_stats"] = stats
+
             # If no articles, create a dummy article just to carry stats
-            if not articles and stats['total_entries'] > 0:
+            if not articles and stats["total_entries"] > 0:
                 # Create a temporary article just to carry stats metadata
                 # This will be filtered out later but allows stats to be passed through
                 from src.models.article import ArticleCreate
+
                 dummy_article = ArticleCreate(
                     source_id=source.id,
                     url="",
@@ -110,17 +104,17 @@ class RSSParser:
                     title="",
                     published_at=datetime.now(),
                     content="",
-                    article_metadata={'rss_parsing_stats': stats, 'is_dummy': True}
+                    article_metadata={"rss_parsing_stats": stats, "is_dummy": True},
                 )
                 articles.append(dummy_article)
-            
+
             return articles
 
         except Exception as e:
             logger.error(f"Failed to parse RSS feed for {source.name}: {e}")
             raise
 
-    async def _parse_entry_with_stats(self, entry: Any, source: Source) -> tuple[Optional[ArticleCreate], Optional[str]]:
+    async def _parse_entry_with_stats(self, entry: Any, source: Source) -> tuple[ArticleCreate | None, str | None]:
         """
         Parse entry with statistics tracking.
         Returns (article, filter_reason) where filter_reason is None if article was created,
@@ -129,11 +123,11 @@ class RSSParser:
         article = await self._parse_entry(entry, source)
         if article:
             return article, None
-        
+
         # Determine why it was filtered (check in order)
         url = self._extract_url(entry)
         title = self._extract_title(entry)
-        
+
         if url and title:
             # Check URL regex filtering
             if hasattr(source, "config") and source.config:
@@ -150,13 +144,14 @@ class RSSParser:
                     post_url_patterns = config_dict_dump.get("post_url_regex", [])
                 else:
                     post_url_patterns = []
-                
+
                 if post_url_patterns:
                     import re
+
                     matched = False
                     for pattern in post_url_patterns:
                         try:
-                            pattern_normalized = pattern.replace('\\\\.', '\\.')
+                            pattern_normalized = pattern.replace("\\\\.", "\\.")
                             compiled_pattern = re.compile(pattern_normalized)
                             if compiled_pattern.match(url):
                                 matched = True
@@ -164,16 +159,16 @@ class RSSParser:
                         except re.error:
                             continue
                     if not matched:
-                        return None, 'url_regex'
-            
+                        return None, "url_regex"
+
             # Check title filtering
             if self._should_filter_title(title, source.config if hasattr(source, "config") else None):
-                return None, 'title'
-        
+                return None, "title"
+
         # Otherwise likely content extraction failure
-        return None, 'content'
-    
-    async def _parse_entry(self, entry: Any, source: Source) -> Optional[ArticleCreate]:
+        return None, "content"
+
+    async def _parse_entry(self, entry: Any, source: Source) -> ArticleCreate | None:
         """
         Parse individual RSS entry into ArticleCreate.
 
@@ -191,9 +186,7 @@ class RSSParser:
             published_at = await self._extract_date(entry, url)
 
             if not title or not url:
-                logger.warning(
-                    f"Skipping entry with missing title or URL in {source.name}"
-                )
+                logger.warning(f"Skipping entry with missing title or URL in {source.name}")
                 return None
 
             # Filter URLs by post_url_regex pattern if configured
@@ -211,26 +204,26 @@ class RSSParser:
                     post_url_patterns = config_dict_dump.get("post_url_regex", [])
                 else:
                     post_url_patterns = []
-                
+
                 if post_url_patterns:
                     import re
+
                     matched = False
                     logger.info(f"Checking URL {url} against patterns {post_url_patterns} for {source.name}")
                     for pattern in post_url_patterns:
                         try:
                             # Handle escaped backslashes in patterns (from JSON storage)
-                            pattern_normalized = pattern.replace('\\\\.', '\\.')
+                            pattern_normalized = pattern.replace("\\\\.", "\\.")
                             compiled_pattern = re.compile(pattern_normalized)
                             if compiled_pattern.match(url):
                                 matched = True
                                 logger.info(f"✅ RSS URL {url} matched pattern {pattern_normalized}")
                                 break
-                            else:
-                                logger.debug(f"❌ RSS URL {url} did NOT match pattern {pattern_normalized}")
+                            logger.debug(f"❌ RSS URL {url} did NOT match pattern {pattern_normalized}")
                         except re.error as e:
                             logger.warning(f"Invalid regex pattern '{pattern}' for {source.name}: {e}")
                             continue
-                    
+
                     if not matched:
                         logger.warning(f"RSS URL {url} filtered out by pattern check (patterns: {post_url_patterns})")
                         return None
@@ -238,9 +231,7 @@ class RSSParser:
                     logger.debug(f"No post_url_regex patterns configured for {source.name}, skipping URL filtering")
 
             # Filter out articles based on title keywords
-            if self._should_filter_title(
-                title, source.config if hasattr(source, "config") else None
-            ):
+            if self._should_filter_title(title, source.config if hasattr(source, "config") else None):
                 logger.info(f"Filtered out article by title: {title}")
                 return None
 
@@ -263,11 +254,9 @@ class RSSParser:
                     "published": getattr(entry, "published", ""),
                     "updated": getattr(entry, "updated", ""),
                 },
-                "extraction_method": "rss_with_modern_fallback"
-                if hasattr(entry, "_used_modern_fallback")
-                else "rss",
+                "extraction_method": "rss_with_modern_fallback" if hasattr(entry, "_used_modern_fallback") else "rss",
             }
-            
+
             # Add RSS parsing stats to metadata (will be stored in article_metadata)
             # Stats are added later in parse_feed after all entries are processed
 
@@ -302,7 +291,7 @@ class RSSParser:
             logger.error(f"Error parsing RSS entry: {e}")
             return None
 
-    def _extract_title(self, entry: Any) -> Optional[str]:
+    def _extract_title(self, entry: Any) -> str | None:
         """Extract title from RSS entry."""
         title = getattr(entry, "title", "")
         if title:
@@ -313,7 +302,7 @@ class RSSParser:
             return ContentCleaner.normalize_whitespace(title)
         return None
 
-    def _extract_url(self, entry: Any) -> Optional[str]:
+    def _extract_url(self, entry: Any) -> str | None:
         """Extract canonical URL from RSS entry."""
         # Try different URL fields
         url_fields = ["link", "id", "guid"]
@@ -331,7 +320,7 @@ class RSSParser:
 
         return None
 
-    async def _extract_date(self, entry: Any, url: str = None) -> Optional[datetime]:
+    async def _extract_date(self, entry: Any, url: str = None) -> datetime | None:
         """Extract publication date from RSS entry."""
 
         def normalize_datetime(dt: datetime) -> datetime:
@@ -398,7 +387,7 @@ class RSSParser:
 
         return None
 
-    async def _extract_date_from_page(self, url: str) -> Optional[datetime]:
+    async def _extract_date_from_page(self, url: str) -> datetime | None:
         """Extract publication date from article page metadata."""
         try:
             # Fetch the article page
@@ -431,9 +420,7 @@ class RSSParser:
                     if date_str:
                         parsed_date = DateExtractor.parse_date(date_str)
                         if parsed_date and parsed_date.year > 1970:
-                            logger.info(
-                                f"Extracted date from page metadata: {date_str} -> {parsed_date}"
-                            )
+                            logger.info(f"Extracted date from page metadata: {date_str} -> {parsed_date}")
                             return parsed_date
 
             # Try to extract date from URL patterns
@@ -448,9 +435,7 @@ class RSSParser:
             logger.warning(f"Failed to extract date from page {url}: {e}")
             return None
 
-    async def _extract_content(
-        self, entry: Any, url: str, source: Source
-    ) -> Optional[str]:
+    async def _extract_content(self, entry: Any, url: str, source: Source) -> str | None:
         """
         Extract content from RSS entry.
 
@@ -512,9 +497,7 @@ class RSSParser:
                 # This avoids the "Runner.run() cannot be called from a running event loop" error
                 rss_only = await get_raw_config()
             except Exception as e:
-                logger.warning(
-                    f"Failed to read rss_only from database for {source.name}: {e}"
-                )
+                logger.warning(f"Failed to read rss_only from database for {source.name}: {e}")
 
         logger.info(f"RSS-only mode for {source.name}: {rss_only}")
 
@@ -555,55 +538,40 @@ class RSSParser:
                         f"RSS content length {text_length} < min {source_min_length}, but RSS-only mode enabled - using anyway"
                     )
                 return ContentCleaner.clean_html(content)
-            else:
-                logger.warning(
-                    f"RSS-only mode enabled but no RSS content available for {url}"
-                )
-                return None
+            logger.warning(f"RSS-only mode enabled but no RSS content available for {url}")
+            return None
 
         # If no RSS content at all, try modern scraping directly
         if not content or len(ContentCleaner.html_to_text(content).strip() if content else "") == 0:
-            logger.info(
-                f"No RSS content found for {url}, trying modern scraping"
-            )
+            logger.info(f"No RSS content found for {url}, trying modern scraping")
             try:
                 modern_content = await self._extract_with_modern_scraping(url, source)
                 if modern_content:
-                    modern_text_length = len(
-                        ContentCleaner.html_to_text(modern_content).strip()
-                    )
+                    modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
                     if modern_text_length >= source_min_length:
-                        logger.info(
-                            f"Modern scraping successful for empty RSS: {modern_text_length} chars"
-                        )
+                        logger.info(f"Modern scraping successful for empty RSS: {modern_text_length} chars")
                         entry._used_modern_fallback = True
                         return modern_content
-                    else:
-                        logger.info(
-                            f"Modern scraping didn't meet minimum length: {modern_text_length} chars (need >= {source_min_length})"
-                        )
+                    logger.info(
+                        f"Modern scraping didn't meet minimum length: {modern_text_length} chars (need >= {source_min_length})"
+                    )
                 else:
                     logger.info(f"Modern scraping failed for {url}")
             except Exception as e:
                 logger.warning(f"Modern scraping failed for {url}: {e}")
-            
+
             # If scraping failed and no RSS content, reject
             return None
 
         # Check if we have substantial content from RSS
-        if (
-            content
-            and len(ContentCleaner.html_to_text(content).strip()) >= source_min_length
-        ):
+        if content and len(ContentCleaner.html_to_text(content).strip()) >= source_min_length:
             # We have substantial content from the feed (meets source requirements)
             return ContentCleaner.clean_html(content)
 
         # Check if RSS content is too short (< source_min_length) and try basic scraping
         if content:
             cleaned_rss_content = ContentCleaner.clean_html(content)
-            rss_text_length = len(
-                ContentCleaner.html_to_text(cleaned_rss_content).strip()
-            )
+            rss_text_length = len(ContentCleaner.html_to_text(cleaned_rss_content).strip())
 
             if rss_text_length < source_min_length:  # Use source-specific minimum
                 logger.info(
@@ -611,16 +579,11 @@ class RSSParser:
                 )
                 try:
                     # Try basic scraping to get full content
-                    modern_content = await self._extract_with_modern_scraping(
-                        url, source
-                    )
+                    modern_content = await self._extract_with_modern_scraping(url, source)
                     if modern_content:
-                        modern_text_length = len(
-                            ContentCleaner.html_to_text(modern_content).strip()
-                        )
+                        modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
                         if (
-                            modern_text_length > rss_text_length
-                            and modern_text_length >= source_min_length
+                            modern_text_length > rss_text_length and modern_text_length >= source_min_length
                         ):  # Ensure meets source requirements
                             logger.info(
                                 f"Modern scraping successful: {modern_text_length} chars vs {rss_text_length} chars from RSS"
@@ -628,50 +591,32 @@ class RSSParser:
                             # Mark that basic scraping was used
                             entry._used_modern_fallback = True
                             return modern_content
-                        else:
-                            logger.info(
-                                f"Modern scraping didn't provide sufficient content: {modern_text_length} chars (need >= 1000)"
-                            )
-                    else:
                         logger.info(
-                            f"Modern scraping failed for {url}, rejecting short content"
+                            f"Modern scraping didn't provide sufficient content: {modern_text_length} chars (need >= 1000)"
                         )
+                    else:
+                        logger.info(f"Modern scraping failed for {url}, rejecting short content")
                 except Exception as e:
-                    logger.warning(
-                        f"Modern scraping failed for {url}: {e}, rejecting short content"
-                    )
+                    logger.warning(f"Modern scraping failed for {url}: {e}, rejecting short content")
 
                 # If we can't get sufficient content, reject the article
-                logger.warning(
-                    f"Rejecting article with insufficient content: {rss_text_length} chars for {url}"
-                )
+                logger.warning(f"Rejecting article with insufficient content: {rss_text_length} chars for {url}")
                 return None
 
         # Special handling for The Hacker News - try basic scraping first, fallback to RSS
         if "thehackernews.com" in url.lower():
-            logger.info(
-                f"The Hacker News URL detected, trying modern scraping first: {url}"
-            )
+            logger.info(f"The Hacker News URL detected, trying modern scraping first: {url}")
             try:
                 # Try basic scraping to get full content
                 modern_content = await self._extract_with_modern_scraping(url, source)
                 if modern_content:
-                    modern_text_length = len(
-                        ContentCleaner.html_to_text(modern_content).strip()
-                    )
+                    modern_text_length = len(ContentCleaner.html_to_text(modern_content).strip())
                     if modern_text_length > 1000:  # Ensure we got substantial content
-                        logger.info(
-                            f"Modern scraping successful for The Hacker News: {modern_text_length} chars"
-                        )
+                        logger.info(f"Modern scraping successful for The Hacker News: {modern_text_length} chars")
                         return modern_content
-                    else:
-                        logger.info(
-                            f"Modern scraping didn't provide substantial content: {modern_text_length} chars"
-                        )
+                    logger.info(f"Modern scraping didn't provide substantial content: {modern_text_length} chars")
                 else:
-                    logger.info(
-                        f"Modern scraping failed for The Hacker News, using RSS content"
-                    )
+                    logger.info("Modern scraping failed for The Hacker News, using RSS content")
             except Exception as e:
                 logger.warning(f"Modern scraping failed for The Hacker News {url}: {e}")
 
@@ -701,9 +646,7 @@ class RSSParser:
                                 "Sec-Ch-Ua-Platform": '"macOS"',
                             }
                         )
-                        logger.info(
-                            f"Retry attempt {attempt + 1} with enhanced headers for {url}"
-                        )
+                        logger.info(f"Retry attempt {attempt + 1} with enhanced headers for {url}")
 
                     response = await self.http_client.get(url, headers=attempt_headers)
                     response.raise_for_status()
@@ -780,16 +723,12 @@ class RSSParser:
                         url,
                         source.config if hasattr(source, "config") else None,
                     ):
-                        logger.info(
-                            f"Successful content extraction using selector '{selector}' for {url}"
-                        )
+                        logger.info(f"Successful content extraction using selector '{selector}' for {url}")
                         cleaned_content = ContentCleaner.clean_html(extracted_content)
 
                         # Special cleaning for CrowdStrike articles
                         if "crowdstrike.com" in url.lower():
-                            cleaned_content = self._clean_crowdstrike_content(
-                                cleaned_content
-                            )
+                            cleaned_content = self._clean_crowdstrike_content(cleaned_content)
 
                         return cleaned_content
 
@@ -810,9 +749,7 @@ class RSSParser:
             return cleaned_content
         return None
 
-    async def _extract_with_modern_scraping(
-        self, url: str, source: Source
-    ) -> Optional[str]:
+    async def _extract_with_modern_scraping(self, url: str, source: Source) -> str | None:
         """
         Extract content using modern scraping techniques (simplified version).
 
@@ -884,18 +821,14 @@ class RSSParser:
                         url,
                         source.config if hasattr(source, "config") else None,
                     ):
-                        logger.info(
-                            f"Successful modern content extraction using selector '{selector}' for {url}"
-                        )
+                        logger.info(f"Successful modern content extraction using selector '{selector}' for {url}")
                         # Use basic_html_clean to preserve HTML structure instead of enhanced_html_clean which returns text
                         cleaned_content = ContentCleaner.basic_html_clean(extracted_content)
-                        
+
                         # Special cleaning for CrowdStrike articles
                         if "crowdstrike.com" in url.lower():
-                            cleaned_content = self._clean_crowdstrike_content(
-                                cleaned_content
-                            )
-                        
+                            cleaned_content = self._clean_crowdstrike_content(cleaned_content)
+
                         return cleaned_content
 
             # Fallback: get body content
@@ -911,9 +844,7 @@ class RSSParser:
 
         return None
 
-    def _should_filter_title(
-        self, title: str, source_config: Optional[Dict[str, Any]] = None
-    ) -> bool:
+    def _should_filter_title(self, title: str, source_config: dict[str, Any] | None = None) -> bool:
         """Check if article title should be filtered out based on keywords."""
         if not title:
             return True
@@ -977,9 +908,7 @@ class RSSParser:
 
         return False
 
-    def _is_quality_content(
-        self, text: str, url: str, source_config: Optional[Dict[str, Any]] = None
-    ) -> bool:
+    def _is_quality_content(self, text: str, url: str, source_config: dict[str, Any] | None = None) -> bool:
         """Validate if extracted content is high quality and not blocked/error content."""
         # Use source-specific minimum content length if configured
         min_length = 100  # Default minimum
@@ -1028,12 +957,10 @@ class RSSParser:
         if sentences < 2:  # Reduced from 3 to 2 sentences
             return False
 
-        logger.debug(
-            f"Quality content validated: {len(text)} chars, {len(words)} words, {sentences} sentences"
-        )
+        logger.debug(f"Quality content validated: {len(text)} chars, {len(words)} words, {sentences} sentences")
         return True
 
-    def _get_feed_content(self, entry: Any) -> Optional[str]:
+    def _get_feed_content(self, entry: Any) -> str | None:
         """Extract content from feed entry."""
         # DEBUG: Log what we're checking
         entry_id = getattr(entry, "id", getattr(entry, "link", "unknown"))
@@ -1051,7 +978,7 @@ class RSSParser:
 
         # Try content field first (Atom)
         if hasattr(entry, "content") and entry.content:
-            logger.debug(f"  Using content field")
+            logger.debug("  Using content field")
             if isinstance(entry.content, list) and entry.content:
                 content_value = entry.content[0].get("value", "")
                 if content_value and len(content_value.strip()) > 0:
@@ -1063,20 +990,18 @@ class RSSParser:
 
         # Try description (RSS)
         if hasattr(entry, "description") and entry.description:
-            logger.debug(
-                f"  Using description field (length: {len(entry.description)})"
-            )
+            logger.debug(f"  Using description field (length: {len(entry.description)})")
             return entry.description
 
         # Try summary
         if hasattr(entry, "summary") and entry.summary:
-            logger.debug(f"  Using summary field")
+            logger.debug("  Using summary field")
             return entry.summary
 
         logger.warning(f"  NO CONTENT FOUND for entry {entry_id}")
         return None
 
-    def _extract_authors(self, entry: Any) -> List[str]:
+    def _extract_authors(self, entry: Any) -> list[str]:
         """Extract authors from RSS entry."""
         authors = []
 
@@ -1103,7 +1028,7 @@ class RSSParser:
 
         return cleaned_authors
 
-    def _extract_tags(self, entry: Any) -> List[str]:
+    def _extract_tags(self, entry: Any) -> list[str]:
         """Extract tags/categories from RSS entry."""
         tags = set()
 
@@ -1124,7 +1049,7 @@ class RSSParser:
         # Convert to sorted list
         return sorted(list(tags))
 
-    def _extract_summary(self, entry: Any, content: str) -> Optional[str]:
+    def _extract_summary(self, entry: Any, content: str) -> str | None:
         """Extract or generate summary from RSS entry."""
         # Try summary from feed first
         if hasattr(entry, "summary") and entry.summary:
@@ -1217,7 +1142,7 @@ class FeedValidator:
     """Utility class for validating RSS/Atom feeds."""
 
     @staticmethod
-    async def validate_feed(url: str, http_client: HTTPClient) -> Dict[str, Any]:
+    async def validate_feed(url: str, http_client: HTTPClient) -> dict[str, Any]:
         """
         Validate RSS/Atom feed and return metadata.
 
@@ -1244,9 +1169,7 @@ class FeedValidator:
 
             # Check for parsing errors
             if feed_data.bozo and feed_data.bozo_exception:
-                result["errors"].append(
-                    f"Feed parsing warning: {feed_data.bozo_exception}"
-                )
+                result["errors"].append(f"Feed parsing warning: {feed_data.bozo_exception}")
 
             # Check if we have a valid feed
             if not hasattr(feed_data, "feed") or not feed_data.entries:

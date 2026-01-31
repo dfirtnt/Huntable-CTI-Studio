@@ -6,10 +6,10 @@ from pathlib import Path
 
 import click
 
-from ..context import CLIContext
 from src.database.async_manager import AsyncDatabaseManager
 from src.services.source_sync import SourceSyncService
 
+from ..context import CLIContext
 
 logger = logging.getLogger(__name__)
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)
@@ -32,4 +32,3 @@ def sync_sources(ctx: CLIContext, config: str, no_remove: bool):
             await db_manager.close()
 
     asyncio.run(_run())
-

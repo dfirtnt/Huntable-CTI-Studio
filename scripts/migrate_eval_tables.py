@@ -5,16 +5,18 @@ Migration script to create eval_preset_snapshots and eval_runs tables.
 These tables support preset-based evaluation system using Langfuse datasets.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine, text
-from src.database.models import Base, EvalPresetSnapshotTable, EvalRunTable
 import logging
+
+from sqlalchemy import create_engine
+
+from src.database.models import Base, EvalPresetSnapshotTable, EvalRunTable
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,35 +24,29 @@ logger = logging.getLogger(__name__)
 
 def run_migration():
     """Create eval tables if they don't exist."""
-    
+
     # Get database URL from environment
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         logger.error("DATABASE_URL environment variable not set")
         return False
-    
+
     # Convert asyncpg to psycopg2 for SQLAlchemy
     if "asyncpg" in database_url:
         database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
-    
+
     try:
         # Create engine
         engine = create_engine(database_url)
-        
+
         # Create tables using SQLAlchemy metadata
         # This will create tables if they don't exist
         logger.info("Creating eval_preset_snapshots and eval_runs tables...")
-        Base.metadata.create_all(
-            engine,
-            tables=[
-                EvalPresetSnapshotTable.__table__,
-                EvalRunTable.__table__
-            ]
-        )
-        
+        Base.metadata.create_all(engine, tables=[EvalPresetSnapshotTable.__table__, EvalRunTable.__table__])
+
         logger.info("Migration completed successfully")
         return True
-        
+
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
         return False
@@ -59,6 +55,3 @@ def run_migration():
 if __name__ == "__main__":
     success = run_migration()
     sys.exit(0 if success else 1)
-
-
-

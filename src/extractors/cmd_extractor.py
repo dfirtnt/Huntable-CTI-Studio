@@ -7,14 +7,15 @@ and emits the spans verbatim for downstream agents such as SIGMA generation.
 
 from __future__ import annotations
 
-from typing import Iterable, List, Dict, Optional, Union, TYPE_CHECKING
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Union
 
 from src.extractors.base import ObservableExtractor
 
 if TYPE_CHECKING:
     from src.models.annotation import ArticleAnnotation
 
-AnnotationLike = Union[Dict[str, object], "ArticleAnnotation"]
+AnnotationLike = Union[dict[str, object], "ArticleAnnotation"]
 
 
 class CMDObservableExtractor(ObservableExtractor):
@@ -22,7 +23,7 @@ class CMDObservableExtractor(ObservableExtractor):
 
     observable_type = "commandline"
 
-    def __init__(self, annotations: Optional[Iterable[AnnotationLike]] = None):
+    def __init__(self, annotations: Iterable[AnnotationLike] | None = None):
         """
         Initialize the extractor with optional annotations.
 
@@ -31,12 +32,12 @@ class CMDObservableExtractor(ObservableExtractor):
         annotations:
             Iterable of annotation dictionaries or ArticleAnnotation models.
         """
-        self._annotations: List[AnnotationLike] = list(annotations or [])
+        self._annotations: list[AnnotationLike] = list(annotations or [])
 
-    def supports(self) -> List[str]:
+    def supports(self) -> list[str]:
         return ["CMD"]
 
-    def extract(self, text: str, *, article_id: int) -> List[Dict]:
+    def extract(self, text: str, *, article_id: int) -> list[dict]:
         """
         Emit literal command lines that have been annotated for the article.
 
@@ -50,7 +51,7 @@ class CMDObservableExtractor(ObservableExtractor):
         if not self._annotations:
             return []
 
-        observables: List[Dict] = []
+        observables: list[dict] = []
         for annotation in self._annotations:
             annotation_type = _get_attr(annotation, "annotation_type")
             if annotation_type != "CMD":
@@ -78,12 +79,12 @@ class CMDObservableExtractor(ObservableExtractor):
 
         return observables
 
-    def with_annotations(self, annotations: Iterable[AnnotationLike]) -> "CMDObservableExtractor":
+    def with_annotations(self, annotations: Iterable[AnnotationLike]) -> CMDObservableExtractor:
         """Return a new extractor instance preloaded with annotations."""
         return CMDObservableExtractor(annotations)
 
 
-def _get_attr(annotation: AnnotationLike, field: str) -> Optional[object]:
+def _get_attr(annotation: AnnotationLike, field: str) -> object | None:
     """Safely access attributes on dicts or objects."""
     if isinstance(annotation, dict):
         return annotation.get(field)

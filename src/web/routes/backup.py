@@ -7,7 +7,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -79,11 +79,9 @@ async def api_list_backups():
         )
 
         if result.returncode != 0:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to list backups: {result.stderr}"
-            )
+            raise HTTPException(status_code=500, detail=f"Failed to list backups: {result.stderr}")
 
-        backups: List[Dict[str, Any]] = []
+        backups: list[dict[str, Any]] = []
         lines = result.stdout.split("\n")
         in_backup_list = False
 
@@ -91,9 +89,7 @@ async def api_list_backups():
             if "Recent Backups" in line:
                 in_backup_list = True
                 continue
-            if in_backup_list and line.strip() and any(
-                line.strip().startswith(f"{i}.") for i in range(1, 11)
-            ):
+            if in_backup_list and line.strip() and any(line.strip().startswith(f"{i}.") for i in range(1, 11)):
                 parts = line.strip().split(".", 1)
                 if len(parts) < 2:
                     continue
@@ -155,9 +151,7 @@ async def api_backup_status():
         )
 
         if result.returncode != 0:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to get backup status: {result.stderr}"
-            )
+            raise HTTPException(status_code=500, detail=f"Failed to get backup status: {result.stderr}")
 
         total_backups = 0
         total_size_gb = 0.0
@@ -174,6 +168,7 @@ async def api_backup_status():
                 size_str = line.split(":")[1].strip()
                 # Try to extract GB value from format like "1168.26 MB (1.14 GB)"
                 import re
+
                 # Look for GB value in parentheses first
                 gb_match = re.search(r"\(([0-9.]+)\s*GB\)", size_str)
                 if gb_match:
@@ -222,48 +217,48 @@ async def api_restore_backup(request: Request):
         backup_name = payload.get("backup_name")
         if not backup_name:
             raise HTTPException(status_code=400, detail="backup_name is required")
-        
+
         backup_dir = payload.get("backup_dir", "backups")
         components = payload.get("components")
         force = payload.get("force", False)
         no_snapshot = payload.get("no_snapshot", False)
 
         project_root = Path(__file__).parent.parent.parent.parent
-        
+
         # Determine which restore script to use
         backup_path = Path(backup_name)
         if not backup_path.is_absolute():
             backup_path = Path(backup_dir) / backup_name
-        
+
         # Check if it's a system backup directory
-        if backup_path.is_dir() and backup_name.startswith('system_backup_'):
-            script_path = project_root / 'scripts' / 'restore_system.py'
+        if backup_path.is_dir() and backup_name.startswith("system_backup_"):
+            script_path = project_root / "scripts" / "restore_system.py"
             if not script_path.exists():
                 raise HTTPException(status_code=500, detail="System restore script not found")
-            
-            cmd = [sys.executable, str(script_path), backup_name, '--backup-dir', backup_dir]
-            
+
+            cmd = [sys.executable, str(script_path), backup_name, "--backup-dir", backup_dir]
+
             if components:
-                cmd.extend(['--components', components])
+                cmd.extend(["--components", components])
             # Always pass --force when called from API to skip interactive confirmation
             # (user already confirmed in UI). Note: --force also skips snapshot creation.
-            cmd.append('--force')
+            cmd.append("--force")
             # If user explicitly wants to skip snapshot, add --no-snapshot
             # (though --force already prevents snapshot, this is for clarity)
             if no_snapshot:
-                cmd.append('--no-snapshot')
+                cmd.append("--no-snapshot")
         else:
             # Use legacy database restore script
-            script_path = project_root / 'scripts' / 'restore_database.py'
+            script_path = project_root / "scripts" / "restore_database.py"
             if not script_path.exists():
                 raise HTTPException(status_code=500, detail="Database restore script not found")
-            
+
             cmd = [sys.executable, str(script_path), str(backup_path)]
-            
+
             # Always pass --force when called from API to skip interactive confirmation
-            cmd.append('--force')
+            cmd.append("--force")
             if no_snapshot:
-                cmd.append('--no-snapshot')
+                cmd.append("--no-snapshot")
 
         result = subprocess.run(
             cmd,
@@ -281,9 +276,7 @@ async def api_restore_backup(request: Request):
                 "output": result.stdout,
             }
 
-        raise HTTPException(
-            status_code=500, detail=f"Restore failed: {result.stderr or result.stdout}"
-        )
+        raise HTTPException(status_code=500, detail=f"Restore failed: {result.stderr or result.stdout}")
 
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="Restore timed out") from exc
@@ -292,4 +285,3 @@ async def api_restore_backup(request: Request):
     except Exception as exc:  # noqa: BLE001
         logger.error("Restore error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-

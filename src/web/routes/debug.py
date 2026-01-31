@@ -6,13 +6,12 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
-from src.utils.llm_optimizer import estimate_llm_cost, estimate_gpt4o_cost  # Backward compatibility
+from src.utils.llm_optimizer import estimate_gpt4o_cost  # Backward compatibility
 from src.web.dependencies import get_content_filter, logger
 
 router = APIRouter(tags=["Debug"])
@@ -78,7 +77,7 @@ async def api_chunk_debug(
         content_filter = get_content_filter()
 
         # Extract hunt_score from article metadata
-        hunt_score = article.article_metadata.get('threat_hunting_score')
+        hunt_score = article.article_metadata.get("threat_hunting_score")
         if hunt_score is not None:
             try:
                 hunt_score = float(hunt_score)
@@ -121,6 +120,7 @@ async def api_chunk_debug(
 
         async def analyze_chunk(chunk_id: int, start: int, end: int, chunk_text: str):
             async with semaphore:
+
                 def _process_chunk():
                     chunk_result = content_filter.filter_content(
                         chunk_text,
@@ -174,12 +174,15 @@ async def api_chunk_debug(
 
                     # Check for keywords and patterns using threat hunting scorer
                     from src.utils.content import ThreatHuntingScorer
-                    hunt_result = ThreatHuntingScorer.score_threat_hunting_content("Content Filter Analysis", chunk_text)
-                    
-                    has_keywords = hunt_result.get('good_keyword_matches', [])
-                    has_command_patterns = hunt_result.get('lolbas_matches', [])
-                    has_perfect_discriminators = hunt_result.get('perfect_keyword_matches', [])
-                    
+
+                    hunt_result = ThreatHuntingScorer.score_threat_hunting_content(
+                        "Content Filter Analysis", chunk_text
+                    )
+
+                    has_keywords = hunt_result.get("good_keyword_matches", [])
+                    has_command_patterns = hunt_result.get("lolbas_matches", [])
+                    has_perfect_discriminators = hunt_result.get("perfect_keyword_matches", [])
+
                     has_keywords = len(has_keywords) > 0
                     has_command_patterns = len(has_command_patterns) > 0
                     has_perfect_discriminators = len(has_perfect_discriminators) > 0
@@ -187,9 +190,7 @@ async def api_chunk_debug(
                     ml_prediction_correct = None
                     ml_mismatch = False
                     if ml_details and "prediction" in ml_details:
-                        ml_prediction_correct = (
-                            ml_details["prediction"] == (1 if chunk_result.is_huntable else 0)
-                        )
+                        ml_prediction_correct = ml_details["prediction"] == (1 if chunk_result.is_huntable else 0)
                         ml_mismatch = not ml_prediction_correct
 
                     return {
@@ -212,7 +213,7 @@ async def api_chunk_debug(
 
                 try:
                     return await asyncio.wait_for(asyncio.to_thread(_process_chunk), timeout=per_chunk_timeout)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("Chunk %s processing timed out after %s seconds", chunk_id, per_chunk_timeout)
                     return {
                         "chunk_id": chunk_id,
@@ -266,9 +267,7 @@ async def api_chunk_debug(
         input_cost_per_token = 5.0 / 1_000_000
         actual_cost_savings = tokens_saved * input_cost_per_token
 
-        processed_predictions = [
-            chunk for chunk in chunk_analysis if chunk.get("ml_prediction_correct") is not None
-        ]
+        processed_predictions = [chunk for chunk in chunk_analysis if chunk.get("ml_prediction_correct") is not None]
         ml_correct = len([chunk for chunk in processed_predictions if chunk["ml_prediction_correct"]])
         ml_total = len(processed_predictions)
         ml_accuracy = (ml_correct / ml_total * 100) if ml_total > 0 else 0

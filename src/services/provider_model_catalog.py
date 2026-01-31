@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import Dict, List
 
 from fastapi import HTTPException
 
@@ -61,7 +60,7 @@ DEFAULT_CATALOG = {
 }
 
 
-def load_catalog() -> Dict[str, List[str]]:
+def load_catalog() -> dict[str, list[str]]:
     if not CATALOG_PATH.exists():
         return DEFAULT_CATALOG.copy()
     try:
@@ -70,13 +69,13 @@ def load_catalog() -> Dict[str, List[str]]:
         raise HTTPException(status_code=500, detail=f"Invalid provider catalog: {exc}")
 
 
-def save_catalog(catalog: Dict[str, List[str]]) -> None:
+def save_catalog(catalog: dict[str, list[str]]) -> None:
     CATALOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(CATALOG_PATH, "w") as f:
         json.dump(catalog, f, indent=2, sort_keys=True)
 
 
-def update_provider_models(provider: str, models: List[str]) -> Dict[str, List[str]]:
+def update_provider_models(provider: str, models: list[str]) -> dict[str, list[str]]:
     catalog = load_catalog()
     catalog[provider] = models
     save_catalog(catalog)

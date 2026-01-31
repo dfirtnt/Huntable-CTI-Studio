@@ -7,7 +7,6 @@ Extractors are deterministic components that return verbatim observables.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List
 
 
 class ObservableExtractor(ABC):
@@ -21,9 +20,9 @@ class ObservableExtractor(ABC):
     observable_type: str
 
     @abstractmethod
-    def extract(self, text: str, *, article_id: int) -> List[Dict]:
+    def extract(self, text: str, *, article_id: int) -> list[dict]:
         """Return verbatim observables found in text."""
 
     @abstractmethod
-    def supports(self) -> List[str]:
+    def supports(self) -> list[str]:
         """Annotation types consumed by this extractor (e.g., ['CMD'])."""

@@ -1,18 +1,16 @@
 # Enhanced GPT-4o ranking endpoint with content filtering
-from fastapi import HTTPException, Request
 from datetime import datetime
+
 import httpx
-import os
-import logging
+from fastapi import APIRouter, HTTPException, Request
 
 # Import dependencies
 from src.database.async_manager import async_db_manager
 from src.web.dependencies import logger
-from fastapi import APIRouter
 
 # Create router for this endpoint
 router = APIRouter()
-from src.models.article import ArticleUpdate
+
 
 @router.post("/api/articles/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):
@@ -22,46 +20,50 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
-        
+
         # Get request body
         body = await request.json()
-        article_url = body.get('url')
-        api_key = body.get('api_key')
-        use_filtering = body.get('use_filtering', True)  # Enable filtering by default
-        min_confidence = body.get('min_confidence', 0.7)  # Confidence threshold
-        
+        article_url = body.get("url")
+        api_key = body.get("api_key")
+        use_filtering = body.get("use_filtering", True)  # Enable filtering by default
+        min_confidence = body.get("min_confidence", 0.7)  # Confidence threshold
+
         if not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key is required. Please configure it in Settings.")
-        
+
         # Prepare the article content for analysis
         if not article.content:
             raise HTTPException(status_code=400, detail="Article content is required for analysis")
-        
+
         # Import the optimizer
-        from src.utils.llm_optimizer import optimize_article_content, estimate_llm_cost, estimate_gpt4o_cost  # Backward compatibility
-        
+        from src.utils.llm_optimizer import (  # Backward compatibility
+            optimize_article_content,
+        )
+
         # Optimize content if filtering is enabled
         if use_filtering:
             logger.info(f"Optimizing content for article {article_id} with confidence threshold {min_confidence}")
             optimization_result = await optimize_article_content(
-                article.content, 
+                article.content,
                 min_confidence=min_confidence,
                 article_metadata=article.article_metadata,
                 content_hash=article.content_hash,
                 article_id=article_id,
-                store_analysis=True
+                store_analysis=True,
             )
-            
-            if optimization_result['success']:
-                content_to_analyze = optimization_result['filtered_content']
-                cost_savings = optimization_result['cost_savings']
-                tokens_saved = optimization_result['tokens_saved']
-                chunks_removed = optimization_result['chunks_removed']
-                
-                logger.info(f"Content optimization completed: "
-                           f"{tokens_saved:,} tokens saved, "
-                           f"${cost_savings:.4f} cost savings, "
-                           f"{chunks_removed} chunks removed")
+
+            if optimization_result["success"]:
+                content_to_analyze = optimization_result["filtered_content"]
+                cost_savings = optimization_result["cost_savings"]
+                tokens_saved = optimization_result["tokens_saved"]
+                chunks_removed = optimization_result["chunks_removed"]
+
+                logger.info(
+                    f"Content optimization completed: "
+                    f"{tokens_saved:,} tokens saved, "
+                    f"${cost_savings:.4f} cost savings, "
+                    f"{chunks_removed} chunks removed"
+                )
             else:
                 logger.warning("Content optimization failed, using original content")
                 content_to_analyze = article.content
@@ -73,9 +75,9 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             cost_savings = 0.0
             tokens_saved = 0
             chunks_removed = 0
-        
+
         # Use full content (no hardcoded truncation)
-        
+
         # SIGMA-focused prompt (same as original)
         sigma_prompt = """# Blog Content SIGMA-Suitability Huntability Ranking System
 
@@ -227,69 +229,59 @@ Please analyze the following blog content:
 
 **Content:**
 {content}"""
-        
+
         # Get the source name from source_id
         source = await async_db_manager.get_source(article.source_id)
         source_name = source.name if source else f"Source {article.source_id}"
-        
+
         # Prepare the prompt with the article content
         full_prompt = sigma_prompt.format(
-            title=article.title,
-            source=source_name,
-            url=article.canonical_url,
-            content=content_to_analyze
+            title=article.title, source=source_name, url=article.canonical_url, content=content_to_analyze
         )
-        
+
         # Call OpenAI API
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "model": "gpt-4o",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": full_prompt
-                        }
-                    ],
+                    "messages": [{"role": "user", "content": full_prompt}],
                     "max_tokens": 2000,
-                    "temperature": 0.3
+                    "temperature": 0.3,
                 },
-                timeout=60.0
+                timeout=60.0,
             )
-            
+
             if response.status_code != 200:
                 error_detail = response.text
                 logger.error(f"OpenAI API error: {error_detail}")
                 raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
-            
+
             result = response.json()
-            analysis = result['choices'][0]['message']['content']
-        
+            analysis = result["choices"][0]["message"]["content"]
+
         # Save the analysis to the article's metadata
         if article.metadata is None:
             article.metadata = {}
-        
-        article.metadata['gpt4o_ranking'] = {
-            'analysis': analysis,
-            'timestamp': datetime.now().isoformat(),
-            'model': 'gpt-4o',
-            'optimization_enabled': use_filtering,
-            'cost_savings': cost_savings,
-            'tokens_saved': tokens_saved,
-            'chunks_removed': chunks_removed,
-            'min_confidence': min_confidence if use_filtering else None
+
+        article.metadata["gpt4o_ranking"] = {
+            "analysis": analysis,
+            "timestamp": datetime.now().isoformat(),
+            "model": "gpt-4o",
+            "optimization_enabled": use_filtering,
+            "cost_savings": cost_savings,
+            "tokens_saved": tokens_saved,
+            "chunks_removed": chunks_removed,
+            "min_confidence": min_confidence if use_filtering else None,
         }
-        
+
         # Update the article in the database
         from src.models.article import ArticleUpdate
+
         update_data = ArticleUpdate(metadata=article.metadata)
         await async_db_manager.update_article(article_id, update_data)
-        
+
         return {
             "success": True,
             "article_id": article_id,
@@ -300,10 +292,10 @@ Please analyze the following blog content:
                 "cost_savings": cost_savings,
                 "tokens_saved": tokens_saved,
                 "chunks_removed": chunks_removed,
-                "min_confidence": min_confidence if use_filtering else None
-            }
+                "min_confidence": min_confidence if use_filtering else None,
+            },
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

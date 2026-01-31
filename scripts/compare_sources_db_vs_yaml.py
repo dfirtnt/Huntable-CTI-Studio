@@ -132,7 +132,9 @@ async def main():
     if not only_yaml and not only_db and not field_diffs:
         print("No differences: DB and YAML match (identifier set and compared fields).")
     else:
-        print("Summary: run ./run_cli.sh sync-sources to overwrite DB with YAML (or --no-remove to keep DB-only sources).")
+        print(
+            "Summary: run ./run_cli.sh sync-sources to overwrite DB with YAML (or --no-remove to keep DB-only sources)."
+        )
 
     await db_manager.close()
 

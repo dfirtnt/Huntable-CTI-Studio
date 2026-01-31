@@ -22,12 +22,10 @@ Usage:
     python evaluate_cmdline_extractor.py --db-article-id 12345
 """
 
-import os
+import argparse
 import json
 import logging
-import argparse
-from typing import Dict, List, Any, Optional
-from pathlib import Path
+from typing import Any
 
 # Third-party imports
 try:
@@ -41,12 +39,6 @@ except ImportError:
 # Local imports
 from src.database.manager import DatabaseManager
 from src.services.llm_service import LLMService
-from src.workflows.agentic_workflow import create_agentic_workflow
-from src.utils.langfuse_client import (
-    trace_workflow_execution,
-    get_langfuse_client,
-    is_langfuse_enabled,
-)
 
 # Import prompts directly as strings for now
 CMDLINE_EXTRACTION_PROMPT = """
@@ -61,16 +53,14 @@ You are a QA specialist validating Windows command-line extractions.
 """
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 class CommandlineExtractorEvaluator:
     """Evaluator for commandline extractor performance."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize the evaluator.
 
@@ -89,23 +79,19 @@ class CommandlineExtractorEvaluator:
 
         logger.info("Commandline Extractor Evaluator initialized")
 
-    def _setup_evaluators(self) -> Dict[str, Any]:
+    def _setup_evaluators(self) -> dict[str, Any]:
         """Set up evaluation functions."""
         evaluators = {}
 
         # LLM-as-a-Judge evaluator for extraction quality
         if self.config.get("use_llm_judge", True) and AGENTEVALS_AVAILABLE:
             evaluators["llm_judge"] = create_trajectory_llm_as_judge(
-                prompt=self.config.get(
-                    "judge_prompt", self._get_default_judge_prompt()
-                ),
+                prompt=self.config.get("judge_prompt", self._get_default_judge_prompt()),
                 model=self.config.get("judge_model", "openai:o3-mini"),
                 continuous=self.config.get("continuous_scoring", False),
             )
         elif self.config.get("use_llm_judge", True):
-            logger.warning(
-                "LLM judge evaluation requested but agentevals not available"
-            )
+            logger.warning("LLM judge evaluation requested but agentevals not available")
 
         # Trajectory match evaluator for exact matches
         if self.config.get("use_trajectory_match", True) and AGENTEVALS_AVAILABLE:
@@ -113,9 +99,7 @@ class CommandlineExtractorEvaluator:
                 trajectory_match_mode=self.config.get("match_mode", "unordered")
             )
         elif self.config.get("use_trajectory_match", True):
-            logger.warning(
-                "Trajectory match evaluation requested but agentevals not available"
-            )
+            logger.warning("Trajectory match evaluation requested but agentevals not available")
 
         return evaluators
 
@@ -139,7 +123,7 @@ class CommandlineExtractorEvaluator:
         Provide your score and reasoning.
         """
 
-    def _load_ground_truth(self) -> List[Dict[str, Any]]:
+    def _load_ground_truth(self) -> list[dict[str, Any]]:
         """Load ground truth dataset."""
         dataset_name = self.config.get("ground_truth_dataset")
         if not dataset_name:
@@ -148,15 +132,12 @@ class CommandlineExtractorEvaluator:
         # Load from LangFuse or local file
         if self.config.get("dataset_source") == "langfuse":
             return self._load_langfuse_dataset(dataset_name)
-        else:
-            return self._load_local_dataset(dataset_name)
+        return self._load_local_dataset(dataset_name)
 
-    def _load_langfuse_dataset(self, dataset_name: str) -> List[Dict[str, Any]]:
+    def _load_langfuse_dataset(self, dataset_name: str) -> list[dict[str, Any]]:
         """Load dataset from LangFuse."""
         # For now, return mock data since we don't have the exact LangFuse API
-        logger.info(
-            f"Using mock data for LangFuse dataset {dataset_name} (API integration pending)"
-        )
+        logger.info(f"Using mock data for LangFuse dataset {dataset_name} (API integration pending)")
 
         return [
             {
@@ -179,19 +160,13 @@ class CommandlineExtractorEvaluator:
                     "article_content": 'Security researchers discovered that the malware uses regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll" for persistence. The command was found in the Sysmon logs.',
                     "article_title": "Malware Analysis Report",
                 },
-                "expected_output": {
-                    "cmdline_items": [
-                        'regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll"'
-                    ]
-                },
+                "expected_output": {"cmdline_items": ['regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll"']},
                 "metadata": {"source": "mock_data", "difficulty": "easy"},
             },
         ]
 
         # For now, return mock data since we don't have the exact LangFuse API
-        logger.info(
-            f"Using mock data for LangFuse dataset {dataset_name} (API integration pending)"
-        )
+        logger.info(f"Using mock data for LangFuse dataset {dataset_name} (API integration pending)")
 
         return [
             {
@@ -214,33 +189,28 @@ class CommandlineExtractorEvaluator:
                     "article_content": 'Security researchers discovered that the malware uses regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll" for persistence. The command was found in the Sysmon logs.',
                     "article_title": "Malware Analysis Report",
                 },
-                "expected_output": {
-                    "cmdline_items": [
-                        'regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll"'
-                    ]
-                },
+                "expected_output": {"cmdline_items": ['regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll"']},
                 "metadata": {"source": "mock_data", "difficulty": "easy"},
             },
         ]
 
-    def _load_local_dataset(self, dataset_path: str) -> List[Dict[str, Any]]:
+    def _load_local_dataset(self, dataset_path: str) -> list[dict[str, Any]]:
         """Load dataset from local JSON file."""
         try:
-            with open(dataset_path, "r") as f:
+            with open(dataset_path) as f:
                 data = json.load(f)
 
             if isinstance(data, list):
                 return data
-            elif isinstance(data, dict) and "items" in data:
+            if isinstance(data, dict) and "items" in data:
                 return data["items"]
-            else:
-                raise ValueError("Invalid dataset format")
+            raise ValueError("Invalid dataset format")
 
         except Exception as e:
             logger.error(f"Failed to load local dataset: {e}")
             raise
 
-    def _load_db_article(self, article_id: int) -> List[Dict[str, Any]]:
+    def _load_db_article(self, article_id: int) -> list[dict[str, Any]]:
         """Load a single article from the Postgres database."""
         try:
             # Import here to avoid circular imports
@@ -273,9 +243,7 @@ class CommandlineExtractorEvaluator:
                     "source": "database",
                     "db_id": article_id,
                     "canonical_url": article.canonical_url,
-                    "published_at": article.published_at.isoformat()
-                    if article.published_at
-                    else None,
+                    "published_at": article.published_at.isoformat() if article.published_at else None,
                 },
             }
 
@@ -286,7 +254,7 @@ class CommandlineExtractorEvaluator:
             logger.error(f"Failed to load article {article_id} from database: {e}")
             raise
 
-    def evaluate_single_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_single_item(self, item: dict[str, Any]) -> dict[str, Any]:
         """
         Evaluate a single dataset item.
 
@@ -308,17 +276,13 @@ class CommandlineExtractorEvaluator:
                 raise ValueError("Article content is required")
 
             # Run commandline extraction
-            extraction_result = self._run_cmdline_extraction(
-                article_content, article_title
-            )
+            extraction_result = self._run_cmdline_extraction(article_content, article_title)
 
             # Get expected output
             expected_commands = item.get("expected_output", {}).get("cmdline_items", [])
 
             # Run evaluations
-            eval_results = self._run_evaluations(
-                extraction_result, expected_commands, item
-            )
+            eval_results = self._run_evaluations(extraction_result, expected_commands, item)
 
             # Combine results
             result = {
@@ -342,9 +306,7 @@ class CommandlineExtractorEvaluator:
                 "metadata": item.get("metadata", {}),
             }
 
-    def _run_cmdline_extraction(
-        self, article_content: str, article_title: str
-    ) -> Dict[str, Any]:
+    def _run_cmdline_extraction(self, article_content: str, article_title: str) -> dict[str, Any]:
         """Run commandline extraction on article content."""
         try:
             # Create workflow for commandline extraction only
@@ -390,28 +352,24 @@ class CommandlineExtractorEvaluator:
 
     def _run_evaluations(
         self,
-        extraction_result: Dict[str, Any],
-        expected_commands: List[str],
-        item: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        extraction_result: dict[str, Any],
+        expected_commands: list[str],
+        item: dict[str, Any],
+    ) -> dict[str, Any]:
         """Run all configured evaluations."""
         results = {}
 
         extracted_commands = extraction_result.get("cmdline_items", [])
 
         # Calculate basic metrics
-        results["basic_metrics"] = self._calculate_basic_metrics(
-            extracted_commands, expected_commands
-        )
+        results["basic_metrics"] = self._calculate_basic_metrics(extracted_commands, expected_commands)
 
         # Run LLM-as-a-Judge evaluation
         if "llm_judge" in self.evaluators:
             try:
                 judge_result = self.evaluators["llm_judge"](
                     outputs=self._format_trajectory(extraction_result, item),
-                    reference_outputs=self._format_reference_trajectory(
-                        expected_commands, item
-                    ),
+                    reference_outputs=self._format_reference_trajectory(expected_commands, item),
                 )
                 results["llm_judge"] = judge_result
             except Exception as e:
@@ -423,9 +381,7 @@ class CommandlineExtractorEvaluator:
             try:
                 match_result = self.evaluators["trajectory_match"](
                     outputs=self._format_trajectory(extraction_result, item),
-                    reference_outputs=self._format_reference_trajectory(
-                        expected_commands, item
-                    ),
+                    reference_outputs=self._format_reference_trajectory(expected_commands, item),
                 )
                 results["trajectory_match"] = match_result
             except Exception as e:
@@ -434,9 +390,7 @@ class CommandlineExtractorEvaluator:
 
         return results
 
-    def _calculate_basic_metrics(
-        self, extracted: List[str], expected: List[str]
-    ) -> Dict[str, Any]:
+    def _calculate_basic_metrics(self, extracted: list[str], expected: list[str]) -> dict[str, Any]:
         """Calculate basic extraction metrics."""
         # Normalize commands for comparison
         extracted_norm = [self._normalize_command(cmd) for cmd in extracted]
@@ -447,21 +401,9 @@ class CommandlineExtractorEvaluator:
         false_positives = len(set(extracted_norm) - set(expected_norm))
         false_negatives = len(set(expected_norm) - set(extracted_norm))
 
-        precision = (
-            true_positives / (true_positives + false_positives)
-            if (true_positives + false_positives) > 0
-            else 0
-        )
-        recall = (
-            true_positives / (true_positives + false_negatives)
-            if (true_positives + false_negatives) > 0
-            else 0
-        )
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0
-        )
+        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
         return {
             "precision": precision,
@@ -487,9 +429,7 @@ class CommandlineExtractorEvaluator:
 
         return normalized
 
-    def _format_trajectory(
-        self, extraction_result: Dict[str, Any], item: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    def _format_trajectory(self, extraction_result: dict[str, Any], item: dict[str, Any]) -> list[dict[str, Any]]:
         """Format extraction result as trajectory for evaluation."""
         return [
             {
@@ -499,9 +439,7 @@ class CommandlineExtractorEvaluator:
             {"role": "assistant", "content": json.dumps(extraction_result)},
         ]
 
-    def _format_reference_trajectory(
-        self, expected_commands: List[str], item: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    def _format_reference_trajectory(self, expected_commands: list[str], item: dict[str, Any]) -> list[dict[str, Any]]:
         """Format expected output as reference trajectory."""
         return [
             {
@@ -519,13 +457,11 @@ class CommandlineExtractorEvaluator:
             },
         ]
 
-    def run_evaluation(self, article_id: Optional[str] = None) -> Dict[str, Any]:
+    def run_evaluation(self, article_id: str | None = None) -> dict[str, Any]:
         """Run evaluation on ground truth items."""
         if article_id:
             # Filter to specific article
-            filtered_items = [
-                item for item in self.ground_truth if item["id"] == article_id
-            ]
+            filtered_items = [item for item in self.ground_truth if item["id"] == article_id]
             if not filtered_items:
                 raise ValueError(f"Article with ID '{article_id}' not found in dataset")
             items_to_evaluate = filtered_items
@@ -547,12 +483,10 @@ class CommandlineExtractorEvaluator:
             "results": results,
             "summary": summary,
             "total_items": len(results),
-            "successful_evaluations": len(
-                [r for r in results if r["status"] == "success"]
-            ),
+            "successful_evaluations": len([r for r in results if r["status"] == "success"]),
         }
 
-    def _aggregate_results(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _aggregate_results(self, results: list[dict[str, Any]]) -> dict[str, Any]:
         """Aggregate evaluation results across all items."""
         successful_results = [r for r in results if r["status"] == "success"]
 
@@ -570,11 +504,7 @@ class CommandlineExtractorEvaluator:
             if "basic_metrics" in evals:
                 basic_metrics.append(evals["basic_metrics"])
 
-            if (
-                "llm_judge" in evals
-                and isinstance(evals["llm_judge"], dict)
-                and "score" in evals["llm_judge"]
-            ):
+            if "llm_judge" in evals and isinstance(evals["llm_judge"], dict) and "score" in evals["llm_judge"]:
                 llm_judge_scores.append(evals["llm_judge"]["score"])
 
             if (
@@ -611,23 +541,19 @@ class CommandlineExtractorEvaluator:
 
         # Average LLM judge scores
         if llm_judge_scores:
-            summary["llm_judge_avg_score"] = sum(llm_judge_scores) / len(
-                llm_judge_scores
-            )
+            summary["llm_judge_avg_score"] = sum(llm_judge_scores) / len(llm_judge_scores)
 
         # Average trajectory match scores
         if trajectory_match_scores:
-            summary["trajectory_match_avg_score"] = sum(trajectory_match_scores) / len(
-                trajectory_match_scores
-            )
+            summary["trajectory_match_avg_score"] = sum(trajectory_match_scores) / len(trajectory_match_scores)
 
         return summary
 
 
-def load_config(preset_file: str) -> Dict[str, Any]:
+def load_config(preset_file: str) -> dict[str, Any]:
     """Load configuration from preset file."""
     try:
-        with open(preset_file, "r") as f:
+        with open(preset_file) as f:
             config = json.load(f)
 
         # Validate required fields
@@ -643,7 +569,7 @@ def load_config(preset_file: str) -> Dict[str, Any]:
         raise
 
 
-def save_results(results: Dict[str, Any], output_file: str):
+def save_results(results: dict[str, Any], output_file: str):
     """Save evaluation results to file."""
     try:
         with open(output_file, "w") as f:
@@ -655,28 +581,26 @@ def save_results(results: Dict[str, Any], output_file: str):
         logger.error(f"Failed to save results: {e}")
 
 
-def load_single_article(article_input: str) -> List[Dict[str, Any]]:
+def load_single_article(article_input: str) -> list[dict[str, Any]]:
     """Load a single article from JSON string or file path."""
     try:
         # Try to parse as JSON string first
         article_data = json.loads(article_input)
         if isinstance(article_data, dict):
             return [article_data]
-        elif isinstance(article_data, list):
+        if isinstance(article_data, list):
             return article_data
-        else:
-            raise ValueError("Invalid JSON format")
+        raise ValueError("Invalid JSON format")
     except json.JSONDecodeError:
         # If not valid JSON, treat as file path
         try:
-            with open(article_input, "r") as f:
+            with open(article_input) as f:
                 article_data = json.load(f)
             if isinstance(article_data, dict):
                 return [article_data]
-            elif isinstance(article_data, list):
+            if isinstance(article_data, list):
                 return article_data
-            else:
-                raise ValueError("Invalid file format")
+            raise ValueError("Invalid file format")
         except Exception as e:
             raise ValueError(f"Could not load article from '{article_input}': {e}")
 
@@ -688,13 +612,9 @@ def main():
         "--preset",
         help="Preset configuration file (optional if using --single-article)",
     )
-    parser.add_argument(
-        "--output", default="cmdline_eval_results.json", help="Output file for results"
-    )
+    parser.add_argument("--output", default="cmdline_eval_results.json", help="Output file for results")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument(
-        "--article-id", help="Process only the specified article ID from the dataset"
-    )
+    parser.add_argument("--article-id", help="Process only the specified article ID from the dataset")
     parser.add_argument(
         "--single-article",
         help="Process a single article from JSON string or file path",

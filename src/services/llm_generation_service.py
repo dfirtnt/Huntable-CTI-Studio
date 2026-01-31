@@ -5,12 +5,13 @@ Provides LLM-based response generation for RAG queries using multiple providers.
 Supports OpenAI, Ollama, and Anthropic Claude.
 """
 
-import os
-import logging
-import httpx
 import asyncio
-from typing import List, Dict, Any, Optional
+import logging
+import os
 from datetime import datetime
+from typing import Any
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,9 @@ _WORKFLOW_OPENAI_API_KEY = "WORKFLOW_OPENAI_API_KEY"
 _WORKFLOW_ANTHROPIC_API_KEY = "WORKFLOW_ANTHROPIC_API_KEY"
 
 
-def _load_app_settings_keys() -> Dict[str, Optional[str]]:
+def _load_app_settings_keys() -> dict[str, str | None]:
     """Load API keys from AppSettings (database). Matches llm_service behavior."""
-    out: Dict[str, Optional[str]] = {}
+    out: dict[str, str | None] = {}
     try:
         from src.database.manager import DatabaseManager
         from src.database.models import AppSettingsTable
@@ -29,9 +30,11 @@ def _load_app_settings_keys() -> Dict[str, Optional[str]]:
         db = DatabaseManager()
         session = db.get_session()
         try:
-            rows = session.query(AppSettingsTable).filter(
-                AppSettingsTable.key.in_([_WORKFLOW_OPENAI_API_KEY, _WORKFLOW_ANTHROPIC_API_KEY])
-            ).all()
+            rows = (
+                session.query(AppSettingsTable)
+                .filter(AppSettingsTable.key.in_([_WORKFLOW_OPENAI_API_KEY, _WORKFLOW_ANTHROPIC_API_KEY]))
+                .all()
+            )
             for row in rows:
                 out[row.key] = row.value
         finally:
@@ -49,11 +52,9 @@ class LLMGenerationService:
         self._refresh_api_keys()
 
         # LMStudio configuration
-        self.lmstudio_url = os.getenv(
-            "LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1"
-        )
+        self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
         self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "deepseek-r1-qwen3-8b")
-        self.last_lmstudio_model: Optional[str] = None
+        self.last_lmstudio_model: str | None = None
 
         logger.info("Initialized LLM Generation Service")
 
@@ -79,12 +80,12 @@ class LLMGenerationService:
     async def generate_rag_response(
         self,
         query: str,
-        retrieved_chunks: List[Dict[str, Any]],
-        conversation_history: Optional[List[Dict[str, Any]]] = None,
+        retrieved_chunks: list[dict[str, Any]],
+        conversation_history: list[dict[str, Any]] | None = None,
         provider: str = "auto",
-        retrieved_rules: Optional[List[Dict[str, Any]]] = None,
-        model_override: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        retrieved_rules: list[dict[str, Any]] | None = None,
+        model_override: str | None = None,
+    ) -> dict[str, Any]:
         """
         Generate a synthesized response using retrieved chunks.
 
@@ -105,14 +106,10 @@ class LLMGenerationService:
             context = self._build_context(retrieved_chunks, retrieved_rules)
 
             # Create conversation context
-            conversation_context = self._build_conversation_context(
-                conversation_history
-            )
+            conversation_context = self._build_conversation_context(conversation_history)
 
             # Generate prompt
-            system_prompt, user_prompt = self._create_rag_prompt(
-                query, context, conversation_context
-            )
+            system_prompt, user_prompt = self._create_rag_prompt(query, context, conversation_context)
 
             requested_provider = self._canonicalize_requested_provider(provider)
 
@@ -161,8 +158,8 @@ class LLMGenerationService:
 
     def _build_context(
         self,
-        retrieved_chunks: List[Dict[str, Any]],
-        retrieved_rules: Optional[List[Dict[str, Any]]] = None,
+        retrieved_chunks: list[dict[str, Any]],
+        retrieved_rules: list[dict[str, Any]] | None = None,
     ) -> str:
         """Build context string from retrieved chunks and Sigma rules."""
         context_parts = []
@@ -176,10 +173,7 @@ class LLMGenerationService:
             similarity = chunk.get("similarity", 0.0)
 
             context_parts.append(
-                f"Source {i}: {title} (from {source})\n"
-                f"Relevance: {similarity:.1%}\n"
-                f"Content: {content}\n"
-                f"URL: {url}\n"
+                f"Source {i}: {title} (from {source})\nRelevance: {similarity:.1%}\nContent: {content}\nURL: {url}\n"
             )
 
         # Add Sigma rule sources
@@ -209,9 +203,7 @@ class LLMGenerationService:
 
         return "\n".join(context_parts)
 
-    def _build_conversation_context(
-        self, conversation_history: Optional[List[Dict[str, Any]]]
-    ) -> str:
+    def _build_conversation_context(self, conversation_history: list[dict[str, Any]] | None) -> str:
         """Build conversation context from history."""
         if not conversation_history:
             return ""
@@ -227,16 +219,12 @@ class LLMGenerationService:
                 context_parts.append(f"User: {content}")
             elif role == "assistant":
                 # Truncate long responses
-                truncated_content = (
-                    content[:200] + "..." if len(content) > 200 else content
-                )
+                truncated_content = content[:200] + "..." if len(content) > 200 else content
                 context_parts.append(f"Assistant: {truncated_content}")
 
         return "\n".join(context_parts)
 
-    def _create_rag_prompt(
-        self, query: str, context: str, conversation_context: str
-    ) -> tuple[str, str]:
+    def _create_rag_prompt(self, query: str, context: str, conversation_context: str) -> tuple[str, str]:
         """Create system and user prompts for RAG generation."""
 
         system_prompt = """SYSTEM PROMPT — Huntable Analyst (RAG Chat Completion)
@@ -272,9 +260,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         user_prompt_parts = [f"Question: {query}\n"]
 
         if conversation_context:
-            user_prompt_parts.append(
-                f"Previous conversation:\n{conversation_context}\n"
-            )
+            user_prompt_parts.append(f"Previous conversation:\n{conversation_context}\n")
 
         user_prompt_parts.append(f"Relevant threat intelligence sources:\n{context}")
 
@@ -293,26 +279,23 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         if provider == "lmstudio":
             # Try to get from database settings first, fallback to env var
             try:
+                from sqlalchemy import select
+
                 from src.database.manager import DatabaseManager
                 from src.database.models import AppSettingsTable
-                from sqlalchemy import select
 
                 db_manager = DatabaseManager()
                 db_session = db_manager.get_session()
                 try:
                     setting = db_session.execute(
-                        select(AppSettingsTable).where(
-                            AppSettingsTable.key == "lmstudio_model"
-                        )
+                        select(AppSettingsTable).where(AppSettingsTable.key == "lmstudio_model")
                     ).scalar_one_or_none()
                     if setting and setting.value:
                         return setting.value
                 finally:
                     db_session.close()
             except Exception as e:
-                logger.debug(
-                    f"Could not fetch lmstudio_model from database: {e}, using env var"
-                )
+                logger.debug(f"Could not fetch lmstudio_model from database: {e}, using env var")
             # Fallback to environment variable or default
             return self.lmstudio_model
         return "template"
@@ -381,9 +364,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         detail = detail.strip()
         display = f"{provider_label} • {detail}" if detail else provider_label
 
-        normalized_requested = (
-            None if requested_provider in {None, "", "auto"} else requested_provider
-        )
+        normalized_requested = None if requested_provider in {None, "", "auto"} else requested_provider
         if normalized_requested and normalized_requested != provider:
             display = f"{display} (fallback from {self._format_provider_name(normalized_requested)})"
 
@@ -429,11 +410,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         if self.anthropic_api_key and "anthropic" not in excluded:
             return "anthropic"
 
-        if (
-            self.lmstudio_model
-            and self.lmstudio_model != "local-model"
-            and "lmstudio" not in excluded
-        ):
+        if self.lmstudio_model and self.lmstudio_model != "local-model" and "lmstudio" not in excluded:
             return "lmstudio"
 
         return "lmstudio"
@@ -443,23 +420,20 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         system_prompt: str,
         user_prompt: str,
         provider: str,
-        model_override: Optional[str] = None,
+        model_override: str | None = None,
     ) -> str:
         """Call the specified LLM provider."""
         model = (model_override or "").strip() or None
 
         if provider == "openai":
             return await self._call_openai(system_prompt, user_prompt, model=model)
-        elif provider == "anthropic":
+        if provider == "anthropic":
             return await self._call_anthropic(system_prompt, user_prompt, model=model)
-        elif provider == "lmstudio":
+        if provider == "lmstudio":
             return await self._call_lmstudio(system_prompt, user_prompt, model=model)
-        else:
-            raise ValueError(f"Unknown provider: {provider}")
+        raise ValueError(f"Unknown provider: {provider}")
 
-    async def _call_openai(
-        self, system_prompt: str, user_prompt: str, model: Optional[str] = None
-    ) -> str:
+    async def _call_openai(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
         """Call OpenAI API via shared openai_chat_client (RAG, Enrichment, etc.)."""
         from src.services.openai_chat_client import openai_chat_completions
 
@@ -479,9 +453,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             timeout=60.0,
         )
 
-    async def _call_anthropic(
-        self, system_prompt: str, user_prompt: str, model: Optional[str] = None
-    ) -> str:
+    async def _call_anthropic(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
         """Call Anthropic Claude API with rate limit handling and exponential backoff."""
         return await self._call_anthropic_with_retry(
             system_prompt=system_prompt,
@@ -499,9 +471,9 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         max_retries: int = 5,
         base_delay: float = 1.0,
         max_delay: float = 60.0,
-        headers: Optional[Dict[str, str]] = None,
-        payload: Optional[Dict[str, Any]] = None,
-        model_override: Optional[str] = None,
+        headers: dict[str, str] | None = None,
+        payload: dict[str, Any] | None = None,
+        model_override: str | None = None,
     ) -> str:
         """
         Call Anthropic Claude API with exponential backoff rate limit handling.
@@ -562,9 +534,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
 
                     # Rate limit (429) - retry with exponential backoff
                     if response.status_code == 429:
-                        retry_after = self._parse_retry_after(
-                            response.headers.get("retry-after")
-                        )
+                        retry_after = self._parse_retry_after(response.headers.get("retry-after"))
 
                         # Use exponential backoff with retry-after as minimum
                         delay = max(retry_after, base_delay * (2**attempt))
@@ -578,14 +548,9 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                             )
                             await asyncio.sleep(delay)
                             continue
-                        else:
-                            error_detail = response.text
-                            logger.error(
-                                f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}"
-                            )
-                            raise RuntimeError(
-                                f"Anthropic API rate limit exceeded: {error_detail}"
-                            )
+                        error_detail = response.text
+                        logger.error(f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}")
+                        raise RuntimeError(f"Anthropic API rate limit exceeded: {error_detail}")
 
                     # Other errors - retry with exponential backoff for 5xx, fail fast for 4xx
                     if 500 <= response.status_code < 600:
@@ -601,25 +566,17 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
 
                     # Client errors (4xx) - don't retry
                     error_detail = response.text
-                    logger.error(
-                        f"Anthropic API client error ({response.status_code}): {error_detail}"
-                    )
-                    raise RuntimeError(
-                        f"Anthropic API error ({response.status_code}): {error_detail}"
-                    )
+                    logger.error(f"Anthropic API client error ({response.status_code}): {error_detail}")
+                    raise RuntimeError(f"Anthropic API error ({response.status_code}): {error_detail}")
 
                 except httpx.TimeoutException as e:
                     delay = min(base_delay * (2**attempt), max_delay)
                     if attempt < max_retries - 1:
-                        logger.warning(
-                            f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
-                        )
+                        logger.warning(f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
                         await asyncio.sleep(delay)
                         last_exception = e
                         continue
-                    raise RuntimeError(
-                        f"Anthropic API timeout after {max_retries} attempts"
-                    ) from e
+                    raise RuntimeError(f"Anthropic API timeout after {max_retries} attempts") from e
 
                 except Exception as e:
                     delay = min(base_delay * (2**attempt), max_delay)
@@ -630,18 +587,14 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                         await asyncio.sleep(delay)
                         last_exception = e
                         continue
-                    raise RuntimeError(
-                        f"Anthropic API error after {max_retries} attempts: {e}"
-                    ) from e
+                    raise RuntimeError(f"Anthropic API error after {max_retries} attempts: {e}") from e
 
         # Should not reach here, but handle edge case
         if last_exception:
-            raise RuntimeError(
-                f"Anthropic API failed after {max_retries} attempts"
-            ) from last_exception
+            raise RuntimeError(f"Anthropic API failed after {max_retries} attempts") from last_exception
         raise RuntimeError(f"Anthropic API failed after {max_retries} attempts")
 
-    def _parse_retry_after(self, retry_after_header: Optional[str]) -> float:
+    def _parse_retry_after(self, retry_after_header: str | None) -> float:
         """
         Parse retry-after header value.
 
@@ -667,31 +620,19 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
                 from email.utils import parsedate_to_datetime
 
                 retry_date = parsedate_to_datetime(retry_after_header)
-                now = (
-                    datetime.now(retry_date.tzinfo)
-                    if retry_date.tzinfo
-                    else datetime.now()
-                )
+                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
                 delta = retry_date - now
                 return max(0.0, delta.total_seconds())
             except (ValueError, TypeError):
-                logger.warning(
-                    f"Could not parse retry-after header: {retry_after_header}, using 30s default"
-                )
+                logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
                 return 30.0
 
-    async def _call_lmstudio(
-        self, system_prompt: str, user_prompt: str, model: Optional[str] = None
-    ) -> str:
+    async def _call_lmstudio(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
         """Call LMStudio API (OpenAI-compatible) with recommended settings."""
         # Get recommended settings (temperature 0.0 for deterministic scoring, top_p 0.9, seed 42)
         temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
-        seed = (
-            int(os.getenv("LMSTUDIO_SEED", "42"))
-            if os.getenv("LMSTUDIO_SEED")
-            else None
-        )
+        seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
         model_name = (model or "").strip() or self.lmstudio_model
 
         payload = {
@@ -728,7 +669,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             self.last_lmstudio_model = result.get("model") or self.lmstudio_model
             return result["choices"][0]["message"]["content"]
 
-    def get_available_providers(self) -> List[str]:
+    def get_available_providers(self) -> list[str]:
         """Get list of available LLM providers."""
         providers = []
 
