@@ -1,0 +1,2420 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern docs for the Huntable CTI Studio (CTIScraper)">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Color Code Clusters — Same or Roughly Same, Different Representations - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#color-code-clusters-same-or-roughly-same-different-representations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Color Code Clusters — Same or Roughly Same, Different Representations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/run_locally/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run locally
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/add_feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/extract_observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/generate_sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../howto/evaluate_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/qa_loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/TECHNICAL_READOUT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Readout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/DEVELOPMENT_SETUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/PORT_CONFIGURATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/WEB_APP_TESTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/DATABASE_QUERY_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/CONTENT_FILTERING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/OS_DETECTION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-exact-same-color-different-representation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Exact same color, different representation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-one-digit-typo-level-difference-likely-unintentional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. One-digit / typo-level difference (likely unintentional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-same-role-different-shades-semantic-duplicates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Same role, different shades (semantic duplicates)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Same role, different shades (semantic duplicates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-bright-heading-primary-text-dark-theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 “Bright heading / primary text” (dark theme)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-dark-panel-backgrounds-workflow-dark-theme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Dark panel backgrounds (workflow dark theme)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-yellow-amber-step-numbers-badges-stroke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Yellow / amber (step numbers, badges, stroke)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-purple-violet-buttons-borders-focus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Purple / violet (buttons, borders, focus)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-green-success-huntable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Green (success, huntable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-gray-text-borders-neutral-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Gray text / borders (neutral UI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-summary-table-same-but-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Summary table — “same but not”
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-files-with-the-most-color-definitions-source-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Files with the most color definitions (source only)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-colors-to-account-for-in-specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Colors to account for in specs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Colors to account for in specs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-add-to-valid-readable-view-summaries-general-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Add to “valid readable” (View summaries / general text)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-add-to-status-decoration-allowlist-isstatuscolor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Add to “status / decoration” allowlist (isStatusColor)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-optional-other-ui-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Optional: other UI surfaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-implementation-policy-color-system-normalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-implementation policy (color-system normalization)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="color-code-clusters-same-or-roughly-same-different-representations">Color Code Clusters — Same or Roughly Same, Different Representations</h1>
+<p>Review of hex/rgb color codes across the codebase (src/, browser-extension/, tests/, docs/). Excludes generated site assets (minified CSS/JS).</p>
+<hr />
+<h2 id="1-exact-same-color-different-representation">1. Exact same color, different representation</h2>
+<p>These are identical colors; standardizing on one form (e.g. hex) will reduce drift and simplify theming.</p>
+<table>
+<thead>
+<tr>
+<th>Canonical (use this)</th>
+<th>Also found</th>
+<th>Locations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#ffffff</code></td>
+<td><code>white</code>, <code>rgb(255, 255, 255)</code></td>
+<td>workflow.html (dark summary text), tests (verify_text_colors, workflow_executions), annotation-manager</td>
+</tr>
+<tr>
+<td><code>#f8fafc</code></td>
+<td><code>rgb(248, 250, 252)</code></td>
+<td>workflow.html (headings, panel text); CSS uses hex, inline styles use both</td>
+</tr>
+<tr>
+<td><code>#cbd5e1</code></td>
+<td><code>rgb(203, 213, 225)</code></td>
+<td>workflow.html (labels, secondary text, badges); same Tailwind slate-300</td>
+</tr>
+<tr>
+<td><code>#fde047</code></td>
+<td><code>rgb(253, 224, 71)</code></td>
+<td>workflow.html (yellow badge text); same Tailwind yellow-300</td>
+</tr>
+<tr>
+<td><code>#374151</code></td>
+<td><code>rgb(55 65 81)</code> / <code>rgb(55, 65, 81)</code></td>
+<td>workflow.html (summary color light mode), verify_text_colors.spec.ts</td>
+</tr>
+<tr>
+<td><code>#d1d5db</code></td>
+<td><code>rgb(209 213 219)</code></td>
+<td>workflow.html (summary dark); Tailwind gray-300</td>
+</tr>
+<tr>
+<td><code>#8b5cf6</code></td>
+<td><code>rgba(139, 92, 246, α)</code></td>
+<td>workflow.html (borders, focus, hover); violet-500</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Prefer hex (e.g. <code>#f8fafc</code>) in one place and reference via CSS variables or a small palette file so rgb() and hex don’t diverge.</p>
+<hr />
+<h2 id="2-one-digit-typo-level-difference-likely-unintentional">2. One-digit / typo-level difference (likely unintentional)</h2>
+<p>Same semantic intent, different hex — easy to introduce bugs when copying.</p>
+<table>
+<thead>
+<tr>
+<th>Color A</th>
+<th>Color B</th>
+<th>Note</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#cbd5e1</code></td>
+<td><code>#cbd5e0</code></td>
+<td>Last digit 1 vs 0; very close, not identical</td>
+<td>workflow/tests use <code>#cbd5e1</code>; <strong>browser-extension/popup.html</strong> uses <code>#cbd5e0</code> for <code>.btn-secondary:hover</code></td>
+</tr>
+<tr>
+<td><code>#e5e7eb</code></td>
+<td><code>#e2e8f0</code></td>
+<td>Gray-200 vs slate-200</td>
+<td><strong>src/web/static/js</strong>: annotation-manager<em>.js use <code>#e5e7eb</code>; </em><em>browser-extension</em>* uses <code>#e2e8f0</code> for borders</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Align on one: e.g. <code>#cbd5e1</code> and <code>#e5e7eb</code> (or your design system’s border/muted color) everywhere.</p>
+<hr />
+<h2 id="3-same-role-different-shades-semantic-duplicates">3. Same role, different shades (semantic duplicates)</h2>
+<p>Same use (e.g. “heading white”, “dark panel”, “yellow accent”) but different hex/rgb. Not wrong, but inconsistent.</p>
+<h3 id="31-bright-heading-primary-text-dark-theme">3.1 “Bright heading / primary text” (dark theme)</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Hex equivalent</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#f8fafc</code></td>
+<td>—</td>
+<td>workflow.html (h2, h3, h4, panel headers)</td>
+</tr>
+<tr>
+<td><code>rgb(248, 250, 252)</code></td>
+<td><code>#f8fafc</code></td>
+<td>workflow.html CSS block (same as above)</td>
+</tr>
+<tr>
+<td><code>#ffffff</code></td>
+<td>—</td>
+<td>workflow.html (View summaries, execution detail overrides)</td>
+</tr>
+</tbody>
+</table>
+<p>So “heading white” is sometimes <code>#f8fafc</code>, sometimes <code>#ffffff</code>. Both are correct; pick one for “primary text” and one for “emphasis” if desired.</p>
+<h3 id="32-dark-panel-backgrounds-workflow-dark-theme">3.2 Dark panel backgrounds (workflow dark theme)</h3>
+<p>All used for layered panels; similar but intentionally different levels. Good candidates for CSS variables (e.g. <code>--panel-bg-0</code> … <code>--panel-bg-4</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Hex</th>
+<th>Purpose (in workflow.html)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#0a0e1a</code></td>
+<td>—</td>
+<td>Input fields (Tailwind arbitrary)</td>
+</tr>
+<tr>
+<td><code>rgb(15, 20, 35)</code></td>
+<td><code>#0f1423</code></td>
+<td>Root agents panel</td>
+</tr>
+<tr>
+<td><code>rgb(18, 24, 42)</code></td>
+<td><code>#12182a</code></td>
+<td>Input/textarea background</td>
+</tr>
+<tr>
+<td><code>rgb(20, 28, 48)</code></td>
+<td><code>#141c30</code></td>
+<td>Level 1 panels</td>
+</tr>
+<tr>
+<td><code>rgb(22, 30, 52)</code></td>
+<td><code>#161e34</code></td>
+<td>Level 2 content</td>
+</tr>
+<tr>
+<td><code>rgb(26, 34, 56)</code></td>
+<td><code>#1a2238</code></td>
+<td>Level 3 bordered</td>
+</tr>
+<tr>
+<td><code>rgb(30, 40, 65)</code></td>
+<td><code>#1e2841</code></td>
+<td>Level 4 inner</td>
+</tr>
+<tr>
+<td><code>#1f2937</code></td>
+<td>—</td>
+<td>.log-fullscreen dark (gray-800)</td>
+</tr>
+<tr>
+<td><code>#1d3067</code></td>
+<td>—</td>
+<td>Collapsible panel header (inline style in JS)</td>
+</tr>
+</tbody>
+</table>
+<p><code>#0a0e1a</code> is darker than the rgb sequence; the rest are a gradient from darkest to lighter. Consolidating into variables would keep the hierarchy and avoid typos.</p>
+<h3 id="33-yellow-amber-step-numbers-badges-stroke">3.3 Yellow / amber (step numbers, badges, stroke)</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Tailwind</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#fde047</code></td>
+<td>yellow-300</td>
+<td>Workflow badge text, “3 Sub-Agents”</td>
+</tr>
+<tr>
+<td><code>#facc15</code></td>
+<td>yellow-400</td>
+<td>Workflow step “3”</td>
+</tr>
+<tr>
+<td><code>#eab308</code></td>
+<td>yellow-500</td>
+<td>Workflow overview bar</td>
+</tr>
+<tr>
+<td><code>#fbbf24</code></td>
+<td>amber-500</td>
+<td>workflow.html JS <code>node.style.stroke</code></td>
+</tr>
+<tr>
+<td><code>rgb(253, 224, 71)</code></td>
+<td>= #fde047</td>
+<td>CSS yellow badge</td>
+</tr>
+<tr>
+<td><code>rgb(234, 179, 8)</code></td>
+<td>yellow-500 (different from #eab308)</td>
+<td>rgba() yellow badge bg</td>
+</tr>
+</tbody>
+</table>
+<p>So “yellow” is split between yellow-300/400/500 and amber-500. Recommend one primary (e.g. <code>#eab308</code> or <code>#facc15</code>) for step numbers and one for stroke/accents.</p>
+<h3 id="34-purple-violet-buttons-borders-focus">3.4 Purple / violet (buttons, borders, focus)</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#7C3AED</code></td>
+<td>Button hover (workflow); violet-600</td>
+</tr>
+<tr>
+<td><code>#4b4e77</code></td>
+<td>Button default (workflow)</td>
+</tr>
+<tr>
+<td><code>#3d4063</code></td>
+<td>Button hover alt</td>
+</tr>
+<tr>
+<td><code>#1d3067</code></td>
+<td>Collapsible panel header bg</td>
+</tr>
+<tr>
+<td><code>rgba(139, 92, 246, *)</code></td>
+<td>Borders, focus, hover (violet-500)</td>
+</tr>
+<tr>
+<td>docs/CHANGELOG: <code>#8B5CF6</code>, <code>#A78BFA</code>, <code>#C4B5FD</code></td>
+<td>Brand (violet-500, violet-400, violet-300)</td>
+</tr>
+</tbody>
+</table>
+<p>Functionally consistent (purple/violet theme); consider aligning with docs palette (e.g. <code>#8B5CF6</code> / <code>#7C3AED</code>) and reusing a single violet for hover if desired.</p>
+<h3 id="35-green-success-huntable">3.5 Green (success, huntable)</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#16a34a</code>, <code>#15803d</code>, <code>#dcfce7</code></td>
+<td>annotation-manager*.js (huntable, success)</td>
+</tr>
+<tr>
+<td><code>rgb(34, 197, 94)</code>, <code>rgb(134, 239, 172)</code></td>
+<td>workflow.html (green badge); Tailwind green-500 / green-300</td>
+</tr>
+</tbody>
+</table>
+<p>Two systems: annotation-manager uses green-600/700/100; workflow uses green-500/300. Pick one palette (e.g. Tailwind green-500/300) and reuse across both if you want one “success” look.</p>
+<h3 id="36-gray-text-borders-neutral-ui">3.6 Gray text / borders (neutral UI)</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#6b7280</code></td>
+<td>annotation-manager*.js (gray-500)</td>
+</tr>
+<tr>
+<td><code>#718096</code></td>
+<td>browser-extension (gray-600)</td>
+</tr>
+<tr>
+<td><code>#4a5568</code></td>
+<td>browser-extension (gray-600)</td>
+</tr>
+<tr>
+<td><code>#9ca3af</code></td>
+<td>annotation-manager (gray-400)</td>
+</tr>
+</tbody>
+</table>
+<p>All “muted text / secondary”; different grays. Standardizing on one gray scale (e.g. Tailwind) would make future theming easier.</p>
+<hr />
+<h2 id="4-summary-table-same-but-not">4. Summary table — “same but not”</h2>
+<table>
+<thead>
+<tr>
+<th>Cluster</th>
+<th>Canonical suggestion</th>
+<th>Current variants</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>White</td>
+<td><code>#ffffff</code></td>
+<td>#ffffff, white, rgb(255,255,255)</td>
+</tr>
+<tr>
+<td>Slate heading</td>
+<td><code>#f8fafc</code></td>
+<td>#f8fafc, rgb(248,250,252)</td>
+</tr>
+<tr>
+<td>Slate muted</td>
+<td><code>#cbd5e1</code></td>
+<td>#cbd5e1, #cbd5e0, rgb(203,213,225)</td>
+</tr>
+<tr>
+<td>Yellow accent</td>
+<td><code>#eab308</code> or <code>#facc15</code></td>
+<td>#fde047, #facc15, #eab308, #fbbf24, rgb(253,224,71), rgb(234,179,8)</td>
+</tr>
+<tr>
+<td>Purple primary</td>
+<td><code>#7C3AED</code> or <code>#8B5CF6</code></td>
+<td>#7C3AED, #4b4e77, #3d4063, #1d3067, rgba(139,92,246)</td>
+</tr>
+<tr>
+<td>Dark panel set</td>
+<td>CSS vars</td>
+<td>#0a0e1a, #0f1423, #12182a, #141c30, #161e34, #1a2238, #1e2841, #1f2937, #1d3067</td>
+</tr>
+<tr>
+<td>Green success</td>
+<td><code>#16a34a</code> or Tailwind green-500</td>
+<td>#16a34a, #15803d, #dcfce7, rgb(34,197,94), rgb(134,239,172)</td>
+</tr>
+<tr>
+<td>Border gray</td>
+<td><code>#e5e7eb</code></td>
+<td>#e5e7eb, #e2e8f0</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-files-with-the-most-color-definitions-source-only">5. Files with the most color definitions (source only)</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/web/templates/workflow.html</code></td>
+<td>Bulk of hex + rgb; dark theme and inline styles</td>
+</tr>
+<tr>
+<td><code>src/web/static/js/annotation-manager.js</code></td>
+<td>Hex for menu, buttons, states</td>
+</tr>
+<tr>
+<td><code>src/web/static/js/annotation-manager-mobile.js</code></td>
+<td>Mirrors annotation-manager colors</td>
+</tr>
+<tr>
+<td><code>browser-extension/popup.html</code></td>
+<td>Own palette (#cbd5e0, #e2e8f0, #667eea, #764ba2, etc.)</td>
+</tr>
+<tr>
+<td><code>browser-extension/icons/icon16.svg</code></td>
+<td>#667eea, #764ba2, #4a5568</td>
+</tr>
+<tr>
+<td><code>docs/CHANGELOG.md</code></td>
+<td>#1a1a2e, #8B5CF6, #A78BFA, #C4B5FD (brand)</td>
+</tr>
+<tr>
+<td><code>tests/playwright/verify_text_colors.spec.ts</code></td>
+<td>Asserts rgb() and #ffffff</td>
+</tr>
+<tr>
+<td><code>tests/playwright/workflow_executions.spec.ts</code></td>
+<td>Asserts #ffffff</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-colors-to-account-for-in-specs">6. Colors to account for in specs</h2>
+<p>Playwright specs (<code>verify_text_colors.spec.ts</code>, <code>workflow_executions.spec.ts</code>) currently:</p>
+<ul>
+<li><strong>Valid “readable” for View summaries:</strong> white (<code>rgb(255,255,255)</code> / <code>#ffffff</code> / <code>white</code>), gray-300 (<code>rgb(209,213,219)</code>), gray-700 (<code>rgb(55,65,81)</code>).</li>
+<li><strong>Excluded from “very dark = unreadable” (status/decoration):</strong> red <code>rgb(239,68,68)</code>, green <code>rgb(34,197,94)</code>, yellow <code>rgb(234,179,8)</code>, blue <code>rgb(59,130,246)</code>, purple <code>rgb(168,85,247)</code>.</li>
+</ul>
+<p>These colors exist in the app but are <strong>not</strong> yet in the specs; add them so assertions stay correct and avoid false “unreadable” reports.</p>
+<h3 id="61-add-to-valid-readable-view-summaries-general-text">6.1 Add to “valid readable” (View summaries / general text)</h3>
+<p>So headings and muted text in execution detail are accepted as readable.</p>
+<table>
+<thead>
+<tr>
+<th>Color</th>
+<th>Hex</th>
+<th>Where used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Slate heading</td>
+<td><code>#f8fafc</code>, <code>rgb(248, 250, 252)</code></td>
+<td>Panel h2/h3/h4, “Workflow Overview”, section titles</td>
+</tr>
+<tr>
+<td>Slate muted</td>
+<td><code>#cbd5e1</code>, <code>rgb(203, 213, 225)</code></td>
+<td>Labels, “OS Detection”, “Junk Filter”, badge secondary</td>
+</tr>
+<tr>
+<td>Body text (dark)</td>
+<td><code>#111827</code>, <code>rgb(17, 24, 39)</code></td>
+<td>Execution detail body (intentional; without this, spec flags it as “very dark” unreadable)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-add-to-status-decoration-allowlist-isstatuscolor">6.2 Add to “status / decoration” allowlist (isStatusColor)</h3>
+<p>So step numbers, badges, and status text in execution detail are not treated as unreadable.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>rgb()</th>
+<th>Hex</th>
+<th>Where used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Green (badge text)</td>
+<td><code>rgb(134, 239, 172)</code></td>
+<td><code>#86efac</code></td>
+<td>Workflow green badge text</td>
+</tr>
+<tr>
+<td>Yellow (badge text)</td>
+<td><code>rgb(253, 224, 71)</code></td>
+<td><code>#fde047</code></td>
+<td>Workflow yellow badge, “3 Sub-Agents”</td>
+</tr>
+<tr>
+<td>Cyan (step)</td>
+<td><code>rgb(34, 211, 238)</code></td>
+<td><code>#22d3ee</code></td>
+<td>Overview step “0” (OS Detection)</td>
+</tr>
+<tr>
+<td>Blue (step)</td>
+<td><code>rgb(96, 165, 250)</code></td>
+<td><code>#60a5fa</code></td>
+<td>Overview step “1” (Junk Filter)</td>
+</tr>
+<tr>
+<td>Green (step)</td>
+<td><code>rgb(74, 222, 128)</code></td>
+<td><code>#4ade80</code></td>
+<td>Overview step “2” (LLM Ranking)</td>
+</tr>
+<tr>
+<td>Yellow (step)</td>
+<td><code>rgb(250, 204, 21)</code></td>
+<td><code>#facc15</code></td>
+<td>Overview step “3”</td>
+</tr>
+<tr>
+<td>Orange (step)</td>
+<td><code>rgb(251, 146, 60)</code></td>
+<td><code>#fb923c</code></td>
+<td>Overview step “4”</td>
+</tr>
+<tr>
+<td>Pink (step)</td>
+<td><code>rgb(244, 114, 182)</code></td>
+<td><code>#f472b6</code></td>
+<td>Overview step “5”</td>
+</tr>
+<tr>
+<td>Violet (step)</td>
+<td><code>rgb(192, 132, 252)</code></td>
+<td><code>#c084fc</code></td>
+<td>Overview step “6”</td>
+</tr>
+<tr>
+<td>Yellow (small)</td>
+<td><code>rgb(253, 224, 71)</code></td>
+<td><code>#fde047</code></td>
+<td>“3 Sub-Agents” label</td>
+</tr>
+</tbody>
+</table>
+<p>Specs already have one green, one yellow, one blue, one purple; the table above adds the <strong>alternate</strong> shades used in workflow overview and badges (e.g. <code>rgb(134,239,172)</code>, <code>rgb(253,224,71)</code>, <code>rgb(96,165,250)</code>, <code>rgb(192,132,252)</code>, cyan/orange/pink).</p>
+<h3 id="63-optional-other-ui-surfaces">6.3 Optional: other UI surfaces</h3>
+<p>Not required for current “View summary + execution detail” checks; add if you add specs for those areas.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Colors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Annotation menu (annotation-manager)</td>
+<td><code>#6b7280</code>, <code>#e5e7eb</code>, <code>#16a34a</code>, <code>#15803d</code>, <code>#dc2626</code>, <code>#fef2f2</code>, <code>#9ca3af</code>, <code>#f3f4f6</code>, <code>#2563eb</code></td>
+</tr>
+<tr>
+<td>Browser extension popup</td>
+<td><code>#f8fafc</code>, <code>#667eea</code>, <code>#764ba2</code>, <code>#e2e8f0</code>, <code>#1a202c</code>, <code>#4a5568</code>, <code>#718096</code>, <code>#cbd5e0</code>, <code>#c6f6d5</code>, <code>#22543d</code>, <code>#9ae6b4</code>, <code>#fed7d7</code>, <code>#742a2a</code>, <code>#feb2b2</code>, <code>#bee3f8</code>, <code>#2a4365</code>, <code>#90cdf4</code>, <code>#2d3748</code>, <code>#ffffff</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="post-implementation-policy-color-system-normalization">Post-implementation policy (color-system normalization)</h2>
+<p>After refactoring to theme-variables.css and CSS variables:</p>
+<ul>
+<li><strong>No new literal hex/rgb colors</strong> in app templates or JS; new colors must be added as variables in <code>src/web/static/css/theme-variables.css</code>.</li>
+<li><strong>Browser extension</strong> remains palette-aligned but <strong>exempt</strong> from var() enforcement unless explicitly refactored.</li>
+</ul>
+<hr />
+<p><strong>Exit: PASS</strong> — Report written; no code changes. Use this doc to normalize colors (CSS variables, single hex per semantic role) and fix the two one-digit differences in the extension and borders.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

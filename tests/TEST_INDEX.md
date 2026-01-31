@@ -110,7 +110,6 @@
 | `test_ai_real_api_integration.py` | 10 | ✅ Passing | Real AI API integration |
 | `test_analytics_integration.py` | 10+ | ✅ Passing | Analytics integration |
 | `test_annotation_feedback_integration.py` | 10+ | ✅ Passing | Annotation and feedback loop |
-| `test_backup_restore.py` | 10+ | ✅ Passing | Backup and restore workflows |
 | `test_celery_workflow_integration.py` | 10+ | ✅ Passing | Celery task workflows |
 | `test_content_pipeline_integration.py` | 10+ | ✅ Passing | Content processing pipeline |
 | `test_error_recovery_integration.py` | 10+ | ✅ Passing | Error recovery and resilience |

@@ -198,7 +198,7 @@ async def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest
         raise
     except Exception as e:
         logger.error(f"Error adding rule to queue: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/list", response_model=list[QueuedRuleResponse])
@@ -296,7 +296,7 @@ async def list_queued_rules(request: Request, status: str | None = None, limit: 
 
     except Exception as e:
         logger.error(f"Error listing queued rules: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{queue_id}/approve")
@@ -336,7 +336,7 @@ async def approve_queued_rule(request: Request, queue_id: int, update: QueueUpda
         raise
     except Exception as e:
         logger.error(f"Error approving queued rule: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{queue_id}/reject")
@@ -378,7 +378,7 @@ async def reject_queued_rule(request: Request, queue_id: int):
         raise
     except Exception as e:
         logger.error(f"Error rejecting queued rule: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/{queue_id}/yaml")
@@ -404,7 +404,7 @@ async def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpda
         raise
     except Exception as e:
         logger.error(f"Error updating rule YAML: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 def _sanitize_error_detail(detail: str) -> str:
@@ -530,19 +530,19 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             )
                             raw_response = raw_response.strip()
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e))
+                            raise HTTPException(status_code=400, detail=str(e)) from e
                         except RuntimeError as e:
                             err = str(e)
                             if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
                                 raise HTTPException(
                                     status_code=401,
                                     detail="OpenAI API key is invalid or expired. Please check your API key.",
-                                )
+                                ) from e
                             if "429" in err or "rate limit" in err.lower():
                                 raise HTTPException(
                                     status_code=429, detail="OpenAI API rate limit exceeded. Please wait and try again."
-                                )
-                            raise HTTPException(status_code=502, detail=err)
+                                ) from e
+                            raise HTTPException(status_code=502, detail=err) from e
                     elif provider == "anthropic":
                         response = await client.post(
                             "https://api.anthropic.com/v1/messages",
@@ -727,7 +727,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                             continue
                                         error_detail = f"Failed to parse LMStudio response: {str(e)}"
                                         error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                                        raise HTTPException(status_code=500, detail=error_detail)
+                                        raise HTTPException(status_code=500, detail=error_detail) from e
                                 else:
                                     # Non-200 status code
                                     last_error = f"HTTP {response.status_code}: {response.text[:200]}"
@@ -753,16 +753,16 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                     if idx < len(lmstudio_urls) - 1:
                                         logger.warning("Trying next LMStudio URL...")
                                         continue
-                                    raise HTTPException(status_code=response.status_code, detail=error_detail)
+                                    raise HTTPException(status_code=response.status_code, detail=error_detail) from e
 
-                            except httpx.TimeoutException:
+                            except httpx.TimeoutException as e:
                                 last_error = f"Timeout connecting to {lmstudio_url}"
                                 if idx == len(lmstudio_urls) - 1:
                                     raise HTTPException(
                                         status_code=504,
                                         detail="LMStudio request timeout - the model may be slow or overloaded. Tried URLs: "
                                         + ", ".join(lmstudio_urls),
-                                    )
+                                    ) from e
                                 logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
                                 continue
 
@@ -772,7 +772,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 if idx == len(lmstudio_urls) - 1:
                                     error_detail = f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}"
                                     error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                                    raise HTTPException(status_code=503, detail=error_detail)
+                                    raise HTTPException(status_code=503, detail=error_detail) from e
                                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                                 continue
                             except Exception as e:
@@ -781,7 +781,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 if idx == len(lmstudio_urls) - 1:
                                     error_detail = f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}"
                                     error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                                    raise HTTPException(status_code=500, detail=error_detail)
+                                    raise HTTPException(status_code=500, detail=error_detail) from e
                                 continue
 
                         if not raw_response:
@@ -934,14 +934,14 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
 
                     return response_data
-                except httpx.TimeoutException:
-                    raise HTTPException(status_code=504, detail="Request timeout. Please try again.")
+                except httpx.TimeoutException as e:
+                    raise HTTPException(status_code=504, detail="Request timeout. Please try again.") from e
                 except HTTPException:
                     raise
                 except Exception as e:
                     logger.error(f"Error calling {provider} API: {e}", exc_info=True)
                     error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
-                    raise HTTPException(status_code=500, detail=f"Error enriching rule: {error_msg}")
+                    raise HTTPException(status_code=500, detail=f"Error enriching rule: {error_msg}") from e
         finally:
             db_session.close()
 
@@ -950,7 +950,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
     except Exception as e:
         logger.error(f"Error enriching rule: {e}", exc_info=True)
         error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=500, detail=error_msg) from e
 
 
 @router.post("/prompt/save")
@@ -994,7 +994,7 @@ async def save_prompt_version(save_request: SavePromptRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error saving prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error saving prompt: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving prompt: {str(e)}") from e
 
 
 @router.get("/prompt/history")
@@ -1029,7 +1029,7 @@ async def get_prompt_history(limit: int = 50):
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting prompt history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting history: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting history: {str(e)}") from e
 
 
 @router.get("/prompt/version/{version_id}")
@@ -1064,7 +1064,7 @@ async def get_prompt_version(version_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting prompt version: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting prompt version: {str(e)}") from e
 
 
 @router.get("/prompt/latest")
@@ -1095,7 +1095,7 @@ async def get_latest_prompt_version():
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting latest prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting latest prompt version: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting latest prompt version: {str(e)}") from e
 
 
 @router.get("/prompt/load/{version_id}")
@@ -1126,7 +1126,7 @@ async def load_prompt_version(version_id: int):
         raise
     except Exception as e:
         logger.error(f"Error loading prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error loading prompt version: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading prompt version: {str(e)}") from e
 
 
 @router.post("/preset/save")
@@ -1190,7 +1190,7 @@ async def save_enrichment_preset(save_request: SavePresetRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error saving preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error saving preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving preset: {str(e)}") from e
 
 
 @router.get("/preset/list")
@@ -1221,7 +1221,7 @@ async def list_enrichment_presets():
             db_session.close()
     except Exception as e:
         logger.error(f"Error listing presets: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error listing presets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing presets: {str(e)}") from e
 
 
 @router.get("/preset/{preset_id}")
@@ -1255,7 +1255,7 @@ async def get_enrichment_preset(preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting preset: {str(e)}") from e
 
 
 @router.delete("/preset/{preset_id}")
@@ -1283,7 +1283,7 @@ async def delete_enrichment_preset(preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error deleting preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error deleting preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting preset: {str(e)}") from e
 
 
 class CompareRulesRequest(BaseModel):
@@ -1371,7 +1371,7 @@ async def compare_rules_similarity(compare_request: CompareRulesRequest):
 
     except Exception as e:
         logger.error(f"Error comparing rules: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error comparing rules: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error comparing rules: {str(e)}") from e
 
 
 @router.post("/{queue_id}/validate")
@@ -1559,7 +1559,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 raw_response = raw_response.strip()
                             except ValueError as e:
                                 error_occurred = str(e)
-                                raise HTTPException(status_code=400, detail=str(e))
+                                raise HTTPException(status_code=400, detail=str(e)) from e
                             except RuntimeError as e:
                                 err = str(e)
                                 error_occurred = err
@@ -1567,13 +1567,13 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                     raise HTTPException(
                                         status_code=401,
                                         detail="OpenAI API key is invalid or expired. Please check your API key.",
-                                    )
+                                    ) from e
                                 if "429" in err or "rate limit" in err.lower():
                                     raise HTTPException(
                                         status_code=429,
                                         detail="OpenAI API rate limit exceeded. Please wait and try again.",
-                                    )
-                                raise HTTPException(status_code=502, detail=err)
+                                    ) from e
+                                raise HTTPException(status_code=502, detail=err) from e
 
                         elif provider == "anthropic":
                             response = await client.post(
@@ -1896,7 +1896,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                 "conversation_log": conversation_log,
                 "validation_results": validation_results if "validation_results" in locals() else [],
             }
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{queue_id}/similar-rules")
@@ -1921,7 +1921,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             try:
                 rule_yaml = yaml.safe_load(rule.rule_yaml)
             except yaml.YAMLError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}") from e
 
             # Normalize rule structure
             normalized_rule = {
@@ -1977,7 +1977,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
         raise
     except Exception as e:
         logger.error(f"Error finding similar rules for queued rule {queue_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/submit-pr")
@@ -2052,4 +2052,4 @@ async def submit_pr_for_approved_rules(request: Request):
 
     except Exception as e:
         logger.error(f"Error submitting PR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

@@ -125,13 +125,13 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                             raise HTTPException(
                                 status_code=500,
                                 detail="Failed to create manual source - database constraint violation",
-                            )
+                            ) from exc
                     except Exception as exc:
                         logger.error(f"Error creating manual source: {exc}")
                         raise HTTPException(
                             status_code=500,
                             detail=f"Failed to get or create manual source: {exc}",
-                        )
+                        ) from exc
 
             if not manual_source_id:
                 raise HTTPException(status_code=500, detail="Failed to get or create manual source")

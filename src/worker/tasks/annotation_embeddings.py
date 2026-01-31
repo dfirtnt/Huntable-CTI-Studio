@@ -81,7 +81,7 @@ def generate_annotation_embeddings(self):
 
     except Exception as exc:
         logger.error(f"Annotation embedding task failed: {exc}")
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -134,7 +134,7 @@ def generate_single_annotation_embedding(self, annotation_id: int):
 
     except Exception as exc:
         logger.error(f"Single annotation embedding task failed: {exc}")
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -214,4 +214,4 @@ def batch_generate_annotation_embeddings(self, annotation_ids: list[int], batch_
 
     except Exception as exc:
         logger.error(f"Batch annotation embedding task failed: {exc}")
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc

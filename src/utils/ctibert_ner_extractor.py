@@ -102,7 +102,7 @@ class CTIBERTNERExtractor:
 
         except Exception as e:
             logger.error(f"Failed to load CTI-BERT model: {e}")
-            raise RuntimeError(f"Could not load CTI-BERT model: {e}")
+            raise RuntimeError(f"Could not load CTI-BERT model: {e}") from e
 
     def _get_embedding(self, text: str) -> torch.Tensor:
         """

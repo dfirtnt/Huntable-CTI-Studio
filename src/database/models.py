@@ -178,7 +178,7 @@ class ArticleAnnotationTable(Base):
 
 
 @event.listens_for(ArticleAnnotationTable, "before_update", propagate=True)
-def _prevent_annotation_usage_change(mapper, connection, target):
+def _prevent_annotation_usage_change(_mapper, connection, target):
     hist = inspect(target).attrs.usage.history
     if hist.has_changes():
         added = hist.added[0] if hist.added else None
@@ -688,9 +688,8 @@ class ObservableModelMetricsTable(Base):
     computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
 
     # Composite index for efficient queries
-    __table_args__ = (
-        {"postgresql_partition_by": "RANGE (computed_at)"} if False else None,  # Placeholder for future partitioning
-    )
+    # Partitioning: set __table_args__ = ({"postgresql_partition_by": "RANGE (computed_at)"},) when needed
+    __table_args__ = ()
 
     def __repr__(self):
         return f"<ObservableModelMetrics(id={self.id}, model='{self.model_name}', version='{self.model_version}', type='{self.observable_type}', usage='{self.dataset_usage}', metric='{self.metric_name}')>"

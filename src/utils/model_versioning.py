@@ -28,7 +28,7 @@ class MLModelVersionManager:
     async def save_model_version(
         self,
         metrics: dict[str, Any],
-        training_config: dict[str, Any],
+        _training_config: dict[str, Any],
         feedback_count: int = 0,
         model_file_path: str = None,
     ) -> int:
@@ -37,7 +37,7 @@ class MLModelVersionManager:
 
         Args:
             metrics: Training metrics from ContentFilter.train_model()
-            training_config: Configuration used for training
+            _training_config: Configuration used for training (reserved for future use)
             feedback_count: Number of feedback samples used in training
             model_file_path: Path to the saved model file
 

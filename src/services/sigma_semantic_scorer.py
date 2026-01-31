@@ -179,9 +179,9 @@ Respond in JSON format:
             # Use get_running_loop() instead of get_event_loop() to avoid creating new loop
             try:
                 loop = asyncio.get_running_loop()
-            except RuntimeError:
+            except RuntimeError as e:
                 # No running loop, but we're in async context - this shouldn't happen
-                raise RuntimeError("compare_rules() must be called from async context")
+                raise RuntimeError("compare_rules() must be called from async context") from e
             gen_embedding = await loop.run_in_executor(None, embedding_service.generate_embedding, generated_rule)
             ref_embedding = await loop.run_in_executor(None, embedding_service.generate_embedding, reference_rule)
 

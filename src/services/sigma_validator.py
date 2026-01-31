@@ -11,16 +11,12 @@ from typing import Any
 import yaml
 
 try:
-    from sigma.exceptions import SigmaDetectionError, SigmaError, SigmaLogsourceError
     from sigma.rule import SigmaRule
 
     PYSIGMA_AVAILABLE = True
 except ImportError:
     PYSIGMA_AVAILABLE = False
     SigmaRule = None
-    SigmaError = None
-    SigmaDetectionError = None
-    SigmaLogsourceError = None
 
 logger = logging.getLogger(__name__)
 

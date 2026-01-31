@@ -48,7 +48,7 @@ def calculate_checksum(file_path: Path) -> str:
                 sha256_hash.update(chunk)
         return sha256_hash.hexdigest()
     except Exception as e:
-        raise RuntimeError(f"Could not calculate checksum for {file_path}: {e}")
+        raise RuntimeError(f"Could not calculate checksum for {file_path}: {e}") from e
 
 
 def get_docker_exec_cmd(container_name: str, command: str) -> list:

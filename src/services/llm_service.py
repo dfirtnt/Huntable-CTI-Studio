@@ -1198,7 +1198,7 @@ class LLMService:
                             f"{failure_context}: Request timeout after {timeout}s - "
                             f"LMStudio service may be down, slow, or overloaded. "
                             f"Check if LMStudio is running at {lmstudio_url}"
-                        )
+                        ) from e
                     # Continue to next URL candidate
                     continue
 
@@ -1211,7 +1211,7 @@ class LLMService:
                             f"{failure_context}: Cannot connect to LMStudio service. "
                             f"Tried URLs: {lmstudio_urls}. Last error: {str(e)}. "
                             f"Verify LMStudio is running and accessible at {lmstudio_url}"
-                        )
+                        ) from e
                     # Continue to next URL candidate
                     continue
 
@@ -1222,7 +1222,7 @@ class LLMService:
                     last_error_detail = str(e)
                     logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
                     if idx == len(lmstudio_urls) - 1:
-                        raise RuntimeError(f"{failure_context}: {str(e)}")
+                        raise RuntimeError(f"{failure_context}: {str(e)}") from e
         finally:
             # Ensure client is closed
             try:
@@ -1238,7 +1238,7 @@ class LLMService:
         content: str,
         source: str,
         url: str,
-        prompt_template_path: str | None = None,
+        _prompt_template_path: str | None = None,
         prompt_template: str | None = None,
         execution_id: int | None = None,
         article_id: int | None = None,
@@ -1254,8 +1254,8 @@ class LLMService:
             content: Article content (filtered)
             source: Article source name
             url: Article URL
-            prompt_template_path: Optional path to ranking prompt template file
-            prompt_template: Optional prompt template string (takes precedence over prompt_template_path)
+            _prompt_template_path: Unused; prompt_template from workflow config is required
+            prompt_template: Optional prompt template string (required from workflow config)
             ground_truth_rank: Optional 1-10 ground truth rank to log to Langfuse
             ground_truth_details: Optional dict of source scores/rounding used for ground truth
 
@@ -2564,11 +2564,11 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                                             logger.warning(f"Alternative repair also failed: {parse_err}")
                                             raise ValueError(
                                                 "No valid JSON found in response (truncated and repair failed)"
-                                            )
+                                            ) from parse_err
                                     else:
                                         raise ValueError(
                                             "No valid JSON found in response (truncated and repair failed)"
-                                        )
+                                        ) from e
                                 elif atomic_iocs_match:
                                     # Find the start of the root object
                                     root_start = cleaned.rfind("{", 0, atomic_iocs_match.start())
@@ -2625,13 +2625,13 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                                             logger.warning(f"Alternative repair also failed: {parse_err}")
                                             raise ValueError(
                                                 "No valid JSON found in response (truncated and repair failed)"
-                                            )
+                                            ) from parse_err
                                     else:
                                         raise ValueError(
                                             "No valid JSON found in response (truncated and repair failed)"
-                                        )
+                                        ) from e
                                 else:
-                                    raise ValueError("No valid JSON found in response (truncated and repair failed)")
+                                    raise ValueError("No valid JSON found in response (truncated and repair failed)") from e
                         else:
                             raise ValueError("No valid JSON found in response")
 
@@ -2667,8 +2667,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                             try:
                                 extracted = json.loads(partial)
                                 logger.info("Successfully repaired and parsed truncated JSON")
-                            except json.JSONDecodeError:
-                                raise e  # Re-raise original error if repair fails
+                            except json.JSONDecodeError as inner:
+                                raise e from inner  # Re-raise original error if repair fails
                         else:
                             raise e  # Re-raise original error if no valid structure found
                     else:

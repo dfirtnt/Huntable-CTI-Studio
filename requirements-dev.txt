@@ -1,0 +1,6 @@
+# Development and linting dependencies
+# Install with: pip3 install -r requirements-dev.txt
+
+ruff>=0.8.0
+vulture>=2.14
+pre-commit>=4.0.0

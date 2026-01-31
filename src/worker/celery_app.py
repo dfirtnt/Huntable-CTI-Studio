@@ -303,7 +303,7 @@ def check_all_sources(self):
     except Exception as exc:
         logger.error(f"Source check task failed: {exc}")
         # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=2)
@@ -320,7 +320,7 @@ def cleanup_old_data(self):
         return {"status": "success", "message": "Old data cleaned up"}
 
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=2)
@@ -338,7 +338,7 @@ def generate_daily_report(self):
         return {"status": "success", "message": "Daily report generated"}
 
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=600 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=600 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -393,7 +393,7 @@ def embed_new_articles(self, batch_size: int = 50):
 
     except Exception as e:
         logger.error(f"Failed to embed new articles: {e}")
-        raise self.retry(exc=e, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=e, countdown=60 * (2**self.request.retries)) from e
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -415,7 +415,7 @@ def test_source_connectivity(self, source_id: int):
         }
 
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=30 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=30 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -586,7 +586,7 @@ def check_source(self, source_identifier: str):
     except Exception as exc:
         logger.error(f"Source check task failed: {exc}")
         # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -630,7 +630,7 @@ def trigger_agentic_workflow(self, article_id: int, execution_id: int | None = N
         # Retry with exponential backoff
         # Convert exception to string to avoid serializing ORM objects in traceback
         error_msg = str(exc)
-        raise self.retry(exc=Exception(error_msg), countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=Exception(error_msg), countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=2)
@@ -663,7 +663,7 @@ def run_chunk_analysis(self, article_id: int):
     except Exception as exc:
         logger.error(f"Chunk analysis task failed for article {article_id}: {exc}")
         # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=30 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=30 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -734,7 +734,7 @@ def generate_article_embedding(self, article_id: int):
 
     except Exception as exc:
         logger.error(f"Article embedding task failed: {exc}")
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -870,7 +870,7 @@ def batch_generate_embeddings(self, article_ids: list[int], batch_size: int = 32
 
     except Exception as exc:
         logger.error(f"Batch embedding task failed: {exc}")
-        raise self.retry(exc=exc, countdown=120 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=120 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=2)
@@ -946,7 +946,7 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
 
     except Exception as exc:
         logger.error(f"Retroactive embedding task failed: {exc}")
-        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -1169,7 +1169,7 @@ def collect_from_source(self, source_id: int):
     except Exception as exc:
         logger.error(f"Source collection task failed: {exc}")
         # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=2)
@@ -1224,7 +1224,7 @@ def sync_sigma_rules(self, force_reindex=False):
     except Exception as exc:
         logger.error(f"Sigma sync task failed: {exc}")
         # Retry with exponential backoff (longer delay for this resource-intensive task)
-        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 
 if __name__ == "__main__":

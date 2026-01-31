@@ -15,15 +15,13 @@ try:
     import numpy as np
     import pandas as pd
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics import accuracy_score, classification_report
+    from sklearn.metrics import accuracy_score
     from sklearn.model_selection import train_test_split
 
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
     # Create dummy classes for type hints
-    TfidfVectorizer = None
     RandomForestClassifier = None
     np = None
     pd = None

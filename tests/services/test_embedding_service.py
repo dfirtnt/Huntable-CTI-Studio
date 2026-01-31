@@ -130,15 +130,19 @@ class TestEmbeddingService:
         """Test error handling in embedding generation."""
         mock_sentence_transformer.encode.side_effect = Exception("Model error")
         
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError) as exc_info:
             service.generate_embedding("test text")
+        assert exc_info.value.__cause__ is not None
+        assert str(exc_info.value.__cause__) == "Model error"
 
     def test_generate_embeddings_batch_error_handling(self, service, mock_sentence_transformer):
         """Test error handling in batch embedding generation."""
         mock_sentence_transformer.encode.side_effect = Exception("Model error")
         
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError) as exc_info:
             service.generate_embeddings_batch(["text1", "text2"])
+        assert exc_info.value.__cause__ is not None
+        assert str(exc_info.value.__cause__) == "Model error"
 
     def test_generate_embeddings_batch_size(self, service, mock_sentence_transformer):
         """Test batch size parameter."""

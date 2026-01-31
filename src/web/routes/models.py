@@ -303,7 +303,7 @@ async def api_get_model_versions():
 
     except Exception as e:
         logger.error(f"Error getting model versions: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get model versions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get model versions: {str(e)}") from e
 
 
 @router.post("/evaluate")
@@ -631,7 +631,7 @@ async def api_get_model_comparison(version_id: int):
 
     except Exception as e:
         logger.error(f"Error getting model comparison: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get model comparison: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get model comparison: {str(e)}") from e
 
 
 @router.get("/feedback-comparison")
@@ -770,4 +770,4 @@ async def api_get_feedback_comparison():
 
     except Exception as e:
         logger.error(f"Error getting feedback comparison: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get feedback comparison: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get feedback comparison: {str(e)}") from e

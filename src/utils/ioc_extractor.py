@@ -309,7 +309,7 @@ Output format (return ONLY this JSON structure):
                     return validated_iocs, prompt, validated_json
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse LLM validation response: {e}")
-                    raise Exception(f"Failed to parse LLM validation response: {e}")
+                    raise Exception(f"Failed to parse LLM validation response: {e}") from e
             finally:
                 # Ensure client is closed
                 try:

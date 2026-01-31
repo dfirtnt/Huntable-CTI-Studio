@@ -3044,6 +3044,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]</h2>
 <h3 id="removed">Removed</h3>
 <ul>
+<li><strong>test_backup_restore.py</strong> (2026-01-30): Removed integration tests for backup/restore scripts (<code>calculate_checksum</code>, <code>validate_backup_directory</code>, <code>validate_backup_file</code>); references removed from <code>tests/TEST_INDEX.md</code> and <code>tests/TESTING.md</code></li>
 <li><strong>Chosen/Rejected Article Classification</strong> (2026-01-27): Deprecated and removed article-level chosen/rejected/unclassified classification</li>
 <li>Removed <code>/api/articles/next-unclassified</code> and <code>POST /api/articles/{id}/classify</code></li>
 <li>Bulk action supports only <code>delete</code>; chosen/rejected/unclassified actions removed</li>
@@ -3068,6 +3069,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="added_1">Added</h3>
 <ul>
+<li><strong>Prompt Tuning subagent</strong> (2026-01-30): Cursor subagent <code>.cursor/agents/prompt-tuning.md</code> for autonomous commandline extractor prompt tuning — runs cmdline evals, examines bundles/traces for count mismatches, proposes and applies model/provider/temperature/top_p/prompt and QA changes, iterates until nMAE ≤ 0.2 or 25 runs, then summarizes.</li>
+<li><strong>LG workflow rule and test coverage</strong> (2026-01-29): Cursor rule <code>.cursor/rules/lg-workflow.mdc</code> defines "lg" as commit + push + full hygiene (security, deps, docs, changelog). Rule updated so the agent must run the full workflow through push to main (no hand-off); hygiene order: changelog, docs, deps, security; fallback to <code>/usr/local/bin/git</code> if wrapper breaks. Run_tests: added <code>_get_agent_config_exclude_env()</code> so <code>--exclude-markers agent_config_mutation</code> sets <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code>; unit tests in <code>tests/test_run_tests_parsing.py</code> (TestAgentConfigExcludeEnv) and <code>tests/test_database.py</code> (test_db_article_to_model_sets_url_from_canonical_url) for env wiring and DatabaseManager Article.url from canonical_url.</li>
 <li><strong>compare-sources CLI</strong> (2026-01-29): New command to compare production DB source settings with <code>config/sources.yaml</code> — reports sources only in YAML, only in DB, and field-by-field differences (active, url, rss_url, check_frequency, lookback_days, min_content_length, rss_only). Run via <code>./run_cli.sh compare-sources</code>; optional standalone script <code>scripts/compare_sources_db_vs_yaml.py</code> for use outside Docker with <code>DATABASE_URL</code></li>
 <li><strong>Multi-Rule SIGMA Generation with Phased Approach</strong> (2026-01-26): Enhanced SIGMA rule generation to support multiple rules per article</li>
 <li>Refactored generation into 4 phases: multi-rule generation, validation, per-rule repair, artifact-driven expansion</li>

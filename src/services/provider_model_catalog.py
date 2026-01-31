@@ -66,7 +66,7 @@ def load_catalog() -> dict[str, list[str]]:
     try:
         return json.loads(CATALOG_PATH.read_text())
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=500, detail=f"Invalid provider catalog: {exc}")
+        raise HTTPException(status_code=500, detail=f"Invalid provider catalog: {exc}") from exc
 
 
 def save_catalog(catalog: dict[str, list[str]]) -> None:

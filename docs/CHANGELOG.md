@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **test_backup_restore.py** (2026-01-30): Removed integration tests for backup/restore scripts (`calculate_checksum`, `validate_backup_directory`, `validate_backup_file`); references removed from `tests/TEST_INDEX.md` and `tests/TESTING.md`
 - **Chosen/Rejected Article Classification** (2026-01-27): Deprecated and removed article-level chosen/rejected/unclassified classification
   - Removed `/api/articles/next-unclassified` and `POST /api/articles/{id}/classify`
   - Bulk action supports only `delete`; chosen/rejected/unclassified actions removed

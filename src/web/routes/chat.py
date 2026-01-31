@@ -141,7 +141,7 @@ async def save_rag_preset(save_request: SaveRagPresetRequest):
             db_session.close()
     except Exception as e:
         logger.error("Error saving RAG preset: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error saving preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving preset: {str(e)}") from e
 
 
 @router.get("/api/chat/preset/list")
@@ -171,7 +171,7 @@ async def list_rag_presets():
             db_session.close()
     except Exception as e:
         logger.error("Error listing RAG presets: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error listing presets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing presets: {str(e)}") from e
 
 
 @router.get("/api/chat/preset/{preset_id}")
@@ -202,7 +202,7 @@ async def get_rag_preset(preset_id: int):
         raise
     except Exception as e:
         logger.error("Error getting RAG preset: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting preset: {str(e)}") from e
 
 
 @router.delete("/api/chat/preset/{preset_id}")
@@ -224,7 +224,7 @@ async def delete_rag_preset(preset_id: int):
         raise
     except Exception as e:
         logger.error("Error deleting RAG preset: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error deleting preset: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting preset: {str(e)}") from e
 
 
 @router.post("/api/chat/rag")

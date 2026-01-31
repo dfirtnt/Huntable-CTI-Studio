@@ -521,6 +521,23 @@ class TestHTTPClient:
             with pytest.raises(ConnectionError):
                 await http_client.get("https://example.com")
 
+    @pytest.mark.asyncio
+    async def test_get_preserves_exception_chain_on_retry_exhaustion(self):
+        """Test that re-raised exceptions preserve __cause__ (B904 compliance)."""
+        config = RequestConfig(max_retries=0)
+        client = HTTPClient(config=config)
+        original_error = ConnectionError("Connection refused")
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=original_error)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            with pytest.raises(ConnectionError) as exc_info:
+                await client.get("https://example.com")
+            assert exc_info.value.__cause__ is original_error
+
     def test_update_config(self, http_client):
         """Test updating client configuration."""
         new_config = RequestConfig(timeout=60, max_retries=5)

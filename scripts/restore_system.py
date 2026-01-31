@@ -158,7 +158,7 @@ def validate_backup_directory(backup_path: Path) -> dict[str, Any]:
         with open(metadata_file) as f:
             metadata = json.load(f)
     except Exception as e:
-        raise ValueError(f"Invalid metadata file: {e}")
+        raise ValueError(f"Invalid metadata file: {e}") from e
 
     # Validate backup version
     version = metadata.get("version", "1.0")

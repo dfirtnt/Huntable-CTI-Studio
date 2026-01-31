@@ -94,3 +94,38 @@
 **Edit:** One sentence added to CmdlineExtract instructions (before "Output ONLY the JSON object." or at end): "Output each distinct command exactly once; do not list the same command in multiple phrasings (e.g. quoted vs unquoted). Do not extract from inline lists, bulleted lists, or such as / including enumerations."
 
 **Script:** scripts/apply_cmdline_prompt_tweak_and_eval.py — GET config, apply edit, PUT, run cmdline eval, wait, print nMAE. Run with app + Celery up: .venv/bin/python3 scripts/apply_cmdline_prompt_tweak_and_eval.py [--base-url URL]
+
+---
+
+## Failure bundle analysis (under_5113, over_5105)
+
+**Under-extraction (exec 5113, article_id 62):** expected 7, actual 6.
+
+- Model extracted: Get-ADComputer (PowerShell), nltest /domain_trusts, nltest /dclist:, net group "Domain Admins" /domain, two WinRAR commands (x and a).
+- **Likely missed:** One literal command (e.g. net user for local account, Adfind -subnets, or a command inside a script block that appears on one line). Article 62 is a long intrusion report; the 7th may be embedded in prose or a code block the model treated as multi-line/enumeration.
+- **Opportunity:** Add a narrow allowance: "If a full command appears verbatim on a single line inside a script block or code block, extract it. Do not exclude it solely because it is surrounded by other lines." Avoid broad "rescan and include every" wording (previously hurt nMAE).
+
+**Over-extraction (exec 5105, article_id 1292 — TeamCity):** expected 13, actual 24.
+
+- Model output includes clear **duplicate phrasings:** e.g. `cmd.exe "/c whoami"` and `cmd.exe /c whoami`; similar for other discovery commands. Many items are discovery-style (whoami, ipconfig, hostname, tasklist, netstat, net user) that may come from a "commands executed: …" or wmiexec-style enumeration rather than 13 distinct literal lines.
+- **Opportunity (already partly in tweak):** "Output each distinct command exactly once" — keep. Add explicit: "Treat `cmd.exe /c X` and `cmd.exe \"/c X\"` as the same command; output only one form (e.g. the form that appears first in the content)." This targets the quoted-vs-unquoted duplication seen in the bundle.
+- **Opportunity:** Strengthen enumeration exclusion: "Do not extract from 'commands executed', 'commands observed', 'discovery commands', or similar summary phrases that list command names without each full command on its own literal line."
+
+**Summary of additional prompt opportunities**
+
+| Priority | Change | Rationale |
+|----------|--------|-----------|
+| 1 | Add: "Treat cmd.exe /c X and cmd.exe \"/c X\" as the same command; output only one form." | Directly targets duplicate phrasings in over_5105. |
+| 2 | Add: "Do not extract from 'commands executed', 'commands observed', or discovery-summary phrases unless the full command appears on one literal line." | Reduces list/enumeration over-extraction. |
+| 3 | Add (for under): "If a full command appears on one line inside a script or code block, extract it; do not exclude solely because of surrounding lines." | May recover the 7th command in under_5113 without encouraging over-extraction. |
+
+**Tried one at a time (each on top of previous):**
+
+| Config | Idea added | nMAE | Perfect |
+|--------|------------|------|---------|
+| v7934 | (baseline: distinct-once) | 0.2857 | 3/14 |
+| v7935 | + Idea 1 (cmd.exe quoting) | 0.2857 | 3/14 |
+| v7936 | + Idea 2 (discovery-summary exclusion) | 0.3367 | 2/14 |
+| v7937 | + Idea 3 (single-line in script block) | 0.3265 | 3/14 |
+
+**Conclusion:** Idea 1 neutral; keep. Idea 2 worsened nMAE; drop. Idea 3 on top of v7936 improved over v7936 but best remains v7934/v7935 (0.2857). Recommend active config v7935 (distinct-once + idea 1); revert from v7937 to v7935 if desired.

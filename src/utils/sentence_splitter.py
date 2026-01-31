@@ -20,7 +20,6 @@ def _get_nlp():
 
     if _nlp is None:
         try:
-            import spacy
             from spacy.lang.en import English
 
             # Create blank English pipeline with only sentencizer

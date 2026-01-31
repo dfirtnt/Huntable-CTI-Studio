@@ -89,7 +89,7 @@ def compare_sources(ctx: CLIContext, config_path: str):
         except Exception as e:
             click.echo(f"ERROR: Cannot reach DB: {e}", err=True)
             await db_manager.close()
-            raise SystemExit(1)
+            raise SystemExit(1) from e
 
         db_by_id = {s.identifier: _source_row(s) for s in db_sources}
 
