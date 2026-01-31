@@ -21,8 +21,8 @@ async def ml_hunt_comparison_page():
         with open("src/web/templates/ml_hunt_comparison.html") as f:
             html_content = f.read()
         return HTMLResponse(content=html_content)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="ML Hunt comparison page not found")
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail="ML Hunt comparison page not found") from e
 
 
 @router.get("/api/ml-hunt-comparison/stats")
@@ -37,7 +37,7 @@ async def get_model_comparison_stats(
         return {"success": True, "stats": stats}
     except Exception as e:
         logger.error(f"Error getting model comparison stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/api/ml-hunt-comparison/results")
@@ -70,7 +70,7 @@ async def get_chunk_analysis_results(
         return {"success": True, "results": results, "count": len(results)}
     except Exception as e:
         logger.error(f"Error getting chunk analysis results: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/api/ml-hunt-comparison/model-versions")
@@ -82,7 +82,7 @@ async def get_available_model_versions(db: Session = Depends(get_db)):
         return {"success": True, "model_versions": versions}
     except Exception as e:
         logger.error(f"Error getting model versions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/api/ml-hunt-comparison/summary")
@@ -110,4 +110,4 @@ async def get_comparison_summary(db: Session = Depends(get_db)):
         return {"success": True, "summary": summary}
     except Exception as e:
         logger.error(f"Error getting comparison summary: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

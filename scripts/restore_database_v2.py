@@ -83,7 +83,7 @@ class DatabaseRestore:
             print("✅ Backup file format validated")
 
         except Exception as e:
-            raise ValueError(f"Invalid backup file: {e}")
+            raise ValueError(f"Invalid backup file: {e}") from e
 
         # Look for metadata file
         metadata_path = backup_path.with_suffix(".json")

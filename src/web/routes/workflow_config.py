@@ -160,7 +160,7 @@ async def get_workflow_config(request: Request):
 
     except Exception as e:
         logger.error(f"Error getting workflow config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/config", response_model=WorkflowConfigResponse)
@@ -337,7 +337,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                                 raise HTTPException(
                                     status_code=400,
                                     detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
-                                )
+                                ) from e
 
             # Check if the new config would be identical to the current one
             if current_config:
@@ -456,7 +456,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
 
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/config/preset/save")
@@ -502,7 +502,7 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error saving config preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/preset/list")
@@ -528,7 +528,7 @@ async def list_config_presets(request: Request):
             db_session.close()
     except Exception as e:
         logger.error(f"Error listing config presets: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/preset/{preset_id}")
@@ -557,7 +557,7 @@ async def get_config_preset(request: Request, preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting config preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/config/preset/{preset_id}")
@@ -579,7 +579,7 @@ async def delete_config_preset(request: Request, preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error deleting config preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, Any]:
@@ -631,7 +631,7 @@ async def list_config_versions(request: Request):
             db_session.close()
     except Exception as e:
         logger.error(f"Error listing config versions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/version/{version_number}")
@@ -655,7 +655,7 @@ async def get_config_by_version(request: Request, version_number: int):
         raise
     except Exception as e:
         logger.error(f"Error getting config by version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/prompts")
@@ -749,7 +749,7 @@ async def get_agent_prompts(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error getting agent prompts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/prompts/{agent_name}")
@@ -806,7 +806,7 @@ async def get_agent_prompt(request: Request, agent_name: str):
         raise
     except Exception as e:
         logger.error(f"Error getting agent prompt: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/config/prompts")
@@ -864,7 +864,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                         raise HTTPException(
                             status_code=400,
                             detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
-                        )
+                        ) from e
                 agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
             if prompt_update.instructions is not None:
                 agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
@@ -943,7 +943,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
         raise
     except Exception as e:
         logger.error(f"Error updating agent prompt: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/prompts/{agent_name}/versions")
@@ -981,7 +981,7 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
 
     except Exception as e:
         logger.error(f"Error getting prompt versions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/prompts/{agent_name}/by-config-version/{config_version}")
@@ -1065,7 +1065,7 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
         raise
     except Exception as e:
         logger.error(f"Error getting prompt by config version: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/config/prompts/{agent_name}/rollback")
@@ -1175,7 +1175,7 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
         raise
     except Exception as e:
         logger.error(f"Error rolling back agent prompt: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 class TestSubAgentRequest(BaseModel):
@@ -1289,7 +1289,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                     "The model may be processing another request. "
                     "Would you like to wait and try again, or retry later?"
                 ),
-            )
+            ) from e
         logger.error(f"Error testing sub-agent: {e}", exc_info=True)
         # Format error message for better user experience
         error_detail = str(e)
@@ -1308,7 +1308,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
                 if "greater than the context length" in error_detail:
                     error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
 
-        raise HTTPException(status_code=500, detail=error_detail)
+        raise HTTPException(status_code=500, detail=error_detail) from e
 
 
 @router.post("/config/prompts/bootstrap")
@@ -1440,7 +1440,7 @@ async def bootstrap_prompts_from_files(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error bootstrapping prompts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config/test-status/{task_id}")
@@ -1464,7 +1464,7 @@ async def get_test_status(request: Request, task_id: str):
         return {"success": True, "task_id": task_id, "status": "pending", "message": "Test is still running in worker"}
     except Exception as e:
         logger.error(f"Error checking test status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/config/test-sigmaagent")
@@ -1510,10 +1510,10 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
                     "The model may be processing another request. "
                     "Would you like to wait and try again, or retry later?"
                 ),
-            )
+            ) from e
 
         logger.error(f"Error testing SIGMA agent: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/config/test-rankagent")
@@ -1600,7 +1600,7 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
                     "The model may be processing another request. "
                     "Would you like to wait and try again, or retry later?"
                 ),
-            )
+            ) from e
         logger.error(f"Error testing Rank Agent: {e}", exc_info=True)
         # Format error message for better user experience
         error_detail = str(e)
@@ -1619,4 +1619,4 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
                 if "greater than the context length" in error_detail:
                     error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
 
-        raise HTTPException(status_code=500, detail=error_detail)
+        raise HTTPException(status_code=500, detail=error_detail) from e

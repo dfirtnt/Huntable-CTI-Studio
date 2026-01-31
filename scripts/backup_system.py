@@ -244,7 +244,7 @@ def backup_database(backup_dir: Path, compress: bool = True) -> dict[str, Any]:
             # Clean up on validation error
             if source_path.exists():
                 source_path.unlink()
-            raise RuntimeError(f"Error validating database backup content: {e}")
+            raise RuntimeError(f"Error validating database backup content: {e}") from e
 
         # File has been validated, safe to move
         shutil.move(str(source_path), str(dest_path))
@@ -295,7 +295,7 @@ def backup_database(backup_dir: Path, compress: bool = True) -> dict[str, Any]:
         # Preserve original error message instead of nesting
         if "Database backup failed" in str(e):
             raise  # Re-raise to avoid double-wrapping
-        raise RuntimeError(f"Database backup failed: {e}")
+        raise RuntimeError(f"Database backup failed: {e}") from e
 
 
 def backup_directory(

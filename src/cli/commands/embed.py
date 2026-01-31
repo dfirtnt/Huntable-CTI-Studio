@@ -64,7 +64,7 @@ def embed(ctx: CLIContext, batch_size: int, source_id: int | None, dry_run: bool
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}")
             click.echo(f"❌ Error: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         finally:
             await rag_service.close()
 
@@ -109,7 +109,7 @@ def search_semantic(ctx: CLIContext, limit: int, threshold: float, source_id: in
         except Exception as e:
             logger.error(f"Semantic search failed: {e}")
             click.echo(f"❌ Error: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         finally:
             await rag_service.close()
 
@@ -150,7 +150,7 @@ def embedding_stats(ctx: CLIContext):
         except Exception as e:
             logger.error(f"Failed to get embedding stats: {e}")
             click.echo(f"❌ Error: {e}")
-            raise click.Abort()
+            raise click.Abort() from e
         finally:
             await rag_service.close()
 

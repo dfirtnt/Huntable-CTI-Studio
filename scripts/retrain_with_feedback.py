@@ -346,7 +346,7 @@ def retrain_model_with_feedback(
             new_version_id = asyncio.run(
                 version_manager.save_model_version(
                     metrics=training_result,
-                    training_config={"original_file": original_file},
+                    _training_config={"original_file": original_file},
                     feedback_count=feedback_count,
                     model_file_path=current_model_path,
                 )

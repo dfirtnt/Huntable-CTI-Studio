@@ -47,7 +47,7 @@ class EmbeddingService:
 
         except Exception as e:
             logger.error(f"Failed to load embedding model '{self.model_name}': {e}")
-            raise RuntimeError(f"Could not load embedding model: {e}")
+            raise RuntimeError(f"Could not load embedding model: {e}") from e
 
     def generate_embedding(self, text: str) -> list[float]:
         """
@@ -78,7 +78,7 @@ class EmbeddingService:
 
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
-            raise RuntimeError(f"Embedding generation failed: {e}")
+            raise RuntimeError(f"Embedding generation failed: {e}") from e
 
     def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
         """
@@ -129,7 +129,7 @@ class EmbeddingService:
 
         except Exception as e:
             logger.error(f"Failed to generate batch embeddings: {e}")
-            raise RuntimeError(f"Batch embedding generation failed: {e}")
+            raise RuntimeError(f"Batch embedding generation failed: {e}") from e
 
     def create_enriched_text(
         self,

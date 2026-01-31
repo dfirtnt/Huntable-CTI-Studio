@@ -230,7 +230,6 @@ Cross-component testing with real dependencies:
 - **`test_ai_real_api_integration.py`** (10 tests) - Real AI API integration
 - **`test_analytics_integration.py`** - Analytics integration
 - **`test_annotation_feedback_integration.py`** - Annotation feedback loop
-- **`test_backup_restore.py`** - Backup and restore
 - **`test_celery_workflow_integration.py`** - Celery workflows
 - **`test_content_pipeline_integration.py`** - Content pipeline
 - **`test_error_recovery_integration.py`** - Error recovery

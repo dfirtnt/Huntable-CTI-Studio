@@ -610,10 +610,10 @@ class TestMobileNav:
         page.wait_for_load_state("networkidle")
 
         menu = page.locator("#mobile-nav-menu")
-        expect(menu).to_have_class(/hidden/)
+        expect(menu).to_have_class("hidden")
         page.locator("#mobile-nav-toggle").click()
         page.wait_for_timeout(200)
-        expect(menu).not_to_have_class(/hidden/)
+        expect(menu).not_to_have_class("hidden")
 
         # Six nav links: Articles, Sources, MLOps, Agents, Diags, Settings
         links = menu.locator('a[href="/articles"], a[href="/sources"], a[href="/mlops"], a[href="/workflow"], a[href="/diags"], a[href="/settings"]')
@@ -637,7 +637,7 @@ class TestMobileNav:
         page.wait_for_url(f"{base_url}/articles", timeout=5000)
         expect(page).to_have_url(f"{base_url}/articles")
         # Menu should be closed after navigation
-        expect(menu).to_have_class(/hidden/)
+        expect(menu).to_have_class("hidden")
 
     @pytest.mark.ui
     @pytest.mark.mobile
@@ -655,6 +655,6 @@ class TestMobileNav:
 
         page.keyboard.press("Escape")
         page.wait_for_timeout(200)
-        expect(menu).to_have_class(/hidden/)
+        expect(menu).to_have_class("hidden")
 
 

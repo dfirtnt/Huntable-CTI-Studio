@@ -73,9 +73,9 @@ class SigmaSyncService:
             logger.info("Successfully cloned Sigma repository")
             return {"success": True, "action": "cloned", "message": "Repository cloned successfully"}
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             logger.error("Git operation timed out")
-            raise Exception("Git operation timed out")
+            raise Exception("Git operation timed out") from e
         except Exception as e:
             logger.error(f"Failed to sync Sigma repository: {e}")
             return {"success": False, "error": str(e)}

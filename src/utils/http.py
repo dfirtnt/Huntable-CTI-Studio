@@ -239,7 +239,7 @@ class HTTPClient:
         headers: dict[str, str] | None = None,
         params: dict | None = None,
         source_id: str | None = None,
-        use_conditional: bool = False,
+        _use_conditional: bool = False,
     ) -> Response:
         """Make a GET request with retry logic.
 
@@ -248,7 +248,7 @@ class HTTPClient:
             headers: Optional HTTP headers (will be merged with default browser headers)
             params: Optional query parameters
             source_id: Optional source identifier for tracking (unused, for compatibility)
-            use_conditional: Optional flag for conditional requests (unused, for compatibility)
+            _use_conditional: Optional flag for conditional requests (unused, for compatibility)
         """
         if not url:
             raise ValueError("URL cannot be None")
@@ -332,7 +332,7 @@ class HTTPClient:
                     await asyncio.sleep(self.config.retry_delay)
                     continue
                 self._error_count += 1
-                raise last_exception
+                raise last_exception from e
 
     async def post(
         self, url: str, data: dict | None = None, json: dict | None = None, headers: dict[str, str] | None = None

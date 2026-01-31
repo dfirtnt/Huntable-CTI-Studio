@@ -71,10 +71,10 @@ def ensure_async_context(func):
     def wrapper(*args, **kwargs):
         try:
             asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError as e:
             raise RuntimeError(
                 f"{func.__name__}() must be called from async context. Use 'await' instead of calling directly."
-            )
+            ) from e
         return func(*args, **kwargs)
 
     return wrapper

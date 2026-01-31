@@ -187,9 +187,9 @@ def train_cmd_extractor_model(
             "training_output": result.stdout,
         }
 
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         logger.error("Model training timed out after 1 hour")
-        raise RuntimeError("Training timed out")
+        raise RuntimeError("Training timed out") from e
     except Exception as e:
         logger.error(f"Model training error: {e}")
         raise

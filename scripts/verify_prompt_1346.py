@@ -31,7 +31,7 @@ GLOBAL OUTPUT RULES
 2) No explanations, reasoning, markdown, comments, or extra text.
 3) JSON MUST be parseable by json.loads().
 4) Response MUST start with { and end with }.
-5) Escape Windows backslashes for JSON (each \\ becomes \\).
+5) Escape Windows backslashes for JSON (each backslash becomes double-backslash).
 6) Preserve original casing, spacing, quoting, and ordering EXACTLY.
 7) Deduplicate ONLY exact string matches.
 

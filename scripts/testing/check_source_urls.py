@@ -5,8 +5,6 @@ Script to check and print working URLs for all sources in the CTI Scraper.
 
 import yaml
 import requests
-import time
-from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 
@@ -52,7 +50,7 @@ def check_source_health(source):
     name = source.get('name', 'Unknown')
     main_url = source.get('url', '')
     rss_url = source.get('rss_url', '')
-            tier = 'N/A'
+    tier = 'N/A'
     active = source.get('active', True)
     
     if not active:

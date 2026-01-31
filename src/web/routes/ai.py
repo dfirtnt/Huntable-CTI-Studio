@@ -365,14 +365,14 @@ async def _post_lmstudio_chat(
                     json=payload,
                     timeout=httpx.Timeout(timeout, connect=30.0, read=read_timeout),
                 )
-            except httpx.TimeoutException:
+            except httpx.TimeoutException as e:
                 last_error_detail = f"Timeout connecting to {lmstudio_url}"
                 if idx == len(lmstudio_urls) - 1:
                     # Last URL, raise timeout error
                     raise HTTPException(
                         status_code=408,
                         detail="LMStudio request timeout - the model may be slow or overloaded",
-                    )
+                    ) from e
                 # Try next URL
                 logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
                 continue
@@ -383,7 +383,7 @@ async def _post_lmstudio_chat(
                     raise HTTPException(
                         status_code=503,
                         detail=f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
-                    )
+                    ) from e
                 # Try next URL
                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                 continue
@@ -394,7 +394,7 @@ async def _post_lmstudio_chat(
                     raise HTTPException(
                         status_code=500,
                         detail=f"{failure_context}: {str(e)}",
-                    )
+                    ) from e
                 # Try next URL
                 continue
 
@@ -525,11 +525,11 @@ async def api_test_openai_key(request: Request):
             else:
                 return {"valid": False, "message": f"API error: {response.status_code}"}
 
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=408, detail="Request timeout")
+    except httpx.TimeoutException as e:
+        raise HTTPException(status_code=408, detail="Request timeout") from e
     except Exception as e:
         logger.error(f"OpenAI API key test error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @test_router.post("/test-anthropic-key")
@@ -573,11 +573,11 @@ async def api_test_anthropic_key(request: Request):
                 return {"valid": False, "message": "Invalid API key"}
             return {"valid": False, "message": f"API error: {response.status_code}"}
 
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=408, detail="Request timeout")
+    except httpx.TimeoutException as e:
+        raise HTTPException(status_code=408, detail="Request timeout") from e
     except Exception as e:
         logger.error(f"Anthropic API key test error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @test_router.post("/test-gemini-key")
@@ -600,12 +600,12 @@ async def api_test_gemini_key(request: Request):
             }
         raise HTTPException(status_code=400, detail="Unable to fetch Gemini models with provided key")
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=408, detail="Request timeout")
+        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
+    except httpx.TimeoutException as e:
+        raise HTTPException(status_code=408, detail="Request timeout") from e
     except Exception as exc:
         logger.error(f"Gemini API key test error: {exc}")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 async def _get_hf_token() -> str | None:
@@ -693,14 +693,14 @@ async def api_test_hf_key(request: Request):
 
     except HTTPException:
         raise
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=408, detail="Request timeout when contacting Hugging Face API")
+    except httpx.TimeoutException as e:
+        raise HTTPException(status_code=408, detail="Request timeout when contacting Hugging Face API") from e
     except httpx.HTTPError as exc:
         logger.error(f"Hugging Face token validation HTTP error: {exc}")
-        raise HTTPException(status_code=502, detail="Network error when contacting Hugging Face API")
+        raise HTTPException(status_code=502, detail="Network error when contacting Hugging Face API") from exc
     except Exception as exc:
         logger.error(f"Unexpected Hugging Face token validation error: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to validate Hugging Face token")
+        raise HTTPException(status_code=500, detail="Failed to validate Hugging Face token") from exc
 
 
 async def _get_current_lmstudio_model() -> str:
@@ -986,13 +986,13 @@ async def api_test_lmstudio_connection(request: Request):
             "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'",
         }
 
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=408, detail="Request timeout - LMStudio may be starting up")
-    except httpx.ConnectError:
-        raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service")
+    except httpx.TimeoutException as e:
+        raise HTTPException(status_code=408, detail="Request timeout - LMStudio may be starting up") from e
+    except httpx.ConnectError as e:
+        raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service") from e
     except Exception as e:
         logger.error(f"LMStudio connection test error: {e}")
-        raise HTTPException(status_code=500, detail=f"LMStudio connection test failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"LMStudio connection test failed: {str(e)}") from e
 
 
 @test_router.post("/load-lmstudio-model")
@@ -1044,20 +1044,20 @@ async def api_load_lmstudio_model(request: Request):
             error_output = result.stderr or result.stdout
             logger.error(f"Failed to load model: {error_output}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {error_output[:500]}")
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             raise HTTPException(
                 status_code=504,
                 detail="Timeout loading model (60s). Model may be too large or LMStudio may be unresponsive.",
-            )
+            ) from e
         except Exception as e:
             logger.error(f"Error loading model: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}") from e
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Load model endpoint error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}") from e
 
 
 @test_router.post("/test-langfuse-connection")
@@ -1207,7 +1207,7 @@ async def api_test_langfuse_connection(request: Request):
 
     except Exception as e:
         logger.error(f"Langfuse connection test error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/rank-with-gpt4o")
@@ -1448,7 +1448,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"API ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/gpt4o-rank")
@@ -1554,7 +1554,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/gpt4o-rank-optimized")
@@ -1729,7 +1729,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/extract-observables")
@@ -1990,9 +1990,9 @@ async def api_extract_observables(article_id: int, request: Request):
                 "warnings": extraction_warnings if extraction_warnings else None,
             }
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             logger.info(f"Observables extraction task cancelled for article {article_id}")
-            raise HTTPException(status_code=499, detail="Client cancelled the request")
+            raise HTTPException(status_code=499, detail="Client cancelled the request") from e
         finally:
             # Clean up monitor task
             if not monitor_task.done():
@@ -2006,7 +2006,7 @@ async def api_extract_observables(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"Error extracting observables: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to extract observables: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract observables: {str(e)}") from e
 
 
 @router.post("/{article_id}/extract-iocs")
@@ -2176,9 +2176,9 @@ async def api_extract_iocs(article_id: int, request: Request):
                 "error": None if len(result.iocs) > 0 else "No IOCs found",
             }
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             logger.info(f"IOCs extraction task cancelled for article {article_id}")
-            raise HTTPException(status_code=499, detail="Client cancelled the request")
+            raise HTTPException(status_code=499, detail="Client cancelled the request") from e
         finally:
             # Clean up monitor task
             if not monitor_task.done():
@@ -2192,7 +2192,7 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"IOCs extraction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/extract-iocs-ctibert")
@@ -2264,7 +2264,7 @@ async def api_extract_iocs_ctibert(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"CTI-BERT IOC extraction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/detect-os")
@@ -2398,7 +2398,7 @@ async def api_detect_os(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"OS detection error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{article_id}/generate-sigma")
@@ -2878,10 +2878,10 @@ async def api_generate_sigma(article_id: int, request: Request):
                     raise HTTPException(
                         status_code=500,
                         detail=f"Network error calling OpenAI API: {str(e)}",
-                    )
+                    ) from e
                 except Exception as e:
                     logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
-                    raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+                    raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}") from e
 
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
@@ -2994,7 +2994,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"SIGMA rules generation error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict[str, Any]:
@@ -3338,7 +3338,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         raise
     except Exception as e:
         logger.error(f"Error getting Sigma matches for article {article_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/sigma-rules-yaml/{rule_id}")
@@ -3421,7 +3421,7 @@ async def api_get_sigma_rule_yaml(rule_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting YAML for rule_id '{rule_id}': {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/sigma-rules/{rule_id}")
@@ -3480,7 +3480,7 @@ async def api_get_sigma_rule_details(rule_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting Sigma rule details for rule_id '{rule_id}': {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # DEPRECATED: Custom prompt endpoint removed (AI/ML Assistant modal deprecated)
@@ -3707,5 +3707,5 @@ Please provide a detailed analysis based on the article content and the user's r
         raise
     except Exception as e:
         logger.error(f"Custom prompt error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 """

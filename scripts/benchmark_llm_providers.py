@@ -48,7 +48,7 @@ class LLMBenchmark:
             "Identify the persistence mechanisms described in this threat report.",
         ]
 
-    async def test_provider(self, provider: str, model_name: str, prompt: str, warmup: bool = False) -> dict[str, Any]:
+    async def test_provider(self, provider: str, model_name: str, prompt: str, _warmup: bool = False) -> dict[str, Any]:
         """Test a single provider with a prompt."""
         start_time = time.time()
 

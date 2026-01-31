@@ -1152,7 +1152,7 @@ class SigmaNoveltyService:
         return (NoveltyLabel.NOVEL, 1.0 - weighted_sim)
 
     def generate_explainability(
-        self, proposed: CanonicalRule, candidate: CanonicalRule, candidate_metadata: dict[str, Any]
+        self, proposed: CanonicalRule, candidate: CanonicalRule, _candidate_metadata: dict[str, Any]
     ) -> dict[str, Any]:
         """
         Generate explainability output showing differences.
@@ -1160,7 +1160,7 @@ class SigmaNoveltyService:
         Args:
             proposed: Proposed canonical rule
             candidate: Candidate canonical rule
-            candidate_metadata: Metadata about candidate rule
+            _candidate_metadata: Metadata about candidate rule (reserved for future use)
 
         Returns:
             Dictionary with explainability fields

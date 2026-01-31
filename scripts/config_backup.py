@@ -28,7 +28,7 @@ src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
 try:
-    from utils.backup_config import BackupConfigManager, get_backup_config_manager
+    from utils.backup_config import BackupConfigManager
 except ImportError:
     print("Error: Could not import backup configuration module")
     sys.exit(1)

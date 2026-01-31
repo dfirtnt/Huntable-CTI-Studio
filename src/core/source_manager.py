@@ -133,9 +133,9 @@ class SourceConfigLoader:
             return self._parse_config(config_data)
 
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML format: {e}")
+            raise ValueError(f"Invalid YAML format: {e}") from e
         except Exception as e:
-            raise ValueError(f"Failed to load configuration: {e}")
+            raise ValueError(f"Failed to load configuration: {e}") from e
 
     def load_from_directory(self, config_dir: str) -> list[SourceCreate]:
         """

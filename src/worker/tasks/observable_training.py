@@ -38,4 +38,4 @@ def train_observable_extractor(self, observable_type: str = "CMD", train_model: 
         return result
     except Exception as exc:  # noqa: BLE001
         logger.error("Observable training (%s) failed: %s", observable_type, exc)
-        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc

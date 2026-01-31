@@ -87,7 +87,7 @@ def validate_backup_file(backup_path: Path) -> dict[str, Any]:
             raise ValueError("Invalid PostgreSQL backup file")
 
     except Exception as e:
-        raise ValueError(f"Invalid backup file format: {e}")
+        raise ValueError(f"Invalid backup file format: {e}") from e
 
     # Look for metadata file
     metadata_path = backup_path.parent / f"{backup_path.stem.replace('.sql', '')}.json"

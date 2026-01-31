@@ -205,8 +205,8 @@ class SigmaPRService:
                 raise Exception(f"Git command failed: {' '.join(cmd)}\n{result.stderr}")
 
             return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            raise Exception(f"Git command timed out: {' '.join(cmd)}")
+        except subprocess.TimeoutExpired as e:
+            raise Exception(f"Git command timed out: {' '.join(cmd)}") from e
         except Exception as e:
             logger.error(f"Git command error: {e}")
             raise

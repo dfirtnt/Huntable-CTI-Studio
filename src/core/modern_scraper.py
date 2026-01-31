@@ -526,7 +526,7 @@ class ModernScraper:
         """
         try:
             # Fetch page with conditional headers
-            response = await self.http_client.get(url, use_conditional=True, source_id=source.identifier)
+            response = await self.http_client.get(url, _use_conditional=True, source_id=source.identifier)
 
             # Handle 304 Not Modified
             if response.status_code == 304:
