@@ -183,7 +183,9 @@ async def _scrape_single_url(url: str, title: str | None, force_scrape: bool) ->
                         logger.info(f"Found manual source after IntegrityError with ID: {manual_source_id}")
                     else:
                         # If still not found, raise the original error
-                        raise HTTPException(status_code=500, detail=f"Failed to get or create manual source: {exc}") from exc
+                        raise HTTPException(
+                            status_code=500, detail=f"Failed to get or create manual source: {exc}"
+                        ) from exc
             except Exception as exc:
                 session.rollback()
                 logger.error(f"Error creating manual source: {exc}")
@@ -194,7 +196,9 @@ async def _scrape_single_url(url: str, title: str | None, force_scrape: bool) ->
                         manual_source_id = manual_source.id
                         logger.info(f"Found manual source after error with ID: {manual_source_id}")
                     else:
-                        raise HTTPException(status_code=500, detail=f"Failed to get or create manual source: {exc}") from exc
+                        raise HTTPException(
+                            status_code=500, detail=f"Failed to get or create manual source: {exc}"
+                        ) from exc
 
     if not manual_source_id:
         raise HTTPException(status_code=500, detail="Failed to get or create manual source")

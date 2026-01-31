@@ -3,11 +3,10 @@
 These are unit tests using mocks - no real infrastructure required.
 """
 
-import pytest
 import asyncio
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, AsyncMock
-from typing import List, Dict, Any, Optional
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from src.utils.http import HTTPClient, RateLimiter, RequestConfig, Response
 
@@ -32,7 +31,7 @@ class TestRateLimiter:
     def test_init_default_values(self):
         """Test RateLimiter initialization with default values."""
         limiter = RateLimiter()
-        
+
         assert limiter.requests_per_second == 1
         assert limiter.burst_size == 10
         assert limiter.tokens == 10
@@ -40,7 +39,7 @@ class TestRateLimiter:
     def test_acquire_token_success(self, rate_limiter):
         """Test successful token acquisition."""
         result = rate_limiter.acquire_token()
-        
+
         assert result is True
         assert rate_limiter.tokens == 9  # One token consumed
 
@@ -49,10 +48,10 @@ class TestRateLimiter:
         # Consume all tokens
         for _ in range(10):
             rate_limiter.acquire_token()
-        
+
         # Try to acquire one more token
         result = rate_limiter.acquire_token()
-        
+
         assert result is False
         # Tokens may be slightly above 0 due to time-based refill
         assert rate_limiter.tokens < 1
@@ -62,13 +61,13 @@ class TestRateLimiter:
         # Consume all tokens
         for _ in range(10):
             rate_limiter.acquire_token()
-        
+
         # Tokens may be slightly above 0 due to time-based refill
         assert rate_limiter.tokens < 1
-        
+
         # Refill tokens (simulate time passing)
         rate_limiter.refill_tokens()
-        
+
         # Should have refilled based on time elapsed
         assert rate_limiter.tokens > 0
 
@@ -78,26 +77,26 @@ class TestRateLimiter:
         # Consume all tokens
         for _ in range(10):
             rate_limiter.acquire_token()
-        
+
         # Wait for token (should refill and acquire)
         result = await rate_limiter.wait_for_token()
-        
+
         assert result is True
         assert rate_limiter.tokens >= 0
 
     def test_rate_limiter_performance(self, rate_limiter):
         """Test rate limiter performance."""
         import time
-        
+
         start_time = time.time()
-        
+
         # Acquire multiple tokens
         for _ in range(10):
             rate_limiter.acquire_token()
-        
+
         end_time = time.time()
         processing_time = end_time - start_time
-        
+
         # Should process quickly
         assert processing_time < 0.1  # Less than 100ms
         assert processing_time > 0.0
@@ -109,7 +108,7 @@ class TestRequestConfig:
     def test_init_default_config(self):
         """Test RequestConfig initialization with default values."""
         config = RequestConfig()
-        
+
         assert config.timeout == 30
         assert config.max_retries == 3
         assert config.retry_delay == 1.0
@@ -127,9 +126,9 @@ class TestRequestConfig:
             follow_redirects=False,
             verify_ssl=False,
             user_agent="Custom Agent",
-            headers={"Authorization": "Bearer token"}
+            headers={"Authorization": "Bearer token"},
         )
-        
+
         assert config.timeout == 60
         assert config.max_retries == 5
         assert config.retry_delay == 2.0
@@ -140,36 +139,32 @@ class TestRequestConfig:
 
     def test_to_dict(self):
         """Test converting config to dictionary."""
-        config = RequestConfig(
-            timeout=45,
-            max_retries=4,
-            user_agent="Test Agent"
-        )
-        
+        config = RequestConfig(timeout=45, max_retries=4, user_agent="Test Agent")
+
         config_dict = config.to_dict()
-        
+
         assert isinstance(config_dict, dict)
-        assert config_dict['timeout'] == 45
-        assert config_dict['max_retries'] == 4
-        assert config_dict['user_agent'] == "Test Agent"
+        assert config_dict["timeout"] == 45
+        assert config_dict["max_retries"] == 4
+        assert config_dict["user_agent"] == "Test Agent"
 
     def test_from_dict(self):
         """Test creating config from dictionary."""
         config_dict = {
-            'timeout': 45,
-            'max_retries': 4,
-            'retry_delay': 1.5,
-            'follow_redirects': False,
-            'user_agent': 'Test Agent'
+            "timeout": 45,
+            "max_retries": 4,
+            "retry_delay": 1.5,
+            "follow_redirects": False,
+            "user_agent": "Test Agent",
         }
-        
+
         config = RequestConfig.from_dict(config_dict)
-        
+
         assert config.timeout == 45
         assert config.max_retries == 4
         assert config.retry_delay == 1.5
         assert config.follow_redirects is False
-        assert config.user_agent == 'Test Agent'
+        assert config.user_agent == "Test Agent"
 
 
 class TestResponse:
@@ -182,9 +177,9 @@ class TestResponse:
             content="Test content",
             headers={"Content-Type": "text/html"},
             url="https://example.com",
-            encoding="utf-8"
+            encoding="utf-8",
         )
-        
+
         assert response.status_code == 200
         assert response.content == "Test content"
         assert response.headers == {"Content-Type": "text/html"}
@@ -196,7 +191,7 @@ class TestResponse:
         # Success response
         response = Response(status_code=200, content="", headers={}, url="", encoding="")
         assert response.is_success() is True
-        
+
         # Error response
         response = Response(status_code=404, content="", headers={}, url="", encoding="")
         assert response.is_success() is False
@@ -206,7 +201,7 @@ class TestResponse:
         # Redirect response
         response = Response(status_code=301, content="", headers={}, url="", encoding="")
         assert response.is_redirect() is True
-        
+
         # Non-redirect response
         response = Response(status_code=200, content="", headers={}, url="", encoding="")
         assert response.is_redirect() is False
@@ -216,7 +211,7 @@ class TestResponse:
         # Client error response
         response = Response(status_code=400, content="", headers={}, url="", encoding="")
         assert response.is_client_error() is True
-        
+
         # Non-client error response
         response = Response(status_code=200, content="", headers={}, url="", encoding="")
         assert response.is_client_error() is False
@@ -226,7 +221,7 @@ class TestResponse:
         # Server error response
         response = Response(status_code=500, content="", headers={}, url="", encoding="")
         assert response.is_server_error() is True
-        
+
         # Non-server error response
         response = Response(status_code=200, content="", headers={}, url="", encoding="")
         assert response.is_server_error() is False
@@ -234,14 +229,14 @@ class TestResponse:
     def test_raise_for_status_success(self):
         """Test raise_for_status with success response."""
         response = Response(status_code=200, content="", headers={}, url="", encoding="")
-        
+
         # Should not raise exception
         response.raise_for_status()
 
     def test_raise_for_status_error(self):
         """Test raise_for_status with error response."""
         response = Response(status_code=404, content="", headers={}, url="", encoding="")
-        
+
         # Should raise exception
         with pytest.raises(Exception):
             response.raise_for_status()
@@ -271,17 +266,17 @@ class TestHTTPClient:
     def test_init(self, http_client):
         """Test HTTPClient initialization."""
         assert http_client is not None
-        assert hasattr(http_client, 'get')
-        assert hasattr(http_client, 'post')
-        assert hasattr(http_client, 'put')
-        assert hasattr(http_client, 'delete')
-        assert hasattr(http_client, 'head')
+        assert hasattr(http_client, "get")
+        assert hasattr(http_client, "post")
+        assert hasattr(http_client, "put")
+        assert hasattr(http_client, "delete")
+        assert hasattr(http_client, "head")
 
     def test_init_with_config(self):
         """Test HTTPClient initialization with config."""
         config = RequestConfig(timeout=60, max_retries=5)
         client = HTTPClient(config=config)
-        
+
         assert client.config == config
         assert client.config.timeout == 60
         assert client.config.max_retries == 5
@@ -290,7 +285,7 @@ class TestHTTPClient:
         """Test HTTPClient initialization with rate limiter."""
         rate_limiter = RateLimiter(requests_per_second=2)
         client = HTTPClient(rate_limiter=rate_limiter)
-        
+
         assert client.rate_limiter == rate_limiter
 
     @pytest.mark.asyncio
@@ -301,10 +296,10 @@ class TestHTTPClient:
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             response = await http_client.get("https://example.com")
-            
+
             assert response.status_code == 200
             assert response.content == b"Test content"
             assert response.url == "https://example.com"
@@ -313,54 +308,54 @@ class TestHTTPClient:
     async def test_get_with_headers(self, http_client, mock_response):
         """Test GET request with custom headers."""
         headers = {"Authorization": "Bearer token"}
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             await http_client.get("https://example.com", headers=headers)
-            
+
             mock_client.get.assert_called_once()
             call_args = mock_client.get.call_args
             # Headers are merged with defaults, so check that our header is present
-            assert "Authorization" in call_args[1]['headers']
-            assert call_args[1]['headers']["Authorization"] == "Bearer token"
+            assert "Authorization" in call_args[1]["headers"]
+            assert call_args[1]["headers"]["Authorization"] == "Bearer token"
 
     @pytest.mark.asyncio
     async def test_get_with_params(self, http_client, mock_response):
         """Test GET request with query parameters."""
         params = {"q": "test", "page": 1}
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             await http_client.get("https://example.com", params=params)
-            
+
             mock_client.get.assert_called_once()
             call_args = mock_client.get.call_args
-            assert call_args[1]['params'] == params
+            assert call_args[1]["params"] == params
 
     @pytest.mark.asyncio
     async def test_post_success(self, http_client, mock_response):
         """Test successful POST request."""
         data = {"key": "value"}
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             response = await http_client.post("https://example.com", data=data)
-            
+
             assert response.status_code == 200
             mock_client.post.assert_called_once()
 
@@ -368,34 +363,34 @@ class TestHTTPClient:
     async def test_post_with_json(self, http_client, mock_response):
         """Test POST request with JSON data."""
         json_data = {"key": "value"}
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             await http_client.post("https://example.com", json=json_data)
-            
+
             mock_client.post.assert_called_once()
             call_args = mock_client.post.call_args
-            assert call_args[1]['json'] == json_data
+            assert call_args[1]["json"] == json_data
 
     @pytest.mark.asyncio
     async def test_put_success(self, http_client, mock_response):
         """Test successful PUT request."""
         data = {"key": "value"}
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.put = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             response = await http_client.put("https://example.com", data=data)
-            
+
             assert response.status_code == 200
             mock_client.put.assert_called_once()
 
@@ -407,10 +402,10 @@ class TestHTTPClient:
         mock_client.delete = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             response = await http_client.delete("https://example.com")
-            
+
             assert response.status_code == 200
             mock_client.delete.assert_called_once()
 
@@ -422,10 +417,10 @@ class TestHTTPClient:
         mock_client.head = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             response = await http_client.head("https://example.com")
-            
+
             assert response.status_code == 200
             mock_client.head.assert_called_once()
 
@@ -441,7 +436,7 @@ class TestHTTPClient:
         error_response.encoding = "utf-8"
         error_response.is_success = False
         error_response.raise_for_status.side_effect = Exception("Server error")
-        
+
         success_response = Mock()
         success_response.status_code = 200
         success_response.text = "Success"
@@ -451,16 +446,16 @@ class TestHTTPClient:
         success_response.encoding = "utf-8"
         success_response.is_success = True
         success_response.raise_for_status = Mock()
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(side_effect=[error_response, success_response])
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             response = await http_client.get("https://example.com")
-            
+
             assert response.status_code == 200
             assert response.content == b"Success"
 
@@ -469,7 +464,7 @@ class TestHTTPClient:
         """Test request with rate limiting."""
         rate_limiter = RateLimiter(requests_per_second=1, burst_size=1)
         client = HTTPClient(rate_limiter=rate_limiter)
-        
+
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = "Success"
@@ -479,18 +474,18 @@ class TestHTTPClient:
         mock_response.encoding = "utf-8"
         mock_response.is_success = True
         mock_response.raise_for_status = Mock()
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             # First request should succeed
             response1 = await client.get("https://example.com")
             assert response1.status_code == 200
-            
+
             # Second request should also succeed (rate limiter allows)
             response2 = await client.get("https://example.com")
             assert response2.status_code == 200
@@ -503,10 +498,9 @@ class TestHTTPClient:
         mock_client.get = AsyncMock(side_effect=asyncio.TimeoutError)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
-            with pytest.raises(asyncio.TimeoutError):
-                await http_client.get("https://example.com")
+
+        with patch("httpx.AsyncClient", return_value=mock_client), pytest.raises(asyncio.TimeoutError):
+            await http_client.get("https://example.com")
 
     @pytest.mark.asyncio
     async def test_request_connection_error(self, http_client):
@@ -516,10 +510,9 @@ class TestHTTPClient:
         mock_client.get = AsyncMock(side_effect=ConnectionError)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
-            with pytest.raises(ConnectionError):
-                await http_client.get("https://example.com")
+
+        with patch("httpx.AsyncClient", return_value=mock_client), pytest.raises(ConnectionError):
+            await http_client.get("https://example.com")
 
     @pytest.mark.asyncio
     async def test_get_preserves_exception_chain_on_retry_exhaustion(self):
@@ -533,7 +526,7 @@ class TestHTTPClient:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(ConnectionError) as exc_info:
                 await client.get("https://example.com")
             assert exc_info.value.__cause__ is original_error
@@ -541,9 +534,9 @@ class TestHTTPClient:
     def test_update_config(self, http_client):
         """Test updating client configuration."""
         new_config = RequestConfig(timeout=60, max_retries=5)
-        
+
         http_client.update_config(new_config)
-        
+
         assert http_client.config == new_config
         assert http_client.config.timeout == 60
         assert http_client.config.max_retries == 5
@@ -551,9 +544,9 @@ class TestHTTPClient:
     def test_update_rate_limiter(self, http_client):
         """Test updating rate limiter."""
         new_rate_limiter = RateLimiter(requests_per_second=5, burst_size=10)
-        
+
         http_client.update_rate_limiter(new_rate_limiter)
-        
+
         assert http_client.rate_limiter == new_rate_limiter
         assert http_client.rate_limiter.requests_per_second == 5
         assert http_client.rate_limiter.burst_size == 10
@@ -564,17 +557,17 @@ class TestHTTPClient:
         http_client._request_count = 10
         http_client._success_count = 8
         http_client._error_count = 2
-        
+
         stats = http_client.get_statistics()
-        
-        assert 'total_requests' in stats
-        assert 'successful_requests' in stats
-        assert 'failed_requests' in stats
-        assert 'success_rate' in stats
-        assert stats['total_requests'] == 10
-        assert stats['successful_requests'] == 8
-        assert stats['failed_requests'] == 2
-        assert stats['success_rate'] == 0.8
+
+        assert "total_requests" in stats
+        assert "successful_requests" in stats
+        assert "failed_requests" in stats
+        assert "success_rate" in stats
+        assert stats["total_requests"] == 10
+        assert stats["successful_requests"] == 8
+        assert stats["failed_requests"] == 2
+        assert stats["success_rate"] == 0.8
 
     def test_reset_statistics(self, http_client):
         """Test resetting client statistics."""
@@ -582,10 +575,10 @@ class TestHTTPClient:
         http_client._request_count = 10
         http_client._success_count = 8
         http_client._error_count = 2
-        
+
         # Reset statistics
         http_client.reset_statistics()
-        
+
         assert http_client._request_count == 0
         assert http_client._success_count == 0
         assert http_client._error_count == 0
@@ -594,27 +587,27 @@ class TestHTTPClient:
     async def test_http_client_performance(self, http_client, mock_response):
         """Test HTTP client performance."""
         import time
-        
+
         # Mock the AsyncClient context manager pattern
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('httpx.AsyncClient', return_value=mock_client):
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
             start_time = time.time()
-            
+
             # Make multiple requests
             tasks = []
             for _ in range(10):
                 task = http_client.get("https://example.com")
                 tasks.append(task)
-            
+
             responses = await asyncio.gather(*tasks)
-            
+
             end_time = time.time()
             processing_time = end_time - start_time
-            
+
             # Should process 10 requests in reasonable time
             assert processing_time < 2.0  # Less than 2 seconds
             assert processing_time > 0.0
@@ -627,11 +620,11 @@ class TestHTTPClient:
         # Test with None URL
         with pytest.raises(ValueError):
             await http_client.get(None)
-        
+
         # Test with empty URL
         with pytest.raises(ValueError):
             await http_client.get("")
-        
+
         # Test with invalid URL
         with pytest.raises(ValueError):
             await http_client.get("not-a-url")
