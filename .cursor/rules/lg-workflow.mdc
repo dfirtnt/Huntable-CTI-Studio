@@ -14,6 +14,7 @@ Perform in order:
    - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
    - **Deps** — Verify dependency hygiene (e.g. `pip check`, lockfiles).
    - **Security** — Run project security checks if defined (e.g. `npm audit`, safety).
+   - **Vulture** — Run vulture for dead-code detection (e.g. `vulture src scripts`); fix or whitelist findings before commit.
 2. **Stage** — `git add` (or equivalent) so all changes are staged.
 3. **Commit** — Commit with a clear message (no auto-commit before user says LG).
 4. **Push** — Push to **main** (e.g. `git push origin main`). Complete the push; do not hand off to the user.

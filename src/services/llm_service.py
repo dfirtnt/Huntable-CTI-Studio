@@ -2631,7 +2631,9 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                                             "No valid JSON found in response (truncated and repair failed)"
                                         ) from e
                                 else:
-                                    raise ValueError("No valid JSON found in response (truncated and repair failed)") from e
+                                    raise ValueError(
+                                        "No valid JSON found in response (truncated and repair failed)"
+                                    ) from e
                         else:
                             raise ValueError("No valid JSON found in response")
 
