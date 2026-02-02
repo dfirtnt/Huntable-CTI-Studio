@@ -1,0 +1,40 @@
+---
+description: Langchain workflow changes must work regardless of model/provider choice
+globs: ["src/workflows/**/*.py", "src/services/llm_service.py"]
+alwaysApply: false
+---
+
+# Langchain Workflow — Provider-Agnostic Implementation
+
+Changes to the LangGraph workflow and LLM service **must** work regardless of which model/provider is chosen (lmstudio, openai, anthropic, gemini).
+
+## Rules
+
+1. **No provider-specific branching** — Do not add logic that only runs for one provider (e.g. `if provider == "openai"` for behavior changes). Use the existing `LLMService` abstraction and `_canonicalize_provider` for routing.
+
+2. **Use config-driven provider/model** — Read provider and model from `config_models` or `config_snapshot`; never hardcode a provider or model name in workflow logic.
+
+3. **Prompt and schema parity** — Prompts, output schemas, and parsing must work across all providers. Avoid provider-specific prompt variants or response formats.
+
+4. **Parameter bounds** — Temperature, max_tokens, and other inference params must use provider-agnostic defaults or provider-specific defaults from `provider_defaults`; do not assume LMStudio-only semantics.
+
+## Examples
+
+```python
+# ❌ BAD — provider-specific behavior
+if provider == "lmstudio":
+    messages = build_messages_v1(prompt)
+else:
+    messages = build_messages_v2(prompt)
+
+# ✅ GOOD — single path for all providers
+messages = build_messages(prompt)
+```
+
+```python
+# ❌ BAD — hardcoded model
+model = "gpt-4o-mini"
+
+# ✅ GOOD — from config/env
+model = config_models.get("RankAgent") or self.provider_defaults.get(provider)
+```
