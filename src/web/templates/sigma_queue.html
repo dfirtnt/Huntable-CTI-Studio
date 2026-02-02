@@ -259,7 +259,7 @@ function renderQueue() {
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
+                    ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(rule.status)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -354,7 +354,7 @@ function renderRulePreview(rule) {
         <div class="space-y-4">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
-            <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
+            <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
             ${yamlSection}
         </div>

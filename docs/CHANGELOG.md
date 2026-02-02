@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Workflow Executions table sorting and filtering** (2026-02-02): Sortable column headers (ID, Article, Status, Current Step, Ranking Score, Created); step filter dropdown; article ID filter with Apply button; API params `sort_by`, `sort_order`, `step`; API and UI tests
 - **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)
+- **Cursor rule: Agent config test confirmation** (2026-02-02): New rule `.cursor/rules/agent-config-test-confirmation.mdc` requiring explicit user approval before running or creating tests that mutate active agent configs
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
 
 ### Changed
@@ -93,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docs and tests updated: AGENTS.md, api.md, DO_NOT.md, TECHNICAL_READOUT, SIGMA_DETECTION_RULES, MANUAL_CHECKLIST, skip reasons
 
 ### Fixed
+- **Max Similarity 0% displayed as N/A** (2026-02-02): When `max_similarity` was 0, templates used `rule.max_similarity ? ... : 'N/A'`; in JavaScript 0 is falsy so it showed N/A. Fixed: use `typeof rule.max_similarity === 'number'` so 0 displays as "0.0%" in workflow, workflow_executions, sigma_queue, and article_detail templates. Added UI test `test_max_similarity_zero_displays_as_percent`.
 - **Sigma rule preview modal edits not persisted** (2026-02-02): Edits in the rule preview modal were not used when clicking Validate, Enrich, or Similarity Search. Fix: `getCurrentRuleYamlFromModal()` returns current modal content (textarea in edit mode, DOM in view mode); save-before-validate; enrich uses current modal YAML; similar-rules saves first; validate API reads `rule_yaml` from request body.
 - **Agent prompt save display reverting** (2026-02-02): Saved agent prompts (all agents/sub-agents) could revert to the previous version in the UI until the user rolled back to "latest." Root cause: `loadAgentPrompts` (from initial `loadConfig`) could complete after a save and overwrite `agentPrompts` with stale data. Fix: track `lastPromptSaveAt` and `lastSavedPromptAgent`; when `loadAgentPrompts` completes within 3s of a save, preserve the saved agent's data instead of overwriting.
 - **Agent Evals MAE chart left y-axis label** (2026-02-01): "Normalized MAE (nMAE)" label stayed off-screen unless scrolled fully left. Added a sticky left column so the label remains visible when the chart is scrolled horizontally.

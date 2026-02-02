@@ -1829,7 +1829,7 @@ function renderQueuedRulePreview(rule) {
         <div class="space-y-4">
             <div><strong class="text-gray-900 dark:text-white">Rule ID:</strong> <span class="text-gray-700 dark:text-gray-300">${rule.id}</span></div>
             <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600 dark:text-purple-400 hover:underline">${rule.article_title || 'Article ' + rule.article_id}</a></div>
-            <div><strong class="text-gray-900 dark:text-white">Max Similarity:</strong> <span class="text-gray-700 dark:text-gray-300">${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</span></div>
+            <div><strong class="text-gray-900 dark:text-white">Max Similarity:</strong> <span class="text-gray-700 dark:text-gray-300">${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</span></div>
             ${similarRulesHtml}
             ${yamlSection}
         </div>
