@@ -137,9 +137,30 @@ RE_QUOTED_EXE_NONPUNCT = re.compile(
 # Rule 3: .exe + argument indicators → prefer full-line capture (checked in _extract_snippet)
 ARG_INDICATORS = frozenset('-/"><|')
 # Rule 4: .exe followed by bare word verb (e.g., tool.exe verb args)
+# Exclude narrative-only words: "process", "application", "file" etc. (e.g. "MSBuild.exe process reached out")
 RE_EXE_BARE_VERB = re.compile(
-    r"\.exe\b\s+[A-Za-z]\w*",
+    r"\.exe\b\s+([A-Za-z]\w*)",
     re.IGNORECASE,
+)
+NARRATIVE_VERBS = frozenset(
+    {
+        "process",
+        "application",
+        "file",
+        "version",
+        "manager",
+        "handler",
+        "service",
+        "component",
+        "child",
+        "parent",
+        "reached",
+        "observed",
+        "started",
+        "stopped",
+        "created",
+        "dropped",
+    }
 )
 # Rule 5: Two or more Windows paths (C:\... or D:\...)
 RE_WINDOWS_PATH = re.compile(r"[A-Za-z]:\\[^\s]*", re.IGNORECASE)
@@ -170,8 +191,13 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
     add_matches(CMD_BOUNDARY_REGEX)
     for p in REGEX_ANCHORS:
         add_matches(p)
-    for p in [RE_EXE_PLUS_ARG, RE_QUOTED_EXE_NONPUNCT, RE_EXE_BARE_VERB]:
-        add_matches(p)
+    for m in RE_EXE_PLUS_ARG.finditer(line):
+        if _token_after_exe_match(line, m.end() - 1) not in NARRATIVE_VERBS:
+            positions.append((m.start(), m.end()))
+    add_matches(RE_QUOTED_EXE_NONPUNCT)
+    for m in RE_EXE_BARE_VERB.finditer(line):
+        if m.group(1).lower() not in NARRATIVE_VERBS:
+            positions.append((m.start(), m.end()))
 
     # Structural: two or more Windows paths
     paths = list(RE_WINDOWS_PATH.finditer(line))
@@ -189,15 +215,19 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
 def _expand_to_sentence_boundary(full_line: str, start_off: int, end_off: int) -> str:
     """
     Expand the window [start_off, end_off] in full_line to nearest sentence boundaries.
+    Capped at ±MATCH_WINDOW_CHARS from match to prevent full-line collapse on newline-poor prose.
     """
-    # Find last boundary before start_off (start of snippet = after last delimiter)
-    before = full_line[:start_off]
-    boundary_before = 0
+    win_start = max(0, start_off - MATCH_WINDOW_CHARS)
+    win_end = min(len(full_line), end_off + MATCH_WINDOW_CHARS)
+
+    # Find last boundary before start_off, but not before win_start
+    before = full_line[win_start:start_off]
+    boundary_before = win_start
     for m in SENTENCE_SPLIT.finditer(before):
-        boundary_before = m.end()
-    # Find first boundary after end_off (end of snippet = through first delimiter)
-    after = full_line[end_off:]
-    boundary_after = len(full_line)
+        boundary_before = win_start + m.end()
+    # Find first boundary after end_off, but not after win_end
+    after = full_line[end_off:win_end]
+    boundary_after = win_end
     for m in SENTENCE_SPLIT.finditer(after):
         boundary_after = end_off + m.end()
         break
@@ -214,10 +244,18 @@ def _line_matches_anchor(line: str, line_lower: str) -> bool:
         if anchor.lower() in line_lower:
             return True
     # Regex anchors
-    for pattern in REGEX_ANCHORS:
-        if pattern.search(line):
-            return True
-    return False
+    return any(pattern.search(line) for pattern in REGEX_ANCHORS)
+
+
+def _token_after_exe_match(line: str, match_end: int) -> str:
+    """Extract the token immediately after .exe match (for narrative exclusion)."""
+    rest = line[match_end:].lstrip()
+    if not rest:
+        return ""
+    token = rest.split()[0]
+    if token.endswith((",", ".", ";", ":")):
+        token = token[:-1]
+    return token.lower()
 
 
 def _line_matches_structural_rules(line: str) -> bool:
@@ -230,20 +268,30 @@ def _line_matches_structural_rules(line: str) -> bool:
     """
     if not line or not line.strip():
         return False
-    # Rule 1: .exe path + argument
-    if RE_EXE_PLUS_ARG.search(line):
+    # Rule 1: .exe path + argument (exclude narrative verbs)
+    m = RE_EXE_PLUS_ARG.search(line)
+    if m and _token_after_exe_match(line, m.end() - 1) not in NARRATIVE_VERBS:
         return True
     # Rule 2: quoted .exe + non-punctuation
     if RE_QUOTED_EXE_NONPUNCT.search(line):
         return True
-    # Rule 4: .exe + bare verb
-    if RE_EXE_BARE_VERB.search(line):
+    # Rule 4: .exe + bare verb (exclude narrative-only words)
+    m = RE_EXE_BARE_VERB.search(line)
+    if m and m.group(1).lower() not in NARRATIVE_VERBS:
         return True
     # Rule 5: two or more Windows paths
     paths = RE_WINDOWS_PATH.findall(line)
-    if len(paths) >= 2:
-        return True
-    return False
+    return len(paths) >= 2
+
+
+def _is_narrative_exe_only(line: str) -> bool:
+    """
+    True when line has .exe + narrative verb but no invocation context (/, -, etc.).
+    E.g. 'MSBuild.exe process reached out' matches via 'msbuild' anchor but is narrative.
+    """
+    if ".exe" not in line.lower() or any(c in line for c in ARG_INDICATORS):
+        return False
+    return any(m.group(1).lower() in NARRATIVE_VERBS for m in re.finditer(r"\.exe\s+(\w+)", line, re.IGNORECASE))
 
 
 def _line_has_exe_arg_indicators(line: str) -> bool:
@@ -277,7 +325,6 @@ def _extract_snippet(
     # Sentence logic for long lines (>500 chars, no .exe+arg indicators)
     # Split by SENTENCE_SPLIT, find matching part(s), include ±1 for context
     parts = SENTENCE_SPLIT.split(line)
-    line_lc = line_lower if line_lower is not None else line.lower()
     matching_indices: list[int] = []
     for i, part in enumerate(parts):
         part_stripped = part.strip()
@@ -324,11 +371,10 @@ def _extract_windowed_snippets(line: str, lines: list[str], line_idx: int, line_
     # Prepend previous line, append next line for cross-line context (once per set)
     prev_line = lines[line_idx - 1] if line_idx > 0 else ""
     next_line = lines[line_idx + 1] if line_idx + 1 < len(lines) else ""
-    if prev_line or next_line:
+    if (prev_line or next_line) and snippets:
         # Add context to first snippet only (avoid duplicating for each window)
-        if snippets:
-            parts = [p for p in [prev_line, snippets[0], next_line] if p]
-            snippets[0] = "\n".join(parts).strip()
+        parts = [p for p in [prev_line, snippets[0], next_line] if p]
+        snippets[0] = "\n".join(parts).strip()
     return snippets
 
 
@@ -354,6 +400,8 @@ def process(article_text: str) -> dict[str, Any]:
     for i, line in enumerate(lines):
         line_lower = line.lower()
         if not _line_matches_anchor(line, line_lower) and not _line_matches_structural_rules(line):
+            continue
+        if _is_narrative_exe_only(line):
             continue
 
         # Long line: match-window capture (eval fix A)

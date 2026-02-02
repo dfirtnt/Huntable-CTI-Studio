@@ -99,7 +99,7 @@
 
 ## Failure bundle analysis (under_5113, over_5105)
 
-**Under-extraction (exec 5113, article_id 62):** expected 7, actual 6.
+**Under-extraction (exec 5113, article_id 602):** expected 7, actual 6.
 
 - Model extracted: Get-ADComputer (PowerShell), nltest /domain_trusts, nltest /dclist:, net group "Domain Admins" /domain, two WinRAR commands (x and a).
 - **Likely missed:** One literal command (e.g. net user for local account, Adfind -subnets, or a command inside a script block that appears on one line). Article 62 is a long intrusion report; the 7th may be embedded in prose or a code block the model treated as multi-line/enumeration.

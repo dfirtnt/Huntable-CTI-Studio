@@ -81,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - agentic_workflow.py: Fixed top-level docstring step order
 
 ### Removed
+- **Duplicate eval article 62** (2026-02-02): Removed article 62 from cmdline/process_lineage eval config (duplicate of 602 "Blurring the Lines"); deleted `scripts/eval_bundles/under_5113.json`; updated docs and test docstring to reference 602
 - **test_backup_restore.py** (2026-01-30): Removed integration tests for backup/restore scripts (`calculate_checksum`, `validate_backup_directory`, `validate_backup_file`); references removed from `tests/TEST_INDEX.md` and `tests/TESTING.md`
 - **Chosen/Rejected Article Classification** (2026-01-27): Deprecated and removed article-level chosen/rejected/unclassified classification
   - Removed `/api/articles/next-unclassified` and `POST /api/articles/{id}/classify`
