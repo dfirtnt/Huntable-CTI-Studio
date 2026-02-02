@@ -91,7 +91,10 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
   - **Query Parameters**:
     - `article_id` (optional): Filter by article ID
     - `status` (optional): Filter by execution status
-    - `limit` (default: 50): Maximum number of results
+    - `step` (optional): Filter by current step (e.g. `extract_agent`, `generate_sigma`)
+    - `sort_by` (optional): Sort column (`id`, `article_id`, `status`, `current_step`, `ranking_score`, `created_at`); default `created_at`
+    - `sort_order` (optional): `asc` or `desc`; default `desc`
+    - `limit` (default: 500): Maximum number of results
 - `GET /api/workflow/executions/{execution_id}` - Get detailed workflow execution information
   - **Response**: Includes execution status, step results, ranking score, and error logs
 - `POST /api/workflow/executions/{execution_id}/retry` - Retry a failed workflow execution

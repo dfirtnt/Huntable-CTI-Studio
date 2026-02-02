@@ -124,9 +124,25 @@ class ExecutionListResponse(BaseModel):
     pending: int
 
 
+_SORT_COLUMNS = {
+    "id": AgenticWorkflowExecutionTable.id,
+    "article_id": AgenticWorkflowExecutionTable.article_id,
+    "status": AgenticWorkflowExecutionTable.status,
+    "current_step": AgenticWorkflowExecutionTable.current_step,
+    "ranking_score": AgenticWorkflowExecutionTable.ranking_score,
+    "created_at": AgenticWorkflowExecutionTable.created_at,
+}
+
+
 @router.get("/executions", response_model=ExecutionListResponse)
 async def list_workflow_executions(
-    request: Request, article_id: int | None = None, status: str | None = None, limit: int = 500
+    request: Request,
+    article_id: int | None = None,
+    status: str | None = None,
+    step: str | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    limit: int = 500,
 ):
     """List workflow executions with accurate counts."""
     try:
@@ -148,6 +164,10 @@ async def list_workflow_executions(
                 query = query.filter(AgenticWorkflowExecutionTable.status == status)
                 # Don't filter base_query by status for counts
 
+            if step:
+                query = query.filter(AgenticWorkflowExecutionTable.current_step == step)
+                base_query = base_query.filter(AgenticWorkflowExecutionTable.current_step == step)
+
             # Get total counts (before status filter)
             total = base_query.count()
             running = base_query.filter(AgenticWorkflowExecutionTable.status == "running").count()
@@ -155,8 +175,16 @@ async def list_workflow_executions(
             failed = base_query.filter(AgenticWorkflowExecutionTable.status == "failed").count()
             pending = base_query.filter(AgenticWorkflowExecutionTable.status == "pending").count()
 
+            # Sort
+            order_col = _SORT_COLUMNS.get(sort_by, AgenticWorkflowExecutionTable.created_at)
+            desc = sort_order.lower() == "desc"
+            order_clause = order_col.desc() if desc else order_col.asc()
+            # Nulls last for nullable columns (ranking_score, current_step)
+            if sort_by in ("ranking_score", "current_step"):
+                order_clause = order_clause.nullslast()
+
             # Get filtered executions
-            executions = query.order_by(AgenticWorkflowExecutionTable.created_at.desc()).limit(limit).all()
+            executions = query.order_by(order_clause).limit(limit).all()
 
             result = []
             for execution in executions:

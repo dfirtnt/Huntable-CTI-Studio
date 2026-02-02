@@ -1504,6 +1504,17 @@
                     <option value="completed">Completed</option>
                     <option value="failed">Failed</option>
                 </select>
+                <select id="stepFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="">All Steps</option>
+                    <option value="junk_filter">Filter</option>
+                    <option value="rank_article">Rank</option>
+                    <option value="extract_agent">Extract</option>
+                    <option value="generate_sigma">SIGMA</option>
+                    <option value="similarity_search">Similarity</option>
+                    <option value="promote_to_queue">Queue</option>
+                </select>
+                <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="px-3 py-2 w-28 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white placeholder-gray-500" onkeydown="if(event.key==='Enter')filterExecutions()">
+                <button onclick="filterExecutions()" class="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-gray-100 rounded-md text-sm">Apply</button>
             </div>
             <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hidden" aria-hidden="true">
@@ -9258,24 +9269,49 @@ function getExecutionTableColumnCount() {
     return showObservableCounts ? baseColumns + observableCountColumns.length : baseColumns;
 }
 
+const executionSortState = { sortBy: 'created_at', sortOrder: 'desc' };
+
+function setExecutionSort(column) {
+    if (executionSortState.sortBy === column) {
+        executionSortState.sortOrder = executionSortState.sortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        executionSortState.sortBy = column;
+        executionSortState.sortOrder = 'desc';
+    }
+    loadExecutions();
+}
+
+function getSortIndicator(column) {
+    if (executionSortState.sortBy !== column) return ' ↕';
+    return executionSortState.sortOrder === 'asc' ? ' ↑' : ' ↓';
+}
+
 function renderExecutionHeader() {
     const headerRow = document.getElementById('executionsHeaderRow');
     if (!headerRow) return;
     
     const headerClass = 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider';
-    const baseHeaders = [
-        'ID',
-        'Article',
-        'Status',
-        'Current Step',
-        'Ranking Score'
+    const sortableClass = headerClass + ' cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none';
+    const sortableColumns = [
+        { key: 'id', label: 'ID' },
+        { key: 'article_id', label: 'Article' },
+        { key: 'status', label: 'Status' },
+        { key: 'current_step', label: 'Current Step' },
+        { key: 'ranking_score', label: 'Ranking Score' }
     ];
-    const tailHeaders = ['Created', 'Actions'];
     
-    const countHeaders = showObservableCounts ? observableCountColumns.map(col => col.label) : [];
-    const allHeaders = [...baseHeaders, ...countHeaders, ...tailHeaders];
+    let html = sortableColumns.map(col =>
+        `<th class="${sortableClass}" onclick="setExecutionSort('${col.key}')" title="Click to sort">${col.label}${getSortIndicator(col.key)}</th>`
+    ).join('');
     
-    headerRow.innerHTML = allHeaders.map(text => `<th class="${headerClass}">${text}</th>`).join('');
+    if (showObservableCounts) {
+        html += observableCountColumns.map(col => `<th class="${headerClass}">${col.label}</th>`).join('');
+    }
+    
+    html += `<th class="${sortableClass}" onclick="setExecutionSort('created_at')" title="Click to sort">Created${getSortIndicator('created_at')}</th>`;
+    html += `<th class="${headerClass}">Actions</th>`;
+    
+    headerRow.innerHTML = html;
 }
 
 function formatObservableCount(exec, key) {
@@ -9288,8 +9324,18 @@ async function loadExecutions() {
     try {
         renderExecutionHeader();
         const statusFilterEl = document.getElementById('statusFilter');
+        const stepFilterEl = document.getElementById('stepFilter');
+        const articleIdEl = document.getElementById('articleIdFilter');
         const statusFilter = statusFilterEl ? statusFilterEl.value : '';
-        const url = statusFilter ? `/api/workflow/executions?status=${statusFilter}` : '/api/workflow/executions';
+        const stepFilter = stepFilterEl ? stepFilterEl.value : '';
+        const articleId = articleIdEl && articleIdEl.value.trim() ? parseInt(articleIdEl.value.trim(), 10) : null;
+        const params = new URLSearchParams();
+        if (statusFilter) params.set('status', statusFilter);
+        if (stepFilter) params.set('step', stepFilter);
+        if (articleId && !isNaN(articleId)) params.set('article_id', articleId);
+        params.set('sort_by', executionSortState.sortBy);
+        params.set('sort_order', executionSortState.sortOrder);
+        const url = `/api/workflow/executions?${params.toString()}`;
         
         const response = await fetch(url);
         if (response.ok) {
@@ -10838,7 +10884,7 @@ function renderQueue() {
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                    ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
+                    ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${getQueueStatusBadge(rule.status)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
@@ -11026,7 +11072,7 @@ function renderRulePreview(rule) {
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
-            <div><strong>Max Similarity:</strong> ${rule.max_similarity ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
+            <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
             ${yamlSection}
         </div>
