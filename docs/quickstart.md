@@ -35,7 +35,7 @@ echo "Article ID: ${ARTICLE_ID}"
 ```
 
 ## 4) Run the agentic workflow
-Trigger the full pipeline (junk filter → ranking → Extract Agent → Sigma → similarity search):
+Trigger the full pipeline (OS detection → junk filter → ranking → Extract Agent → Sigma → similarity search):
 ```bash
 TRIGGER=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger")
 EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')

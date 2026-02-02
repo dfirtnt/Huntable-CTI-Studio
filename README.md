@@ -14,17 +14,19 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 ## Approach
 
 ### Architecture
-- **7 microservices**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers, scheduler
+- **6 services**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers (default + workflow), scheduler
 - **28 database tables**: Articles with embeddings, Sigma rules, workflow executions, chat logs, eval presets, model versions, and more
 - **Multi-model AI**: OpenAI GPT-4, Anthropic Claude, LMStudio (local models)
 
-### Agentic Workflow (6 Steps)
-1. **Junk Filter** — Conservative content filtering
-2. **LLM Rank** — Relevance scoring (0-10)
-3. **Extract Agent** — Extract observables (command-line, registry, process trees, event IDs)
-4. **Generate SIGMA** — Create detection rules with iterative validation
-5. **Similarity Search** — Compare against 3,000+ SigmaHQ rules using 4-segment weighted embeddings
-6. **Promote to Queue** — Queue for human review and PR submission
+### Agentic Workflow (7 Steps)
+The main engine is a LangGraph-based agentic workflow executed by Celery workers:
+1. **OS Detection** — Windows-only routing (non-Windows articles terminate)
+2. **Junk Filter** — Conservative content filtering
+3. **LLM Rank** — Relevance scoring (0-10)
+4. **Extract Agent** — Extract observables (command-line, registry, process trees, event IDs)
+5. **Generate SIGMA** — Create detection rules with iterative validation
+6. **Similarity Search** — Compare against 3,000+ SigmaHQ rules using behavioral novelty assessment
+7. **Promote to Queue** — Queue for human review and PR submission
 
 ### Key Features
 - **Content Collection**: RSS parsing, web scraping, SimHash near-duplicate detection
@@ -47,7 +49,7 @@ The documentation has been reorganized under `/docs` and is published with MkDoc
 
 - **Quickstart**: `docs/quickstart.md` (Docker-first run, ingest → workflow → Sigma → pytest)
 - **Docs site**: `mkdocs serve` to preview locally; navigation mirrors `/docs` (concepts, how-tos, reference, internals).
-- **UI**: http://localhost:8001 (OpenAPI at `/docs`; LangGraph debug port on `:2024` when that service is enabled)
-- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery + optional LangGraph server; start with `./start.sh`.
+- **UI**: http://localhost:8001 (OpenAPI at `/docs`; LangFuse traces for workflow debugging when configured)
+- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh`.
 
 For full details, begin at `docs/index.md`.

@@ -1407,6 +1407,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../features/CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Attention Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../features/OS_DETECTION/" class="md-nav__link">
         
   
@@ -4012,7 +4040,7 @@
 <li><strong><code>config/sources.yaml</code></strong> - Source definitions (⚠️ Can overwrite database on sync)</li>
 <li>Other configuration files</li>
 <li><strong>Training Data</strong> - User feedback and training datasets (<code>outputs/</code> directory)</li>
-<li><strong>Docker Volumes</strong> - Persistent data (postgres_data, redis_data, ollama_data)</li>
+<li><strong>Docker Volumes</strong> - Persistent data (postgres_data, redis_data)</li>
 <li><strong>Logs</strong> - Application logs (<code>logs/</code> directory)</li>
 </ol>
 <p><strong>✅ Source Configuration</strong>: Database values are the source of truth. <code>config/sources.yaml</code> is only used for brand new builds (&lt; 5 sources). After restore, database settings are automatically preserved. See <a href="../SOURCE_CONFIG_PRECEDENCE/">Source Configuration Precedence</a> for details.</p>
@@ -4032,7 +4060,7 @@
 ├── docker_volumes/
 │   ├── postgres_data.tar.gz
 │   ├── redis_data.tar.gz
-│   └── ollama_data.tar.gz
+│   └── (volume archives)
 └── logs/
 </code></pre>
 <hr />

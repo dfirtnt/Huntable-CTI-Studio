@@ -2862,15 +2862,15 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 context_limit_tokens = self._get_context_limit_for_provider(effective_provider)
 
                 # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
+                snippet_count: int | None = None
                 if agent_name == "CmdlineExtract" and attention_preprocessor_enabled:
                     from src.services.cmdline_attention_preprocessor import process as preprocess_cmdline_attention
 
                     preprocess_result = preprocess_cmdline_attention(content)
                     snippets = preprocess_result.get("high_likelihood_snippets", [])
+                    snippet_count = len(snippets)
                     full_article = preprocess_result.get("full_article", content)
-                    logger.debug(
-                        f"Cmdline attention preprocessor enabled: True. Snippets found: {len(snippets)}"
-                    )
+                    logger.debug(f"Cmdline attention preprocessor enabled: True. Snippets found: {snippet_count}")
 
                     snippets_section = "\n\n".join(snippets) if snippets else ""
                     snippets_header = "=== HIGH-LIKELIHOOD COMMAND SNIPPETS ===\n"
@@ -2880,9 +2880,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     # Reserve: snippets + 256 token overhead + template + output
                     snippet_tokens = self._estimate_tokens(combined_prefix)
                     overhead_tokens = 256 + PROMPT_OVERHEAD_TOKENS + 1000
-                    available_for_article = max(
-                        0, context_limit_tokens - snippet_tokens - overhead_tokens
-                    )
+                    available_for_article = max(0, context_limit_tokens - snippet_tokens - overhead_tokens)
                     available_for_article = int(available_for_article * 0.9)  # safety margin
 
                     article_tokens = self._estimate_tokens(full_article)
@@ -2891,18 +2889,14 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     else:
                         max_chars = available_for_article * 4
                         truncated_article = full_article[:max_chars]
-                        last_boundary = max(
-                            truncated_article.rfind("."), truncated_article.rfind("\n")
-                        )
+                        last_boundary = max(truncated_article.rfind("."), truncated_article.rfind("\n"))
                         if last_boundary > max_chars * 0.8:
                             truncated_article = truncated_article[: last_boundary + 1]
                         truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
 
                     truncated_content = combined_prefix + truncated_article
                 else:
-                    truncated_content = self._truncate_content(
-                        content, context_limit_tokens, 1000
-                    )
+                    truncated_content = self._truncate_content(content, context_limit_tokens, 1000)
 
                 logger.info(
                     f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}, context_limit={context_limit_tokens}"
@@ -2985,18 +2979,25 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
                 extraction_timeout = 600.0 if is_reasoning_model else 180.0
 
+                # Build Langfuse metadata (include preprocessor info for CmdlineExtract)
+                trace_metadata: dict[str, Any] = {
+                    "agent_name": agent_name,
+                    "attempt": current_try,
+                    "prompt_length": len(user_prompt),
+                    "title": title,
+                    "messages": messages,  # Include messages for input display
+                }
+                if agent_name == "CmdlineExtract":
+                    trace_metadata["attention_preprocessor_enabled"] = attention_preprocessor_enabled
+                    if snippet_count is not None:
+                        trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
+
                 # Trace LLM call with Langfuse (each sub-agent gets its own trace)
                 with trace_llm_call(
                     name=f"{agent_name.lower()}_extraction",
                     model=model_name,
                     execution_id=execution_id,
-                    metadata={
-                        "agent_name": agent_name,
-                        "attempt": current_try,
-                        "prompt_length": len(user_prompt),
-                        "title": title,
-                        "messages": messages,  # Include messages for input display
-                    },
+                    metadata=trace_metadata,
                 ) as generation:
                     logger.info(
                         f"{agent_name} provider resolution: provider={provider}, effective_provider={effective_provider}, self.provider_extract={self.provider_extract}"
@@ -3285,6 +3286,12 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     last_result["_llm_messages"] = messages
                     last_result["_llm_response"] = response_text
                     last_result["_llm_attempt"] = current_try
+                    # CmdlineExtract: surface preprocessor info for trace UI / Langfuse
+                    if agent_name == "CmdlineExtract":
+                        last_result["_attention_preprocessor"] = {
+                            "enabled": attention_preprocessor_enabled,
+                            "snippet_count": snippet_count if snippet_count is not None else 0,
+                        }
 
                 # If no QA config, return immediately
                 if not qa_prompt_config:

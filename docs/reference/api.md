@@ -21,7 +21,7 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
 - **ML vs Hunt Comparison**: 7 endpoints
 - **Embeddings & ML**: 3 endpoints
 - **Observable Evaluation**: 4 endpoints
-- **Observable Training**: 2 endpoints
+- **Observable Training**: 2 endpoints (inactive; planned for future release)
 - **Sigma Queue**: 3 endpoints
 - **File Upload**: 1 endpoint
 

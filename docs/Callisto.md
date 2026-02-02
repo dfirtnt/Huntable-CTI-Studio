@@ -9,10 +9,10 @@ Aggregates cybersecurity threat intelligence, uses AI to score relevance, extrac
 - **Backend:** Python 3.11+, FastAPI, Celery with Redis
 - **Database:** PostgreSQL 15 + pgvector, SQLAlchemy 2.0 async
 - **AI/ML:** OpenAI (GPT-4), Anthropic (Claude), LMStudio (local), sentence-transformers, LangGraph workflows
-- **Infrastructure:** 7 Docker containers, pytest + Playwright testing
+- **Infrastructure:** 6 Docker containers, pytest + Playwright testing
 
 ## Architecture
-**7 Microservices:** postgres, redis, web (FastAPI:8001), celery worker, scheduler, langgraph-server, ollama
+**6 Services:** postgres, redis, web (FastAPI:8001), worker (Celery), workflow_worker (Celery), scheduler
 
 **19 Database Tables** including: articles with embeddings, sigma_rules with 4-segment embeddings, workflow executions, chat logs, ML model versions
 
@@ -81,15 +81,16 @@ Callisto represents a major milestone in SIGMA rule management capabilities. The
 
 ## Detailed Architecture
 
-### Service Architecture (7 Docker Containers)
+### Service Architecture (6 Docker Containers)
 
 1. **postgres** - PostgreSQL with pgvector extension
 2. **redis** - Caching and message broker
 3. **web** - FastAPI application (port 8001)
-4. **worker** - Celery worker for background tasks
-5. **scheduler** - Celery Beat for scheduled jobs
-6. **langgraph-server** - Agent chat UI debugging (port 2024)
-7. **ollama** - Local LLM inference (port 11434)
+4. **worker** - Celery worker (default, source_checks, maintenance, etc.)
+5. **workflow_worker** - Celery worker for agentic workflow tasks (queue: workflows)
+6. **scheduler** - Celery Beat for scheduled jobs
+
+*Note: LangGraph server and Ollama have been removed. The agentic workflow runs inside Celery workers via LangGraph; local LLMs use LMStudio.*
 
 ### Application Structure
 
@@ -125,9 +126,8 @@ src/
 ├── worker/           # Celery tasks
 │   ├── celery_app.py
 │   └── tasks/
-└── workflows/        # LangGraph agentic workflows
-    ├── agentic_workflow.py
-    └── langgraph_server.py
+└── workflows/        # LangGraph agentic workflows (runs in Celery)
+    └── agentic_workflow.py
 ```
 
 ### Database Schema (19 Tables)
@@ -148,7 +148,9 @@ Key tables:
 
 ## Agentic Workflow (7 Steps)
 
-1. **OS Detection** - Operating system detection for workflow routing
+The workflow runs inside Celery workers (LangGraph state machine). No separate LangGraph server.
+
+1. **OS Detection** - Windows-only routing (non-Windows articles terminate)
 2. **Junk Filter** - Conservative filtering (configurable threshold)
 3. **LLM Rank** - Score article relevance (0-10)
 4. **Extract Agent** - Extract techniques and behaviors

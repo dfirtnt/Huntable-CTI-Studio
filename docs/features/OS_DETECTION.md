@@ -36,16 +36,16 @@ The OS Detection system identifies the target operating system(s) mentioned in t
 
 ### Agentic Workflow
 
-OS Detection is integrated as **Step 1.5** in the agentic workflow:
+OS Detection is integrated as **Step 0** (first) in the agentic workflow:
 
 ```
-0. Junk Filter
-1. LLM Ranking
-1.5. OS Detection ← Windows only continues
-2. Extract Agent
-3. Generate SIGMA
-4. Similarity Search
-5. Promote to Queue
+0. OS Detection ← Windows only continues; non-Windows terminates
+1. Junk Filter
+2. LLM Ranking
+3. Extract Agent
+4. Generate SIGMA
+5. Similarity Search
+6. Promote to Queue
 ```
 
 **Workflow Behavior:**
@@ -58,7 +58,6 @@ OS Detection is integrated as **Step 1.5** in the agentic workflow:
 OS Detection is available via:
 - **Workflow Execution**: Automatic during agentic workflow
 - **Manual Testing**: `test_os_detection_manual.py` script
-- **AI Assistant Modal**: Available in workflow UI
 
 ## Configuration
 

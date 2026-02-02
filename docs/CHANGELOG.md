@@ -59,6 +59,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
+  - `docs/features/CMDLINE_ATTENTION_PREPROCESSOR.md`: Configuration, anchor types, long-line handling, execution visibility
+  - `docs/concepts/agents.md`: CmdlineExtract section links to preprocessor doc
+  - `docs/howto/extract_observables.md`: Section on preprocessor toggle
+  - `docs/concepts/pipelines.md`: Workflow diagrams updated (Step 3 CmdlineExtract box, detailed sub-agent flow, execution order)
+  - `mkdocs.yml`: Nav entry under Features
+
+### Changed
+- **Documentation true-up** (2026-02-02): Aligned docs with current architecture and removed features
+  - README, index, quickstart: 7-step agentic workflow (OS Detection first), 6 services, no LangGraph server
+  - Callisto.md: 6 services (postgres, redis, web, worker, workflow_worker, scheduler); removed langgraph-server, ollama; workflow runs in Celery
+  - Kepler.md: Added historical note; langgraph-server/ollama removed in Callisto
+  - DOCKER_ARCHITECTURE: Added workflow_worker; clarified worker vs workflow_worker
+  - BACKUP_AND_RESTORE: Removed ollama_data from volumes
+  - OS_DETECTION: Step 0 (first), not 1.5; removed AI Assistant Modal reference
+  - api.md: Observable Training marked inactive
+  - DATABASE_QUERY_GUIDE: Deprecation note for training_category; removed chosen/rejected from example queries
+  - agentic_workflow.py: Fixed top-level docstring step order
+
 ### Removed
 - **test_backup_restore.py** (2026-01-30): Removed integration tests for backup/restore scripts (`calculate_checksum`, `validate_backup_directory`, `validate_backup_file`); references removed from `tests/TEST_INDEX.md` and `tests/TESTING.md`
 - **Chosen/Rejected Article Classification** (2026-01-27): Deprecated and removed article-level chosen/rejected/unclassified classification

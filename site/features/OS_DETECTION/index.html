@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="../CONTENT_FILTERING/">
+        <link rel="prev" href="../CMDLINE_ATTENTION_PREPROCESSOR/">
       
       
         <link rel="next" href="../SIGMA_DETECTION_RULES/">
@@ -1406,6 +1406,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Attention Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -2304,14 +2332,14 @@
 </ul>
 <h2 id="integration">Integration</h2>
 <h3 id="agentic-workflow">Agentic Workflow</h3>
-<p>OS Detection is integrated as <strong>Step 1.5</strong> in the agentic workflow:</p>
-<pre><code>0. Junk Filter
-1. LLM Ranking
-1.5. OS Detection ← Windows only continues
-2. Extract Agent
-3. Generate SIGMA
-4. Similarity Search
-5. Promote to Queue
+<p>OS Detection is integrated as <strong>Step 0</strong> (first) in the agentic workflow:</p>
+<pre><code>0. OS Detection ← Windows only continues; non-Windows terminates
+1. Junk Filter
+2. LLM Ranking
+3. Extract Agent
+4. Generate SIGMA
+5. Similarity Search
+6. Promote to Queue
 </code></pre>
 <p><strong>Workflow Behavior:</strong>
 - If Windows detected: Workflow continues to extraction
@@ -2320,8 +2348,7 @@
 <h3 id="api-integration">API Integration</h3>
 <p>OS Detection is available via:
 - <strong>Workflow Execution</strong>: Automatic during agentic workflow
-- <strong>Manual Testing</strong>: <code>test_os_detection_manual.py</code> script
-- <strong>AI Assistant Modal</strong>: Available in workflow UI</p>
+- <strong>Manual Testing</strong>: <code>test_os_detection_manual.py</code> script</p>
 <h2 id="configuration">Configuration</h2>
 <h3 id="environment-variables">Environment Variables</h3>
 <pre><code class="language-bash"># Embedding model selection

@@ -10,7 +10,7 @@ The agentic workflow is a chain of specialized workers executed by Celery when y
 - **Similarity matcher**: Compares generated rules against SigmaHQ embeddings to avoid duplicates and classify coverage.
 
 ## Extract Agent sub-agents
-- **CmdlineExtract**: Command-line observables with arguments and QA corrections.
+- **CmdlineExtract**: Command-line observables with arguments and QA corrections. Optional **Attention Preprocessor** surfaces LOLBAS-aligned snippets earlier in the LLM prompt; toggle in Workflow Config (Cmdline Extract agent). See [Cmdline Attention Preprocessor](../features/CMDLINE_ATTENTION_PREPROCESSOR.md).
 - **HuntQueriesExtract**: Detection queries (EDR queries and SIGMA rules) extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
 

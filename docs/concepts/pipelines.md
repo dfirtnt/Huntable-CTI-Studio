@@ -44,6 +44,7 @@ The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/
     │                                                                     │
     │  ┌─────────────────────────────────────────────────────────────┐  │
     │  │  Sub-Agent 1: CmdlineExtract 💻                             │  │
+    │  │  • Attention Preprocessor (optional): LOLBAS snippets first  │  │
     │  │  • Extract command-line observables                          │  │
     │  │  • QA: CmdLineQA                                            │  │
     │  └─────────────────────────────────────────────────────────────┘  │
@@ -111,10 +112,10 @@ The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/
          ├─────────────────────────────────────────────────┐
          │                                                 │
          ▼                                                 ▼
-    ┌──────────┐                                      ┌──────────┐
-    │ Cmdline  │                                      │   Sig    │
-    │ Extract  │                                      │ Extract  │
-    └────┬─────┘                                      └────┬─────┘
+    ┌──────────────────┐                                ┌──────────┐
+    │ Cmdline Extract    │                                │   Sig    │
+    │ (opt: Attn Preproc)│                                │ Extract  │
+    └────┬──────────────┘                                └────┬─────┘
          │                                                 │
          ▼                                                 ▼
     ┌──────────┐                                      ┌──────────┐
@@ -151,7 +152,7 @@ The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/
 1. Junk Filter           → Content quality filtering
 2. LLM Ranking           → Article scoring (continue if ≥ threshold)
 3. Extract Agent:
-   ├─ CmdlineExtract     → Command-line observables
+   ├─ CmdlineExtract     → Attention preprocessor (optional) → Command-line observables
    ├─ HuntQueriesExtract → Detection queries (EDR and SIGMA)
    ├─ ProcTreeExtract    → Process lineage
    └─ ExtractionSupervisorAgent → Aggregate all results

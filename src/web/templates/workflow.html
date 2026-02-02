@@ -9719,8 +9719,11 @@ async function viewExecution(executionId) {
                         { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 }
                     ];
                     
+                    const conversationLog = exec.error_log?.extract_agent?.conversation_log || [];
                     const subAgentDetails = subAgents.map(subAgent => {
                         const result = subresults[subAgent.key];
+                        const logEntry = conversationLog.find(e => e.agent === subAgent.name);
+                        const attentionPreprocessor = logEntry?.attention_preprocessor;
                         // Ensure items is always an array - handle case where items is a string (e.g., process_lineage)
                         let items = [];
                         if (result?.items !== undefined && result?.items !== null) {
@@ -9794,6 +9797,7 @@ async function viewExecution(executionId) {
                                         <div>• Article URL: ${exec.article_url || 'N/A'}</div>
                                         <div>• Agent: ${subAgent.name}</div>
                                         ${exec.config_snapshot?.agent_models?.[`${subAgent.name}_model`] ? `<div>• Model: ${exec.config_snapshot.agent_models[`${subAgent.name}_model`]}</div>` : ''}
+                                        ${attentionPreprocessor ? `<div>• 📌 Attention preprocessor: ${attentionPreprocessor.enabled ? (attentionPreprocessor.snippet_count ?? 0) + ' snippets surfaced' : 'disabled'}</div>` : ''}
                                     </div>
                                 </div>
                                 <div>
@@ -14761,6 +14765,11 @@ function startLiveExecutionStream(executionId) {
                     
                 case 'llm_interaction':
                     appendOutput(`\n🤖 LLM Call - ${data.agent} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    if (data.attention_preprocessor) {
+                        const ap = data.attention_preprocessor;
+                        const n = ap.snippet_count ?? 0;
+                        appendOutput(`  📌 Attention preprocessor: ${ap.enabled ? n + ' snippets surfaced' : 'disabled'}`, 'text-violet-400');
+                    }
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach((msg, idx) => {
                             const role = msg.role || 'user';

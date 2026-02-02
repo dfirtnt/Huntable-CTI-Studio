@@ -2,13 +2,13 @@
 Agentic Workflow using LangGraph for processing high-hunt-score articles.
 
 This workflow processes articles through 7 steps:
-0. Junk Filter
-1. LLM Rank Article
-1.5. OS Detection (Windows only continues)
-2. Extract Agent
-3. Generate SIGMA rules
-4. Similarity Search
-5. Promote to Queue
+0. OS Detection (Windows only continues; non-Windows terminates)
+1. Junk Filter
+2. LLM Rank Article
+3. Extract Agent
+4. Generate SIGMA rules
+5. Similarity Search
+6. Promote to Queue
 """
 
 import json
@@ -1679,6 +1679,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             log_entry["llm_response"] = agent_result["_llm_response"]
                         if "_llm_attempt" in agent_result:
                             log_entry["attempt"] = agent_result["_llm_attempt"]
+                        if "_attention_preprocessor" in agent_result:
+                            log_entry["attention_preprocessor"] = agent_result["_attention_preprocessor"]
                     conversation_log.append(log_entry)
 
                     # Store QA result if available
