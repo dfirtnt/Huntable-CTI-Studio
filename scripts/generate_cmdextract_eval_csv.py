@@ -218,6 +218,7 @@ async def get_raw_llm_response(
             model_name=prompt_config.get("model"),
             temperature=0.0,
             provider=provider,  # Pass provider from config
+            attention_preprocessor_enabled=True,
         )
 
         # Extract raw response

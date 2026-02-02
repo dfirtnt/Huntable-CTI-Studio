@@ -1604,6 +1604,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         top_p=float(agent_top_p) if agent_top_p is not None else None,
                         qa_model_override=qa_model_override,
                         provider=agent_provider,  # Pass provider from config
+                        attention_preprocessor_enabled=state.get("config", {}).get(
+                            "cmdline_attention_preprocessor_enabled", True
+                        ),
                     )
 
                     # Store Result
@@ -2632,6 +2635,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     "rank_agent_enabled": config_obj.rank_agent_enabled
                     if config_obj and hasattr(config_obj, "rank_agent_enabled")
                     else True,
+                    "cmdline_attention_preprocessor_enabled": getattr(
+                        config_obj, "cmdline_attention_preprocessor_enabled", True
+                    )
+                    if config_obj
+                    else True,
                     "config_id": config_obj.id if config_obj else None,
                     "config_version": config_obj.version if config_obj else None,
                 }
@@ -2664,6 +2672,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "rank_agent_enabled": config_obj.rank_agent_enabled
                 if config_obj and hasattr(config_obj, "rank_agent_enabled")
                 else True,
+                "cmdline_attention_preprocessor_enabled": getattr(
+                    config_obj, "cmdline_attention_preprocessor_enabled", True
+                )
+                if config_obj
+                else True,
             }
             if config_obj
             else {
@@ -2674,6 +2687,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "qa_enabled": {},
                 "agent_models": {},
                 "rank_agent_enabled": True,
+                "cmdline_attention_preprocessor_enabled": True,
             }
         )
 

@@ -421,6 +421,7 @@ class EvalRunner:
             model_name=prompt_config.get("model"),
             temperature=0.0,
             provider=cmdline_provider,  # Pass provider from snapshot config
+            attention_preprocessor_enabled=True,
         )
 
         # Run async code - handle event loop gracefully
