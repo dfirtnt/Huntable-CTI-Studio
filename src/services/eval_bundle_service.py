@@ -1276,6 +1276,10 @@ class EvalBundleService:
             filtered_config["config_version"] = config_snapshot["config_version"]
         if "min_hunt_score" in config_snapshot:
             filtered_config["min_hunt_score"] = config_snapshot["min_hunt_score"]
+        if "cmdline_attention_preprocessor_enabled" in config_snapshot:
+            filtered_config["cmdline_attention_preprocessor_enabled"] = config_snapshot[
+                "cmdline_attention_preprocessor_enabled"
+            ]
 
         # Include only the relevant agent's model config
         agent_models = config_snapshot.get("agent_models", {})
