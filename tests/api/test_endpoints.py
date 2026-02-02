@@ -203,7 +203,13 @@ class TestWorkflowConfig:
         response = await async_client.get("/api/workflow/config")
         assert response.status_code == 200
         data = response.json()
-        for key in ("agent_models", "qa_enabled", "sigma_fallback_enabled", "qa_max_retries", "cmdline_attention_preprocessor_enabled"):
+        for key in (
+            "agent_models",
+            "qa_enabled",
+            "sigma_fallback_enabled",
+            "qa_max_retries",
+            "cmdline_attention_preprocessor_enabled",
+        ):
             assert key in data
         assert isinstance(data["agent_models"], dict)
         assert isinstance(data["qa_enabled"], dict)
@@ -657,9 +663,7 @@ class TestCriticalAPIs:
     @pytest.mark.asyncio
     async def test_workflow_executions_list_with_sort_params(self, async_client: httpx.AsyncClient):
         """Workflow executions list accepts sort_by and sort_order params."""
-        response = await async_client.get(
-            "/api/workflow/executions?sort_by=id&sort_order=asc"
-        )
+        response = await async_client.get("/api/workflow/executions?sort_by=id&sort_order=asc")
         assert response.status_code == 200
         data = response.json()
         assert "executions" in data
@@ -669,9 +673,7 @@ class TestCriticalAPIs:
     @pytest.mark.asyncio
     async def test_workflow_executions_list_with_step_filter(self, async_client: httpx.AsyncClient):
         """Workflow executions list accepts step filter param."""
-        response = await async_client.get(
-            "/api/workflow/executions?step=extract_agent"
-        )
+        response = await async_client.get("/api/workflow/executions?step=extract_agent")
         assert response.status_code == 200
         data = response.json()
         assert "executions" in data
@@ -681,9 +683,7 @@ class TestCriticalAPIs:
     @pytest.mark.asyncio
     async def test_workflow_executions_list_with_article_id(self, async_client: httpx.AsyncClient):
         """Workflow executions list accepts article_id filter param."""
-        response = await async_client.get(
-            "/api/workflow/executions?article_id=1"
-        )
+        response = await async_client.get("/api/workflow/executions?article_id=1")
         assert response.status_code == 200
         data = response.json()
         assert "executions" in data

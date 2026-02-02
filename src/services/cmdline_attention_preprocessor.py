@@ -1,6 +1,10 @@
 """
 Command-line attention pre-processor for Windows command-line extraction.
 
+HARD CONTRACT (CmdlineExtract):
+    For CmdlineExtract, preprocessing MUST be byte-preserving with respect to
+    newline boundaries. If a change violates this, it is a bug, not a tuning issue.
+
 PURPOSE:
     Performs attention shaping for Windows command-line extraction by identifying
     high-likelihood text regions (via LOLBAS-aligned anchors) and surfacing them
@@ -114,7 +118,9 @@ CMD_BOUNDARY_REGEX = re.compile(r"\bcmd(\.exe)?\b", re.IGNORECASE)
 # - Period + whitespace: split only when period is NOT part of extension (e.g. .exe, .dll)
 #   Use (?!\w) to avoid splitting "tool.exe and whoami" or "foo.dll,Export"
 # - Comma: NOT used — comma+space can break commands ("echo hello, world")
+# FORBIDDEN for CmdlineExtract (byte-preserving): use NEWLINE_ONLY instead.
 SENTENCE_SPLIT = re.compile(r"(?<=[\n])|(?<=\.)(?!\w)\s+")
+NEWLINE_ONLY = re.compile(r"\n")
 
 # Line length threshold: use sentence logic only if line > N chars
 LONG_LINE_THRESHOLD = 500
@@ -212,23 +218,26 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
     return positions
 
 
-def _expand_to_sentence_boundary(full_line: str, start_off: int, end_off: int) -> str:
+def _expand_to_boundary(
+    full_line: str, start_off: int, end_off: int, *, newline_only: bool = False
+) -> str:
     """
-    Expand the window [start_off, end_off] in full_line to nearest sentence boundaries.
-    Capped at ±MATCH_WINDOW_CHARS from match to prevent full-line collapse on newline-poor prose.
+    Expand the window [start_off, end_off] to nearest boundaries.
+    newline_only=True: byte-preserving (CmdlineExtract) — only newline boundaries.
+    newline_only=False: sentence boundaries (period + newline).
+    Capped at ±MATCH_WINDOW_CHARS from match.
     """
+    boundary_re = NEWLINE_ONLY if newline_only else SENTENCE_SPLIT
     win_start = max(0, start_off - MATCH_WINDOW_CHARS)
     win_end = min(len(full_line), end_off + MATCH_WINDOW_CHARS)
 
-    # Find last boundary before start_off, but not before win_start
     before = full_line[win_start:start_off]
     boundary_before = win_start
-    for m in SENTENCE_SPLIT.finditer(before):
+    for m in boundary_re.finditer(before):
         boundary_before = win_start + m.end()
-    # Find first boundary after end_off, but not after win_end
     after = full_line[end_off:win_end]
     boundary_after = win_end
-    for m in SENTENCE_SPLIT.finditer(after):
+    for m in boundary_re.finditer(after):
         boundary_after = end_off + m.end()
         break
     return full_line[boundary_before:boundary_after].strip()
@@ -310,13 +319,19 @@ def _extract_snippet(
     line_idx: int,
     prefer_full_line: bool = False,
     line_lower: str | None = None,
+    *,
+    byte_preserving: bool = False,
 ) -> str:
     """
     Extract matching line + ±1 surrounding sentence/line for context.
-    Prefer line-based capture; fall back to sentence logic for very long lines.
-    Rule 3: When prefer_full_line (e.g. .exe + arg indicators), always use full-line capture.
+    byte_preserving: always use full-line capture (no sentence split, no " ".join).
     """
-    use_full_line = prefer_full_line or len(line) <= LONG_LINE_THRESHOLD or _line_has_exe_arg_indicators(line)
+    use_full_line = (
+        byte_preserving
+        or prefer_full_line
+        or len(line) <= LONG_LINE_THRESHOLD
+        or _line_has_exe_arg_indicators(line)
+    )
     if use_full_line:
         # Full-line capture: include ±1 surrounding lines
         start = max(0, line_idx - 1)
@@ -349,10 +364,12 @@ def _extract_snippet(
     return "\n".join(context_parts).strip()
 
 
-def _extract_windowed_snippets(line: str, lines: list[str], line_idx: int, line_lower: str) -> list[str]:
+def _extract_windowed_snippets(
+    line: str, lines: list[str], line_idx: int, line_lower: str, *, byte_preserving: bool = False
+) -> list[str]:
     """
     For long lines (>LONG_LINE_THRESHOLD): extract match-window snippets instead of full line.
-    Prevents one-snippet-per-article collapse when newline-poor input yields huge lines.
+    byte_preserving: use newline-only boundaries (no sentence/period split).
     """
     positions = _find_match_positions(line, line_lower)
     if not positions:
@@ -363,7 +380,7 @@ def _extract_windowed_snippets(line: str, lines: list[str], line_idx: int, line_
         # Window around match: ±MATCH_WINDOW_CHARS
         win_start = max(0, start - MATCH_WINDOW_CHARS)
         win_end = min(len(line), end + MATCH_WINDOW_CHARS)
-        window = _expand_to_sentence_boundary(line, win_start, win_end)
+        window = _expand_to_boundary(line, win_start, win_end, newline_only=byte_preserving)
         if not window.strip():
             continue
         snippets.append(window)
@@ -378,9 +395,14 @@ def _extract_windowed_snippets(line: str, lines: list[str], line_idx: int, line_
     return snippets
 
 
-def process(article_text: str) -> dict[str, Any]:
+def process(article_text: str, agent_name: str | None = None) -> dict[str, Any]:
     """
     Scan article for high-likelihood command-line regions and return structured payload.
+
+    Args:
+        article_text: Raw article content.
+        agent_name: When "CmdlineExtract", enables byte-preserving mode (disables sentence
+            split, period/comma reflow, and space-join). Required by HARD CONTRACT.
 
     Returns:
         {
@@ -388,10 +410,12 @@ def process(article_text: str) -> dict[str, Any]:
             "full_article": "<original article text>"
         }
     Snippets preserve original article order. Deduplicated by exact string.
-    For long lines (>500 chars): match-window capture (±350 chars) prevents blob collapse.
     """
     if not article_text or not article_text.strip():
         return {"high_likelihood_snippets": [], "full_article": article_text or ""}
+
+    # CmdlineExtract: byte-preserving with respect to newline boundaries (HARD CONTRACT)
+    byte_preserving = agent_name == "CmdlineExtract"
 
     lines = article_text.splitlines()
     seen: set[str] = set()
@@ -406,7 +430,9 @@ def process(article_text: str) -> dict[str, Any]:
 
         # Long line: match-window capture (eval fix A)
         if len(line) > LONG_LINE_THRESHOLD:
-            windowed = _extract_windowed_snippets(line, lines, i, line_lower)
+            windowed = _extract_windowed_snippets(
+                line, lines, i, line_lower, byte_preserving=byte_preserving
+            )
             for snippet in windowed:
                 if not snippet or snippet in seen:
                     continue
@@ -416,7 +442,12 @@ def process(article_text: str) -> dict[str, Any]:
 
         # Short line: full-line capture
         prefer_full = _line_has_exe_arg_indicators(line)
-        snippet = _extract_snippet(line, lines, i, prefer_full_line=prefer_full, line_lower=line_lower)
+        snippet = _extract_snippet(
+            line, lines, i,
+            prefer_full_line=prefer_full,
+            line_lower=line_lower,
+            byte_preserving=byte_preserving,
+        )
         if not snippet:
             continue
         if snippet in seen:

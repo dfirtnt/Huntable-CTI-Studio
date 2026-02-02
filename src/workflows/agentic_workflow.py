@@ -1712,8 +1712,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             )
 
                 except Exception as e:
-                    logger.error(f"[Workflow {state['execution_id']}] {agent_name} failed: {e}")
-                    subresults[result_key] = {"items": [], "count": 0, "raw": {}, "error": str(e)}
+                    from src.services.llm_service import PreprocessInvariantError
+
+                    if isinstance(e, PreprocessInvariantError):
+                        logger.error(
+                            f"[Workflow {state['execution_id']}] {agent_name} preprocess invariant failed: {e}. "
+                            f"Debug artifacts: {getattr(e, 'debug_artifacts', {})}"
+                        )
+                        subresults[result_key] = {
+                            "items": [],
+                            "count": 0,
+                            "raw": {"infra_failed": True, "infra_debug_artifacts": getattr(e, "debug_artifacts", {})},
+                            "error": str(e),
+                        }
+                    else:
+                        logger.error(f"[Workflow {state['execution_id']}] {agent_name} failed: {e}")
+                        subresults[result_key] = {"items": [], "count": 0, "raw": {}, "error": str(e)}
 
             # --- Supervisor Aggregation ---
             # Merge all items into a single 'observables' list for backward compatibility

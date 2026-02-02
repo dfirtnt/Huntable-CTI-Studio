@@ -202,6 +202,8 @@ class LangfuseEvalClient:
         expected_count: int,
         extraction_result: dict[str, Any] | None = None,
         execution_error: bool = False,
+        infra_failed: bool = False,
+        infra_debug_artifacts: dict[str, Any] | None = None,
     ) -> None:
         """
         Log scores to a Langfuse trace.
@@ -211,13 +213,23 @@ class LangfuseEvalClient:
             predicted_count: Predicted command-line count
             expected_count: Expected command-line count
             extraction_result: Full extraction result with cmdline_items
-            execution_error: Whether extraction failed
+            execution_error: Whether extraction failed (model/inference error)
+            infra_failed: Whether pre-inference invariants failed (preprocessor/template)
+            infra_debug_artifacts: Debug artifacts when infra_failed (article_id, sha256, etc.)
         """
         if not trace:
             return
 
         try:
-            if execution_error:
+            if infra_failed:
+                trace.score(name="infra_failed", value=1)
+                trace.score(name="execution_error", value=0)
+                trace.score(name="exact_match", value=0)
+                trace.score(
+                    name="count_diff",
+                    value=expected_count,
+                )
+            elif execution_error:
                 # Log execution error
                 trace.score(name="execution_error", value=1)
                 trace.score(name="exact_match", value=0)
@@ -235,7 +247,10 @@ class LangfuseEvalClient:
                 "predicted_count": predicted_count,
                 "expected_count": expected_count,
                 "execution_error": execution_error,
+                "infra_failed": infra_failed,
             }
+            if infra_failed and infra_debug_artifacts:
+                output["infra_debug_artifacts"] = infra_debug_artifacts
 
             # Always include extraction results (even if empty) for visibility
             if extraction_result:

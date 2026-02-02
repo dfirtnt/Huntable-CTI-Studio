@@ -146,6 +146,7 @@ class EvalRunner:
                         predicted_count = 0
                         extraction_result = None
                         execution_error = False
+                        infra_failed = False
 
                         try:
                             extraction_result = self._run_extraction(item, snapshot_data)
@@ -187,13 +188,37 @@ class EvalRunner:
                                 except Exception as update_error:
                                     logger.warning(f"Could not update trace input: {update_error}")
                         except Exception as e:
-                            logger.error(
-                                f"Extraction failed for item {getattr(item, 'id', 'unknown')}: {e}", exc_info=True
-                            )
-                            execution_error = True
+                            from src.services.llm_service import PreprocessInvariantError
+
+                            if isinstance(e, PreprocessInvariantError):
+                                logger.error(
+                                    f"Preprocess invariant failed for item {getattr(item, 'id', 'unknown')}: {e}. "
+                                    f"Debug artifacts: {getattr(e, 'debug_artifacts', {})}"
+                                )
+                                execution_error = False
+                                infra_failed = True
+                                extraction_result = {
+                                    "count": 0,
+                                    "cmdline_items": [],
+                                    "full_result": None,
+                                    "error": str(e),
+                                    "infra_failed": True,
+                                    "infra_debug_artifacts": getattr(e, "debug_artifacts", {}),
+                                }
+                            else:
+                                logger.error(
+                                    f"Extraction failed for item {getattr(item, 'id', 'unknown')}: {e}",
+                                    exc_info=True,
+                                )
+                                execution_error = True
+                                infra_failed = False
+                                extraction_result = {
+                                    "count": 0,
+                                    "cmdline_items": [],
+                                    "full_result": None,
+                                    "error": str(e),
+                                }
                             execution_errors += 1
-                            # Set empty result for error case
-                            extraction_result = {"count": 0, "cmdline_items": [], "full_result": None, "error": str(e)}
 
                         # Log scores and update trace output (this sets the output visible in Langfuse)
                         self.langfuse_client.log_trace_scores(
@@ -202,6 +227,10 @@ class EvalRunner:
                             expected_count=expected_count,
                             extraction_result=extraction_result,
                             execution_error=execution_error,
+                            infra_failed=infra_failed,
+                            infra_debug_artifacts=extraction_result.get("infra_debug_artifacts")
+                            if extraction_result
+                            else None,
                         )
 
                         # End the trace after output is set
@@ -216,12 +245,12 @@ class EvalRunner:
                                 logger.warning(f"Failed to end trace: {e}")
 
                         # Update metrics
-                        if not execution_error:
+                        if not execution_error and not infra_failed:
                             if predicted_count == expected_count:
                                 exact_matches += 1
                             count_diffs.append(abs(predicted_count - expected_count))
                         else:
-                            # For errors, treat as worst-case difference
+                            # For errors or infra failures, treat as worst-case difference
                             count_diffs.append(expected_count)
 
                         # Increment completed_items
