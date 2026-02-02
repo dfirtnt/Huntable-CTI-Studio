@@ -2786,6 +2786,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         top_p: float | None = None,
         qa_model_override: str | None = None,
         provider: str | None = None,
+        attention_preprocessor_enabled: bool = True,
     ) -> dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -2859,7 +2860,50 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     effective_provider = self._canonicalize_provider(self.provider_extract) or resolved_provider
 
                 context_limit_tokens = self._get_context_limit_for_provider(effective_provider)
-                truncated_content = self._truncate_content(content, context_limit_tokens, 1000)
+
+                # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
+                if agent_name == "CmdlineExtract" and attention_preprocessor_enabled:
+                    from src.services.cmdline_attention_preprocessor import process as preprocess_cmdline_attention
+
+                    preprocess_result = preprocess_cmdline_attention(content)
+                    snippets = preprocess_result.get("high_likelihood_snippets", [])
+                    full_article = preprocess_result.get("full_article", content)
+                    logger.debug(
+                        f"Cmdline attention preprocessor enabled: True. Snippets found: {len(snippets)}"
+                    )
+
+                    snippets_section = "\n\n".join(snippets) if snippets else ""
+                    snippets_header = "=== HIGH-LIKELIHOOD COMMAND SNIPPETS ===\n"
+                    full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
+                    combined_prefix = snippets_header + snippets_section + full_header
+
+                    # Reserve: snippets + 256 token overhead + template + output
+                    snippet_tokens = self._estimate_tokens(combined_prefix)
+                    overhead_tokens = 256 + PROMPT_OVERHEAD_TOKENS + 1000
+                    available_for_article = max(
+                        0, context_limit_tokens - snippet_tokens - overhead_tokens
+                    )
+                    available_for_article = int(available_for_article * 0.9)  # safety margin
+
+                    article_tokens = self._estimate_tokens(full_article)
+                    if article_tokens <= available_for_article:
+                        truncated_article = full_article
+                    else:
+                        max_chars = available_for_article * 4
+                        truncated_article = full_article[:max_chars]
+                        last_boundary = max(
+                            truncated_article.rfind("."), truncated_article.rfind("\n")
+                        )
+                        if last_boundary > max_chars * 0.8:
+                            truncated_article = truncated_article[: last_boundary + 1]
+                        truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
+
+                    truncated_content = combined_prefix + truncated_article
+                else:
+                    truncated_content = self._truncate_content(
+                        content, context_limit_tokens, 1000
+                    )
+
                 logger.info(
                     f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}, context_limit={context_limit_tokens}"
                 )

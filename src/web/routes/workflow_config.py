@@ -36,6 +36,7 @@ class WorkflowConfigResponse(BaseModel):
     sigma_fallback_enabled: bool = False
     qa_max_retries: int = 5
     rank_agent_enabled: bool = True
+    cmdline_attention_preprocessor_enabled: bool = True
     created_at: str
     updated_at: str
 
@@ -57,6 +58,7 @@ class WorkflowConfigUpdate(BaseModel):
     sigma_fallback_enabled: bool | None = None
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
+    cmdline_attention_preprocessor_enabled: bool | None = None
 
 
 class AgentPromptUpdate(BaseModel):
@@ -152,6 +154,9 @@ async def get_workflow_config(request: Request):
                 else False,
                 qa_max_retries=config.qa_max_retries if hasattr(config, "qa_max_retries") else 5,
                 rank_agent_enabled=config.rank_agent_enabled if hasattr(config, "rank_agent_enabled") else True,
+                cmdline_attention_preprocessor_enabled=getattr(
+                    config, "cmdline_attention_preprocessor_enabled", True
+                ),
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat(),
             )
@@ -316,6 +321,15 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     else True
                 )
             )
+            final_cmdline_attention_preprocessor_enabled = (
+                config_update.cmdline_attention_preprocessor_enabled
+                if config_update.cmdline_attention_preprocessor_enabled is not None
+                else (
+                    getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
+                    if current_config
+                    else True
+                )
+            )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
             if final_agent_prompts:
@@ -351,6 +365,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     and current_config.sigma_fallback_enabled == sigma_fallback
                     and current_config.qa_max_retries == qa_max_retries
                     and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
+                    and getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
+                    == final_cmdline_attention_preprocessor_enabled
                 )
 
                 # Deep compare JSONB fields
@@ -402,6 +418,9 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         rank_agent_enabled=current_config.rank_agent_enabled
                         if hasattr(current_config, "rank_agent_enabled")
                         else True,
+                        cmdline_attention_preprocessor_enabled=getattr(
+                            current_config, "cmdline_attention_preprocessor_enabled", True
+                        ),
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat(),
                     )
@@ -422,6 +441,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 sigma_fallback_enabled=sigma_fallback,
                 qa_max_retries=qa_max_retries,
                 rank_agent_enabled=final_rank_agent_enabled,
+                cmdline_attention_preprocessor_enabled=final_cmdline_attention_preprocessor_enabled,
             )
 
             db_session.add(new_config)
@@ -448,6 +468,9 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
                 qa_max_retries=new_config.qa_max_retries,
                 rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
+                cmdline_attention_preprocessor_enabled=getattr(
+                    new_config, "cmdline_attention_preprocessor_enabled", True
+                ),
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat(),
             )
@@ -608,6 +631,9 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         if getattr(config, "rank_agent_enabled", None) is not None
         else True,
         "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
+        "cmdline_attention_preprocessor_enabled": getattr(
+            config, "cmdline_attention_preprocessor_enabled", True
+        ),
         "extract_agent_settings": {"disabled_agents": []},
         "agent_prompts": config.agent_prompts if config.agent_prompts is not None else {},
     }
@@ -901,6 +927,9 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
+                cmdline_attention_preprocessor_enabled=getattr(
+                    current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
             )
 
             db_session.add(new_config)
@@ -1147,6 +1176,9 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
+                cmdline_attention_preprocessor_enabled=getattr(
+                    current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
             )
 
             db_session.add(new_config)
@@ -1434,6 +1466,9 @@ async def bootstrap_prompts_from_files(request: Request):
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
+                cmdline_attention_preprocessor_enabled=getattr(
+                    current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
             )
 
             db_session.add(new_config)

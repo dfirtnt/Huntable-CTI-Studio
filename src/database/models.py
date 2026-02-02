@@ -520,6 +520,9 @@ class AgenticWorkflowConfigTable(Base):
     # QA Agent max retries: Maximum number of times QA Agent will give feedback to counterpart agent
     qa_max_retries = Column(Integer, nullable=False, default=5)
 
+    # CmdlineExtract attention preprocessor: if True, surface high-likelihood snippets before full article
+    cmdline_attention_preprocessor_enabled = Column(Boolean, nullable=False, default=True)
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())

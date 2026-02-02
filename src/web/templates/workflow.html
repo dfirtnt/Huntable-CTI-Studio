@@ -749,6 +749,18 @@
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex items-center justify-between">
                                                 <div>
+                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Attention Preprocessor</label>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400">Surface high-likelihood command snippets before full article (LOLBAS anchors)</p>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="cmdline-attention-preprocessor-enabled" name="cmdline_attention_preprocessor_enabled" class="sr-only peer" onchange="autoSaveConfig();">
+                                                    <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
+                                            <div class="flex items-center justify-between">
+                                                <div>
                                                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CmdlineExtract QA Agent</label>
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation using the configured QA retry limit (default 5, max 20)</p>
                                                 </div>
@@ -4618,6 +4630,12 @@ async function loadConfig(skipPromptReload = false) {
             // Default to true if not specified
             rankAgentEnabledCheckbox.checked = true;
         }
+        const cmdlineAttentionPreprocessorCheckbox = document.getElementById('cmdline-attention-preprocessor-enabled');
+        if (cmdlineAttentionPreprocessorCheckbox && currentConfig.cmdline_attention_preprocessor_enabled !== undefined) {
+            cmdlineAttentionPreprocessorCheckbox.checked = currentConfig.cmdline_attention_preprocessor_enabled;
+        } else if (cmdlineAttentionPreprocessorCheckbox) {
+            cmdlineAttentionPreprocessorCheckbox.checked = true;
+        }
         // Update badge to reflect initial state
         if (typeof updateRankEnabledBadge === 'function') {
             updateRankEnabledBadge();
@@ -6051,6 +6069,7 @@ async function performAutoSave() {
         
         // Collect other toggles
         const sigmaFallbackEnabled = document.getElementById('sigma-fallback-enabled')?.checked || false;
+        const cmdlineAttentionPreprocessorEnabled = document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false;
         
         // Only save QA max retries if valid
         const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
@@ -6080,6 +6099,7 @@ async function performAutoSave() {
             qa_enabled: qaEnabled,
             sigma_fallback_enabled: sigmaFallbackEnabled,
             rank_agent_enabled: rankAgentEnabled,
+            cmdline_attention_preprocessor_enabled: cmdlineAttentionPreprocessorEnabled,
             qa_max_retries: qaMaxRetries,
             agent_prompts: promptsCopy
         };
@@ -7211,6 +7231,7 @@ function getFullPresetState(scope = null) {
         qa_enabled: formState.qa_enabled,
         sigma_fallback_enabled: sigma_fallback_enabled,
         rank_agent_enabled: rank_agent_enabled,
+        cmdline_attention_preprocessor_enabled: document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false,
         qa_max_retries: qa_max_retries,
         extract_agent_settings: {
             disabled_agents: disabled_agents
@@ -7728,6 +7749,14 @@ async function applyPreset(preset) {
             const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
             if (sigmaFallbackCheckbox) {
                 sigmaFallbackCheckbox.checked = preset.sigma_fallback_enabled;
+            }
+        }
+        
+        // Apply cmdline attention preprocessor
+        if (preset.cmdline_attention_preprocessor_enabled !== undefined) {
+            const cmdlineAttentionPreprocessorCheckbox = document.getElementById('cmdline-attention-preprocessor-enabled');
+            if (cmdlineAttentionPreprocessorCheckbox) {
+                cmdlineAttentionPreprocessorCheckbox.checked = preset.cmdline_attention_preprocessor_enabled;
             }
         }
         

@@ -127,6 +127,7 @@ def cmdline_extraction_task(
         model_name=model,
         temperature=0.0,
         provider=provider,  # Pass provider from config or inferred
+        attention_preprocessor_enabled=True,
     )
 
     # Run async code - handle event loop gracefully
