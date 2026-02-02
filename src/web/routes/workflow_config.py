@@ -506,23 +506,33 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
 
 
 @router.get("/config/preset/list")
-async def list_config_presets(request: Request):
-    """List workflow config presets (id, name, description, created_at, updated_at; no config_json)."""
+async def list_config_presets(request: Request, scope: str | None = None):
+    """List workflow config presets (id, name, description, scope, created_at, updated_at; no config_json).
+    Optional scope filter: 'full', 'cmdline', 'proctree', 'huntqueries'. Presets without scope treated as full."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
             presets = db_session.query(WorkflowConfigPresetTable).order_by(WorkflowConfigPresetTable.name.asc()).all()
-            preset_list = [
-                {
-                    "id": p.id,
-                    "name": p.name,
-                    "description": p.description,
-                    "created_at": p.created_at.isoformat(),
-                    "updated_at": p.updated_at.isoformat(),
-                }
-                for p in presets
-            ]
+            preset_list = []
+            for p in presets:
+                cfg = p.config_json or {}
+                preset_scope = cfg.get("scope")
+                if scope is not None:
+                    if scope == "full" and preset_scope not in (None, "full"):
+                        continue
+                    if scope != "full" and preset_scope != scope:
+                        continue
+                preset_list.append(
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "description": p.description,
+                        "scope": preset_scope,
+                        "created_at": p.created_at.isoformat(),
+                        "updated_at": p.updated_at.isoformat(),
+                    }
+                )
             return {"success": True, "presets": preset_list}
         finally:
             db_session.close()
@@ -935,6 +945,8 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 "success": True,
                 "message": f"Agent prompt updated for {prompt_update.agent_name}",
                 "version": new_version,
+                "prompt": version_prompt,
+                "instructions": version_instructions or "",
             }
         finally:
             db_session.close()
@@ -1163,10 +1175,13 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
 
             logger.info(f"Rolled back agent prompt for {agent_name} to version {target_version.version}")
 
+            # Return rolled-back prompt so frontend can update UI immediately (avoids race/cache)
             return {
                 "success": True,
                 "message": f"Rolled back {agent_name} to version {target_version.version}",
                 "version": new_version,
+                "prompt": target_version.prompt,
+                "instructions": target_version.instructions or "",
             }
         finally:
             db_session.close()

@@ -78,6 +78,7 @@ class ValidateRuleRequest(BaseModel):
 
     provider: str | None = None  # LLM provider (openai, anthropic, gemini, lmstudio)
     model: str | None = None  # Model name
+    rule_yaml: str | None = None  # Optional current rule YAML from preview modal (uses DB if omitted)
 
 
 class SavePromptRequest(BaseModel):
@@ -1375,7 +1376,7 @@ async def compare_rules_similarity(compare_request: CompareRulesRequest):
 
 
 @router.post("/{queue_id}/validate")
-async def validate_rule(request: Request, queue_id: int, validate_request: ValidateRuleRequest | None = None):
+async def validate_rule(request: Request, queue_id: int):
     """Validate a SIGMA rule using LLM + pySIGMA with retry loop."""
     try:
         db_manager = DatabaseManager()
@@ -1391,19 +1392,20 @@ async def validate_rule(request: Request, queue_id: int, validate_request: Valid
             if not article:
                 raise HTTPException(status_code=404, detail="Article not found")
 
-            # Get provider and model from request body if not in Pydantic model
-            if not validate_request:
-                try:
-                    body = await request.json()
-                    if body:
-                        validate_request = ValidateRuleRequest(provider=body.get("provider"), model=body.get("model"))
-                except:
-                    pass  # Body might be empty, use defaults
+            # Parse request body (no body param to avoid double-consumption)
+            body = {}
+            try:
+                body = await request.json() or {}
+            except Exception:
+                pass
 
             # Get provider and model from request, default to OpenAI
-            provider = (validate_request.provider if validate_request else None) or "openai"
-            provider = provider.lower()
-            model = (validate_request.model if validate_request else None) or "gpt-4o-mini"
+            provider = (body.get("provider") or "openai").lower()
+            model = body.get("model") or "gpt-4o-mini"
+            # Use modal rule YAML when provided so edits are validated
+            current_rule_yaml_from_request = None
+            if body.get("rule_yaml") and isinstance(body["rule_yaml"], str) and body["rule_yaml"].strip():
+                current_rule_yaml_from_request = body["rule_yaml"].strip()
 
             # Get API key from request headers (not needed for LMStudio)
             api_key = None
@@ -1436,8 +1438,8 @@ async def validate_rule(request: Request, queue_id: int, validate_request: Valid
             # System message for validation (same as AI/ML Assistant modal)
             system_message = "You are a senior cybersecurity detection engineer specializing in SIGMA rule creation."
 
-            # Start with the current rule YAML
-            current_rule_yaml = rule.rule_yaml
+            # Start with the current rule YAML (from request if provided, else from DB)
+            current_rule_yaml = current_rule_yaml_from_request or rule.rule_yaml
             max_attempts = 3
             validation_errors = []
             enriched_yaml = None

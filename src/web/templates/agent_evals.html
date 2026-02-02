@@ -920,7 +920,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">Article ID</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 120px; width: 100px; min-width: 100px; max-width: 100px;">Expected</th>';
     
-    // Add one column per config version with tooltip
+    // Add one column per config version with tooltip and export button
     configVersions.forEach(version => {
         const modelInfo = modelsByVersion[version];
         let tooltipText = 'Model info not available';
@@ -931,7 +931,12 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         
         // Escape HTML in tooltip text
         const escapedTooltip = tooltipText.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap cursor-help" title="${escapedTooltip}">v${version}</th>`;
+        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap" title="${escapedTooltip}">`;
+        html += `<div class="flex flex-col items-center gap-0.5">`;
+        html += `<div class="flex items-center gap-1">`;
+        html += `<span class="cursor-help">v${version}</span>`;
+        html += `<button type="button" onclick="exportBundlesForConfigVersion(${version})" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export bundles for all articles (v${version})">📦</button>`;
+        html += `</div></div></th>`;
     });
     
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
@@ -2159,6 +2164,32 @@ async function exportEvalBundle(executionId, agentName) {
 // Legacy function name for backward compatibility
 async function exportCmdlineEvalBundle(executionId) {
     return exportEvalBundle(executionId, 'CmdlineExtract');
+}
+
+// Export bundles for all articles for a config version (ZIP download)
+async function exportBundlesForConfigVersion(configVersion) {
+    const subagent = document.getElementById('subagentSelect')?.value || 'cmdline';
+    const url = `/api/evaluations/evals/export-bundles-by-config-version?config_version=${configVersion}&subagent=${encodeURIComponent(subagent)}`;
+    showNotification(`Exporting bundles for v${configVersion}...`, 'info');
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+        const blob = await response.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `eval_bundles_v${configVersion}_${subagent}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showNotification(`Exported bundles for v${configVersion}`, 'success');
+    } catch (error) {
+        console.error('Error exporting bundles:', error);
+        showNotification('Export failed: ' + error.message, 'error');
+    }
 }
 
 // Close modal

@@ -740,6 +740,10 @@
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
+                                            <div class="flex gap-2 mt-2">
+                                                <button type="button" onclick="saveSubAgentPreset('cmdline')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
+                                                <button type="button" onclick="showConfigPresetListForScope('cmdline')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
+                                            </div>
                                         </div>
                                         <div id="cmdlineextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
@@ -931,6 +935,10 @@
                                                     🎯 Test with Custom ArticleID
                                                 </button>
                                             </div>
+                                            <div class="flex gap-2 mt-2">
+                                                <button type="button" onclick="saveSubAgentPreset('proctree')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
+                                                <button type="button" onclick="showConfigPresetListForScope('proctree')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
+                                            </div>
                                         </div>
                                         <div id="proctreeextract-agent-prompt-container"></div>
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
@@ -1121,6 +1129,10 @@
                                                 <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('HuntQueriesExtract', id);" class="w-full px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">
                                                     🎯 Test with Custom ArticleID
                                                 </button>
+                                            </div>
+                                            <div class="flex gap-2 mt-2">
+                                                <button type="button" onclick="saveSubAgentPreset('huntqueries')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
+                                                <button type="button" onclick="showConfigPresetListForScope('huntqueries')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                                             </div>
                                         </div>
                                         <div id="huntqueriesextract-agent-prompt-container"></div>
@@ -1359,7 +1371,12 @@
                     <div id="configPresetList" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         <!-- Preset items will be populated here -->
                     </div>
-                    <div class="mt-4 flex justify-end">
+                    <div class="mt-4 flex justify-between">
+                        <div id="configPresetListImportRow" class="hidden">
+                            <label for="import-preset-input-modal" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm">Import from file</label>
+                            <input type="file" id="import-preset-input-modal" accept=".json" class="hidden" onchange="importPresetFromFile(event)">
+                        </div>
+                        <div class="flex-1"></div>
                         <button type="button" onclick="closeConfigPresetListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
                     </div>
                 </div>
@@ -2165,6 +2182,9 @@ let agentModels = {};
 const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
+let isSavingPrompt = false; // Block autoSave during prompt save to prevent overwriting
+let lastPromptSaveAt = 0; // Timestamp of last prompt save (prevents loadAgentPrompts race from overwriting)
+let lastSavedPromptAgent = null; // Agent name last saved
 
 // Early global stub to avoid inline-handler errors before full script loads
 if (typeof window !== 'undefined' && typeof window.onAgentProviderChange !== 'function') {
@@ -4046,6 +4066,8 @@ async function saveAgentPrompt(agentName) {
         showNotification('Prompt elements not found', 'error');
         return;
     }
+    isSavingPrompt = true;
+    if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
     const systemVal = promptSystemElement.value || "";
     const userVal = promptUserElement.value || "";
 
@@ -4100,14 +4122,38 @@ async function saveAgentPrompt(agentName) {
             const result = await response.json();
             console.log('Save successful:', result);
             editingPrompts[agentName] = false;
+            // Apply saved prompt immediately so UI shows latest without refetch (avoids stale data)
+            if (!agentPrompts) agentPrompts = {};
+            const savedPrompt = result.prompt !== undefined ? result.prompt : promptData.prompt;
+            const savedInstructions = result.instructions !== undefined ? result.instructions : (promptData.instructions || '');
+            agentPrompts[agentName] = {
+                ...(agentPrompts[agentName] || {}),
+                prompt: savedPrompt,
+                instructions: savedInstructions
+            };
+            if (currentConfig) {
+                if (!currentConfig.agent_prompts) currentConfig.agent_prompts = {};
+                currentConfig.agent_prompts[agentName] = agentPrompts[agentName];
+            }
+            renderAgentPrompts();
+            lastPromptSaveAt = Date.now();
+            lastSavedPromptAgent = agentName;
             console.log(`✅ Agent prompt updated successfully for ${agentName}`);
-            await loadAgentPrompts();
-            await loadConfig(true); // Reload config to get updated version (skip prompt reload since we just did it)
+            if (currentConfig) {
+                if (!currentConfig.agent_prompts) currentConfig.agent_prompts = {};
+                currentConfig.agent_prompts[agentName] = agentPrompts[agentName];
+            }
+            resetOriginalConfigStateFromCurrent();
+            updateSaveButtonState();
+            isSavingPrompt = false;
+            // Do NOT call loadConfig - it can overwrite display with stale fetched data
         } else {
+            isSavingPrompt = false;
             const error = await response.json();
             showNotification('Error updating agent prompt: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
+        isSavingPrompt = false;
         console.error('Error saving agent prompt:', error);
         showNotification('Error saving agent prompt', 'error');
     }
@@ -4265,8 +4311,24 @@ async function rollbackPrompt(agentName, versionId) {
             const result = await response.json();
             showNotification('Rolled back ' + agentName + ' successfully', 'success');
             closePromptHistoryModal();
-            await loadAgentPrompts();
-            await loadConfig(true); // Skip prompt reload since we just did it
+            // Apply rolled-back prompt immediately from response (avoids race/cache with follow-up fetches)
+            if (result.prompt !== undefined) {
+                if (!agentPrompts) agentPrompts = {};
+                agentPrompts[agentName] = {
+                    ...(agentPrompts[agentName] || {}),
+                    prompt: result.prompt,
+                    instructions: result.instructions || ''
+                };
+                if (currentConfig) {
+                    if (!currentConfig.agent_prompts) currentConfig.agent_prompts = {};
+                    currentConfig.agent_prompts[agentName] = agentPrompts[agentName];
+                }
+                lastPromptSaveAt = Date.now();
+                lastSavedPromptAgent = agentName;
+                renderAgentPrompts();
+            }
+            // Skip loadAgentPrompts - we have the prompt from the response; loadConfig syncs the rest
+            await loadConfig(true);
         } else {
             const error = await response.json();
             showNotification('Error rolling back: ' + (error.detail || 'Unknown error'), 'error');
@@ -4464,7 +4526,12 @@ async function loadConfig(skipPromptReload = false) {
     }
     
     try {
-        const response = await fetch('/api/workflow/config');
+        // When skipPromptReload is true, we're post-save/rollback: use cache-busting so we get
+        // fresh config (avoids browser cache returning pre-rollback config and reverting prompts)
+        const configUrl = skipPromptReload
+            ? '/api/workflow/config?' + new Date().getTime()
+            : '/api/workflow/config';
+        const response = await fetch(configUrl, skipPromptReload ? { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } } : {});
         if (response.ok) {
             const fetchedConfig = await response.json();
 
@@ -4475,6 +4542,12 @@ async function loadConfig(skipPromptReload = false) {
             }
 
             currentConfig = fetchedConfig;
+
+            // When skipPromptReload: agentPrompts was just updated by loadAgentPrompts() (post-save/rollback).
+            // Sync currentConfig.agent_prompts so auto-save and other logic use fresh prompt data.
+            if (skipPromptReload && agentPrompts && Object.keys(agentPrompts).length > 0) {
+                currentConfig.agent_prompts = { ...(currentConfig.agent_prompts || {}), ...agentPrompts };
+            }
 
             // Populate form fields
             if (currentConfig.ranking_threshold !== undefined) {
@@ -5798,6 +5871,11 @@ window.autoSaveConfig = async function autoSaveConfig() {
         console.log('Skipping autosave during initialization');
         return;
     }
+    // Skip autosave during prompt save - prevents overwriting freshly saved prompt
+    if (isSavingPrompt) {
+        console.log('Skipping autosave during prompt save');
+        return;
+    }
     
     // Debounce autosave to prevent too many requests
     if (autoSaveTimeout) {
@@ -6180,7 +6258,14 @@ async function loadAgentPrompts() {
         if (response.ok) {
             const data = await response.json();
             const oldPrompts = JSON.stringify(agentPrompts);
-            agentPrompts = data.prompts || {};
+            const fetched = data.prompts || {};
+            // CRITICAL: If we just saved a prompt, a stale loadAgentPrompts (from initial load) may
+            // complete after our save and overwrite with pre-save data. Preserve our saved agent.
+            if (lastSavedPromptAgent && (Date.now() - lastPromptSaveAt) < 3000) {
+                agentPrompts = { ...fetched, [lastSavedPromptAgent]: agentPrompts[lastSavedPromptAgent] };
+            } else {
+                agentPrompts = fetched;
+            }
             const newPrompts = JSON.stringify(agentPrompts);
             console.log('📥 Loaded prompts:', {
                 agent_count: Object.keys(agentPrompts).length,
@@ -7018,8 +7103,79 @@ async function handleExtractAgentToggle(agentName) {
     }
 }
 
+// Sub-agent scope mapping (extract+QA pairs)
+const SUBAGENT_SCOPE_MAP = {
+    cmdline: { extract: 'CmdlineExtract', qa: 'CmdLineQA', qaEnabledKey: 'CmdlineExtract', extractPrefix: 'cmdlineextract', qaPrefix: 'cmdlineqa' },
+    proctree: { extract: 'ProcTreeExtract', qa: 'ProcTreeQA', qaEnabledKey: 'ProcTreeExtract', extractPrefix: 'proctreeextract', qaPrefix: 'proctreeqa' },
+    huntqueries: { extract: 'HuntQueriesExtract', qa: 'HuntQueriesQA', qaEnabledKey: 'HuntQueriesExtract', extractPrefix: 'huntqueriesextract', qaPrefix: 'huntqueriesqa' }
+};
+
+const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries'];
+
+function getSubAgentPresetState(pairScope) {
+    if (!SUBAGENT_SCOPES.includes(pairScope)) {
+        throw new Error(`Invalid sub-agent scope: ${pairScope}`);
+    }
+    const map = SUBAGENT_SCOPE_MAP[pairScope];
+    const allModels = collectAllAgentConfigs();
+    const extractConfig = getAgentConfig(map.extractPrefix);
+    const qaConfig = getAgentConfig(map.qaPrefix);
+    const agent_models = {};
+    [extractConfig, qaConfig].filter(Boolean).forEach(config => {
+        if (config.providerKey && allModels[config.providerKey] !== undefined) agent_models[config.providerKey] = allModels[config.providerKey];
+        if (config.modelKey && allModels[config.modelKey] !== undefined) agent_models[config.modelKey] = allModels[config.modelKey];
+        if (config.temperatureKey && allModels[config.temperatureKey] !== undefined) agent_models[config.temperatureKey] = allModels[config.temperatureKey];
+        if (config.topPKey && allModels[config.topPKey] !== undefined) agent_models[config.topPKey] = allModels[config.topPKey];
+    });
+    const qaEnabled = {};
+    const qaCheckbox = document.getElementById(`qa-${map.extractPrefix}`);
+    if (qaCheckbox) qaEnabled[map.qaEnabledKey] = qaCheckbox.checked;
+    const promptsSource = { ...(currentConfig?.agent_prompts || {}), ...(agentPrompts || {}) };
+    const agent_prompts = {};
+    if (promptsSource[map.extract]) agent_prompts[map.extract] = promptsSource[map.extract];
+    if (promptsSource[map.qa]) agent_prompts[map.qa] = promptsSource[map.qa];
+    return {
+        version: '1.0',
+        scope: pairScope,
+        created_at: new Date().toISOString(),
+        agent_models,
+        qa_enabled: qaEnabled,
+        agent_prompts
+    };
+}
+
+function applySubAgentPreset(preset) {
+    const scope = preset.scope;
+    if (!SUBAGENT_SCOPES.includes(scope)) {
+        throw new Error(`Invalid sub-agent scope: ${scope}`);
+    }
+    const map = SUBAGENT_SCOPE_MAP[scope];
+    const agentModels = preset.agent_models || {};
+    const currentModels = collectAllAgentConfigs();
+    const mergedModels = { ...currentModels };
+    Object.keys(agentModels).forEach(k => { mergedModels[k] = agentModels[k]; });
+    applyAgentConfigs(mergedModels);
+    if (preset.qa_enabled && preset.qa_enabled[map.qaEnabledKey] !== undefined) {
+        const checkbox = document.getElementById(`qa-${map.extractPrefix}`);
+        if (checkbox) {
+            checkbox.checked = preset.qa_enabled[map.qaEnabledKey];
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+    if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
+        agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
+        renderAgentPrompts();
+    }
+    if (typeof autoSaveModelChange === 'function') autoSaveModelChange();
+    if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
+    console.log('✅ Sub-agent preset applied for ' + scope);
+}
+
 // Preset Management Functions
-function getFullPresetState() {
+function getFullPresetState(scope = null) {
+    if (scope && SUBAGENT_SCOPES.includes(scope)) {
+        return getSubAgentPresetState(scope);
+    }
     // Get all form state
     const formState = getCurrentFormState();
     
@@ -7142,36 +7298,35 @@ async function importPresetFromFile(event) {
         const text = await file.text();
         const preset = JSON.parse(text);
         
-        // Validate preset structure
-        if (!preset.version || !preset.thresholds || !preset.agent_models) {
-            throw new Error('Invalid preset format. Missing required fields.');
+        if (!preset.version) throw new Error('Invalid preset format. Missing version.');
+        if (preset.scope && SUBAGENT_SCOPES.includes(preset.scope)) {
+            if (!preset.agent_models && (!preset.agent_prompts || Object.keys(preset.agent_prompts).length === 0) && (!preset.qa_enabled || Object.keys(preset.qa_enabled).length === 0)) {
+                throw new Error('Sub-agent preset must have agent_models, agent_prompts, or qa_enabled.');
+            }
+        } else {
+            if (!preset.thresholds || !preset.agent_models) {
+                throw new Error('Invalid preset format. Missing thresholds or agent_models.');
+            }
         }
         
-        // Confirm load
-        const confirmed = confirm(
-            `Load preset "${file.name}"?\n\n` +
-            `This will replace all current settings:\n` +
-            `- Thresholds\n` +
-            `- Model selections\n` +
-            `- QA toggles\n` +
-            `- Temperature settings\n` +
-            `- Extract agent toggles\n` +
-            `- Sigma fallback setting\n` +
-            `- QA max retries\n` +
-            `- Agent prompts\n\n` +
-            `Click OK to proceed or Cancel to abort.`
-        );
+        const isSubAgent = preset.scope && SUBAGENT_SCOPES.includes(preset.scope);
+        const confirmMsg = isSubAgent
+            ? `Load ${SUBAGENT_SCOPE_MAP[preset.scope]?.extract || preset.scope} preset "${file.name}"?\n\nThis will replace only that sub-agent pair's config and prompts.`
+            : `Load preset "${file.name}"?\n\nThis will replace all current settings:\n` +
+              `- Thresholds\n- Model selections\n- QA toggles\n- Temperature settings\n` +
+              `- Extract agent toggles\n- Sigma fallback setting\n- QA max retries\n- Agent prompts\n\nClick OK to proceed or Cancel to abort.`;
         
-        if (!confirmed) {
-            event.target.value = ''; // Reset file input
+        if (!confirm(confirmMsg)) {
+            event.target.value = '';
             return;
         }
         
-        // Apply preset
         await applyPreset(preset);
         
-        // Show success message
-        showNotification('Preset "' + file.name + '" loaded successfully', 'success');
+        const successMsg = isSubAgent
+            ? `${SUBAGENT_SCOPE_MAP[preset.scope]?.extract || preset.scope} preset loaded`
+            : 'Preset "' + file.name + '" loaded successfully';
+        showNotification(successMsg, 'success');
         
         // Reset file input
         event.target.value = '';
@@ -7276,9 +7431,13 @@ async function loadConfigByVersion(versionNumber) {
     }
 }
 
-async function refreshConfigPresetList() {
+let _configPresetListScope = null;
+
+async function refreshConfigPresetList(scope = null) {
     try {
-        const response = await fetch('/api/workflow/config/preset/list');
+        _configPresetListScope = scope;
+        const url = scope ? `/api/workflow/config/preset/list?scope=${encodeURIComponent(scope)}` : '/api/workflow/config/preset/list';
+        const response = await fetch(url);
         let data;
         try {
             data = await response.json();
@@ -7290,10 +7449,17 @@ async function refreshConfigPresetList() {
             throw new Error(errorMsg);
         }
         const listEl = document.getElementById('configPresetList');
+        const titleEl = document.querySelector('#configPresetListModal h3');
+        const importRow = document.getElementById('configPresetListImportRow');
         if (!listEl) return;
+        if (titleEl) {
+            const scopeLabel = scope ? ` (${SUBAGENT_SCOPE_MAP[scope]?.extract || scope})` : '';
+            titleEl.textContent = '📋 Configuration Presets' + scopeLabel;
+        }
+        if (importRow) importRow.classList.toggle('hidden', !scope);
         listEl.innerHTML = '';
         if (!data.presets || data.presets.length === 0) {
-            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No presets saved yet.</p>';
+            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">' + (scope ? `No ${scope} presets saved yet.` : 'No presets saved yet.') + '</p>';
             return;
         }
         data.presets.forEach(p => {
@@ -7327,11 +7493,61 @@ async function refreshConfigPresetList() {
 async function showConfigPresetList() {
     try {
         pushModal('configPresetListModal', true);
-        await refreshConfigPresetList();
+        await refreshConfigPresetList(null);
     } catch (error) {
         console.error('Error showing config preset list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
         showNotification('Error loading presets: ' + errorMessage, 'error');
+    }
+}
+
+async function showConfigPresetListForScope(scope) {
+    try {
+        if (!SUBAGENT_SCOPES.includes(scope)) {
+            showNotification('Invalid sub-agent scope', 'error');
+            return;
+        }
+        pushModal('configPresetListModal', true);
+        await refreshConfigPresetList(scope);
+    } catch (error) {
+        console.error('Error showing config preset list:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        showNotification('Error loading presets: ' + errorMessage, 'error');
+    }
+}
+
+async function saveSubAgentPreset(scope) {
+    try {
+        if (!SUBAGENT_SCOPES.includes(scope)) {
+            showNotification('Invalid sub-agent scope', 'error');
+            return;
+        }
+        const preset = getFullPresetState(scope);
+        const map = SUBAGENT_SCOPE_MAP[scope];
+        const defaultName = `${map.extract.toLowerCase()}-preset-${new Date().toISOString().split('T')[0]}`;
+        const name = prompt('Enter a name for this preset:', defaultName);
+        if (!name) return;
+        const description = prompt('Enter a description (optional):') || null;
+        const response = await fetch('/api/workflow/config/preset/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description, config: preset })
+        });
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to save preset'}`);
+        }
+        if (!response.ok) {
+            const errorMsg = extractErrorMessage(data, `Failed to save preset (${response.status})`);
+            throw new Error(errorMsg);
+        }
+        showNotification(data.message || 'Sub-agent preset saved', 'success');
+    } catch (error) {
+        console.error('Error saving sub-agent preset:', error);
+        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+        showNotification('Error saving preset: ' + errorMessage, 'error');
     }
 }
 
@@ -7381,7 +7597,10 @@ async function loadConfigPresetById(presetId) {
         }
         await applyPreset(data);
         closeConfigPresetListModal();
-        showNotification('Preset loaded', 'success');
+        const msg = data.scope && SUBAGENT_SCOPES.includes(data.scope)
+            ? `${SUBAGENT_SCOPE_MAP[data.scope]?.extract || data.scope} preset loaded`
+            : 'Preset loaded';
+        showNotification(msg, 'success');
     } catch (error) {
         console.error('Error loading config preset:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -7416,6 +7635,10 @@ async function deleteConfigPreset(presetId, name) {
 
 async function applyPreset(preset) {
     try {
+        if (preset.scope && SUBAGENT_SCOPES.includes(preset.scope)) {
+            applySubAgentPreset(preset);
+            return;
+        }
         // Apply thresholds
         if (preset.thresholds) {
             const junkFilterInput = document.getElementById('junkFilterThreshold');
@@ -7645,6 +7868,8 @@ async function saveAgentPrompt2(agentName) {
         showNotification('Prompt elements not found for ' + agentName, 'error');
         return;
     }
+    isSavingPrompt = true;
+    if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
     const systemVal = promptSystemElement.value || "";
     const userVal = promptUserElement.value || "";
 
@@ -7703,13 +7928,11 @@ async function saveAgentPrompt2(agentName) {
             // CRITICAL: Exit edit mode FIRST so display mode is shown
             editingPrompts[agentName] = false;
             
-            // Update agentPrompts immediately with the saved data
-            // This ensures the UI shows fresh data even if API has slight delay
+            // Update agentPrompts from API response when available (source of truth), else from what we sent
             if (!agentPrompts) agentPrompts = {};
-            // Use the promptData we just saved (it's what was sent to API and is guaranteed correct)
             const savedPromptData = {
-                prompt: promptData.prompt,
-                instructions: promptData.instructions || '',
+                prompt: result.prompt !== undefined ? result.prompt : promptData.prompt,
+                instructions: (result.instructions !== undefined ? result.instructions : promptData.instructions) || '',
                 model: agentPrompts[agentName]?.model || 'Not configured'
             };
             // CRITICAL: Update agentPrompts with saved data BEFORE any rendering
@@ -7721,117 +7944,20 @@ async function saveAgentPrompt2(agentName) {
             // Re-render all prompts immediately with saved data (before reload)
             // This shows the saved data immediately in display mode
             renderAgentPrompts();
+            lastPromptSaveAt = Date.now();
+            lastSavedPromptAgent = agentName;
             
             // Use console.log instead of alert to avoid blocking browser automation
             console.log(`✅ Agent prompt updated successfully for ${agentName}`);
-            
-            // Reload prompts from server after a delay to ensure server has processed
-            // Use longer delay and retry logic to ensure database commit is complete
-            const savedVersion = result.version;
-            let retries = 0;
-            const maxRetries = 5;
-            const checkVersion = async () => {
-                console.log(`🔄 Reloading prompts from server after save (attempt ${retries + 1}/${maxRetries})...`);
-                const oldPrompt = agentPrompts[agentName]?.prompt || '';
-                await loadAgentPrompts();
-                const newPrompt = agentPrompts[agentName]?.prompt || '';
-                console.log('📊 Prompt before reload (length):', oldPrompt.length);
-                console.log('📊 Prompt after reload (length):', newPrompt.length);
-                console.log('📊 Prompt changed:', oldPrompt !== newPrompt);
-                
-                // Check if we got the correct version by comparing prompt content
-                // If the prompt matches what we saved, we're good
-                const promptMatches = newPrompt === promptData.prompt;
-                
-                if (promptMatches) {
-                    console.log('✅ Prompt matches saved version - reload successful');
-                    if (newPrompt) {
-                        console.log('📊 New prompt preview:', newPrompt.substring(0, 150));
-                        // Parse to verify it's correct
-                        try {
-                            const parsed = JSON.parse(newPrompt);
-                            console.log('📊 Parsed role:', parsed.role?.substring(0, 50) || 'empty');
-                            console.log('📊 Parsed user_template:', parsed.user_template?.substring(0, 50) || 'empty');
-                        } catch (e) {
-                            console.error('❌ Failed to parse prompt:', e);
-                        }
-                    }
-                    // Force re-render after reload to ensure UI updates
-                    // renderAgentPrompts() is already called in loadAgentPrompts(), but call again to be safe
-                    renderAgentPrompts();
-                    
-                    // Verify the display elements were updated
-                    setTimeout(() => {
-                        const systemDisplay = document.getElementById('cmdlineextract-prompt-system-display-2');
-                        const userDisplay = document.getElementById('cmdlineextract-prompt-user-display-2');
-                        if (systemDisplay && userDisplay) {
-                            console.log('✅ Display elements found after render');
-                            console.log('📊 System display text:', systemDisplay.textContent?.substring(0, 50) || 'empty');
-                            console.log('📊 User display text:', userDisplay.textContent?.substring(0, 50) || 'empty');
-                        } else {
-                            console.warn('⚠️ Display elements not found:', {
-                                system: !!systemDisplay,
-                                user: !!userDisplay,
-                                system_id: 'cmdlineextract-prompt-system-display-2',
-                                user_id: 'cmdlineextract-prompt-user-display-2'
-                            });
-                        }
-                    }, 100);
-                    
-                    console.log('✅ Prompts reloaded and UI updated');
-                } else if (retries < maxRetries) {
-                    retries++;
-                    console.log(`⚠️ Prompt doesn't match saved version, retrying in 500ms... (attempt ${retries}/${maxRetries})`);
-                    setTimeout(checkVersion, 500);
-                } else {
-                    console.error('❌ Failed to get updated prompt after', maxRetries, 'retries');
-                    // Still render what we have
-                    renderAgentPrompts();
-                }
-            };
-            
-            // Start checking after initial delay
-            setTimeout(checkVersion, 2000);
-            
-            // Force explicit re-render of the saved agent's container as a safety measure
-            // Use setTimeout to ensure DOM updates are complete
-            setTimeout(() => {
-                const agentMap = {
-                    'OSDetectionAgent': { container: 'os-detection-prompt-container', prefix: 'os-detection' },
-                    'RankAgent': { container: 'rank-agent-prompt-container', prefix: 'rank-agent' },
-                    'ExtractAgent': { container: 'extract-agent-prompt-container', prefix: 'extract-agent' },
-                    'SigmaAgent': { container: 'sigma-agent-prompt-container', prefix: 'sigma-agent' },
-                    'CmdlineExtract': { container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
-                    'ProcTreeExtract': { container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
-                    'HuntQueriesExtract': { container: 'huntqueriesextract-agent-prompt-container', prefix: 'huntqueriesextract-agent' },
-                    // QA Agents
-                    'CmdLineQA': { container: 'cmdlineextract-agent-qa-prompt-container', prefix: 'cmdlineextract-agent' },
-                    'ProcTreeQA': { container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' },
-                    'HuntQueriesQA': { container: 'huntqueriesextract-agent-qa-prompt-container', prefix: 'huntqueriesextract-agent' }
-                };
-
-                const agentInfo = agentMap[agentName];
-                if (agentInfo) {
-                    const agentContainer = document.getElementById(agentInfo.container);
-                    if (agentContainer) {
-                        // Double-check agentPrompts still has our data, if not restore it
-                        if (!agentPrompts[agentName] || agentPrompts[agentName].prompt !== savedPromptData.prompt) {
-                            agentPrompts[agentName] = savedPromptData;
-                        }
-                        // Force re-render with saved data
-                        agentContainer.innerHTML = renderSinglePrompt(agentName, agentPrompts[agentName], agentInfo.prefix);
-                        // Re-initialize collapsible panels
-                        setTimeout(() => {
-                            if (typeof initCollapsiblePanels === 'function') {
-                                initCollapsiblePanels(agentContainer);
-                            }
-                        }, 0);
-                    }
-                }
-            }, 50);
-
-            // Reload config to get updated version (but don't reload prompts - we already have the latest)
-            await loadConfig(true);
+            // Sync currentConfig so auto-save uses fresh data
+            if (currentConfig) {
+                if (!currentConfig.agent_prompts) currentConfig.agent_prompts = {};
+                currentConfig.agent_prompts[agentName] = savedPromptData;
+            }
+            // Do NOT call loadConfig here - it fetches config and can overwrite agentPrompts/display with stale data
+            resetOriginalConfigStateFromCurrent();
+            updateSaveButtonState();
+            isSavingPrompt = false;
             
             // Always update QA prompt (even if container is hidden) so it shows fresh data when expanded
             const qaEnabled = currentConfig?.qa_enabled || {};
@@ -7869,6 +7995,7 @@ async function saveAgentPrompt2(agentName) {
                 }
             }
         } else {
+            isSavingPrompt = false;
             let errorMessage = 'Unknown error';
             try {
             const error = await response.json();
@@ -7884,6 +8011,7 @@ async function saveAgentPrompt2(agentName) {
             console.error('Full response URL:', response.url);
         }
     } catch (error) {
+        isSavingPrompt = false;
         console.error('Error saving agent prompt:', error);
         showNotification('Error saving agent prompt: ' + (error.message || error), 'error');
     }
@@ -10910,6 +11038,23 @@ function saveYamlEdit() {
     }
 }
 
+/**
+ * Returns the current rule YAML as shown/edited in the rule preview modal.
+ * Use this before Validate, Enrich, or Similarity Search so actions use in-modal content.
+ */
+function getCurrentRuleYamlFromModal() {
+    if (isEditMode) {
+        const editor = document.getElementById('yamlEditor');
+        return editor ? editor.value : editedYaml;
+    }
+    // View mode: prefer DOM content in case editedYaml is stale
+    const codeEl = document.querySelector('#rulePreviewContent code');
+    if (codeEl && codeEl.textContent && codeEl.textContent.trim()) {
+        return codeEl.textContent;
+    }
+    return editedYaml;
+}
+
 function updateActionButtons() {
     const buttonContainer = document.getElementById('actionButtons');
     if (!buttonContainer) return;
@@ -11176,12 +11321,29 @@ async function validateRule() {
             headers['X-Gemini-API-Key'] = apiKey;
         }
         
+        // Sync and persist current modal content so validation uses edits
+        const currentYaml = getCurrentRuleYamlFromModal();
+        const rule = queue.find(r => r.id === currentRuleId);
+        if (rule && currentYaml !== rule.rule_yaml) {
+            const putRes = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rule_yaml: currentYaml })
+            });
+            if (putRes.ok) {
+                rule.rule_yaml = currentYaml;
+                editedYaml = currentYaml;
+                originalYaml = currentYaml;
+            }
+        }
+        
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/validate`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
                 provider: selectedProvider,
-                model: selectedModel
+                model: selectedModel,
+                rule_yaml: currentYaml
             })
         });
         
@@ -11844,8 +12006,8 @@ async function openEnrichModal() {
     currentEnrichedYaml = null;
     enrichIteration = 0;
     
-    // Set original rule YAML
-    document.getElementById('enrichOriginalRule').value = rule.rule_yaml;
+    // Set original rule YAML from current modal content (including unsaved edits)
+    document.getElementById('enrichOriginalRule').value = getCurrentRuleYamlFromModal();
     
     // Try to load latest saved prompt version
     let defaultSystemPrompt = `SYSTEM (GPT-5*) — Modular SIGMA Rule Validator/Polisher (7 Toggles)
@@ -12642,7 +12804,8 @@ async function enrichRule() {
             system_prompt: systemPrompt || undefined,
             provider: selectedProvider,
             model: selectedModel,
-            include_article_content: includeArticleContent
+            include_article_content: includeArticleContent,
+            current_rule_yaml: document.getElementById('enrichOriginalRule').value
         };
         
         console.log('Sending enrich request:', {
@@ -13134,6 +13297,25 @@ async function checkSimilarRulesForQueue() {
     if (!rule) {
         showNotification('Rule not found', 'error');
         return;
+    }
+    
+    // Persist current modal content so similarity search uses it
+    const currentYaml = getCurrentRuleYamlFromModal();
+    if (currentYaml !== rule.rule_yaml) {
+        try {
+            const putResponse = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rule_yaml: currentYaml })
+            });
+            if (putResponse.ok) {
+                rule.rule_yaml = currentYaml;
+                editedYaml = currentYaml;
+                originalYaml = currentYaml;
+            }
+        } catch (e) {
+            console.warn('Failed to save rule before similarity search:', e);
+        }
     }
     
     currentQueueRule = rule;

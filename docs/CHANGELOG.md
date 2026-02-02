@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docs and tests updated: AGENTS.md, api.md, DO_NOT.md, TECHNICAL_READOUT, SIGMA_DETECTION_RULES, MANUAL_CHECKLIST, skip reasons
 
 ### Fixed
+- **Agent prompt save display reverting** (2026-02-02): Saved agent prompts (all agents/sub-agents) could revert to the previous version in the UI until the user rolled back to "latest." Root cause: `loadAgentPrompts` (from initial `loadConfig`) could complete after a save and overwrite `agentPrompts` with stale data. Fix: track `lastPromptSaveAt` and `lastSavedPromptAgent`; when `loadAgentPrompts` completes within 3s of a save, preserve the saved agent's data instead of overwriting.
 - **Agent Evals MAE chart left y-axis label** (2026-02-01): "Normalized MAE (nMAE)" label stayed off-screen unless scrolled fully left. Added a sticky left column so the label remains visible when the chart is scrolled horizontally.
 - **sources.yaml parse error** (2026-01-29): Fixed YAML indentation for `sekoia_io_blog` list item (was 3 spaces under `sources`, causing "expected block end, but found block sequence start" at line 452)
 - **Retraining Complete panel broken data elements** (2026-01-28): GET `/api/model/retrain-status` used `latest_version.training_samples` (AttributeError—model has `training_data_size`). Fixed: use `training_data_size`; derive `evaluation_metrics` from `eval_confusion_matrix`; write minimal `training_samples`/`feedback_samples`/`annotation_samples` when DB enrichment fails.
