@@ -2,27 +2,27 @@
 
 Observables are the structured outputs of the Extract Agent. They represent the huntable behaviors that downstream Sigma generation and similarity matching consume.
 
-## Types emitted
-- `cmdline`: command-line strings with arguments
-- `process_lineage`: parent/child process chains
-- `registry_keys`: persistence and configuration keys
-- `sigma_queries`: Sigma-like query fragments pulled directly from the article
-- `event_ids`: Windows Event IDs and related log channels
+## Types emitted (active sub-agents)
+- `cmdline`: command-line strings with arguments (CmdlineExtract)
+- `process_lineage`: parent/child process chains (ProcTreeExtract)
+- `sigma_queries` / `hunt_queries`: EDR and Sigma-style query fragments (HuntQueriesExtract)
+
+*Deprecated (no longer extracted): `registry_keys`, `event_ids` — RegExtract and EventCodeExtract have been removed.*
 
 ## Data shape
 `agentic_workflow_executions.extraction_result` stores merged observables and per-agent details:
 ```json
 {
-  "discrete_huntables_count": 4,
+  "discrete_huntables_count": 2,
   "observables": [
     {"type": "cmdline", "value": "e.exe -d=\"E:\\\"", "source": "supervisor_aggregation"},
-    {"type": "event_ids", "value": "Security 4688", "source": "supervisor_aggregation"}
+    {"type": "sigma_queries", "value": "DeviceProcessEvents | where ...", "source": "supervisor_aggregation"}
   ],
   "subresults": {
     "cmdline": {"items": ["e.exe -d=\"E:\\\""], "count": 1, "raw": {"cmdline_items": ["..."], "qa_corrections": {}}},
-    "event_ids": {"items": ["Security 4688"], "count": 1}
+    "hunt_queries": {"items": ["DeviceProcessEvents | where ..."], "count": 1}
   },
-  "content": "- e.exe -d=\"E:\\\"\n- Security 4688",
+  "content": "- e.exe -d=\"E:\\\"\n- DeviceProcessEvents | where ...",
   "summary": {"source_url": "https://...", "platforms_detected": ["Windows"]}
 }
 ```

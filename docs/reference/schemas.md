@@ -18,7 +18,7 @@ Primary fields exposed by `GET /api/workflow/executions/{id}`:
 - `config_snapshot`: JSON of workflow settings at trigger time
 - `started_at`, `completed_at`, `created_at`, `updated_at`
 - `error_message`, `error_log`, `termination_reason`, `termination_details`
-- `extraction_counts`: derived per-agent counts (`cmdline`, `process_lineage`, `registry_keys`, `sigma_queries`, `event_ids`)
+- `extraction_counts`: derived per-agent counts (`cmdline`, `process_lineage`, `sigma_queries`/`hunt_queries`; legacy: `registry_keys`, `event_ids` from deprecated RegExtract/EventCodeExtract)
 
 Detail payloads:
 - `junk_filter_result`: filtering decisions before ranking

@@ -1,6 +1,6 @@
 # Huntables
 
-Huntables are repeatable, telemetry-rich observables extracted from CTI content (e.g. command lines, process chains, registry paths, Sigma-style queries, Windows Event IDs, etc) that can drive detections. They are tracked at two levels:
+Huntables are repeatable, telemetry-rich observables extracted from CTI content (e.g. command lines, process chains, Sigma-style queries, EDR query patterns) that can drive detections. They are tracked at two levels:
 - **Extraction results**: `discrete_huntables_count`, typed `observables`, and `subresults` are stored on each workflow execution.
 - **Article metadata**: Regex-based `threat_hunting_score` and ML-based `ml_hunt_score` describe how “huntable” an article is before and after chunk analysis.
 
@@ -8,8 +8,8 @@ Huntables are repeatable, telemetry-rich observables extracted from CTI content 
 For the purposes of this application, "huntables" are distinct from the more industry standard term "observables" in that "huntables" are tailored to your workflow as you train the machine learning model used for junk filtering and as you tune your agent prompts. Out of the box in the Callisto release, huntables are:
 
 - Structured process and command-line patterns (cmd.exe, powershell patterns, LOLBAS usage)
-- Registry keys and persistence paths
 - Process lineage / parent-child chains with arguments
+- EDR and Sigma-style detection queries
 - Behavior patterns more than single IOCs (IPs/hashes are not scored as huntable by themselves)
 
 ## Scoring signals

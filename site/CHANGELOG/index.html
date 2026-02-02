@@ -3095,14 +3095,15 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h3 id="added_1">Added</h3>
 <ul>
 <li><strong>Cmdline Attention Preprocessor documentation</strong> (2026-02-02): New feature doc and workflow diagram updates</li>
-<li><code>docs/features/CMDLINE_ATTENTION_PREPROCESSOR.md</code>: Configuration, anchor types, long-line handling, execution visibility</li>
-<li><code>docs/concepts/agents.md</code>: CmdlineExtract section links to preprocessor doc</li>
-<li><code>docs/howto/extract_observables.md</code>: Section on preprocessor toggle</li>
-<li><code>docs/concepts/pipelines.md</code>: Workflow diagrams updated (Step 3 CmdlineExtract box, detailed sub-agent flow, execution order)</li>
-<li><code>mkdocs.yml</code>: Nav entry under Features</li>
 </ul>
 <h3 id="changed_1">Changed</h3>
 <ul>
+<li><strong>Docs: deprecated agent references</strong> (2026-02-02): Removed/updated references to RegExtract, EventCodeExtract, SigExtract</li>
+<li>observables.md: Active types only (cmdline, process_lineage, hunt_queries); deprecated registry_keys, event_ids noted</li>
+<li>index.md, huntables.md: Extract Agent list updated (no registry, event IDs)</li>
+<li>schemas.md: extraction_counts clarified with legacy note</li>
+<li>WORKFLOW_DATA_FLOW.md: subresults example and diagram updated to active sub-agents only</li>
+<li>architecture.md: EventID → Event ID (scoring keyword)</li>
 <li><strong>Documentation true-up</strong> (2026-02-02): Aligned docs with current architecture and removed features</li>
 <li>README, index, quickstart: 7-step agentic workflow (OS Detection first), 6 services, no LangGraph server</li>
 <li>Callisto.md: 6 services (postgres, redis, web, worker, workflow_worker, scheduler); removed langgraph-server, ollama; workflow runs in Celery</li>

@@ -10,7 +10,7 @@ Huntable CTI Studio (CTIScraper) collects threat intelligence, extracts huntable
 
 ## Highlights
 - **Multi-source aggregation**: RSS feeds, direct scrape endpoints, and browser extension inputs feed the pipeline.
-- **Agentic workflow**: OS detection (Windows-only) → junk filter → LLM ranking → Extract Agent (command-line, registry, process tree, event IDs, Sigma query patterns) → Sigma generation → similarity search → queue.
+- **Agentic workflow**: OS detection (Windows-only) → junk filter → LLM ranking → Extract Agent (command-line, process tree, hunt queries) → Sigma generation → similarity search → queue.
 - **Storage & services**: FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler.
 - **Detection support**: PySigma validation, SigmaHQ similarity matching, and coverage classification with embeddings.
 - **Chat & search**: RAG-powered search across collected intelligence, plus observable-aware annotations.

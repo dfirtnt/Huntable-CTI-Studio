@@ -61,13 +61,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
-  - `docs/features/CMDLINE_ATTENTION_PREPROCESSOR.md`: Configuration, anchor types, long-line handling, execution visibility
-  - `docs/concepts/agents.md`: CmdlineExtract section links to preprocessor doc
-  - `docs/howto/extract_observables.md`: Section on preprocessor toggle
-  - `docs/concepts/pipelines.md`: Workflow diagrams updated (Step 3 CmdlineExtract box, detailed sub-agent flow, execution order)
-  - `mkdocs.yml`: Nav entry under Features
 
 ### Changed
+- **Docs: deprecated agent references** (2026-02-02): Removed/updated references to RegExtract, EventCodeExtract, SigExtract
+  - observables.md: Active types only (cmdline, process_lineage, hunt_queries); deprecated registry_keys, event_ids noted
+  - index.md, huntables.md: Extract Agent list updated (no registry, event IDs)
+  - schemas.md: extraction_counts clarified with legacy note
+  - WORKFLOW_DATA_FLOW.md: subresults example and diagram updated to active sub-agents only
+  - architecture.md: EventID → Event ID (scoring keyword)
 - **Documentation true-up** (2026-02-02): Aligned docs with current architecture and removed features
   - README, index, quickstart: 7-step agentic workflow (OS Detection first), 6 services, no LangGraph server
   - Callisto.md: 6 services (postgres, redis, web, worker, workflow_worker, scheduler); removed langgraph-server, ollama; workflow runs in Celery
