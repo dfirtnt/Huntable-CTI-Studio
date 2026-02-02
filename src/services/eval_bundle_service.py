@@ -250,6 +250,21 @@ class EvalBundleService:
         if execution_context:
             bundle["execution_context"] = execution_context
 
+        # INVARIANT: messages==[] AND status==completed is illegal — mark as infra_failed
+        llm_messages = llm_request.get("messages") if isinstance(llm_request, dict) else []
+        exec_status = execution_context.get("status", "") if isinstance(execution_context, dict) else ""
+        if (
+            (not llm_messages or (isinstance(llm_messages, list) and len(llm_messages) == 0))
+            and exec_status == "completed"
+        ):
+            warnings.append("ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED")
+            if execution_context is None:
+                execution_context = {}
+            execution_context["infra_failed"] = True
+            execution_context["infra_failed_reason"] = "messages empty but execution marked completed"
+            bundle["execution_context"] = execution_context
+            bundle["infra_failed"] = True  # Top-level for scoring consumers
+
         # Add config snapshot
         if config_snapshot:
             bundle["config_snapshot"] = config_snapshot

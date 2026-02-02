@@ -1,6 +1,6 @@
 """Unit tests for cmdline_attention_preprocessor."""
 
-from src.services.cmdline_attention_preprocessor import process
+from src.services.cmdline_attention_preprocessor import process, _expand_to_boundary
 
 
 def test_empty_article():
@@ -196,6 +196,34 @@ def test_narrative_exe_process_no_match():
     text = ".exe child process have been commonly observed. MSBuild.exe process reached out to Pastebin."
     result = process(text)
     assert len(result["high_likelihood_snippets"]) == 0
+
+
+def test_cmdline_extract_byte_preserving_no_sentence_split():
+    """CmdlineExtract: no split on period; newline boundaries only (HARD CONTRACT)."""
+    # Long line with period mid-sentence - should NOT split on period when agent=CmdlineExtract
+    text = "x" * 300 + ". " + "y" * 300 + "\nThe attacker ran certutil -urlcache to download."
+    result_default = process(text)  # agent_name=None
+    result_cmdline = process(text, agent_name="CmdlineExtract")
+    # With CmdlineExtract, we use full-line capture for long lines (byte_preserving)
+    # so we get the full matching line, not sentence-split parts
+    assert len(result_cmdline["high_likelihood_snippets"]) >= 1
+    snippet = result_cmdline["high_likelihood_snippets"][0]
+    # Must contain newline (we capture ±1 lines)
+    assert "\n" in snippet or "certutil" in snippet
+    # full_article unchanged
+    assert result_cmdline["full_article"] == text
+
+
+def test_expand_to_boundary_newline_only():
+    """_expand_to_boundary with newline_only=True uses newline boundaries only, not period."""
+    full_line = "prefix. match. suffix"
+    start_off, end_off = 8, 13  # "match"
+    result_newline = _expand_to_boundary(full_line, start_off, end_off, newline_only=True)
+    result_sentence = _expand_to_boundary(full_line, start_off, end_off, newline_only=False)
+    # newline_only=True: no \n in line, so full line returned (no period split)
+    assert result_newline == "prefix. match. suffix"
+    # newline_only=False: SENTENCE_SPLIT splits on ". ", yielding "match." (period included)
+    assert result_sentence == "match."
 
 
 def test_long_line_multiple_snippets():

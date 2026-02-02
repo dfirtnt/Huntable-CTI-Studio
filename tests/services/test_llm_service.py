@@ -4,10 +4,31 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from typing import Dict, Any
 
-from src.services.llm_service import LLMService
+from src.services.llm_service import (
+    LLMService,
+    PreprocessInvariantError,
+    _validate_preprocess_invariants,
+    MIN_USER_CONTENT_CHARS,
+)
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture
+def llm_service():
+    """Create LLMService instance for tests that need it (e.g. run_extraction_agent)."""
+    config_models = {
+        "RankAgent": "gpt-4",
+        "RankAgent_provider": "openai",
+        "ExtractAgent": "gpt-4",
+        "ExtractAgent_provider": "openai",
+        "SigmaAgent": "gpt-4",
+        "SigmaAgent_provider": "openai",
+    }
+    with patch("src.services.llm_service.DatabaseManager") as mock_db:
+        mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
+        return LLMService(config_models=config_models)
 
 
 class TestLLMService:
@@ -183,6 +204,20 @@ class TestLLMService:
                     failure_context="test_request_chat_error_handling"
                 )
 
+    @pytest.mark.asyncio
+    async def test_request_chat_empty_messages_raises_preprocess_invariant_error(self, service):
+        """Circuit breaker: request_chat must never invoke LLM with empty messages."""
+        with pytest.raises(PreprocessInvariantError, match="empty messages"):
+            await service.request_chat(
+                provider="lmstudio",
+                model_name="test-model",
+                messages=[],
+                max_tokens=1000,
+                temperature=0.7,
+                timeout=30.0,
+                failure_context="test_empty_messages",
+            )
+
     def test_truncate_content(self, service):
         """Test content truncation for context limits."""
         long_content = "x" * 10000
@@ -240,3 +275,202 @@ class TestLLMService:
             assert 'context_length' in result
             assert 'is_sufficient' in result
             assert result['is_sufficient'] is True
+
+
+class TestPreprocessInvariantGuard:
+    """Fail-fast guard: refuse to call LLM with empty/malformed request."""
+
+    def test_empty_messages_raises(self):
+        """Empty messages list must raise PreprocessInvariantError."""
+        with pytest.raises(PreprocessInvariantError, match="non-empty list"):
+            _validate_preprocess_invariants(
+                [],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+            )
+
+    def test_missing_system_message_raises(self):
+        """Messages without system role must raise."""
+        with pytest.raises(PreprocessInvariantError, match="system message"):
+            _validate_preprocess_invariants(
+                [{"role": "user", "content": "x" * (MIN_USER_CONTENT_CHARS + 1) + "\nContent:\nArticle here"}],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+            )
+
+    def test_missing_user_message_raises(self):
+        """Messages without user role must raise."""
+        with pytest.raises(PreprocessInvariantError, match="user message"):
+            _validate_preprocess_invariants(
+                [{"role": "system", "content": "You are an extractor."}],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+            )
+
+    def test_short_user_content_raises(self):
+        """User message below MIN_USER_CONTENT_CHARS must raise."""
+        short_content = "x" * 100 + "\nContent:\nShort"
+        with pytest.raises(PreprocessInvariantError, match="below minimum"):
+            _validate_preprocess_invariants(
+                [
+                    {"role": "system", "content": "You are an extractor."},
+                    {"role": "user", "content": short_content},
+                ],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+            )
+
+    def test_whitespace_only_user_content_raises(self):
+        """User message with only whitespace must raise (fails length or empty check)."""
+        with pytest.raises(PreprocessInvariantError, match="(empty or whitespace|below minimum)"):
+            _validate_preprocess_invariants(
+                [
+                    {"role": "system", "content": "You are an extractor."},
+                    {"role": "user", "content": "   \n\t  " * 200},
+                ],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+            )
+
+    def test_cmdline_missing_content_delimiter_raises(self):
+        """CmdlineExtract user message must contain 'Content:' delimiter."""
+        long_no_content = "x" * (MIN_USER_CONTENT_CHARS + 1)
+        with pytest.raises(PreprocessInvariantError, match="Content:"):
+            _validate_preprocess_invariants(
+                [
+                    {"role": "system", "content": "You are an extractor."},
+                    {"role": "user", "content": long_no_content},
+                ],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+            )
+
+    def test_valid_messages_pass(self):
+        """Valid messages with Content: and sufficient length pass."""
+        valid_content = "x" * (MIN_USER_CONTENT_CHARS + 1) + "\nContent:\nArticle text here."
+        _validate_preprocess_invariants(
+            [
+                {"role": "system", "content": "You are an extractor."},
+                {"role": "user", "content": valid_content},
+            ],
+            agent_name="CmdlineExtract",
+            content_sha256="abc123",
+            attention_preprocessor_enabled=True,
+        )
+
+    def test_preprocess_invariant_error_has_debug_artifacts(self):
+        """PreprocessInvariantError must include debug_artifacts."""
+        try:
+            _validate_preprocess_invariants(
+                [],
+                agent_name="CmdlineExtract",
+                content_sha256="abc123",
+                attention_preprocessor_enabled=True,
+                user_prompt="preview",
+            )
+        except PreprocessInvariantError as e:
+            assert e.debug_artifacts is not None
+            assert e.debug_artifacts.get("agent_name") == "CmdlineExtract"
+            assert e.debug_artifacts.get("content_sha256") == "abc123"
+            assert "user_prompt_sha256" in e.debug_artifacts
+            assert "user_prompt_preview" in e.debug_artifacts
+
+
+class TestNewlineInvariantGuard:
+    """Mechanical invariant: preprocessed newline count must match original (±1)."""
+
+    @pytest.mark.asyncio
+    async def test_newline_mismatch_raises_preprocess_invariant_error(self, llm_service):
+        """When preprocessor returns full_article with wrong newline count, raise PreprocessInvariantError."""
+        content = "line1\nline2\nline3"  # 2 newlines
+        bad_full_article = "line1\nline2\nline3\n\n\nline4"  # 5 newlines (violation: |5-2| > 1)
+
+        with patch("src.services.cmdline_attention_preprocessor.process") as mock_process:
+            mock_process.return_value = {
+                "high_likelihood_snippets": [],
+                "full_article": bad_full_article,
+            }
+            with pytest.raises(PreprocessInvariantError, match="newline count mismatch"):
+                await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config={
+                        "role": "You are an extractor.",
+                        "user_template": "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\nJSON: {json_example}\nInstructions: {instructions}",
+                        "task": "Extract",
+                        "instructions": "Output JSON",
+                        "json_example": "{}",
+                    },
+                    attention_preprocessor_enabled=True,
+                )
+
+    @pytest.mark.asyncio
+    async def test_newline_match_within_tolerance_passes(self, llm_service):
+        """When preprocessor preserves newlines (or ±1), extraction proceeds."""
+        # Pad to meet MIN_USER_CONTENT_CHARS; preserve 2 newlines for invariant
+        content = "line1\nline2\nline3\n" + "x" * (MIN_USER_CONTENT_CHARS - 20)
+        with patch("src.services.cmdline_attention_preprocessor.process") as mock_process:
+            mock_process.return_value = {
+                "high_likelihood_snippets": [],
+                "full_article": content,  # exact newline match
+            }
+            with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {
+                    "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                    "usage": {},
+                }
+                result = await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config={
+                        "role": "You are an extractor.",
+                        "user_template": "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\nJSON: {json_example}\nInstructions: {instructions}",
+                        "task": "Extract",
+                        "instructions": "Output JSON",
+                        "json_example": "{}",
+                    },
+                    attention_preprocessor_enabled=True,
+                )
+                assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_newline_invariant_within_plus_minus_one_passes(self, llm_service):
+        """When preprocessor adds/removes at most 1 newline (±1), invariant passes."""
+        # orig: 2 newlines; prep: 3 newlines -> |3-2|=1, within tolerance
+        content = "line1\nline2\nline3" + "x" * (MIN_USER_CONTENT_CHARS - 20)  # 2 newlines
+        full_article = "line1\nline2\nline3\n" + "x" * (MIN_USER_CONTENT_CHARS - 21)  # 3 newlines
+        with patch("src.services.cmdline_attention_preprocessor.process") as mock_process:
+            mock_process.return_value = {
+                "high_likelihood_snippets": [],
+                "full_article": full_article,
+            }
+            with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {
+                    "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                    "usage": {},
+                }
+                result = await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config={
+                        "role": "You are an extractor.",
+                        "user_template": "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\nJSON: {json_example}\nInstructions: {instructions}",
+                        "task": "Extract",
+                        "instructions": "Output JSON",
+                        "json_example": "{}",
+                    },
+                    attention_preprocessor_enabled=True,
+                )
+                assert "items" in result

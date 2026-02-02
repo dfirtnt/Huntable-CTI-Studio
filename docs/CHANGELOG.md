@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Infra guard: last-line circuit breaker and bundle illegal-state detection** (2026-02-02): Enforce invariant that LLM is never invoked with empty messages
+  - Circuit breaker in `request_chat` and defense-in-depth in `_call_openai_chat`, `_call_anthropic_chat`, `_post_lmstudio_chat`
+  - Bundle builder: when `messages==[]` and `status==completed`, set `infra_failed=True` and `ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED` warning
+  - `PreprocessInvariantError` classified as `infra_failed` in eval_runner, agentic_workflow, langfuse_eval_client
+  - Eval bundle unit tests: illegal state positive/negative cases (`test_eval_bundle_service.py`)
 - **Workflow Executions table sorting and filtering** (2026-02-02): Sortable column headers (ID, Article, Status, Current Step, Ranking Score, Created); step filter dropdown; article ID filter with Apply button; API params `sort_by`, `sort_order`, `step`; API and UI tests
 - **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)
 - **Cursor rule: Agent config test confirmation** (2026-02-02): New rule `.cursor/rules/agent-config-test-confirmation.mdc` requiring explicit user approval before running or creating tests that mutate active agent configs

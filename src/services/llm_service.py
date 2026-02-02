@@ -5,6 +5,7 @@ Provides LLM-based ranking and extraction for agentic workflow.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -22,6 +23,96 @@ from src.database.models import AppSettingsTable
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 
 logger = logging.getLogger(__name__)
+
+# Minimum user message length (chars) to avoid empty/malformed prompts
+MIN_USER_CONTENT_CHARS = 500
+DEBUG_ARTIFACT_PREVIEW_CHARS = 2048
+
+
+class PreprocessInvariantError(Exception):
+    """
+    Raised when pre-inference invariants fail (empty/malformed messages).
+    Classify as infra_failed, not model failure. Do NOT emit llm_response.
+    """
+
+    def __init__(self, message: str, debug_artifacts: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.debug_artifacts = debug_artifacts or {}
+
+
+def _validate_preprocess_invariants(
+    messages: list[dict[str, Any]],
+    *,
+    agent_name: str,
+    content_sha256: str,
+    attention_preprocessor_enabled: bool,
+    execution_id: int | None = None,
+    user_prompt: str = "",
+) -> None:
+    """
+    Fail-fast guard: ensure LLM is never called with empty/malformed request.
+    Raises PreprocessInvariantError with debug artifacts on failure.
+    """
+    artifacts: dict[str, Any] = {
+        "agent_name": agent_name,
+        "content_sha256": content_sha256,
+        "attention_preprocessor_enabled": attention_preprocessor_enabled,
+        "execution_id": execution_id,
+    }
+    if user_prompt:
+        artifacts["user_prompt_sha256"] = hashlib.sha256(user_prompt.encode("utf-8")).hexdigest()
+        artifacts["user_prompt_preview"] = user_prompt[:DEBUG_ARTIFACT_PREVIEW_CHARS]
+
+    if not messages or not isinstance(messages, list):
+        raise PreprocessInvariantError(
+            f"{agent_name}: messages must be a non-empty list, got {type(messages).__name__}",
+            debug_artifacts=artifacts,
+        )
+
+    roles = {m.get("role") for m in messages if isinstance(m, dict)}
+    if "system" not in roles:
+        raise PreprocessInvariantError(
+            f"{agent_name}: messages must contain a system message, got roles={roles}",
+            debug_artifacts=artifacts,
+        )
+    if "user" not in roles:
+        raise PreprocessInvariantError(
+            f"{agent_name}: messages must contain a user message, got roles={roles}",
+            debug_artifacts=artifacts,
+        )
+
+    user_msg = next((m for m in messages if isinstance(m, dict) and m.get("role") == "user"), None)
+    if not user_msg:
+        raise PreprocessInvariantError(
+            f"{agent_name}: user message not found in messages",
+            debug_artifacts=artifacts,
+        )
+
+    user_content = user_msg.get("content", "")
+    if isinstance(user_content, list):
+        user_content = " ".join(
+            c.get("text", str(c)) for c in user_content if isinstance(c, dict)
+        )
+    user_content = str(user_content or "").strip()
+
+    if len(user_content) < MIN_USER_CONTENT_CHARS:
+        raise PreprocessInvariantError(
+            f"{agent_name}: user message content length ({len(user_content)}) below minimum ({MIN_USER_CONTENT_CHARS})",
+            debug_artifacts=artifacts,
+        )
+    if not user_content:
+        raise PreprocessInvariantError(
+            f"{agent_name}: user message content is empty or whitespace-only",
+            debug_artifacts=artifacts,
+        )
+
+    # Require article content marker when template uses it (CmdlineExtract: "Content:")
+    if agent_name == "CmdlineExtract" and "Content:" not in user_content:
+        raise PreprocessInvariantError(
+            f"{agent_name}: user message must contain 'Content:' delimiter (article content marker)",
+            debug_artifacts=artifacts,
+        )
+
 
 # LM Studio context limits (default to 32768 for reasoning models, 4096 for others)
 # Reasoning models need large context windows for both reasoning and output
@@ -737,6 +828,17 @@ class LLMService:
         seed: int | None = None,
         cancellation_event: asyncio.Event | None = None,
     ) -> dict[str, Any]:
+        # LAST-LINE CIRCUIT BREAKER: panic button — never invoke model with empty messages
+        if not messages or (isinstance(messages, list) and len(messages) == 0):
+            raise PreprocessInvariantError(
+                f"LLM called with empty messages (failure_context={failure_context})",
+                debug_artifacts={
+                    "failure_context": failure_context,
+                    "provider": provider,
+                    "model_name": model_name,
+                },
+            )
+
         provider = self._canonicalize_provider(provider)
         logger.debug(f"request_chat called with provider={provider}, model_name={model_name}")
         self._validate_provider(provider)
@@ -805,6 +907,9 @@ class LLMService:
     async def _call_openai_chat(
         self, *, messages: list, model_name: str, temperature: float, max_tokens: int, timeout: float
     ) -> dict[str, Any]:
+        # Defense-in-depth: circuit breaker at HTTP boundary
+        if not messages or (isinstance(messages, list) and len(messages) == 0):
+            raise PreprocessInvariantError("LLM invoked with empty messages (OpenAI path)")
         if not self.openai_api_key:
             raise RuntimeError("OpenAI API key not configured for agentic workflows.")
 
@@ -834,6 +939,9 @@ class LLMService:
     async def _call_anthropic_chat(
         self, *, messages: list, model_name: str, temperature: float, max_tokens: int, timeout: float
     ) -> dict[str, Any]:
+        # Defense-in-depth: circuit breaker at HTTP boundary
+        if not messages or (isinstance(messages, list) and len(messages) == 0):
+            raise PreprocessInvariantError("LLM invoked with empty messages (Anthropic path)")
         if not self.anthropic_api_key:
             raise RuntimeError("Anthropic API key not configured for agentic workflows.")
 
@@ -990,6 +1098,13 @@ class LLMService:
             RuntimeError: If all LMStudio URL candidates fail
             httpx.TimeoutException: If request times out
         """
+        # Defense-in-depth: circuit breaker at HTTP boundary
+        payload_messages = payload.get("messages", []) if isinstance(payload, dict) else []
+        if not payload_messages or (isinstance(payload_messages, list) and len(payload_messages) == 0):
+            raise PreprocessInvariantError(
+                f"LLM invoked with empty messages (LMStudio path, failure_context={failure_context})"
+            )
+
         lmstudio_urls = self._lmstudio_url_candidates()
         last_error_detail = ""
 
@@ -2866,11 +2981,27 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 if agent_name == "CmdlineExtract" and attention_preprocessor_enabled:
                     from src.services.cmdline_attention_preprocessor import process as preprocess_cmdline_attention
 
-                    preprocess_result = preprocess_cmdline_attention(content)
+                    preprocess_result = preprocess_cmdline_attention(content, agent_name=agent_name)
                     snippets = preprocess_result.get("high_likelihood_snippets", [])
                     snippet_count = len(snippets)
                     full_article = preprocess_result.get("full_article", content)
                     logger.debug(f"Cmdline attention preprocessor enabled: True. Snippets found: {snippet_count}")
+
+                    # Cheap mechanical invariant: byte-preserving preprocessor must not alter newline count
+                    orig_nl = content.count("\n")
+                    prep_nl = full_article.count("\n")
+                    if abs(prep_nl - orig_nl) > 1:
+                        raise PreprocessInvariantError(
+                            f"{agent_name}: newline count mismatch (preprocessed={prep_nl}, original={orig_nl})",
+                            debug_artifacts={
+                                "agent_name": agent_name,
+                                "content_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                                "attention_preprocessor_enabled": True,
+                                "execution_id": execution_id,
+                                "orig_newline_count": orig_nl,
+                                "prep_newline_count": prep_nl,
+                            },
+                        )
 
                     snippets_section = "\n\n".join(snippets) if snippets else ""
                     snippets_header = "=== HIGH-LIKELIHOOD COMMAND SNIPPETS ===\n"
@@ -2972,6 +3103,17 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                 system_content = prompt_config.get("role", "You are a detection engineer.")
 
                 messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
+
+                # Fail-fast: never call model with empty/malformed request
+                content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                _validate_preprocess_invariants(
+                    messages,
+                    agent_name=agent_name,
+                    content_sha256=content_sha256,
+                    attention_preprocessor_enabled=attention_preprocessor_enabled,
+                    execution_id=execution_id,
+                    user_prompt=user_prompt,
+                )
 
                 converted_messages = self._convert_messages_for_model(messages, model_name)
 
@@ -3722,6 +3864,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 )
                 # Continue loop
 
+            except PreprocessInvariantError:
+                raise  # Fail-fast: do not retry infra invariants
             except Exception as e:
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
                 # If it's a connection error and we're on the last attempt, include error in result
