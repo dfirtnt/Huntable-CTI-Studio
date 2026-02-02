@@ -125,7 +125,7 @@ def test_snippets_preserve_article_order():
 
 
 def test_prose_only_article_with_late_command():
-    """Article-62-class: long prose with command embedded late."""
+    """Article-602-class: long prose with command embedded late."""
     prose = "This is a long intrusion report. " * 20
     command_line = "The attacker then ran certutil -urlcache to download the payload."
     text = prose + "\n\n" + command_line
@@ -187,6 +187,13 @@ def test_rule5_two_or_more_windows_paths():
 def test_narrative_exe_no_match():
     """Narrative .exe mention (e.g. GT_NET.exe (Grixba)) should NOT match - no invocation shape."""
     text = "The binary GT_NET.exe (Grixba) was used by the attacker."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) == 0
+
+
+def test_narrative_exe_process_no_match():
+    """MSBuild.exe process reached out - narrative verb 'process' should NOT match."""
+    text = ".exe child process have been commonly observed. MSBuild.exe process reached out to Pastebin."
     result = process(text)
     assert len(result["high_likelihood_snippets"]) == 0
 

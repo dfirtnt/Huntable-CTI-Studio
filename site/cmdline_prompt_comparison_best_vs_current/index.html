@@ -1956,7 +1956,7 @@
 <p><strong>Script:</strong> scripts/apply_cmdline_prompt_tweak_and_eval.py — GET config, apply edit, PUT, run cmdline eval, wait, print nMAE. Run with app + Celery up: .venv/bin/python3 scripts/apply_cmdline_prompt_tweak_and_eval.py [--base-url URL]</p>
 <hr />
 <h2 id="failure-bundle-analysis-under_5113-over_5105">Failure bundle analysis (under_5113, over_5105)</h2>
-<p><strong>Under-extraction (exec 5113, article_id 62):</strong> expected 7, actual 6.</p>
+<p><strong>Under-extraction (exec 5113, article_id 602):</strong> expected 7, actual 6.</p>
 <ul>
 <li>Model extracted: Get-ADComputer (PowerShell), nltest /domain_trusts, nltest /dclist:, net group "Domain Admins" /domain, two WinRAR commands (x and a).</li>
 <li><strong>Likely missed:</strong> One literal command (e.g. net user for local account, Adfind -subnets, or a command inside a script block that appears on one line). Article 62 is a long intrusion report; the 7th may be embedded in prose or a code block the model treated as multi-line/enumeration.</li>
