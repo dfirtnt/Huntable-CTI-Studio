@@ -189,7 +189,7 @@ Keyword Categories:
 │                 │    │                 │    │                 │
 │ • rundll32      │    │ • temp          │    │ • certutil      │
 │ • powershell.exe│    │ • ==            │    │ • cmd           │
-│ • EventID       │    │ • c:\windows\   │    │ • schtasks      │
+│ • Event ID      │    │ • c:\windows\   │    │ • schtasks      │
 │ • .lnk          │    │ • .bat          │    │ • wmic          │
 │ • MZ            │    │ • .ps1          │    │ • bitsadmin     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘

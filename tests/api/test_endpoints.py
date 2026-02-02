@@ -203,11 +203,12 @@ class TestWorkflowConfig:
         response = await async_client.get("/api/workflow/config")
         assert response.status_code == 200
         data = response.json()
-        for key in ("agent_models", "qa_enabled", "sigma_fallback_enabled", "qa_max_retries"):
+        for key in ("agent_models", "qa_enabled", "sigma_fallback_enabled", "qa_max_retries", "cmdline_attention_preprocessor_enabled"):
             assert key in data
         assert isinstance(data["agent_models"], dict)
         assert isinstance(data["qa_enabled"], dict)
         assert isinstance(data["sigma_fallback_enabled"], bool)
+        assert isinstance(data["cmdline_attention_preprocessor_enabled"], bool)
         assert isinstance(data["qa_max_retries"], int)
         assert 0.0 <= data["similarity_threshold"] <= 1.0
         assert 0.0 <= data["junk_filter_threshold"] <= 1.0

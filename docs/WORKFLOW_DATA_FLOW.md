@@ -43,20 +43,18 @@ Results are persisted to PostgreSQL in JSONB format:
 
 ### Step 1: Sub-Agent Execution
 
-Each sub-agent (CmdlineExtract, HuntQueriesExtract, etc.) runs and produces results:
+Each sub-agent (CmdlineExtract, HuntQueriesExtract, ProcTreeExtract) runs and produces results:
 
 ```python
-# Sub-agents run sequentially
+# Sub-agents run sequentially (RegExtract, EventCodeExtract, SigExtract deprecated)
 subresults = {
     "cmdline": {
         "items": [...],      # Extracted command lines
         "count": 4,
         "raw": {...}         # Full CmdlineExtract output including qa_corrections
     },
-    "sigma_queries": {...},
-    "event_ids": {...},
-    "process_lineage": {...},
-    "registry_keys": {...}
+    "hunt_queries": {...},   # or sigma_queries
+    "process_lineage": {...}
 }
 ```
 
@@ -248,20 +246,20 @@ API endpoint / workflow trigger
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
-    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │Cmdline   │  │Sig       │  │Event     │  │Proc      │  ...
-    │Extract   │  │Extract   │  │Extract   │  │Extract   │
-    └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
-         │             │             │             │
-         └─────────────┴─────────────┴─────────────┘
+    ┌──────────┐  ┌──────────┐  ┌──────────┐
+    │Cmdline   │  │HuntQuery │  │ProcTree  │
+    │Extract   │  │Extract   │  │Extract   │
+    └────┬─────┘  └────┬─────┘  └────┬─────┘
+         │             │             │
+         └─────────────┴─────────────┘
                           │
                           ▼
          ┌──────────────────────────────┐
          │  subresults (in memory)      │
          │  {                            │
          │    "cmdline": {...},          │
-         │    "sigma_queries": {...},    │
-         │    ...                        │
+         │    "hunt_queries": {...},     │
+         │    "process_lineage": {...}   │
          │  }                            │
          └──────────────┬─────────────────┘
                         │

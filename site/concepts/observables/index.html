@@ -445,10 +445,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#types-emitted" class="md-nav__link">
+  <a href="#types-emitted-active-sub-agents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Types emitted
+        Types emitted (active sub-agents)
       
     </span>
   </a>
@@ -1748,10 +1748,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#types-emitted" class="md-nav__link">
+  <a href="#types-emitted-active-sub-agents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Types emitted
+        Types emitted (active sub-agents)
       
     </span>
   </a>
@@ -1810,27 +1810,26 @@
 
 <h1 id="observables">Observables</h1>
 <p>Observables are the structured outputs of the Extract Agent. They represent the huntable behaviors that downstream Sigma generation and similarity matching consume.</p>
-<h2 id="types-emitted">Types emitted</h2>
+<h2 id="types-emitted-active-sub-agents">Types emitted (active sub-agents)</h2>
 <ul>
-<li><code>cmdline</code>: command-line strings with arguments</li>
-<li><code>process_lineage</code>: parent/child process chains</li>
-<li><code>registry_keys</code>: persistence and configuration keys</li>
-<li><code>sigma_queries</code>: Sigma-like query fragments pulled directly from the article</li>
-<li><code>event_ids</code>: Windows Event IDs and related log channels</li>
+<li><code>cmdline</code>: command-line strings with arguments (CmdlineExtract)</li>
+<li><code>process_lineage</code>: parent/child process chains (ProcTreeExtract)</li>
+<li><code>sigma_queries</code> / <code>hunt_queries</code>: EDR and Sigma-style query fragments (HuntQueriesExtract)</li>
 </ul>
+<p><em>Deprecated (no longer extracted): <code>registry_keys</code>, <code>event_ids</code> — RegExtract and EventCodeExtract have been removed.</em></p>
 <h2 id="data-shape">Data shape</h2>
 <p><code>agentic_workflow_executions.extraction_result</code> stores merged observables and per-agent details:</p>
 <pre><code class="language-json">{
-  &quot;discrete_huntables_count&quot;: 4,
+  &quot;discrete_huntables_count&quot;: 2,
   &quot;observables&quot;: [
     {&quot;type&quot;: &quot;cmdline&quot;, &quot;value&quot;: &quot;e.exe -d=\&quot;E:\\\&quot;&quot;, &quot;source&quot;: &quot;supervisor_aggregation&quot;},
-    {&quot;type&quot;: &quot;event_ids&quot;, &quot;value&quot;: &quot;Security 4688&quot;, &quot;source&quot;: &quot;supervisor_aggregation&quot;}
+    {&quot;type&quot;: &quot;sigma_queries&quot;, &quot;value&quot;: &quot;DeviceProcessEvents | where ...&quot;, &quot;source&quot;: &quot;supervisor_aggregation&quot;}
   ],
   &quot;subresults&quot;: {
     &quot;cmdline&quot;: {&quot;items&quot;: [&quot;e.exe -d=\&quot;E:\\\&quot;&quot;], &quot;count&quot;: 1, &quot;raw&quot;: {&quot;cmdline_items&quot;: [&quot;...&quot;], &quot;qa_corrections&quot;: {}}},
-    &quot;event_ids&quot;: {&quot;items&quot;: [&quot;Security 4688&quot;], &quot;count&quot;: 1}
+    &quot;hunt_queries&quot;: {&quot;items&quot;: [&quot;DeviceProcessEvents | where ...&quot;], &quot;count&quot;: 1}
   },
-  &quot;content&quot;: &quot;- e.exe -d=\&quot;E:\\\&quot;\n- Security 4688&quot;,
+  &quot;content&quot;: &quot;- e.exe -d=\&quot;E:\\\&quot;\n- DeviceProcessEvents | where ...&quot;,
   &quot;summary&quot;: {&quot;source_url&quot;: &quot;https://...&quot;, &quot;platforms_detected&quot;: [&quot;Windows&quot;]}
 }
 </code></pre>

@@ -1849,7 +1849,7 @@
 - <code>config_snapshot</code>: JSON of workflow settings at trigger time
 - <code>started_at</code>, <code>completed_at</code>, <code>created_at</code>, <code>updated_at</code>
 - <code>error_message</code>, <code>error_log</code>, <code>termination_reason</code>, <code>termination_details</code>
-- <code>extraction_counts</code>: derived per-agent counts (<code>cmdline</code>, <code>process_lineage</code>, <code>registry_keys</code>, <code>sigma_queries</code>, <code>event_ids</code>)</p>
+- <code>extraction_counts</code>: derived per-agent counts (<code>cmdline</code>, <code>process_lineage</code>, <code>sigma_queries</code>/<code>hunt_queries</code>; legacy: <code>registry_keys</code>, <code>event_ids</code> from deprecated RegExtract/EventCodeExtract)</p>
 <p>Detail payloads:
 - <code>junk_filter_result</code>: filtering decisions before ranking
 - <code>extraction_result</code>: merged observables, <code>discrete_huntables_count</code>, per-agent <code>subresults</code>, and synthesized <code>content</code>
