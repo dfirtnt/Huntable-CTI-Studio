@@ -163,6 +163,9 @@ class WorkflowTriggerService:
                     "rank_agent_enabled": config.rank_agent_enabled
                     if config and hasattr(config, "rank_agent_enabled")
                     else True,
+                    "cmdline_attention_preprocessor_enabled": getattr(
+                        config, "cmdline_attention_preprocessor_enabled", True
+                    ),
                     "config_id": config.id,
                     "config_version": config.version,
                 }

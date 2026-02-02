@@ -38,3 +38,6 @@ curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
 
 ## Re-running extraction
 Re-trigger the workflow to apply new prompts or models. The latest execution retains its own `extraction_result`; prior executions remain in the history table for auditing.
+
+## Cmdline Attention Preprocessor
+For command-line extraction, the **CmdlineExtract** sub-agent can use an optional attention preprocessor that surfaces LOLBAS-aligned snippets earlier in the LLM prompt. Enable or disable it in Workflow Config → Cmdline Extract agent. See [Cmdline Attention Preprocessor](../features/CMDLINE_ATTENTION_PREPROCESSOR.md).

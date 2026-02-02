@@ -154,9 +154,7 @@ async def get_workflow_config(request: Request):
                 else False,
                 qa_max_retries=config.qa_max_retries if hasattr(config, "qa_max_retries") else 5,
                 rank_agent_enabled=config.rank_agent_enabled if hasattr(config, "rank_agent_enabled") else True,
-                cmdline_attention_preprocessor_enabled=getattr(
-                    config, "cmdline_attention_preprocessor_enabled", True
-                ),
+                cmdline_attention_preprocessor_enabled=getattr(config, "cmdline_attention_preprocessor_enabled", True),
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat(),
             )
@@ -325,9 +323,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 config_update.cmdline_attention_preprocessor_enabled
                 if config_update.cmdline_attention_preprocessor_enabled is not None
                 else (
-                    getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
-                    if current_config
-                    else True
+                    getattr(current_config, "cmdline_attention_preprocessor_enabled", True) if current_config else True
                 )
             )
 
@@ -631,9 +627,7 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         if getattr(config, "rank_agent_enabled", None) is not None
         else True,
         "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
-        "cmdline_attention_preprocessor_enabled": getattr(
-            config, "cmdline_attention_preprocessor_enabled", True
-        ),
+        "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
         "extract_agent_settings": {"disabled_agents": []},
         "agent_prompts": config.agent_prompts if config.agent_prompts is not None else {},
     }

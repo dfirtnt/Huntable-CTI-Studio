@@ -1,4 +1,6 @@
-# CTIScraper Application Summary
+# CTIScraper Application Summary (Historical: v4.0.0 Kepler)
+
+**Note:** This document describes v4.0.0 state. As of Callisto (v5.0.0), langgraph-server and ollama have been removed; the agentic workflow runs inside Celery workers. See [Callisto](Callisto.md) for current architecture.
 
 **CTIScraper v4.0.0 "Kepler"** is an enterprise-grade threat intelligence platform that automates collection, analysis, and detection rule generation from 33+ security sources.
 

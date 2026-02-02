@@ -6,7 +6,8 @@ This reflects the current `docker-compose.yml`.
 - **postgres** (`pgvector/pgvector:pg15`): primary DB, volume `postgres_data`, healthcheck `pg_isready`.
 - **redis** (`redis:7-alpine`): cache/broker, appendonly enabled, volume `redis_data`.
 - **web**: FastAPI app, command `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`; mounts source/config/logs/tests/models/outputs; ports `8001:8001`, `8888:8888`; depends on postgres/redis.
-- **worker**: Celery worker `celery -A src.worker.celery_app worker --loglevel=debug`; shares code/config volumes; uses same DB/Redis env.
+- **worker**: Celery worker for default, source_checks, maintenance, reports, connectivity, collection queues.
+- **workflow_worker**: Celery worker for `workflows` queue (agentic workflow tasks); runs LangGraph state machine.
 - **scheduler**: Celery beat `celery -A src.worker.celery_app beat --loglevel=debug`; shares code/config volumes.
 - **cli** (profile `tools`): runs `python -m src.cli.main` with the same env/volumes for DB parity.
 
@@ -24,7 +25,7 @@ This reflects the current `docker-compose.yml`.
 - postgres: `pg_isready`
 - redis: `redis-cli ping`
 - web: `curl http://localhost:8001/health`
-- worker: `celery ... inspect ping`
+- worker, workflow_worker: `celery ... inspect ping`
 - scheduler: trivial python exit 0
 
 ## Networking

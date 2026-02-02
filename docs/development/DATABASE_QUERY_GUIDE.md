@@ -56,6 +56,8 @@ ORDER BY name;
 
 ### View Articles
 
+> **Note:** Article-level chosen/rejected/unclassified classification has been deprecated and removed from the UI/API. The `training_category` field in `article_metadata` may still exist in older data but is no longer used.
+
 ```sql
 -- Recent articles with source information
 SELECT 
@@ -63,12 +65,7 @@ SELECT
     a.title,
     s.name as source_name,
     a.published_at,
-    a.created_at,
-    CASE 
-        WHEN a.article_metadata->>'training_category' = 'chosen' THEN '✅ Chosen'
-        WHEN a.article_metadata->>'training_category' = 'rejected' THEN '❌ Rejected'
-        ELSE '⏳ Unclassified'
-    END as classification
+    a.created_at
 FROM articles a
 JOIN sources s ON a.source_id = s.id
 ORDER BY a.created_at DESC
@@ -77,10 +74,7 @@ LIMIT 20;
 -- Articles by source
 SELECT 
     s.name as source_name,
-    COUNT(*) as article_count,
-    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
-    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
-    COUNT(CASE WHEN a.article_metadata->>'training_category' IS NULL THEN 1 END) as unclassified_count
+    COUNT(*) as article_count
 FROM articles a
 JOIN sources s ON a.source_id = s.id
 GROUP BY s.id, s.name
@@ -121,10 +115,7 @@ ORDER BY a.published_at DESC;
 -- Overall statistics
 SELECT 
     COUNT(*) as total_articles,
-    COUNT(DISTINCT source_id) as total_sources,
-    COUNT(CASE WHEN article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_articles,
-    COUNT(CASE WHEN article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_articles,
-    COUNT(CASE WHEN article_metadata->>'training_category' IS NULL THEN 1 END) as unclassified_articles
+    COUNT(DISTINCT source_id) as total_sources
 FROM articles;
 
 -- Articles by date (last 30 days)
@@ -220,8 +211,7 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
         s.name as source_name,
         a.canonical_url,
         a.published_at,
-        a.created_at,
-        a.article_metadata->>'training_category' as classification
+        a.created_at
     FROM articles a
     JOIN sources s ON a.source_id = s.id
     ORDER BY a.created_at DESC
@@ -329,8 +319,6 @@ CREATE VIEW article_stats AS
 SELECT 
     s.name as source_name,
     COUNT(a.id) as total_articles,
-    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
-    COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
     MAX(a.created_at) as last_collection
 FROM sources s
 LEFT JOIN articles a ON s.id = a.source_id

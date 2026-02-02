@@ -1522,6 +1522,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../features/CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Attention Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../features/OS_DETECTION/" class="md-nav__link">
         
   
@@ -1831,7 +1859,8 @@
 <li><strong>postgres</strong> (<code>pgvector/pgvector:pg15</code>): primary DB, volume <code>postgres_data</code>, healthcheck <code>pg_isready</code>.</li>
 <li><strong>redis</strong> (<code>redis:7-alpine</code>): cache/broker, appendonly enabled, volume <code>redis_data</code>.</li>
 <li><strong>web</strong>: FastAPI app, command <code>uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload</code>; mounts source/config/logs/tests/models/outputs; ports <code>8001:8001</code>, <code>8888:8888</code>; depends on postgres/redis.</li>
-<li><strong>worker</strong>: Celery worker <code>celery -A src.worker.celery_app worker --loglevel=debug</code>; shares code/config volumes; uses same DB/Redis env.</li>
+<li><strong>worker</strong>: Celery worker for default, source_checks, maintenance, reports, connectivity, collection queues.</li>
+<li><strong>workflow_worker</strong>: Celery worker for <code>workflows</code> queue (agentic workflow tasks); runs LangGraph state machine.</li>
 <li><strong>scheduler</strong>: Celery beat <code>celery -A src.worker.celery_app beat --loglevel=debug</code>; shares code/config volumes.</li>
 <li><strong>cli</strong> (profile <code>tools</code>): runs <code>python -m src.cli.main</code> with the same env/volumes for DB parity.</li>
 </ul>
@@ -1852,7 +1881,7 @@
 <li>postgres: <code>pg_isready</code></li>
 <li>redis: <code>redis-cli ping</code></li>
 <li>web: <code>curl http://localhost:8001/health</code></li>
-<li>worker: <code>celery ... inspect ping</code></li>
+<li>worker, workflow_worker: <code>celery ... inspect ping</code></li>
 <li>scheduler: trivial python exit 0</li>
 </ul>
 <h2 id="networking">Networking</h2>

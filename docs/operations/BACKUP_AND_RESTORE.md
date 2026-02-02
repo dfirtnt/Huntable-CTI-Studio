@@ -80,7 +80,7 @@ Comprehensive guide for CTI Scraper backup and restore operations, including dat
    - **`config/sources.yaml`** - Source definitions (⚠️ Can overwrite database on sync)
    - Other configuration files
 4. **Training Data** - User feedback and training datasets (`outputs/` directory)
-5. **Docker Volumes** - Persistent data (postgres_data, redis_data, ollama_data)
+5. **Docker Volumes** - Persistent data (postgres_data, redis_data)
 6. **Logs** - Application logs (`logs/` directory)
 
 **✅ Source Configuration**: Database values are the source of truth. `config/sources.yaml` is only used for brand new builds (< 5 sources). After restore, database settings are automatically preserved. See [Source Configuration Precedence](./SOURCE_CONFIG_PRECEDENCE.md) for details.
@@ -105,7 +105,7 @@ backups/system_backup_20251010_103000/
 ├── docker_volumes/
 │   ├── postgres_data.tar.gz
 │   ├── redis_data.tar.gz
-│   └── ollama_data.tar.gz
+│   └── (volume archives)
 └── logs/
 ```
 

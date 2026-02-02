@@ -1403,6 +1403,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../features/CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Attention Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../features/OS_DETECTION/" class="md-nav__link">
         
   
@@ -1762,10 +1790,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#service-architecture-7-docker-containers" class="md-nav__link">
+  <a href="#service-architecture-6-docker-containers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Service Architecture (7 Docker Containers)
+        Service Architecture (6 Docker Containers)
       
     </span>
   </a>
@@ -2024,10 +2052,10 @@
 <li><strong>Backend:</strong> Python 3.11+, FastAPI, Celery with Redis</li>
 <li><strong>Database:</strong> PostgreSQL 15 + pgvector, SQLAlchemy 2.0 async</li>
 <li><strong>AI/ML:</strong> OpenAI (GPT-4), Anthropic (Claude), LMStudio (local), sentence-transformers, LangGraph workflows</li>
-<li><strong>Infrastructure:</strong> 7 Docker containers, pytest + Playwright testing</li>
+<li><strong>Infrastructure:</strong> 6 Docker containers, pytest + Playwright testing</li>
 </ul>
 <h2 id="architecture">Architecture</h2>
-<p><strong>7 Microservices:</strong> postgres, redis, web (FastAPI:8001), celery worker, scheduler, langgraph-server, ollama</p>
+<p><strong>6 Services:</strong> postgres, redis, web (FastAPI:8001), worker (Celery), workflow_worker (Celery), scheduler</p>
 <p><strong>19 Database Tables</strong> including: articles with embeddings, sigma_rules with 4-segment embeddings, workflow executions, chat logs, ML model versions</p>
 <p><strong>Key Directories:</strong>
 - <code>src/core/</code> - Scraping engine with deduplication
@@ -2096,16 +2124,16 @@
 <h2 id="current-state">Current State</h2>
 <p>Callisto represents a major milestone in SIGMA rule management capabilities. The release stabilizes the agentic workflow system with comprehensive evaluation datasets, introduces advanced similarity searching using behavioral novelty assessment, adds AI-assisted rule editing and enrichment, and completes the workflow with GitHub repository integration for automated PR submission.</p>
 <h2 id="detailed-architecture">Detailed Architecture</h2>
-<h3 id="service-architecture-7-docker-containers">Service Architecture (7 Docker Containers)</h3>
+<h3 id="service-architecture-6-docker-containers">Service Architecture (6 Docker Containers)</h3>
 <ol>
 <li><strong>postgres</strong> - PostgreSQL with pgvector extension</li>
 <li><strong>redis</strong> - Caching and message broker</li>
 <li><strong>web</strong> - FastAPI application (port 8001)</li>
-<li><strong>worker</strong> - Celery worker for background tasks</li>
+<li><strong>worker</strong> - Celery worker (default, source_checks, maintenance, etc.)</li>
+<li><strong>workflow_worker</strong> - Celery worker for agentic workflow tasks (queue: workflows)</li>
 <li><strong>scheduler</strong> - Celery Beat for scheduled jobs</li>
-<li><strong>langgraph-server</strong> - Agent chat UI debugging (port 2024)</li>
-<li><strong>ollama</strong> - Local LLM inference (port 11434)</li>
 </ol>
+<p><em>Note: LangGraph server and Ollama have been removed. The agentic workflow runs inside Celery workers via LangGraph; local LLMs use LMStudio.</em></p>
 <h3 id="application-structure">Application Structure</h3>
 <pre><code>src/
 ├── cli/              # Command-line interface
@@ -2138,9 +2166,8 @@
 ├── worker/           # Celery tasks
 │   ├── celery_app.py
 │   └── tasks/
-└── workflows/        # LangGraph agentic workflows
-    ├── agentic_workflow.py
-    └── langgraph_server.py
+└── workflows/        # LangGraph agentic workflows (runs in Celery)
+    └── agentic_workflow.py
 </code></pre>
 <h3 id="database-schema-19-tables">Database Schema (19 Tables)</h3>
 <p>Key tables:
@@ -2157,8 +2184,9 @@
 - <code>chat_logs</code> - RAG chat history and evaluation
 - <code>ml_model_versions</code> - ML model performance tracking</p>
 <h2 id="agentic-workflow-7-steps">Agentic Workflow (7 Steps)</h2>
+<p>The workflow runs inside Celery workers (LangGraph state machine). No separate LangGraph server.</p>
 <ol>
-<li><strong>OS Detection</strong> - Operating system detection for workflow routing</li>
+<li><strong>OS Detection</strong> - Windows-only routing (non-Windows articles terminate)</li>
 <li><strong>Junk Filter</strong> - Conservative filtering (configurable threshold)</li>
 <li><strong>LLM Rank</strong> - Score article relevance (0-10)</li>
 <li><strong>Extract Agent</strong> - Extract techniques and behaviors</li>

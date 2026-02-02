@@ -408,9 +408,12 @@ async function viewExecution(executionId) {
                                 // Get QA results from error_log if available
                                 const qaResults = exec.error_log?.qa_results || {};
                                 
+                                const extractConversationLog = exec.error_log?.extract_agent?.conversation_log || [];
                                 return subAgents.map(subAgent => {
                                     try {
                                         const result = subresults[subAgent.key];
+                                        const logEntry = extractConversationLog.find(e => e.agent === subAgent.name);
+                                        const attentionPreprocessor = logEntry?.attention_preprocessor;
                                         // Ensure items is always an array - check multiple ways
                                         // Handle case where items is a string (e.g., process_lineage in execution 350)
                                         let items = [];
@@ -446,6 +449,7 @@ async function viewExecution(executionId) {
                                                         <div>• Article URL: ${exec.article_url || 'N/A'}</div>
                                                         <div>• Agent: ${subAgent.name}</div>
                                                         ${config.agent_models && config.agent_models[`${subAgent.name}_model`] ? `<div>• Model: ${config.agent_models[`${subAgent.name}_model`]}</div>` : ''}
+                                                        ${attentionPreprocessor ? `<div>• 📌 Attention preprocessor: ${attentionPreprocessor.enabled ? (attentionPreprocessor.snippet_count ?? 0) + ' snippets surfaced' : 'disabled'}</div>` : ''}
                                                     </div>
                                                 </div>
                                                 <div>
@@ -1631,6 +1635,11 @@ function startLiveExecutionStream(executionId) {
                     // Display step context if available to show which workflow step this belongs to
                     const stepContext = data.step ? ` [${data.step}]` : '';
                     appendOutput(`\n🤖 LLM Call - ${data.agent}${stepContext} (Attempt ${data.attempt})`, 'text-cyan-400');
+                    if (data.attention_preprocessor) {
+                        const ap = data.attention_preprocessor;
+                        const n = ap.snippet_count ?? 0;
+                        appendOutput(`  📌 Attention preprocessor: ${ap.enabled ? n + ' snippets surfaced' : 'disabled'}`, 'text-violet-400');
+                    }
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach((msg, idx) => {
                             const role = msg.role || 'user';

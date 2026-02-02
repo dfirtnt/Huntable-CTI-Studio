@@ -1,7 +1,5 @@
 """Unit tests for cmdline_attention_preprocessor."""
 
-import pytest
-
 from src.services.cmdline_attention_preprocessor import process
 
 
@@ -150,3 +148,54 @@ The same command was also mentioned in prose: powershell -enc base64payload
     # Should capture but dedupe - exact same snippet may appear once
     assert len(snippets) >= 1
     assert result["full_article"] == text
+
+
+def test_rule1_exe_path_plus_argument():
+    """Rule 1: .exe path (quoted or unquoted) + at least one argument token."""
+    for text in [
+        "C:\\Tools\\mimikatz.exe privilege::debug",
+        '"C:\\Program Files\\tool.exe" /install',
+    ]:
+        result = process(text)
+        assert len(result["high_likelihood_snippets"]) >= 1, f"Expected match for: {text}"
+
+
+def test_rule2_quoted_exe_nonpunctuation():
+    """Rule 2: Quoted .exe + whitespace + non-punctuation → capture line."""
+    text = '"C:\\Temp\\payload.exe" Invoke'
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "payload.exe" in result["high_likelihood_snippets"][0]
+
+
+def test_rule4_exe_bare_verb():
+    """Rule 4: .exe followed by bare word verb (e.g., tool.exe verb args)."""
+    text = "The binary custom.exe install --silent was used."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "custom.exe" in result["high_likelihood_snippets"][0]
+
+
+def test_rule5_two_or_more_windows_paths():
+    """Rule 5: Line with two or more Windows paths (C:\\...)."""
+    text = "Copy from C:\\Users\\Admin\\file.exe to C:\\Temp\\output.exe"
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "C:\\" in result["high_likelihood_snippets"][0]
+
+
+def test_narrative_exe_no_match():
+    """Narrative .exe mention (e.g. GT_NET.exe (Grixba)) should NOT match - no invocation shape."""
+    text = "The binary GT_NET.exe (Grixba) was used by the attacker."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) == 0
+
+
+def test_long_line_multiple_snippets():
+    """Long line with multiple anchors produces multiple windowed snippets (not one blob)."""
+    long_prose = "This is a long intrusion report. " * 40
+    cmd1 = "The attacker ran certutil -urlcache to download."
+    cmd2 = "Then they used bitsadmin /transfer to exfiltrate."
+    text = long_prose + cmd1 + " " + long_prose[:200] + " " + cmd2
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 2

@@ -517,7 +517,23 @@ async def stream_execution_updates(execution_id: int):
                                             # Add step context to event - map agent_name to workflow step
                                             step_context = agent_name  # Default to agent_name as step
 
-                                            yield f"data: {json.dumps({'type': 'llm_interaction', 'step': step_context, 'agent': display_agent, 'messages': entry.get('messages', []), 'response': entry.get('llm_response', ''), 'attempt': entry.get('attempt', 1), 'score': entry.get('score'), 'discrete_huntables_count': entry.get('discrete_huntables_count') or entry.get('items_count'), 'timestamp': datetime.now().isoformat()})}\n\n"
+                                            event_payload = {
+                                                "type": "llm_interaction",
+                                                "step": step_context,
+                                                "agent": display_agent,
+                                                "messages": entry.get("messages", []),
+                                                "response": entry.get("llm_response", ""),
+                                                "attempt": entry.get("attempt", 1),
+                                                "score": entry.get("score"),
+                                                "discrete_huntables_count": entry.get("discrete_huntables_count")
+                                                or entry.get("items_count"),
+                                                "timestamp": datetime.now().isoformat(),
+                                            }
+                                            if entry.get("attention_preprocessor") is not None:
+                                                event_payload["attention_preprocessor"] = entry[
+                                                    "attention_preprocessor"
+                                                ]
+                                            yield f"data: {json.dumps(event_payload)}\n\n"
 
                         # Check for QA results (moved outside agent loop for efficiency)
                         if "qa_results" in current_error_log:

@@ -109,11 +109,99 @@ REGEX_ANCHORS = [re.compile(p, re.IGNORECASE) for p in REGEX_ANCHOR_PATTERNS]
 # cmd: boundary guard to avoid matching "command", "cmdlet", prose
 CMD_BOUNDARY_REGEX = re.compile(r"\bcmd(\.exe)?\b", re.IGNORECASE)
 
-# Sentence boundary: newline always; period/comma only if followed by whitespace
-SENTENCE_SPLIT = re.compile(r"(?<=[\n])|(?<=\.)\s+|(?<=,)\s+")
+# Sentence boundary for long-line splitting (used when extracting from >500 char lines).
+# - Newline: always split
+# - Period + whitespace: split only when period is NOT part of extension (e.g. .exe, .dll)
+#   Use (?!\w) to avoid splitting "tool.exe and whoami" or "foo.dll,Export"
+# - Comma: NOT used — comma+space can break commands ("echo hello, world")
+SENTENCE_SPLIT = re.compile(r"(?<=[\n])|(?<=\.)(?!\w)\s+")
 
 # Line length threshold: use sentence logic only if line > N chars
 LONG_LINE_THRESHOLD = 500
+
+# Match-window: chars to each side of match when line exceeds threshold
+MATCH_WINDOW_CHARS = 350
+
+# Structural capture rules (beyond LOLBAS anchors)
+# Rule 1: .exe path (quoted or unquoted) followed by invocation shape (arg indicator or verb)
+# Exclude parenthetical/bracket content: "GT_NET.exe (Grixba)" is narrative, not a command
+RE_EXE_PLUS_ARG = re.compile(
+    r"(?:[^\s\"]+\.exe|\"[^\"]*\.exe\")\s+[^(\s\[\{]",
+    re.IGNORECASE,
+)
+# Rule 2: Quoted string ending in .exe + whitespace + non-punctuation
+RE_QUOTED_EXE_NONPUNCT = re.compile(
+    r"\"[^\"]*\.exe\"\s+[A-Za-z0-9]",
+    re.IGNORECASE,
+)
+# Rule 3: .exe + argument indicators → prefer full-line capture (checked in _extract_snippet)
+ARG_INDICATORS = frozenset('-/"><|')
+# Rule 4: .exe followed by bare word verb (e.g., tool.exe verb args)
+RE_EXE_BARE_VERB = re.compile(
+    r"\.exe\b\s+[A-Za-z]\w*",
+    re.IGNORECASE,
+)
+# Rule 5: Two or more Windows paths (C:\... or D:\...)
+RE_WINDOWS_PATH = re.compile(r"[A-Za-z]:\\[^\s]*", re.IGNORECASE)
+
+
+def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
+    """
+    Return all (start, end) match positions in line for anchors and structural rules.
+    Used for match-window capture on long lines.
+    """
+    positions: list[tuple[int, int]] = []
+
+    def add_matches(pattern: re.Pattern[str]) -> None:
+        for m in pattern.finditer(line):
+            positions.append((m.start(), m.end()))
+
+    def add_string_anchor(anchor: str) -> None:
+        start = 0
+        a_lower = anchor.lower()
+        while True:
+            idx = line_lower.find(a_lower, start)
+            if idx < 0:
+                break
+            positions.append((idx, idx + len(anchor)))
+            start = idx + 1
+
+    # Regex anchors
+    add_matches(CMD_BOUNDARY_REGEX)
+    for p in REGEX_ANCHORS:
+        add_matches(p)
+    for p in [RE_EXE_PLUS_ARG, RE_QUOTED_EXE_NONPUNCT, RE_EXE_BARE_VERB]:
+        add_matches(p)
+
+    # Structural: two or more Windows paths
+    paths = list(RE_WINDOWS_PATH.finditer(line))
+    if len(paths) >= 2:
+        for m in paths:
+            positions.append((m.start(), m.end()))
+
+    # String anchors
+    for anchor in STRING_ANCHORS:
+        add_string_anchor(anchor)
+
+    return positions
+
+
+def _expand_to_sentence_boundary(full_line: str, start_off: int, end_off: int) -> str:
+    """
+    Expand the window [start_off, end_off] in full_line to nearest sentence boundaries.
+    """
+    # Find last boundary before start_off (start of snippet = after last delimiter)
+    before = full_line[:start_off]
+    boundary_before = 0
+    for m in SENTENCE_SPLIT.finditer(before):
+        boundary_before = m.end()
+    # Find first boundary after end_off (end of snippet = through first delimiter)
+    after = full_line[end_off:]
+    boundary_after = len(full_line)
+    for m in SENTENCE_SPLIT.finditer(after):
+        boundary_after = end_off + m.end()
+        break
+    return full_line[boundary_before:boundary_after].strip()
 
 
 def _line_matches_anchor(line: str, line_lower: str) -> bool:
@@ -132,23 +220,116 @@ def _line_matches_anchor(line: str, line_lower: str) -> bool:
     return False
 
 
-def _extract_snippet(line: str, lines: list[str], line_idx: int) -> str:
+def _line_matches_structural_rules(line: str) -> bool:
+    """
+    Return True if line matches any structural capture rule:
+    1. .exe path (quoted or unquoted) + at least one argument token
+    2. Quoted string ending in .exe + whitespace + non-punctuation
+    4. .exe followed by bare word verb (e.g., tool.exe verb args)
+    5. Two or more Windows paths (C:\\...)
+    """
+    if not line or not line.strip():
+        return False
+    # Rule 1: .exe path + argument
+    if RE_EXE_PLUS_ARG.search(line):
+        return True
+    # Rule 2: quoted .exe + non-punctuation
+    if RE_QUOTED_EXE_NONPUNCT.search(line):
+        return True
+    # Rule 4: .exe + bare verb
+    if RE_EXE_BARE_VERB.search(line):
+        return True
+    # Rule 5: two or more Windows paths
+    paths = RE_WINDOWS_PATH.findall(line)
+    if len(paths) >= 2:
+        return True
+    return False
+
+
+def _line_has_exe_arg_indicators(line: str) -> bool:
+    """
+    Rule 3: .exe + argument indicators (-, /, quotes, >, <, |).
+    When True, prefer full-line capture over sentence splitting.
+    """
+    if ".exe" not in line.lower():
+        return False
+    return any(c in line for c in ARG_INDICATORS)
+
+
+def _extract_snippet(
+    line: str,
+    lines: list[str],
+    line_idx: int,
+    prefer_full_line: bool = False,
+    line_lower: str | None = None,
+) -> str:
     """
     Extract matching line + ±1 surrounding sentence/line for context.
     Prefer line-based capture; fall back to sentence logic for very long lines.
+    Rule 3: When prefer_full_line (e.g. .exe + arg indicators), always use full-line capture.
     """
-    if len(line) <= LONG_LINE_THRESHOLD:
-        # Line-based: include ±1 surrounding lines
+    use_full_line = prefer_full_line or len(line) <= LONG_LINE_THRESHOLD or _line_has_exe_arg_indicators(line)
+    if use_full_line:
+        # Full-line capture: include ±1 surrounding lines
         start = max(0, line_idx - 1)
         end = min(len(lines), line_idx + 2)
         return "\n".join(lines[start:end]).strip()
-    # Sentence logic for long lines
+    # Sentence logic for long lines (>500 chars, no .exe+arg indicators)
+    # Split by SENTENCE_SPLIT, find matching part(s), include ±1 for context
     parts = SENTENCE_SPLIT.split(line)
-    # Find which part contains the anchor (simplified: use middle or first)
-    # For long lines, take the matching line plus adjacent context
-    start = max(0, line_idx - 1)
-    end = min(len(lines), line_idx + 2)
-    return "\n".join(lines[start:end]).strip()
+    line_lc = line_lower if line_lower is not None else line.lower()
+    matching_indices: list[int] = []
+    for i, part in enumerate(parts):
+        part_stripped = part.strip()
+        if not part_stripped:
+            continue
+        part_lower = part_stripped.lower()
+        if _line_matches_anchor(part_stripped, part_lower) or _line_matches_structural_rules(part_stripped):
+            matching_indices.append(i)
+    if not matching_indices:
+        # No part matched (shouldn't happen if line matched) — return full ±1 lines
+        start = max(0, line_idx - 1)
+        end = min(len(lines), line_idx + 2)
+        return "\n".join(lines[start:end]).strip()
+    # Include matching parts + ±1 adjacent for context
+    min_i = max(0, min(matching_indices) - 1)
+    max_i = min(len(parts) - 1, max(matching_indices) + 1)
+    snippet = " ".join(p.strip() for p in parts[min_i : max_i + 1] if p.strip())
+    # Prepend previous line, append next line for cross-line context
+    prev_line = lines[line_idx - 1] if line_idx > 0 else ""
+    next_line = lines[line_idx + 1] if line_idx + 1 < len(lines) else ""
+    context_parts = [p for p in [prev_line, snippet, next_line] if p]
+    return "\n".join(context_parts).strip()
+
+
+def _extract_windowed_snippets(line: str, lines: list[str], line_idx: int, line_lower: str) -> list[str]:
+    """
+    For long lines (>LONG_LINE_THRESHOLD): extract match-window snippets instead of full line.
+    Prevents one-snippet-per-article collapse when newline-poor input yields huge lines.
+    """
+    positions = _find_match_positions(line, line_lower)
+    if not positions:
+        return []
+
+    snippets: list[str] = []
+    for start, end in positions:
+        # Window around match: ±MATCH_WINDOW_CHARS
+        win_start = max(0, start - MATCH_WINDOW_CHARS)
+        win_end = min(len(line), end + MATCH_WINDOW_CHARS)
+        window = _expand_to_sentence_boundary(line, win_start, win_end)
+        if not window.strip():
+            continue
+        snippets.append(window)
+
+    # Prepend previous line, append next line for cross-line context (once per set)
+    prev_line = lines[line_idx - 1] if line_idx > 0 else ""
+    next_line = lines[line_idx + 1] if line_idx + 1 < len(lines) else ""
+    if prev_line or next_line:
+        # Add context to first snippet only (avoid duplicating for each window)
+        if snippets:
+            parts = [p for p in [prev_line, snippets[0], next_line] if p]
+            snippets[0] = "\n".join(parts).strip()
+    return snippets
 
 
 def process(article_text: str) -> dict[str, Any]:
@@ -161,6 +342,7 @@ def process(article_text: str) -> dict[str, Any]:
             "full_article": "<original article text>"
         }
     Snippets preserve original article order. Deduplicated by exact string.
+    For long lines (>500 chars): match-window capture (±350 chars) prevents blob collapse.
     """
     if not article_text or not article_text.strip():
         return {"high_likelihood_snippets": [], "full_article": article_text or ""}
@@ -171,10 +353,22 @@ def process(article_text: str) -> dict[str, Any]:
 
     for i, line in enumerate(lines):
         line_lower = line.lower()
-        if not _line_matches_anchor(line, line_lower):
+        if not _line_matches_anchor(line, line_lower) and not _line_matches_structural_rules(line):
             continue
 
-        snippet = _extract_snippet(line, lines, i)
+        # Long line: match-window capture (eval fix A)
+        if len(line) > LONG_LINE_THRESHOLD:
+            windowed = _extract_windowed_snippets(line, lines, i, line_lower)
+            for snippet in windowed:
+                if not snippet or snippet in seen:
+                    continue
+                seen.add(snippet)
+                snippets_ordered.append(snippet)
+            continue
+
+        # Short line: full-line capture
+        prefer_full = _line_has_exe_arg_indicators(line)
+        snippet = _extract_snippet(line, lines, i, prefer_full_line=prefer_full, line_lower=line_lower)
         if not snippet:
             continue
         if snippet in seen:
