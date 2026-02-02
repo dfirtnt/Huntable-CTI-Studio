@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
 
 ### Changed
