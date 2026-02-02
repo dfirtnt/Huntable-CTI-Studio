@@ -49,6 +49,30 @@
         background-color: var(--action-warning);
         color: white;
     }
+    .chart-scroll-wrapper {
+        display: flex;
+        min-width: min-content;
+    }
+    .y-axis-label-sticky {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        flex-shrink: 0;
+        width: 3.5rem;
+        height: 16rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--panel-bg-2);
+    }
+    .y-axis-label-sticky span {
+        writing-mode: vertical-rl;
+        transform: rotate(-180deg);
+        white-space: nowrap;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-muted-slate);
+    }
 </style>
 
 <div class="eval-page">
@@ -212,8 +236,13 @@
                     </div>
                 </div>
                 <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
-                    <div class="h-64" style="min-width: fit-content;">
-                        <canvas id="maeChart"></canvas>
+                    <div class="chart-scroll-wrapper">
+                        <div class="y-axis-label-sticky" aria-hidden="true">
+                            <span>Normalized MAE (nMAE)</span>
+                        </div>
+                        <div class="h-64" style="min-width: fit-content;">
+                            <canvas id="maeChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docs and tests updated: AGENTS.md, api.md, DO_NOT.md, TECHNICAL_READOUT, SIGMA_DETECTION_RULES, MANUAL_CHECKLIST, skip reasons
 
 ### Fixed
+- **Agent Evals MAE chart left y-axis label** (2026-02-01): "Normalized MAE (nMAE)" label stayed off-screen unless scrolled fully left. Added a sticky left column so the label remains visible when the chart is scrolled horizontally.
 - **sources.yaml parse error** (2026-01-29): Fixed YAML indentation for `sekoia_io_blog` list item (was 3 spaces under `sources`, causing "expected block end, but found block sequence start" at line 452)
 - **Retraining Complete panel broken data elements** (2026-01-28): GET `/api/model/retrain-status` used `latest_version.training_samples` (AttributeError—model has `training_data_size`). Fixed: use `training_data_size`; derive `evaluation_metrics` from `eval_confusion_matrix`; write minimal `training_samples`/`feedback_samples`/`annotation_samples` when DB enrichment fails.
 - **CommandLine / Hunt Queries eval parity with Process Lineage** (2026-01-27): (1) Subagent-eval model filtering only included `cmdline` and `process_lineage` — `hunt_queries` and `HuntQueriesExtract`/`HuntQueriesQA` added so eval runs for Hunt Queries filter models correctly. (2) `_extract_actual_count` for `hunt_queries` now explicitly uses `query_count`, then `count`, then `len(queries/items)` so completion handler gets the right actual count from `subresults["hunt_queries"]`.
