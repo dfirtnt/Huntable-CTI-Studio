@@ -7268,7 +7268,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const osLabel = result.operating_system || 'Unknown';
             const method = result.method || 'unknown';
             const confidence = result.confidence || 'unknown';
-            const maxSimilarity = result.max_similarity ? (result.max_similarity * 100).toFixed(1) : null;
+            const maxSimilarity = typeof result.max_similarity === 'number' ? (result.max_similarity * 100).toFixed(1) : null;
             const keywordMatches = result.keyword_matches || null;
             
             // Build similarities display
