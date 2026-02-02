@@ -1119,6 +1119,40 @@ class TestWorkflowExecutionsTabActions:
         # Verify filter was applied (check API call or table content)
         # Filter should trigger filterExecutions() function
 
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_step_filter_visible(self, page: Page):
+        """Test step filter dropdown is visible with options."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-executions").click()
+        page.wait_for_timeout(500)
+
+        step_filter = page.locator("#stepFilter")
+        expect(step_filter).to_be_visible()
+
+        # Verify expected options exist (options in native select are often hidden until opened)
+        options = ["All Steps", "Filter", "Rank", "Extract", "SIGMA", "Similarity", "Queue"]
+        for option in options:
+            option_count = page.locator(f"#stepFilter option:has-text('{option}')").count()
+            assert option_count > 0, f"Step filter should have option '{option}'"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_article_id_filter_visible(self, page: Page):
+        """Test article ID filter input is visible."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-executions").click()
+        page.wait_for_timeout(500)
+
+        article_id_filter = page.locator("#articleIdFilter")
+        expect(article_id_filter).to_be_visible()
+
 
 class TestWorkflowExecutionsTabStatistics:
     """Test execution statistics display."""
@@ -1910,6 +1944,68 @@ class TestWorkflowExecutionsAPI:
         else:
             pytest.skip("Status filter not found - may not be available in current UI")
 
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_executions_sort_api_includes_params(self, page: Page):
+        """Test that clicking sortable header triggers API with sort params."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        api_urls = []
+
+        def handle_route(route):
+            if "/api/workflow/executions" in route.request.url:
+                api_urls.append(route.request.url)
+            route.continue_()
+
+        page.route("**/api/workflow/executions*", handle_route)
+
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-executions").click()
+        page.wait_for_timeout(2000)
+
+        # Click ID column header to trigger sort
+        id_header = page.locator("th:has-text('ID')").first
+        if id_header.is_visible():
+            id_header.click()
+            page.wait_for_timeout(1500)
+
+            # At least one call should include sort params (initial or after click)
+            urls_with_sort = [u for u in api_urls if "sort_by=" in u and "sort_order=" in u]
+            assert len(urls_with_sort) > 0, f"Expected API call with sort params. Got: {api_urls}"
+        else:
+            pytest.skip("ID column header not found")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_step_filter_triggers_api(self, page: Page):
+        """Test that step filter selection triggers API with step param."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        api_urls = []
+
+        def handle_route(route):
+            if "/api/workflow/executions" in route.request.url:
+                api_urls.append(route.request.url)
+            route.continue_()
+
+        page.route("**/api/workflow/executions*", handle_route)
+
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-executions").click()
+        page.wait_for_timeout(2000)
+
+        step_filter = page.locator("#stepFilter")
+        if step_filter.is_visible():
+            step_filter.select_option("extract_agent")
+            page.wait_for_timeout(1500)
+
+            urls_with_step = [u for u in api_urls if "step=extract_agent" in u]
+            assert len(urls_with_step) > 0, f"Expected API call with step param. Got: {api_urls}"
+        else:
+            pytest.skip("Step filter not found")
+
 
 class TestWorkflowQueueAPI:
     """Test queue API integration."""
@@ -1973,3 +2069,60 @@ class TestWorkflowQueueAPI:
             assert len(api_calls) > initial_call_count, f"Filter change should trigger API call. Initial: {initial_call_count}, After filter: {len(api_calls)}"
         else:
             pytest.skip("Queue status filter not found - may not be available in current UI")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_max_similarity_zero_displays_as_percent(self, page: Page):
+        """Test that max_similarity=0 displays as 0.0% in queue table and rule preview modal (not N/A or -)."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+
+        mock_queue = [
+            {
+                "id": 99901,
+                "article_id": 1,
+                "article_title": "Test Article",
+                "workflow_execution_id": None,
+                "rule_yaml": "title: Discovery Commands\nlogsource:\n  category: process_creation\ndetection:\n  selection:\n    CommandLine|contains: net.exe\n  condition: selection\n",
+                "rule_metadata": {"title": "Discovery Commands", "description": "Test"},
+                "similarity_scores": [],
+                "max_similarity": 0.0,
+                "status": "pending",
+                "reviewed_by": None,
+                "review_notes": None,
+                "pr_submitted": False,
+                "pr_url": None,
+                "created_at": "2025-02-02T12:00:00",
+                "reviewed_at": None,
+            }
+        ]
+
+        def handle_route(route):
+            if "/api/sigma-queue/list" in route.request.url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_queue))
+            else:
+                route.continue_()
+
+        page.route("**/api/sigma-queue/list*", handle_route)
+
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+        page.locator("#tab-queue").click()
+        page.wait_for_timeout(2000)
+
+        # Table: Max Similarity column should show 0.0% not -
+        tbody = page.locator("#queueTableBody")
+        expect(tbody).to_be_visible(timeout=5000)
+        expect(tbody.locator("tr")).to_have_count(1)
+        expect(tbody.locator("td")).to_contain_text("0.0%")
+
+        # Open rule preview
+        page.locator('button:has-text("Preview")').first.click()
+        page.wait_for_timeout(500)
+
+        # Modal: Max Similarity should show 0.0% not N/A
+        rule_modal = page.locator("#ruleModal")
+        expect(rule_modal).to_be_visible(timeout=3000)
+        expect(rule_modal).not_to_have_class("hidden")
+        expect(rule_modal).to_contain_text("Max Similarity:")
+        expect(rule_modal).to_contain_text("0.0%")
+        expect(rule_modal).not_to_contain_text("N/A")
