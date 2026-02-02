@@ -1,13 +1,14 @@
 """
 API endpoint tests for CTI Scraper.
 """
-import pytest
+
 import httpx
-from typing import Dict, Any
+import pytest
+
 
 class TestDashboardEndpoints:
     """Test dashboard-related endpoints."""
-    
+
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
@@ -17,21 +18,22 @@ class TestDashboardEndpoints:
         assert response.status_code == 200
         assert "Dashboard" in response.text
         assert "Huntable" in response.text
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_dashboard_stats(self, async_client: httpx.AsyncClient):
         """Test dashboard statistics display."""
         response = await async_client.get("/")
         assert response.status_code == 200
-        
+
         # Check for key dashboard elements
         assert "Total Articles" in response.text
         # Note: "Total Sources" and "Last Update" may not be present in current dashboard
 
+
 class TestArticlesEndpoints:
     """Test article-related endpoints."""
-    
+
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
@@ -41,17 +43,17 @@ class TestArticlesEndpoints:
         assert response.status_code == 200
         assert "Threat Intelligence Articles" in response.text
         assert "RAG Search" in response.text
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_articles_pagination(self, async_client: httpx.AsyncClient):
         """Test articles pagination."""
         response = await async_client.get("/articles?limit=10")
         assert response.status_code == 200
-        
+
         response = await async_client.get("/articles?limit=50")
         assert response.status_code == 200
-    
+
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
@@ -60,7 +62,7 @@ class TestArticlesEndpoints:
         # First get the articles list to find an article ID
         list_response = await async_client.get("/articles")
         assert list_response.status_code == 200
-        
+
         # Try to access article ID 1 (should exist if there are articles)
         response = await async_client.get("/articles/1")
         if response.status_code == 200:
@@ -69,9 +71,10 @@ class TestArticlesEndpoints:
             # If no articles exist, that's also valid
             assert response.status_code in [404, 500]
 
+
 class TestSourcesEndpoints:
     """Test source-related endpoints."""
-    
+
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
@@ -80,20 +83,21 @@ class TestSourcesEndpoints:
         response = await async_client.get("/sources")
         assert response.status_code == 200
         assert "Sources" in response.text
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_source_management(self, async_client: httpx.AsyncClient):
         """Test source management functionality."""
         response = await async_client.get("/sources")
         assert response.status_code == 200
-        
+
         # Check for source management elements
         # Note: "Add Source" or "New Source" may not be present in current sources page
 
+
 class TestAPIEndpoints:
     """Test JSON API endpoints."""
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_api_articles(self, async_client: httpx.AsyncClient):
@@ -101,7 +105,7 @@ class TestAPIEndpoints:
         response = await async_client.get("/api/articles")
         # May return 500 if database error, 200 if successful
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "articles" in data
@@ -109,7 +113,7 @@ class TestAPIEndpoints:
         else:
             # If 500, skip the test (infrastructure issue)
             pytest.skip(f"API returned 500 (server error): {response.text[:200]}")
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     @pytest.mark.quarantine
@@ -121,11 +125,11 @@ class TestAPIEndpoints:
         if response.status_code == 500:
             pytest.skip(f"API returned 500 (server error): {response.text[:200]}")
         assert response.status_code == 200
-        
+
         data = response.json()
         assert "articles" in data
         assert len(data["articles"]) <= 5
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_api_article_detail(self, async_client: httpx.AsyncClient):
@@ -140,9 +144,10 @@ class TestAPIEndpoints:
             # If no articles exist, that's also valid
             assert response.status_code in [404, 500]
 
+
 class TestErrorHandling:
     """Test error handling and edge cases."""
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_404_handling(self, async_client: httpx.AsyncClient):
@@ -150,14 +155,14 @@ class TestErrorHandling:
         response = await async_client.get("/nonexistent-page")
         assert response.status_code == 404
         assert "Page not found" in response.text
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_invalid_article_id(self, async_client: httpx.AsyncClient):
         """Test handling of invalid article IDs."""
         response = await async_client.get("/articles/999999")
         assert response.status_code == 404
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_invalid_limit_parameter(self, async_client: httpx.AsyncClient):
@@ -248,9 +253,10 @@ class TestWorkflowConfig:
         response = await async_client.get("/api/workflow/config/version/999999")
         assert response.status_code == 404
 
+
 class TestQuickActionsEndpoints:
     """Test quick action endpoints."""
-    
+
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
@@ -258,7 +264,7 @@ class TestQuickActionsEndpoints:
         """Test the rescore all articles endpoint."""
         response = await async_client.post("/api/actions/rescore-all")
         assert response.status_code == 200
-        
+
         data = response.json()
         assert "success" in data
         assert "message" in data
@@ -349,27 +355,31 @@ class TestExportEndpoints:
         assert "filename=" in disposition
         content = response.text
         assert "record_number" in content
-    
+
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_rescore_all_response_format(self, async_client: httpx.AsyncClient):
         """Test the rescore all articles response format."""
         response = await async_client.post("/api/actions/rescore-all")
         assert response.status_code == 200
-        
+
         data = response.json()
         # Verify all required fields are present
         required_fields = ["success", "message", "processed"]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
-        
+
         # Verify field types
         assert isinstance(data["success"], bool)
         assert isinstance(data["message"], str)
         assert isinstance(data["processed"], int)
-        
+
         # Verify success message format
-        assert "Rescoring completed" in data["message"] or "No articles found" in data["message"] or "All articles already have scores" in data["message"]
+        assert (
+            "Rescoring completed" in data["message"]
+            or "No articles found" in data["message"]
+            or "All articles already have scores" in data["message"]
+        )
 
 
 class TestCriticalAPIs:
@@ -396,10 +406,7 @@ class TestCriticalAPIs:
     async def test_annotation_endpoint_exists(self, async_client: httpx.AsyncClient):
         """Test annotation creation endpoint is accessible."""
         # Test with invalid data to verify endpoint exists without creating data
-        response = await async_client.post(
-            "/api/articles/999999/annotations",
-            json={"annotation_type": "invalid_type"}
-        )
+        response = await async_client.post("/api/articles/999999/annotations", json={"annotation_type": "invalid_type"})
         # Should return 400 (bad request) or 404 (article not found), not 405 (method not allowed)
         assert response.status_code in [400, 404], f"Unexpected status {response.status_code}"
         data = response.json()
@@ -438,18 +445,18 @@ class TestCriticalAPIs:
         # Try to get an article for testing
         articles_response = await async_client.get("/api/articles?limit=1")
         article_id = None
-        
+
         if articles_response.status_code == 200:
             articles_data = articles_response.json()
             if articles_data.get("articles"):
                 article_id = articles_data["articles"][0]["id"]
-        
+
         # If no articles, test endpoint accessibility with non-existent article
         if not article_id:
             article_id = 999999  # Non-existent article ID
-        
+
         annotation_id = None
-        
+
         try:
             # Create annotation with valid text length
             annotation_data = {
@@ -459,39 +466,38 @@ class TestCriticalAPIs:
                 "end_position": 1000,
                 "context_before": "",
                 "context_after": "",
-                "confidence_score": 1.0
+                "confidence_score": 1.0,
             }
-            
-            response = await async_client.post(
-                f"/api/articles/{article_id}/annotations",
-                json=annotation_data
-            )
-            
+
+            response = await async_client.post(f"/api/articles/{article_id}/annotations", json=annotation_data)
+
             # If article doesn't exist, verify we get 404 (not 405 method not allowed)
             if article_id == 999999:
                 assert response.status_code == 404, f"Expected 404 for non-existent article, got {response.status_code}"
                 data = response.json()
                 assert "detail" in data
                 return  # Endpoint is accessible, test passes
-            
+
             # If article exists, verify creation succeeded
             assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
             data = response.json()
             assert data["success"] is True
             assert "annotation" in data
             annotation_id = data["annotation"]["id"]
-            
+
             # Verify annotation persists by fetching it
             get_response = await async_client.get(f"/api/articles/{article_id}/annotations")
             assert get_response.status_code == 200
             annotations = get_response.json().get("annotations", [])
             assert any(a["id"] == annotation_id for a in annotations), "Annotation not found after creation"
-            
+
         finally:
             # Cleanup: delete the annotation if it was created
             if annotation_id:
                 try:
-                    delete_response = await async_client.delete(f"/api/articles/{article_id}/annotations/{annotation_id}")
+                    delete_response = await async_client.delete(
+                        f"/api/articles/{article_id}/annotations/{annotation_id}"
+                    )
                     # Accept 200 or 404 (already deleted)
                     assert delete_response.status_code in [200, 404]
                 except Exception:
@@ -505,23 +511,23 @@ class TestCriticalAPIs:
         # Try to get an article for testing
         articles_response = await async_client.get("/api/articles?limit=1")
         article_id = None
-        
+
         if articles_response.status_code == 200:
             articles_data = articles_response.json()
             if articles_data.get("articles"):
                 article_id = articles_data["articles"][0]["id"]
-        
+
         # If no articles, test endpoint accessibility with non-existent article
         if not article_id:
             article_id = 999999  # Non-existent article ID
-        
+
         # Trigger workflow (may return 400 if execution already exists, or 404 if article doesn't exist)
         response = await async_client.post(f"/api/workflow/articles/{article_id}/trigger")
-        
+
         # Accept 200 (success), 400 (validation/duplicate), 404 (article not found), or 500 (server error)
         # Just verify endpoint is accessible and responds appropriately (not 405 method not allowed)
         assert response.status_code in [200, 400, 404, 500], f"Unexpected status {response.status_code}"
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "execution_id" in data or "message" in data
@@ -537,28 +543,25 @@ class TestCriticalAPIs:
         # Try to get an article for testing
         articles_response = await async_client.get("/api/articles?limit=1")
         article_id = None
-        
+
         if articles_response.status_code == 200:
             articles_data = articles_response.json()
             if articles_data.get("articles"):
                 article_id = articles_data["articles"][0]["id"]
-        
+
         # If no articles, test endpoint accessibility with non-existent article
         if not article_id:
             article_id = 999999  # Non-existent article ID
-        
+
         # Try to access SIGMA generation endpoint without API key
         # Should return 400 (missing API key), 404 (article not found), or 500 (server error)
         # Not 405 (method not allowed) - proves endpoint exists
-        response = await async_client.post(
-            f"/api/articles/{article_id}/generate-sigma",
-            json={}
-        )
-        
+        response = await async_client.post(f"/api/articles/{article_id}/generate-sigma", json={})
+
         # Accept 400 (validation error), 404 (article not found), or 500 (server error)
         # Just verify endpoint exists and is accessible (not 405 method not allowed)
         assert response.status_code in [400, 404, 500], f"Unexpected status {response.status_code}"
-        
+
         if response.status_code in [400, 500]:
             data = response.json()
             assert "detail" in data or "error" in data or "message" in data
@@ -614,6 +617,21 @@ class TestCriticalAPIs:
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
+    async def test_evaluations_export_bundles_by_config_version_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: export-bundles-by-config-version endpoint is reachable. Expects 404 when no data."""
+        response = await async_client.get(
+            "/api/evaluations/evals/export-bundles-by-config-version",
+            params={"config_version": 999999, "subagent": "cmdline"},
+        )
+        # 404 when no completed eval records; 200 with application/zip when data exists
+        assert response.status_code in (200, 404)
+        if response.status_code == 404:
+            data = response.json()
+            assert "detail" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
     async def test_search_smoke(self, async_client: httpx.AsyncClient):
         """Smoke: search module is reachable (read-only). Uses /api/search/help to avoid route conflict with /api/articles/{id}."""
         response = await async_client.get("/api/search/help")
@@ -658,35 +676,35 @@ class TestCriticalAPIs:
 
 class TestPerformance:
     """Test performance and response times."""
-    
+
     @pytest.mark.api
     @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_response_times(self, async_client: httpx.AsyncClient):
         """Test that endpoints respond within reasonable time."""
         import time
-        
+
         start_time = time.time()
         response = await async_client.get("/")
         end_time = time.time()
-        
+
         assert response.status_code == 200
         assert (end_time - start_time) < 5.0  # Should respond within 5 seconds
-    
+
     @pytest.mark.api
     @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, async_client: httpx.AsyncClient):
         """Test handling of concurrent requests."""
         import asyncio
-        
+
         async def make_request():
             return await async_client.get("/")
-        
+
         # Make 5 concurrent requests
         tasks = [make_request() for _ in range(5)]
         responses = await asyncio.gather(*tasks)
-        
+
         # All should succeed
         for response in responses:
             assert response.status_code == 200

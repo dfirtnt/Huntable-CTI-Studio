@@ -2,12 +2,16 @@
 API routes for agent evaluation management.
 """
 
+import io
+import json
 import logging
 import os
+import zipfile
 from pathlib import Path
 
 import yaml
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from langfuse import Langfuse
 from pydantic import BaseModel, Field
 
@@ -18,7 +22,7 @@ from src.database.models import (
     ArticleTable,
     SubagentEvaluationTable,
 )
-from src.services.eval_bundle_service import EvalBundleService
+from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
@@ -1439,4 +1443,102 @@ async def get_eval_bundle_metadata(
         raise
     except Exception as e:
         logger.error(f"Error getting eval bundle metadata for execution {execution_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# Map subagent canonical names to agent names used in eval bundles
+_SUBAGENT_TO_AGENT = {
+    "cmdline": "CmdlineExtract",
+    "process_lineage": "ProcTreeExtract",
+    "hunt_queries": "HuntQueriesExtract",
+    "hunt_queries_edr": "HuntQueriesExtract",
+}
+
+
+@router.get("/evals/export-bundles-by-config-version")
+async def export_bundles_by_config_version(
+    request: Request,
+    config_version: int = Query(..., description="Workflow config version"),
+    subagent: str = Query(..., description="Subagent name (cmdline, process_lineage, hunt_queries)"),
+):
+    """
+    Export eval bundles for all articles evaluated under a given config version.
+
+    Returns a ZIP file with one JSON bundle per article (article_{id}.json).
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+            if canonical_subagent == "hunt_queries":
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
+            agent_name = _SUBAGENT_TO_AGENT.get(canonical_subagent or "")
+            if not agent_name:
+                agent_name = "CmdlineExtract"  # fallback for unknown subagents
+
+            records = (
+                db_session.query(SubagentEvaluationTable)
+                .filter(
+                    SubagentEvaluationTable.subagent_name.in_(lookup_values),
+                    SubagentEvaluationTable.workflow_config_version == config_version,
+                    SubagentEvaluationTable.workflow_execution_id.isnot(None),
+                    SubagentEvaluationTable.status == "completed",
+                )
+                .order_by(SubagentEvaluationTable.article_id.asc())
+                .all()
+            )
+
+            if not records:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No completed eval records for config version {config_version} and subagent {subagent}",
+                )
+
+            bundle_service = EvalBundleService(db_session)
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                for record in records:
+                    try:
+                        bundle = bundle_service.generate_bundle(
+                            execution_id=record.workflow_execution_id,
+                            agent_name=agent_name,
+                            attempt=None,
+                        )
+                        bundle_for_hash = bundle.copy()
+                        bundle_for_hash["integrity"] = {
+                            "bundle_sha256": "",
+                            "warnings": bundle["integrity"]["warnings"],
+                        }
+                        bundle["integrity"]["bundle_sha256"] = compute_sha256_json(bundle_for_hash)
+                        filename = f"article_{record.article_id or record.id}.json"
+                        zf.writestr(filename, json.dumps(bundle, indent=2, ensure_ascii=False))
+                    except (ValueError, AttributeError) as e:
+                        logger.warning(f"Skipping bundle for execution {record.workflow_execution_id}: {e}")
+                        zf.writestr(
+                            f"article_{record.article_id or record.id}_error.txt",
+                            f"Bundle generation failed: {e}",
+                        )
+
+            buffer.seek(0)
+            return StreamingResponse(
+                buffer,
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": f"attachment; filename=eval_bundles_v{config_version}_{canonical_subagent or subagent}.zip"
+                },
+            )
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error exporting bundles for config version {config_version}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e
