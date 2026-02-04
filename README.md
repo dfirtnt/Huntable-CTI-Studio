@@ -42,13 +42,18 @@ The main engine is a LangGraph-based agentic workflow (#4-6 in diagram above) ex
 
 ## Quick Start
 
-# Requirements: Docker + Docker Compose, .env with POSTGRES_PASSWORD
-./start.sh
+**Requirements:** Docker + Docker Compose
 
-# Access
-# Web UI: http://localhost:8001
-# API Docs: http://localhost:8001/docs
-# Health: curl http://localhost:8001/health
+```bash
+cp .env.example .env
+# Edit .env and set POSTGRES_PASSWORD=your_secure_password
+./start.sh
+```
+
+**Access:**
+- Web UI: http://localhost:8001
+- API Docs: http://localhost:8001/docs
+- Health: `curl http://localhost:8001/health`
 
 
 The documentation is organized under `/docs` and is published with MkDocs Material.
