@@ -53,7 +53,7 @@ Faker==37.8.0
 fastapi==0.128.1
 fastjsonschema==2.21.2
 feedparser==6.0.12
-filelock==3.19.1
+filelock==3.20.3
 flake8==7.3.0
 fqdn==1.5.1
 freezegun==1.5.5
