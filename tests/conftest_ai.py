@@ -3,11 +3,9 @@ Pytest configuration for AI Assistant tests.
 Provides fixtures and configuration specific to AI testing.
 """
 
-import pytest
 import os
-import asyncio
-from typing import AsyncGenerator
 
+import pytest
 
 # Removed event_loop fixture - pytest-asyncio handles event loops automatically
 # with asyncio_mode = auto in pytest.ini
@@ -16,7 +14,6 @@ from typing import AsyncGenerator
 @pytest.fixture
 def ai_test_config():
     """Configuration for AI tests."""
-    import getpass
 
     # Check for API keys in environment
     openai_key_env = os.getenv("OPENAI_API_KEY")
@@ -32,11 +29,7 @@ def ai_test_config():
     # Prompt for OpenAI API key authorization
     if openai_key_env:
         print(f"\n✓ OPENAI_API_KEY found in environment ({openai_key_env[:10]}...)")
-        response = (
-            input("Authorize use of OpenAI API key for these tests? [y/N]: ")
-            .strip()
-            .lower()
-        )
+        response = input("Authorize use of OpenAI API key for these tests? [y/N]: ").strip().lower()
         openai_key = openai_key_env if response == "y" else None
     else:
         print("\n⚠️  OPENAI_API_KEY not found in environment.")
@@ -45,14 +38,8 @@ def ai_test_config():
 
     # Prompt for Anthropic API key authorization
     if anthropic_key_env:
-        print(
-            f"\n✓ ANTHROPIC_API_KEY found in environment ({anthropic_key_env[:10]}...)"
-        )
-        response = (
-            input("Authorize use of Anthropic API key for these tests? [y/N]: ")
-            .strip()
-            .lower()
-        )
+        print(f"\n✓ ANTHROPIC_API_KEY found in environment ({anthropic_key_env[:10]}...)")
+        response = input("Authorize use of Anthropic API key for these tests? [y/N]: ").strip().lower()
         anthropic_key = anthropic_key_env if response == "y" else None
     else:
         print("\n⚠️  ANTHROPIC_API_KEY not found in environment.")

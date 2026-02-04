@@ -1,13 +1,13 @@
 """Tests for agentic workflow PreprocessInvariantError handling."""
 
 import json
-import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from datetime import datetime
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
+from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.services.llm_service import PreprocessInvariantError
 from src.workflows.agentic_workflow import run_workflow
-from src.database.models import ArticleTable, AgenticWorkflowExecutionTable, AgenticWorkflowConfigTable
 
 pytestmark = pytest.mark.unit
 
@@ -33,13 +33,18 @@ def mock_config():
     config.agent_models = {"CmdlineExtract_model": "gpt-4", "CmdlineExtract_provider": "openai"}
     config.agent_prompts = {
         "CmdlineExtract": {
-            "prompt": json.dumps({
-                "role": "You are an extractor.",
-                "user_template": "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: Extract\nJSON: {}\nInstructions: Output JSON",
-                "task": "Extract",
-                "instructions": "Output JSON",
-                "json_example": "{}",
-            }),
+            "prompt": json.dumps(
+                {
+                    "role": "You are an extractor.",
+                    "user_template": (
+                        "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: Extract\n"
+                        "JSON: {}\nInstructions: Output JSON"
+                    ),
+                    "task": "Extract",
+                    "instructions": "Output JSON",
+                    "json_example": "{}",
+                }
+            ),
             "instructions": "Output JSON",
         }
     }
@@ -135,9 +140,7 @@ async def test_preprocess_invariant_error_stores_infra_failed_in_subresults(
             mock_trace.return_value.__enter__ = Mock(return_value=None)
             mock_trace.return_value.__exit__ = Mock(return_value=False)
 
-        with patch(
-            "src.workflows.agentic_workflow.LLMService"
-        ) as mock_llm_cls:
+        with patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls:
             mock_llm = Mock()
             mock_llm.run_extraction_agent = AsyncMock(side_effect=raise_for_cmdline)
             mock_llm.check_model_context_length = AsyncMock(

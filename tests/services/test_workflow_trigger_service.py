@@ -1,11 +1,12 @@
 """Tests for workflow trigger service functionality."""
 
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
+from unittest.mock import Mock, patch
 
+import pytest
+
+from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.services.workflow_trigger_service import WorkflowTriggerService
-from src.database.models import ArticleTable, AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -35,7 +36,7 @@ class TestWorkflowTriggerService:
         article = Mock(spec=ArticleTable)
         article.id = 1
         article.title = "High Threat Article"
-        article.article_metadata = {'threat_hunting_score': 95.0}
+        article.article_metadata = {"threat_hunting_score": 95.0}
         return article
 
     @pytest.fixture
@@ -60,9 +61,9 @@ class TestWorkflowTriggerService:
         mock_query = Mock()
         mock_query.filter.return_value.order_by.return_value.first.return_value = sample_config
         mock_db_session.query.return_value = mock_query
-        
+
         config = service.get_active_config()
-        
+
         assert config == sample_config
 
     def test_get_active_config_create_default(self, service, mock_db_session):
@@ -70,9 +71,9 @@ class TestWorkflowTriggerService:
         mock_query = Mock()
         mock_query.filter.return_value.order_by.return_value.first.return_value = None
         mock_db_session.query.return_value = mock_query
-        
+
         config = service.get_active_config()
-        
+
         # Should create default config
         assert config is not None
         mock_db_session.add.assert_called_once()
@@ -84,91 +85,91 @@ class TestWorkflowTriggerService:
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
         mock_db_session.query.return_value = mock_config_query
-        
+
         # Mock execution query (no existing execution)
         mock_exec_query = Mock()
         mock_exec_query.filter.return_value.first.return_value = None
-        
+
         def query_side_effect(model):
             if model == AgenticWorkflowConfigTable:
                 return mock_config_query
-            elif model == AgenticWorkflowExecutionTable:
+            if model == AgenticWorkflowExecutionTable:
                 return mock_exec_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
+
         should_trigger = service.should_trigger_workflow(sample_article)
-        
+
         assert should_trigger is True
 
     def test_should_trigger_workflow_low_score(self, service, mock_db_session, sample_article, sample_config):
         """Test workflow trigger for article with low hunt score."""
-        sample_article.article_metadata = {'threat_hunting_score': 50.0}
-        
+        sample_article.article_metadata = {"threat_hunting_score": 50.0}
+
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
         mock_db_session.query.return_value = mock_config_query
-        
+
         should_trigger = service.should_trigger_workflow(sample_article)
-        
+
         assert should_trigger is False
 
     def test_should_trigger_workflow_existing_execution(self, service, mock_db_session, sample_article, sample_config):
         """Test workflow trigger when execution already exists."""
         existing_execution = Mock(spec=AgenticWorkflowExecutionTable)
         existing_execution.id = 1
-        existing_execution.status = 'running'
+        existing_execution.status = "running"
         existing_execution.created_at = datetime.now()
         existing_execution.started_at = datetime.now()
-        
+
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
-        
+
         mock_exec_query = Mock()
         mock_exec_query.filter.return_value.first.return_value = existing_execution
-        
+
         def query_side_effect(model):
             if model == AgenticWorkflowConfigTable:
                 return mock_config_query
-            elif model == AgenticWorkflowExecutionTable:
+            if model == AgenticWorkflowExecutionTable:
                 return mock_exec_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
+
         should_trigger = service.should_trigger_workflow(sample_article)
-        
+
         assert should_trigger is False
 
     def test_should_trigger_workflow_stuck_execution(self, service, mock_db_session, sample_article, sample_config):
         """Test workflow trigger with stuck pending execution."""
         stuck_execution = Mock(spec=AgenticWorkflowExecutionTable)
         stuck_execution.id = 1
-        stuck_execution.status = 'pending'
+        stuck_execution.status = "pending"
         stuck_execution.created_at = datetime.now() - timedelta(minutes=10)
         stuck_execution.started_at = None
         stuck_execution.error_message = None
-        
+
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
-        
+
         mock_exec_query = Mock()
         mock_exec_query.filter.return_value.first.return_value = stuck_execution
-        
+
         def query_side_effect(model):
             if model == AgenticWorkflowConfigTable:
                 return mock_config_query
-            elif model == AgenticWorkflowExecutionTable:
+            if model == AgenticWorkflowExecutionTable:
                 return mock_exec_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
+
         should_trigger = service.should_trigger_workflow(sample_article)
-        
+
         # Should mark stuck execution as failed and allow new trigger
-        assert stuck_execution.status == 'failed'
+        assert stuck_execution.status == "failed"
         assert should_trigger is True
 
     def test_trigger_workflow_success(self, service, mock_db_session, sample_article, sample_config):
@@ -176,31 +177,31 @@ class TestWorkflowTriggerService:
         # Mock article query
         mock_article_query = Mock()
         mock_article_query.filter.return_value.first.return_value = sample_article
-        
+
         # Mock config query
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
-        
+
         # Mock execution query (no existing)
         mock_exec_query = Mock()
         mock_exec_query.filter.return_value.first.return_value = None
-        
+
         def query_side_effect(model):
             if model == ArticleTable:
                 return mock_article_query
-            elif model == AgenticWorkflowConfigTable:
+            if model == AgenticWorkflowConfigTable:
                 return mock_config_query
-            elif model == AgenticWorkflowExecutionTable:
+            if model == AgenticWorkflowExecutionTable:
                 return mock_exec_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
-        with patch('src.services.workflow_trigger_service.trigger_agentic_workflow') as mock_trigger:
+
+        with patch("src.services.workflow_trigger_service.trigger_agentic_workflow") as mock_trigger:
             mock_trigger.delay = Mock()
-            
+
             result = service.trigger_workflow(article_id=1)
-            
+
             assert result is True
             mock_db_session.add.assert_called_once()
             mock_db_session.commit.assert_called()
@@ -211,45 +212,45 @@ class TestWorkflowTriggerService:
         mock_article_query = Mock()
         mock_article_query.filter.return_value.first.return_value = None
         mock_db_session.query.return_value = mock_article_query
-        
+
         result = service.trigger_workflow(article_id=999)
-        
+
         assert result is False
 
     def test_trigger_workflow_should_not_trigger(self, service, mock_db_session, sample_article, sample_config):
         """Test workflow trigger when should_trigger returns False."""
-        sample_article.article_metadata = {'threat_hunting_score': 50.0}
-        
+        sample_article.article_metadata = {"threat_hunting_score": 50.0}
+
         mock_article_query = Mock()
         mock_article_query.filter.return_value.first.return_value = sample_article
-        
+
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
-        
+
         mock_exec_query = Mock()
         mock_exec_query.filter.return_value.first.return_value = None
-        
+
         def query_side_effect(model):
             if model == ArticleTable:
                 return mock_article_query
-            elif model == AgenticWorkflowConfigTable:
+            if model == AgenticWorkflowConfigTable:
                 return mock_config_query
-            elif model == AgenticWorkflowExecutionTable:
+            if model == AgenticWorkflowExecutionTable:
                 return mock_exec_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
+
         result = service.trigger_workflow(article_id=1)
-        
+
         assert result is False
 
     def test_get_active_config_error_handling(self, service, mock_db_session):
         """Test error handling in get_active_config."""
         mock_db_session.query.side_effect = Exception("Database error")
-        
+
         config = service.get_active_config()
-        
+
         assert config is None
 
     def test_should_trigger_workflow_no_config(self, service, mock_db_session, sample_article):
@@ -257,30 +258,30 @@ class TestWorkflowTriggerService:
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = None
         mock_db_session.query.return_value = mock_config_query
-        
+
         should_trigger = service.should_trigger_workflow(sample_article)
-        
+
         assert should_trigger is False
 
     def test_should_trigger_workflow_no_metadata(self, service, mock_db_session, sample_article, sample_config):
         """Test should_trigger when article has no metadata."""
         sample_article.article_metadata = None
-        
+
         mock_config_query = Mock()
         mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
-        
+
         mock_exec_query = Mock()
         mock_exec_query.filter.return_value.first.return_value = None
-        
+
         def query_side_effect(model):
             if model == AgenticWorkflowConfigTable:
                 return mock_config_query
-            elif model == AgenticWorkflowExecutionTable:
+            if model == AgenticWorkflowExecutionTable:
                 return mock_exec_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
+
         should_trigger = service.should_trigger_workflow(sample_article)
-        
+
         assert should_trigger is False

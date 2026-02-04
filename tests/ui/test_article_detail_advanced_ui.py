@@ -3,14 +3,15 @@ UI tests for Article Detail page advanced features using Playwright.
 Tests workflow execution, SIGMA generation, editing, export, and related features.
 """
 
+import os
+
 import pytest
 from playwright.sync_api import Page, expect
-import os
 
 
 class TestArticleDetailWorkflowExecution:
     """Test workflow execution features on article detail page."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_workflow_execution_status_display(self, page: Page):
@@ -18,17 +19,17 @@ class TestArticleDetailWorkflowExecution:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find workflow execution status section
             workflow_status = page.locator("text=Workflow Execution")
             # Workflow status may or may not be visible depending on execution state
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_workflow_execution_history_display(self, page: Page):
@@ -36,17 +37,17 @@ class TestArticleDetailWorkflowExecution:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find execution history section
             execution_history = page.locator("text=Execution History")
             # History may or may not be visible
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_trigger_workflow_button(self, page: Page):
@@ -54,58 +55,58 @@ class TestArticleDetailWorkflowExecution:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
             expect(trigger_btn).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = trigger_btn.get_attribute("onclick")
             assert "triggerWorkflowForArticle" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_trigger_workflow_api_call(self, page: Page):
         """Test trigger workflow API call."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        
+
         # Intercept API call
         api_called = {"called": False}
-        
+
         def handle_route(route):
             if "/api/workflow/articles" in route.request.url and route.request.method == "POST":
                 api_called["called"] = True
             route.continue_()
-        
+
         page.route("**/api/workflow/articles/*/trigger*", handle_route)
-        
+
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Click trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
             trigger_btn.click()
             page.wait_for_timeout(2000)
-            
+
             # Verify API was called
             assert api_called["called"], "Trigger workflow API should be called"
 
 
 class TestArticleDetailSigmaGeneration:
     """Test SIGMA rule generation features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sigma_rule_generation_button(self, page: Page):
@@ -113,18 +114,18 @@ class TestArticleDetailSigmaGeneration:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # DEPRECATED: AI Assistant button removed
             # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
             # if ai_btn.count() > 0:
             #     expect(ai_btn.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sigma_rule_queue_integration_display(self, page: Page):
@@ -132,17 +133,17 @@ class TestArticleDetailSigmaGeneration:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find SIGMA rules section
             sigma_section = page.locator("text=SIGMA")
             # SIGMA section may or may not be visible depending on article state
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sigma_rules_modal_display(self, page: Page):
@@ -150,13 +151,13 @@ class TestArticleDetailSigmaGeneration:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find SIGMA rules modal (may be dynamically created)
             sigma_modal = page.locator("#sigmaRulesModal")
             # Modal may or may not exist initially
@@ -164,7 +165,7 @@ class TestArticleDetailSigmaGeneration:
 
 class TestArticleDetailEditing:
     """Test article editing features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_metadata_editing_form(self, page: Page):
@@ -172,17 +173,17 @@ class TestArticleDetailEditing:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find edit buttons or forms
             edit_buttons = page.locator("button:has-text('Edit'), button:has-text('Update')")
             # Edit functionality may or may not exist
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_content_editing_form(self, page: Page):
@@ -190,13 +191,13 @@ class TestArticleDetailEditing:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find content editing elements
             content_editors = page.locator("textarea, [contenteditable='true']")
             # Content editing may or may not be available
@@ -265,7 +266,7 @@ class TestArticleDetailObservables:
 
 class TestArticleDetailDeletion:
     """Test article deletion features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_deletion_confirmation_modal(self, page: Page):
@@ -273,32 +274,32 @@ class TestArticleDetailDeletion:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find delete button
             delete_btn = page.locator("button:has-text('Delete Article')")
             expect(delete_btn).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = delete_btn.get_attribute("onclick")
             assert "deleteArticle" in onclick_attr
-            
+
             # Click delete button (will trigger confirmation dialog)
             delete_btn.click()
             page.wait_for_timeout(500)
-            
+
             # Verify confirmation dialog appears
             # Playwright handles dialogs automatically, but we can verify the function exists
 
 
 class TestArticleDetailDuplicateDetection:
     """Test article duplicate detection features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_duplicate_detection_display(self, page: Page):
@@ -306,13 +307,13 @@ class TestArticleDetailDuplicateDetection:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find duplicate detection section
             duplicate_section = page.locator("text=Duplicate, text=Similar")
             # Duplicate detection may or may not be visible
@@ -320,7 +321,7 @@ class TestArticleDetailDuplicateDetection:
 
 class TestArticleDetailSimilaritySearch:
     """Test article similarity search features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_similarity_search_functionality(self, page: Page):
@@ -328,13 +329,13 @@ class TestArticleDetailSimilaritySearch:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find similarity search button
             similarity_btn = page.locator("button:has-text('Similar'), button:has-text('Find Similar')")
             # Similarity search may or may not exist
@@ -342,7 +343,7 @@ class TestArticleDetailSimilaritySearch:
 
 class TestArticleDetailExport:
     """Test article export features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_export_pdf_button(self, page: Page):
@@ -350,22 +351,22 @@ class TestArticleDetailExport:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find export PDF button
             export_pdf_btn = page.locator("button:has-text('Export'), button[onclick*='exportArticleToPDF']")
             if export_pdf_btn.count() > 0:
                 expect(export_pdf_btn.first).to_be_visible()
-                
+
                 # Verify onclick handler
                 onclick_attr = export_pdf_btn.first.get_attribute("onclick")
                 assert "exportArticleToPDF" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_export_json_format(self, page: Page):
@@ -373,17 +374,17 @@ class TestArticleDetailExport:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find JSON export button or link
             json_export = page.locator("button:has-text('JSON'), a:has-text('JSON')")
             # JSON export may or may not exist
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_export_csv_format(self, page: Page):
@@ -391,17 +392,17 @@ class TestArticleDetailExport:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find CSV export button or link
             csv_export = page.locator("button:has-text('CSV'), a:has-text('CSV')")
             # CSV export may or may not exist
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_export_markdown_format(self, page: Page):
@@ -409,13 +410,13 @@ class TestArticleDetailExport:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find Markdown export button or link
             md_export = page.locator("button:has-text('Markdown'), a:has-text('Markdown')")
             # Markdown export may or may not exist
@@ -423,7 +424,7 @@ class TestArticleDetailExport:
 
 class TestArticleDetailAdvancedFeatures:
     """Test additional advanced features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_workflow_execution_button_state(self, page: Page):
@@ -431,22 +432,22 @@ class TestArticleDetailAdvancedFeatures:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
             expect(trigger_btn).to_be_visible()
-            
+
             # Verify button text
             btn_text = page.locator("#triggerWorkflowBtnText")
             expect(btn_text).to_be_visible()
             assert "Send to Workflow" in btn_text.text_content()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_delete_confirmation_dialog(self, page: Page):
@@ -454,30 +455,30 @@ class TestArticleDetailAdvancedFeatures:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Set up dialog handler
             dialog_handled = {"handled": False}
-            
+
             def handle_dialog(dialog):
                 dialog_handled["handled"] = True
                 dialog.dismiss()  # Cancel deletion
-            
+
             page.on("dialog", handle_dialog)
-            
+
             # Click delete button
             delete_btn = page.locator("button:has-text('Delete Article')")
             delete_btn.click()
             page.wait_for_timeout(500)
-            
+
             # Verify dialog was triggered
             assert dialog_handled["handled"], "Delete confirmation dialog should appear"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_export_pdf_functionality(self, page: Page):
@@ -485,25 +486,25 @@ class TestArticleDetailAdvancedFeatures:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Find export PDF button
             export_pdf_btn = page.locator("button[onclick*='exportArticleToPDF']")
             if export_pdf_btn.count() > 0:
                 expect(export_pdf_btn.first).to_be_visible()
-                
+
                 # Click export button
                 export_pdf_btn.click()
                 page.wait_for_timeout(1000)
-                
+
                 # Verify print dialog or PDF generation (may open print dialog)
                 # This test verifies the button works
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_sigma_generation_modal(self, page: Page):
@@ -511,28 +512,28 @@ class TestArticleDetailAdvancedFeatures:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
-        
+
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
             page.wait_for_load_state("networkidle")
-            
+
             # DEPRECATED: AI Assistant button and modal removed
             # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
             # if ai_btn.count() > 0:
             #     ai_btn.first.click()
             #     page.wait_for_timeout(500)
-            #     
+            #
             #     # Verify modal opens
             #     ai_modal = page.locator("text=AL/ML Assistant, text=AI/ML Assistant")
             #     expect(ai_modal).to_be_visible()
-            #     
+            #
             #     # Find SIGMA generation button in modal
             #     sigma_btn = page.locator("button:has-text('Generate SIGMA'), button:has-text('SIGMA Rules')")
             #     if sigma_btn.count() > 0:
             #         expect(sigma_btn.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_workflow_execution_redirect(self, page: Page):
@@ -557,4 +558,6 @@ class TestArticleDetailAdvancedFeatures:
             trigger_btn.click()
             page.wait_for_timeout(3000)
             # Redirect may go to /workflow#executions or we saw workflow API/URL
-            assert workflow_seen["seen"] or "/workflow" in page.url, "workflow trigger should hit workflow API or redirect to /workflow"
+            assert workflow_seen["seen"] or "/workflow" in page.url, (
+                "workflow trigger should hit workflow API or redirect to /workflow"
+            )

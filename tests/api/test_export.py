@@ -4,11 +4,11 @@ Unit tests for the annotations export endpoint.
 
 from __future__ import annotations
 
+import csv
+import io
 from contextlib import asynccontextmanager
 from datetime import datetime
 from types import SimpleNamespace
-import csv
-import io
 
 import pytest
 
@@ -46,7 +46,7 @@ async def test_export_annotations_return_csv_with_bom(monkeypatch):
     rows = [
         SimpleNamespace(
             record_number=1,
-            highlighted_text="Example text with emoji 😊\nand a newline, plus a comma, \"quoted\"",
+            highlighted_text='Example text with emoji 😊\nand a newline, plus a comma, "quoted"',
             classification="Huntable",
             article_title="Threat Report",
             classification_date=datetime(2025, 12, 8, 17, 0, 0),
@@ -87,11 +87,11 @@ async def test_export_annotations_return_csv_with_bom(monkeypatch):
 
     body = response.body
     assert isinstance(body, bytes)
-    assert body.startswith("\ufeff".encode("utf-8"))
+    assert body.startswith("\ufeff".encode())
 
     text = body.decode("utf-8")
     assert "Example text with emoji 😊" in text
-    assert "\"quoted\"" in text
+    assert '"quoted"' in text
     assert "Threat Report" in text
     assert "Huntable" in text
     assert 'attachment; filename="' in response.headers["content-disposition"]

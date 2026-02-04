@@ -4,20 +4,19 @@ Tests model switching, fallbacks, and integration between different AI providers
 
 NOTE: These tests require cloud LLM API keys or proper mocking.
 """
+
 import pytest
 
 # Mark all tests in this file as integration tests
 pytestmark = pytest.mark.integration
 import asyncio
-import json
-import os
-from unittest.mock import Mock, patch, AsyncMock
-from typing import Dict, Any, List
+from unittest.mock import Mock, patch
 
 try:
     from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
-    from src.utils.ioc_extractor import HybridIOCExtractor
+
     from src.services.sigma_validator import SigmaValidator
+    from src.utils.ioc_extractor import HybridIOCExtractor
 except ImportError:
     # Mock imports for testing without full dependencies
     GPT4oContentOptimizer = None
@@ -161,9 +160,7 @@ class TestAICrossModelIntegration:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_openai_response
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # Simulate ChatGPT analysis
             chatgpt_result = mock_openai_response["choices"][0]["message"]["content"]
@@ -174,9 +171,7 @@ class TestAICrossModelIntegration:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_anthropic_response
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # Simulate Anthropic analysis
             anthropic_result = mock_anthropic_response["content"][0]["text"]
@@ -187,18 +182,14 @@ class TestAICrossModelIntegration:
         assert "8" in chatgpt_result and "9" in anthropic_result
 
     @pytest.mark.asyncio
-    async def test_model_fallback_openai_failure(
-        self, sample_threat_article, mock_anthropic_response
-    ):
+    async def test_model_fallback_openai_failure(self, sample_threat_article, mock_anthropic_response):
         """Test fallback from OpenAI to Anthropic when OpenAI fails."""
         # Mock OpenAI failure
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = Mock()
             mock_response.status_code = 500
             mock_response.text = "OpenAI API Error"
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # Should handle OpenAI failure gracefully
             try:
@@ -212,9 +203,7 @@ class TestAICrossModelIntegration:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_anthropic_response
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # Fallback should work
             anthropic_result = mock_anthropic_response["content"][0]["text"]
@@ -223,18 +212,14 @@ class TestAICrossModelIntegration:
     @pytest.mark.asyncio
     @pytest.mark.quarantine
     @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_model_fallback_anthropic_failure(
-        self, sample_threat_article, mock_ollama_response
-    ):
+    async def test_model_fallback_anthropic_failure(self, sample_threat_article, mock_ollama_response):
         """Test fallback from Anthropic to Ollama when Anthropic fails."""
         # Mock Anthropic failure
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = Mock()
             mock_response.status_code = 429  # Rate limit
             mock_response.text = "Rate limit exceeded"
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # Should handle Anthropic failure gracefully
             try:
@@ -267,9 +252,7 @@ class TestAICrossModelIntegration:
         small_content = "x" * 10000  # 10KB - within all limits
 
         for model, limit in model_limits.items():
-            assert len(small_content) <= limit, (
-                f"Small content should be within {model} limit"
-            )
+            assert len(small_content) <= limit, f"Small content should be within {model} limit"
 
         # Test content exceeding limits
         large_content = "x" * 150000  # 150KB - exceeds ChatGPT and Anthropic limits
@@ -287,21 +270,15 @@ class TestAICrossModelIntegration:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
-                "choices": [
-                    {"message": {"content": "GPT-4o analysis with cost optimization"}}
-                ]
+                "choices": [{"message": {"content": "GPT-4o analysis with cost optimization"}}]
             }
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # GPT-4o should support cost optimization
             optimizer = GPT4oContentOptimizer()
             with patch.object(optimizer.content_filter, "model", None):
                 with patch.object(optimizer.content_filter, "load_model"):
-                    with patch.object(
-                        optimizer.content_filter, "filter_content"
-                    ) as mock_filter:
+                    with patch.object(optimizer.content_filter, "filter_content") as mock_filter:
                         mock_filter_result = Mock(
                             filtered_content=sample_threat_article["content"],
                             is_huntable=True,
@@ -311,21 +288,15 @@ class TestAICrossModelIntegration:
                         )
                         mock_filter.return_value = mock_filter_result
 
-                        result = await optimizer.optimize_content_for_gpt4o(
-                            sample_threat_article["content"]
-                        )
+                        result = await optimizer.optimize_content_for_gpt4o(sample_threat_article["content"])
                         assert result["cost_savings"] > 0
 
         # Test Anthropic Claude specific features
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = Mock()
             mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "content": [{"text": "Claude analysis with long context support"}]
-            }
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_response.json.return_value = {"content": [{"text": "Claude analysis with long context support"}]}
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             # Claude should support longer context
             long_content = "x" * 80000  # 80KB - within Claude's limit
@@ -354,24 +325,16 @@ class TestAICrossModelIntegration:
             with patch("httpx.AsyncClient") as mock_client:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "choices": [{"message": {"content": "OpenAI response"}}]
-                }
-                mock_client.return_value.__aenter__.return_value.post.return_value = (
-                    mock_response
-                )
+                mock_response.json.return_value = {"choices": [{"message": {"content": "OpenAI response"}}]}
+                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                 return "OpenAI response"
 
         async def mock_anthropic_request():
             with patch("httpx.AsyncClient") as mock_client:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "content": [{"text": "Anthropic response"}]
-                }
-                mock_client.return_value.__aenter__.return_value.post.return_value = (
-                    mock_response
-                )
+                mock_response.json.return_value = {"content": [{"text": "Anthropic response"}]}
+                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                 return "Anthropic response"
 
         async def mock_ollama_request():
@@ -384,9 +347,7 @@ class TestAICrossModelIntegration:
                 return generate_sigma_rules(sample_threat_article["content"])
 
         # Run concurrent requests
-        results = await asyncio.gather(
-            mock_openai_request(), mock_anthropic_request(), mock_ollama_request()
-        )
+        results = await asyncio.gather(mock_openai_request(), mock_anthropic_request(), mock_ollama_request())
 
         assert len(results) == 3
         assert "OpenAI response" in results
@@ -405,12 +366,8 @@ class TestAICrossModelIntegration:
             with patch("httpx.AsyncClient") as mock_client:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "choices": [{"message": {"content": "OpenAI response"}}]
-                }
-                mock_client.return_value.__aenter__.return_value.post.return_value = (
-                    mock_response
-                )
+                mock_response.json.return_value = {"choices": [{"message": {"content": "OpenAI response"}}]}
+                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                 await asyncio.sleep(0.1)  # Simulate 100ms response
                 return "OpenAI response"
 
@@ -418,12 +375,8 @@ class TestAICrossModelIntegration:
             with patch("httpx.AsyncClient") as mock_client:
                 mock_response = Mock()
                 mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "content": [{"text": "Anthropic response"}]
-                }
-                mock_client.return_value.__aenter__.return_value.post.return_value = (
-                    mock_response
-                )
+                mock_response.json.return_value = {"content": [{"text": "Anthropic response"}]}
+                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                 await asyncio.sleep(0.2)  # Simulate 200ms response
                 return "Anthropic response"
 
@@ -499,9 +452,7 @@ class TestAICrossModelIntegration:
         for config in invalid_configs:
             if config["model"] not in ["chatgpt", "anthropic", "ollama"]:
                 assert config["model"] == "invalid_model"
-            elif (
-                config["model"] in ["chatgpt", "anthropic"] and "api_key" not in config
-            ):
+            elif config["model"] in ["chatgpt", "anthropic"] and "api_key" not in config:
                 assert "api_key" not in config
             elif config["model"] == "ollama" and "model_name" not in config:
                 assert "model_name" not in config
@@ -516,9 +467,7 @@ class TestAICrossModelIntegration:
             mock_response = Mock()
             mock_response.status_code = 401
             mock_response.text = "Unauthorized"
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             try:
                 raise Exception("OpenAI API Error: Unauthorized")
@@ -530,9 +479,7 @@ class TestAICrossModelIntegration:
             mock_response = Mock()
             mock_response.status_code = 429
             mock_response.text = "Rate limit exceeded"
-            mock_client.return_value.__aenter__.return_value.post.return_value = (
-                mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
 
             try:
                 raise Exception("Anthropic API Error: Rate limit exceeded")

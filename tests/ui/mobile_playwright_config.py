@@ -4,14 +4,15 @@ Mobile Playwright Configuration
 Configuration for testing mobile features with device emulation
 """
 
-import pytest
-from playwright.sync_api import Playwright, Browser, BrowserContext, Page
 import os
+
+import pytest
+from playwright.sync_api import Browser, BrowserContext, Page, Playwright
 
 
 class MobilePlaywrightConfig:
     """Mobile Playwright configuration and device presets"""
-    
+
     # Mobile device presets
     DEVICES = {
         "iPhone_12_Pro": {
@@ -19,36 +20,36 @@ class MobilePlaywrightConfig:
             "device_scale_factor": 3,
             "is_mobile": True,
             "has_touch": True,
-            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
         },
         "iPhone_SE": {
             "viewport": {"width": 375, "height": 667},
             "device_scale_factor": 2,
             "is_mobile": True,
             "has_touch": True,
-            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
         },
         "iPad_Pro": {
             "viewport": {"width": 1024, "height": 1366},
             "device_scale_factor": 2,
             "is_mobile": True,
             "has_touch": True,
-            "user_agent": "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+            "user_agent": "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
         },
         "Android_Pixel_5": {
             "viewport": {"width": 393, "height": 851},
             "device_scale_factor": 2.75,
             "is_mobile": True,
             "has_touch": True,
-            "user_agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-        }
+            "user_agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36",
+        },
     }
-    
+
     @classmethod
     def create_mobile_context(cls, browser: Browser, device: str = "iPhone_12_Pro") -> BrowserContext:
         """Create mobile browser context with device emulation"""
         device_config = cls.DEVICES.get(device, cls.DEVICES["iPhone_12_Pro"])
-        
+
         return browser.new_context(
             **device_config,
             locale="en-US",
@@ -57,9 +58,9 @@ class MobilePlaywrightConfig:
             permissions=["geolocation"],
             record_video_dir="test-results/videos/mobile/",
             record_video_size=device_config["viewport"],
-            ignore_https_errors=True
+            ignore_https_errors=True,
         )
-    
+
     @classmethod
     def create_mobile_page(cls, browser: Browser, device: str = "iPhone_12_Pro") -> Page:
         """Create mobile page with device emulation"""
@@ -76,8 +77,8 @@ def mobile_browser(playwright: Playwright) -> Browser:
             "--disable-web-security",
             "--disable-features=VizDisplayCompositor",
             "--disable-dev-shm-usage",
-            "--no-sandbox"
-        ]
+            "--no-sandbox",
+        ],
     )
     yield browser
     browser.close()
@@ -127,7 +128,7 @@ def android_page(mobile_browser: Browser) -> Page:
 
 class MobileTestHelpers:
     """Helper methods for mobile testing"""
-    
+
     @staticmethod
     def simulate_long_press(page: Page, selector: str, duration: float = 0.6):
         """Simulate long press on mobile"""
@@ -136,16 +137,17 @@ class MobileTestHelpers:
         page.mouse.down()
         page.wait_for_timeout(int(duration * 1000))
         page.mouse.up()
-    
+
     @staticmethod
     def simulate_text_selection(page: Page, selector: str, start: int = 0, end: int = 50):
         """Simulate text selection on mobile"""
-        page.evaluate(f"""
-            (selector, start, end) => {{
+        page.evaluate(
+            """
+            (selector, start, end) => {
                 const element = document.querySelector(selector);
-                if (element) {{
+                if (element) {
                     const textNode = element.childNodes[0];
-                    if (textNode && textNode.textContent) {{
+                    if (textNode && textNode.textContent) {
                         const range = document.createRange();
                         range.setStart(textNode, start);
                         range.setEnd(textNode, Math.min(end, textNode.textContent.length));
@@ -157,45 +159,52 @@ class MobileTestHelpers:
                         // Trigger selection change event
                         const event = new Event('selectionchange');
                         document.dispatchEvent(event);
-                    }}
-                }}
-            }}
-        """, selector, start, end)
-    
+                    }
+                }
+            }
+        """,
+            selector,
+            start,
+            end,
+        )
+
     @staticmethod
     def simulate_touch_events(page: Page, selector: str):
         """Simulate touch events on mobile"""
-        page.evaluate(f"""
-            (selector) => {{
+        page.evaluate(
+            """
+            (selector) => {
                 const element = document.querySelector(selector);
-                if (element) {{
+                if (element) {
                     // Simulate touchstart
-                    const touchStartEvent = new TouchEvent('touchstart', {{
-                        touches: [new Touch({{
+                    const touchStartEvent = new TouchEvent('touchstart', {
+                        touches: [new Touch({
                             identifier: 1,
                             target: element,
                             clientX: 100,
                             clientY: 100
-                        }})]
-                    }});
+                        })]
+                    });
                     element.dispatchEvent(touchStartEvent);
                     
                     // Simulate touchend after delay
-                    setTimeout(() => {{
-                        const touchEndEvent = new TouchEvent('touchend', {{
-                            changedTouches: [new Touch({{
+                    setTimeout(() => {
+                        const touchEndEvent = new TouchEvent('touchend', {
+                            changedTouches: [new Touch({
                                 identifier: 1,
                                 target: element,
                                 clientX: 100,
                                 clientY: 100
-                            }})]
-                        }});
+                            })]
+                        });
                         element.dispatchEvent(touchEndEvent);
-                    }}, 100);
-                }}
-            }}
-        """, selector)
-    
+                    }, 100);
+                }
+            }
+        """,
+            selector,
+        )
+
     @staticmethod
     def simulate_orientation_change(page: Page):
         """Simulate device orientation change"""
@@ -205,7 +214,7 @@ class MobileTestHelpers:
                 window.dispatchEvent(event);
             }
         """)
-    
+
     @staticmethod
     def check_mobile_detection(page: Page) -> bool:
         """Check if mobile device is properly detected"""
@@ -216,7 +225,7 @@ class MobileTestHelpers:
                        (navigator.maxTouchPoints > 0);
             }
         """)
-    
+
     @staticmethod
     def wait_for_annotation_menu(page: Page, timeout: int = 2000):
         """Wait for annotation menu to appear"""
@@ -225,7 +234,7 @@ class MobileTestHelpers:
             return True
         except:
             return False
-    
+
     @staticmethod
     def wait_for_mobile_instructions(page: Page, timeout: int = 5000):
         """Wait for mobile instructions to appear"""

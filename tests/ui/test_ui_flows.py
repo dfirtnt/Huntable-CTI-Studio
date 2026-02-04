@@ -4,7 +4,6 @@ UI flow tests using Playwright for CTI Scraper.
 
 import os
 import re
-from typing import AsyncGenerator
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -65,16 +64,12 @@ class TestDashboardFlows:
         daily_canvas = page.locator("#dailyChart")
         daily_box = daily_canvas.bounding_box()
         assert daily_box is not None, "Daily chart canvas should have dimensions"
-        assert daily_box["width"] > 0 and daily_box["height"] > 0, (
-            "Daily chart canvas should be visible with size"
-        )
+        assert daily_box["width"] > 0 and daily_box["height"] > 0, "Daily chart canvas should be visible with size"
 
         hourly_canvas = page.locator("#hourlyChart")
         hourly_box = hourly_canvas.bounding_box()
         assert hourly_box is not None, "Hourly chart canvas should have dimensions"
-        assert hourly_box["width"] > 0 and hourly_box["height"] > 0, (
-            "Hourly chart canvas should be visible with size"
-        )
+        assert hourly_box["width"] > 0 and hourly_box["height"] > 0, "Hourly chart canvas should be visible with size"
 
     @pytest.mark.ui
     def test_high_score_articles_section_display(self, page: Page):
@@ -93,9 +88,7 @@ class TestDashboardFlows:
         expect(article_cards).to_have_count(10)
 
         # Verify each card is clickable and navigates to article page
-        for i in range(
-            min(3, article_cards.count())
-        ):  # Test first 3 cards to avoid long test
+        for i in range(min(3, article_cards.count())):  # Test first 3 cards to avoid long test
             card = article_cards.nth(i)
             expect(card).to_be_visible()
 
@@ -107,9 +100,7 @@ class TestDashboardFlows:
             # Click the card and verify navigation (but don't actually navigate to avoid slowing test)
             # We'll just verify the link structure is correct
             article_id = href.split("/articles/")[-1]
-            assert article_id.isdigit(), (
-                f"Article ID should be numeric, got: {article_id}"
-            )
+            assert article_id.isdigit(), f"Article ID should be numeric, got: {article_id}"
 
         # Verify cards appear to be sorted by date (latest first)
         # This is a basic check - we can't easily verify actual date sorting without more complex logic
@@ -158,12 +149,8 @@ class TestDashboardFlows:
         clipboard_content = page.evaluate("() => navigator.clipboard.readText()")
 
         # Verify clipboard contains URLs
-        assert clipboard_content is not None, (
-            "Clipboard should contain content after copy operation"
-        )
-        assert len(clipboard_content.strip()) > 0, (
-            "Clipboard content should not be empty"
-        )
+        assert clipboard_content is not None, "Clipboard should contain content after copy operation"
+        assert len(clipboard_content.strip()) > 0, "Clipboard content should not be empty"
 
         # Check that clipboard contains URLs (could be newline-separated or space-separated)
         clipboard_lines = clipboard_content.strip().split("\n")
@@ -269,12 +256,8 @@ class TestDashboardFlows:
         page.wait_for_timeout(1000)
 
         # Look for indicators that checks are running
-        loading_indicators = page.locator(
-            "text=Running, text=Checking, text=Loading, .loading, .spinner"
-        )
-        status_updates = page.locator(
-            "#overallStatusContent, .health-check-result, .status-indicator"
-        )
+        loading_indicators = page.locator("text=Running, text=Checking, text=Loading, .loading, .spinner")
+        status_updates = page.locator("#overallStatusContent, .health-check-result, .status-indicator")
 
         # If no automatic execution indicators, manually click Run All Checks
         if loading_indicators.count() == 0 and status_updates.count() == 0:
@@ -285,12 +268,8 @@ class TestDashboardFlows:
 
         # Verify checks are executing - look for loading indicators, status updates, or results
         # The page might show loading states or update status sections
-        loading_indicators = page.locator(
-            "text=Running, text=Checking, text=Loading, .loading, .spinner"
-        )
-        status_updates = page.locator(
-            "#overallStatusContent, .health-check-result, .status-indicator"
-        )
+        loading_indicators = page.locator("text=Running, text=Checking, text=Loading, .loading, .spinner")
+        status_updates = page.locator("#overallStatusContent, .health-check-result, .status-indicator")
 
         # At minimum, verify the page is still functional and hasn't crashed
         expect(page.locator("text=🏥 System Health Checks")).to_be_visible()
@@ -327,9 +306,7 @@ class TestDashboardFlows:
 
         # Verify the workflow page loaded with expected content
         # Look for workflow-related content (agents, etc.)
-        workflow_indicators = page.locator(
-            "text=Workflow, text=Agent, text=🤖, h1, h2"
-        )
+        workflow_indicators = page.locator("text=Workflow, text=Agent, text=🤖, h1, h2")
 
         # At minimum, verify the page loaded (should have some heading or content)
         expect(page.locator("body")).not_to_be_empty()
@@ -533,9 +510,7 @@ class TestQuickActionsFlows:
 
         # Wait for API call to complete and check for success notification
         # Wait for the completion notification specifically
-        completion_notification = page.locator(
-            "div.fixed.top-4.right-4:has-text('Rescoring completed')"
-        )
+        completion_notification = page.locator("div.fixed.top-4.right-4:has-text('Rescoring completed')")
         expect(completion_notification).to_be_visible(timeout=10000)
         expect(completion_notification).to_contain_text("Rescoring completed")
 

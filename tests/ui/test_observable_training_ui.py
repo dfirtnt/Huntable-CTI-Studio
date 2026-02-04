@@ -6,13 +6,14 @@ These tests are deprecated and will be removed in a future release.
 """
 
 import os
+
 import pytest
 from playwright.sync_api import Page, expect
 
 
 class TestObservableTrainingUI:
     """UI tests for /observables-training.
-    
+
     DEPRECATED: Training functionality is no longer used.
     """
 
@@ -26,7 +27,7 @@ class TestObservableTrainingUI:
         # Verify inactive notice is present
         inactive_notice = page.locator("text=Feature Inactive - Planned for Future Release")
         expect(inactive_notice).to_be_visible()
-        
+
         # Original heading should still be present
         heading = page.locator("text=Observable Extractor Training")
         expect(heading).to_be_visible()

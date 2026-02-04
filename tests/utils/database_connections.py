@@ -1,36 +1,37 @@
 """Standardized database connection patterns for testing."""
 
-import os
 import asyncio
 import logging
-from typing import Optional, Dict, Any, AsyncGenerator
+import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
+from typing import Any
+
+import redis.asyncio as redis
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool, QueuePool
-import asyncpg
-import redis.asyncio as redis
 
-from tests.utils.test_environment import TestEnvironmentConfig, TestContext
+from tests.utils.test_environment import TestContext, TestEnvironmentConfig
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseConnectionManager:
     """Manages database connections with context-aware configuration."""
-    
+
     def __init__(self, config: TestEnvironmentConfig):
         self.config = config
-        self._engine: Optional[AsyncEngine] = None
-        self._session_factory: Optional[sessionmaker] = None
-    
+        self._engine: AsyncEngine | None = None
+        self._session_factory: sessionmaker | None = None
+
     @property
     def engine(self) -> AsyncEngine:
         """Get or create database engine."""
         if self._engine is None:
             self._engine = self._create_engine()
         return self._engine
-    
+
     def _create_engine(self) -> AsyncEngine:
         """Create database engine with context-specific settings."""
         # Determine pool settings based on context
@@ -49,7 +50,7 @@ class DatabaseConnectionManager:
             poolclass = QueuePool
             pool_size = 5
             max_overflow = 10
-        
+
         engine = create_async_engine(
             self.config.database_url,
             poolclass=poolclass,
@@ -60,21 +61,17 @@ class DatabaseConnectionManager:
             echo=os.getenv("SQL_ECHO", "false").lower() == "true",
             echo_pool=os.getenv("SQL_ECHO_POOL", "false").lower() == "true",
         )
-        
+
         logger.info(f"Created database engine for {self.config.context.value} context")
         return engine
-    
+
     @property
     def session_factory(self) -> sessionmaker:
         """Get or create session factory."""
         if self._session_factory is None:
-            self._session_factory = sessionmaker(
-                self.engine,
-                class_=AsyncSession,
-                expire_on_commit=False
-            )
+            self._session_factory = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
         return self._session_factory
-    
+
     @asynccontextmanager
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get database session with proper cleanup."""
@@ -87,7 +84,7 @@ class DatabaseConnectionManager:
             raise
         finally:
             await session.close()
-    
+
     @asynccontextmanager
     async def get_transaction(self) -> AsyncGenerator[AsyncSession, None]:
         """Get database session with transaction."""
@@ -100,7 +97,7 @@ class DatabaseConnectionManager:
                 raise
             finally:
                 await session.close()
-    
+
     async def dispose(self):
         """Dispose of database engine."""
         if self._engine:
@@ -112,18 +109,18 @@ class DatabaseConnectionManager:
 
 class RedisConnectionManager:
     """Manages Redis connections with context-aware configuration."""
-    
+
     def __init__(self, config: TestEnvironmentConfig):
         self.config = config
-        self._client: Optional[redis.Redis] = None
-    
+        self._client: redis.Redis | None = None
+
     @property
     def client(self) -> redis.Redis:
         """Get or create Redis client."""
         if self._client is None:
             self._client = self._create_client()
         return self._client
-    
+
     def _create_client(self) -> redis.Redis:
         """Create Redis client with context-specific settings."""
         # Determine connection settings based on context
@@ -142,7 +139,7 @@ class RedisConnectionManager:
             socket_timeout = 10
             socket_connect_timeout = 10
             max_connections = 10
-        
+
         # Only include password if it's provided
         redis_kwargs = {
             "host": self.config.redis_host,
@@ -152,18 +149,18 @@ class RedisConnectionManager:
             "socket_connect_timeout": socket_connect_timeout,
             "max_connections": max_connections,
             "retry_on_timeout": True,
-            "health_check_interval": 30
+            "health_check_interval": 30,
         }
-        
+
         # Only add password if it's set
         if self.config.redis_password:
             redis_kwargs["password"] = self.config.redis_password
-        
+
         client = redis.Redis(**redis_kwargs)
-        
+
         logger.info(f"Created Redis client for {self.config.context.value} context")
         return client
-    
+
     async def close(self):
         """Close Redis client."""
         if self._client:
@@ -174,58 +171,57 @@ class RedisConnectionManager:
 
 class TestDatabaseManager:
     """Manages test database operations with isolation."""
-    
+
     def __init__(self, db_manager: DatabaseConnectionManager):
         self.db_manager = db_manager
         self.config = db_manager.config
-    
+
     async def setup_test_database(self):
         """Set up test database with required tables."""
         logger.info("Setting up test database...")
-        
+
         # Create test database if it doesn't exist
         await self._ensure_test_database()
-        
+
         # Run migrations if needed
         await self._run_migrations()
-        
+
         logger.info("Test database setup completed")
-    
+
     async def teardown_test_database(self):
         """Tear down test database."""
         logger.info("Tearing down test database...")
-        
+
         # Clear all tables
         await self._clear_all_tables()
-        
+
         logger.info("Test database teardown completed")
-    
+
     async def _ensure_test_database(self):
         """Ensure test database exists."""
         try:
             # Connect to default postgres database to create test database
             default_url = self.config.database_url.replace(f"/{self.config.postgres_db}", "/postgres")
             engine = create_async_engine(default_url, poolclass=NullPool)
-            
+
             async with engine.begin() as conn:
                 # Check if test database exists
                 result = await conn.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = :db_name",
-                    {"db_name": self.config.postgres_db}
+                    "SELECT 1 FROM pg_database WHERE datname = :db_name", {"db_name": self.config.postgres_db}
                 )
-                
+
                 if not result.fetchone():
                     # Create test database
                     await conn.execute(f"CREATE DATABASE {self.config.postgres_db}")
                     logger.info(f"Created test database: {self.config.postgres_db}")
                 else:
                     logger.info(f"Test database already exists: {self.config.postgres_db}")
-            
+
             await engine.dispose()
         except Exception as e:
             logger.error(f"Failed to ensure test database: {e}")
             raise
-    
+
     async def _run_migrations(self):
         """Run database migrations."""
         try:
@@ -237,7 +233,7 @@ class TestDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to run migrations: {e}")
             raise
-    
+
     async def _clear_all_tables(self):
         """Clear all tables in test database."""
         try:
@@ -248,17 +244,17 @@ class TestDatabaseManager:
                     WHERE schemaname = 'public'
                 """)
                 tables = [row[0] for row in result.fetchall()]
-                
+
                 # Clear all tables
                 for table in tables:
                     await session.execute(f"TRUNCATE TABLE {table} CASCADE")
-                
+
                 logger.info(f"Cleared {len(tables)} tables from test database")
         except Exception as e:
             logger.error(f"Failed to clear test database: {e}")
             raise
-    
-    async def create_test_data(self, data: Dict[str, Any]):
+
+    async def create_test_data(self, data: dict[str, Any]):
         """Create test data in database."""
         try:
             async with self.db_manager.get_session() as session:
@@ -273,29 +269,29 @@ class TestDatabaseManager:
 
 class TestRedisManager:
     """Manages test Redis operations with isolation."""
-    
+
     def __init__(self, redis_manager: RedisConnectionManager):
         self.redis_manager = redis_manager
         self.config = redis_manager.config
-    
+
     async def setup_test_redis(self):
         """Set up test Redis database."""
         logger.info("Setting up test Redis...")
-        
+
         # Clear test database
         await self._clear_test_database()
-        
+
         logger.info("Test Redis setup completed")
-    
+
     async def teardown_test_redis(self):
         """Tear down test Redis database."""
         logger.info("Tearing down test Redis...")
-        
+
         # Clear test database
         await self._clear_test_database()
-        
+
         logger.info("Test Redis teardown completed")
-    
+
     async def _clear_test_database(self):
         """Clear test Redis database. Refuses to flush db 0 to avoid production data."""
         try:
@@ -313,13 +309,13 @@ class TestRedisManager:
         except Exception as e:
             logger.error(f"Failed to clear Redis database: {e}")
             raise
-    
-    async def create_test_data(self, data: Dict[str, Any]):
+
+    async def create_test_data(self, data: dict[str, Any]):
         """Create test data in Redis."""
         try:
             client = self.redis_manager.client
             logger.info("Creating test data in Redis...")
-            
+
             # Create test data based on provided structure
             for key, value in data.items():
                 if isinstance(value, str):
@@ -330,7 +326,7 @@ class TestRedisManager:
                     await client.lpush(key, *value)
                 elif isinstance(value, set):
                     await client.sadd(key, *value)
-            
+
             logger.info("Test data created in Redis")
         except Exception as e:
             logger.error(f"Failed to create test data in Redis: {e}")
@@ -411,32 +407,33 @@ async def validate_redis_connection(config: TestEnvironmentConfig) -> bool:
 if __name__ == "__main__":
     """CLI interface for database connection testing."""
     import argparse
+
     from tests.utils.test_environment import get_test_config
-    
+
     parser = argparse.ArgumentParser(description="Test database connections")
     parser.add_argument("--validate", action="store_true", help="Validate connections")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
-    
+
     args = parser.parse_args()
-    
+
     if args.verbose:
         logging.basicConfig(level=logging.INFO)
-    
+
     async def main():
         config = get_test_config()
-        
+
         if args.validate:
             print("Validating database connections...")
-            
+
             db_valid = await validate_database_connection(config)
             redis_valid = await validate_redis_connection(config)
-            
+
             print(f"Database: {'✓' if db_valid else '✗'}")
             print(f"Redis: {'✓' if redis_valid else '✗'}")
-            
+
             if not (db_valid and redis_valid):
                 exit(1)
         else:
             print("Database connection utilities loaded successfully")
-    
+
     asyncio.run(main())

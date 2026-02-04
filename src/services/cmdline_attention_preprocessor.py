@@ -218,9 +218,7 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
     return positions
 
 
-def _expand_to_boundary(
-    full_line: str, start_off: int, end_off: int, *, newline_only: bool = False
-) -> str:
+def _expand_to_boundary(full_line: str, start_off: int, end_off: int, *, newline_only: bool = False) -> str:
     """
     Expand the window [start_off, end_off] to nearest boundaries.
     newline_only=True: byte-preserving (CmdlineExtract) — only newline boundaries.
@@ -327,10 +325,7 @@ def _extract_snippet(
     byte_preserving: always use full-line capture (no sentence split, no " ".join).
     """
     use_full_line = (
-        byte_preserving
-        or prefer_full_line
-        or len(line) <= LONG_LINE_THRESHOLD
-        or _line_has_exe_arg_indicators(line)
+        byte_preserving or prefer_full_line or len(line) <= LONG_LINE_THRESHOLD or _line_has_exe_arg_indicators(line)
     )
     if use_full_line:
         # Full-line capture: include ±1 surrounding lines
@@ -430,9 +425,7 @@ def process(article_text: str, agent_name: str | None = None) -> dict[str, Any]:
 
         # Long line: match-window capture (eval fix A)
         if len(line) > LONG_LINE_THRESHOLD:
-            windowed = _extract_windowed_snippets(
-                line, lines, i, line_lower, byte_preserving=byte_preserving
-            )
+            windowed = _extract_windowed_snippets(line, lines, i, line_lower, byte_preserving=byte_preserving)
             for snippet in windowed:
                 if not snippet or snippet in seen:
                     continue
@@ -443,7 +436,9 @@ def process(article_text: str, agent_name: str | None = None) -> dict[str, Any]:
         # Short line: full-line capture
         prefer_full = _line_has_exe_arg_indicators(line)
         snippet = _extract_snippet(
-            line, lines, i,
+            line,
+            lines,
+            i,
             prefer_full_line=prefer_full,
             line_lower=line_lower,
             byte_preserving=byte_preserving,

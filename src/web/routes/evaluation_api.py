@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
 
+# Article IDs excluded from eval results and aggregate calculations (e.g. duplicates removed from eval config)
+EXCLUDED_EVAL_ARTICLE_IDS = frozenset({62})
+
 
 def _resolve_subagent_query(subagent: str) -> tuple[str, list[str]]:
     """Return the canonical name plus matching candidates for a subagent."""
@@ -867,6 +870,8 @@ async def get_subagent_eval_results(
 
             results = []
             for record in eval_records:
+                if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
+                    continue
                 actual_count = record.actual_count
                 warnings = []
 
@@ -1135,9 +1140,11 @@ async def get_subagent_eval_aggregate(
             # Predetermined expected_count by article_url from eval_articles.yaml
             preset_expected_by_url = _load_preset_expected_by_url(subagent)
 
-            # Group by config version
+            # Group by config version (exclude articles in EXCLUDED_EVAL_ARTICLE_IDS)
             by_config_version = {}
             for record in all_records:
+                if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
+                    continue
                 version = record.workflow_config_version
                 if version not in by_config_version:
                     by_config_version[version] = []

@@ -1,7 +1,8 @@
 """API tests for RAG chat endpoint."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 from starlette.requests import Request
 
 
@@ -12,21 +13,25 @@ class TestChatHelpers:
     def test_extract_lexical_terms_emotet(self):
         """Extract emotet from query."""
         from src.web.routes.chat import _extract_lexical_terms
+
         assert _extract_lexical_terms("Emotet delivery techniques") == ["emotet"]
 
     def test_extract_lexical_terms_cobalt_strike(self):
         """Extract cobalt strike from query."""
         from src.web.routes.chat import _extract_lexical_terms
+
         assert "cobalt strike" in _extract_lexical_terms("Cobalt Strike beacon")
 
     def test_extract_lexical_terms_empty(self):
         """No known terms returns empty."""
         from src.web.routes.chat import _extract_lexical_terms
+
         assert _extract_lexical_terms("general security news") == []
 
     def test_filter_by_lexical_relevance_prioritizes_matches(self):
         """Articles with lexical terms are prioritized."""
         from src.web.routes.chat import _filter_by_lexical_relevance
+
         articles = [
             {"id": 1, "title": "Unrelated", "content": "OpenAI leak"},
             {"id": 2, "title": "Emotet delivery", "content": "emotet techniques"},
@@ -38,6 +43,7 @@ class TestChatHelpers:
     def test_filter_by_lexical_relevance_no_terms_returns_slice(self):
         """Without terms, returns first max_results."""
         from src.web.routes.chat import _filter_by_lexical_relevance
+
         articles = [{"id": i, "title": f"A{i}", "content": ""} for i in range(10)]
         result = _filter_by_lexical_relevance(articles, [], max_results=3)
         assert len(result) == 3
@@ -72,8 +78,10 @@ class TestChatAPI:
             }
         )
 
-        with patch("src.services.rag_service.get_rag_service") as mock_get_rag, \
-             patch("src.database.async_manager.async_db_manager") as mock_async_db:
+        with (
+            patch("src.services.rag_service.get_rag_service") as mock_get_rag,
+            patch("src.database.async_manager.async_db_manager") as mock_async_db,
+        ):
             mock_rag = AsyncMock()
             mock_rag.find_unified_results = AsyncMock(
                 return_value={
@@ -96,9 +104,7 @@ class TestChatAPI:
             mock_rag.db_manager.get_session.return_value.__aenter__ = AsyncMock(
                 return_value=MagicMock(add=MagicMock(), flush=AsyncMock(), commit=AsyncMock())
             )
-            mock_rag.db_manager.get_session.return_value.__aexit__ = AsyncMock(
-                return_value=None
-            )
+            mock_rag.db_manager.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
             mock_get_rag.return_value = mock_rag
 
             result = await api_rag_chat(mock_request)
@@ -122,21 +128,19 @@ class TestChatAPI:
             }
         )
 
-        with patch("src.services.rag_service.get_rag_service") as mock_get_rag, \
-             patch("src.database.async_manager.async_db_manager") as mock_async_db:
+        with (
+            patch("src.services.rag_service.get_rag_service") as mock_get_rag,
+            patch("src.database.async_manager.async_db_manager") as mock_async_db,
+        ):
             mock_rag = AsyncMock()
-            mock_rag.find_unified_results = AsyncMock(
-                return_value={"articles": [], "rules": []}
-            )
+            mock_rag.find_unified_results = AsyncMock(return_value={"articles": [], "rules": []})
             mock_async_db.search_articles_by_lexical_terms = AsyncMock(return_value=[])
             mock_rag.db_manager = MagicMock()
             mock_rag.db_manager.get_session = MagicMock()
             mock_rag.db_manager.get_session.return_value.__aenter__ = AsyncMock(
                 return_value=MagicMock(add=MagicMock(), flush=AsyncMock(), commit=AsyncMock())
             )
-            mock_rag.db_manager.get_session.return_value.__aexit__ = AsyncMock(
-                return_value=None
-            )
+            mock_rag.db_manager.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
             mock_get_rag.return_value = mock_rag
 
             await api_rag_chat(mock_request)
@@ -168,29 +172,23 @@ class TestChatAPI:
             "canonical_url": "https://example.com/42",
         }
 
-        with patch("src.services.rag_service.get_rag_service") as mock_get_rag, \
-             patch("src.database.async_manager.async_db_manager") as mock_async_db:
+        with (
+            patch("src.services.rag_service.get_rag_service") as mock_get_rag,
+            patch("src.database.async_manager.async_db_manager") as mock_async_db,
+        ):
             mock_rag = AsyncMock()
-            mock_rag.find_unified_results = AsyncMock(
-                return_value={"articles": [], "rules": []}
-            )
-            mock_async_db.search_articles_by_lexical_terms = AsyncMock(
-                return_value=[lexical_article]
-            )
+            mock_rag.find_unified_results = AsyncMock(return_value={"articles": [], "rules": []})
+            mock_async_db.search_articles_by_lexical_terms = AsyncMock(return_value=[lexical_article])
             mock_rag.db_manager = MagicMock()
             mock_rag.db_manager.get_session = MagicMock()
             mock_rag.db_manager.get_session.return_value.__aenter__ = AsyncMock(
                 return_value=MagicMock(add=MagicMock(), flush=AsyncMock(), commit=AsyncMock())
             )
-            mock_rag.db_manager.get_session.return_value.__aexit__ = AsyncMock(
-                return_value=None
-            )
+            mock_rag.db_manager.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
             mock_get_rag.return_value = mock_rag
 
             result = await api_rag_chat(mock_request)
             assert "relevant_articles" in result
             assert len(result["relevant_articles"]) >= 1
             assert result["relevant_articles"][0]["id"] == 42
-            mock_async_db.search_articles_by_lexical_terms.assert_called_once_with(
-                terms=["emotet"], limit=15
-            )
+            mock_async_db.search_articles_by_lexical_terms.assert_called_once_with(terms=["emotet"], limit=15)

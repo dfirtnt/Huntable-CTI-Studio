@@ -1,8 +1,9 @@
 """API tests for RAG preset endpoints."""
 
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 @pytest.mark.api
@@ -30,7 +31,7 @@ class TestRAGPresetAPI:
     @pytest.mark.asyncio
     async def test_preset_save_valid_body(self):
         """save_rag_preset accepts valid preset body and returns success."""
-        from src.web.routes.chat import save_rag_preset, SaveRagPresetRequest
+        from src.web.routes.chat import SaveRagPresetRequest, save_rag_preset
 
         with patch("src.web.routes.chat.DatabaseManager") as mock_db:
             mock_session = MagicMock()
@@ -47,6 +48,7 @@ class TestRAGPresetAPI:
                 p.id = 1
                 p.created_at = now
                 p.updated_at = now
+
             mock_session.refresh = _refresh
 
             req = SaveRagPresetRequest(

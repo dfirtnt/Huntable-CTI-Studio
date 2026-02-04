@@ -5,13 +5,13 @@ DEPRECATED: HuggingFace connections/API keys and training are no longer used.
 These tests are deprecated and will be removed in a future release.
 """
 
-import pytest
 import httpx
+import pytest
 
 
 class TestObservableTrainingSummary:
     """Tests for /api/observables/training/summary.
-    
+
     DEPRECATED: Training functionality is no longer used.
     """
 
@@ -25,23 +25,23 @@ class TestObservableTrainingSummary:
                 "total_annotations": 12,
                 "types": {
                     "CMD": {
-                "counts": {"total": 10, "unused": 4, "used": 6},
-                "dataset_directory": "outputs/evaluation_data/observables/cmd",
-                "artifact_directory": "outputs/observables/cmd",
-                "active_version": "20250101_000000",
-                "artifact_history_count": 0,
-                "recent_artifacts": [],
-                "latest_artifact": None,
-            },
-            "PROC_LINEAGE": {
-                "counts": {"total": 2, "unused": 2, "used": 0},
-                "dataset_directory": "outputs/evaluation_data/observables/proc_lineage",
-                "artifact_directory": "outputs/observables/proc_lineage",
-                "active_version": None,
-                "artifact_history_count": 0,
-                "recent_artifacts": [],
-                "latest_artifact": None,
-            },
+                        "counts": {"total": 10, "unused": 4, "used": 6},
+                        "dataset_directory": "outputs/evaluation_data/observables/cmd",
+                        "artifact_directory": "outputs/observables/cmd",
+                        "active_version": "20250101_000000",
+                        "artifact_history_count": 0,
+                        "recent_artifacts": [],
+                        "latest_artifact": None,
+                    },
+                    "PROC_LINEAGE": {
+                        "counts": {"total": 2, "unused": 2, "used": 0},
+                        "dataset_directory": "outputs/evaluation_data/observables/proc_lineage",
+                        "artifact_directory": "outputs/observables/proc_lineage",
+                        "active_version": None,
+                        "artifact_history_count": 0,
+                        "recent_artifacts": [],
+                        "latest_artifact": None,
+                    },
                 },
             }
 
@@ -66,7 +66,7 @@ class TestObservableTrainingSummary:
 
 class TestObservableTrainingRun:
     """Tests for /api/observables/training/run.
-    
+
     DEPRECATED: Training functionality is no longer used.
     """
 

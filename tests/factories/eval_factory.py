@@ -1,25 +1,21 @@
 """Factory for creating Eval test data."""
 
-from typing import Optional, Dict, Any, List
 from datetime import datetime
+from typing import Any
 
 
 class EvalFactory:
     """Factory for creating Eval test objects."""
-    
+
     @staticmethod
-    def create(
-        agent_name: str = "ExtractAgent",
-        article_urls: Optional[List[str]] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+    def create(agent_name: str = "ExtractAgent", article_urls: list[str] | None = None, **kwargs) -> dict[str, Any]:
         """Create an eval run dictionary with defaults.
-        
+
         Args:
             agent_name: Agent name to evaluate (default: "ExtractAgent")
             article_urls: List of article URLs to evaluate (default: empty list)
             **kwargs: Additional eval fields to override
-            
+
         Returns:
             Eval run dictionary
         """

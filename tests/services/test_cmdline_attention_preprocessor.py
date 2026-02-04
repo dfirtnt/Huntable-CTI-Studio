@@ -1,6 +1,6 @@
 """Unit tests for cmdline_attention_preprocessor."""
 
-from src.services.cmdline_attention_preprocessor import process, _expand_to_boundary
+from src.services.cmdline_attention_preprocessor import _expand_to_boundary, process
 
 
 def test_empty_article():

@@ -4,17 +4,15 @@ Tests actual API calls to OpenAI, Anthropic, and Ollama services.
 Requires test API keys and proper environment setup.
 """
 
-import pytest
 import asyncio
 import os
-import json
+
 import httpx
-import subprocess
-from typing import Dict, Any, Optional
-from unittest.mock import patch
+import pytest
 
 try:
     from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
+
     from src.utils.ioc_extractor import HybridIOCExtractor
 except ImportError:
     # Mock imports for testing without full dependencies
@@ -72,17 +70,13 @@ class TestAIRealAPIIntegration:
         """Get Anthropic API key from environment."""
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            pytest.skip(
-                "ANTHROPIC_API_KEY not set - skipping Anthropic integration tests"
-            )
+            pytest.skip("ANTHROPIC_API_KEY not set - skipping Anthropic integration tests")
         return api_key
 
     @pytest.mark.integration
     @pytest.mark.ai
     @pytest.mark.asyncio
-    async def test_gpt4o_optimizer_real_integration(
-        self, sample_threat_article, openai_api_key
-    ):
+    async def test_gpt4o_optimizer_real_integration(self, sample_threat_article, openai_api_key):
         """Test GPT-4o optimizer with real API integration."""
         # Set up environment for real API calls
         os.environ["OPENAI_API_KEY"] = openai_api_key
@@ -91,9 +85,7 @@ class TestAIRealAPIIntegration:
 
         # Test content optimization (this will use real ML model if available)
         try:
-            result = await optimizer.optimize_content_for_gpt4o(
-                sample_threat_article["content"]
-            )
+            result = await optimizer.optimize_content_for_gpt4o(sample_threat_article["content"])
 
             # Verify result structure
             assert "success" in result
@@ -104,9 +96,7 @@ class TestAIRealAPIIntegration:
             # If optimization succeeded, verify content was processed
             if result["success"]:
                 assert result["original_content"] == sample_threat_article["content"]
-                assert len(result["filtered_content"]) <= len(
-                    result["original_content"]
-                )
+                assert len(result["filtered_content"]) <= len(result["original_content"])
                 assert 0 <= result["cost_savings"] <= 1
             else:
                 # If optimization failed, should fallback to original content
@@ -156,9 +146,7 @@ class TestAIRealAPIIntegration:
     @pytest.mark.integration
     @pytest.mark.ai
     @pytest.mark.asyncio
-    async def test_api_rate_limiting_handling(
-        self, sample_threat_article, openai_api_key
-    ):
+    async def test_api_rate_limiting_handling(self, sample_threat_article, openai_api_key):
         """Test API rate limiting handling."""
         headers = {
             "Authorization": f"Bearer {openai_api_key}",
@@ -170,9 +158,7 @@ class TestAIRealAPIIntegration:
             "messages": [
                 {
                     "role": "user",
-                    "content": sample_threat_article["content"][
-                        :1000
-                    ],  # Smaller content
+                    "content": sample_threat_article["content"][:1000],  # Smaller content
                 }
             ],
             "max_tokens": 100,
@@ -198,8 +184,7 @@ class TestAIRealAPIIntegration:
                         # Rate limit hit - this is expected behavior
                         assert e.response.status_code == 429
                         break
-                    else:
-                        pytest.fail(f"Unexpected API error: {e.response.status_code}")
+                    pytest.fail(f"Unexpected API error: {e.response.status_code}")
 
             # At least one request should succeed
             assert len(responses) > 0
@@ -217,9 +202,7 @@ class TestAIRealAPIIntegration:
 
         payload = {
             "model": "gpt-4o",
-            "messages": [
-                {"role": "user", "content": sample_threat_article["content"][:1000]}
-            ],
+            "messages": [{"role": "user", "content": sample_threat_article["content"][:1000]}],
             "max_tokens": 100,
         }
 
@@ -253,9 +236,7 @@ class TestAIRealAPIIntegration:
 
         payload = {
             "model": "gpt-4o",
-            "messages": [
-                {"role": "user", "content": sample_threat_article["content"][:1000]}
-            ],
+            "messages": [{"role": "user", "content": sample_threat_article["content"][:1000]}],
             "max_tokens": 100,
         }
 
@@ -281,17 +262,13 @@ class TestAIRealAPIIntegration:
     @pytest.mark.integration
     @pytest.mark.ai
     @pytest.mark.asyncio
-    async def test_end_to_end_ai_workflow_real_apis(
-        self, sample_threat_article, openai_api_key
-    ):
+    async def test_end_to_end_ai_workflow_real_apis(self, sample_threat_article, openai_api_key):
         """Test end-to-end AI workflow with real APIs."""
         # Step 1: Content Optimization
         optimizer = GPT4oContentOptimizer()
 
         try:
-            optimization_result = await optimizer.optimize_content_for_gpt4o(
-                sample_threat_article["content"]
-            )
+            optimization_result = await optimizer.optimize_content_for_gpt4o(sample_threat_article["content"])
             assert optimization_result["success"] is not None
         except Exception:
             # If optimization fails, continue with original content
@@ -313,9 +290,7 @@ class TestAIRealAPIIntegration:
             "Content-Type": "application/json",
         }
 
-        content_to_analyze = optimization_result.get(
-            "filtered_content", sample_threat_article["content"]
-        )
+        content_to_analyze = optimization_result.get("filtered_content", sample_threat_article["content"])
 
         payload = {
             "model": "gpt-4o",
@@ -346,10 +321,7 @@ class TestAIRealAPIIntegration:
                 analysis_content = analysis_data["choices"][0]["message"]["content"]
 
                 # Verify analysis contains expected elements
-                assert (
-                    "SIGMA" in analysis_content
-                    or "huntability" in analysis_content.lower()
-                )
+                assert "SIGMA" in analysis_content or "huntability" in analysis_content.lower()
 
             except Exception as e:
                 pytest.skip(f"Real API integration failed: {e}")
@@ -365,9 +337,7 @@ class TestAIRealAPIIntegration:
         # Test cost estimation
         optimizer = GPT4oContentOptimizer()
 
-        cost_estimate = optimizer.get_cost_estimate(
-            sample_threat_article["content"], use_filtering=False
-        )
+        cost_estimate = optimizer.get_cost_estimate(sample_threat_article["content"], use_filtering=False)
 
         # Verify cost estimate structure
         assert "input_tokens" in cost_estimate
@@ -382,9 +352,7 @@ class TestAIRealAPIIntegration:
         assert cost_estimate["total_cost"] > 0
 
         # Test with filtering enabled
-        cost_estimate_filtered = optimizer.get_cost_estimate(
-            sample_threat_article["content"], use_filtering=True
-        )
+        cost_estimate_filtered = optimizer.get_cost_estimate(sample_threat_article["content"], use_filtering=True)
 
         # Filtered cost should be less than or equal to unfiltered cost
         assert cost_estimate_filtered["total_cost"] <= cost_estimate["total_cost"]

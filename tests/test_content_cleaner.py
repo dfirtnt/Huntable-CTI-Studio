@@ -1,10 +1,6 @@
 """Tests for content cleaner functionality."""
 
 import pytest
-import asyncio
-from datetime import datetime
-from unittest.mock import Mock, patch, AsyncMock
-from typing import List, Dict, Any, Optional
 
 from src.utils.content import ContentCleaner, ContentExtractor, TextNormalizer
 
@@ -20,9 +16,9 @@ class TestContentCleaner:
     def test_init(self, content_cleaner):
         """Test ContentCleaner initialization."""
         assert content_cleaner is not None
-        assert hasattr(content_cleaner, 'clean_html')
-        assert hasattr(content_cleaner, 'enhanced_html_clean')
-        assert hasattr(content_cleaner, 'html_to_text')
+        assert hasattr(content_cleaner, "clean_html")
+        assert hasattr(content_cleaner, "enhanced_html_clean")
+        assert hasattr(content_cleaner, "html_to_text")
 
     def test_clean_html_basic(self, content_cleaner):
         """Test basic HTML cleaning."""
@@ -36,9 +32,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert isinstance(cleaned, str)
         assert "Main Title" in cleaned
         assert "This is a paragraph with bold text" in cleaned
@@ -62,9 +58,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert "Content" in cleaned
         assert "This is the actual content" in cleaned
         assert "alert('xss')" not in cleaned
@@ -97,9 +93,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert "Article Title" in cleaned
         assert "This is the main article content" in cleaned
         assert "Home" not in cleaned
@@ -128,9 +124,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert "Real Content" in cleaned
         assert "This is the actual article content" in cleaned
         assert "Buy our product!" not in cleaned
@@ -160,9 +156,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert "Article Content" in cleaned
         assert "This is the main article" in cleaned
         assert "User comment 1" not in cleaned
@@ -195,9 +191,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.enhanced_html_clean(html)
-        
+
         assert "Main Article" in cleaned
         assert "This is the main content of the article" in cleaned
         assert "Another paragraph with more content" in cleaned
@@ -220,9 +216,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         text = content_cleaner.html_to_text(html)
-        
+
         assert "Article Title" in text
         assert "This is a paragraph with bold text and italic text" in text
         assert "List item 1" in text
@@ -259,9 +255,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(malformed_html)
-        
+
         assert "Unclosed tag" in cleaned
         assert "This is a paragraph" in cleaned
         assert "Another paragraph" in cleaned
@@ -289,9 +285,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert "Header 1" in cleaned
         assert "Header 2" in cleaned
         assert "Cell 1" in cleaned
@@ -312,9 +308,9 @@ class TestContentCleaner:
             </body>
         </html>
         """
-        
+
         cleaned = content_cleaner.clean_html(html)
-        
+
         assert "Content after form" in cleaned
         assert "Username" not in cleaned
         assert "Password" not in cleaned
@@ -323,28 +319,28 @@ class TestContentCleaner:
     def test_clean_html_performance(self, content_cleaner):
         """Test HTML cleaning performance."""
         import time
-        
+
         # Create large HTML document
         html = """
         <html>
             <body>
                 <h1>Large Document</h1>
         """
-        
+
         for i in range(1000):
             html += f"<p>Paragraph {i} with some content.</p>"
-        
+
         html += """
             </body>
         </html>
         """
-        
+
         start_time = time.time()
         cleaned = content_cleaner.clean_html(html)
         end_time = time.time()
-        
+
         processing_time = end_time - start_time
-        
+
         # Should process large HTML in reasonable time
         assert processing_time < 1.0  # Less than 1 second
         assert processing_time > 0.0
@@ -362,9 +358,9 @@ class TestContentExtractor:
     def test_init(self, content_extractor):
         """Test ContentExtractor initialization."""
         assert content_extractor is not None
-        assert hasattr(content_extractor, 'extract_title')
-        assert hasattr(content_extractor, 'extract_meta_description')
-        assert hasattr(content_extractor, 'extract_keywords')
+        assert hasattr(content_extractor, "extract_title")
+        assert hasattr(content_extractor, "extract_meta_description")
+        assert hasattr(content_extractor, "extract_keywords")
 
     def test_extract_title(self, content_extractor):
         """Test title extraction."""
@@ -379,9 +375,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         title = content_extractor.extract_title(html)
-        
+
         assert title == "Page Title"
 
     def test_extract_title_from_h1(self, content_extractor):
@@ -396,9 +392,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         title = content_extractor.extract_title(html)
-        
+
         assert title == "Main Heading"
 
     def test_extract_meta_description(self, content_extractor):
@@ -413,9 +409,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         description = content_extractor.extract_meta_description(html)
-        
+
         assert description == "This is a meta description"
 
     def test_extract_keywords(self, content_extractor):
@@ -430,9 +426,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         keywords = content_extractor.extract_keywords(html)
-        
+
         assert keywords == ["keyword1", "keyword2", "keyword3"]
 
     def test_extract_author(self, content_extractor):
@@ -447,9 +443,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         author = content_extractor.extract_author(html)
-        
+
         assert author == "John Doe"
 
     def test_extract_published_date(self, content_extractor):
@@ -464,9 +460,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         date = content_extractor.extract_published_date(html)
-        
+
         assert date == "2024-01-15T10:30:00Z"
 
     def test_extract_canonical_url(self, content_extractor):
@@ -481,9 +477,9 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         url = content_extractor.extract_canonical_url(html)
-        
+
         assert url == "https://example.com/canonical-url"
 
     def test_extract_all_metadata(self, content_extractor):
@@ -503,15 +499,15 @@ class TestContentExtractor:
             </body>
         </html>
         """
-        
+
         metadata = content_extractor.extract_all_metadata(html)
-        
-        assert metadata['title'] == "Article Title"
-        assert metadata['description'] == "Article description"
-        assert metadata['keywords'] == ["keyword1", "keyword2"]
-        assert metadata['author'] == "John Doe"
-        assert metadata['published_date'] == "2024-01-15T10:30:00Z"
-        assert metadata['canonical_url'] == "https://example.com/article"
+
+        assert metadata["title"] == "Article Title"
+        assert metadata["description"] == "Article description"
+        assert metadata["keywords"] == ["keyword1", "keyword2"]
+        assert metadata["author"] == "John Doe"
+        assert metadata["published_date"] == "2024-01-15T10:30:00Z"
+        assert metadata["canonical_url"] == "https://example.com/article"
 
 
 class TestTextNormalizer:
@@ -525,48 +521,48 @@ class TestTextNormalizer:
     def test_init(self, text_normalizer):
         """Test TextNormalizer initialization."""
         assert text_normalizer is not None
-        assert hasattr(text_normalizer, 'normalize_whitespace')
-        assert hasattr(text_normalizer, 'normalize_unicode')
-        assert hasattr(text_normalizer, 'normalize_case')
+        assert hasattr(text_normalizer, "normalize_whitespace")
+        assert hasattr(text_normalizer, "normalize_unicode")
+        assert hasattr(text_normalizer, "normalize_case")
 
     def test_normalize_whitespace(self, text_normalizer):
         """Test whitespace normalization."""
         text = "This   has    multiple    spaces   and\n\nnewlines\t\tand\ttabs."
-        
+
         normalized = text_normalizer.normalize_whitespace(text)
-        
+
         assert normalized == "This has multiple spaces and newlines and tabs."
 
     def test_normalize_unicode(self, text_normalizer):
         """Test Unicode normalization."""
         text = "Café naïve résumé"
-        
+
         normalized = text_normalizer.normalize_unicode(text)
-        
+
         assert normalized == "Cafe naive resume"
 
     def test_normalize_case(self, text_normalizer):
         """Test case normalization."""
         text = "This Is A Mixed Case String"
-        
+
         normalized = text_normalizer.normalize_case(text)
-        
+
         assert normalized == "this is a mixed case string"
 
     def test_remove_special_characters(self, text_normalizer):
         """Test removal of special characters."""
         text = "This has @#$%^&*() special characters!"
-        
+
         cleaned = text_normalizer.remove_special_characters(text)
-        
+
         assert cleaned == "This has special characters"
 
     def test_normalize_text_comprehensive(self, text_normalizer):
         """Test comprehensive text normalization."""
         text = "  This   is   a   MIXED   case   text   with   special   chars   @#$%   and   unicode   café   naïve  "
-        
+
         normalized = text_normalizer.normalize_text(text)
-        
+
         assert normalized == "this is a mixed case text with special chars and unicode cafe naive"
 
     def test_normalize_text_empty_input(self, text_normalizer):
@@ -586,16 +582,16 @@ class TestTextNormalizer:
     def test_normalize_text_performance(self, text_normalizer):
         """Test text normalization performance."""
         import time
-        
+
         # Create large text
         text = "This is a test text. " * 1000
-        
+
         start_time = time.time()
         normalized = text_normalizer.normalize_text(text)
         end_time = time.time()
-        
+
         processing_time = end_time - start_time
-        
+
         # Should process large text in reasonable time
         assert processing_time < 1.0  # Less than 1 second
         assert processing_time > 0.0
