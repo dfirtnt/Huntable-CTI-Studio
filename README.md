@@ -21,6 +21,10 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 - **Multi-model AI**: OpenAI GPT-4, Anthropic Claude, LMStudio (local models)
 
 ### Agentic Workflow (7 Steps)
+
+<img width="1021" height="455" alt="image" src="https://github.com/user-attachments/assets/f00d6796-026d-4540-b6c5-ad25d73779cd" />
+
+
 The main engine is a LangGraph-based agentic workflow executed by Celery workers:
 1. **OS Detection** — Windows-only routing (non-Windows articles terminate)
 2. **Junk Filter** — Conservative content filtering
