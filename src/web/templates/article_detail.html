@@ -4880,7 +4880,6 @@ Please provide a detailed analysis based on the article content and the user's s
         if (contentLength > contentLimit) {
             const modelName = aiModel === 'chatgpt' ? 'ChatGPT' :
                             aiModel === 'anthropic' ? 'Claude' :
-                            aiModel === 'tinyllama' ? 'TinyLlama' :
                             aiModel === 'lmstudio' ? (lmstudioModelName || 'LMStudio') : 'LLM';
             showNotification(`Article too large for ${modelName}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
             return;
@@ -4949,8 +4948,6 @@ Please provide a detailed analysis based on the article content and the user's s
             modelDisplayText = 'ChatGPT (OpenAI)';
         } else if (aiModel === 'anthropic') {
             modelDisplayText = 'Claude (Anthropic)';
-        } else if (aiModel === 'tinyllama') {
-            modelDisplayText = 'TinyLlama (Local Ollama)';
         } else if (aiModel === 'lmstudio') {
             modelDisplayText = lmstudioModelName ? `LMStudio → ${lmstudioModelName}` : 'LMStudio (Local)';
         } else {
@@ -5683,8 +5680,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
             const aiModel = settings.aiModel || 'chatgpt';
             const modelDisplayName = aiModel === 'chatgpt' ? 'GPT-4o' : 
-                                    aiModel === 'anthropic' ? 'Claude' : 
-                                    aiModel === 'tinyllama' ? 'TinyLlama' : 'LLM';
+                                    aiModel === 'anthropic' ? 'Claude' : 'LLM';
             
             // Create modal dialog
             const modal = document.createElement('div');
@@ -5880,8 +5876,7 @@ Please provide a detailed analysis based on the article content and the user's s
         const aiModel = settings.aiModel || 'chatgpt';
         const modelDisplayName = aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
                                 aiModel === 'anthropic' ? 'Claude (Anthropic)' : 
-                                aiModel === 'tinyllama' ? 'TinyLlama (Local Ollama)' : 
-                                aiModel === 'lmstudio' ? 'LMStudio (Local)' : 'Llama (Local Ollama)';
+                                aiModel === 'lmstudio' ? 'LMStudio (Local)' : 'LLM';
         
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
@@ -7046,7 +7041,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 </svg>
                                 <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50" style="width: 280px; white-space: normal;">
                                     <div>
-                                        <strong>LLM Validation:</strong> Uses AI to validate and categorize IOCs, removing false positives and improving accuracy. API key required only for cloud models (OpenAI, Anthropic); local models (LMStudio, Ollama) work without API keys.
+                                        <strong>LLM Validation:</strong> Uses AI to validate and categorize IOCs, removing false positives and improving accuracy. API key required only for cloud models (OpenAI, Anthropic); local models (LMStudio) work without API keys.
                                     </div>
                                     <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                 </div>

@@ -70,6 +70,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cursor rule: Agent config test confirmation** (2026-02-02): New rule `.cursor/rules/agent-config-test-confirmation.mdc` requiring explicit user approval before running or creating tests that mutate active agent configs
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
 
+### Removed
+- **Ollama support** (2026-02-04): Removed remaining Ollama/tinyllama code and references
+  - ai.py: ollama/tinyllama now return 400 "Use LMStudio for local LLM"
+  - llm_generation_service: removed ollama/tinyllama provider
+  - article_detail.html, gpt4o_optimized_js: removed tinyllama display branches
+  - tests: test_health_page OLLAMA→LMSTUDIO; test_ai_* Ollama→LMStudio
+  - docs: TEST_INDEX, TESTING, AI_TESTS_README, archive
+- **LangSmith support** (2026-02-04): Removed vestigial LangSmith references; tracing uses Langfuse only
+  - Removed `LANGSMITH_API_KEY` from `.env.example`, `docker-compose.yml`
+  - Renamed API field `uses_langsmith` → `uses_langfuse` in workflow debug info
+  - Updated docs (config, deployment) to document Langfuse env vars instead
+
 ### Changed
 - **Docs: deprecated agent references** (2026-02-02): Removed/updated references to RegExtract, EventCodeExtract, SigExtract
   - observables.md: Active types only (cmdline, process_lineage, hunt_queries); deprecated registry_keys, event_ids noted
@@ -580,7 +592,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Documentation: LangGraph Debug Button Behavior**: Corrected documentation to accurately reflect debug button functionality
   - Fixed `docs/LANGGRAPH_INTEGRATION.md` and `docs/LANGGRAPH_QUICKSTART.md` to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI
-  - Clarified that step-into debugging requires manual setup with LangSmith Studio or Local Agent Chat UI
+  - Clarified that step-into debugging requires manual setup with LangFuse session view or Local Agent Chat UI
   - Updated API response example to show actual LangFuse trace URL format
   - Added notes about trace availability (only exists if execution ran with LangFuse tracing enabled)
 - **Browser Extension Manual Source Creation**: Fixed duplicate key violations when creating manual source from browser extension

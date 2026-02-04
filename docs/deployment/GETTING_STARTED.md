@@ -34,7 +34,7 @@ Set these in `.env` before running `./start.sh`:
 - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `CHATGPT_API_KEY` (optional AI features)
 - `LMSTUDIO_API_URL` (default: `http://host.docker.internal:1234/v1`)
 - `LMSTUDIO_MODEL`, `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, `LMSTUDIO_MODEL_SIGMA` (defaults set in compose)
-- `LANGSMITH_API_KEY` (optional, for tracing)
+- Langfuse tracing: configure via Settings UI (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, etc.) or env vars
 
 Notes:
 - `.env.example` template includes required PostgreSQL configuration; Docker uses PostgreSQL via `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper` defined in compose.

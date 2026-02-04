@@ -1,6 +1,6 @@
 """
 Real API integration tests for AI Assistant features.
-Tests actual API calls to OpenAI, Anthropic, and Ollama services.
+Tests actual API calls to OpenAI, Anthropic, and LMStudio services.
 Requires test API keys and proper environment setup.
 """
 
@@ -20,7 +20,7 @@ except ImportError:
     HybridIOCExtractor = None
 
 
-@pytest.mark.skip(reason="Requires external API access (OpenAI, Anthropic, Ollama)")
+@pytest.mark.skip(reason="Requires external API access (OpenAI, Anthropic, LMStudio)")
 class TestAIRealAPIIntegration:
     """Test real AI API integration functionality."""
 

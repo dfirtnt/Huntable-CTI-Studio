@@ -5,7 +5,7 @@ This directory contains comprehensive tests for AI Assistant features, implement
 ## Priority 1 Coverage (current)
 - UI: 15 cases in `tests/ui/test_ai_assistant_ui.py` covering modal flows, model selection, accessibility, and SIGMA visibility
 - Cross-model integration: 20 cases in `tests/integration/test_ai_cross_model_integration.py` for switching, fallbacks, limits, and error handling
-- Real API integration: 10 cases in `tests/integration/test_ai_real_api_integration.py` for OpenAI/Anthropic/Ollama, rate limits, and cost tracking
+- Real API integration: 10 cases in `tests/integration/test_ai_real_api_integration.py` for OpenAI/Anthropic/LMStudio, rate limits, and cost tracking
 
 
 ## Test Structure
@@ -27,7 +27,7 @@ Tests the AI Assistant user interface components:
 ### 2. Cross-Model Integration Tests (`tests/integration/test_ai_cross_model_integration.py`)
 Tests integration between different AI models:
 
-- **Model Switching**: ChatGPT ↔ Anthropic ↔ Ollama
+- **Model Switching**: ChatGPT ↔ Anthropic ↔ LMStudio
 - **Fallback Logic**: Handling model failures and automatic fallbacks
 - **Content Size Limits**: Model-specific content restrictions
 - **Feature Support**: Model-specific capabilities and limitations
@@ -41,7 +41,7 @@ Tests actual API calls to AI services:
 
 - **OpenAI GPT-4o**: Real API calls with authentication
 - **Anthropic Claude**: Real API calls with rate limiting
-- **Ollama Local**: Local model execution and validation
+- **LMStudio Local**: Local model execution and validation
 - **GPT-4o Optimizer**: Content filtering and cost optimization
 - **IOC Extractor**: Real IOC extraction and validation
 - **Rate Limiting**: API quota and timeout handling
@@ -91,8 +91,8 @@ pytest -v -m "ai" tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cro
 export OPENAI_API_KEY="sk-your-openai-key"
 export ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"
 
-# Optional: Custom Ollama endpoint
-export OLLAMA_ENDPOINT="http://localhost:11434"
+# Optional: Custom LMStudio endpoint (default: http://localhost:1234/v1)
+export LMSTUDIO_API_URL="http://localhost:1234/v1"
 
 # For UI tests
 export CTI_SCRAPER_URL="http://localhost:8001"
@@ -172,7 +172,7 @@ Tests use realistic threat intelligence content including:
 Comprehensive mock responses for:
 - OpenAI GPT-4o analysis
 - Anthropic Claude responses
-- Ollama SIGMA rule generation
+- LMStudio SIGMA rule generation
 - Error scenarios and edge cases
 
 ## Troubleshooting
@@ -198,16 +198,10 @@ echo $ANTHROPIC_API_KEY
 python tests/run_ai_tests.py --skip-real-api
 ```
 
-**Ollama Tests Failing**
+**LMStudio Tests Failing**
 ```bash
-# Check Ollama installation
-ollama --version
-
-# Check available models
-ollama list
-
-# Install test model
-ollama pull llama2
+# Ensure LMStudio is running with a model loaded at http://localhost:1234/v1
+# Check LMSTUDIO_API_URL matches your setup
 ```
 
 ### Debug Mode

@@ -8,7 +8,7 @@ Configuration is driven by `.env`, `docker-compose.yml`, and YAML files under `c
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`: optional LLM providers
 - `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`), `LMSTUDIO_MODEL`, `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, `LMSTUDIO_MODEL_SIGMA`
 - `LMSTUDIO_EMBEDDING_URL`, `LMSTUDIO_EMBEDDING_MODEL`: required for Sigma similarity search
-- `LANGSMITH_API_KEY`: optional tracing
+- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`, `LANGFUSE_PROJECT_ID`: optional tracing (see Settings UI)
 - `DISABLE_SOURCE_AUTO_SYNC`: disable initial YAML seeding even when <5 sources exist
 
 ## Docker Compose services

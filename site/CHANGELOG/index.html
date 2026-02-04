@@ -1724,6 +1724,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changed_1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1735,7 +1746,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed" class="md-nav__link">
+  <a href="#removed_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -1779,7 +1790,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_1" class="md-nav__link">
+  <a href="#removed_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -1845,7 +1856,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_2" class="md-nav__link">
+  <a href="#removed_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2010,7 +2021,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_3" class="md-nav__link">
+  <a href="#removed_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2142,7 +2153,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_4" class="md-nav__link">
+  <a href="#removed_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2269,7 +2280,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_5" class="md-nav__link">
+  <a href="#removed_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2540,7 +2551,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#removed_6" class="md-nav__link">
+  <a href="#removed_7" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2645,7 +2656,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_7" class="md-nav__link">
+  <a href="#removed_8" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -3094,7 +3105,28 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]</h2>
 <h3 id="added_1">Added</h3>
 <ul>
+<li><strong>Infra guard: last-line circuit breaker and bundle illegal-state detection</strong> (2026-02-02): Enforce invariant that LLM is never invoked with empty messages</li>
+<li>Circuit breaker in <code>request_chat</code> and defense-in-depth in <code>_call_openai_chat</code>, <code>_call_anthropic_chat</code>, <code>_post_lmstudio_chat</code></li>
+<li>Bundle builder: when <code>messages==[]</code> and <code>status==completed</code>, set <code>infra_failed=True</code> and <code>ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED</code> warning</li>
+<li><code>PreprocessInvariantError</code> classified as <code>infra_failed</code> in eval_runner, agentic_workflow, langfuse_eval_client</li>
+<li>Eval bundle unit tests: illegal state positive/negative cases (<code>test_eval_bundle_service.py</code>)</li>
+<li><strong>Workflow Executions table sorting and filtering</strong> (2026-02-02): Sortable column headers (ID, Article, Status, Current Step, Ranking Score, Created); step filter dropdown; article ID filter with Apply button; API params <code>sort_by</code>, <code>sort_order</code>, <code>step</code>; API and UI tests</li>
+<li><strong>Cursor rule: Langchain workflow provider-agnostic</strong> (2026-02-02): New rule <code>.cursor/rules/langchain-workflow-provider-agnostic.mdc</code> enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)</li>
+<li><strong>Cursor rule: Agent config test confirmation</strong> (2026-02-02): New rule <code>.cursor/rules/agent-config-test-confirmation.mdc</code> requiring explicit user approval before running or creating tests that mutate active agent configs</li>
 <li><strong>Cmdline Attention Preprocessor documentation</strong> (2026-02-02): New feature doc and workflow diagram updates</li>
+</ul>
+<h3 id="removed">Removed</h3>
+<ul>
+<li><strong>Ollama support</strong> (2026-02-04): Removed remaining Ollama/tinyllama code and references</li>
+<li>ai.py: ollama/tinyllama now return 400 "Use LMStudio for local LLM"</li>
+<li>llm_generation_service: removed ollama/tinyllama provider</li>
+<li>article_detail.html, gpt4o_optimized_js: removed tinyllama display branches</li>
+<li>tests: test_health_page OLLAMA→LMSTUDIO; test_ai_* Ollama→LMStudio</li>
+<li>docs: TEST_INDEX, TESTING, AI_TESTS_README, archive</li>
+<li><strong>LangSmith support</strong> (2026-02-04): Removed vestigial LangSmith references; tracing uses Langfuse only</li>
+<li>Removed <code>LANGSMITH_API_KEY</code> from <code>.env.example</code>, <code>docker-compose.yml</code></li>
+<li>Renamed API field <code>uses_langsmith</code> → <code>uses_langfuse</code> in workflow debug info</li>
+<li>Updated docs (config, deployment) to document Langfuse env vars instead</li>
 </ul>
 <h3 id="changed_1">Changed</h3>
 <ul>
@@ -3115,7 +3147,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>DATABASE_QUERY_GUIDE: Deprecation note for training_category; removed chosen/rejected from example queries</li>
 <li>agentic_workflow.py: Fixed top-level docstring step order</li>
 </ul>
-<h3 id="removed">Removed</h3>
+<h3 id="removed_1">Removed</h3>
 <ul>
 <li><strong>Duplicate eval article 62</strong> (2026-02-02): Removed article 62 from cmdline/process_lineage eval config (duplicate of 602 "Blurring the Lines"); deleted <code>scripts/eval_bundles/under_5113.json</code>; updated docs and test docstring to reference 602</li>
 <li><strong>test_backup_restore.py</strong> (2026-01-30): Removed integration tests for backup/restore scripts (<code>calculate_checksum</code>, <code>validate_backup_directory</code>, <code>validate_backup_file</code>); references removed from <code>tests/TEST_INDEX.md</code> and <code>tests/TESTING.md</code></li>
@@ -3128,6 +3160,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="fixed_1">Fixed</h3>
 <ul>
+<li><strong>Max Similarity 0% displayed as N/A</strong> (2026-02-02): When <code>max_similarity</code> was 0, templates used <code>rule.max_similarity ? ... : 'N/A'</code>; in JavaScript 0 is falsy so it showed N/A. Fixed: use <code>typeof rule.max_similarity === 'number'</code> so 0 displays as "0.0%" in workflow, workflow_executions, sigma_queue, and article_detail templates. Added UI test <code>test_max_similarity_zero_displays_as_percent</code>.</li>
 <li><strong>Sigma rule preview modal edits not persisted</strong> (2026-02-02): Edits in the rule preview modal were not used when clicking Validate, Enrich, or Similarity Search. Fix: <code>getCurrentRuleYamlFromModal()</code> returns current modal content (textarea in edit mode, DOM in view mode); save-before-validate; enrich uses current modal YAML; similar-rules saves first; validate API reads <code>rule_yaml</code> from request body.</li>
 <li><strong>Agent prompt save display reverting</strong> (2026-02-02): Saved agent prompts (all agents/sub-agents) could revert to the previous version in the UI until the user rolled back to "latest." Root cause: <code>loadAgentPrompts</code> (from initial <code>loadConfig</code>) could complete after a save and overwrite <code>agentPrompts</code> with stale data. Fix: track <code>lastPromptSaveAt</code> and <code>lastSavedPromptAgent</code>; when <code>loadAgentPrompts</code> completes within 3s of a save, preserve the saved agent's data instead of overwriting.</li>
 <li><strong>Agent Evals MAE chart left y-axis label</strong> (2026-02-01): "Normalized MAE (nMAE)" label stayed off-screen unless scrolled fully left. Added a sticky left column so the label remains visible when the chart is scrolled horizontally.</li>
@@ -3178,7 +3211,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed missing <code>used_for_training</code> field handling in database manager</li>
 <li>Improved error handling to surface actual database errors instead of generic messages</li>
 </ul>
-<h3 id="removed_1">Removed</h3>
+<h3 id="removed_2">Removed</h3>
 <ul>
 <li><strong>MLOps Operational Checklist Panel</strong> (2026-01-21): Removed Operational Checklist panel from MLOps page</li>
 <li>Removed checklist UI component and associated CSS classes</li>
@@ -3261,7 +3294,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Better handling of dynamically added content (QA prompts, agent configs)</li>
 <li>Prevents panel toggle issues after config changes</li>
 </ul>
-<h3 id="removed_2">Removed</h3>
+<h3 id="removed_3">Removed</h3>
 <ul>
 <li><strong>SIGMA QA Agent Toggle</strong> (2026-01-14): Removed SIGMA QA agent toggle and configuration</li>
 <li>QA validation not applicable for SIGMA rule generation</li>
@@ -3591,7 +3624,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed redundant <code>/health-checks</code> page and route</li>
 <li>Updated dashboard navigation to use merged diagnostics page</li>
 </ul>
-<h3 id="removed_3">Removed</h3>
+<h3 id="removed_4">Removed</h3>
 <ul>
 <li><strong>Workflow Executions Visualization Panel</strong>: Removed the LangGraph state machine panel and toggle from the Executions tab (UI and tests).</li>
 <li><strong>Evaluations UI</strong>: Removed the Evaluations navigation entry and disabled evaluation UI routes.</li>
@@ -3641,7 +3674,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li><strong>Documentation: LangGraph Debug Button Behavior</strong>: Corrected documentation to accurately reflect debug button functionality</li>
 <li>Fixed <code>docs/LANGGRAPH_INTEGRATION.md</code> and <code>docs/LANGGRAPH_QUICKSTART.md</code> to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI</li>
-<li>Clarified that step-into debugging requires manual setup with LangSmith Studio or Local Agent Chat UI</li>
+<li>Clarified that step-into debugging requires manual setup with LangFuse session view or Local Agent Chat UI</li>
 <li>Updated API response example to show actual LangFuse trace URL format</li>
 <li>Added notes about trace availability (only exists if execution ran with LangFuse tracing enabled)</li>
 <li><strong>Browser Extension Manual Source Creation</strong>: Fixed duplicate key violations when creating manual source from browser extension</li>
@@ -3861,7 +3894,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Assetnote, Picus, and Splunk remain failing due to JS-rendered/anti-bot content; selectors are in place but static fetch still returns empty. Next steps: add headless/JS-capable fetch (Playwright) or alternative article API path; retest and adjust min_content_length as needed.</li>
 <li>Group-IB, NCSC UK, MSRC: still blocked (403/SPA/placeholder feeds). Next steps: investigate API/back-end endpoints or headless rendering; consider temporary deactivation if access remains blocked.</li>
 </ul>
-<h3 id="removed_4">Removed</h3>
+<h3 id="removed_5">Removed</h3>
 <ul>
 <li><strong>OS Detection QA Agent</strong>: Removed QA validation system for OS Detection Agent</li>
 <li>Removed QA retry loop and evaluation logic from OS Detection workflow node</li>
@@ -4068,7 +4101,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>None (security hardening was completed in previous versions)</li>
 </ul>
-<h3 id="removed_5">Removed</h3>
+<h3 id="removed_6">Removed</h3>
 <ul>
 <li><strong>Redundant UI Cleanup</strong>: Removed redundant "Save Configuration" button from settings page</li>
 </ul>
@@ -4313,7 +4346,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Dependencies</strong>: Added scikit-learn and pandas for ML-based content filtering</li>
 <li><strong>Test Documentation</strong>: Updated SKIPPED_TESTS.md with current test status and progress tracking</li>
 </ul>
-<h3 id="removed_6">Removed</h3>
+<h3 id="removed_7">Removed</h3>
 <ul>
 <li><strong>Vestigial Fields</strong>: Removed unused <code>tier</code> and <code>weight</code> fields from source management (all sources had identical default values, no logic utilized these fields)</li>
 </ul>
@@ -4400,7 +4433,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Old CLI interface</li>
 <li>Legacy web interface</li>
 </ul>
-<h3 id="removed_7">Removed</h3>
+<h3 id="removed_8">Removed</h3>
 <ul>
 <li>Old architecture components</li>
 <li>Deprecated APIs and endpoints</li>

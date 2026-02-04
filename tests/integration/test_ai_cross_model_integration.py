@@ -131,8 +131,8 @@ class TestAICrossModelIntegration:
         }
 
     @pytest.fixture
-    def mock_ollama_response(self):
-        """Create mock Ollama response."""
+    def mock_lmstudio_response(self):
+        """Create mock LMStudio (local) response."""
         return """
         title: APT29 PowerShell Execution
         description: Detects APT29 PowerShell execution patterns
@@ -212,8 +212,8 @@ class TestAICrossModelIntegration:
     @pytest.mark.asyncio
     @pytest.mark.quarantine
     @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_model_fallback_anthropic_failure(self, sample_threat_article, mock_ollama_response):
-        """Test fallback from Anthropic to Ollama when Anthropic fails."""
+    async def test_model_fallback_anthropic_failure(self, sample_threat_article, mock_lmstudio_response):
+        """Test fallback from Anthropic to LMStudio when Anthropic fails."""
         # Mock Anthropic failure
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = Mock()
@@ -227,17 +227,17 @@ class TestAICrossModelIntegration:
             except Exception as e:
                 assert "Rate limit exceeded" in str(e)
 
-        # Test fallback to Ollama
+        # Test fallback to LMStudio (Ollama removed)
         with patch("subprocess.run") as mock_subprocess:
             mock_result = Mock()
             mock_result.returncode = 0
-            mock_result.stdout = mock_ollama_response
+            mock_result.stdout = mock_lmstudio_response
             mock_result.stderr = ""
             mock_subprocess.return_value = mock_result
 
             # Fallback should work
-            ollama_result = generate_sigma_rules(sample_threat_article["content"])
-            assert "title: APT29 PowerShell Execution" in ollama_result
+            lmstudio_result = generate_sigma_rules(sample_threat_article["content"])
+            assert "title: APT29 PowerShell Execution" in lmstudio_result
 
     @pytest.mark.asyncio
     async def test_content_size_limits_per_model(self, sample_threat_article):
@@ -302,15 +302,15 @@ class TestAICrossModelIntegration:
             long_content = "x" * 80000  # 80KB - within Claude's limit
             assert len(long_content) <= 100000  # Claude's limit
 
-        # Test Ollama specific features
+        # Test LMStudio (local) specific features
         with patch("subprocess.run") as mock_subprocess:
             mock_result = Mock()
             mock_result.returncode = 0
-            mock_result.stdout = "Ollama local processing"
+            mock_result.stdout = "LMStudio local processing"
             mock_result.stderr = ""
             mock_subprocess.return_value = mock_result
 
-            # Ollama should work offline
+            # LMStudio should work offline
             result = generate_sigma_rules(sample_threat_article["content"])
             assert result is not None
 
@@ -337,22 +337,22 @@ class TestAICrossModelIntegration:
                 mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                 return "Anthropic response"
 
-        async def mock_ollama_request():
+        async def mock_lmstudio_request():
             with patch("subprocess.run") as mock_subprocess:
                 mock_result = Mock()
                 mock_result.returncode = 0
-                mock_result.stdout = "Ollama response"
+                mock_result.stdout = "LMStudio response"
                 mock_result.stderr = ""
                 mock_subprocess.return_value = mock_result
                 return generate_sigma_rules(sample_threat_article["content"])
 
         # Run concurrent requests
-        results = await asyncio.gather(mock_openai_request(), mock_anthropic_request(), mock_ollama_request())
+        results = await asyncio.gather(mock_openai_request(), mock_anthropic_request(), mock_lmstudio_request())
 
         assert len(results) == 3
         assert "OpenAI response" in results
         assert "Anthropic response" in results
-        assert "Ollama response" in results
+        assert "LMStudio response" in results
 
     @pytest.mark.asyncio
     @pytest.mark.quarantine
@@ -380,11 +380,11 @@ class TestAICrossModelIntegration:
                 await asyncio.sleep(0.2)  # Simulate 200ms response
                 return "Anthropic response"
 
-        async def mock_ollama_request():
+        async def mock_lmstudio_request():
             with patch("subprocess.run") as mock_subprocess:
                 mock_result = Mock()
                 mock_result.returncode = 0
-                mock_result.stdout = "Ollama response"
+                mock_result.stdout = "LMStudio response"
                 mock_result.stderr = ""
                 mock_subprocess.return_value = mock_result
                 await asyncio.sleep(0.5)  # Simulate 500ms response
@@ -395,7 +395,7 @@ class TestAICrossModelIntegration:
 
         openai_result = await mock_openai_request()
         anthropic_result = await mock_anthropic_request()
-        ollama_result = await mock_ollama_request()
+        lmstudio_result = await mock_lmstudio_request()
 
         end_time = time.time()
         total_time = end_time - start_time
@@ -403,7 +403,7 @@ class TestAICrossModelIntegration:
         # Verify results
         assert openai_result == "OpenAI response"
         assert anthropic_result == "Anthropic response"
-        assert ollama_result is not None
+        assert lmstudio_result is not None
 
         # Total time should be sum of individual times (sequential execution)
         assert total_time >= 0.8  # 0.1 + 0.2 + 0.5
@@ -424,21 +424,21 @@ class TestAICrossModelIntegration:
                 "endpoint": "https://api.anthropic.com/v1/messages",
             },
             {
-                "model": "ollama",
-                "endpoint": "http://localhost:11434",
+                "model": "lmstudio",
+                "endpoint": "http://localhost:1234/v1",
                 "model_name": "phi3-cti-hunt",
             },
         ]
 
         for config in valid_configs:
             assert "model" in config
-            assert config["model"] in ["chatgpt", "anthropic", "ollama"]
+            assert config["model"] in ["chatgpt", "anthropic", "lmstudio"]
 
             if config["model"] in ["chatgpt", "anthropic"]:
                 assert "api_key" in config
                 assert config["api_key"].startswith("sk-")
 
-            if config["model"] == "ollama":
+            if config["model"] == "lmstudio":
                 assert "model_name" in config
 
         # Test invalid configurations
@@ -446,15 +446,15 @@ class TestAICrossModelIntegration:
             {"model": "invalid_model"},
             {"model": "chatgpt"},  # Missing API key
             {"model": "anthropic", "api_key": "invalid_key"},  # Invalid API key format
-            {"model": "ollama"},  # Missing model name
+            {"model": "lmstudio"},  # Missing model name
         ]
 
         for config in invalid_configs:
-            if config["model"] not in ["chatgpt", "anthropic", "ollama"]:
+            if config["model"] not in ["chatgpt", "anthropic", "lmstudio"]:
                 assert config["model"] == "invalid_model"
             elif config["model"] in ["chatgpt", "anthropic"] and "api_key" not in config:
                 assert "api_key" not in config
-            elif config["model"] == "ollama" and "model_name" not in config:
+            elif config["model"] == "lmstudio" and "model_name" not in config:
                 assert "model_name" not in config
 
     @pytest.mark.asyncio
@@ -486,7 +486,7 @@ class TestAICrossModelIntegration:
             except Exception as e:
                 assert "Anthropic API Error" in str(e)
 
-        # Test Ollama error handling
+        # Test LMStudio error handling
         with patch("subprocess.run") as mock_subprocess:
             mock_result = Mock()
             mock_result.returncode = 1

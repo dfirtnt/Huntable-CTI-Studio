@@ -3567,60 +3567,11 @@ Please provide a detailed analysis based on the article content and the user's r
             analysis = result["content"][0]["text"]
             model_used = "anthropic"
             model_name = "claude-sonnet-4-5"
-        elif ai_model == "ollama":
-            # Use Ollama API
-            ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{ollama_url}/api/generate",
-                    json={
-                        "model": "llama3.2:1b",
-                        "prompt": full_prompt,
-                        "stream": False,
-                        "options": {"temperature": 0.3, "num_predict": 2000},
-                    },
-                    timeout=300.0,
-                )
-
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"Ollama API error: {error_detail}")
-                    raise HTTPException(
-                        status_code=500, detail=f"Ollama API error: {error_detail}"
-                    )
-
-                result = response.json()
-                analysis = result["response"]
-                model_used = "ollama"
-                model_name = "llama3.2:1b"
-        elif ai_model == "tinyllama":
-            # Use Ollama API with TinyLlama
-            ollama_url = os.getenv("LLM_API_URL", "http://cti_ollama:11434")
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{ollama_url}/api/generate",
-                    json={
-                        "model": "tinyllama",
-                        "prompt": full_prompt,
-                        "stream": False,
-                        "options": {"temperature": 0.3, "num_predict": 2000},
-                    },
-                    timeout=300.0,
-                )
-
-                if response.status_code != 200:
-                    error_detail = response.text
-                    logger.error(f"Ollama API error: {error_detail}")
-                    raise HTTPException(
-                        status_code=500, detail=f"Ollama API error: {error_detail}"
-                    )
-
-                result = response.json()
-                analysis = result["response"]
-                model_used = "tinyllama"
-                model_name = "tinyllama"
+        elif ai_model in ("ollama", "tinyllama"):
+            raise HTTPException(
+                status_code=400,
+                detail="Ollama support was removed. Use LMStudio for local LLM inference.",
+            )
         elif ai_model == "lmstudio":
             # Use LMStudio API
             lmstudio_model = await _get_current_lmstudio_model()

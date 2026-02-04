@@ -3317,7 +3317,10 @@
 <li><strong>Query Parameters</strong>:<ul>
 <li><code>article_id</code> (optional): Filter by article ID</li>
 <li><code>status</code> (optional): Filter by execution status</li>
-<li><code>limit</code> (default: 50): Maximum number of results</li>
+<li><code>step</code> (optional): Filter by current step (e.g. <code>extract_agent</code>, <code>generate_sigma</code>)</li>
+<li><code>sort_by</code> (optional): Sort column (<code>id</code>, <code>article_id</code>, <code>status</code>, <code>current_step</code>, <code>ranking_score</code>, <code>created_at</code>); default <code>created_at</code></li>
+<li><code>sort_order</code> (optional): <code>asc</code> or <code>desc</code>; default <code>desc</code></li>
+<li><code>limit</code> (default: 500): Maximum number of results</li>
 </ul>
 </li>
 <li><code>GET /api/workflow/executions/{execution_id}</code> - Get detailed workflow execution information</li>

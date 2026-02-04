@@ -87,7 +87,6 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=16384
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
-      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - TZ=America/New_York
     ports:
@@ -335,7 +334,6 @@ services:
     #   - LMSTUDIO_API_KEY=dummy
     #   - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
     #   - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
-    #   - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
     #   - TZ=America/New_York
     # ports:
     #   - "${LANGFLOW_PORT:-7860}:7860"

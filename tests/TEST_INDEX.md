@@ -45,7 +45,7 @@
 | `test_ai_integration.py` | 15 | ✅ Passing | AI integration workflows |
 | `test_gpt4o_optimizer.py` | 22 | ✅ Passing | GPT-4o content optimization |
 | `test_gpt4o_endpoint.py` | 15 | ✅ Passing | GPT-4o API endpoints |
-| `test_ollama_integration.py` | 20 | ✅ Passing | Ollama local AI integration |
+| (removed) | - | - | Ollama removed; use LMStudio |
 | `test_sigma_validator.py` | 50 | ✅ Passing | SIGMA rule validation |
 | `test_threat_hunting_scorer.py` | 26 | ✅ Passing | Threat hunting scoring |
 | `test_ioc_extractor.py` | 20 | ✅ Passing | IOC extraction |
@@ -90,7 +90,7 @@
 | `test_mobile_annotation.py` | 13 | ✅ Passing | Mobile annotation system |
 | `test_modal_interactions_ui.py` | 20 | ✅ Passing | Modal interactions (Escape key, click outside, Cmd/Ctrl+Enter) |
 | `test_navigation_ui.py` | 11 | ✅ Passing | Navigation and breadcrumb functionality |
-| `test_ollama_test_button_ui.py` | 13 | ✅ Passing | Ollama test button UI |
+| (removed) | - | - | Ollama removed |
 | `test_pdf_upload_ui.py` | 6 | ✅ Passing | PDF upload functionality |
 | `test_prompt_sync_ui.py` | 24 | ✅ Passing | Prompt sync (help modals vs prompt files) |
 | `test_rag_chat_ui.py` | 16 | ✅ Passing | RAG chat interface |
@@ -118,7 +118,7 @@
 | `test_huntable_probability.py` | 10+ | ✅ Passing | Huntable probability integration |
 | `test_lightweight_integration.py` | 12 | ✅ Passing | Lightweight integration |
 | `test_mobile_annotation_direct.py` | 10+ | ✅ Passing | Mobile annotation direct integration |
-| `test_ollama_test_button_integration.py` | 10+ | ✅ Passing | Ollama test button integration |
+| (removed) | - | - | Ollama removed |
 | `test_rag_conversation_integration.py` | 10+ | ✅ Passing | RAG conversation workflows |
 | `test_retraining_integration.py` | 10+ | ✅ Passing | Retraining integration |
 | `test_scoring_system_integration.py` | 10+ | ✅ Passing | Scoring workflows |
@@ -140,7 +140,7 @@
 | `test_extract_observables_api.py` | 6 | ✅ Passing | Extract observables API |
 | `test_lmstudio_api.py` | 11 | ✅ Passing | LMStudio API integration |
 | `test_ml_feedback.py` | 4 | ✅ Passing | ML feedback API |
-| `test_ollama_test_endpoints.py` | 13 | ✅ Passing | Ollama test endpoints |
+| (removed) | - | - | Ollama removed |
 | `test_rag_endpoints.py` | 13 | ✅ Passing | RAG endpoints |
 | `test_sorting_api.py` | 1 | ✅ Passing | Sorting API |
 | `test_sorting_fallback.py` | 1 | ✅ Passing | Sorting fallback |
@@ -206,9 +206,9 @@
 - **Core Functionality**: 222 tests (previously fixed)
 - **Service/Utility Tests**: 142 tests (chunk analysis, prompt loader, query safety, simhash, model evaluation)
 - **Playwright Tests**: 13 tests (help buttons, SIGMA generation, workflow tabs)
-- **UI Tests**: 383+ tests (analytics, dashboard, diags, help, IOC, jobs, mobile, navigation, ollama, PDF, RAG, settings, sources, workflows, modal interactions - all working)
-- **Integration Tests**: 200+ tests (agentic workflow, AI, analytics, annotation, backup, Celery, content pipeline, error recovery, export, GPT-4o, huntable probability, lightweight, mobile, Ollama, RAG, retraining, scoring, SIGMA, source health/management, summarization, system - all working)
-- **API Tests**: 123+ tests (analytics, annotations, dashboard, endpoints, extract observables, LMStudio, ML feedback, Ollama, RAG, sorting - all working)
+- **UI Tests**: 383+ tests (analytics, dashboard, diags, help, IOC, jobs, mobile, navigation, PDF, RAG, settings, sources, workflows, modal interactions - all working)
+- **Integration Tests**: 200+ tests (agentic workflow, AI, analytics, annotation, backup, Celery, content pipeline, error recovery, export, GPT-4o, huntable probability, lightweight, mobile, RAG, retraining, scoring, SIGMA, source health/management, summarization, system - all working)
+- **API Tests**: 123+ tests (analytics, annotations, dashboard, endpoints, extract observables, LMStudio, ML feedback, RAG, sorting - all working)
 - **E2E Tests**: 120+ tests (accessibility, advanced search, analytics, annotation, article classification/navigation, backup, error handling, ML feedback/hunt comparison, mobile annotation, multi-browser, PDF upload, performance, RAG chat, settings, source management, web interface - all working)
 - **CLI Tests**: 20+ tests (backup, embed, rescore commands - all working)
 - **Utils Tests**: 10+ tests (environment, failure analyzer, isolation, output formatter - all working)
