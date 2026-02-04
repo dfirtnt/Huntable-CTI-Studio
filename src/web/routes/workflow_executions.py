@@ -1108,7 +1108,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                     else f"{langfuse_host}/traces?search={session_id}"
                 ),
                 "instructions": instructions,
-                "uses_langsmith": bool(langfuse_public_key),  # Keep field name for backwards compatibility
+                "uses_langfuse": bool(langfuse_public_key),
             }
         finally:
             db_session.close()

@@ -7665,7 +7665,7 @@ async function debugInAgentChat(executionId) {
             
             if (traceUrl) {
                 // Check if Langfuse is configured
-                if (!info.uses_langsmith && info.instructions && info.instructions.includes('not configured')) {
+                if (!info.uses_langfuse && info.instructions && info.instructions.includes('not configured')) {
                     // Show warning but still open trace URL
                     const proceed = confirm(
                         'Langfuse keys are not configured. The trace will only exist if the execution ran with Langfuse tracing enabled.\n\n' +

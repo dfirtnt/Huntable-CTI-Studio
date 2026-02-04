@@ -14,7 +14,7 @@ Created comprehensive automated tests for all recently added features in CTIScra
 - ✅ Context building from retrieved chunks
 - ✅ Conversation context management and truncation
 - ✅ RAG prompt creation with Huntable Analyst system prompt
-- ✅ Provider selection (OpenAI, Anthropic, Ollama, auto-fallback)
+- ✅ Provider selection (OpenAI, Anthropic, LMStudio, auto-fallback)
 - ✅ LLM API calls for all providers
 - ✅ Error handling and timeout scenarios
 - ✅ Response generation and metadata tracking

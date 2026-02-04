@@ -182,7 +182,7 @@ Core functionality testing with mocked dependencies:
 - **`test_threat_hunting_scorer.py`** (26 tests) - Threat hunting scoring
 - **`test_ioc_extractor.py`** (20 tests) - IOC extraction
 - **`test_ai_integration.py`** (15 tests) - AI integration workflows
-- **`test_ollama_integration.py`** (20 tests) - Ollama local AI integration
+- (removed) Ollama - use LMStudio for local AI
 - **`test_gpt4o_endpoint.py`** (15 tests) - GPT-4o API endpoints
 - **`test_database_operations.py`** (33 tests) - Database operations
 - **`test_content_processor.py`** (47 tests) - Content processing pipeline
@@ -211,7 +211,7 @@ User interface testing with Playwright sync API:
 - **`test_mobile_annotation.py`** (13 tests) - Mobile annotation
 - **`test_modal_interactions_ui.py`** (20 tests) - Modal interactions
 - **`test_navigation_ui.py`** (11 tests) - Navigation and breadcrumbs
-- **`test_ollama_test_button_ui.py`** (13 tests) - Ollama test button
+- (removed) Ollama test button
 - **`test_pdf_upload_ui.py`** (6 tests) - PDF upload
 - **`test_prompt_sync_ui.py`** (24 tests) - Prompt synchronization
 - **`test_rag_chat_ui.py`** (16 tests) - RAG chat interface
@@ -238,7 +238,7 @@ Cross-component testing with real dependencies:
 - **`test_huntable_probability.py`** - Huntable probability
 - **`test_lightweight_integration.py`** (12 tests) - Lightweight integration
 - **`test_mobile_annotation_direct.py`** - Mobile annotation
-- **`test_ollama_test_button_integration.py`** - Ollama integration
+- (removed) Ollama integration
 - **`test_rag_conversation_integration.py`** - RAG conversations
 - **`test_retraining_integration.py`** - Retraining workflows
 - **`test_scoring_system_integration.py`** - Scoring system
@@ -285,7 +285,7 @@ End-to-end workflow testing with Playwright sync API:
 - **AI Integration** (15 tests) - All passing
 - **GPT-4o Optimizer** (22 tests) - All passing
 - **GPT-4o Endpoint** (15 tests) - All passing
-- **Ollama Integration** (20 tests) - All passing
+- **LMStudio Integration** - Local LLM (Ollama removed)
 - **IOC Extractor** (20 tests) - All passing
 - **UI Tests** (80+ tests) - All passing (Playwright sync API)
 - **API Tests** (35+ tests) - All passing

@@ -194,7 +194,7 @@ class TestHealthPage:
         # Wait for content to update and check for success indicators
         services_content = page.locator("#servicesHealthContent")
         expect(services_content).to_contain_text("REDIS")
-        expect(services_content).to_contain_text("OLLAMA")
+        expect(services_content).to_contain_text("LMSTUDIO")
 
     @pytest.mark.ui
     @pytest.mark.skip(reason="#runCeleryCheck does not exist; diags uses single #runAllHealthChecks")

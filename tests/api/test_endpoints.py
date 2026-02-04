@@ -690,6 +690,23 @@ class TestCriticalAPIs:
         assert isinstance(data["executions"], list)
 
     @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_workflow_execution_debug_info_uses_langfuse(self, async_client: httpx.AsyncClient):
+        """Debug info returns uses_langfuse (LangSmith deprecated, use Langfuse)."""
+        list_resp = await async_client.get("/api/workflow/executions?limit=1")
+        assert list_resp.status_code == 200
+        data = list_resp.json()
+        executions = data.get("executions", [])
+        if not executions:
+            pytest.skip("No workflow executions in DB")
+        exec_id = executions[0]["id"]
+        resp = await async_client.get(f"/api/workflow/executions/{exec_id}/debug-info")
+        assert resp.status_code == 200
+        info = resp.json()
+        assert "uses_langfuse" in info
+        assert "uses_langsmith" not in info  # Deprecated: removed 2026-02-04
+
+    @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_dashboard_data_smoke(self, async_client: httpx.AsyncClient):

@@ -2,7 +2,7 @@
 LLM Generation Service for RAG
 
 Provides LLM-based response generation for RAG queries using multiple providers.
-Supports OpenAI, Ollama, and Anthropic Claude.
+Supports OpenAI, Anthropic Claude, and LMStudio (local).
 """
 
 import asyncio
@@ -93,7 +93,7 @@ class LLMGenerationService:
             query: User's original query
             retrieved_chunks: List of retrieved article chunks
             conversation_history: Previous conversation context
-            provider: LLM provider ("openai", "anthropic", "ollama", "auto")
+            provider: LLM provider ("openai", "anthropic", "lmstudio", "auto")
             retrieved_rules: List of retrieved Sigma rules
 
         Returns:
@@ -274,8 +274,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             return "gpt-4o-mini"
         if provider == "anthropic":
             return "claude-sonnet-4-5"
-        if provider == "tinyllama":
-            return "tinyllama"
         if provider == "lmstudio":
             # Try to get from database settings first, fallback to env var
             try:
@@ -313,7 +311,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             "claude-haiku": "anthropic",
             "claude3": "anthropic",
             "anthropic": "anthropic",
-            "tinyllama": "tinyllama",
             "lmstudio": "lmstudio",
             "template": "template",
             "disabled": "template",
@@ -330,7 +327,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         mapping = {
             "openai": "OpenAI",
             "anthropic": "Claude",
-            "tinyllama": "Ollama",
             "lmstudio": "LM Studio",
             "template": "Template",
             "auto": "Auto",
@@ -347,10 +343,7 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         base_provider = provider
         detail = model_name or ""
 
-        if provider == "tinyllama":
-            base_provider = "lmstudio"
-            detail = "tinyllama"
-        elif provider == "lmstudio":
+        if provider == "lmstudio":
             detail = model_name or self.lmstudio_model or "local-model"
         elif provider == "template":
             base_provider = "template"
@@ -386,12 +379,6 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
             if self.anthropic_api_key:
                 return "anthropic"
             raise ValueError("Anthropic provider requested but API key is missing")
-
-        if normalized == "tinyllama":
-            return "tinyllama"
-
-        if normalized == "ollama":
-            return "ollama"
 
         if normalized == "lmstudio":
             return "lmstudio"
