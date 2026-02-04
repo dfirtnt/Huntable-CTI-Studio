@@ -25,7 +25,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 <img width="1021" height="455" alt="image" src="https://github.com/user-attachments/assets/f00d6796-026d-4540-b6c5-ad25d73779cd" />
 
 
-The main engine is a LangGraph-based agentic workflow executed by Celery workers:
+The main engine is a LangGraph-based agentic workflow (#4-6 in diagram above) executed by Celery workers:
 1. **OS Detection** — Windows-only routing (non-Windows articles terminate)
 2. **Junk Filter** — Conservative content filtering
 3. **LLM Rank** — Relevance scoring (0-10)
