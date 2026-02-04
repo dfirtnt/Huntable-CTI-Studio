@@ -1875,6 +1875,7 @@
 <ul>
 <li>Named volumes: <code>postgres_data</code>, <code>redis_data</code>.</li>
 <li>Bind mounts: <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./outputs</code>, <code>./models</code>, <code>./scripts</code>, <code>./allure-results</code>, <code>./test-results</code>, <code>./backups</code> (web only), Docker socket for web/worker.</li>
+<li>Postgres init: <code>./init-scripts/init.sql</code> → <code>/docker-entrypoint-initdb.d/init.sql</code>.</li>
 </ul>
 <h2 id="health-checks">Health checks</h2>
 <ul>
@@ -1891,7 +1892,7 @@
 </ul>
 <h2 id="cli-alignment">CLI alignment</h2>
 <p><code>./run_cli.sh</code> passes args directly to <code>python -m src.cli.main</code>, ensuring the containerized CLI uses the same Postgres and Redis as the web app.</p>
-<p><em>Last verified: Dec 2025</em></p>
+<p><em>Last verified: Feb 2025</em></p>
 
 
 
