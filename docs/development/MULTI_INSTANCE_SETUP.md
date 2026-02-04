@@ -21,7 +21,7 @@ cd /path/to/CTIScraper-dev2
 
 ### 2. Copy Environment Configuration
 ```bash
-cp env.example .env
+cp .env.example .env
 # Edit .env with your API keys and passwords
 ```
 

@@ -64,4 +64,4 @@ docker-compose logs -f web
 - AI errors: confirm API keys or LM Studio endpoint reachable
 - CLI errors: use `./run_cli.sh --help` to see current commands; arguments are passed directly to `python -m src.cli.main`
 
-_Last verified: Dec 2025_
+_Last verified: Feb 2025_

@@ -71,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
 
 ### Removed
+- **Root cleanup** (2026-02-04): Removed obsolete root files; moved dev scripts to `scripts/`
+  - Deleted: `gittree.txt`, `run_tests_standardized.py`, `tmp_workflow_script9_updated.js`
+  - Moved: `audit_selectors.py`, `verify_provider_fix.py` → `scripts/` (paths updated for new location)
 - **Ollama support** (2026-02-04): Removed remaining Ollama/tinyllama code and references
   - ai.py: ollama/tinyllama now return 400 "Use LMStudio for local LLM"
   - llm_generation_service: removed ollama/tinyllama provider

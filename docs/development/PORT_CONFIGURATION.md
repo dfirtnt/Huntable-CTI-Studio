@@ -48,4 +48,4 @@ docker-compose down
 docker-compose up -d
 ```
 
-_Last verified: Dec 2025_
+_Last verified: Feb 2025_

@@ -6,9 +6,11 @@ Tests all code paths that could call LMStudio when OpenAI is selected.
 
 import os
 import sys
+from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+# Add src to path (script may be in scripts/)
+_project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_project_root / "src"))
 
 
 def verify_workflow_provider_routing():
@@ -87,10 +89,10 @@ def verify_llm_service_provider_handling():
 
     # Simulate provider handling in request_chat
     def simulate_provider_handling(provider):
-        if provider and isinstance(provider, str) and provider.strip():
-            effective_provider = provider
-        else:
-            effective_provider = "lmstudio"  # Default fallback
+        effective_provider = (
+            provider if provider and isinstance(provider, str) and provider.strip()
+            else "lmstudio"
+        )
 
         # Canonicalize
         normalized = effective_provider.strip().lower() if effective_provider else ""
@@ -146,12 +148,14 @@ def verify_no_direct_lmstudio_calls():
             lines = content.split("\n")
 
             # Check for direct _post_lmstudio_chat calls (except in llm_service.py itself)
-            if "_post_lmstudio_chat" in content and "src/services/llm_service.py" not in file_path:
-                # Check if it's used correctly (through llm_service.request_chat)
-                if "request_chat" not in content or "llm_service.request_chat" not in content:
-                    for i, line in enumerate(lines, 1):
-                        if "_post_lmstudio_chat" in line and "request_chat" not in line:
-                            problematic_patterns.append(f"{file_path}:{i}: {line.strip()}")
+            if (
+                "_post_lmstudio_chat" in content
+                and "src/services/llm_service.py" not in file_path
+                and ("request_chat" not in content or "llm_service.request_chat" not in content)
+            ):
+                for i, line in enumerate(lines, 1):
+                    if "_post_lmstudio_chat" in line and "request_chat" not in line:
+                        problematic_patterns.append(f"{file_path}:{i}: {line.strip()}")
 
     if problematic_patterns:
         print("❌ Found direct LMStudio calls that bypass provider selection:")

@@ -20,6 +20,7 @@ This reflects the current `docker-compose.yml`.
 ## Volumes & mounts
 - Named volumes: `postgres_data`, `redis_data`.
 - Bind mounts: `./src`, `./config`, `./logs`, `./tests`, `./outputs`, `./models`, `./scripts`, `./allure-results`, `./test-results`, `./backups` (web only), Docker socket for web/worker.
+- Postgres init: `./init-scripts/init.sql` → `/docker-entrypoint-initdb.d/init.sql`.
 
 ## Health checks
 - postgres: `pg_isready`
@@ -35,4 +36,4 @@ This reflects the current `docker-compose.yml`.
 ## CLI alignment
 `./run_cli.sh` passes args directly to `python -m src.cli.main`, ensuring the containerized CLI uses the same Postgres and Redis as the web app.
 
-_Last verified: Dec 2025_
+_Last verified: Feb 2025_

@@ -47,7 +47,7 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 ```bash
 # Copy environment template
-cp env.example .env
+cp .env.example .env
 # Edit .env with your local settings
 
 # Start Docker services
@@ -66,21 +66,21 @@ cp env.example .env
 
 ```bash
 # Quick health check (recommended first step)
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 
 # Run all tests with coverage
-python run_tests.py --all --coverage
+python3 run_tests.py --all --coverage
 
 # Run specific test categories
-python run_tests.py --unit
-python run_tests.py --api
-python run_tests.py --integration
+python3 run_tests.py --unit
+python3 run_tests.py --api
+python3 run_tests.py --integration
 
 # Docker-based testing
-python run_tests.py --docker --integration
+python3 run_tests.py --docker --integration
 
 # Install test dependencies
-python run_tests.py --install
+python3 run_tests.py --install
 ```
 
 ## Code Style
@@ -100,7 +100,7 @@ We use automated tools for code formatting:
 
 ```bash
 # Install formatting tools
-pip install black isort mypy flake8
+pip3 install black isort mypy flake8
 
 # Format code
 black src/
@@ -118,7 +118,7 @@ flake8 src/
 Install pre-commit hooks for automatic formatting:
 
 ```bash
-pip install pre-commit
+pip3 install pre-commit
 pre-commit install
 ```
 
@@ -179,19 +179,19 @@ CTIScraper/
 
 ```bash
 # Quick health check (recommended first step)
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 
 # Run all tests with coverage
-python run_tests.py --all --coverage
+python3 run_tests.py --all --coverage
 
 # Run specific test categories
-python run_tests.py --unit
-python run_tests.py --api
-python run_tests.py --integration
-python run_tests.py --ui
+python3 run_tests.py --unit
+python3 run_tests.py --api
+python3 run_tests.py --integration
+python3 run_tests.py --ui
 
 # Docker-based testing
-python run_tests.py --docker --all
+python3 run_tests.py --docker --all
 ```
 
 ### Test Requirements
