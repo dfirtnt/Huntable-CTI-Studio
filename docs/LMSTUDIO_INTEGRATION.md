@@ -11,17 +11,18 @@
 
 2. **Run CTIScraper with LMStudio**:
 ```bash
-# Start with LMStudio override
-docker-compose -f docker-compose.yml -f docker-compose.lmstudio.yml up web
+# Start services (LMStudio config is already in docker-compose.yml)
+docker-compose up web
 
 # Or start all services
-docker-compose -f docker-compose.yml -f docker-compose.lmstudio.yml up
+docker-compose up
 ```
 
 3. **Configure Model Name**:
-   - Edit `docker-compose.lmstudio.yml`
+   - Edit `.env` file or set environment variables
    - Set `LMSTUDIO_MODEL` to your loaded model name
    - Example: `LMSTUDIO_MODEL=llama-3.1-8b-instruct`
+   - The main `docker-compose.yml` already includes LMStudio configuration pointing to `host.docker.internal:1234/v1`
 
 ## API Usage
 

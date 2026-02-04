@@ -2261,7 +2261,7 @@
 <h2 id="development-setup">Development Setup</h2>
 <h3 id="1-environment-setup">1. Environment Setup</h3>
 <pre><code class="language-bash"># Copy environment template
-cp env.example .env
+cp .env.example .env
 # Edit .env with your local settings
 
 # Start Docker services
@@ -2274,21 +2274,21 @@ cp env.example .env
 </code></pre>
 <h3 id="3-run-tests">3. Run Tests</h3>
 <pre><code class="language-bash"># Quick health check (recommended first step)
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 
 # Run all tests with coverage
-python run_tests.py --all --coverage
+python3 run_tests.py --all --coverage
 
 # Run specific test categories
-python run_tests.py --unit
-python run_tests.py --api
-python run_tests.py --integration
+python3 run_tests.py --unit
+python3 run_tests.py --api
+python3 run_tests.py --integration
 
 # Docker-based testing
-python run_tests.py --docker --integration
+python3 run_tests.py --docker --integration
 
 # Install test dependencies
-python run_tests.py --install
+python3 run_tests.py --install
 </code></pre>
 <h2 id="code-style">Code Style</h2>
 <p>We follow PEP 8 with some modifications:</p>
@@ -2302,7 +2302,7 @@ python run_tests.py --install
 <h3 id="code-formatting">Code Formatting</h3>
 <p>We use automated tools for code formatting:</p>
 <pre><code class="language-bash"># Install formatting tools
-pip install black isort mypy flake8
+pip3 install black isort mypy flake8
 
 # Format code
 black src/
@@ -2316,7 +2316,7 @@ flake8 src/
 </code></pre>
 <h3 id="pre-commit-hooks">Pre-commit Hooks</h3>
 <p>Install pre-commit hooks for automatic formatting:</p>
-<pre><code class="language-bash">pip install pre-commit
+<pre><code class="language-bash">pip3 install pre-commit
 pre-commit install
 </code></pre>
 <h2 id="file-organization">File Organization</h2>
@@ -2410,19 +2410,19 @@ pre-commit install
 <p><strong>For comprehensive testing documentation, see the Testing Guide in the tests directory.</strong></p>
 <h3 id="quick-testing-commands">Quick Testing Commands</h3>
 <pre><code class="language-bash"># Quick health check (recommended first step)
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 
 # Run all tests with coverage
-python run_tests.py --all --coverage
+python3 run_tests.py --all --coverage
 
 # Run specific test categories
-python run_tests.py --unit
-python run_tests.py --api
-python run_tests.py --integration
-python run_tests.py --ui
+python3 run_tests.py --unit
+python3 run_tests.py --api
+python3 run_tests.py --integration
+python3 run_tests.py --ui
 
 # Docker-based testing
-python run_tests.py --docker --all
+python3 run_tests.py --docker --all
 </code></pre>
 <h3 id="test-requirements">Test Requirements</h3>
 <ul>

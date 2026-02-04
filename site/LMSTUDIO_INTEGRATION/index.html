@@ -1810,17 +1810,18 @@
 <p><strong>Run CTIScraper with LMStudio</strong>:</p>
 </li>
 </ol>
-<pre><code class="language-bash"># Start with LMStudio override
-docker-compose -f docker-compose.yml -f docker-compose.lmstudio.yml up web
+<pre><code class="language-bash"># Start services (LMStudio config is already in docker-compose.yml)
+docker-compose up web
 
 # Or start all services
-docker-compose -f docker-compose.yml -f docker-compose.lmstudio.yml up
+docker-compose up
 </code></pre>
 <ol>
 <li><strong>Configure Model Name</strong>:</li>
-<li>Edit <code>docker-compose.lmstudio.yml</code></li>
+<li>Edit <code>.env</code> file or set environment variables</li>
 <li>Set <code>LMSTUDIO_MODEL</code> to your loaded model name</li>
 <li>Example: <code>LMSTUDIO_MODEL=llama-3.1-8b-instruct</code></li>
+<li>The main <code>docker-compose.yml</code> already includes LMStudio configuration pointing to <code>host.docker.internal:1234/v1</code></li>
 </ol>
 <h2 id="api-usage">API Usage</h2>
 <p>In the web interface, select <code>lmstudio</code> as the LLM provider in chat settings.</p>

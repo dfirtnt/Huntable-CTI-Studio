@@ -59,3 +59,7 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh`.
 
 For full details, begin at `docs/index.md`.
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
