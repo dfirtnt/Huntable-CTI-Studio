@@ -1,4 +1,6 @@
 # Huntable CTI Studio
+<img width="952" height="64" alt="image" src="https://github.com/user-attachments/assets/4b29bc70-b518-4559-af0c-caf23b86000d" />
+
 
 ## ** SECURITY WARNING **
 !! DO NOT DEPLOY IN HOSTILE NETWORK!!
