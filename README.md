@@ -51,7 +51,7 @@ The main engine is a LangGraph-based agentic workflow (#4-6 in diagram above) ex
 # Health: curl http://localhost:8001/health
 
 
-The documentation has been reorganized under `/docs` and is published with MkDocs Material.
+The documentation is organized under `/docs` and is published with MkDocs Material.
 
 - **Quickstart**: `docs/quickstart.md` (Docker-first run, ingest → workflow → Sigma → pytest)
 - **Docs site**: `mkdocs serve` to preview locally; navigation mirrors `/docs` (concepts, how-tos, reference, internals).
