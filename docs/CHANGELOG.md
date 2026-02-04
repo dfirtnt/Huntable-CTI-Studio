@@ -114,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docs and tests updated: AGENTS.md, api.md, DO_NOT.md, TECHNICAL_READOUT, SIGMA_DETECTION_RULES, MANUAL_CHECKLIST, skip reasons
 
 ### Fixed
+- **Security: Removed PyPDF2 dependency** (2026-02-04): Removed `PyPDF2==3.0.1` from requirements-pinned.txt to eliminate infinite loop vulnerability (CVSS 6.2). Package was unused; codebase uses `pypdf==6.6.2` for PDF processing. No patched version available for PyPDF2.
 - **Security: Removed aiohttp dependency** (2026-02-04): Removed `aiohttp` from requirements to eliminate 7 Dependabot alerts (1 high, 3 moderate, 3 low). Package was only used in unused test utility `tests/e2e/mcp_orchestrator.py`; codebase uses `httpx` for HTTP requests. Deleted unused orchestrator file.
 - **Security: jaraco.context path traversal vulnerability** (2026-02-04): Updated `jaraco.context` from `6.0.1` to `6.1.0` to fix CVE-2024-XXXXX path traversal vulnerability (CVSS 8.6) affecting versions `>= 5.2.0, < 6.1.0`
 - **Max Similarity 0% displayed as N/A** (2026-02-02): When `max_similarity` was 0, templates used `rule.max_similarity ? ... : 'N/A'`; in JavaScript 0 is falsy so it showed N/A. Fixed: use `typeof rule.max_similarity === 'number'` so 0 displays as "0.0%" in workflow, workflow_executions, sigma_queue, and article_detail templates. Added UI test `test_max_similarity_zero_displays_as_percent`.

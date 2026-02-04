@@ -164,7 +164,6 @@ pyee==13.0.0
 pyflakes==3.4.0
 Pygments==2.19.2
 pyparsing==3.2.5
-PyPDF2==3.0.1
 pypdf==6.6.2
 pyRdfa3==3.6.4
 pySigma==0.11.23
