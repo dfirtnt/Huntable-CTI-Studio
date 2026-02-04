@@ -9,10 +9,13 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+# Run from project root (script may be in scripts/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 def extract_test_selectors():
     """Extract all selectors used in test files."""
-    test_files = glob.glob("tests/ui/test_*.py")
+    test_files = glob.glob(str(PROJECT_ROOT / "tests/ui/test_*.py"))
     selectors = defaultdict(lambda: {"files": set(), "count": 0})
 
     for test_file in test_files:
@@ -51,7 +54,7 @@ def extract_test_selectors():
 
 def extract_template_elements():
     """Extract all IDs and classes from HTML templates."""
-    html_files = glob.glob("src/web/templates/*.html")
+    html_files = glob.glob(str(PROJECT_ROOT / "src/web/templates/*.html"))
     template_ids = set()
     template_classes = set()
     id_to_file = defaultdict(set)
@@ -160,10 +163,11 @@ def audit_selectors():
             print(f"\n  ... and {len(missing_classes) - 20} more class selectors")
 
     # Save detailed report
-    report_file = "test-results/selector_audit_report.txt"
-    Path("test-results").mkdir(exist_ok=True)
+    report_dir = PROJECT_ROOT / "test-results"
+    report_dir.mkdir(exist_ok=True)
+    report_file = report_dir / "selector_audit_report.txt"
 
-    with open(report_file, "w") as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         f.write("=" * 80 + "\n")
         f.write("SELECTOR AUDIT REPORT\n")
         f.write("=" * 80 + "\n\n")

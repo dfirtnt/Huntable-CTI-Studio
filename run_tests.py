@@ -3,7 +3,7 @@
 CTI Scraper Unified Test Runner
 
 This is the single entry point for all test execution needs across different contexts.
-Consolidates functionality from run_tests.py, run_tests.sh, and run_tests_standardized.py.
+Consolidates functionality from run_tests.py and run_tests.sh.
 
 Features:
 - Context-aware execution (localhost, Docker, CI/CD)
