@@ -8,7 +8,6 @@
 
 # Core scraping and processing
 requests==2.32.5
-aiohttp==3.13.3
 httpx==0.28.1
 brotli>=1.0.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.2
