@@ -11,7 +11,7 @@ This app is a suite of utilities for processing open source intel. It is for res
 
 ## Purpose
 
-Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; uses regex and AI to score relevance and extract observables; generates SIGMA detection rules, and prevents duplicates through semantic cosign similarity matching against 3,000+ community rules.
+Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; uses regex and AI to score relevance and extract observables; generates SIGMA detection rules, and prevents duplicates through semantic cosign similarity matching against 3,000+ community rules. More details here: https://dfirtnt.wordpress.com/2026/02/04/introducing-huntable-cti-studio/ 
 
 ## Approach
 
