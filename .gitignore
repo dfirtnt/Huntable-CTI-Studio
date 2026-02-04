@@ -156,6 +156,8 @@ config/secrets.yaml
 *.joblib
 *.h5
 *.onnx
+# Content filter pre-retrain backups (created by retrain_with_feedback.py)
+content_filter_backup_*.pkl
 
 # Large data files
 data/

@@ -1,10 +1,9 @@
 """Tests for compare-sources CLI command."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-import click
+import pytest
 from click.testing import CliRunner
 
 from src.cli.main import cli

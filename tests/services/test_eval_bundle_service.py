@@ -1,10 +1,11 @@
 """Tests for EvalBundleService."""
 
-import pytest
 from unittest.mock import Mock, patch
 
-from src.services.eval_bundle_service import EvalBundleService
+import pytest
+
 from src.database.models import AgenticWorkflowExecutionTable, ArticleTable
+from src.services.eval_bundle_service import EvalBundleService
 
 pytestmark = pytest.mark.unit
 
@@ -73,10 +74,7 @@ class TestEvalBundleIllegalState:
         assert "ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED" in bundle["integrity"]["warnings"]
         assert bundle.get("infra_failed") is True
         assert bundle["execution_context"]["infra_failed"] is True
-        assert (
-            bundle["execution_context"]["infra_failed_reason"]
-            == "messages empty but execution marked completed"
-        )
+        assert bundle["execution_context"]["infra_failed_reason"] == "messages empty but execution marked completed"
 
     def test_valid_messages_completed_status_does_not_set_infra_failed(self):
         """Bundle with valid messages and status=completed must NOT have infra_failed (negative case)."""

@@ -1,8 +1,8 @@
 """Unit tests for shared OpenAI chat client."""
 
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 pytestmark = pytest.mark.unit
 
@@ -13,12 +13,14 @@ class TestOpenAIChatClient:
     def test_openai_is_reasoning_model_o1(self):
         """o1 is a reasoning model."""
         from src.services.openai_chat_client import openai_is_reasoning_model
+
         assert openai_is_reasoning_model("o1") is True
         assert openai_is_reasoning_model("o1-mini") is True
 
     def test_openai_is_reasoning_model_o3_o4(self):
         """o3, o4 are reasoning models."""
         from src.services.openai_chat_client import openai_is_reasoning_model
+
         assert openai_is_reasoning_model("o3") is True
         assert openai_is_reasoning_model("o4") is True
         assert openai_is_reasoning_model("o4-mini") is True
@@ -26,12 +28,14 @@ class TestOpenAIChatClient:
     def test_openai_is_reasoning_model_gpt5(self):
         """gpt-5.x are reasoning models."""
         from src.services.openai_chat_client import openai_is_reasoning_model
+
         assert openai_is_reasoning_model("gpt-5") is True
         assert openai_is_reasoning_model("gpt-5.2") is True
 
     def test_openai_is_reasoning_model_standard(self):
         """gpt-4o, gpt-4o-mini are not reasoning models."""
         from src.services.openai_chat_client import openai_is_reasoning_model
+
         assert openai_is_reasoning_model("gpt-4o") is False
         assert openai_is_reasoning_model("gpt-4o-mini") is False
         assert openai_is_reasoning_model("gpt-4.1") is False
@@ -39,6 +43,7 @@ class TestOpenAIChatClient:
     def test_openai_build_chat_payload_reasoning(self):
         """Reasoning models use max_completion_tokens, no temperature."""
         from src.services.openai_chat_client import openai_build_chat_payload
+
         payload = openai_build_chat_payload("o1", [{"role": "user", "content": "hi"}])
         assert "max_completion_tokens" in payload
         assert "max_tokens" not in payload
@@ -47,6 +52,7 @@ class TestOpenAIChatClient:
     def test_openai_build_chat_payload_standard(self):
         """Standard models use max_tokens and temperature."""
         from src.services.openai_chat_client import openai_build_chat_payload
+
         payload = openai_build_chat_payload("gpt-4o-mini", [{"role": "user", "content": "hi"}])
         assert "max_tokens" in payload
         assert "temperature" in payload
@@ -55,10 +61,8 @@ class TestOpenAIChatClient:
     def test_openai_build_chat_payload_use_reasoning_override(self):
         """use_reasoning override works."""
         from src.services.openai_chat_client import openai_build_chat_payload
-        payload = openai_build_chat_payload(
-            "gpt-4o-mini", [{"role": "user", "content": "hi"}],
-            use_reasoning=True
-        )
+
+        payload = openai_build_chat_payload("gpt-4o-mini", [{"role": "user", "content": "hi"}], use_reasoning=True)
         assert "max_completion_tokens" in payload
         assert "temperature" not in payload
 
@@ -66,6 +70,7 @@ class TestOpenAIChatClient:
     async def test_openai_chat_completions_empty_key_raises(self):
         """Empty API key raises ValueError."""
         from src.services.openai_chat_client import openai_chat_completions
+
         with pytest.raises(ValueError, match="API key"):
             await openai_chat_completions(
                 api_key="",
@@ -80,9 +85,7 @@ class TestOpenAIChatClient:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Hello"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "Hello"}}]}
 
         with patch("src.services.openai_chat_client.httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
@@ -109,9 +112,7 @@ class TestOpenAIChatClient:
 
         success_response = MagicMock()
         success_response.status_code = 200
-        success_response.json.return_value = {
-            "choices": [{"message": {"content": "Retry ok"}}]
-        }
+        success_response.json.return_value = {"choices": [{"message": {"content": "Retry ok"}}]}
 
         with patch("src.services.openai_chat_client.httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()

@@ -4,6 +4,7 @@ Provides fixtures for Celery workers, test database with rollback, and external 
 """
 
 import pytest
+
 try:
     import pytest_asyncio
 except ImportError:
@@ -11,18 +12,19 @@ except ImportError:
     class _PytestAsyncioStub:
         def fixture(self, *args, **kwargs):
             return pytest.fixture(*args, **kwargs)
+
     pytest_asyncio = _PytestAsyncioStub()
 import asyncio
-import subprocess
-import time
 import os
-from typing import AsyncGenerator, Dict, Any, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
-from src.models.source import SourceCreate, SourceConfig
+from unittest.mock import AsyncMock
+
 from src.models.article import ArticleCreate
+from src.models.source import SourceConfig, SourceCreate
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -47,7 +49,7 @@ def celery_worker_available():
             ["docker", "ps", "--filter", "name=cti_worker", "--format", "{{.Names}}"],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
         return "cti_worker" in result.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
@@ -59,10 +61,11 @@ async def test_database_with_rollback(celery_worker_available):
     """Test database fixture with transaction rollback for isolation.
     Uses TEST_DATABASE_URL only. Never DATABASE_URL (production guard).
     """
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-    from sqlalchemy.orm import sessionmaker
     import os
-    
+
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+    from sqlalchemy.orm import sessionmaker
+
     # TEST_DATABASE_URL only — never DATABASE_URL to avoid production
     _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
@@ -71,36 +74,33 @@ async def test_database_with_rollback(celery_worker_available):
             f"Integration tests must use a test database (name contains 'test'). "
             f"Got: {db_url[:60]}... Use TEST_DATABASE_URL."
         )
-    
-    engine = create_async_engine(
-        db_url,
-        pool_pre_ping=True,
-        echo=False
-    )
-    
+
+    engine = create_async_engine(db_url, pool_pre_ping=True, echo=False)
+
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async with async_session() as session:
         # Begin transaction
         await session.begin()
         yield session
         # Rollback to clean state
         await session.rollback()
-    
+
     await engine.dispose()
 
 
 @pytest.fixture
 def test_database_manager(test_database_with_rollback):
     """Provide test database manager with transaction rollback."""
-    from src.database.async_manager import AsyncDatabaseManager
     from contextlib import asynccontextmanager
-    
+
+    from src.database.async_manager import AsyncDatabaseManager
+
     class TestAsyncDatabaseManager(AsyncDatabaseManager):
         @asynccontextmanager
         async def get_session(self):
             yield test_database_with_rollback
-            
+
     # TEST_DATABASE_URL only — never DATABASE_URL to avoid production
     _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
@@ -116,58 +116,56 @@ async def external_api_preference():
     Prompt user for external API testing preference and API keys.
     Returns: 'mock' or 'real'
     """
-    import sys
-    
+
     # Check for API keys and prompt if missing
-    openai_key = os.getenv('OPENAI_API_KEY')
-    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
-    
+    openai_key = os.getenv("OPENAI_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+
     if not openai_key and not anthropic_key:
         print("\n⚠️  No AI API keys found in environment.")
         print("For tests that use OpenAI or Anthropic:")
         print("  - Set OPENAI_API_KEY environment variable for OpenAI tests")
         print("  - Set ANTHROPIC_API_KEY environment variable for Anthropic tests")
         print("  - Or they will be prompted during test execution")
-    
+
     # Check environment variable first
     preference = os.getenv("EXTERNAL_API_TEST_MODE", "").lower()
-    
-    if preference in ['mock', 'real']:
+
+    if preference in ["mock", "real"]:
         return preference
-    
+
     # Prompt user for preference (non-interactive in CI)
     if os.getenv("CI") == "true":
-        return 'mock'  # Default to mock in CI
-    
+        return "mock"  # Default to mock in CI
+
     # In interactive mode, ask user
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("External API Testing Preference")
-    print("="*60)
+    print("=" * 60)
     print("How should external APIs (OpenAI, Anthropic) be tested?")
     print("  [m] Mock (fast, no cost, no external calls)")
     print("  [r] Real (slow, costs money, makes actual API calls)")
-    print("="*60)
-    
+    print("=" * 60)
+
     while True:
         choice = input("Enter choice [m/r]: ").strip().lower()
-        if choice in ['m', 'mock']:
-            return 'mock'
-        elif choice in ['r', 'real']:
+        if choice in ["m", "mock"]:
+            return "mock"
+        if choice in ["r", "real"]:
             print("⚠️  WARNING: Real API tests will make actual API calls and incur costs!")
             confirm = input("Continue with real API tests? [y/N]: ").strip().lower()
-            if confirm == 'y':
-                return 'real'
+            if confirm == "y":
+                return "real"
             continue
-        else:
-            print("Invalid choice. Please enter 'm' or 'r'")
-    
-    return 'mock'  # Default fallback
+        print("Invalid choice. Please enter 'm' or 'r'")
+
+    return "mock"  # Default fallback
 
 
 @pytest.fixture
 def mock_llm_service(external_api_preference):
     """Mock LLM service based on user preference."""
-    if external_api_preference == 'mock':
+    if external_api_preference == "mock":
         service = AsyncMock()
         service.generate_response = AsyncMock(return_value="Mock LLM response")
         service.summarize_content = AsyncMock(return_value="Mock summary")
@@ -181,12 +179,14 @@ def mock_llm_service(external_api_preference):
 def mock_celery_app():
     """Mock Celery app for tests that don't need real worker."""
     from src.worker.celery_app import celery_app
+
     return celery_app
 
 
 @pytest_asyncio.fixture
 async def wait_for_celery_task():
     """Helper to wait for Celery task completion."""
+
     async def _wait_for_task(task_result, timeout=30):
         """Wait for task with timeout."""
         start_time = time.time()
@@ -195,6 +195,7 @@ async def wait_for_celery_task():
                 raise TimeoutError(f"Task not completed within {timeout}s")
             await asyncio.sleep(0.1)
         return task_result
+
     return _wait_for_task
 
 
@@ -202,13 +203,13 @@ async def wait_for_celery_task():
 def celery_task_cleanup():
     """Cleanup fixture for Celery tasks."""
     tasks_to_cleanup = []
-    
+
     yield tasks_to_cleanup
-    
+
     # Cleanup registered tasks
     for task in tasks_to_cleanup:
         try:
-            if hasattr(task, 'revoke'):
+            if hasattr(task, "revoke"):
                 task.revoke(terminate=True)
         except Exception:
             pass
@@ -252,10 +253,7 @@ def test_source_config():
         check_frequency=3600,
         lookback_days=180,
         active=True,
-        config=SourceConfig(
-            collection_method="rss",
-            fallback_to_scraping=True
-        )
+        config=SourceConfig(collection_method="rss", fallback_to_scraping=True),
     )
 
 
@@ -268,7 +266,7 @@ def sample_article_data():
         canonical_url="https://test.example.com/test-article",
         published_at=datetime.now(),
         source_id=1,
-        content_hash="test-hash-123"
+        content_hash="test-hash-123",
     )
 
 
@@ -280,7 +278,7 @@ def annotation_test_data():
         "selected_text": "This is a long text " * 50,  # ~1000 chars to meet validation
         "start_position": 0,
         "end_position": 1000,
-        "article_id": 1
+        "article_id": 1,
     }
 
 
@@ -294,7 +292,7 @@ def chunk_feedback_test_data():
         "model_classification": "Huntable",
         "model_confidence": 0.85,
         "is_correct": True,
-        "user_classification": None
+        "user_classification": None,
     }
 
 
@@ -303,20 +301,21 @@ async def test_redis_client():
     """Test Redis client fixture.
     Uses REDIS_TEST_DB (default 15). Never flushdb — production must not use db 15.
     """
-    import redis.asyncio as redis
     import os
-    
+
+    import redis.asyncio as redis
+
     # Dedicated test DB index; production must not use REDIS_TEST_DB
     db_index = int(os.getenv("REDIS_TEST_DB", "15"))
     client = await redis.Redis(
         host=os.getenv("REDIS_HOST", "localhost"),
         port=int(os.getenv("REDIS_PORT", "6379")),
         db=db_index,
-        decode_responses=True
+        decode_responses=True,
     )
-    
+
     yield client
-    
+
     # Do not flushdb — would wipe all keys; use key-prefix cleanup in tests if needed
     await client.close()
 
@@ -334,4 +333,3 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "error_recovery: Error recovery and resilience tests")
     config.addinivalue_line("markers", "export_backup: Export and backup workflow tests")
     config.addinivalue_line("markers", "external_api: Tests requiring external APIs")
-

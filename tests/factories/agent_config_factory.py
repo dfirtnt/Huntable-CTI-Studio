@@ -1,26 +1,23 @@
 """Factory for creating Agent Config test data."""
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 
 class AgentConfigFactory:
     """Factory for creating Agent Config test objects."""
-    
+
     @staticmethod
     def create(
-        agent_name: str = "ExtractAgent",
-        provider: str = "lmstudio",
-        model: Optional[str] = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+        agent_name: str = "ExtractAgent", provider: str = "lmstudio", model: str | None = None, **kwargs
+    ) -> dict[str, Any]:
         """Create an agent config dictionary with defaults.
-        
+
         Args:
             agent_name: Agent name (default: "ExtractAgent")
             provider: LLM provider (default: "lmstudio")
             model: Model name (default: None, uses provider default)
             **kwargs: Additional config fields to override
-            
+
         Returns:
             Agent config dictionary
         """

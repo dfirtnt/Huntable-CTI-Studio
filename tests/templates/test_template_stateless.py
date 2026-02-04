@@ -8,8 +8,8 @@ Stateless tests:
 - Utility functions, selectors, scoring logic
 """
 
-import pytest
 from pathlib import Path
+
 
 # Example: YAML validation test
 def test_yaml_validation():
@@ -18,6 +18,7 @@ def test_yaml_validation():
     fixture_path = Path("tests/fixtures/sigma/valid_rule.yaml")
     # ... test logic ...
     pass
+
 
 # Example: Similarity search with fixtures
 def test_similarity_deterministic():

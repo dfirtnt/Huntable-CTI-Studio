@@ -13,19 +13,17 @@ These tests require:
 """
 
 import pytest
-import pytest_asyncio
-from tests.factories import ArticleFactory, AnnotationFactory
+
+from tests.factories import ArticleFactory
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_persistence_example(test_database_session):
     """Example stateful test with database."""
     # Use factory to create test data
-    article = ArticleFactory.create(
-        title="Test Article",
-        canonical_url="https://example.com/test"
-    )
-    
+    article = ArticleFactory.create(title="Test Article", canonical_url="https://example.com/test")
+
     # Persist to database
     # ... test logic ...
     pass

@@ -90,9 +90,7 @@ def _validate_preprocess_invariants(
 
     user_content = user_msg.get("content", "")
     if isinstance(user_content, list):
-        user_content = " ".join(
-            c.get("text", str(c)) for c in user_content if isinstance(c, dict)
-        )
+        user_content = " ".join(c.get("text", str(c)) for c in user_content if isinstance(c, dict))
     user_content = str(user_content or "").strip()
 
     if len(user_content) < MIN_USER_CONTENT_CHARS:

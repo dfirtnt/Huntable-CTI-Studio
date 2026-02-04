@@ -8,16 +8,12 @@ including event loop monitoring, task tracking, and async context debugging.
 import asyncio
 import inspect
 import logging
-import sys
 import time
-import traceback
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union, Callable, Awaitable
 from datetime import datetime
-import weakref
-import threading
-from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,53 +21,55 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AsyncDebugInfo:
     """Information about async execution context."""
+
     event_loop_type: str
     is_running: bool
     is_closed: bool
-    current_task: Optional[str] = None
+    current_task: str | None = None
     total_tasks: int = 0
     running_tasks: int = 0
     pending_tasks: int = 0
     cancelled_tasks: int = 0
-    task_details: List[Dict[str, Any]] = field(default_factory=list)
+    task_details: list[dict[str, Any]] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
 
 
 @dataclass
 class AsyncOperationTrace:
     """Trace of an async operation."""
+
     operation_type: str
     start_time: float
-    end_time: Optional[float] = None
-    duration: Optional[float] = None
+    end_time: float | None = None
+    duration: float | None = None
     success: bool = True
-    error: Optional[str] = None
-    context: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
 
 
 class AsyncDebugger:
     """Advanced async debugging utilities."""
-    
+
     def __init__(self):
-        self.operation_traces: List[AsyncOperationTrace] = []
-        self.debug_info_history: List[AsyncDebugInfo] = []
+        self.operation_traces: list[AsyncOperationTrace] = []
+        self.debug_info_history: list[AsyncDebugInfo] = []
         self.monitoring_active = False
-        self._monitor_task: Optional[asyncio.Task] = None
-    
+        self._monitor_task: asyncio.Task | None = None
+
     async def start_monitoring(self, interval: float = 0.1):
         """Start monitoring async operations."""
         if self.monitoring_active:
             return
-        
+
         self.monitoring_active = True
         self._monitor_task = asyncio.create_task(self._monitor_loop(interval))
         logger.debug("Async monitoring started")
-    
+
     async def stop_monitoring(self):
         """Stop monitoring async operations."""
         if not self.monitoring_active:
             return
-        
+
         self.monitoring_active = False
         if self._monitor_task:
             self._monitor_task.cancel()
@@ -79,49 +77,51 @@ class AsyncDebugger:
                 await self._monitor_task
             except asyncio.CancelledError:
                 pass
-        
+
         logger.debug("Async monitoring stopped")
-    
+
     async def _monitor_loop(self, interval: float):
         """Main monitoring loop."""
         while self.monitoring_active:
             try:
                 debug_info = self._capture_debug_info()
                 self.debug_info_history.append(debug_info)
-                
+
                 # Keep only recent history
                 if len(self.debug_info_history) > 100:
                     self.debug_info_history = self.debug_info_history[-50:]
-                
+
                 await asyncio.sleep(interval)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in monitoring loop: {e}")
                 await asyncio.sleep(interval)
-    
+
     def _capture_debug_info(self) -> AsyncDebugInfo:
         """Capture current async debug information."""
         try:
             loop = asyncio.get_running_loop()
             current_task = asyncio.current_task()
             all_tasks = asyncio.all_tasks()
-            
+
             # Categorize tasks
             running_tasks = [t for t in all_tasks if not t.done()]
             pending_tasks = [t for t in all_tasks if t.done() and not t.cancelled()]
             cancelled_tasks = [t for t in all_tasks if t.cancelled()]
-            
+
             # Get task details
             task_details = []
             for task in all_tasks[:10]:  # Limit to first 10 tasks
-                task_details.append({
-                    "name": task.get_name(),
-                    "done": task.done(),
-                    "cancelled": task.cancelled(),
-                    "exception": str(task.exception()) if task.exception() else None,
-                })
-            
+                task_details.append(
+                    {
+                        "name": task.get_name(),
+                        "done": task.done(),
+                        "cancelled": task.cancelled(),
+                        "exception": str(task.exception()) if task.exception() else None,
+                    }
+                )
+
             return AsyncDebugInfo(
                 event_loop_type=type(loop).__name__,
                 is_running=loop.is_running(),
@@ -140,16 +140,12 @@ class AsyncDebugger:
                 is_running=False,
                 is_closed=True,
             )
-    
+
     @asynccontextmanager
     async def trace_operation(self, operation_type: str, **context):
         """Context manager to trace async operations."""
-        trace = AsyncOperationTrace(
-            operation_type=operation_type,
-            start_time=time.time(),
-            context=context
-        )
-        
+        trace = AsyncOperationTrace(operation_type=operation_type, start_time=time.time(), context=context)
+
         try:
             self.operation_traces.append(trace)
             yield trace
@@ -161,14 +157,14 @@ class AsyncDebugger:
         finally:
             trace.end_time = time.time()
             trace.duration = trace.end_time - trace.start_time
-    
-    def get_debug_summary(self) -> Dict[str, Any]:
+
+    def get_debug_summary(self) -> dict[str, Any]:
         """Get a summary of debug information."""
         if not self.debug_info_history:
             return {"status": "no_data"}
-        
+
         latest_info = self.debug_info_history[-1]
-        
+
         return {
             "status": "active" if self.monitoring_active else "inactive",
             "latest_info": {
@@ -184,7 +180,7 @@ class AsyncDebugger:
             "operation_traces": len(self.operation_traces),
             "debug_history_length": len(self.debug_info_history),
         }
-    
+
     def clear_history(self):
         """Clear debug history."""
         self.operation_traces.clear()
@@ -194,67 +190,55 @@ class AsyncDebugger:
 
 class AsyncTestHelper:
     """Helper utilities for async test debugging."""
-    
+
     @staticmethod
     async def wait_for_condition(
-        condition: Callable[[], bool],
-        timeout: float = 5.0,
-        interval: float = 0.1,
-        description: str = "condition"
+        condition: Callable[[], bool], timeout: float = 5.0, interval: float = 0.1, description: str = "condition"
     ) -> bool:
         """Wait for a condition to become true."""
         start_time = time.time()
-        
+
         while time.time() - start_time < timeout:
             if condition():
                 return True
             await asyncio.sleep(interval)
-        
+
         logger.warning(f"Timeout waiting for {description} after {timeout}s")
         return False
-    
+
     @staticmethod
     async def run_with_timeout(
-        coro: Awaitable[Any],
-        timeout: float,
-        timeout_message: str = "Operation timed out"
+        coro: Awaitable[Any], timeout: float, timeout_message: str = "Operation timed out"
     ) -> Any:
         """Run a coroutine with timeout."""
         try:
             return await asyncio.wait_for(coro, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"{timeout_message} after {timeout}s")
             raise
-    
+
     @staticmethod
-    async def gather_with_exceptions(
-        *coros: Awaitable[Any],
-        return_exceptions: bool = True
-    ) -> List[Any]:
+    async def gather_with_exceptions(*coros: Awaitable[Any], return_exceptions: bool = True) -> list[Any]:
         """Gather coroutines and return results/exceptions."""
         return await asyncio.gather(*coros, return_exceptions=return_exceptions)
-    
+
     @staticmethod
-    def create_debug_task(
-        coro: Awaitable[Any],
-        name: str = None,
-        debug_info: Dict[str, Any] = None
-    ) -> asyncio.Task:
+    def create_debug_task(coro: Awaitable[Any], name: str = None, debug_info: dict[str, Any] = None) -> asyncio.Task:
         """Create a task with debug information."""
         task = asyncio.create_task(coro, name=name)
-        
+
         if debug_info:
             # Store debug info as task attribute
             task.debug_info = debug_info
-        
+
         return task
-    
+
     @staticmethod
     async def debug_task_cancellation(task: asyncio.Task, timeout: float = 1.0):
         """Debug task cancellation with timeout."""
         try:
             await asyncio.wait_for(task, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Task {task.get_name()} timed out, cancelling...")
             task.cancel()
             try:
@@ -269,11 +253,11 @@ class AsyncTestHelper:
 
 class AsyncMockDebugger:
     """Debug utilities for async mocks."""
-    
+
     def __init__(self):
-        self.mock_calls: List[Dict[str, Any]] = []
-        self.mock_expectations: List[Dict[str, Any]] = []
-    
+        self.mock_calls: list[dict[str, Any]] = []
+        self.mock_expectations: list[dict[str, Any]] = []
+
     def track_mock_call(
         self,
         mock_name: str,
@@ -281,7 +265,7 @@ class AsyncMockDebugger:
         args: tuple,
         kwargs: dict,
         return_value: Any = None,
-        exception: Exception = None
+        exception: Exception = None,
     ):
         """Track a mock method call."""
         call_info = {
@@ -293,10 +277,10 @@ class AsyncMockDebugger:
             "return_value": return_value,
             "exception": str(exception) if exception else None,
         }
-        
+
         self.mock_calls.append(call_info)
         logger.debug(f"Mock call tracked: {mock_name}.{method_name}")
-    
+
     def add_mock_expectation(
         self,
         mock_name: str,
@@ -304,7 +288,7 @@ class AsyncMockDebugger:
         expected_args: tuple = None,
         expected_kwargs: dict = None,
         expected_return: Any = None,
-        should_raise: Exception = None
+        should_raise: Exception = None,
     ):
         """Add an expectation for a mock call."""
         expectation = {
@@ -316,21 +300,21 @@ class AsyncMockDebugger:
             "should_raise": should_raise,
             "verified": False,
         }
-        
+
         self.mock_expectations.append(expectation)
         logger.debug(f"Mock expectation added: {mock_name}.{method_name}")
-    
-    def verify_expectations(self) -> List[Dict[str, Any]]:
+
+    def verify_expectations(self) -> list[dict[str, Any]]:
         """Verify all mock expectations."""
         unverified = []
-        
+
         for expectation in self.mock_expectations:
             if not expectation["verified"]:
                 unverified.append(expectation)
-        
+
         return unverified
-    
-    def get_mock_summary(self) -> Dict[str, Any]:
+
+    def get_mock_summary(self) -> dict[str, Any]:
         """Get a summary of mock activity."""
         return {
             "total_calls": len(self.mock_calls),
@@ -343,18 +327,18 @@ class AsyncMockDebugger:
 
 class AsyncTestIsolation:
     """Enhanced test isolation for async tests."""
-    
+
     def __init__(self):
-        self.isolated_tasks: List[asyncio.Task] = []
-        self.isolated_resources: List[Any] = []
-        self.cleanup_functions: List[Callable] = []
-    
+        self.isolated_tasks: list[asyncio.Task] = []
+        self.isolated_resources: list[Any] = []
+        self.cleanup_functions: list[Callable] = []
+
     async def isolate_test(self, test_func: Callable, *args, **kwargs):
         """Run a test in isolation."""
         # Start monitoring
         debugger = AsyncDebugger()
         await debugger.start_monitoring()
-        
+
         try:
             # Run the test
             result = await test_func(*args, **kwargs)
@@ -363,7 +347,7 @@ class AsyncTestIsolation:
             # Cleanup
             await self._cleanup_isolation()
             await debugger.stop_monitoring()
-    
+
     async def _cleanup_isolation(self):
         """Clean up isolated resources."""
         # Cancel isolated tasks
@@ -374,7 +358,7 @@ class AsyncTestIsolation:
                     await task
                 except asyncio.CancelledError:
                     pass
-        
+
         # Run cleanup functions
         for cleanup_func in self.cleanup_functions:
             try:
@@ -384,20 +368,20 @@ class AsyncTestIsolation:
                     cleanup_func()
             except Exception as e:
                 logger.error(f"Error in cleanup function: {e}")
-        
+
         # Clear lists
         self.isolated_tasks.clear()
         self.isolated_resources.clear()
         self.cleanup_functions.clear()
-    
+
     def add_isolated_task(self, task: asyncio.Task):
         """Add a task to be cleaned up."""
         self.isolated_tasks.append(task)
-    
+
     def add_isolated_resource(self, resource: Any):
         """Add a resource to be cleaned up."""
         self.isolated_resources.append(resource)
-    
+
     def add_cleanup_function(self, cleanup_func: Callable):
         """Add a cleanup function."""
         self.cleanup_functions.append(cleanup_func)
@@ -423,7 +407,7 @@ async def debug_async_test(test_func: Callable, *args, **kwargs):
     """Debug an async test with full monitoring."""
     debugger = get_global_debugger()
     await debugger.start_monitoring()
-    
+
     try:
         result = await test_func(*args, **kwargs)
         return result
@@ -450,7 +434,7 @@ def pytest_async_debug_hook(item, call):
         # This is an async test
         debugger = get_global_debugger()
         debug_info = debugger.get_debug_summary()
-        
+
         if debug_info["status"] == "active":
             logger.debug(f"Async test {item.name} debug info: {debug_info}")
 
@@ -461,7 +445,7 @@ async def async_debug_context():
     """Context manager for async debugging."""
     debugger = get_global_debugger()
     await debugger.start_monitoring()
-    
+
     try:
         yield debugger
     finally:
@@ -472,7 +456,7 @@ async def async_debug_context():
 async def async_test_isolation():
     """Context manager for async test isolation."""
     isolation = AsyncTestIsolation()
-    
+
     try:
         yield isolation
     finally:

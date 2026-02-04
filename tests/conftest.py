@@ -4,30 +4,33 @@ Test configuration and fixtures for CTI Scraper tests.
 
 import os
 import sys
+import warnings
+
+import pydantic.warnings
 import pytest
 import pytest_asyncio
-import warnings
-import pydantic.warnings
+
 try:
     import pytest_asyncio
 except ImportError:  # Allow running targeted tests without pytest-asyncio
+
     class _PytestAsyncioStub:
         def fixture(self, *args, **kwargs):
             return pytest.fixture(*args, **kwargs)
+
     pytest_asyncio = _PytestAsyncioStub()
     warnings.warn(
         "pytest-asyncio not installed; async fixtures will behave as regular fixtures.",
         RuntimeWarning,
     )
-import httpx
-import asyncio
-import tempfile
-import shutil
 import logging
-from typing import AsyncGenerator, Generator
+import shutil
+from collections.abc import AsyncGenerator
 from pathlib import Path
+from unittest.mock import AsyncMock
+
+import httpx
 from playwright.sync_api import sync_playwright
-from unittest.mock import AsyncMock, MagicMock
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -48,6 +51,7 @@ except ImportError:
 # Import test environment guard (required)
 try:
     from tests.utils.test_environment import assert_test_environment
+
     TEST_ENV_GUARD_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Test environment guard not available: {e}")
@@ -55,22 +59,22 @@ except ImportError as e:
 
 # Import test environment utilities (optional)
 try:
+    from tests.utils.async_debug_utils import AsyncDebugger, debug_async_test
+    from tests.utils.performance_profiler import PerformanceProfiler, profile_test
     from tests.utils.test_environment import (
-        TestEnvironmentValidator,
-        TestEnvironmentManager,
         TestContext,
+        TestEnvironmentManager,
+        TestEnvironmentValidator,
         get_test_config,
+        setup_test_environment,
         validate_test_environment,
-        setup_test_environment
     )
-    
+
     # Enhanced debugging imports
     from tests.utils.test_failure_analyzer import TestFailureReporter, analyze_test_failure
-    from tests.utils.async_debug_utils import AsyncDebugger, debug_async_test
     from tests.utils.test_isolation import TestIsolationManager, test_isolation
-    from tests.utils.performance_profiler import PerformanceProfiler, profile_test
-    from tests.utils.test_output_formatter import TestOutputFormatter, print_test_result, print_test_failure
-    
+    from tests.utils.test_output_formatter import TestOutputFormatter, print_test_failure, print_test_result
+
     # Load test configuration
     test_config = get_test_config()
     ENVIRONMENT_UTILS_AVAILABLE = True
@@ -82,7 +86,7 @@ except ImportError as e:
 # Set up logging for tests
 logging.basicConfig(
     level=os.getenv("TEST_LOG_LEVEL", "DEBUG"),
-    format=os.getenv("TEST_LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    format=os.getenv("TEST_LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
 )
 logger = logging.getLogger(__name__)
 
@@ -143,10 +147,7 @@ async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncCli
 @pytest.fixture
 def api_headers():
     """Default API headers."""
-    return {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
+    return {"Content-Type": "application/json", "Accept": "application/json"}
 
 
 @pytest.fixture
@@ -183,22 +184,24 @@ def test_fixtures_dir():
 @pytest_asyncio.fixture
 async def test_database_session(test_environment_config):
     """Provide test database session."""
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
-    
+
     engine = create_async_engine(
         test_environment_config.database_url,
-        pool_size=test_environment_config.db_pool_size if hasattr(test_environment_config, 'db_pool_size') else 5,
-        max_overflow=test_environment_config.db_max_overflow if hasattr(test_environment_config, 'db_max_overflow') else 10,
+        pool_size=test_environment_config.db_pool_size if hasattr(test_environment_config, "db_pool_size") else 5,
+        max_overflow=test_environment_config.db_max_overflow
+        if hasattr(test_environment_config, "db_max_overflow")
+        else 10,
         pool_pre_ping=True,
-        pool_recycle=1800
+        pool_recycle=1800,
     )
-    
+
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async with async_session() as session:
         yield session
-    
+
     await engine.dispose()
 
 
@@ -206,23 +209,23 @@ async def test_database_session(test_environment_config):
 async def test_redis_client(test_environment_config):
     """Provide test Redis client."""
     import redis.asyncio as redis
-    
+
     if test_environment_config.redis_password:
         client = redis.Redis(
             host=test_environment_config.redis_host,
             port=test_environment_config.redis_port,
             db=test_environment_config.redis_db,
             password=test_environment_config.redis_password,
-            socket_timeout=5
+            socket_timeout=5,
         )
     else:
         client = redis.Redis(
             host=test_environment_config.redis_host,
             port=test_environment_config.redis_port,
             db=test_environment_config.redis_db,
-            socket_timeout=5
+            socket_timeout=5,
         )
-    
+
     yield client
     await client.close()
 
@@ -231,17 +234,17 @@ async def test_redis_client(test_environment_config):
 @pytest.fixture
 def mock_async_session():
     """Create a properly configured async database session mock with query chain support."""
-    from tests.utils.async_mocks import AsyncMockSession, setup_transaction_mock, setup_async_query_chain
-    
+    from tests.utils.async_mocks import AsyncMockSession, setup_transaction_mock
+
     session = AsyncMockSession()
     setup_transaction_mock(session)
-    
+
     # Configure async query execution
     session.execute = AsyncMock()
     session.scalar = AsyncMock()
     session.scalars = AsyncMock()
     session.get = AsyncMock()
-    
+
     return session
 
 
@@ -263,6 +266,7 @@ def mock_async_engine():
 def mock_async_http_client():
     """Create a properly configured async HTTP client mock."""
     from tests.utils.async_mocks import AsyncMockHTTPClient
+
     return AsyncMockHTTPClient()
     client = AsyncMock()
     client.get = AsyncMock()
@@ -304,13 +308,13 @@ def browser_context_args(test_environment_config):
     return {
         "viewport": {
             "width": int(os.getenv("BROWSER_WIDTH", "1280")),
-            "height": int(os.getenv("BROWSER_HEIGHT", "720"))
+            "height": int(os.getenv("BROWSER_HEIGHT", "720")),
         },
         "ignore_https_errors": os.getenv("BROWSER_IGNORE_HTTPS", "true").lower() == "true",
         "record_video_dir": os.getenv("PLAYWRIGHT_VIDEO_DIR", "test-results/videos/"),
         "record_video_size": {
             "width": int(os.getenv("BROWSER_WIDTH", "1280")),
-            "height": int(os.getenv("BROWSER_HEIGHT", "720"))
+            "height": int(os.getenv("BROWSER_HEIGHT", "720")),
         },
     }
 
@@ -368,12 +372,12 @@ def page(context):
 #     """Ensure test isolation between tests."""
 #     if not test_environment_config.test_isolation:
 #         return
-#     
+#
 #     # Set up isolation before test
 #     await test_environment_manager._setup_test_isolation()
-#     
+#
 #     yield
-#     
+#
 #     # Clean up after test
 #     await test_environment_manager._cleanup_test_data()
 
@@ -441,7 +445,7 @@ def pytest_configure(config):
             assert_test_environment()
         except RuntimeError as e:
             pytest.exit(f"Test environment validation failed: {e}")
-    
+
     # Register custom markers to satisfy strict marker checks
     config.addinivalue_line("markers", "ui: UI tests")
     config.addinivalue_line("markers", "ai: AI integration tests (AI Assistant UI deprecated)")
@@ -472,13 +476,13 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "performance" in item.keywords:
                 item.add_marker(pytest.mark.skip(reason="Performance tests disabled"))
-    
+
     # Skip integration tests if not enabled
     if os.getenv("INTEGRATION_TEST_ENABLED", "true").lower() != "true":
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(pytest.mark.skip(reason="Integration tests disabled"))
-    
+
     # Always skip infrastructure and production data tests
     for item in items:
         if "infrastructure" in item.keywords:
@@ -507,28 +511,28 @@ def pytest_runtest_logreport(report):
             # Generate failure report
             try:
                 from tests.utils.test_failure_analyzer import generate_failure_report
-                
+
                 # Extract test information
                 test_name = report.nodeid
                 exc_info = report.longrepr
-                
+
                 # Generate failure report
                 failure_context = generate_failure_report(
                     test_name=test_name,
                     exc_info=(Exception, Exception(str(exc_info)), None),
                     test_duration=report.duration,
-                    environment_info={"test_file": report.fspath}
+                    environment_info={"test_file": report.fspath},
                 )
-                
+
                 logger.error(f"Test failure analyzed: {test_name}")
-                
+
             except Exception as e:
                 logger.error(f"Failed to generate failure report: {e}")
-        
+
         elif report.outcome == "passed":
             # Log successful test with timing
             logger.info(f"Test passed: {report.nodeid} ({report.duration:.3f}s)")
-        
+
         elif report.outcome == "skipped":
             # Log skipped test
             logger.warning(f"Test skipped: {report.nodeid}")
@@ -540,6 +544,7 @@ def pytest_runtest_setup(item):
     if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
         try:
             from tests.utils.performance_profiler import start_performance_monitoring
+
             start_performance_monitoring()
         except Exception as e:
             logger.error(f"Failed to start performance monitoring: {e}")
@@ -550,7 +555,8 @@ def pytest_runtest_teardown(item):
     # Stop performance profiling if enabled
     if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
         try:
-            from tests.utils.performance_profiler import stop_performance_monitoring, save_performance_report
+            from tests.utils.performance_profiler import save_performance_report, stop_performance_monitoring
+
             stop_performance_monitoring()
             save_performance_report()
         except Exception as e:

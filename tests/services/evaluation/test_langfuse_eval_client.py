@@ -1,7 +1,8 @@
 """Tests for Langfuse evaluation client."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from src.services.evaluation.langfuse_eval_client import LangfuseEvalClient
 

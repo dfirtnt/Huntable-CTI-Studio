@@ -2,9 +2,9 @@
 Unit tests for the Health page components.
 """
 
-import pytest
 import os
-from unittest.mock import AsyncMock, patch, MagicMock
+
+import pytest
 from playwright.sync_api import Page, expect
 
 
@@ -22,9 +22,7 @@ class TestHealthPage:
         expect(page.locator("h1").nth(1)).to_contain_text("System Diagnostics & Health")
 
         # Check description
-        expect(page.locator("p").first).to_contain_text(
-            "Monitor system performance, deduplication, and service health"
-        )
+        expect(page.locator("p").first).to_contain_text("Monitor system performance, deduplication, and service health")
 
     @pytest.mark.ui
     def test_health_check_buttons_visible(self, page: Page):

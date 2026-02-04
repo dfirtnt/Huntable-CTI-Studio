@@ -5,11 +5,10 @@ Unit tests for the Langfuse connection test endpoint.
 from types import SimpleNamespace
 
 import pytest
-from starlette.requests import Request
-
 from langfuse.api.resources.commons.errors.unauthorized_error import (
     UnauthorizedError,
 )
+from starlette.requests import Request
 
 from src.web.routes.ai import api_test_langfuse_connection
 

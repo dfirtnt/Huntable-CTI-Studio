@@ -1,7 +1,8 @@
 """Automated tests for CLI help output and stats (replaces manual checklist steps 1.1–1.5)."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from click.testing import CliRunner
 
 from src.cli.main import cli

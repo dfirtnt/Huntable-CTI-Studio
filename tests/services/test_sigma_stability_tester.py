@@ -1,12 +1,11 @@
 """Tests for SIGMA stability tester functionality."""
 
-import pytest
-import yaml
-from unittest.mock import Mock, AsyncMock
-from typing import Dict, Any
+from unittest.mock import AsyncMock, Mock
 
-from src.services.sigma_stability_tester import SigmaStabilityTester, StabilityResult
+import pytest
+
 from src.services.sigma_behavioral_normalizer import BehavioralCore
+from src.services.sigma_stability_tester import SigmaStabilityTester, StabilityResult
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -42,13 +41,15 @@ level: medium
     def mock_normalizer(self):
         """Create mock behavioral normalizer."""
         normalizer = Mock()
-        normalizer.extract_behavioral_core = Mock(return_value=BehavioralCore(
-            behavior_selectors=['CommandLine|contains:schtasks'],
-            commandlines=['schtasks'],
-            process_chains=[],
-            core_hash='test-hash-123',
-            selector_count=1
-        ))
+        normalizer.extract_behavioral_core = Mock(
+            return_value=BehavioralCore(
+                behavior_selectors=["CommandLine|contains:schtasks"],
+                commandlines=["schtasks"],
+                process_chains=[],
+                core_hash="test-hash-123",
+                selector_count=1,
+            )
+        )
         return normalizer
 
     @pytest.fixture
@@ -56,13 +57,16 @@ level: medium
         """Create mock semantic scorer."""
         scorer = Mock()
         from src.services.sigma_semantic_scorer import SemanticComparisonResult
-        scorer.compare_rules = AsyncMock(return_value=SemanticComparisonResult(
-            similarity_score=0.85,
-            missing_behaviors=0,
-            extraneous_behaviors=0,
-            missing_behavior_details=[],
-            extraneous_behavior_details=[]
-        ))
+
+        scorer.compare_rules = AsyncMock(
+            return_value=SemanticComparisonResult(
+                similarity_score=0.85,
+                missing_behaviors=0,
+                extraneous_behaviors=0,
+                missing_behavior_details=[],
+                extraneous_behavior_details=[],
+            )
+        )
         return scorer
 
     @pytest.mark.asyncio
@@ -70,16 +74,12 @@ level: medium
         """Test successful stability testing."""
         tester.normalizer = mock_normalizer
         tester.semantic_scorer = mock_semantic_scorer
-        
+
         async def generate_rule(article_id):
             return sample_rule
-        
-        result = await tester.test_stability(
-            article_id=1,
-            generate_rule_func=generate_rule,
-            reference_rule=sample_rule
-        )
-        
+
+        result = await tester.test_stability(article_id=1, generate_rule_func=generate_rule, reference_rule=sample_rule)
+
         assert isinstance(result, StabilityResult)
         assert 0.0 <= result.stability_score <= 1.0
         assert result.unique_hashes >= 1
@@ -87,14 +87,12 @@ level: medium
     @pytest.mark.asyncio
     async def test_test_stability_no_rules(self, tester):
         """Test stability testing when no rules generated."""
+
         async def generate_rule(article_id):
             raise Exception("Generation failed")
-        
-        result = await tester.test_stability(
-            article_id=1,
-            generate_rule_func=generate_rule
-        )
-        
+
+        result = await tester.test_stability(article_id=1, generate_rule_func=generate_rule)
+
         assert result.stability_score == 0.0
         assert result.unique_hashes == 0
 
@@ -104,15 +102,11 @@ level: medium
         tester.normalizer = mock_normalizer
         tester.semantic_scorer = Mock()
         tester.semantic_scorer.compare_rules = AsyncMock(return_value=Mock(similarity_score=0.9))
-        
+
         async def generate_rule(article_id):
             return sample_rule
-        
-        result = await tester.test_stability(
-            article_id=1,
-            generate_rule_func=generate_rule,
-            reference_rule=sample_rule
-        )
-        
+
+        result = await tester.test_stability(article_id=1, generate_rule_func=generate_rule, reference_rule=sample_rule)
+
         # Consistent rules should have high hash consistency
         assert result.hash_consistency >= 0.0

@@ -3,11 +3,12 @@ UI tests for Articles list page advanced features using Playwright.
 Tests advanced search, filtering, sorting, pagination, bulk actions, and classification modal.
 """
 
+import json
+import os
 import re
+
 import pytest
 from playwright.sync_api import Page, expect
-import os
-import json
 
 
 def _ensure_filters_visible(page: Page) -> None:
@@ -25,7 +26,7 @@ def _ensure_filters_visible(page: Page) -> None:
 
 class TestArticlesSearchAndFilter:
     """Test advanced search and filter features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_search_help_button_toggle(self, page: Page):
@@ -34,23 +35,23 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find search help button
         help_button = page.locator("#search-help-btn")
         expect(help_button).to_be_visible()
-        
+
         # Get initial state of help panel
         help_panel = page.locator("#search-help")
         initial_state = help_panel.is_visible()
-        
+
         # Click help button
         help_button.click()
         page.wait_for_timeout(300)
-        
+
         # Verify state changed
         new_state = help_panel.is_visible()
         assert initial_state != new_state, "Help panel toggle should change visibility"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_search_help_modal_content(self, page: Page):
@@ -59,24 +60,24 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open help panel
         help_button = page.locator("#search-help-btn")
         help_button.click()
         page.wait_for_timeout(300)
-        
+
         # Verify help content is visible
         help_panel = page.locator("#search-help")
         expect(help_panel).to_be_visible()
-        
+
         # Verify search syntax examples
         syntax_text = page.locator("text=Simple terms:")
         expect(syntax_text).to_be_visible()
-        
+
         # Verify boolean operators
         boolean_text = page.locator("text=AND operator:")
         expect(boolean_text).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_predefined_search_patterns(self, page: Page):
@@ -85,12 +86,12 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open help panel
         help_button = page.locator("#search-help-btn")
         help_button.click()
         page.wait_for_timeout(300)
-        
+
         help_panel = page.locator("#search-help")
         expect(help_panel).to_be_visible()
         expect(help_panel).to_contain_text("High-Value Detection Content")
@@ -98,7 +99,7 @@ class TestArticlesSearchAndFilter:
         expect(help_panel).to_contain_text("Actionable Intelligence Content")
         use_links = help_panel.get_by_role("link", name="Use This Search")
         expect(use_links).to_have_count(3)
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_title_only_checkbox(self, page: Page):
@@ -107,22 +108,22 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find title-only checkbox
         title_only_checkbox = page.locator("#title-only")
         expect(title_only_checkbox).to_be_visible()
-        
+
         # Get initial state
         initial_checked = title_only_checkbox.is_checked()
-        
+
         # Toggle checkbox
         title_only_checkbox.click()
         page.wait_for_timeout(300)
-        
+
         # Verify state changed
         new_checked = title_only_checkbox.is_checked()
         assert initial_checked != new_checked, "Title-only checkbox should toggle"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_boolean_search_query(self, page: Page):
@@ -131,19 +132,19 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find search input
         search_input = page.locator("#search")
         expect(search_input).to_be_visible()
-        
+
         # Test AND operator
         search_input.fill("malware AND ransomware")
         search_input.press("Enter")
         page.wait_for_timeout(1000)
-        
+
         # Verify URL contains search parameter
         expect(page).to_have_url(re.compile(r".*search=malware.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_source_filter_dropdown(self, page: Page):
@@ -152,20 +153,20 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find source filter
         source_filter = page.locator("#source")
         expect(source_filter).to_be_visible()
         # Verify "All Sources" option exists (avoid asserting visibility on <option> when select is collapsed)
         expect(source_filter.locator("option").first).to_have_text("All Sources")
-        
+
         # Select a source if available (Playwright uses select_option(index=...))
         options = source_filter.locator("option")
         if options.count() > 1:
             source_filter.select_option(index=1)
             page.wait_for_timeout(1000)
             expect(page).to_have_url(re.compile(r".*source=.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
@@ -175,27 +176,27 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find classification filter
         classification_filter = page.locator("#classification")
         expect(classification_filter).to_be_visible()
-        
+
         # Verify options exist
         chosen_option = page.locator("#classification option:has-text('✅ Chosen')")
         rejected_option = page.locator("#classification option:has-text('❌ Rejected')")
         unclassified_option = page.locator("#classification option:has-text('⏳ Unclassified')")
-        
+
         expect(chosen_option).to_be_visible()
         expect(rejected_option).to_be_visible()
         expect(unclassified_option).to_be_visible()
-        
+
         # Select classification
         classification_filter.select_option("chosen")
         page.wait_for_timeout(1000)
-        
+
         # Verify URL contains classification parameter
         expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_threat_hunting_score_range_filter(self, page: Page):
@@ -204,20 +205,20 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find score range filter
         score_filter = page.locator("#threat_hunting_range")
         expect(score_filter).to_be_visible()
         # Verify Excellent option exists (avoid asserting visibility on <option> when select is collapsed)
         expect(score_filter.locator("option").nth(1)).to_have_text("🎯 Excellent (80-100)")
-        
+
         # Select score range
         score_filter.select_option("80-100")
         page.wait_for_timeout(1000)
-        
+
         # Verify URL contains score range parameter
         expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
@@ -227,20 +228,20 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Apply a filter
         classification_filter = page.locator("#classification")
         classification_filter.select_option("chosen")
         page.wait_for_timeout(1000)
-        
+
         # Verify filter summary appears
         filter_summary = page.locator("text=Active Filters:")
         expect(filter_summary).to_be_visible()
-        
+
         # Verify classification is shown in summary
         classification_text = page.locator("text=Classification: chosen")
         expect(classification_text).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
@@ -250,24 +251,24 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Apply filters
         classification_filter = page.locator("#classification")
         classification_filter.select_option("chosen")
         page.wait_for_timeout(1000)
-        
+
         # Find clear all link
         clear_link = page.locator("a:has-text('Clear all')")
         expect(clear_link).to_be_visible()
-        
+
         # Click clear all
         clear_link.click()
         page.wait_for_load_state("networkidle")
-        
+
         # Verify URL is reset (no filter parameters)
         expect(page).to_have_url(re.compile(r".*/articles.*"))
         # URL may still have some params, but classification should be gone
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_default_filters_save_button(self, page: Page):
@@ -276,15 +277,15 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find save default filters button
         save_button = page.locator("button:has-text('Set as Default Filters')")
         expect(save_button).to_be_visible()
-        
+
         # Verify onclick handler
         onclick_attr = save_button.get_attribute("onclick")
         assert "saveDefaultFilters" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_default_filters_clear_button(self, page: Page):
@@ -293,15 +294,15 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find clear default filters button
         clear_button = page.locator("button:has-text('Clear Defaults')")
         expect(clear_button).to_be_visible()
-        
+
         # Verify onclick handler
         onclick_attr = clear_button.get_attribute("onclick")
         assert "clearDefaultFilters" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_default_filters_indicator(self, page: Page):
@@ -310,12 +311,12 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find default filters indicator (element exists; often has class "hidden" initially)
         indicator = page.locator("#default-filters-indicator")
         expect(indicator).to_be_attached()
         assert indicator.is_visible() or "hidden" in (indicator.get_attribute("class") or "")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
@@ -325,40 +326,40 @@ class TestArticlesSearchAndFilter:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Apply a filter
         classification_filter = page.locator("#classification")
         classification_filter.select_option("chosen")
         page.wait_for_timeout(1000)
-        
+
         # Check sessionStorage
         session_storage = page.evaluate("() => sessionStorage.getItem('cti_articles_settings')")
         if session_storage:
             settings = json.loads(session_storage)
             assert "classification" in settings, "Settings should contain classification"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_url_parameter_filter_parsing(self, page: Page):
         """Test URL parameter filter parsing and application."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        
+
         # Navigate with filter parameters
         page.goto(f"{base_url}/articles?classification=chosen&search=malware")
         page.wait_for_load_state("networkidle")
-        
+
         # Verify filters are applied
         classification_filter = page.locator("#classification")
         expect(classification_filter).to_have_value("chosen")
-        
+
         search_input = page.locator("#search")
         expect(search_input).to_have_value("malware")
 
 
 class TestArticlesSorting:
     """Test sorting features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sort_by_dropdown_options(self, page: Page):
@@ -367,19 +368,25 @@ class TestArticlesSorting:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find sort by dropdown
         sort_by = page.locator("#sort-by")
         expect(sort_by).to_be_visible()
         # Verify all options exist (avoid asserting visibility on <option> when select is collapsed)
         options = [
-            "discovered_at", "published_at", "title", "source_id",
-            "threat_hunting_score", "ml_hunt_score", "annotation_count",
-            "word_count", "id"
+            "discovered_at",
+            "published_at",
+            "title",
+            "source_id",
+            "threat_hunting_score",
+            "ml_hunt_score",
+            "annotation_count",
+            "word_count",
+            "id",
         ]
         for option_value in options:
             expect(sort_by.locator(f"option[value='{option_value}']")).to_have_count(1)
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sort_order_dropdown(self, page: Page):
@@ -388,13 +395,13 @@ class TestArticlesSorting:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find sort order dropdown
         sort_order = page.locator("#sort-order")
         expect(sort_order).to_be_visible()
         expect(sort_order.locator("option[value='desc']")).to_have_count(1)
         expect(sort_order.locator("option[value='asc']")).to_have_count(1)
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_dynamic_sorting_auto_submit(self, page: Page):
@@ -403,15 +410,15 @@ class TestArticlesSorting:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Change sort by
         sort_by = page.locator("#sort-by")
         sort_by.select_option("title")
         page.wait_for_timeout(1000)
-        
+
         # Verify URL contains sort parameter
         expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sort_parameter_preservation_in_url(self, page: Page):
@@ -419,14 +426,14 @@ class TestArticlesSorting:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc")
         page.wait_for_load_state("networkidle")
-        
+
         # Verify sort parameters are preserved
         sort_by = page.locator("#sort-by")
         expect(sort_by).to_have_value("title")
-        
+
         sort_order = page.locator("#sort-order")
         expect(sort_order).to_have_value("asc")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
@@ -436,21 +443,21 @@ class TestArticlesSorting:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Apply filter
         classification_filter = page.locator("#classification")
         classification_filter.select_option("chosen")
         page.wait_for_timeout(1000)
-        
+
         # Change sort
         sort_by = page.locator("#sort-by")
         sort_by.select_option("title")
         page.wait_for_timeout(1000)
-        
+
         # Verify both parameters are in URL
         expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
         expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sort_reset_functionality(self, page: Page):
@@ -458,12 +465,12 @@ class TestArticlesSorting:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc")
         page.wait_for_load_state("networkidle")
-        
+
         # Navigate to base URL (resets sort)
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Verify sort defaults are applied
         sort_by = page.locator("#sort-by")
         # Default may be "published_at" or "discovered_at"
@@ -473,7 +480,7 @@ class TestArticlesSorting:
 
 class TestArticlesPagination:
     """Test pagination features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_per_page_selector(self, page: Page):
@@ -482,14 +489,14 @@ class TestArticlesPagination:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find per-page selector
         per_page = page.locator("#per_page")
         expect(per_page).to_be_visible()
         expect(per_page.locator("option[value='20']")).to_have_count(1)
         expect(per_page.locator("option[value='50']")).to_have_count(1)
         expect(per_page.locator("option[value='100']")).to_have_count(1)
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_per_page_change(self, page: Page):
@@ -498,15 +505,15 @@ class TestArticlesPagination:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Change per-page
         per_page = page.locator("#per_page")
         per_page.select_option("50")
         page.wait_for_timeout(1000)
-        
+
         # Verify URL contains per_page parameter
         expect(page).to_have_url(re.compile(r".*per_page=50.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_page_number_links(self, page: Page):
@@ -514,11 +521,11 @@ class TestArticlesPagination:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?per_page=20")
         page.wait_for_load_state("networkidle")
-        
+
         # Find pagination links
         page_links = page.locator("a:has-text('1'), a:has-text('2'), a:has-text('3')")
         # Page links may or may not exist depending on total pages
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_previous_next_navigation(self, page: Page):
@@ -526,19 +533,19 @@ class TestArticlesPagination:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?per_page=20&page=2")
         page.wait_for_load_state("networkidle")
-        
+
         # Find Previous link
         previous_link = page.locator("a:has-text('Previous')")
         if previous_link.count() > 0:
             expect(previous_link.first).to_be_visible()
-            
+
             # Click Previous
             previous_link.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Verify page changed
             expect(page).to_have_url(re.compile(r".*page=1.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
@@ -547,16 +554,16 @@ class TestArticlesPagination:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?classification=chosen&page=2")
         page.wait_for_load_state("networkidle")
-        
+
         # Navigate to next page
         next_link = page.locator("a:has-text('Next')")
         if next_link.count() > 0:
             next_link.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Verify filter is preserved
             expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_page_count_display(self, page: Page):
@@ -565,12 +572,12 @@ class TestArticlesPagination:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find page count text
         page_count = page.locator("text=Page")
         if page_count.count() > 0:
             expect(page_count.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_results_range_display(self, page: Page):
@@ -579,12 +586,12 @@ class TestArticlesPagination:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find results range text (e.g., "Articles (1-20 of 100)")
         results_range = page.locator("text=/Articles \\(\\d+-\\d+ of \\d+\\)/")
         if results_range.count() > 0:
             expect(results_range.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Pagination links in articles template do not preserve sort_by/sort_order")
@@ -598,7 +605,7 @@ class TestArticlesPagination:
             next_link.click()
             page.wait_for_load_state("networkidle")
             expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_pagination_empty_state(self, page: Page):
@@ -607,7 +614,7 @@ class TestArticlesPagination:
         # Navigate with filter that returns no results
         page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
         page.wait_for_load_state("networkidle")
-        
+
         # Verify empty state message
         empty_message = page.locator("text=No articles found")
         expect(empty_message).to_be_visible()
@@ -615,7 +622,7 @@ class TestArticlesPagination:
 
 class TestArticlesStatistics:
     """Test article statistics features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Article statistics panel is currently missing from the UI")
@@ -625,23 +632,23 @@ class TestArticlesStatistics:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find statistics toggle button
         stats_toggle = page.locator("#articleStatsToggle")
         expect(stats_toggle).to_be_visible()
-        
+
         # Get initial state
         stats_content = page.locator("#articleStatsContent")
         initial_state = stats_content.is_visible()
-        
+
         # Click toggle
         stats_toggle.click()
         page.wait_for_timeout(300)
-        
+
         # Verify state changed
         new_state = stats_content.is_visible()
         assert initial_state != new_state, "Statistics toggle should change visibility"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Article statistics panel is currently missing from the UI")
@@ -651,21 +658,21 @@ class TestArticlesStatistics:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Expand statistics panel
         stats_toggle = page.locator("#articleStatsToggle")
         stats_toggle.click()
         page.wait_for_timeout(300)
-        
+
         # Verify statistics are displayed
         total_text = page.locator("text=Total Articles")
         chosen_text = page.locator("text=Chosen")
         rejected_text = page.locator("text=Rejected")
-        
+
         expect(total_text).to_be_visible()
         expect(chosen_text).to_be_visible()
         expect(rejected_text).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Article statistics panel is currently missing from the UI")
@@ -675,20 +682,20 @@ class TestArticlesStatistics:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Toggle statistics panel multiple times
         stats_toggle = page.locator("#articleStatsToggle")
         stats_content = page.locator("#articleStatsContent")
-        
+
         # First toggle
         initial_state = stats_content.is_visible()
         stats_toggle.click()
         page.wait_for_timeout(300)
-        
+
         # Second toggle
         stats_toggle.click()
         page.wait_for_timeout(300)
-        
+
         # Verify it returns to initial state
         final_state = stats_content.is_visible()
         assert initial_state == final_state, "Statistics panel should toggle correctly"
@@ -696,7 +703,7 @@ class TestArticlesStatistics:
 
 class TestArticlesBulkSelection:
     """Test bulk selection features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_select_all_visible_checkbox(self, page: Page):
@@ -705,21 +712,21 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find select all checkbox
         select_all = page.locator("#select-all-matching")
         if select_all.count() > 0:
             expect(select_all.first).to_be_visible()
-            
+
             # Click select all
             select_all.click()
             page.wait_for_timeout(500)
-            
+
             # Verify bulk actions toolbar appears
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
             expect(bulk_toolbar).to_be_visible()
             expect(bulk_toolbar).not_to_have_class("hidden")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_individual_article_checkboxes(self, page: Page):
@@ -728,21 +735,21 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find article checkboxes
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             # Click first checkbox
             first_checkbox = checkboxes.first
             expect(first_checkbox).to_be_visible()
-            
+
             first_checkbox.click()
             page.wait_for_timeout(500)
-            
+
             # Verify bulk actions toolbar appears
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
             expect(bulk_toolbar).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_bulk_actions_toolbar_visibility(self, page: Page):
@@ -751,21 +758,21 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Initially toolbar should be hidden
         bulk_toolbar = page.locator("#bulk-actions-toolbar")
         expect(bulk_toolbar).to_have_class(re.compile(r"hidden"))
-        
+
         # Select an article
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
             page.wait_for_timeout(500)
-            
+
             # Verify toolbar is visible
             expect(bulk_toolbar).to_be_visible()
             expect(bulk_toolbar).not_to_have_class("hidden")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_selected_count_display(self, page: Page):
@@ -774,20 +781,20 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Select articles
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() >= 2:
             checkboxes.first.click()
             checkboxes.nth(1).click()
             page.wait_for_timeout(500)
-            
+
             # Verify selected count
             selected_count = page.locator("#selected-count")
             expect(selected_count).to_be_visible()
             count_text = selected_count.text_content()
             assert "2" in count_text or count_text == "2", "Selected count should show 2"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_select_all_visible_button(self, page: Page):
@@ -796,21 +803,21 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Select an article to show toolbar
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
             page.wait_for_timeout(500)
-            
+
             # Find Select All Visible button in toolbar
             select_all_btn = page.locator("button:has-text('Select All Visible')")
             expect(select_all_btn).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = select_all_btn.get_attribute("onclick")
             assert "selectAllVisible" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_clear_selection_button(self, page: Page):
@@ -819,25 +826,25 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Select an article to show toolbar
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
             page.wait_for_timeout(500)
-            
+
             # Find Clear Selection button
             clear_btn = page.locator("button:has-text('Clear Selection')")
             expect(clear_btn).to_be_visible()
-            
+
             # Click clear selection
             clear_btn.click()
             page.wait_for_timeout(500)
-            
+
             # Verify toolbar is hidden
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
             expect(bulk_toolbar).to_have_class(re.compile(r"hidden"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
@@ -888,7 +895,7 @@ class TestArticlesBulkSelection:
             unclassify_btn = page.locator("button:has-text('⏳ Unclassify')")
             expect(unclassify_btn).to_be_visible()
             assert "bulkAction('unclassified')" in (unclassify_btn.get_attribute("onclick") or "")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_bulk_action_delete(self, page: Page):
@@ -897,21 +904,21 @@ class TestArticlesBulkSelection:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Select an article
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
             page.wait_for_timeout(500)
-            
+
             # Find Delete button
             delete_btn = page.locator("button:has-text('🗑️ Delete')")
             expect(delete_btn).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = delete_btn.get_attribute("onclick")
             assert "bulkAction('delete')" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_bulk_selection_state_persistence(self, page: Page):
@@ -919,17 +926,17 @@ class TestArticlesBulkSelection:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_timeout(1000)
-        
+
         # Select articles
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() >= 2:
             checkboxes.first.click()
             page.wait_for_timeout(300)
-            
+
             # Verify selection persists (checkbox remains checked)
             first_checkbox = checkboxes.first
             expect(first_checkbox).to_be_checked()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_bulk_selection_with_pagination(self, page: Page):
@@ -937,19 +944,19 @@ class TestArticlesBulkSelection:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?per_page=20")
         page.wait_for_load_state("networkidle")
-        
+
         # Select articles on first page
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
             page.wait_for_timeout(500)
-            
+
             # Navigate to next page
             next_link = page.locator("a:has-text('Next')")
             if next_link.count() > 0:
                 next_link.click()
                 page.wait_for_load_state("networkidle")
-                
+
                 # Verify selection is cleared (new page)
                 bulk_toolbar = page.locator("#bulk-actions-toolbar")
                 expect(bulk_toolbar).to_have_class(re.compile(r"hidden"))
@@ -957,7 +964,7 @@ class TestArticlesBulkSelection:
 
 class TestArticlesCardFeatures:
     """Test article card features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_title_link_navigation(self, page: Page):
@@ -966,20 +973,20 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find article title link
         title_links = page.locator("a[href^='/articles/']")
         if title_links.count() > 0:
             first_link = title_links.first
             expect(first_link).to_be_visible()
-            
+
             # Click link
             first_link.click()
             page.wait_for_load_state("networkidle")
-            
+
             # Verify navigation to article detail page
             expect(page).to_have_url(re.compile(r".*/articles/\d+.*"))
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_id_badge_display(self, page: Page):
@@ -988,12 +995,12 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find article ID badges
         id_badges = page.locator("span:has-text('#'):near(a[href^='/articles/'])")
         if id_badges.count() > 0:
             expect(id_badges.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_source_name_display_and_link(self, page: Page):
@@ -1002,11 +1009,11 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find source links
         source_links = page.locator("a[target='_blank']:has-text('Source:')")
         # Source links may or may not exist depending on article data
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_published_date_display_formatting(self, page: Page):
@@ -1015,12 +1022,12 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find published date text
         published_text = page.locator("text=Published:")
         if published_text.count() > 0:
             expect(published_text.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_content_length_display(self, page: Page):
@@ -1033,7 +1040,7 @@ class TestArticlesCardFeatures:
         content_length = page.locator("text=/Content: \\d+ characters/")
         if content_length.count() > 0:
             expect(content_length.first).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     @pytest.mark.skip(reason="Deprecated: chosen/rejected classification badges removed")
@@ -1048,7 +1055,7 @@ class TestArticlesCardFeatures:
         unclassified_badge = page.locator("span:has-text('⏳ Unclassified')")
         total_badges = chosen_badge.count() + rejected_badge.count() + unclassified_badge.count()
         assert total_badges > 0, "At least one classification badge should be visible"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_regexhuntscore_badge_color_coding(self, page: Page):
@@ -1057,11 +1064,13 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find score badges
-        score_badges = page.locator("span:has-text('🎯'), span:has-text('🟡'), span:has-text('🟠'), span:has-text('🔴')")
+        score_badges = page.locator(
+            "span:has-text('🎯'), span:has-text('🟡'), span:has-text('🟠'), span:has-text('🔴')"
+        )
         # Score badges may or may not exist depending on article data
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_ml_hunt_score_badge_color_coding(self, page: Page):
@@ -1070,11 +1079,11 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find ML score badges
         ml_score_badges = page.locator("span:has-text('🤖')")
         # ML score badges may or may not exist
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_ml_hunt_score_tbd_state(self, page: Page):
@@ -1088,7 +1097,7 @@ class TestArticlesCardFeatures:
         if n > 0:
             has_tooltip = any(tbd_badges.nth(i).get_attribute("title") for i in range(n))
             assert has_tooltip, "TBD badge should have tooltip (e.g. ML Hunt Score not yet calculated)"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_annotation_count_badge_display(self, page: Page):
@@ -1097,11 +1106,11 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find annotation badges
         annotation_badges = page.locator("span:has-text('📝')")
         # Annotation badges may or may not exist
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_keyword_matches_display(self, page: Page):
@@ -1110,13 +1119,13 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find keyword match badges
         perfect_matches = page.locator("span:has-text('✅'):near(text=Perfect)")
         good_matches = page.locator("span:has-text('🟡'):near(text=Good)")
         lolbas_matches = page.locator("span:has-text('🔧')")
         # Keyword matches may or may not exist
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_keyword_match_truncation(self, page: Page):
@@ -1125,11 +1134,11 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find truncation indicators
         truncation_indicators = page.locator("span:has-text('+')")
         # Truncation indicators may exist if there are many keyword matches
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_article_content_preview(self, page: Page):
@@ -1138,7 +1147,7 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find article content previews
         content_previews = page.locator("p.text-gray-700")
         if content_previews.count() > 0:
@@ -1146,7 +1155,7 @@ class TestArticlesCardFeatures:
             preview_text = first_preview.text_content()
             # Preview should be truncated (may end with "...")
             assert preview_text is not None, "Content preview should exist"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_copy_article_content_button(self, page: Page):
@@ -1155,16 +1164,16 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find copy buttons
         copy_buttons = page.locator("button[onclick*='copyArticleContent']")
         if copy_buttons.count() > 0:
             expect(copy_buttons.first).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = copy_buttons.first.get_attribute("onclick")
             assert "copyArticleContent" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_original_source_link_functionality(self, page: Page):
@@ -1173,7 +1182,7 @@ class TestArticlesCardFeatures:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find original source links
         source_links = page.locator("a:has-text('📖 Original Source')")
         if source_links.count() > 0:
@@ -1184,7 +1193,7 @@ class TestArticlesCardFeatures:
 
 class TestArticlesClassificationModal:
     """Test classification modal features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_open(self, page: Page):
@@ -1193,18 +1202,18 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Find classification button (may be in article cards)
         classify_buttons = page.locator("button:has-text('Classify'), button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(500)
-            
+
             # Verify modal opens
             modal = page.locator("#classificationModal")
             expect(modal).to_be_visible()
             expect(modal).not_to_have_class("hidden")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_close(self, page: Page):
@@ -1213,23 +1222,25 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal if possible
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(500)
-            
+
             # Find close button
-            close_button = page.locator("#classificationModal button:has-text('✕'), button[onclick*='closeClassificationModal']")
+            close_button = page.locator(
+                "#classificationModal button:has-text('✕'), button[onclick*='closeClassificationModal']"
+            )
             if close_button.count() > 0:
                 close_button.click()
                 page.wait_for_timeout(300)
-                
+
                 # Verify modal closes
                 modal = page.locator("#classificationModal")
                 expect(modal).to_have_class("hidden")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_loading_state(self, page: Page):
@@ -1238,17 +1249,17 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(300)
-            
+
             # Verify loading state exists
             loading_state = page.locator("#modalLoading")
             expect(loading_state).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_article_data_loading(self, page: Page):
@@ -1257,18 +1268,18 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(2000)  # Wait for data to load
-            
+
             # Verify article content is displayed
             article_content = page.locator("#modalArticleContent")
             expect(article_content).to_be_visible()
             expect(article_content).not_to_have_class("hidden")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_article_title_display(self, page: Page):
@@ -1277,19 +1288,19 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(2000)
-            
+
             # Verify title is displayed
             title_element = page.locator("#articleTitle")
             expect(title_element).to_be_visible()
             title_text = title_element.text_content()
             assert title_text is not None and len(title_text) > 0, "Article title should be displayed"
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_article_content_display(self, page: Page):
@@ -1298,17 +1309,17 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(2000)
-            
+
             # Verify content is displayed
             content_element = page.locator("#articleContent")
             expect(content_element).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_buttons_in_modal(self, page: Page):
@@ -1317,22 +1328,22 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(2000)
-            
+
             # Verify classification buttons exist
             chosen_btn = page.locator("button:has-text('✅ Chosen')")
             rejected_btn = page.locator("button:has-text('❌ Rejected')")
             unclassified_btn = page.locator("button:has-text('⏳ Unclassified')")
-            
+
             expect(chosen_btn).to_be_visible()
             expect(rejected_btn).to_be_visible()
             expect(unclassified_btn).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_navigation_previous(self, page: Page):
@@ -1341,21 +1352,21 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(2000)
-            
+
             # Find Previous button
             previous_btn = page.locator("button:has-text('← Previous')")
             expect(previous_btn).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = previous_btn.get_attribute("onclick")
             assert "navigateToPrevious" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_navigation_next_unclassified(self, page: Page):
@@ -1364,21 +1375,21 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(2000)
-            
+
             # Find Next Unclassified button
             next_btn = page.locator("button:has-text('Next Unclassified')")
             expect(next_btn).to_be_visible()
-            
+
             # Verify onclick handler
             onclick_attr = next_btn.get_attribute("onclick")
             assert "navigateToNextUnclassified" in onclick_attr
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_escape_key(self, page: Page):
@@ -1387,21 +1398,21 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(500)
-            
+
             # Press Escape key
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
-            
+
             # Verify modal closes
             modal = page.locator("#classificationModal")
             expect(modal).to_have_class("hidden")
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_classification_modal_click_away(self, page: Page):
@@ -1410,24 +1421,24 @@ class TestArticlesClassificationModal:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Open modal
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
             page.wait_for_timeout(500)
-            
+
             # Click on modal backdrop
             modal = page.locator("#classificationModal")
             modal.click(position={"x": 10, "y": 10})  # Click near edge
             page.wait_for_timeout(300)
-            
+
             # Modal may or may not close on backdrop click depending on implementation
 
 
 class TestArticlesEmptyState:
     """Test empty state features."""
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_no_articles_found_message(self, page: Page):
@@ -1436,11 +1447,11 @@ class TestArticlesEmptyState:
         # Navigate with filter that returns no results
         page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
         page.wait_for_load_state("networkidle")
-        
+
         # Verify empty state message
         empty_message = page.locator("text=No articles found")
         expect(empty_message).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_empty_state_with_filters_active(self, page: Page):
@@ -1448,11 +1459,11 @@ class TestArticlesEmptyState:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
         page.wait_for_load_state("networkidle")
-        
+
         # Verify message suggests adjusting filters
         adjust_message = page.locator("text=Try adjusting your filters")
         expect(adjust_message).to_be_visible()
-    
+
     @pytest.mark.ui
     @pytest.mark.articles
     def test_empty_state_without_filters(self, page: Page):
@@ -1462,8 +1473,7 @@ class TestArticlesEmptyState:
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
-        
+
         # Check if empty state appears
         empty_state = page.locator("text=No articles found")
         # Empty state may or may not appear depending on data
-

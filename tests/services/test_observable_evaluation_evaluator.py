@@ -4,11 +4,12 @@ Unit tests for observable model evaluator.
 These are unit tests using mocks - no real database required.
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
-from src.services.observable_evaluation.evaluator import ObservableModelEvaluator
+import pytest
+
 from src.database.models import ArticleAnnotationTable, ArticleTable
+from src.services.observable_evaluation.evaluator import ObservableModelEvaluator
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -16,13 +17,13 @@ pytestmark = pytest.mark.unit
 
 class TestObservableModelEvaluator:
     """Tests for ObservableModelEvaluator."""
-    
+
     @pytest.fixture
     def mock_session(self):
         """Create a mock database session."""
         session = Mock()
         return session
-    
+
     @pytest.fixture
     def evaluator(self):
         """Create an evaluator instance."""
@@ -32,7 +33,7 @@ class TestObservableModelEvaluator:
             observable_type="CMD",
             overlap_threshold=0.5,
         )
-    
+
     @pytest.fixture
     def mock_annotations(self):
         """Create mock annotations."""
@@ -42,16 +43,16 @@ class TestObservableModelEvaluator:
         ann1.selected_text = "cmd.exe /c whoami"
         ann1.start_position = 0
         ann1.end_position = 17
-        
+
         ann2 = Mock(spec=ArticleAnnotationTable)
         ann2.id = 2
         ann2.article_id = 100
         ann2.selected_text = "powershell -enc base64"
         ann2.start_position = 20
         ann2.end_position = 42
-        
+
         return [ann1, ann2]
-    
+
     @pytest.fixture
     def mock_article(self):
         """Create a mock article."""
@@ -59,7 +60,7 @@ class TestObservableModelEvaluator:
         article.id = 100
         article.content = "The attacker ran cmd.exe /c whoami and then powershell -enc base64 to evade detection."
         return article
-    
+
     def test_empty_metrics_eval(self, evaluator):
         """Test that empty metrics are returned for eval when no annotations."""
         metrics = evaluator._empty_metrics("eval")
@@ -68,7 +69,7 @@ class TestObservableModelEvaluator:
         assert metrics["recall"] == 0.0
         assert metrics["f1_score"] == 0.0
         assert metrics["sample_count"] == 0
-    
+
     def test_empty_metrics_gold(self, evaluator):
         """Test that empty metrics are returned for gold when no annotations."""
         metrics = evaluator._empty_metrics("gold")
@@ -76,25 +77,27 @@ class TestObservableModelEvaluator:
         assert metrics["exact_match_rate"] == 0.0
         assert metrics["zero_fp_pass_rate"] == 0.0
         assert metrics["sample_count"] == 0
-    
-    @patch('src.services.observable_evaluation.evaluator.ObservableModelInference')
+
+    @patch("src.services.observable_evaluation.evaluator.ObservableModelInference")
     def test_load_annotations(self, mock_inference_class, evaluator, mock_session, mock_annotations):
         """Test that annotations are loaded correctly."""
         # Mock the query result
         mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = mock_annotations
         mock_session.execute.return_value = mock_result
-        
+
         article_annotations = evaluator._load_annotations_by_article(mock_session, "eval")
-        
+
         assert len(article_annotations) == 1  # Grouped by article_id
         assert 100 in article_annotations
         assert len(article_annotations[100]) == 2
         assert article_annotations[100][0].article_id == 100
         mock_session.execute.assert_called_once()
-    
-    @patch('src.services.observable_evaluation.evaluator.ObservableModelInference')
-    def test_compute_eval_metrics_basic(self, mock_inference_class, evaluator, mock_session, mock_annotations, mock_article):
+
+    @patch("src.services.observable_evaluation.evaluator.ObservableModelInference")
+    def test_compute_eval_metrics_basic(
+        self, mock_inference_class, evaluator, mock_session, mock_annotations, mock_article
+    ):
         """Test basic eval metrics computation."""
         # Setup mocks
         mock_inference = Mock()
@@ -104,22 +107,24 @@ class TestObservableModelEvaluator:
         ]
         mock_inference.load_model.return_value = True
         evaluator.inference_service = mock_inference
-        
+
         mock_session.get.return_value = mock_article
-        
+
         article_annotations = {100: mock_annotations}
-        
+
         metrics = evaluator._compute_eval_metrics(mock_session, article_annotations)
-        
+
         assert metrics["usage"] == "eval"
         assert "precision" in metrics
         assert "recall" in metrics
         assert "f1_score" in metrics
         assert "token_overlap_f1" in metrics
         assert metrics["sample_count"] > 0
-    
-    @patch('src.services.observable_evaluation.evaluator.ObservableModelInference')
-    def test_compute_gold_metrics_basic(self, mock_inference_class, evaluator, mock_session, mock_annotations, mock_article):
+
+    @patch("src.services.observable_evaluation.evaluator.ObservableModelInference")
+    def test_compute_gold_metrics_basic(
+        self, mock_inference_class, evaluator, mock_session, mock_annotations, mock_article
+    ):
         """Test basic gold metrics computation."""
         # Setup mocks
         mock_inference = Mock()
@@ -128,13 +133,13 @@ class TestObservableModelEvaluator:
         ]
         mock_inference.load_model.return_value = True
         evaluator.inference_service = mock_inference
-        
+
         mock_session.get.return_value = mock_article
-        
+
         article_annotations = {100: [mock_annotations[0]]}  # Only first annotation
-        
+
         metrics = evaluator._compute_gold_metrics(mock_session, article_annotations)
-        
+
         assert metrics["usage"] == "gold"
         assert "exact_match_rate" in metrics
         assert "zero_fp_pass_rate" in metrics
@@ -142,13 +147,8 @@ class TestObservableModelEvaluator:
         assert "under_extraction_rate" in metrics
         assert "hallucination_rate" in metrics
         assert metrics["sample_count"] > 0
-    
+
     def test_invalid_usage(self, evaluator, mock_session):
         """Test that invalid usage raises ValueError."""
         with pytest.raises(ValueError, match="Invalid usage"):
             evaluator.evaluate(mock_session, "invalid", None)
-
-
-
-
-

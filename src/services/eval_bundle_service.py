@@ -254,9 +254,8 @@ class EvalBundleService:
         llm_messages = llm_request.get("messages") if isinstance(llm_request, dict) else []
         exec_status = execution_context.get("status", "") if isinstance(execution_context, dict) else ""
         if (
-            (not llm_messages or (isinstance(llm_messages, list) and len(llm_messages) == 0))
-            and exec_status == "completed"
-        ):
+            not llm_messages or (isinstance(llm_messages, list) and len(llm_messages) == 0)
+        ) and exec_status == "completed":
             warnings.append("ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED")
             if execution_context is None:
                 execution_context = {}

@@ -1,23 +1,22 @@
 """Factory for creating Annotation test data."""
 
-from typing import Optional
 from src.models.annotation import ArticleAnnotationCreate
 
 
 class AnnotationFactory:
     """Factory for creating Annotation test objects."""
-    
+
     @staticmethod
     def create(
         article_id: int = 1,
         annotation_type: str = "huntable",
-        selected_text: Optional[str] = None,
+        selected_text: str | None = None,
         start_position: int = 0,
         end_position: int = 100,
-        **kwargs
+        **kwargs,
     ) -> ArticleAnnotationCreate:
         """Create an ArticleAnnotationCreate object with defaults.
-        
+
         Args:
             article_id: Article ID (default: 1)
             annotation_type: Annotation type (default: "huntable")
@@ -25,7 +24,7 @@ class AnnotationFactory:
             start_position: Start position (default: 0)
             end_position: End position (default: 100)
             **kwargs: Additional fields to override
-            
+
         Returns:
             ArticleAnnotationCreate object
         """
@@ -35,7 +34,7 @@ class AnnotationFactory:
                 selected_text = "x" * 1000
             else:
                 selected_text = "Test annotation text"
-        
+
         defaults = {
             "article_id": article_id,
             "annotation_type": annotation_type,

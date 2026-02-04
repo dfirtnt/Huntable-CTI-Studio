@@ -1,12 +1,12 @@
 """Tests for evaluation runner functionality."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
-from typing import Dict, Any
 
+import pytest
+
+from src.database.models import EvalPresetSnapshotTable, EvalRunTable
 from src.services.evaluation.eval_runner import EvalRunner
-from src.database.models import EvalRunTable, EvalPresetSnapshotTable
 from src.services.llm_service import PreprocessInvariantError
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
@@ -33,7 +33,7 @@ class TestEvalRunner:
         """Create sample eval run."""
         run = Mock(spec=EvalRunTable)
         run.id = uuid4()
-        run.status = 'pending'
+        run.status = "pending"
         run.total_items = 0
         run.started_at = None
         return run
@@ -43,42 +43,37 @@ class TestEvalRunner:
         """Create sample snapshot."""
         snapshot = Mock(spec=EvalPresetSnapshotTable)
         snapshot.id = uuid4()
-        snapshot.snapshot_data = {
-            'agent_models': {},
-            'agent_prompts': {}
-        }
+        snapshot.snapshot_data = {"agent_models": {}, "agent_prompts": {}}
         return snapshot
 
     def test_run_evaluation_success(self, runner, mock_db_session, sample_eval_run, sample_snapshot):
         """Test successful evaluation run."""
         mock_eval_query = Mock()
         mock_eval_query.filter.return_value.first.return_value = sample_eval_run
-        
+
         mock_snapshot_query = Mock()
         mock_snapshot_query.filter.return_value.first.return_value = sample_snapshot
-        
+
         def query_side_effect(model):
             if model == EvalRunTable:
                 return mock_eval_query
-            elif model == EvalPresetSnapshotTable:
+            if model == EvalPresetSnapshotTable:
                 return mock_snapshot_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
-        with patch('src.services.evaluation.eval_runner.get_langfuse_client') as mock_langfuse:
+
+        with patch("src.services.evaluation.eval_runner.get_langfuse_client") as mock_langfuse:
             mock_client = Mock()
             mock_dataset = Mock()
             mock_dataset.items = []
             mock_client.get_dataset.return_value = mock_dataset
             mock_langfuse.return_value = mock_client
-            
+
             result = runner.run_evaluation(
-                eval_run_id=sample_eval_run.id,
-                snapshot_id=sample_snapshot.id,
-                dataset_name="test-dataset"
+                eval_run_id=sample_eval_run.id, snapshot_id=sample_snapshot.id, dataset_name="test-dataset"
             )
-            
+
             assert result is not None
 
     def test_run_evaluation_eval_run_not_found(self, runner, mock_db_session):
@@ -86,37 +81,29 @@ class TestEvalRunner:
         mock_query = Mock()
         mock_query.filter.return_value.first.return_value = None
         mock_db_session.query.return_value = mock_query
-        
+
         with pytest.raises(ValueError, match="Eval run.*not found"):
-            runner.run_evaluation(
-                eval_run_id=uuid4(),
-                snapshot_id=uuid4(),
-                dataset_name="test-dataset"
-            )
+            runner.run_evaluation(eval_run_id=uuid4(), snapshot_id=uuid4(), dataset_name="test-dataset")
 
     def test_run_evaluation_snapshot_not_found(self, runner, mock_db_session, sample_eval_run):
         """Test evaluation run when snapshot not found."""
         mock_eval_query = Mock()
         mock_eval_query.filter.return_value.first.return_value = sample_eval_run
-        
+
         mock_snapshot_query = Mock()
         mock_snapshot_query.filter.return_value.first.return_value = None
-        
+
         def query_side_effect(model):
             if model == EvalRunTable:
                 return mock_eval_query
-            elif model == EvalPresetSnapshotTable:
+            if model == EvalPresetSnapshotTable:
                 return mock_snapshot_query
             return Mock()
-        
+
         mock_db_session.query.side_effect = query_side_effect
-        
+
         with pytest.raises(ValueError, match="Snapshot.*not found"):
-            runner.run_evaluation(
-                eval_run_id=sample_eval_run.id,
-                snapshot_id=uuid4(),
-                dataset_name="test-dataset"
-            )
+            runner.run_evaluation(eval_run_id=sample_eval_run.id, snapshot_id=uuid4(), dataset_name="test-dataset")
 
     def test_preprocess_invariant_error_classified_as_infra_failed(self, runner, mock_db_session):
         """When PreprocessInvariantError is raised, run is classified as infra_failed, not model failure."""
@@ -185,29 +172,27 @@ class TestEvalRunner:
             mock_client.get_dataset.return_value = mock_dataset
             mock_langfuse.return_value = mock_client
 
-            with patch.object(
-                runner, "_run_extraction", side_effect=preprocess_error
+            with (
+                patch.object(runner, "_run_extraction", side_effect=preprocess_error),
+                patch.object(runner.langfuse_client, "log_trace_scores") as mock_log_scores,
             ):
-                with patch.object(
-                    runner.langfuse_client, "log_trace_scores"
-                ) as mock_log_scores:
-                    with patch.object(
-                        runner.langfuse_client, "create_trace", return_value=mock_trace
-                    ):
-                        with patch.object(
-                            runner.langfuse_client,
-                            "create_experiment",
-                            return_value={"id": "exp-1", "name": "test-exp"},
-                        ):
-                            runner.run_evaluation(
-                                eval_run_id=sample_eval_run.id,
-                                snapshot_id=sample_snapshot.id,
-                                dataset_name="test-dataset",
-                            )
+                with (
+                    patch.object(runner.langfuse_client, "create_trace", return_value=mock_trace),
+                    patch.object(
+                        runner.langfuse_client,
+                        "create_experiment",
+                        return_value={"id": "exp-1", "name": "test-exp"},
+                    ),
+                ):
+                    runner.run_evaluation(
+                        eval_run_id=sample_eval_run.id,
+                        snapshot_id=sample_snapshot.id,
+                        dataset_name="test-dataset",
+                    )
 
-                    mock_log_scores.assert_called()
-                    call_kwargs = mock_log_scores.call_args[1]
-                    assert call_kwargs.get("infra_failed") is True
-                    assert call_kwargs.get("execution_error") is False
-                    assert "infra_debug_artifacts" in call_kwargs
-                    assert call_kwargs["infra_debug_artifacts"] == debug_artifacts
+                mock_log_scores.assert_called()
+                call_kwargs = mock_log_scores.call_args[1]
+                assert call_kwargs.get("infra_failed") is True
+                assert call_kwargs.get("execution_error") is False
+                assert "infra_debug_artifacts" in call_kwargs
+                assert call_kwargs["infra_debug_artifacts"] == debug_artifacts
