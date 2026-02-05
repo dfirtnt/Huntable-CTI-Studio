@@ -27,8 +27,7 @@ class TestAsyncDatabaseManager:
     @pytest.fixture
     def mock_session_factory(self):
         """Create mock async session factory."""
-        factory = AsyncMock()
-        return factory
+        return AsyncMock()
 
     @pytest.fixture
     def manager(self, mock_engine, mock_session_factory):
@@ -86,7 +85,7 @@ class TestAsyncDatabaseManager:
 
         # Simulate error in session
         with pytest.raises(Exception, match="Test error"):
-            async with manager.get_session() as session:
+            async with manager.get_session() as _:
                 raise Exception("Test error")
 
         # rollback is called in the context manager's exception handler
