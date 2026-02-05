@@ -17,6 +17,67 @@ from src.web.dependencies import ENVIRONMENT, logger, templates
 router = APIRouter()
 
 
+def _compact_unique(values: list | None, limit: int = 6) -> list[str]:
+    seen: set[str] = set()
+    items: list[str] = []
+    for value in values or []:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        items.append(text)
+        if len(items) >= limit:
+            break
+    return items
+
+
+def _extract_ioc_values(article_metadata: dict | None, limit: int = 6) -> list[str]:
+    if not article_metadata:
+        return []
+
+    candidates: list[str] = []
+
+    def add_payload(payload: object) -> None:
+        if not payload:
+            return
+        iocs = payload.get("iocs") if isinstance(payload, dict) else payload
+        if not isinstance(iocs, list):
+            return
+        for ioc in iocs:
+            if isinstance(ioc, dict):
+                value = ioc.get("value") or ioc.get("indicator") or ioc.get("ioc")
+                ioc_type = ioc.get("type") or ioc.get("ioc_type")
+                if value:
+                    label = f"{ioc_type}: {value}" if ioc_type else str(value)
+                    candidates.append(label)
+            else:
+                candidates.append(str(ioc))
+
+    add_payload(article_metadata.get("extracted_iocs"))
+    add_payload(article_metadata.get("extracted_iocs_ctibert"))
+
+    return _compact_unique(candidates, limit=limit)
+
+
+def _build_share_excerpt(article: object, max_length: int = 420) -> str:
+    summary = str(getattr(article, "summary", "") or "").strip()
+    if summary:
+        return summary
+
+    content = str(getattr(article, "content", "") or "").strip()
+    if not content:
+        return ""
+
+    normalized = " ".join(content.split())
+    if len(normalized) <= max_length:
+        return normalized
+
+    trimmed = normalized[:max_length].rsplit(" ", 1)[0].strip()
+    return f"{trimmed}..." if trimmed else normalized[:max_length]
+
+
 @router.get("/chat")
 async def chat_page(request: Request):
     """Serve the RAG chat interface."""
@@ -426,6 +487,53 @@ async def article_detail(request: Request, article_id: int):
         )
     except Exception as exc:
         logger.error("Article detail error: %s", exc)
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": str(exc)},
+            status_code=500,
+        )
+
+
+@router.get("/share/articles/{article_id}", response_class=HTMLResponse)
+async def share_article_detail(request: Request, article_id: int):
+    """Public shareable summary view for an article."""
+    try:
+        article = await async_db_manager.get_article(article_id)
+        if not article:
+            return templates.TemplateResponse(
+                "error.html",
+                {"request": request, "error": "Article not found"},
+                status_code=404,
+            )
+
+        source = await async_db_manager.get_source(article.source_id)
+        metadata = article.article_metadata or {}
+        share_excerpt = _build_share_excerpt(article)
+        share_keywords = _compact_unique(
+            (metadata.get("perfect_keyword_matches") or []) + (metadata.get("good_keyword_matches") or []),
+            limit=6,
+        )
+        share_lolbas = _compact_unique(metadata.get("lolbas_matches") or [], limit=6)
+        share_iocs = _extract_ioc_values(metadata, limit=6)
+
+        sigma_rules = metadata.get("sigma_rules", {})
+        sigma_count = len(sigma_rules.get("rules", [])) if isinstance(sigma_rules, dict) else 0
+
+        return templates.TemplateResponse(
+            "share_article.html",
+            {
+                "request": request,
+                "article": article,
+                "source": source,
+                "share_excerpt": share_excerpt,
+                "share_keywords": share_keywords,
+                "share_lolbas": share_lolbas,
+                "share_iocs": share_iocs,
+                "sigma_count": sigma_count,
+            },
+        )
+    except Exception as exc:
+        logger.error("Share article detail error: %s", exc)
         return templates.TemplateResponse(
             "error.html",
             {"request": request, "error": str(exc)},

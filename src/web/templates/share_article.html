@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Share - {{ article.title[:60] }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div class="space-y-2">
+                <div class="text-xs uppercase tracking-widest text-gray-400">Shareable Hunt Snapshot</div>
+                <h1 class="text-2xl font-bold text-white">{{ article.title }}</h1>
+                <div class="text-sm text-gray-400">
+                    {{ source.name if source else 'Unknown Source' }}
+                    <span class="mx-2">·</span>
+                    {{ article.published_at.strftime('%Y-%m-%d') if article.published_at else 'N/A' }}
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="copyShareLink()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium transition-colors">
+                    Copy Share Link
+                </button>
+                <a href="/articles/{{ article.id }}" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md text-sm font-medium transition-colors">
+                    Open Full Article
+                </a>
+            </div>
+        </div>
+
+        {% if share_excerpt %}
+        <p class="mt-4 text-sm text-gray-200 leading-relaxed">{{ share_excerpt }}</p>
+        {% endif %}
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
+                <h2 class="text-sm font-semibold text-gray-200 mb-2">Hunt Scores</h2>
+                <div class="space-y-1 text-sm text-gray-300">
+                    <div>RegexHuntScore: <span class="text-white">{{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata else 0 }}</span></div>
+                    <div>MLHuntScore: <span class="text-white">{{ article.article_metadata.get('ml_hunt_score', 0) if article.article_metadata else 0 }}</span></div>
+                    <div>Sigma Rules: <span class="text-white">{{ sigma_count }}</span></div>
+                </div>
+            </div>
+
+            <div class="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
+                <h2 class="text-sm font-semibold text-gray-200 mb-2">Top Keyword Signals</h2>
+                {% if share_keywords %}
+                <ul class="text-sm text-gray-300 space-y-1">
+                    {% for keyword in share_keywords %}
+                    <li>• {{ keyword }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-500">No keyword signals captured yet.</p>
+                {% endif %}
+            </div>
+
+            <div class="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
+                <h2 class="text-sm font-semibold text-gray-200 mb-2">LOLBAS Matches</h2>
+                {% if share_lolbas %}
+                <ul class="text-sm text-gray-300 space-y-1">
+                    {% for lolbas in share_lolbas %}
+                    <li>• {{ lolbas }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-500">No LOLBAS matches recorded.</p>
+                {% endif %}
+            </div>
+
+            <div class="bg-gray-900/60 border border-gray-700 rounded-lg p-4">
+                <h2 class="text-sm font-semibold text-gray-200 mb-2">Extracted IOCs</h2>
+                {% if share_iocs %}
+                <ul class="text-sm text-gray-300 space-y-1">
+                    {% for ioc in share_iocs %}
+                    <li>• {{ ioc }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-gray-500">No extracted IOCs available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function trackShareEvent(name, context = {}) {
+        try {
+            fetch('/api/analytics/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    article_id: {{ article.id }},
+                    context: {
+                        surface: 'share_page',
+                        ...context
+                    }
+                })
+            }).catch(error => {
+                console.warn('Share analytics failed:', error);
+            });
+        } catch (error) {
+            console.warn('Share analytics failed:', error);
+        }
+    }
+
+    function copyShareLink() {
+        try {
+            const shareUrl = window.location.href;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                showNotification('Share link copied!', 'success');
+            }).catch(error => {
+                console.error('Error copying share link:', error);
+                showNotification('Failed to copy share link', 'error');
+            });
+        } catch (error) {
+            console.error('Error copying share link:', error);
+            showNotification('Failed to copy share link', 'error');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        trackShareEvent('share_viewed');
+    });
+</script>
+{% endblock %}

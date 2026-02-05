@@ -4,14 +4,16 @@ Analytics endpoints for scraper and hunt metrics.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
+EVENT_COUNTS: dict[str, int] = defaultdict(int)
 
 
 @router.get("/scraper/overview")
@@ -838,7 +840,7 @@ async def api_hunt_demo_ml_models():
         async with async_db_manager.get_session() as session:
             # Get ML model versions with performance metrics
             models_query = text("""
-                SELECT 
+                SELECT
                     version_number,
                     accuracy,
                     precision_huntable,
@@ -902,3 +904,42 @@ async def api_hunt_demo_ml_models():
     except Exception as e:
         logger.error(f"Failed to get demo ML models: {e}")
         return {"models": []}
+
+
+@router.post("/events")
+async def api_track_event(request: Request):
+    """Track lightweight analytics events (in-memory counters)."""
+    try:
+        payload = await request.json()
+        name = payload.get("name")
+        if not name or not isinstance(name, str):
+            raise HTTPException(status_code=400, detail="Missing or invalid event name")
+
+        article_id = payload.get("article_id")
+        if article_id is not None:
+            try:
+                article_id = int(article_id)
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail="Invalid article_id") from exc
+
+        EVENT_COUNTS[name] += 1
+        if article_id is not None:
+            EVENT_COUNTS[f"{name}:{article_id}"] += 1
+
+        logger.info("Analytics event: %s (article_id=%s)", name, article_id)
+        return {"success": True, "name": name, "article_id": article_id}
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to track analytics event: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Failed to track analytics event: {exc}") from exc
+
+
+@router.get("/events")
+async def api_get_event_counts():
+    """Expose in-memory event counters for quick verification."""
+    try:
+        return {"counts": dict(EVENT_COUNTS)}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to return analytics event counts: %s", exc)
+        return {"counts": {}}

@@ -14860,9 +14860,11 @@ function highlightQueuedRule(ruleId) {
 // Live execution view with SSE streaming
 let liveExecutionEventSource = null;
 let liveExecutionId = null;
+let liveExecutionCompleted = false;
 
 function openLiveExecutionView(executionId) {
     liveExecutionId = executionId;
+    liveExecutionCompleted = false;
     
     // Create modal
     const modal = document.createElement('div');
@@ -14912,6 +14914,7 @@ function closeLiveExecutionView() {
         liveExecutionEventSource.close();
         liveExecutionEventSource = null;
     }
+    liveExecutionCompleted = false;
     const modal = document.getElementById('liveExecutionModal');
     if (modal) {
         modal.remove();
@@ -14922,6 +14925,7 @@ function closeLiveExecutionView() {
 function startLiveExecutionStream(executionId) {
     const outputDiv = document.getElementById('liveExecutionOutput');
     const statusSpan = document.getElementById('liveExecutionStatus');
+    liveExecutionCompleted = false;
     
     // Clear previous content
     outputDiv.innerHTML = '<div class="text-gray-500">Connecting to execution stream...</div>';
@@ -14959,10 +14963,17 @@ function startLiveExecutionStream(executionId) {
                 case 'step':
                     appendOutput(`📍 Step: ${data.step}`, 'text-blue-400');
                     break;
+
+                case 'step_complete':
+                    appendOutput(`✅ Step Complete: ${data.step}`, 'text-green-400');
+                    break;
                     
                 case 'status':
                     appendOutput(`📊 Status: ${data.status}`, 'text-yellow-400');
                     statusSpan.textContent = `Status: ${data.status}`;
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        liveExecutionCompleted = true;
+                    }
                     break;
                     
                 case 'llm_interaction':
@@ -15018,6 +15029,7 @@ function startLiveExecutionStream(executionId) {
                     break;
                     
                 case 'complete':
+                    liveExecutionCompleted = true;
                     appendOutput(`\n🏁 Execution ${data.status.toUpperCase()}`, 
                         data.status === 'completed' ? 'text-green-400' : 'text-red-400');
                     if (data.error_message) {
@@ -15048,6 +15060,11 @@ function startLiveExecutionStream(executionId) {
     
     // Handle errors
     eventSource.onerror = (error) => {
+        if (liveExecutionCompleted) {
+            appendOutput('Stream closed after execution completion.', 'text-gray-500');
+            statusSpan.textContent = 'Status: Completed';
+            return;
+        }
         appendOutput('❌ Stream error or connection closed', 'text-red-400');
         statusSpan.textContent = 'Status: Disconnected';
         if (eventSource.readyState === EventSource.CLOSED) {
