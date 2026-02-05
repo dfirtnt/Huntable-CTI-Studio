@@ -60,7 +60,8 @@ class SigmaPRService:
             self.repo_path = (app_root / repo_path_str).resolve()
 
         logger.info(
-            f"Resolved SIGMA repo path: {self.repo_path} (from input: '{repo_path_str}', exists: {self.repo_path.exists()})"
+            f"Resolved SIGMA repo path: {self.repo_path} "
+            f"(from input: '{repo_path_str}', exists: {self.repo_path.exists()})"
         )
 
         # Warn if path doesn't exist (but don't fail yet - let submit_pr handle it)
@@ -291,15 +292,23 @@ class SigmaPRService:
                     modified_after = [line for line in stdout_after.strip().split("\n") if line and line[0] in "MADRC"]
                     if modified_after:
                         # Still have changes, stash failed
+                        files_list = ", ".join([f.split()[-1] for f in modified_after[:3]])
                         return {
                             "valid": False,
-                            "error": f"Repository has uncommitted changes that could not be stashed automatically. Please commit or stash them manually first. Files: {', '.join([f.split()[-1] for f in modified_after[:3]])}",
+                            "error": (
+                                f"Repository has uncommitted changes that could not be "
+                                f"stashed automatically. Please commit or stash them manually first. "
+                                f"Files: {files_list}"
+                            ),
                         }
             except Exception as e:
                 logger.warning(f"Failed to stash changes: {e}")
                 return {
                     "valid": False,
-                    "error": f"Repository has uncommitted changes that could not be stashed: {str(e)}. Please commit or stash them manually first.",
+                    "error": (
+                        f"Repository has uncommitted changes that could not be stashed: "
+                        f"{str(e)}. Please commit or stash them manually first."
+                    ),
                 }
 
         # Ensure we're on main/master
@@ -340,11 +349,14 @@ class SigmaPRService:
             parent_exists = self.repo_path.parent.exists() if self.repo_path.parent != self.repo_path else False
 
             # Check if we're in Docker
-            in_docker = os.path.exists("/.dockerenv") or (
-                os.path.exists("/proc/self/cgroup") and "docker" in open("/proc/self/cgroup").read()
-            )
+            in_docker = os.path.exists("/.dockerenv")
+            if not in_docker and os.path.exists("/proc/self/cgroup"):
+                with open("/proc/self/cgroup") as f:
+                    in_docker = "docker" in f.read()
             docker_note = (
-                "\n\n⚠️ Note: If running in Docker, the path must exist inside the container. You may need to:\n- Mount the repository as a Docker volume\n- Use a path that exists inside the container\n- Or run the app outside Docker for local development"
+                "\n\n⚠️ Note: If running in Docker, the path must exist inside the container. "
+                "You may need to:\n- Mount the repository as a Docker volume\n- Use a path that "
+                "exists inside the container\n- Or run the app outside Docker for local development"
                 if in_docker
                 else ""
             )
@@ -484,7 +496,7 @@ class SigmaPRService:
                 base_branch = "main" if "origin/main" in stdout else "master"
                 self._run_git_command(["checkout", base_branch], check=False)
                 self._run_git_command(["branch", "-D", branch_name], check=False)
-            except:
+            except (subprocess.SubprocessError, OSError):
                 pass
 
             return {"success": False, "error": str(e)}
@@ -498,13 +510,13 @@ class SigmaPRService:
         for file_info in files_added:
             rule_id = file_info.get("rule_id")
             rule = next((r for r in rules if r.get("id") == rule_id), None)
-            if rule:
-                try:
-                    rule_data = yaml.safe_load(rule.get("rule_yaml", ""))
-                    title = rule_data.get("title", "Unknown")
-                    body += f"- **{title}** (`{file_info['filename']}`)\n"
-                except:
-                    body += f"- `{file_info['filename']}`\n"
+        if rule:
+            try:
+                rule_data = yaml.safe_load(rule.get("rule_yaml", ""))
+                title = rule_data.get("title", "Unknown")
+                body += f"- **{title}** (`{file_info['filename']}`)\n"
+            except (yaml.YAMLError, KeyError, AttributeError):
+                body += f"- `{file_info['filename']}`\n"
 
         body += "\n## Files Changed\n\n"
         for file_info in files_added:

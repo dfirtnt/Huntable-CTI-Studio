@@ -452,5 +452,5 @@ async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
             try:
                 if hasattr(client, "_transport") and client._transport:
                     client._transport.close()
-            except:
+            except Exception:
                 pass

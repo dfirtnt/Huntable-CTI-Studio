@@ -232,7 +232,7 @@ class MobileTestHelpers:
         try:
             page.wait_for_selector(".annotation-menu", timeout=timeout)
             return True
-        except:
+        except Exception:
             return False
 
     @staticmethod
@@ -241,7 +241,7 @@ class MobileTestHelpers:
         try:
             page.wait_for_selector("#mobile-annotation-instructions", timeout=timeout)
             return True
-        except:
+        except Exception:
             return False
 
 

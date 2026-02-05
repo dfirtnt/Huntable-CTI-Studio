@@ -410,9 +410,13 @@ async def _post_lmstudio_chat(
                 last_error_detail = f"Cannot connect to {lmstudio_url}: {str(e)}"
                 if idx == len(lmstudio_urls) - 1:
                     # Last URL, raise connection error
+                    urls_tried = ", ".join(lmstudio_urls)
                     raise HTTPException(
                         status_code=503,
-                        detail=f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}",
+                        detail=(
+                            f"Cannot connect to LMStudio service. Please ensure LMStudio is "
+                            f"running and accessible. Tried: {urls_tried}. Last error: {str(e)}"
+                        ),
                     ) from e
                 # Try next URL
                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
@@ -442,7 +446,7 @@ async def _post_lmstudio_chat(
                     if isinstance(error_json.get("error"), dict)
                     else error_text
                 )
-            except:
+            except Exception:
                 error_message = error_text
 
             last_error_detail = f"{response.status_code} - {error_message}"
@@ -512,7 +516,8 @@ async def api_test_openai_key(request: Request):
 
         # Log key info for debugging (masked)
         logger.info(
-            f"🔑 Testing OpenAI API key: length={len(api_key)}, starts_with={api_key[:8]}..., ends_with=...{api_key[-4:]}"
+            f"🔑 Testing OpenAI API key: length={len(api_key)}, "
+            f"starts_with={api_key[:8]}..., ends_with=...{api_key[-4:]}"
         )
 
         # Test the API key with a simple request
@@ -549,7 +554,7 @@ async def api_test_openai_key(request: Request):
                         "valid": False,
                         "message": f"Invalid API key: {error_message}",
                     }
-                except:
+                except Exception:
                     logger.error(f"❌ OpenAI API key test failed with 401, response: {response.text}")
                     return {"valid": False, "message": "Invalid API key"}
             else:
@@ -858,7 +863,9 @@ async def api_get_lmstudio_models():
                         "embedding_models": embedding_models,  # Embedding models only
                         "chat_models_count": len(chat_models),
                         "embedding_models_count": len(embedding_models),
-                        "message": f"Found {len(chat_models)} chat model(s) and {len(embedding_models)} embedding model(s)",
+                        "message": (
+                            f"Found {len(chat_models)} chat model(s) and {len(embedding_models)} embedding model(s)"
+                        ),
                     }
 
                 last_error = f"{response.status_code}: {response.text}"
@@ -1003,7 +1010,10 @@ async def api_validate_model(request: Request):
                 suggestion = suggest_base_model(model_id) if model_id else None
                 return {
                     "valid": False,
-                    "error": f"Model '{model_id}' is not a valid OpenAI chat completion model. Use base model names like 'gpt-5.2-pro' instead of dated versions.",
+                    "error": (
+                        f"Model '{model_id}' is not a valid OpenAI chat completion model. "
+                        f"Use base model names like 'gpt-5.2-pro' instead of dated versions."
+                    ),
                     "suggestion": suggestion,
                 }
             return {"valid": True}
@@ -1084,7 +1094,10 @@ async def api_load_lmstudio_model(request: Request):
             else:
                 raise HTTPException(
                     status_code=503,
-                    detail="LMStudio CLI not found. Install from https://lmstudio.ai/ or ensure it's in PATH: ~/.cache/lm-studio/bin/lms",
+                    detail=(
+                        "LMStudio CLI not found. Install from https://lmstudio.ai/ or ensure "
+                        "it's in PATH: ~/.cache/lm-studio/bin/lms"
+                    ),
                 )
 
         logger.info(f"Loading model {model_name} with context length {context_length}...")
@@ -1255,14 +1268,18 @@ async def api_test_langfuse_connection(request: Request):
 
                 return {
                     "valid": True,
-                    "message": f"Langfuse connection successful! Host: {host}, Project ID: {resolved_project_id or 'default'}",
+                    "message": (
+                        f"Langfuse connection successful! Host: {host}, Project ID: {resolved_project_id or 'default'}"
+                    ),
                 }
 
             except ImportError as e:
                 logger.error(f"Langfuse ImportError: {e}")
                 return {
                     "valid": False,
-                    "message": f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}",
+                    "message": (
+                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"
+                    ),
                 }
             except Exception as e:
                 logger.error(f"Langfuse connection test error: {type(e).__name__}: {e}")
@@ -2929,7 +2946,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                                     f"❌ OpenAI 401 error details: {error_message}, full response: {response.text}"
                                 )
                                 error_detail = f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings."
-                            except:
+                            except Exception:
                                 logger.error(f"❌ OpenAI 401 error, response text: {response.text}")
                                 error_detail = (
                                     "OpenAI API key is invalid or expired. Please check your API key in Settings."

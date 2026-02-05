@@ -759,13 +759,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if config_snapshot and not isinstance(config_snapshot, dict):
                 import json
 
-                if isinstance(config_snapshot, str):
-                    try:
-                        config_snapshot = json.loads(config_snapshot)
-                    except:
-                        config_snapshot = {}
-                else:
+            if isinstance(config_snapshot, str):
+                try:
+                    config_snapshot = json.loads(config_snapshot)
+                except (json.JSONDecodeError, ValueError):
                     config_snapshot = {}
+            else:
+                config_snapshot = {}
 
             # Handle both boolean and string "true"/"false" values from JSON
             skip_os_detection_flag = config_snapshot.get("skip_os_detection", False) if config_snapshot else False
