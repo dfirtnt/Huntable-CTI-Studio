@@ -363,7 +363,7 @@ async def reject_queued_rule(request: Request, queue_id: int):
                     rule.review_notes = body.get("review_notes")
                     if body.get("rule_yaml"):
                         rule.rule_yaml = body["rule_yaml"]
-            except:
+            except Exception:
                 # Fall back to query params (backward compatibility)
                 review_notes = request.query_params.get("review_notes")
                 if review_notes:

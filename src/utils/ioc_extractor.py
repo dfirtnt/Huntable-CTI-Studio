@@ -6,6 +6,7 @@ speed and accuracy.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 from dataclasses import dataclass
@@ -89,13 +90,10 @@ class HybridIOCExtractor:
                 for url in cleaned_iocs["url"]:
                     try:
                         # Simple domain extraction from URLs
-                        if "://" in url:
-                            domain = url.split("://")[1].split("/")[0]
-                        else:
-                            domain = url.split("/")[0]
+                        domain = url.split("://")[1].split("/")[0] if "://" in url else url.split("/")[0]
                         if domain and domain not in domains:
                             domains.append(domain)
-                    except:
+                    except Exception:
                         continue
                 cleaned_iocs["domain"] = domains
 
@@ -142,7 +140,10 @@ class HybridIOCExtractor:
             import httpx
 
             # Prepare the validation prompt
-            prompt = f"""You are a cybersecurity analyst. Validate and categorize these extracted IOCs from threat intelligence content.
+            prompt = (
+                f"""You are a cybersecurity analyst. Validate and categorize these """
+                f"""extracted IOCs from threat intelligence content."""
+            ) + """
 
 CRITICAL: Return ONLY valid JSON. Do not include any explanatory text, comments, or markdown formatting.
 
@@ -190,7 +191,12 @@ Output format (return ONLY this JSON structure):
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object.",
+                                "content": (
+                                    "You are a cybersecurity analyst specializing in IOC validation. "
+                                    "Validate and categorize IOCs from threat intelligence articles and "
+                                    "return them in valid JSON format only. NEVER include explanatory "
+                                    "text, comments, or markdown formatting. Return ONLY the JSON object."
+                                ),
                             },
                             {"role": "user", "content": prompt},
                         ],
@@ -238,29 +244,23 @@ Output format (return ONLY this JSON structure):
                             if not request_task.done():
                                 request_task.cancel()
                                 # Explicitly close the client connection to stop the underlying HTTP request
-                                try:
+                                with contextlib.suppress(Exception):
                                     await client.aclose()
-                                except Exception:
-                                    pass
-                                try:
+                                with contextlib.suppress(
+                                    asyncio.CancelledError, httpx.RequestError, httpx.ConnectError
+                                ):
                                     await request_task
-                                except (asyncio.CancelledError, httpx.RequestError, httpx.ConnectError):
-                                    pass
                             # Cancel the cancellation task cleanup
-                            try:
-                                cancellation_task.cancel()
+                            cancellation_task.cancel()
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await cancellation_task
-                            except asyncio.CancelledError:
-                                pass
                             raise asyncio.CancelledError("IOC validation cancelled by client")
 
                         # Request completed first - cancel the cancellation monitor
                         if not cancellation_task.done():
                             cancellation_task.cancel()
-                            try:
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await cancellation_task
-                            except asyncio.CancelledError:
-                                pass
 
                         # Get the response from the completed request task
                         response = await request_task
@@ -283,7 +283,12 @@ Output format (return ONLY this JSON structure):
                             "messages": [
                                 {
                                     "role": "system",
-                                    "content": "You are a cybersecurity analyst specializing in IOC validation. Validate and categorize IOCs from threat intelligence articles and return them in valid JSON format only. NEVER include explanatory text, comments, or markdown formatting. Return ONLY the JSON object.",
+                                    "content": (
+                                        "You are a cybersecurity analyst specializing in IOC validation. "
+                                        "Validate and categorize IOCs from threat intelligence articles and "
+                                        "return them in valid JSON format only. NEVER include explanatory "
+                                        "text, comments, or markdown formatting. Return ONLY the JSON object."
+                                    ),
                                 },
                                 {"role": "user", "content": prompt},
                             ],
@@ -312,10 +317,8 @@ Output format (return ONLY this JSON structure):
                     raise Exception(f"Failed to parse LLM validation response: {e}") from e
             finally:
                 # Ensure client is closed
-                try:
+                with contextlib.suppress(Exception):
                     await client.aclose()
-                except Exception:
-                    pass
 
         except Exception as e:
             logger.error(f"Error in LLM validation: {e}")
@@ -371,9 +374,8 @@ Output format (return ONLY this JSON structure):
                 final_iocs = validated_iocs
                 extraction_method = "hybrid"
                 confidence = 0.95  # Higher confidence with LLM validation
-                logger.info(
-                    f"Hybrid extraction completed: {raw_count} raw IOCs -> {sum(len(v) for v in validated_iocs.values())} validated IOCs"
-                )
+                validated_count = sum(len(v) for v in validated_iocs.values())
+                logger.info(f"Hybrid extraction completed: {raw_count} raw IOCs -> {validated_count} validated IOCs")
 
                 # Store prompt and response in metadata
                 llm_metadata = {"prompt": prompt, "response": response}

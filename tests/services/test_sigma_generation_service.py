@@ -166,7 +166,7 @@ level: low
                                         metadata={"rule": parsed},
                                         content_preview=rule_str,
                                     )
-                                except:
+                                except Exception:
                                     pass
                             # Invalid rule (missing detection)
                             return ValidationResult(
@@ -558,7 +558,7 @@ level: medium
                                         metadata={"rule": parsed},
                                         content_preview=rule_str,
                                     )
-                            except:
+                            except Exception:
                                 pass
                             return ValidationResult(
                                 is_valid=False, errors=["Invalid"], warnings=[], metadata=None, content_preview=rule_str
@@ -635,7 +635,7 @@ level: medium
                                         metadata={"rule": parsed},
                                         content_preview=rule_str,
                                     )
-                            except:
+                            except Exception:
                                 pass
                             return ValidationResult(
                                 is_valid=False, errors=["Invalid"], warnings=[], metadata=None, content_preview=rule_str

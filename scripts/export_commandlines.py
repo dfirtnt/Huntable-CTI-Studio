@@ -9,9 +9,10 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
+
 from src.database.async_manager import AsyncDatabaseManager
-from src.database.models import ArticleTable, AgenticWorkflowExecutionTable
+from src.database.models import AgenticWorkflowExecutionTable, ArticleTable
 from src.utils.content_filter import ContentFilter
 
 
@@ -52,7 +53,6 @@ async def find_largest_articles():
         # Get the largest article for detailed analysis
         if articles:
             largest_article_id = articles[0].id
-            largest_article_length = articles[0].content_length
 
             print("\n" + "=" * 80)
             print(f"ANALYZING LARGEST ARTICLE (ID: {largest_article_id})")
@@ -76,7 +76,7 @@ async def find_largest_articles():
 
             filtered_length = len(filter_result.filtered_content) if filter_result.filtered_content else 0
 
-            print(f"\nAfter junk filter (80% confidence):")
+            print("\nAfter junk filter (80% confidence):")
             print(f"  Filtered content length: {filtered_length:,} characters")
             print(f"  Removed: {len(article.content) - filtered_length:,} characters")
             print(f"  Retention rate: {(filtered_length / len(article.content) * 100):.1f}%")
@@ -132,7 +132,7 @@ async def find_largest_articles():
                         max_filtered_article = article
 
             if max_filtered_article:
-                print(f"\nLargest filtered content from workflow:")
+                print("\nLargest filtered content from workflow:")
                 print(f"  Article ID: {max_filtered_article.article_id}")
                 print(f"  Title: {max_filtered_article.title[:100]}...")
                 print(f"  URL: {max_filtered_article.canonical_url}")
