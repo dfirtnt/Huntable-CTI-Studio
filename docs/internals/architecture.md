@@ -14,7 +14,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │                 │    │                 │    │     Tasks       │    │                 │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
-│ • 33+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
+│ • 30+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
 │ • Browser Ext.  │    │ • RAG Chat      │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
@@ -58,7 +58,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Source List   │───▶│  RSS Parser     │───▶│ Modern Scraper  │
-│   (33+ sources) │    │                 │    │                 │
+│   (30+ sources) │    │                 │    │                 │
 └─────────────────┘    └─────────┬───────┘    └─────────┬───────┘
                                  │                      │
                                  ▼                      ▼
@@ -323,7 +323,7 @@ API Endpoints:
 │ • name          │
 │ • url           │
 │ • rss_url       │
-│ • tier          │
+│ • check_frequency│
 │ • active        │
 │ • config (JSON) │
 │ • last_check    │
@@ -341,9 +341,9 @@ API Endpoints:
 │ • content       │
 │ • content_hash  │
 │ • published_at  │
-│ • metadata (JSON)│
+│ • article_metadata (JSON)│
 │ • word_count    │
-│ • hunt_score    │
+│ • threat_hunting_score (metadata)│
 └─────────┬───────┘
           │
           │ 1:N

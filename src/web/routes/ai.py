@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.services.provider_model_catalog import load_catalog, update_provider_models
+from src.utils.model_validation import is_valid_openai_chat_model, suggest_base_model
 from src.utils.prompt_loader import format_prompt
 from src.web.dependencies import logger
 
@@ -31,8 +32,37 @@ OPENAI_MODEL_PATTERN = re.compile(
 
 
 def _filter_openai_models(model_ids: list[str]) -> list[str]:
-    filtered = [model_id for model_id in model_ids if OPENAI_MODEL_PATTERN.match(model_id)]
-    return sorted(set(filtered))
+    """
+    Filter OpenAI models to only include valid chat completion models.
+    Excludes specialized models (codex, audio, image, realtime, etc.) and
+    prefers base model names over dated versions.
+    """
+    valid_models = []
+    base_models_seen = set()
+
+    for model_id in model_ids:
+        if not is_valid_openai_chat_model(model_id):
+            continue
+
+        # Prefer base model names over dated versions
+        base_model = re.sub(r"-\d{4}-\d{2}-\d{2}(-preview)?$", "", model_id)
+        base_model = re.sub(r"-latest$", "", base_model)
+        base_model = re.sub(r"-preview$", "", base_model)
+
+        # If we've seen a base model, prefer it over dated versions
+        if base_model in base_models_seen:
+            # Check if current is base or dated
+            is_dated = bool(re.search(r"-\d{4}-\d{2}-\d{2}", model_id))
+            if is_dated:
+                continue  # Skip dated version if base exists
+
+        # Track base models
+        if not re.search(r"-\d{4}-\d{2}-\d{2}", model_id):
+            base_models_seen.add(base_model)
+
+        valid_models.append(model_id)
+
+    return sorted(set(valid_models))
 
 
 def _filter_anthropic_models(model_ids: list[str]) -> list[str]:
@@ -954,6 +984,42 @@ async def api_get_lmstudio_embedding_models():
 async def api_get_provider_model_catalog():
     """Return cached provider model catalog."""
     return {"catalog": load_catalog()}
+
+
+@test_router.post("/validate-model")
+async def api_validate_model(request: Request):
+    """Validate if a model is valid for chat completions."""
+    try:
+        data = await request.json()
+        provider = data.get("provider", "").strip().lower()
+        model_id = data.get("model", "").strip()
+
+        if not provider or not model_id:
+            return {"valid": False, "error": "Provider and model are required"}
+
+        if provider == "openai":
+            is_valid = is_valid_openai_chat_model(model_id)
+            if not is_valid:
+                suggestion = suggest_base_model(model_id) if model_id else None
+                return {
+                    "valid": False,
+                    "error": f"Model '{model_id}' is not a valid OpenAI chat completion model. Use base model names like 'gpt-5.2-pro' instead of dated versions.",
+                    "suggestion": suggestion,
+                }
+            return {"valid": True}
+        if provider == "anthropic":
+            # Anthropic models are generally all chat-compatible
+            if not model_id.lower().startswith("claude"):
+                return {"valid": False, "error": f"Model '{model_id}' does not match Anthropic patterns"}
+            return {"valid": True}
+        if provider == "lmstudio":
+            # LMStudio models are validated by availability, not by name
+            return {"valid": True}
+        return {"valid": False, "error": f"Unknown provider: {provider}"}
+
+    except Exception as e:
+        logger.error(f"Model validation error: {e}")
+        return {"valid": False, "error": str(e)}
 
 
 @test_router.post("/test-lmstudio-connection")
