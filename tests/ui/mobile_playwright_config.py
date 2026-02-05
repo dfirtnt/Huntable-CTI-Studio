@@ -151,11 +151,11 @@ class MobileTestHelpers:
                         const range = document.createRange();
                         range.setStart(textNode, start);
                         range.setEnd(textNode, Math.min(end, textNode.textContent.length));
-                        
+
                         const selection = window.getSelection();
                         selection.removeAllRanges();
                         selection.addRange(range);
-                        
+
                         // Trigger selection change event
                         const event = new Event('selectionchange');
                         document.dispatchEvent(event);
@@ -186,7 +186,7 @@ class MobileTestHelpers:
                         })]
                     });
                     element.dispatchEvent(touchStartEvent);
-                    
+
                     // Simulate touchend after delay
                     setTimeout(() => {
                         const touchEndEvent = new TouchEvent('touchend', {

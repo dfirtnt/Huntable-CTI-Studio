@@ -36,21 +36,21 @@ def load_articles(
 
     query = f"""
     SELECT json_agg(row_to_json(t)) FROM (
-        SELECT 
-            a.id, 
-            a.title, 
-            a.canonical_url as url, 
-            s.name as source, 
-            a.content, 
+        SELECT
+            a.id,
+            a.title,
+            a.canonical_url as url,
+            s.name as source,
+            a.content,
             (a.article_metadata->>'threat_hunting_score')::float as hunt_score,
             COALESCE(jsonb_array_length((a.article_metadata::jsonb)->'lolbas_matches'), 0) as lolbas_count,
             (a.article_metadata::jsonb)->'lolbas_matches' as lolbas_matches,
             (a.article_metadata::jsonb)->'perfect_keyword_matches' as perfect_matches,
             (a.article_metadata::jsonb)->'good_keyword_matches' as good_matches
-        FROM articles a 
-        JOIN sources s ON a.source_id = s.id 
-        WHERE (a.article_metadata->>'threat_hunting_score')::float >= {min_hunt_score} 
-        AND a.archived = false 
+        FROM articles a
+        JOIN sources s ON a.source_id = s.id
+        WHERE (a.article_metadata->>'threat_hunting_score')::float >= {min_hunt_score}
+        AND a.archived = false
         AND a.content IS NOT NULL
         AND length(a.content) > 100
         ORDER BY hunt_score DESC

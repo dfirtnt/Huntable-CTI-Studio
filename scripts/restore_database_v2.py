@@ -211,9 +211,9 @@ class DatabaseRestore:
                 "postgres",
                 "-c",
                 f"""
-                SELECT pg_terminate_backend(pid) 
-                FROM pg_stat_activity 
-                WHERE datname = '{self.db_config["database"]}' 
+                SELECT pg_terminate_backend(pid)
+                FROM pg_stat_activity
+                WHERE datname = '{self.db_config["database"]}'
                 AND pid <> pg_backend_pid();
                 """,
             ]

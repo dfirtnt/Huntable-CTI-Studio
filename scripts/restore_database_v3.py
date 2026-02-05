@@ -235,7 +235,7 @@ def restore_database(backup_path):
         # Clean up filtered file
         try:
             os.unlink(filtered_path)
-        except:
+        except OSError:
             pass
 
         if result.returncode != 0:

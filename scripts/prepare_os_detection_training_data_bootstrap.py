@@ -32,15 +32,15 @@ def load_articles(article_ids: list[int]) -> list[dict[str, Any]]:
     ids_str = ",".join(map(str, article_ids))
     query = f"""
     SELECT json_agg(row_to_json(t)) FROM (
-        SELECT 
-            a.id, 
-            a.title, 
-            a.canonical_url as url, 
-            s.name as source, 
-            a.content, 
+        SELECT
+            a.id,
+            a.title,
+            a.canonical_url as url,
+            s.name as source,
+            a.content,
             (a.article_metadata->>'threat_hunting_score')::float as hunt_score
-        FROM articles a 
-        JOIN sources s ON a.source_id = s.id 
+        FROM articles a
+        JOIN sources s ON a.source_id = s.id
         WHERE a.id IN ({ids_str})
         AND a.archived = false
     ) t;

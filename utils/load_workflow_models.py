@@ -58,7 +58,7 @@ def unload_all_models(lms_cmd: str):
                         identifier = parts[0]
                         subprocess.run([lms_cmd, "unload", identifier], capture_output=True, timeout=15)
                 time.sleep(2)
-    except:
+    except (subprocess.SubprocessError, OSError):
         pass
 
 
@@ -149,8 +149,7 @@ def get_workflow_models_from_db():
 
         # Parse JSON from database output
         try:
-            agent_models = json.loads(output)
-            return agent_models
+            return json.loads(output)
         except json.JSONDecodeError:
             print(f"⚠️  Failed to parse agent_models JSON: {output[:100]}")
             return None

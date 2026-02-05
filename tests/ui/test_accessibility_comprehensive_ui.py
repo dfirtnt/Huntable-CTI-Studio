@@ -399,7 +399,7 @@ class TestFormAccessibility:
                 input_id = input_elem.get_attribute("id")
 
                 if input_id:
-                    label = page.locator(f"label[for='{input_id}']")
+                    page.locator(f"label[for='{input_id}']")
                     # Label may or may not exist depending on implementation
 
     @pytest.mark.ui
@@ -412,7 +412,7 @@ class TestFormAccessibility:
         page.wait_for_timeout(2000)
 
         # Verify error messages have proper ARIA attributes
-        error_messages = page.locator("[role='alert'], .error, [aria-live]")
+        page.locator("[role='alert'], .error, [aria-live]")
         # Error messages may or may not exist depending on form state
 
 
@@ -440,7 +440,7 @@ class TestLandmarkRoles:
         page.wait_for_load_state("networkidle")
 
         # Verify main content landmark exists
-        main = page.locator("main, [role='main']")
+        page.locator("main, [role='main']")
         # Main landmark may or may not exist depending on implementation
 
     @pytest.mark.ui
@@ -452,5 +452,5 @@ class TestLandmarkRoles:
         page.wait_for_load_state("networkidle")
 
         # Verify banner landmark exists
-        banner = page.locator("header, [role='banner']")
+        page.locator("header, [role='banner']")
         # Banner landmark may or may not exist depending on implementation

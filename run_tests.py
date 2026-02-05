@@ -714,10 +714,7 @@ class TestRunner:
 
         exclude_expr = " and ".join([f"not {marker}" for marker in all_excludes])
 
-        if marker_expr:
-            combined_expr = f"({marker_expr}) and ({exclude_expr})"
-        else:
-            combined_expr = exclude_expr
+        combined_expr = f"({marker_expr}) and ({exclude_expr})" if marker_expr else exclude_expr
 
         cmd.extend(["-m", combined_expr])
 
@@ -840,9 +837,8 @@ class TestRunner:
                     return False
 
             # Install dependencies if explicitly requested
-            if self.config.install_deps:
-                if not self.install_dependencies():
-                    return False
+            if self.config.install_deps and not self.install_dependencies():
+                return False
 
             # Determine if we should run Playwright tests
             playwright_cmd = self._build_playwright_command()
@@ -1163,10 +1159,7 @@ class TestRunner:
                     playwright_success = False
 
             # Overall success requires both to pass (if both ran)
-            if run_playwright:
-                overall_success = pytest_success and playwright_success
-            else:
-                overall_success = pytest_success
+            overall_success = pytest_success and playwright_success if run_playwright else pytest_success
 
             self.results[self.config.test_type.value] = {
                 "success": overall_success,
@@ -1361,7 +1354,7 @@ class TestRunner:
 
     def generate_report(self) -> None:
         """Generate comprehensive test report."""
-        duration = time.time() - self.start_time
+        time.time() - self.start_time
 
         print("\n" + "=" * 60)
         print("📊 CTI Scraper Test Execution Report")

@@ -86,7 +86,7 @@ class SigmaMatchingService:
             zero_vector = "[" + ",".join(["0.0"] * 768) + "]"
 
             query_text = """
-                SELECT 
+                SELECT
                     sr.id,
                     sr.rule_id,
                     sr.title,
@@ -97,12 +97,12 @@ class SigmaMatchingService:
                     sr.level,
                     sr.status,
                     sr.file_path,
-                    CASE 
+                    CASE
                         WHEN sr.logsource_embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
-                            THEN 1 - (sr.logsource_embedding <=> %(embedding)s::vector) 
+                            THEN 1 - (sr.logsource_embedding <=> %(embedding)s::vector)
                         WHEN sr.embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
                             THEN 1 - (sr.embedding <=> %(embedding)s::vector)
-                        ELSE 0.0 
+                        ELSE 0.0
                     END AS signature_sim
                 FROM sigma_rules sr
                 WHERE (
@@ -149,7 +149,7 @@ class SigmaMatchingService:
                     if isinstance(value, str):
                         try:
                             return json.loads(value)
-                        except:
+                        except (json.JSONDecodeError, ValueError):
                             return str(value)
                     return str(value)
 
@@ -158,7 +158,7 @@ class SigmaMatchingService:
                 if tags is not None and hasattr(tags, "__iter__") and not isinstance(tags, str):
                     try:
                         tags = list(tags)
-                    except:
+                    except (TypeError, ValueError):
                         tags = []
                 elif tags is None:
                     tags = []
@@ -224,7 +224,7 @@ class SigmaMatchingService:
                     # Query for similar Sigma rules using section embeddings
                     # Compare chunk embedding against rule's signature embedding (detection logic focus)
                     query = sa.text("""
-                        SELECT 
+                        SELECT
                             sr.id,
                             sr.rule_id,
                             sr.title,
@@ -235,12 +235,12 @@ class SigmaMatchingService:
                             sr.level,
                             sr.status,
                             sr.file_path,
-                            CASE 
+                            CASE
                                 WHEN sr.logsource_embedding IS NOT NULL AND :embedding != :zero_vec
-                                    THEN 1 - (sr.logsource_embedding <=> :embedding::vector) 
+                                    THEN 1 - (sr.logsource_embedding <=> :embedding::vector)
                                 WHEN sr.embedding IS NOT NULL AND :embedding != :zero_vec
                                     THEN 1 - (sr.embedding <=> :embedding::vector)
-                                ELSE 0.0 
+                                ELSE 0.0
                             END AS signature_sim
                         FROM sigma_rules sr
                         WHERE (

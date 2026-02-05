@@ -59,7 +59,7 @@ def parse_prompt_structure(prompt_str):
             try:
                 role_obj = json.loads(role)
                 role = role_obj.get("role", role)
-            except:
+            except (json.JSONDecodeError, AttributeError):
                 pass
 
         return {

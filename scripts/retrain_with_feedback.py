@@ -77,10 +77,10 @@ def load_annotation_data():
 
             # Query annotations (only unused ones with ~1000 chars)
             query = text("""
-            SELECT 
+            SELECT
                 ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
                 aa.selected_text as highlighted_text,
-                CASE 
+                CASE
                     WHEN aa.annotation_type = 'huntable' THEN 'Huntable'
                     WHEN aa.annotation_type = 'not_huntable' THEN 'Not Huntable'
                     ELSE aa.annotation_type
@@ -137,9 +137,9 @@ def mark_annotations_as_used():
 
             # Mark annotations as used for training
             query = text("""
-            UPDATE article_annotations 
+            UPDATE article_annotations
             SET used_for_training = TRUE
-            WHERE LENGTH(selected_text) >= 950 
+            WHERE LENGTH(selected_text) >= 950
             AND used_for_training = FALSE
             """)
 

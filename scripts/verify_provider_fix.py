@@ -89,10 +89,7 @@ def verify_llm_service_provider_handling():
 
     # Simulate provider handling in request_chat
     def simulate_provider_handling(provider):
-        effective_provider = (
-            provider if provider and isinstance(provider, str) and provider.strip()
-            else "lmstudio"
-        )
+        effective_provider = provider if provider and isinstance(provider, str) and provider.strip() else "lmstudio"
 
         # Canonicalize
         normalized = effective_provider.strip().lower() if effective_provider else ""

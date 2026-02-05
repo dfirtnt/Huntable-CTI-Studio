@@ -33,21 +33,21 @@ class TestAIRealAPIIntegration:
             This article describes an APT29 campaign that uses PowerShell techniques
             including rundll32.exe and certutil for persistence. The threat actors
             use comspec environment variables and wmic commands to evade detection.
-            
+
             The campaign targets Event ID 4624 and uses parent-child process relationships
             to maintain persistence. Hunters should look for svchost.exe spawning
             unusual child processes.
-            
+
             IOCs identified:
             - IP: 192.168.1.100
             - Domain: malicious.example.com
             - Hash: a1b2c3d4e5f6789012345678901234567890abcd
             - Email: attacker@evil.com
-            
+
             Registry keys modified:
             - HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run
             - HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run
-            
+
             File paths:
             - C:\\Windows\\Temp\\malware.exe
             - %TEMP%\\suspicious.dll
@@ -167,7 +167,7 @@ class TestAIRealAPIIntegration:
         # Make multiple rapid requests to test rate limiting
         async with httpx.AsyncClient(timeout=30.0) as client:
             responses = []
-            for i in range(3):  # Make 3 rapid requests
+            for _i in range(3):  # Make 3 rapid requests
                 try:
                     response = await client.post(
                         "https://api.openai.com/v1/chat/completions",

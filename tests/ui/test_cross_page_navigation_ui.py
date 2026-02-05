@@ -257,7 +257,6 @@ class TestCrossPageNavigation:
             page.wait_for_timeout(1000)
 
             # Verify URL may include tab parameter
-            current_url = page.url
             # URL may or may not include tab parameter depending on implementation
 
     @pytest.mark.ui

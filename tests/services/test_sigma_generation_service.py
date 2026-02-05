@@ -214,7 +214,7 @@ level: low
                             content_preview="title: Test\nid: test",
                         )
 
-                        result = await service.generate_sigma_rules(
+                        await service.generate_sigma_rules(
                             article_title=sample_article_data["title"],
                             article_content=sample_article_data["content"],
                             source_name=sample_article_data["source_name"],
@@ -298,7 +298,7 @@ level: low
                             content_preview="title: Test\nid: test",
                         )
 
-                        result = await service.generate_sigma_rules(
+                        await service.generate_sigma_rules(
                             article_title=sample_article_data["title"],
                             article_content=long_content,
                             source_name=sample_article_data["source_name"],
@@ -379,7 +379,7 @@ level: low
                             content_preview=sample_sigma_rule,
                         )
 
-                        result = await service.generate_sigma_rules(
+                        await service.generate_sigma_rules(
                             article_title=sample_article_data["title"],
                             article_content=sample_article_data["content"],
                             source_name=sample_article_data["source_name"],
@@ -814,7 +814,7 @@ level: high
                         assert len(result["rules"]) >= 1
                         # Check conversation log for expansion phase
                         conversation_log = result["metadata"].get("conversation_log", [])
-                        expansion_found = any(
+                        any(
                             entry.get("generation_phase") == "expansion"
                             for entry in conversation_log
                             if isinstance(entry, dict)

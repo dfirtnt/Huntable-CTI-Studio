@@ -120,15 +120,15 @@ class DatabaseBackup:
                     "-t",
                     "-c",
                     """
-                SELECT 
+                SELECT
                     schemaname,
                     tablename,
                     n_tup_ins as inserts,
-                    n_tup_upd as updates, 
+                    n_tup_upd as updates,
                     n_tup_del as deletes,
                     n_live_tup as live_rows,
                     n_dead_tup as dead_rows
-                FROM pg_stat_user_tables 
+                FROM pg_stat_user_tables
                 ORDER BY tablename;
                 """,
                 ],

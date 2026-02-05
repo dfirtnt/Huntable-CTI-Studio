@@ -31,7 +31,9 @@ def assert_test_environment():
                 f"DATABASE_URL is set to non-test database: {prod_db_url}. Tests must use TEST_DATABASE_URL only."
             )
         # If DATABASE_URL points to test, warn but allow (for compatibility)
-        warnings.warn("DATABASE_URL is set in test environment. Use TEST_DATABASE_URL instead.", RuntimeWarning)
+        warnings.warn(
+            "DATABASE_URL is set in test environment. Use TEST_DATABASE_URL instead.", RuntimeWarning, stacklevel=2
+        )
 
     # Check TEST_DATABASE_URL contains "test"
     if "test" not in test_db_url.lower():
@@ -64,4 +66,5 @@ def assert_test_environment():
             f"Cloud LLM API keys are enabled in tests: {', '.join(present_keys)}. "
             "This may incur API costs. Ensure this is intentional.",
             UserWarning,
+            stacklevel=2,
         )

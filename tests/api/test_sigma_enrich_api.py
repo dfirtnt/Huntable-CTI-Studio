@@ -141,7 +141,7 @@ class TestSigmaEnrichAPI:
 
             # Should accept instruction parameter without error
             try:
-                result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+                await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
                 # If successful, verify instruction was used
                 assert enrich_request.instruction == "Improve this rule"
             except Exception as e:

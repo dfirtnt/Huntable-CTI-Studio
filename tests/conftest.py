@@ -22,6 +22,7 @@ except ImportError:  # Allow running targeted tests without pytest-asyncio
     warnings.warn(
         "pytest-asyncio not installed; async fixtures will behave as regular fixtures.",
         RuntimeWarning,
+        stacklevel=2,
     )
 import logging
 import shutil
@@ -126,10 +127,7 @@ async def test_environment_validation():
 async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing."""
     # Fallback to default port if test_environment_config is None
-    if test_environment_config is None:
-        port = int(os.getenv("TEST_PORT", "8001"))
-    else:
-        port = test_environment_config.test_port
+    port = int(os.getenv("TEST_PORT", "8001")) if test_environment_config is None else test_environment_config.test_port
     base_url = f"http://127.0.0.1:{port}"
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
@@ -517,7 +515,7 @@ def pytest_runtest_logreport(report):
                 exc_info = report.longrepr
 
                 # Generate failure report
-                failure_context = generate_failure_report(
+                generate_failure_report(
                     test_name=test_name,
                     exc_info=(Exception, Exception(str(exc_info)), None),
                     test_duration=report.duration,

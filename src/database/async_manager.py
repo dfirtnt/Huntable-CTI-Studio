@@ -204,8 +204,8 @@ class AsyncDatabaseManager:
                 ]:
                     score_count_result = await session.execute(
                         text(f"""
-                            SELECT COUNT(*) FROM articles WHERE archived = FALSE 
-                            AND CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT) 
+                            SELECT COUNT(*) FROM articles WHERE archived = FALSE
+                            AND CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT)
                             BETWEEN {min_score} AND {max_score}
                         """)
                     )
@@ -1123,7 +1123,7 @@ class AsyncDatabaseManager:
             async with self.get_session() as session:
                 # Raw SQL query for better performance
                 query = """
-                SELECT 
+                SELECT
                     s.id,
                     s.name,
                     s.identifier,
@@ -1132,17 +1132,17 @@ class AsyncDatabaseManager:
                     COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END) as rejected_count,
                     COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END) as chosen_count,
                     COUNT(CASE WHEN a.article_metadata->>'training_category' IS NULL OR a.article_metadata->>'training_category' = 'unclassified' THEN 1 END) as unclassified_count,
-                    CASE 
-                        WHEN COUNT(a.id) > 0 THEN 
+                    CASE
+                        WHEN COUNT(a.id) > 0 THEN
                             ROUND(COUNT(CASE WHEN a.article_metadata->>'training_category' = 'rejected' THEN 1 END)::numeric / COUNT(a.id)::numeric * 100, 1)
-                        ELSE 0 
+                        ELSE 0
                     END as rejection_rate,
-                    CASE 
-                        WHEN COUNT(a.id) > 0 THEN 
+                    CASE
+                        WHEN COUNT(a.id) > 0 THEN
                             ROUND(COUNT(CASE WHEN a.article_metadata->>'training_category' = 'chosen' THEN 1 END)::numeric / COUNT(a.id)::numeric * 100, 1)
-                        ELSE 0 
+                        ELSE 0
                     END as acceptance_rate
-                FROM sources s 
+                FROM sources s
                 LEFT JOIN articles a ON s.id = a.source_id AND a.archived = false
                 GROUP BY s.id, s.name, s.identifier, s.active
                 ORDER BY rejected_count DESC, rejection_rate DESC
@@ -1283,9 +1283,9 @@ class AsyncDatabaseManager:
 
                 # Content hash duplicates
                 content_hash_query = """
-                SELECT content_hash, COUNT(*) as count 
-                FROM articles 
-                GROUP BY content_hash 
+                SELECT content_hash, COUNT(*) as count
+                FROM articles
+                GROUP BY content_hash
                 HAVING COUNT(*) > 1
                 """
                 result = await session.execute(text(content_hash_query))
@@ -1298,7 +1298,7 @@ class AsyncDatabaseManager:
 
                 # SimHash coverage
                 simhash_query = """
-                SELECT 
+                SELECT
                     COUNT(*) as total_articles,
                     COUNT(CASE WHEN simhash IS NOT NULL THEN 1 END) as simhash_articles
                 FROM articles
@@ -1314,7 +1314,7 @@ class AsyncDatabaseManager:
                 # Near duplicates (simhash buckets)
                 bucket_query = """
                 SELECT simhash_bucket, COUNT(*) as count
-                FROM articles 
+                FROM articles
                 WHERE simhash_bucket IS NOT NULL
                 GROUP BY simhash_bucket
                 ORDER BY count DESC
@@ -1453,11 +1453,11 @@ class AsyncDatabaseManager:
 
                 # Daily trends (last 30 days)
                 daily_query = """
-                SELECT 
+                SELECT
                     DATE(discovered_at) as date,
                     COUNT(*) as articles_count,
                     COUNT(DISTINCT source_id) as sources_count
-                FROM articles 
+                FROM articles
                 WHERE discovered_at >= NOW() - INTERVAL '30 days'
                 GROUP BY DATE(discovered_at)
                 ORDER BY date DESC
@@ -1476,10 +1476,10 @@ class AsyncDatabaseManager:
 
                 # Hourly distribution (today) - using local timezone
                 hourly_query = """
-                SELECT 
+                SELECT
                     EXTRACT(hour FROM discovered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') as hour,
                     COUNT(*) as articles_count
-                FROM articles 
+                FROM articles
                 WHERE DATE(discovered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') = (CURRENT_DATE AT TIME ZONE 'America/New_York')::date
                 GROUP BY EXTRACT(hour FROM discovered_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')
                 ORDER BY hour
@@ -1492,7 +1492,7 @@ class AsyncDatabaseManager:
 
                 # Source breakdown (last 7 days)
                 source_query = """
-                SELECT 
+                SELECT
                     s.name as source_name,
                     COUNT(a.id) as articles_count,
                     ROUND(AVG(CAST(a.article_metadata->>'threat_hunting_score' AS NUMERIC)), 1) as avg_hunt_score,
@@ -1533,14 +1533,14 @@ class AsyncDatabaseManager:
 
                 # Hunt score ranges (last 30 days)
                 hunt_score_query = """
-                SELECT 
+                SELECT
                     DATE(discovered_at) as date,
                     COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) >= 80 THEN 1 END) as excellent_count,
                     COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) BETWEEN 60 AND 79 THEN 1 END) as good_count,
                     COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) BETWEEN 40 AND 59 THEN 1 END) as moderate_count,
                     COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) BETWEEN 20 AND 39 THEN 1 END) as low_count,
                     COUNT(CASE WHEN CAST(article_metadata->>'threat_hunting_score' AS NUMERIC) < 20 OR article_metadata->>'threat_hunting_score' IS NULL THEN 1 END) as minimal_count
-                FROM articles 
+                FROM articles
                 WHERE discovered_at >= NOW() - INTERVAL '30 days'
                 GROUP BY DATE(discovered_at)
                 ORDER BY date DESC

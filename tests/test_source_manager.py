@@ -1,6 +1,7 @@
 """Tests for source manager functionality."""
 
-from unittest.mock import patch
+import json
+from unittest.mock import mock_open, patch
 
 import pytest
 

@@ -88,7 +88,7 @@ def get_coverage_stats():
         with engine.connect() as conn:
             result = conn.execute(
                 text("""
-                SELECT 
+                SELECT
                     COUNT(*) as total_articles,
                     COUNT(CASE WHEN simhash IS NOT NULL THEN 1 END) as simhash_articles,
                     ROUND((COUNT(CASE WHEN simhash IS NOT NULL THEN 1 END)::numeric / COUNT(*)) * 100, 1) as coverage_percent

@@ -38,7 +38,7 @@ class TestAnnotationUIPersistence:
                 huntable_btn.click()
 
                 # Assert annotation is created (check for success message or UI update)
-                success_indicator = page.locator(".annotation-created, .success")
+                page.locator(".annotation-created, .success")
                 # May not always be visible, so just verify no error
                 expect(page).not_to_have_url("", timeout=1000)
 

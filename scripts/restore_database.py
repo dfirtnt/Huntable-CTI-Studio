@@ -97,7 +97,7 @@ def validate_backup_file(backup_path: Path) -> dict[str, Any]:
         try:
             with open(metadata_path) as f:
                 metadata = json.load(f)
-        except:
+        except (OSError, json.JSONDecodeError):
             pass
 
     return {
@@ -270,7 +270,7 @@ def restore_database(backup_path: Path, create_snapshot: bool = True, force: boo
         try:
             if temp_path is not None:
                 os.unlink(temp_path)
-        except:
+        except OSError:
             pass
 
 

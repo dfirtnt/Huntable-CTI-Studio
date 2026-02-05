@@ -45,11 +45,11 @@ def fix_async_manager():
                 )
                 urls = result.scalars().all()
                 return set(urls)
-                
+
         except Exception as e:
             logger.error(f"Failed to get existing URLs: {e}")
             return set()
-    
+
     '''
 
     new_content = content[:method_end] + new_method + content[method_end:]
@@ -90,7 +90,7 @@ def fix_sync_manager():
         with self.get_session() as session:
             urls = session.query(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit).all()
             return {url_tuple[0] for url_tuple in urls}
-    
+
     '''
 
     new_content = content[:method_end] + new_method + content[method_end:]

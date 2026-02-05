@@ -62,7 +62,7 @@ def search_similar_rules(rule_content: dict[str, Any], top_k: int = 20, threshol
         zero_vector = "[" + ",".join(["0.0"] * 768) + "]"
 
         query_text = """
-            SELECT 
+            SELECT
                 sr.id,
                 sr.rule_id,
                 sr.title,
@@ -72,12 +72,12 @@ def search_similar_rules(rule_content: dict[str, Any], top_k: int = 20, threshol
                 sr.status,
                 sr.file_path,
                 sr.detection,
-                CASE 
+                CASE
                     WHEN sr.logsource_embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
-                        THEN 1 - (sr.logsource_embedding <=> %(embedding)s::vector) 
+                        THEN 1 - (sr.logsource_embedding <=> %(embedding)s::vector)
                     WHEN sr.embedding IS NOT NULL AND %(embedding)s != %(zero_vec)s
                         THEN 1 - (sr.embedding <=> %(embedding)s::vector)
-                    ELSE 0.0 
+                    ELSE 0.0
                 END AS signature_sim
             FROM sigma_rules sr
             WHERE (

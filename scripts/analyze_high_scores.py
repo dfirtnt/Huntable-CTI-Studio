@@ -54,7 +54,7 @@ def get_high_score_articles(threshold: float = 75.0) -> list[dict[str, Any]]:
     """Query database for articles with hunt scores above threshold."""
 
     query = """
-    SELECT 
+    SELECT
         a.id,
         a.title,
         a.canonical_url,

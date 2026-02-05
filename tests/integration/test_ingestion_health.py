@@ -55,12 +55,12 @@ class TestIngestionHealth:
                 # Check for articles discovered in the last 48 hours
                 cutoff_time = datetime.utcnow() - timedelta(hours=48)
                 recent_articles_query = select(func.count(ArticleTable.id)).where(
-                    and_(ArticleTable.discovered_at >= cutoff_time, ArticleTable.archived == False)
+                    and_(ArticleTable.discovered_at >= cutoff_time, not ArticleTable.archived)
                 )
                 recent_count = await session.scalar(recent_articles_query)
-                total_query = select(func.count(ArticleTable.id)).where(ArticleTable.archived == False)
+                total_query = select(func.count(ArticleTable.id)).where(not ArticleTable.archived)
                 total_count = await session.scalar(total_query)
-                latest_query = select(func.max(ArticleTable.discovered_at)).where(ArticleTable.archived == False)
+                latest_query = select(func.max(ArticleTable.discovered_at)).where(not ArticleTable.archived)
                 latest_discovery = await session.scalar(latest_query)
                 assert recent_count is not None, "Failed to query recent articles"
                 assert total_count is not None, "Failed to query total articles"
@@ -107,7 +107,7 @@ class TestIngestionHealth:
         try:
             async with test_database_manager.get_session() as session:
                 # Get all active sources
-                active_sources_query = select(SourceTable).where(SourceTable.active == True)
+                active_sources_query = select(SourceTable).where(SourceTable.active)
                 result = await session.execute(active_sources_query)
                 active_sources = result.scalars().all()
                 if not active_sources:
@@ -233,7 +233,7 @@ class TestIngestionHealth:
         """
         try:
             async with test_database_manager.get_session() as session:
-                active_sources_query = select(func.count(SourceTable.id)).where(SourceTable.active == True)
+                active_sources_query = select(func.count(SourceTable.id)).where(SourceTable.active)
                 active_count = await session.scalar(active_sources_query)
                 if active_count == 0:
                     pytest.skip("No active sources configured. Cannot test ingestion pipeline.")
@@ -244,11 +244,11 @@ class TestIngestionHealth:
                 recent_check_count = await session.scalar(recent_checks_query)
                 article_cutoff = datetime.utcnow() - timedelta(hours=24)
                 recent_articles_query = select(func.count(ArticleTable.id)).where(
-                    and_(ArticleTable.discovered_at >= article_cutoff, ArticleTable.archived == False)
+                    and_(ArticleTable.discovered_at >= article_cutoff, not ArticleTable.archived)
                 )
                 recent_article_count = await session.scalar(recent_articles_query)
                 successful_checks_query = select(func.count(SourceCheckTable.id)).where(
-                    and_(SourceCheckTable.check_time >= check_cutoff, SourceCheckTable.success == True)
+                    and_(SourceCheckTable.check_time >= check_cutoff, SourceCheckTable.success)
                 )
                 successful_check_count = await session.scalar(successful_checks_query)
                 health_report = {

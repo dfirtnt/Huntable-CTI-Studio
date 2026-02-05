@@ -33,17 +33,17 @@ def load_articles(min_hunt_score: float = 80.0, limit: int | None = None) -> lis
 
     query = f"""
     SELECT json_agg(row_to_json(t)) FROM (
-        SELECT 
-            a.id, 
-            a.title, 
-            a.canonical_url as url, 
-            s.name as source, 
-            a.content, 
+        SELECT
+            a.id,
+            a.title,
+            a.canonical_url as url,
+            s.name as source,
+            a.content,
             (a.article_metadata->>'threat_hunting_score')::float as hunt_score
-        FROM articles a 
-        JOIN sources s ON a.source_id = s.id 
-        WHERE (a.article_metadata->>'threat_hunting_score')::float >= {min_hunt_score} 
-        AND a.archived = false 
+        FROM articles a
+        JOIN sources s ON a.source_id = s.id
+        WHERE (a.article_metadata->>'threat_hunting_score')::float >= {min_hunt_score}
+        AND a.archived = false
         ORDER BY hunt_score DESC
         {limit_clause}
     ) t;

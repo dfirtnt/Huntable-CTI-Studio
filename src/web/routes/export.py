@@ -26,10 +26,10 @@ async def api_export_annotations():
 
             query = text(
                 """
-                SELECT 
+                SELECT
                     ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
                     aa.selected_text as highlighted_text,
-                    CASE 
+                    CASE
                         WHEN aa.annotation_type = 'huntable' THEN 'Huntable'
                         WHEN aa.annotation_type = 'not_huntable' THEN 'Not Huntable'
                         ELSE aa.annotation_type

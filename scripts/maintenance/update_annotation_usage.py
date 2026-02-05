@@ -39,8 +39,8 @@ def update_annotation_usage(annotation_ids: list[int], usage: str = "gold"):
         # First, verify the annotations exist
         # Use parameterized query with tuple for IN clause
         check_query = text("""
-            SELECT id, usage, annotation_type 
-            FROM article_annotations 
+            SELECT id, usage, annotation_type
+            FROM article_annotations
             WHERE id = ANY(:ids)
         """)
         result = session.execute(check_query, {"ids": annotation_ids})
@@ -62,7 +62,7 @@ def update_annotation_usage(annotation_ids: list[int], usage: str = "gold"):
 
         # Update the usage field
         update_query = text("""
-            UPDATE article_annotations 
+            UPDATE article_annotations
             SET usage = :usage, updated_at = NOW()
             WHERE id = ANY(:ids)
         """)
@@ -75,8 +75,8 @@ def update_annotation_usage(annotation_ids: list[int], usage: str = "gold"):
 
         # Verify the update
         verify_query = text("""
-            SELECT id, usage 
-            FROM article_annotations 
+            SELECT id, usage
+            FROM article_annotations
             WHERE id = ANY(:ids)
         """)
         verify_result = session.execute(verify_query, {"ids": annotation_ids})

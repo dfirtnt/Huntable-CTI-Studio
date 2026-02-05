@@ -43,8 +43,8 @@ class TestExtractAgentEvaluator:
             json.dump(test_data, f)
 
         with (
-            patch("src.services.evaluation.extract_agent_evaluator.LLMService") as mock_llm_class,
-            patch("src.services.evaluation.extract_agent_evaluator.ContentFilter") as mock_filter_class,
+            patch("src.services.evaluation.extract_agent_evaluator.LLMService"),
+            patch("src.services.evaluation.extract_agent_evaluator.ContentFilter"),
             patch("src.services.evaluation.extract_agent_evaluator.DatabaseManager") as mock_db_class,
         ):
             mock_db = Mock()

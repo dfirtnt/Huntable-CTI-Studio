@@ -523,7 +523,7 @@ class DFIRArchiveFetcher:
                             try:
                                 published_at = datetime.strptime(date_text, fmt)
                                 break
-                            except:
+                            except ValueError:
                                 continue
 
             # Method 3: Try to extract from URL (TheDFIRReport URLs often contain dates: /2025/11/17/...)
@@ -535,7 +535,7 @@ class DFIRArchiveFetcher:
                     try:
                         year, month, day = url_match.groups()
                         published_at = datetime(int(year), int(month), int(day))
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             # Default to current date if still not found (but log warning)

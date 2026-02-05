@@ -118,7 +118,7 @@ class TestWorkflowTabNavigation:
         page.wait_for_load_state("networkidle")
 
         # Verify Executions tab is active
-        executions_content = page.locator("#tab-content-executions")
+        page.locator("#tab-content-executions")
         # Note: URL parameter handling may be implemented in JavaScript
         # This test verifies the page loads correctly
 
@@ -422,7 +422,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_timeout(300)
 
         # Check for error message
-        error_message = page.locator("#junkFilterThreshold-error")
+        page.locator("#junkFilterThreshold-error")
         # Error message may or may not be visible depending on validation timing
 
     @pytest.mark.ui
@@ -567,7 +567,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_timeout(300)
 
         # Check for error message
-        error_message = page.locator("#rankingThreshold-error")
+        page.locator("#rankingThreshold-error")
         # Error may or may not be visible depending on validation
 
     @pytest.mark.ui
@@ -603,7 +603,7 @@ class TestWorkflowConfigurationRankAgent:
 
         # Verify badge updates
         qa_badge = page.locator("#rank-agent-qa-badge")
-        badge_text = qa_badge.text_content()
+        qa_badge.text_content()
         # Badge should reflect new state
 
     @pytest.mark.ui
@@ -1231,7 +1231,7 @@ class TestWorkflowExecutionsTabStatistics:
         page.wait_for_timeout(1000)
 
         # Get initial stats
-        initial_total = page.locator("#totalExecutions").text_content()
+        page.locator("#totalExecutions").text_content()
 
         # Change filter
         status_filter = page.locator("#statusFilter")
@@ -1289,7 +1289,7 @@ class TestWorkflowExecutionsTabTable:
         page.locator("#tab-executions").click()
 
         # Check for loading state initially
-        loading_text = page.locator("text=Loading...")
+        page.locator("text=Loading...")
         # Loading state may appear briefly
 
     @pytest.mark.ui
@@ -1310,7 +1310,7 @@ class TestWorkflowExecutionsTabTable:
         # Table may show "Loading..." or actual data
         if rows.count() > 0:
             first_row = rows.first
-            row_text = first_row.text_content()
+            first_row.text_content()
             # Verify row contains expected data or empty state message
 
 
@@ -1393,7 +1393,7 @@ class TestWorkflowExecutionsTabModal:
                 page.wait_for_timeout(300)
 
                 # Verify modal has fullscreen class
-                modal_content = page.locator("#executionModalContent")
+                page.locator("#executionModalContent")
                 # Check if fullscreen class is applied
 
     @pytest.mark.ui
@@ -1601,7 +1601,7 @@ class TestWorkflowQueueTabTable:
 
         # Find table (may be dynamically created)
         # Check for table headers or table body
-        table_headers = page.locator("th:has-text('Rule ID'), th:has-text('Title'), th:has-text('Status')")
+        page.locator("th:has-text('Rule ID'), th:has-text('Title'), th:has-text('Status')")
         # Table may or may not exist depending on data
 
 
@@ -1703,7 +1703,7 @@ class TestWorkflowExecutionsTableAdvanced:
         page.wait_for_timeout(2000)
 
         # Check for status badges in table rows
-        status_badges = page.locator(
+        page.locator(
             "span:has-text('Pending'), span:has-text('Running'), span:has-text('Completed'), span:has-text('Failed')"
         )
         # Badges may or may not be visible depending on data
@@ -1720,7 +1720,7 @@ class TestWorkflowExecutionsTableAdvanced:
         page.wait_for_timeout(2000)
 
         # Check for step badges
-        step_badges = page.locator("text=Filter, text=Rank, text=Extract, text=SIGMA")
+        page.locator("text=Filter, text=Rank, text=Extract, text=SIGMA")
         # Step badges may or may not be visible depending on data
 
     @pytest.mark.ui
@@ -1735,7 +1735,7 @@ class TestWorkflowExecutionsTableAdvanced:
         page.wait_for_timeout(2000)
 
         # Find Live buttons (should only be visible for running/pending)
-        live_buttons = page.locator("button:has-text('📺 Live')")
+        page.locator("button:has-text('📺 Live')")
         # Buttons may or may not exist depending on execution status
 
     @pytest.mark.ui
@@ -1750,7 +1750,7 @@ class TestWorkflowExecutionsTableAdvanced:
         page.wait_for_timeout(2000)
 
         # Find Retry buttons (should only be visible for failed)
-        retry_buttons = page.locator("button:has-text('Retry')").first
+        page.locator("button:has-text('Retry')").first
         # Buttons may or may not exist depending on execution status
 
     @pytest.mark.ui
@@ -1771,7 +1771,7 @@ class TestWorkflowExecutionsTableAdvanced:
         if rows.count() > 0:
             # Ranking scores should be formatted (e.g., "6.5" or "-")
             first_row = rows.first
-            row_text = first_row.text_content()
+            first_row.text_content()
             # Verify row contains expected data structure
 
 
@@ -1860,7 +1860,7 @@ class TestWorkflowConfigurationAdvanced:
 
         # Verify button is disabled initially (no changes made)
         # Button may be disabled or have opacity styling
-        button_disabled = save_button.is_disabled()
+        save_button.is_disabled()
         # Button should be disabled if no changes, or have disabled styling
 
     @pytest.mark.ui

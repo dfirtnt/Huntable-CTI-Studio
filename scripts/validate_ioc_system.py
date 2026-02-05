@@ -21,7 +21,7 @@ async def validate_hybrid_extraction():
     # Test content with various IOCs
     test_content = """
     APT29 Threat Intelligence Report
-    
+
     Recent analysis reveals new indicators:
     - C2 Server: 192.168.1.100
     - Malicious Domain: malicious[.]com

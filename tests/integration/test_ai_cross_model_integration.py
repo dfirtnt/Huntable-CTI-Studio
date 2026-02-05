@@ -15,6 +15,7 @@ from unittest.mock import Mock, patch
 try:
     from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
 
+    from src.services.sigma_generation_service import SigmaGenerationService
     from src.services.sigma_validator import SigmaValidator
     from src.utils.ioc_extractor import HybridIOCExtractor
 except ImportError:
@@ -22,6 +23,18 @@ except ImportError:
     GPT4oContentOptimizer = None
     HybridIOCExtractor = None
     SigmaValidator = None
+    SigmaGenerationService = None
+
+
+# Helper function to call the service method
+def generate_sigma_rules(content: str) -> str:
+    """Helper to generate sigma rules from content."""
+    if SigmaGenerationService is None:
+        raise ImportError("SigmaGenerationService not available")
+    service = SigmaGenerationService()
+    import asyncio
+
+    return asyncio.run(service.generate_sigma_rules(content))
 
 
 class TestAICrossModelIntegration:
@@ -36,21 +49,21 @@ class TestAICrossModelIntegration:
             This article describes an APT29 campaign that uses PowerShell techniques
             including rundll32.exe and certutil for persistence. The threat actors
             use comspec environment variables and wmic commands to evade detection.
-            
+
             The campaign targets Event ID 4624 and uses parent-child process relationships
             to maintain persistence. Hunters should look for svchost.exe spawning
             unusual child processes.
-            
+
             IOCs identified:
             - IP: 192.168.1.100
             - Domain: malicious.example.com
             - Hash: a1b2c3d4e5f6789012345678901234567890abcd
             - Email: attacker@evil.com
-            
+
             Registry keys modified:
             - HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run
             - HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run
-            
+
             File paths:
             - C:\\Windows\\Temp\\malware.exe
             - %TEMP%\\suspicious.dll
@@ -69,24 +82,24 @@ class TestAICrossModelIntegration:
                     "message": {
                         "content": """
                     SIGMA HUNTABILITY SCORE: 8
-                    
+
                     CATEGORY BREAKDOWN:
                     - Process/Command-Line (0-4): 4 - Detailed PowerShell and LOLBAS techniques
                     - Persistence/System Mods (0-3): 3 - Registry persistence mechanisms
                     - Log Correlation (0-2): 1 - Event ID correlation mentioned
                     - Structured Patterns (0-1): 1 - Clear file path patterns
-                    
+
                     SIGMA-READY OBSERVABLES:
                     - PowerShell execution with encoded commands
                     - rundll32.exe and certutil usage
                     - Registry key modifications
                     - Process creation patterns
-                    
+
                     REQUIRED LOG SOURCES:
                     - Windows Event Logs (4688, 4624)
                     - Sysmon Event ID 1
                     - Registry monitoring
-                    
+
                     RULE FEASIBILITY:
                     High - Multiple detection rules can be created immediately
                     """
@@ -103,26 +116,26 @@ class TestAICrossModelIntegration:
                 {
                     "text": """
                 SIGMA HUNTABILITY SCORE: 9
-                
+
                 CATEGORY BREAKDOWN:
                 - Process/Command-Line (0-4): 4 - Excellent PowerShell and LOLBAS coverage
                 - Persistence/System Mods (0-3): 3 - Comprehensive registry persistence
                 - Log Correlation (0-2): 2 - Strong Event ID correlation
                 - Structured Patterns (0-1): 1 - Clear file path and process patterns
-                
+
                 SIGMA-READY OBSERVABLES:
                 - PowerShell execution with encoded commands
                 - rundll32.exe and certutil usage
                 - Registry key modifications
                 - Process creation patterns
                 - WMI command execution
-                
+
                 REQUIRED LOG SOURCES:
                 - Windows Event Logs (4688, 4624)
                 - Sysmon Event ID 1, 13
                 - Registry monitoring
                 - WMI event logs
-                
+
                 RULE FEASIBILITY:
                 Very High - Multiple high-quality detection rules can be created
                 """

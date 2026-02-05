@@ -63,6 +63,6 @@ level: medium"""
             save_btn.click()
 
             # Assert success message or redirect
-            success_msg = page.locator(".success, .notification-success, [role='status']")
+            page.locator(".success, .notification-success, [role='status']")
             # May not always be visible, so just check it doesn't error
             expect(page).not_to_have_url("", timeout=1000)

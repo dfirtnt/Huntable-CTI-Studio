@@ -352,7 +352,7 @@ class TestRSSParser:
         # Calculate expected timestamp for 2024-01-01 12:00:00 UTC
         # time.mktime interprets struct_time as local time, so we need to account for timezone
         expected_timestamp = time.mktime(time.struct_time((2024, 1, 1, 12, 0, 0, 0, 1, 0)))
-        expected_date = datetime.fromtimestamp(expected_timestamp)
+        datetime.fromtimestamp(expected_timestamp)
 
         with patch("time.mktime", return_value=expected_timestamp):
             date = await parser._extract_date(entry)

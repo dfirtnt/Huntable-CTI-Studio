@@ -65,7 +65,7 @@ def run_psql_command(sql: str, timeout: int = 30) -> list[dict] | None:
 def get_coverage_stats() -> dict:
     """Get current SimHash coverage statistics."""
     sql = """
-    SELECT 
+    SELECT
         COUNT(*) as total_articles,
         COUNT(simhash) as with_simhash,
         ROUND(COUNT(simhash)::numeric / COUNT(*)::numeric * 100, 1) as coverage_percent
@@ -97,10 +97,10 @@ def get_coverage_stats() -> dict:
 def get_articles_without_simhash(batch_size: int = 100) -> list[dict]:
     """Get batch of articles without SimHash values."""
     sql = f"""
-    SELECT id, title, content 
-    FROM articles 
-    WHERE simhash IS NULL 
-    ORDER BY created_at 
+    SELECT id, title, content
+    FROM articles
+    WHERE simhash IS NULL
+    ORDER BY created_at
     LIMIT {batch_size};
     """
 
@@ -111,7 +111,7 @@ def get_articles_without_simhash(batch_size: int = 100) -> list[dict]:
 def update_article_simhash(article_id: int, simhash: int, bucket: int) -> bool:
     """Update article with SimHash values."""
     sql = f"""
-    UPDATE articles 
+    UPDATE articles
     SET simhash = {simhash}, simhash_bucket = {bucket}
     WHERE id = {article_id};
     """

@@ -285,7 +285,7 @@ class TestFailingSourcesWidget:
         page.wait_for_timeout(2000)
 
         # Verify empty state message
-        empty_state = page.locator("text=No failing sources")
+        page.locator("text=No failing sources")
         # Empty state may or may not be visible depending on data
 
 
@@ -335,7 +335,7 @@ class TestHighScoreArticlesWidget:
         page.wait_for_timeout(2000)
 
         # Find article links
-        article_links = page.locator("a[href^='/articles/']")
+        page.locator("a[href^='/articles/']")
         # Articles may or may not exist depending on data
 
     @pytest.mark.ui
@@ -359,7 +359,7 @@ class TestHighScoreArticlesWidget:
         page.wait_for_timeout(2000)
 
         # Look for score displays (numbers)
-        score_elements = page.locator("text=/\\d{1,2}\\.\\d/")
+        page.locator("text=/\\d{1,2}\\.\\d/")
         # Scores may or may not exist depending on data
 
 
@@ -456,7 +456,7 @@ class TestRecentActivityWidget:
         page.wait_for_timeout(2000)
 
         # Check for empty state message
-        empty_state = page.locator("text=No recent activity")
+        page.locator("text=No recent activity")
         # Empty state may or may not be visible depending on data
 
 
@@ -621,7 +621,7 @@ class TestDataLoading:
 
         # Get initial timestamp
         last_updated = page.locator("#last-updated")
-        initial_timestamp = last_updated.text_content()
+        last_updated.text_content()
 
         # Wait for potential update
         page.wait_for_timeout(3000)

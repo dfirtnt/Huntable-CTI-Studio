@@ -26,7 +26,7 @@ def check_training_datasets():
     try:
         # Get gold annotation IDs
         gold_query = text("""
-            SELECT id FROM article_annotations 
+            SELECT id FROM article_annotations
             WHERE usage = 'gold' AND annotation_type = 'CMD'
             ORDER BY id
         """)
@@ -35,7 +35,7 @@ def check_training_datasets():
 
         # Get eval annotation IDs
         eval_query = text("""
-            SELECT id FROM article_annotations 
+            SELECT id FROM article_annotations
             WHERE usage = 'eval' AND annotation_type = 'CMD'
             ORDER BY id
         """)
@@ -122,7 +122,7 @@ def check_training_datasets():
                             all_gold_found.add(ann_id)
                         if ann_id in eval_ids:
                             all_eval_found.add(ann_id)
-                    except:
+                    except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                         continue
 
         if all_gold_found or all_eval_found:

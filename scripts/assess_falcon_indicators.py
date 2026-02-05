@@ -112,17 +112,17 @@ def query_articles_with_indicators() -> list[dict[str, Any]]:
 
     query = f"""
     SELECT json_agg(row_to_json(t)) FROM (
-        SELECT 
-            a.id, 
-            a.title, 
-            a.canonical_url as url, 
-            s.name as source, 
+        SELECT
+            a.id,
+            a.title,
+            a.canonical_url as url,
+            s.name as source,
             a.content,
             (a.article_metadata->>'threat_hunting_score')::float as hunt_score,
             a.article_metadata,
             a.published_at
-        FROM articles a 
-        JOIN sources s ON a.source_id = s.id 
+        FROM articles a
+        JOIN sources s ON a.source_id = s.id
         WHERE ({where_clause})
         AND a.archived = false
         AND a.content IS NOT NULL

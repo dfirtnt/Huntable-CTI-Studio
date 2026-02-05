@@ -52,7 +52,7 @@ def run_migration():
                 logger.info("Adding canonical_json column...")
                 conn.execute(
                     text("""
-                    ALTER TABLE sigma_rules 
+                    ALTER TABLE sigma_rules
                     ADD COLUMN canonical_json JSONB;
                 """)
                 )
@@ -65,7 +65,7 @@ def run_migration():
                 logger.info("Adding exact_hash column...")
                 conn.execute(
                     text("""
-                    ALTER TABLE sigma_rules 
+                    ALTER TABLE sigma_rules
                     ADD COLUMN exact_hash VARCHAR(64);
                 """)
                 )
@@ -78,7 +78,7 @@ def run_migration():
                 logger.info("Adding canonical_text column...")
                 conn.execute(
                     text("""
-                    ALTER TABLE sigma_rules 
+                    ALTER TABLE sigma_rules
                     ADD COLUMN canonical_text TEXT;
                 """)
                 )
@@ -91,7 +91,7 @@ def run_migration():
                 logger.info("Adding logsource_key column...")
                 conn.execute(
                     text("""
-                    ALTER TABLE sigma_rules 
+                    ALTER TABLE sigma_rules
                     ADD COLUMN logsource_key VARCHAR(100);
                 """)
                 )
@@ -104,7 +104,7 @@ def run_migration():
                 logger.info("Adding near_hash column...")
                 conn.execute(
                     text("""
-                    ALTER TABLE sigma_rules 
+                    ALTER TABLE sigma_rules
                     ADD COLUMN near_hash VARCHAR(64);
                 """)
                 )
@@ -120,7 +120,7 @@ def run_migration():
                 logger.info("Creating index on exact_hash...")
                 conn.execute(
                     text("""
-                    CREATE INDEX idx_sigma_rules_exact_hash 
+                    CREATE INDEX idx_sigma_rules_exact_hash
                     ON sigma_rules(exact_hash);
                 """)
                 )
@@ -133,7 +133,7 @@ def run_migration():
                 logger.info("Creating index on logsource_key...")
                 conn.execute(
                     text("""
-                    CREATE INDEX idx_sigma_rules_logsource_key 
+                    CREATE INDEX idx_sigma_rules_logsource_key
                     ON sigma_rules(logsource_key);
                 """)
                 )
@@ -146,7 +146,7 @@ def run_migration():
                 logger.info("Creating index on near_hash...")
                 conn.execute(
                     text("""
-                    CREATE INDEX idx_sigma_rules_near_hash 
+                    CREATE INDEX idx_sigma_rules_near_hash
                     ON sigma_rules(near_hash);
                 """)
                 )

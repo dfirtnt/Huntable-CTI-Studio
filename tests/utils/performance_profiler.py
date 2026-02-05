@@ -389,7 +389,7 @@ class AsyncPerformanceProfiler:
             operation_data["duration"] = operation_data["end_time"] - start_time
 
             # Count async operations
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             operation_data["task_count"] = len(asyncio.all_tasks())
 
             self.async_operations.append(operation_data)

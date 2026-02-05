@@ -10,7 +10,7 @@ import inspect
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -73,10 +73,8 @@ class AsyncDebugger:
         self.monitoring_active = False
         if self._monitor_task:
             self._monitor_task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._monitor_task
-            except asyncio.CancelledError:
-                pass
 
         logger.debug("Async monitoring stopped")
 
@@ -341,8 +339,7 @@ class AsyncTestIsolation:
 
         try:
             # Run the test
-            result = await test_func(*args, **kwargs)
-            return result
+            return await test_func(*args, **kwargs)
         finally:
             # Cleanup
             await self._cleanup_isolation()
@@ -354,10 +351,8 @@ class AsyncTestIsolation:
         for task in self.isolated_tasks:
             if not task.done():
                 task.cancel()
-                try:
+                with suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
 
         # Run cleanup functions
         for cleanup_func in self.cleanup_functions:
@@ -409,8 +404,7 @@ async def debug_async_test(test_func: Callable, *args, **kwargs):
     await debugger.start_monitoring()
 
     try:
-        result = await test_func(*args, **kwargs)
-        return result
+        return await test_func(*args, **kwargs)
     finally:
         await debugger.stop_monitoring()
 

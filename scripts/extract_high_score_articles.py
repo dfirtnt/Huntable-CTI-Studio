@@ -116,7 +116,7 @@ def get_high_score_articles() -> list[dict[str, Any]]:
     """Query database for articles with hunt scores > 80."""
 
     query = """
-    SELECT 
+    SELECT
         a.id,
         a.title,
         a.canonical_url,

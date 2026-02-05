@@ -23,10 +23,10 @@ def export_highlights(output_file=None):
     # SQL query to export data
     sql_query = """
     COPY (
-      SELECT 
+      SELECT
         ROW_NUMBER() OVER (ORDER BY th.created_at) as record_number,
         th.selected_text as highlighted_text,
-        CASE 
+        CASE
           WHEN th.is_huntable = true THEN 'Huntable'
           WHEN th.is_huntable = false THEN 'Not Huntable'
           ELSE 'Unknown'

@@ -180,9 +180,9 @@ def generate_html(analyses: dict[str, dict[str, Any]]) -> str:
         .comparison-table {{ font-size: 13px; }}
         .comparison-table td {{ text-align: center; }}
         .comparison-table th {{ white-space: nowrap; position: relative; }}
-        .comparison-table th.rotated {{ 
-            height: 140px; 
-            vertical-align: bottom; 
+        .comparison-table th.rotated {{
+            height: 140px;
+            vertical-align: bottom;
             padding: 0;
             padding-bottom: 5px;
             text-align: left;
