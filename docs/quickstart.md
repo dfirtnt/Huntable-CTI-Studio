@@ -1,5 +1,16 @@
 # Quickstart
 
+**By the end of this guide you will have:**
+
+1. Ingested a real CTI article (CISA advisory)
+2. Run the full agentic workflow (OS detection → extraction → Sigma generation)
+3. Viewed extracted huntables and validated Sigma rules
+4. Confirmed the stack is healthy with pytest
+
+Total time: ~5 minutes (plus initial Docker image build).
+
+---
+
 End-to-end run using Docker Compose and the built-in workflow. Commands use `python3` explicitly and match the live stack (`./start.sh`, ports 8001/8888).
 
 ## 1) Prerequisites

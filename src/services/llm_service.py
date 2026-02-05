@@ -372,7 +372,8 @@ class LLMService:
                 return env_value
             if require_specific_model:
                 raise ValueError(
-                    f"{agent_name} model must be configured for LMStudio (workflow config or LMSTUDIO_MODEL_{agent_name.upper()})."
+                    f"{agent_name} model must be configured for LMStudio "
+                    f"(workflow config or LMSTUDIO_MODEL_{agent_name.upper()})."
                 )
             return default_model
         return self.provider_defaults.get(provider, default_model)
@@ -595,7 +596,8 @@ class LLMService:
             try:
                 context_length = int(override_value)
                 logger.info(
-                    f"Using manual context length override for {model_name}: {context_length} tokens (from {override_key})"
+                    f"Using manual context length override for {model_name}: "
+                    f"{context_length} tokens (from {override_key})"
                 )
                 is_sufficient = context_length >= threshold
                 return {
@@ -640,7 +642,8 @@ class LLMService:
                                         context_length = detected_context
                                         detection_method = "api_models_endpoint"
                                         logger.info(
-                                            f"Detected {model_name} context length ({context_length} tokens) from /models endpoint"
+                                            f"Detected {model_name} context length "
+                                            f"({context_length} tokens) from /models endpoint"
                                         )
                                         break
                                     else:
@@ -684,7 +687,8 @@ class LLMService:
                             context_length = threshold
                             detection_method = "test_request_threshold_verified"
                             logger.info(
-                                f"Verified {model_name} supports threshold context length ({threshold} tokens) via test request"
+                                f"Verified {model_name} supports threshold context length "
+                                f"({threshold} tokens) via test request"
                             )
                             break
                         if response.status_code == 400:
@@ -698,7 +702,8 @@ class LLMService:
                                     context_length = int(match.group(1))
                                     detection_method = "error_message_parsing"
                                     logger.info(
-                                        f"Detected {model_name} context length ({context_length} tokens) from error message"
+                                        f"Detected {model_name} context length "
+                                        f"({context_length} tokens) from error message"
                                     )
                                     break
                                 # Alternative: "greater than the context length of X tokens"
@@ -707,7 +712,8 @@ class LLMService:
                                     context_length = int(match.group(1))
                                     detection_method = "error_message_parsing"
                                     logger.info(
-                                        f"Detected {model_name} context length ({context_length} tokens) from error message"
+                                        f"Detected {model_name} context length "
+                                        f"({context_length} tokens) from error message"
                                     )
                                     break
                     except httpx.TimeoutException:
@@ -796,14 +802,16 @@ class LLMService:
         if provider == "openai":
             if not self.workflow_openai_enabled:
                 raise RuntimeError(
-                    "OpenAI provider is disabled for agentic workflows (enable WORKFLOW_OPENAI_ENABLED or set in Settings)."
+                    "OpenAI provider is disabled for agentic workflows "
+                    "(enable WORKFLOW_OPENAI_ENABLED or set in Settings)."
                 )
             if not self.openai_api_key:
                 raise RuntimeError("OpenAI API key is not configured for agentic workflows.")
         elif provider == "anthropic":
             if not self.workflow_anthropic_enabled:
                 raise RuntimeError(
-                    "Anthropic provider is disabled for agentic workflows (enable WORKFLOW_ANTHROPIC_ENABLED or set in Settings)."
+                    "Anthropic provider is disabled for agentic workflows "
+                    "(enable WORKFLOW_ANTHROPIC_ENABLED or set in Settings)."
                 )
             if not self.anthropic_api_key:
                 raise RuntimeError("Anthropic API key is not configured for agentic workflows.")
@@ -911,6 +919,23 @@ class LLMService:
         if not self.openai_api_key:
             raise RuntimeError("OpenAI API key not configured for agentic workflows.")
 
+        # Runtime validation: check if model is valid for chat completions
+        from src.web.routes.ai import is_valid_openai_chat_model
+
+        if not is_valid_openai_chat_model(model_name):
+            import re
+
+            # Suggest base model if it's a dated version
+            base_model = re.sub(r"-\d{4}-\d{2}-\d{2}(-preview)?$", "", model_name)
+            base_model = re.sub(r"-latest$", "", base_model)
+            base_model = re.sub(r"-preview$", "", base_model)
+            suggestion = f" Use base model '{base_model}' instead." if base_model != model_name else ""
+            raise RuntimeError(
+                f"Model '{model_name}' is not a valid OpenAI chat completion model.{suggestion} "
+                f"Specialized models (codex, audio, image, realtime, etc.) "
+                f"and invalid dated versions are not supported."
+            )
+
         # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
         payload = {
             "model": model_name,
@@ -1017,7 +1042,8 @@ class LLMService:
                         delay = min(delay, max_delay)
                         if attempt < max_retries - 1:
                             logger.warning(
-                                f"Anthropic API rate limited (429). Retry {attempt + 1}/{max_retries} after {delay:.1f}s."
+                                f"Anthropic API rate limited (429). "
+                                f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s."
                             )
                             await asyncio.sleep(delay)
                             continue
@@ -1138,7 +1164,10 @@ class LLMService:
                     f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
                 )
                 logger.debug(
-                    f"Request payload preview: model={payload.get('model')}, messages_count={len(payload.get('messages', []))}, max_tokens={payload.get('max_tokens')}, temperature={payload.get('temperature')}, top_p={payload.get('top_p')}"
+                    f"Request payload preview: model={payload.get('model')}, "
+                    f"messages_count={len(payload.get('messages', []))}, "
+                    f"max_tokens={payload.get('max_tokens')}, "
+                    f"temperature={payload.get('temperature')}, top_p={payload.get('top_p')}"
                 )
 
                 # Log full payload for debugging (truncate long content)
@@ -1291,7 +1320,8 @@ class LLMService:
                         raise RuntimeError(
                             f"{failure_context}: Invalid request to LMStudio. "
                             f"Status {response.status_code}: {error_message}. "
-                            f"This usually means the model '{model_name}' is not loaded, the request format is invalid, or the context window is too small."
+                            f"This usually means the model '{model_name}' is not loaded, "
+                            f"the request format is invalid, or the context window is too small."
                         )
 
                 except RuntimeError:
@@ -1460,7 +1490,8 @@ class LLMService:
             # Detected context exceeds model's likely max - cap to model max
             actual_context_length = int(model_max_context * 0.90)
             logger.warning(
-                f"Detected context {detected_length} exceeds model max {model_max_context}, capping to {actual_context_length}"
+                f"Detected context {detected_length} exceeds model max {model_max_context}, "
+                f"capping to {actual_context_length}"
             )
         else:
             # Detected context is very small or unreliable - use conservative model-specific cap
@@ -1547,7 +1578,8 @@ class LLMService:
         total_tokens_needed = total_prompt_tokens + max_output_tokens
         if total_tokens_needed > actual_context_length:
             logger.error(
-                f"WARNING: Total tokens needed ({total_tokens_needed}) exceeds context length ({actual_context_length}). "
+                f"WARNING: Total tokens needed ({total_tokens_needed}) "
+                f"exceeds context length ({actual_context_length}). "
                 f"This may cause context overflow errors."
             )
 
@@ -1808,7 +1840,8 @@ class LLMService:
         elif detected_length > model_max_context:
             actual_context_length = int(model_max_context * 0.90)
             logger.warning(
-                f"Detected context {detected_length} exceeds model max {model_max_context}, capping to {actual_context_length}"
+                f"Detected context {detected_length} exceeds model max {model_max_context}, "
+                f"capping to {actual_context_length}"
             )
         else:
             if is_reasoning_model:
@@ -1897,7 +1930,8 @@ class LLMService:
         total_tokens_needed = total_prompt_tokens + max_output_tokens
         if total_tokens_needed > actual_context_length:
             logger.error(
-                f"WARNING: Total tokens needed ({total_tokens_needed}) exceeds context length ({actual_context_length}). "
+                f"WARNING: Total tokens needed ({total_tokens_needed}) "
+                f"exceeds context length ({actual_context_length}). "
                 f"This may cause context overflow errors."
             )
 
@@ -2300,7 +2334,8 @@ class LLMService:
         elif detected_length > model_max_context:
             actual_context_length = int(model_max_context * 0.90)
             logger.warning(
-                f"Detected context {detected_length} exceeds model max {model_max_context}, capping to {actual_context_length}"
+                f"Detected context {detected_length} exceeds model max {model_max_context}, "
+                f"capping to {actual_context_length}"
             )
         else:
             if is_reasoning_model:

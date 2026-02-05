@@ -1,28 +1,45 @@
 # Huntable CTI Studio
 
-Huntable CTI Studio (CTIScraper) collects threat intelligence, extracts huntable observables, and turns them into Sigma detections. This documentation is the source of truth for running, operating, and extending the system. All pages live in `/docs` and are rendered with MkDocs Material (`mkdocs serve` to preview locally).
+**Turn threat intelligence into Sigma detections—faster.**
 
-## What you can do
-- Stand up the full stack with Docker Compose and the `./start.sh` wrapper
-- Scrape or upload CTI articles and send them through the agentic workflow
-- Review extracted observables ("huntables"), chunk analyses, and generated Sigma rules
-- Operate via the web UI at `http://localhost:8001` or the REST API
+CTI reports bury actionable signals in prose; manual extraction is slow and error-prone. Huntable CTI Studio automates observable extraction and Sigma rule generation with transparent, tunable AI—so detection engineers can focus on hunting, not parsing.
+
+## Who is this for?
+
+| Role | What you get |
+|------|--------------|
+| **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated with pySigma and de-duplicated against SigmaHQ |
+| **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
+| **SOC Analysts** | Curated, scored intelligence feed with RAG-powered search |
 
 ## Highlights
-- **Multi-source aggregation**: RSS feeds, direct scrape endpoints, and browser extension inputs feed the pipeline.
-- **Agentic workflow**: OS detection (Windows-only) → junk filter → LLM ranking → Extract Agent (command-line, process tree, hunt queries) → Sigma generation → similarity search → queue.
-- **Storage & services**: FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler.
-- **Detection support**: PySigma validation, SigmaHQ similarity matching, and coverage classification with embeddings.
-- **Chat & search**: RAG-powered search across collected intelligence, plus observable-aware annotations.
 
-## Running the stack
-- Requirements: Docker + Docker Compose plugin, `.env` populated with `POSTGRES_PASSWORD` and optional LLM keys.
-- Start: `./start.sh` builds and launches the compose stack (web on `8001`, aux on `8888`).
-- Health: `curl http://localhost:8001/health` or open `http://localhost:8001/docs` for the live OpenAPI schema.
+- **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension inputs feed the pipeline
+- **Agentic workflow** — OS detection → junk filter → LLM ranking → Extract Agent (command-line, process tree, hunt queries) → Sigma generation → similarity search
+- **Detection support** — PySigma validation, SigmaHQ similarity matching, coverage classification with embeddings
+- **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
+- **Chat & search** — RAG-powered search across collected intelligence, observable-aware annotations
+
+## Quick start
+
+```bash
+git clone https://github.com/starlord/CTIScraper.git && cd CTIScraper
+cp .env.example .env && echo "POSTGRES_PASSWORD=change_me" >> .env
+./start.sh
+```
+
+Health check: `curl http://localhost:8001/health` · Web UI: `http://localhost:8001`
 
 ## Where to go next
-- **Quickstart**: End-to-end ingest → extract huntables → Sigma → pytest (`quickstart.md`).
-- **Concepts**: Huntables, agents, pipelines, and observables (`concepts/*`).
-- **How-to**: Run locally, add feeds, trigger extraction, generate Sigma, and evaluate models (`howto/*`).
-- **Reference**: API endpoints, config, schemas, Sigma prompt, and versioning details (`reference/*`).
-- **Internals**: Architecture diagrams, scoring logic, chunking pipeline, and QA loops (`internals/*`).
+
+**I want to…**
+
+- **Run it now** → [Quickstart](quickstart.md) — ingest an article, run the workflow, see Sigma rules in 5 minutes
+- **Understand the concepts** → [Huntables](concepts/huntables.md) | [Agents](concepts/agents.md) | [Pipelines](concepts/pipelines.md)
+- **Operate it** → [Add feeds](howto/add_feed.md) | [Extract observables](howto/extract_observables.md) | [Generate Sigma](howto/generate_sigma.md)
+- **Extend or integrate** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [Architecture](internals/architecture.md)
+- **Deploy to production** → [Getting Started](deployment/GETTING_STARTED.md) | [Docker Architecture](deployment/DOCKER_ARCHITECTURE.md)
+
+---
+
+*This documentation lives in `/docs` and renders with MkDocs Material (`mkdocs serve` to preview locally).*

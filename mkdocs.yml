@@ -1,7 +1,9 @@
 site_name: Huntable CTI Studio
-site_description: Modern docs for the Huntable CTI Studio (CTIScraper)
+site_description: Modern docs for Huntable CTI Studio (CTIScraper)
 theme:
   name: material
+  features:
+    - content.code.copy
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
@@ -10,7 +12,7 @@ nav:
       - Agents: concepts/agents.md
       - Pipelines: concepts/pipelines.md
       - Observables: concepts/observables.md
-  - How-to:
+  - How-To:
       - Run locally: howto/run_locally.md
       - Add feed: howto/add_feed.md
       - Extract observables: howto/extract_observables.md
@@ -32,20 +34,52 @@ nav:
       - Getting Started: deployment/GETTING_STARTED.md
       - Docker Architecture: deployment/DOCKER_ARCHITECTURE.md
       - Technical Readout: deployment/TECHNICAL_READOUT.md
-  - Development:
-      - Setup: development/DEVELOPMENT_SETUP.md
-      - Port Configuration: development/PORT_CONFIGURATION.md
-      - Web App Testing: development/WEB_APP_TESTING.md
-      - Database Queries: development/DATABASE_QUERY_GUIDE.md
-      - Debugging Tools: DEBUGGING_TOOLS_GUIDE.md
-  - Features:
-      - Content Filtering: features/CONTENT_FILTERING.md
-      - Cmdline Attention Preprocessor: features/CMDLINE_ATTENTION_PREPROCESSOR.md
-      - OS Detection: features/OS_DETECTION.md
-      - Sigma Rules: features/SIGMA_DETECTION_RULES.md
-  - Operations:
-      - Backup & Restore: operations/BACKUP_AND_RESTORE.md
-      - Source Config: operations/SOURCE_CONFIG_PRECEDENCE.md
-  - Contributing: contributing.md
+  - Advanced:
+      - LLM & Models:
+          - LMStudio Integration: LMSTUDIO_INTEGRATION.md
+          - Model Selection: Model_Selection_Guide_CTI_Workflows.md
+          - OpenAI Reference: OpenAI_Chat_Models_Reference.md
+      - ML & Training:
+          - ML Hunt Scoring: ML_HUNT_SCORING.md
+          - Huntable Windows: HUNTABLE_WINDOWS_CLASSIFIER.md
+          - Database Training: DATABASE_TRAINING_SYSTEM.md
+          - Content Filter ML: features/CONTENT_FILTER_ML_SETUP.md
+      - Features:
+          - Content Filtering: features/CONTENT_FILTERING.md
+          - Cmdline Attention Preprocessor: features/CMDLINE_ATTENTION_PREPROCESSOR.md
+          - OS Detection: features/OS_DETECTION.md
+          - Observable Evaluation: features/OBSERVABLE_EVALUATION_DESIGN.md
+          - Sigma Rules: features/SIGMA_DETECTION_RULES.md
+      - Operations:
+          - Backup & Restore: operations/BACKUP_AND_RESTORE.md
+          - Cross Machine Restore: operations/CROSS_MACHINE_RESTORE.md
+          - Memory Optimization: operations/MEMORY_OPTIMIZATION.md
+          - Source Config: operations/SOURCE_CONFIG_PRECEDENCE.md
+          - Verify ML Versions Backup: operations/VERIFY_ML_VERSIONS_BACKUP.md
+      - Development:
+          - Setup: development/DEVELOPMENT_SETUP.md
+          - Port Configuration: development/PORT_CONFIGURATION.md
+          - Web App Testing: development/WEB_APP_TESTING.md
+          - Database Queries: development/DATABASE_QUERY_GUIDE.md
+          - Debugging Tools: development/DEBUGGING_TOOLS_GUIDE.md
+          - Advanced Quality System: development/ADVANCED_QUALITY_SYSTEM.md
+          - Allure Reports: development/ALLURE_REPORTS.md
+          - Debug Eval Logs: development/DEBUG_EVAL_LMSTUDIO_LOGS.md
+          - Hybrid IOC Extraction: development/HYBRID_IOC_EXTRACTION.md
+          - Lightweight Integration Testing: development/LIGHTWEIGHT_INTEGRATION_TESTING.md
+          - Multi Instance Setup: development/MULTI_INSTANCE_SETUP.md
+          - Manual Checklist 30min: development/MANUAL_CHECKLIST_30MIN.md
+          - Manual Test Checklist: development/MANUAL_TEST_CHECKLIST.md
+          - Search Queries: development/search-queries.md
+          - Boolean Search: development/boolean-search.md
+          - Backfill Chunk Analysis: development/backfill_chunk_analysis_help.md
+          - Troubleshoot Eval Pending: development/TROUBLESHOOT_EVAL_PENDING.md
+          - Workflow Queue Setup: development/WORKFLOW_QUEUE_SETUP.md
+          - Web App Dev Testing Guide: development/WebAppDevtestingGuide.md
+  - Contributing: CONTRIBUTING.md
 plugins:
   - search
+extra_javascript:
+  - js/stackedit.js
+extra_css:
+  - css/stackedit.css

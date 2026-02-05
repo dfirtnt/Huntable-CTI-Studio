@@ -2359,8 +2359,124 @@ function isModelAllowedForProvider(provider, modelId) {
     return guard.test(modelId.trim());
 }
 
+// Patterns for non-chat OpenAI models
+const NON_CHAT_MODEL_PATTERNS = [
+    /-codex/i,
+    /-audio/i,
+    /-image/i,
+    /-realtime/i,
+    /-tts/i,
+    /-transcribe/i,
+    /-search/i,
+    /^gpt-realtime/i,
+    /^gpt-audio/i,
+    /^gpt-image/i,
+    /-deep-research/i,
+    /^omni-moderation/i,
+    /^text-davinci/i,
+    /^davinci-/i,
+    /^curie-/i,
+    /^babbage-/i,
+    /^ada-/i
+];
+
+// Valid base chat model patterns
+const VALID_CHAT_BASE_PATTERNS = [
+    /^gpt-5(\.\d+)?(-(pro|mini|nano))?$/i,
+    /^gpt-4(\.\d+)?(-(mini|nano|turbo))?$/i,
+    /^gpt-4o(-mini)?$/i,
+    /^gpt-3\.5-turbo/i,
+    /^o[134](-(pro|mini))?$/i
+];
+
 /**
- * Validates provider/model combination and shows error if invalid
+ * Client-side validation for OpenAI chat models
+ * @param {string} modelId - Model identifier
+ * @returns {Object} - {valid: boolean, error?: string, suggestion?: string}
+ */
+function isValidOpenAIChatModel(modelId) {
+    if (!modelId || typeof modelId !== 'string') {
+        return {valid: false, error: 'Model ID is required'};
+    }
+    
+    const trimmed = modelId.trim();
+    if (!trimmed) {
+        return {valid: false, error: 'Model ID cannot be empty'};
+    }
+    
+    // Must match OpenAI pattern
+    if (!providerModelGuards.openai || !providerModelGuards.openai.test(trimmed)) {
+        return {valid: false, error: `Model "${trimmed}" does not match OpenAI patterns`};
+    }
+    
+    // Exclude non-chat models
+    for (const pattern of NON_CHAT_MODEL_PATTERNS) {
+        if (pattern.test(trimmed)) {
+            return {
+                valid: false,
+                error: `Model "${trimmed}" is not a chat completion model (specialized model detected)`,
+                suggestion: 'Use a chat completion model like gpt-5.2-pro, gpt-4o, or gpt-4o-mini'
+            };
+        }
+    }
+    
+    // Check if it matches a valid base pattern
+    const baseModel = trimmed.replace(/-\d{4}-\d{2}-\d{2}(-preview)?$/, '')
+                             .replace(/-latest$/, '')
+                             .replace(/-preview$/, '');
+    
+    for (const pattern of VALID_CHAT_BASE_PATTERNS) {
+        if (pattern.test(baseModel)) {
+            // If it has a date suffix, suggest using base model
+            if (trimmed !== baseModel && /-\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+                return {
+                    valid: false,
+                    error: `Dated model "${trimmed}" may not work with chat completions`,
+                    suggestion: `Use base model "${baseModel}" instead`
+                };
+            }
+            return {valid: true};
+        }
+    }
+    
+    // Check known valid base models
+    const knownValidBases = [
+        'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
+        'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
+        'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo',
+        'o3', 'o3-pro', 'o3-mini', 'o4-mini', 'o1', 'o1-pro'
+    ];
+    
+    if (knownValidBases.includes(baseModel.toLowerCase())) {
+        if (trimmed !== baseModel && /-\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+            return {
+                valid: false,
+                error: `Dated model "${trimmed}" may not work with chat completions`,
+                suggestion: `Use base model "${baseModel}" instead`
+            };
+        }
+        return {valid: true};
+    }
+    
+    // If it has a date suffix but doesn't match known patterns, warn
+    if (/-\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+        return {
+            valid: false,
+            error: `Dated model "${trimmed}" is not validated for chat completions`,
+            suggestion: `Use base model "${baseModel}" instead`
+        };
+    }
+    
+    // Fallback: allow if it starts with gpt- or o
+    if (/^(gpt-|o)/i.test(trimmed)) {
+        return {valid: true, warning: `Model "${trimmed}" is not explicitly validated`};
+    }
+    
+    return {valid: false, error: `Unknown model format: "${trimmed}"`};
+}
+
+/**
+ * Validates provider/model combination and shows error if invalid (synchronous client-side)
  * @param {string} agentPrefix - Agent prefix (e.g., 'rankagent')
  * @param {string} provider - Provider name
  * @param {string} modelId - Model identifier
@@ -2378,11 +2494,21 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
     
     let isValid = true;
     let errorMessage = '';
+    let suggestion = null;
     
     if (normalizedProvider === 'openai') {
+        // First check pattern match
         if (!isModelAllowedForProvider('openai', trimmed)) {
             isValid = false;
             errorMessage = `Invalid model for OpenAI provider. Model "${trimmed}" does not match OpenAI patterns (gpt-*, o*, etc.).`;
+        } else {
+            // Then validate chat compatibility
+            const validation = isValidOpenAIChatModel(trimmed);
+            if (!validation.valid) {
+                isValid = false;
+                errorMessage = validation.error || `Model "${trimmed}" is not a valid chat completion model`;
+                suggestion = validation.suggestion;
+            }
         }
     } else if (normalizedProvider === 'anthropic') {
         if (!isModelAllowedForProvider('anthropic', trimmed)) {
@@ -2401,12 +2527,42 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
     }
     
     if (!isValid) {
-        showProviderModelError(agentPrefix, errorMessage);
+        const fullMessage = suggestion ? `${errorMessage} ${suggestion}` : errorMessage;
+        showProviderModelError(agentPrefix, fullMessage);
     } else {
         clearProviderModelError(agentPrefix);
+        // Optionally do async server-side validation for extra confidence (non-blocking)
+        validateProviderModelCombinationAsync(agentPrefix, normalizedProvider, trimmed).catch(e => {
+            console.warn('Async model validation failed:', e);
+        });
     }
     
     return isValid;
+}
+
+/**
+ * Async server-side validation (non-blocking, for extra confidence)
+ */
+async function validateProviderModelCombinationAsync(agentPrefix, provider, modelId) {
+    if (provider !== 'openai') return; // Only validate OpenAI models server-side for now
+    
+    try {
+        const response = await fetch('/api/validate-model', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({provider: provider, model: modelId})
+        });
+        const result = await response.json();
+        if (!result.valid) {
+            const errorMsg = result.suggestion 
+                ? `${result.error} ${result.suggestion}` 
+                : result.error;
+            showProviderModelError(agentPrefix, errorMsg);
+        }
+    } catch (e) {
+        // Silently fail - client-side validation is primary
+        console.debug('Server-side model validation failed:', e);
+    }
 }
 
 /**

@@ -5,6 +5,26 @@ All notable changes to CTI Scraper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Documentation Overhaul**: Complete reorganization and enhancement of MkDocs documentation
+  - Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation
+  - Enhanced quickstart.md with clear outcome statements
+  - Fixed architecture.md schema inaccuracies (removed tier column, corrected hunt_score reference)
+  - Moved 17 historical/spec files to docs/archive/
+  - Moved 6 testing docs to docs/development/
+  - Removed redundant docs/README.md and docs/DOCUMENTATION.md
+  - Fixed cross-references (WORKFLOW_DATA_FLOW.md link to DEBUGGING_TOOLS_GUIDE.md)
+- **MkDocs Enhancements**:
+  - Added copy button feature for all code blocks (`content.code.copy`)
+  - Integrated StackEdit for browser-based Markdown editing
+  - Added custom JavaScript and CSS for StackEdit integration with modal instructions
+
+### Changed
+- **Documentation Structure**: Reorganized navigation to match proposed structure with Advanced section
+- **File Organization**: Consolidated testing and historical documentation into appropriate subdirectories
+
 ## [5.0.0 "Callisto"] - 2026-01-15
 
 ### Added
