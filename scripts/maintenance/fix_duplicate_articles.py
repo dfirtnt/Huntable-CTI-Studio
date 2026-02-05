@@ -30,10 +30,10 @@ async def fix_duplicate_articles():
             # Find all duplicate IDs
             logger.info("Finding duplicate article IDs...")
             duplicate_query = text("""
-                SELECT id, COUNT(*) as count 
-                FROM articles 
-                GROUP BY id 
-                HAVING COUNT(*) > 1 
+                SELECT id, COUNT(*) as count
+                FROM articles
+                GROUP BY id
+                HAVING COUNT(*) > 1
                 ORDER BY id
             """)
 
@@ -63,8 +63,8 @@ async def fix_duplicate_articles():
                 # Get all articles with this ID, ordered by created_at
                 articles_query = text("""
                     SELECT id, source_id, title, canonical_url, created_at
-                    FROM articles 
-                    WHERE id = :article_id 
+                    FROM articles
+                    WHERE id = :article_id
                     ORDER BY created_at ASC
                 """)
 
@@ -84,8 +84,8 @@ async def fix_duplicate_articles():
 
                     # Update the article with new ID
                     update_query = text("""
-                        UPDATE articles 
-                        SET id = :new_id 
+                        UPDATE articles
+                        SET id = :new_id
                         WHERE id = :old_id AND source_id = :source_id
                     """)
 
@@ -97,8 +97,8 @@ async def fix_duplicate_articles():
                     # Update article_annotations
                     await session.execute(
                         text("""
-                        UPDATE article_annotations 
-                        SET article_id = :new_id 
+                        UPDATE article_annotations
+                        SET article_id = :new_id
                         WHERE article_id = :old_id
                     """),
                         {"new_id": new_id_counter, "old_id": article_id},
@@ -107,8 +107,8 @@ async def fix_duplicate_articles():
                     # Update content_hashes
                     await session.execute(
                         text("""
-                        UPDATE content_hashes 
-                        SET article_id = :new_id 
+                        UPDATE content_hashes
+                        SET article_id = :new_id
                         WHERE article_id = :old_id
                     """),
                         {"new_id": new_id_counter, "old_id": article_id},
@@ -117,8 +117,8 @@ async def fix_duplicate_articles():
                     # Update simhash_buckets
                     await session.execute(
                         text("""
-                        UPDATE simhash_buckets 
-                        SET article_id = :new_id 
+                        UPDATE simhash_buckets
+                        SET article_id = :new_id
                         WHERE article_id = :old_id
                     """),
                         {"new_id": new_id_counter, "old_id": article_id},

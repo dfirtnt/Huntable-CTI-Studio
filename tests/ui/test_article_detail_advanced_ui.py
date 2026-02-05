@@ -27,7 +27,7 @@ class TestArticleDetailWorkflowExecution:
             page.wait_for_load_state("networkidle")
 
             # Find workflow execution status section
-            workflow_status = page.locator("text=Workflow Execution")
+            page.locator("text=Workflow Execution")
             # Workflow status may or may not be visible depending on execution state
 
     @pytest.mark.ui
@@ -45,7 +45,7 @@ class TestArticleDetailWorkflowExecution:
             page.wait_for_load_state("networkidle")
 
             # Find execution history section
-            execution_history = page.locator("text=Execution History")
+            page.locator("text=Execution History")
             # History may or may not be visible
 
     @pytest.mark.ui
@@ -141,7 +141,7 @@ class TestArticleDetailSigmaGeneration:
             page.wait_for_load_state("networkidle")
 
             # Find SIGMA rules section
-            sigma_section = page.locator("text=SIGMA")
+            page.locator("text=SIGMA")
             # SIGMA section may or may not be visible depending on article state
 
     @pytest.mark.ui
@@ -159,7 +159,7 @@ class TestArticleDetailSigmaGeneration:
             page.wait_for_load_state("networkidle")
 
             # Find SIGMA rules modal (may be dynamically created)
-            sigma_modal = page.locator("#sigmaRulesModal")
+            page.locator("#sigmaRulesModal")
             # Modal may or may not exist initially
 
 
@@ -181,7 +181,7 @@ class TestArticleDetailEditing:
             page.wait_for_load_state("networkidle")
 
             # Find edit buttons or forms
-            edit_buttons = page.locator("button:has-text('Edit'), button:has-text('Update')")
+            page.locator("button:has-text('Edit'), button:has-text('Update')")
             # Edit functionality may or may not exist
 
     @pytest.mark.ui
@@ -199,7 +199,7 @@ class TestArticleDetailEditing:
             page.wait_for_load_state("networkidle")
 
             # Find content editing elements
-            content_editors = page.locator("textarea, [contenteditable='true']")
+            page.locator("textarea, [contenteditable='true']")
             # Content editing may or may not be available
 
 
@@ -315,7 +315,7 @@ class TestArticleDetailDuplicateDetection:
             page.wait_for_load_state("networkidle")
 
             # Find duplicate detection section
-            duplicate_section = page.locator("text=Duplicate, text=Similar")
+            page.locator("text=Duplicate, text=Similar")
             # Duplicate detection may or may not be visible
 
 
@@ -337,7 +337,7 @@ class TestArticleDetailSimilaritySearch:
             page.wait_for_load_state("networkidle")
 
             # Find similarity search button
-            similarity_btn = page.locator("button:has-text('Similar'), button:has-text('Find Similar')")
+            page.locator("button:has-text('Similar'), button:has-text('Find Similar')")
             # Similarity search may or may not exist
 
 
@@ -382,7 +382,7 @@ class TestArticleDetailExport:
             page.wait_for_load_state("networkidle")
 
             # Find JSON export button or link
-            json_export = page.locator("button:has-text('JSON'), a:has-text('JSON')")
+            page.locator("button:has-text('JSON'), a:has-text('JSON')")
             # JSON export may or may not exist
 
     @pytest.mark.ui
@@ -400,7 +400,7 @@ class TestArticleDetailExport:
             page.wait_for_load_state("networkidle")
 
             # Find CSV export button or link
-            csv_export = page.locator("button:has-text('CSV'), a:has-text('CSV')")
+            page.locator("button:has-text('CSV'), a:has-text('CSV')")
             # CSV export may or may not exist
 
     @pytest.mark.ui
@@ -418,7 +418,7 @@ class TestArticleDetailExport:
             page.wait_for_load_state("networkidle")
 
             # Find Markdown export button or link
-            md_export = page.locator("button:has-text('Markdown'), a:has-text('Markdown')")
+            page.locator("button:has-text('Markdown'), a:has-text('Markdown')")
             # Markdown export may or may not exist
 
 

@@ -314,7 +314,7 @@ class RAGService:
 
                 # Use raw SQL text to avoid asyncpg parameter parsing issues with ::vector casts
                 stmt = text("""
-                    SELECT 
+                    SELECT
                         sr.id,
                         sr.rule_id,
                         sr.title,
@@ -323,12 +323,12 @@ class RAGService:
                         sr.level,
                         sr.status,
                         sr.file_path,
-                        CASE 
+                        CASE
                             WHEN sr.logsource_embedding IS NOT NULL AND :embedding != :zero_vec
-                                THEN 1 - (sr.logsource_embedding <=> :embedding) 
+                                THEN 1 - (sr.logsource_embedding <=> :embedding)
                             WHEN sr.embedding IS NOT NULL AND :embedding != :zero_vec
                                 THEN 1 - (sr.embedding <=> :embedding)
-                            ELSE 0.0 
+                            ELSE 0.0
                         END AS signature_sim
                     FROM sigma_rules sr
                     WHERE sr.logsource_embedding IS NOT NULL OR sr.embedding IS NOT NULL

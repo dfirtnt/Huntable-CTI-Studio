@@ -82,7 +82,7 @@ def rollback_last_training(observable_type: str = "CMD", archive: bool = True):
         # Reset flags
         id_list_str = ",".join(str(id) for id in annotation_ids)
         reset_query = text(f"""
-            UPDATE article_annotations 
+            UPDATE article_annotations
             SET used_for_training = FALSE
             WHERE id IN ({id_list_str})
             AND used_for_training = TRUE

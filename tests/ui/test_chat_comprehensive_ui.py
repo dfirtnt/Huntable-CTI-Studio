@@ -154,7 +154,7 @@ class TestMessageDisplay:
 
         # Verify timestamp exists (format may vary)
         # Timestamps are displayed in messages
-        messages = page.locator(".text-xs.opacity-70")
+        page.locator(".text-xs.opacity-70")
         # Timestamps may or may not be visible depending on rendering
 
     @pytest.mark.ui
@@ -576,7 +576,7 @@ class TestArticleResultsDisplay:
         page.wait_for_timeout(2000)
 
         # Verify no article results section appears
-        article_header = page.locator("text=📚")
+        page.locator("text=📚")
         # Header may or may not exist depending on implementation
 
 
@@ -938,7 +938,7 @@ class TestYAMLModal:
         page.wait_for_timeout(500)
 
         # Verify modal is closed
-        modal_title = page.locator("text=Test Rule")
+        page.locator("text=Test Rule")
         # Modal should no longer be visible
 
     @pytest.mark.ui
@@ -1000,7 +1000,7 @@ class TestYAMLModal:
         page.wait_for_timeout(500)
 
         # Verify modal is closed
-        modal_title = page.locator("text=Test Rule")
+        page.locator("text=Test Rule")
         # Modal should no longer be visible
 
     @pytest.mark.ui
@@ -1061,7 +1061,7 @@ class TestYAMLModal:
         page.wait_for_timeout(500)
 
         # Verify modal is closed
-        modal_title = page.locator("text=Test Rule")
+        page.locator("text=Test Rule")
         # Modal should no longer be visible
 
     @pytest.mark.ui
@@ -1507,7 +1507,7 @@ class TestInputArea:
         page.wait_for_timeout(3000)
 
         # Verify send button is disabled when input is empty
-        send_button = page.locator("button:has-text('Send')")
+        page.locator("button:has-text('Send')")
         # Button may be disabled when input is empty
 
     @pytest.mark.ui

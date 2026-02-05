@@ -43,7 +43,7 @@ try:
         try:
             error = response.json()
             print(f"   {error.get('detail', 'Unknown error')}")
-        except:
+        except (ValueError, KeyError):
             print(f"   {response.text[:200]}")
 
 except requests.exceptions.ConnectionError:

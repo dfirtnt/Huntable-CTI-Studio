@@ -523,7 +523,7 @@ class TestArticlesPagination:
         page.wait_for_load_state("networkidle")
 
         # Find pagination links
-        page_links = page.locator("a:has-text('1'), a:has-text('2'), a:has-text('3')")
+        page.locator("a:has-text('1'), a:has-text('2'), a:has-text('3')")
         # Page links may or may not exist depending on total pages
 
     @pytest.mark.ui
@@ -1011,7 +1011,7 @@ class TestArticlesCardFeatures:
         _ensure_filters_visible(page)
 
         # Find source links
-        source_links = page.locator("a[target='_blank']:has-text('Source:')")
+        page.locator("a[target='_blank']:has-text('Source:')")
         # Source links may or may not exist depending on article data
 
     @pytest.mark.ui
@@ -1066,9 +1066,7 @@ class TestArticlesCardFeatures:
         _ensure_filters_visible(page)
 
         # Find score badges
-        score_badges = page.locator(
-            "span:has-text('🎯'), span:has-text('🟡'), span:has-text('🟠'), span:has-text('🔴')"
-        )
+        page.locator("span:has-text('🎯'), span:has-text('🟡'), span:has-text('🟠'), span:has-text('🔴')")
         # Score badges may or may not exist depending on article data
 
     @pytest.mark.ui
@@ -1081,7 +1079,7 @@ class TestArticlesCardFeatures:
         _ensure_filters_visible(page)
 
         # Find ML score badges
-        ml_score_badges = page.locator("span:has-text('🤖')")
+        page.locator("span:has-text('🤖')")
         # ML score badges may or may not exist
 
     @pytest.mark.ui
@@ -1108,7 +1106,7 @@ class TestArticlesCardFeatures:
         _ensure_filters_visible(page)
 
         # Find annotation badges
-        annotation_badges = page.locator("span:has-text('📝')")
+        page.locator("span:has-text('📝')")
         # Annotation badges may or may not exist
 
     @pytest.mark.ui
@@ -1121,9 +1119,9 @@ class TestArticlesCardFeatures:
         _ensure_filters_visible(page)
 
         # Find keyword match badges
-        perfect_matches = page.locator("span:has-text('✅'):near(text=Perfect)")
-        good_matches = page.locator("span:has-text('🟡'):near(text=Good)")
-        lolbas_matches = page.locator("span:has-text('🔧')")
+        page.locator("span:has-text('✅'):near(text=Perfect)")
+        page.locator("span:has-text('🟡'):near(text=Good)")
+        page.locator("span:has-text('🔧')")
         # Keyword matches may or may not exist
 
     @pytest.mark.ui
@@ -1136,7 +1134,7 @@ class TestArticlesCardFeatures:
         _ensure_filters_visible(page)
 
         # Find truncation indicators
-        truncation_indicators = page.locator("span:has-text('+')")
+        page.locator("span:has-text('+')")
         # Truncation indicators may exist if there are many keyword matches
 
     @pytest.mark.ui
@@ -1475,5 +1473,5 @@ class TestArticlesEmptyState:
         _ensure_filters_visible(page)
 
         # Check if empty state appears
-        empty_state = page.locator("text=No articles found")
+        page.locator("text=No articles found")
         # Empty state may or may not appear depending on data

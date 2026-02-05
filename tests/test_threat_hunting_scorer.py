@@ -244,11 +244,11 @@ class TestThreatHuntingScorer:
         This article describes an APT29 campaign that uses PowerShell techniques
         including rundll32.exe and certutil.exe for persistence. The threat actors
         use comspec environment variables and wmic commands to evade detection.
-        
+
         The campaign targets Event ID 4624 and uses parent-child process relationships
         to maintain persistence. Hunters should look for svchost.exe spawning
         unusual child processes.
-        
+
         This is not a tutorial but a real-world threat intelligence report
         describing an active campaign in the wild.
         """
@@ -289,7 +289,7 @@ class TestThreatHuntingScorer:
         This article discusses practical threat hunting techniques using
         rundll32.exe and PowerShell. However, it's also a tutorial on
         how to learn more about best practices in threat hunting.
-        
+
         The content covers real-world examples but includes educational
         elements that should be penalized.
         """

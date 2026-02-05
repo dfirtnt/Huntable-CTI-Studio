@@ -4,18 +4,18 @@ Lightweight test configuration and fixtures for integration tests with minimal d
 This conftest provides mocked fixtures for testing critical paths without requiring
 full Docker environment setup.
 """
-import pytest
-import pytest_asyncio
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
-from typing import AsyncGenerator, Dict, Any, List
-from datetime import datetime, timedelta
 
-from src.models.article import Article, ArticleCreate
-from src.models.source import Source, SourceCreate
-from src.database.async_manager import AsyncDatabaseManager
-from src.utils.http import HTTPClient
+import asyncio
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from src.core.processor import ContentProcessor
+from src.database.async_manager import AsyncDatabaseManager
+from src.models.article import Article, ArticleCreate
+from src.models.source import Source
+from src.utils.http import HTTPClient
 
 
 @pytest.fixture(scope="session")
@@ -30,7 +30,7 @@ def event_loop():
 def mock_database_manager():
     """Mock database manager for lightweight integration tests."""
     mock_db = AsyncMock(spec=AsyncDatabaseManager)
-    
+
     # Mock article data
     mock_article = Article(
         id=1,
@@ -43,9 +43,9 @@ def mock_database_manager():
         collected_at=datetime.now(),
         discovered_at=datetime.now(),
         created_at=datetime.now(),
-        updated_at=datetime.now()
+        updated_at=datetime.now(),
     )
-    
+
     # Configure mock responses
     mock_db.list_articles.return_value = [mock_article]
     mock_db.get_article.return_value = mock_article
@@ -54,9 +54,9 @@ def mock_database_manager():
     mock_db.get_database_stats.return_value = {
         "total_articles": 1,
         "total_sources": 1,
-        "last_update": datetime.now().isoformat()
+        "last_update": datetime.now().isoformat(),
     }
-    
+
     # Mock source data
     mock_source = Source(
         id=1,
@@ -67,13 +67,13 @@ def mock_database_manager():
         check_frequency=3600,
         lookback_days=180,
         active=True,
-        config={}
+        config={},
     )
-    
+
     mock_db.list_sources.return_value = [mock_source]
     mock_db.get_source.return_value = mock_source
     mock_db.create_source.return_value = mock_source
-    
+
     return mock_db
 
 
@@ -81,7 +81,7 @@ def mock_database_manager():
 def mock_http_client():
     """Mock HTTP client for lightweight integration tests."""
     mock_client = AsyncMock(spec=HTTPClient)
-    
+
     # Mock RSS feed response
     mock_response = MagicMock()
     mock_response.text = """
@@ -105,10 +105,10 @@ def mock_http_client():
     </rss>
     """
     mock_response.raise_for_status.return_value = None
-    
+
     mock_client.get.return_value = mock_response
     mock_client.configure_source_robots.return_value = None
-    
+
     return mock_client
 
 
@@ -116,7 +116,7 @@ def mock_http_client():
 def mock_content_processor():
     """Mock content processor for lightweight integration tests."""
     mock_processor = AsyncMock(spec=ContentProcessor)
-    
+
     # Mock processing result
     mock_result = MagicMock()
     mock_result.unique_articles = [
@@ -125,67 +125,67 @@ def mock_content_processor():
             content="This is a test article about threat intelligence with TTP indicators.",
             url="https://example.com/article1",
             source_id=1,
-            published_date=datetime.now()
+            published_date=datetime.now(),
         ),
         ArticleCreate(
             title="Malware Analysis Report",
             content="Detailed analysis of recent malware campaign with IOCs.",
             url="https://example.com/article2",
             source_id=1,
-            published_date=datetime.now()
-        )
+            published_date=datetime.now(),
+        ),
     ]
     mock_result.duplicates = []
-    
+
     mock_processor.process_articles.return_value = mock_result
-    
+
     return mock_processor
 
 
 @pytest.fixture
 def sample_articles():
     """Sample articles for testing."""
-        return [
-            Article(
-                id=1,
-                title="APT29 Campaign Analysis",
-                content="Detailed analysis of APT29 techniques including process injection and lateral movement.",
-                canonical_url="https://example.com/apt29",
-                source_id=1,
-                published_at=datetime.now(),
-                content_hash="apt29-hash",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Article(
-                id=2,
-                title="Malware Detection Techniques",
-                content="Overview of modern malware detection and analysis methods.",
-                canonical_url="https://example.com/malware-detection",
-                source_id=1,
-                published_at=datetime.now(),
-                content_hash="malware-hash",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            ),
-            Article(
-                id=3,
-                title="Threat Hunting Guide",
-                content="Comprehensive guide to threat hunting methodologies and tools.",
-                canonical_url="https://example.com/threat-hunting",
-                source_id=1,
-                published_at=datetime.now(),
-                content_hash="hunting-hash",
-                collected_at=datetime.now(),
-                discovered_at=datetime.now(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
-        ]
+    return [
+        Article(
+            id=1,
+            title="APT29 Campaign Analysis",
+            content="Detailed analysis of APT29 techniques including process injection and lateral movement.",
+            canonical_url="https://example.com/apt29",
+            source_id=1,
+            published_at=datetime.now(),
+            content_hash="apt29-hash",
+            collected_at=datetime.now(),
+            discovered_at=datetime.now(),
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        ),
+        Article(
+            id=2,
+            title="Malware Detection Techniques",
+            content="Overview of modern malware detection and analysis methods.",
+            canonical_url="https://example.com/malware-detection",
+            source_id=1,
+            published_at=datetime.now(),
+            content_hash="malware-hash",
+            collected_at=datetime.now(),
+            discovered_at=datetime.now(),
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        ),
+        Article(
+            id=3,
+            title="Threat Hunting Guide",
+            content="Comprehensive guide to threat hunting methodologies and tools.",
+            canonical_url="https://example.com/threat-hunting",
+            source_id=1,
+            published_at=datetime.now(),
+            content_hash="hunting-hash",
+            collected_at=datetime.now(),
+            discovered_at=datetime.now(),
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        ),
+    ]
 
 
 @pytest.fixture
@@ -201,7 +201,7 @@ def sample_sources():
             check_frequency=3600,
             lookback_days=180,
             active=True,
-            config={}
+            config={},
         ),
         Source(
             id=2,
@@ -212,8 +212,8 @@ def sample_sources():
             check_frequency=7200,
             lookback_days=90,
             active=True,
-            config={}
-        )
+            config={},
+        ),
     ]
 
 
@@ -221,14 +221,12 @@ def sample_sources():
 def mock_content_processor():
     """Mock content processor for lightweight integration tests."""
     mock_processor = AsyncMock()
-    
+
     # Mock processing results
     mock_processor.process_articles.return_value = MagicMock(
-        unique_articles=[],
-        duplicates=[],
-        stats={"total": 0, "unique": 0, "duplicates": 0}
+        unique_articles=[], duplicates=[], stats={"total": 0, "unique": 0, "duplicates": 0}
     )
-    
+
     return mock_processor
 
 
@@ -236,7 +234,7 @@ def mock_content_processor():
 def mock_source_manager():
     """Mock source manager for lightweight integration tests."""
     mock_manager = AsyncMock()
-    
+
     # Mock source loading
     mock_source = Source(
         id=1,
@@ -247,18 +245,13 @@ def mock_source_manager():
         check_frequency=3600,
         lookback_days=180,
         active=True,
-        config={}
+        config={},
     )
-    
+
     mock_manager.load_sources_from_config.return_value = [mock_source]
     mock_manager.get_sources_due_for_check.return_value = [mock_source]
-    mock_manager.validate_source_config.return_value = {
-        "valid": True,
-        "sources_count": 1,
-        "errors": [],
-        "warnings": []
-    }
-    
+    mock_manager.validate_source_config.return_value = {"valid": True, "sources_count": 1, "errors": [], "warnings": []}
+
     return mock_manager
 
 
@@ -270,7 +263,7 @@ def mock_environment():
         "http_client": AsyncMock(spec=HTTPClient),
         "source_manager": AsyncMock(),
         "content_processor": AsyncMock(spec=ContentProcessor),
-        "quality_assessor": AsyncMock()
+        "quality_assessor": AsyncMock(),
     }
 
 
@@ -282,7 +275,7 @@ def test_config():
         "timeout": 30,
         "retry_attempts": 3,
         "headless": True,
-        "mock_mode": True
+        "mock_mode": True,
     }
 
 
@@ -299,16 +292,16 @@ def sample_ttp_data():
                     "technique_name": "T1055",
                     "hunting_guidance": "Monitor process creation",
                     "confidence": 0.9,
-                    "matched_text": "process injection"
+                    "matched_text": "process injection",
                 },
                 {
                     "technique_name": "T1021",
                     "hunting_guidance": "Monitor remote services",
                     "confidence": 0.8,
-                    "matched_text": "lateral movement"
-                }
+                    "matched_text": "lateral movement",
+                },
             ]
-        }
+        },
     }
 
 
@@ -327,7 +320,7 @@ def sample_quality_data():
         "structure_score": 20,
         "technical_score": 18,
         "intelligence_score": 22,
-        "recommendations": ["Add more technical details", "Include IOCs"]
+        "recommendations": ["Add more technical details", "Include IOCs"],
     }
 
 
@@ -336,13 +329,13 @@ def mock_fastapi_app():
     """Mock FastAPI application for testing."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
-    
+
     app = FastAPI()
-    
+
     @app.get("/")
     async def root():
         return {"message": "CTI Scraper API", "status": "healthy"}
-    
+
     @app.get("/api/articles")
     async def get_articles():
         return {
@@ -353,12 +346,12 @@ def mock_fastapi_app():
                     "content": "Test content with threat intelligence",
                     "url": "https://example.com/test",
                     "source_id": 1,
-                    "published_date": datetime.now().isoformat()
+                    "published_date": datetime.now().isoformat(),
                 }
             ],
-            "total": 1
+            "total": 1,
         }
-    
+
     @app.get("/api/sources")
     async def get_sources():
         return {
@@ -368,27 +361,19 @@ def mock_fastapi_app():
                     "identifier": "test-source",
                     "name": "Test Security Blog",
                     "url": "https://example.com",
-                    "active": True
+                    "active": True,
                 }
             ],
-            "total": 1
+            "total": 1,
         }
-    
+
     @app.get("/analysis")
     async def get_analysis():
         return {
-            "quality_distribution": {
-                "excellent": 10,
-                "good": 25,
-                "fair": 15,
-                "poor": 5
-            },
-            "tactical_vs_strategic": {
-                "tactical": 30,
-                "strategic": 20
-            }
+            "quality_distribution": {"excellent": 10, "good": 25, "fair": 15, "poor": 5},
+            "tactical_vs_strategic": {"tactical": 30, "strategic": 20},
         }
-    
+
     return TestClient(app)
 
 
@@ -396,24 +381,20 @@ def mock_fastapi_app():
 @pytest.fixture
 def large_article_set():
     """Large set of articles for performance testing."""
-        return [
-            ArticleCreate(
-                title=f"Article {i}",
-                content=f"Content {i} with threat intelligence data " * 100,  # ~1KB content
-                canonical_url=f"https://example.com/{i}",
-                source_id=1,
-                published_at=datetime.now() - timedelta(days=i),
-                content_hash=f"large-hash-{i}"
-            )
-            for i in range(1000)
-        ]
+    return [
+        ArticleCreate(
+            title=f"Article {i}",
+            content=f"Content {i} with threat intelligence data " * 100,  # ~1KB content
+            canonical_url=f"https://example.com/{i}",
+            source_id=1,
+            published_at=datetime.now() - timedelta(days=i),
+            content_hash=f"large-hash-{i}",
+        )
+        for i in range(1000)
+    ]
 
 
 @pytest.fixture
 def concurrent_test_config():
     """Configuration for concurrent testing."""
-    return {
-        "concurrent_requests": 10,
-        "timeout_per_request": 5.0,
-        "max_total_time": 30.0
-    }
+    return {"concurrent_requests": 10, "timeout_per_request": 5.0, "max_total_time": 30.0}

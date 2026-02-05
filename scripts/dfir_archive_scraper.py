@@ -145,13 +145,13 @@ class DFIRArchiveScraper:
                 if date_elem.get("datetime"):
                     try:
                         published_at = datetime.fromisoformat(date_elem.get("datetime").replace("Z", "+00:00"))
-                    except:
+                    except (ValueError, AttributeError):
                         pass
                 elif date_elem.get_text():
                     # Try to parse date from text
                     try:
                         published_at = datetime.strptime(date_elem.get_text().strip(), "%B %d, %Y")
-                    except:
+                    except ValueError:
                         pass
 
             # Extract authors

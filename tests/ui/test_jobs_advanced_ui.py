@@ -170,7 +170,7 @@ class TestJobsRefreshButton:
         expect(last_updated).to_be_visible()
 
         # Get initial timestamp
-        initial_timestamp = last_updated.text_content()
+        last_updated.text_content()
 
         # Click refresh button
         refresh_btn = page.locator("#refreshBtn")
@@ -487,7 +487,7 @@ class TestJobsErrorHandling:
         expect(heading).to_be_visible()
 
         # Verify error messages appear in sections
-        error_message = page.locator("text=Error loading")
+        page.locator("text=Error loading")
         # Error messages may appear in worker/queue/task sections
 
 

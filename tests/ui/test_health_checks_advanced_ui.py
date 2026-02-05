@@ -75,7 +75,7 @@ class TestHealthCheckButtons:
         page.wait_for_timeout(2000)
 
         # Verify loading overlay appears
-        loading_overlay = page.locator("#loadingOverlay")
+        page.locator("#loadingOverlay")
         # Overlay may be hidden after check completes
 
     @pytest.mark.ui

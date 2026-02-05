@@ -391,7 +391,7 @@ class TestDiagnosticsAutoRefresh:
         page.wait_for_timeout(1000)
 
         # Get initial count
-        initial_count = api_call_count["count"]
+        api_call_count["count"]
 
         # Wait a bit
         page.wait_for_timeout(2000)

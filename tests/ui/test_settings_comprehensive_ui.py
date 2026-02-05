@@ -289,18 +289,18 @@ class TestAIMLConfiguration:
         """Test LMStudio model section visibility toggle - DEPRECATED."""
         pytest.skip("AI/ML Assistant Configuration section removed")
 
-        # Verify it's hidden initially (display: none)
-        display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")
-        assert display_style == "none"
+        # # Verify it's hidden initially (display: none)
+        # display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")
+        # assert display_style == "none"
 
-        # Select LMStudio model
-        ai_model = page.locator("#aiModel")
-        ai_model.select_option("lmstudio")
-        page.wait_for_timeout(500)
+        # # Select LMStudio model
+        # ai_model = page.locator("#aiModel")
+        # ai_model.select_option("lmstudio")
+        # page.wait_for_timeout(500)
 
-        # Verify section is now visible
-        display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")
-        assert display_style != "none"
+        # # Verify section is now visible
+        # display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")
+        # assert display_style != "none"
 
     @pytest.mark.ui
     @pytest.mark.settings
@@ -375,7 +375,7 @@ class TestAIMLConfiguration:
         # Get initial value
         temperature_slider = page.locator("#aiTemperature")
         temperature_value = page.locator("#temperatureValue")
-        initial_value = temperature_value.text_content()
+        temperature_value.text_content()
 
         # Change slider value
         temperature_slider.fill("0.5")
@@ -864,5 +864,5 @@ class TestSettingsLoading:
         page.wait_for_timeout(500)
 
         # Verify settings were loaded (may fallback to localStorage if DB fails)
-        langfuse_public_key = page.locator("#langfusePublicKey")
+        page.locator("#langfusePublicKey")
         # Value may be from DB or localStorage depending on API response

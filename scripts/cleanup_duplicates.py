@@ -30,19 +30,19 @@ async def analyze_duplicates():
         # Get duplicate analysis
         result = await session.execute(
             text("""
-            SELECT 
+            SELECT
                 canonical_url,
                 COUNT(*) as article_count,
                 COUNT(DISTINCT content_hash) as unique_content_hashes,
                 MIN(created_at) as first_scraped,
                 MAX(created_at) as last_scraped,
                 STRING_AGG(id::text, ', ') as article_ids
-            FROM articles 
+            FROM articles
             WHERE canonical_url IN (
-                SELECT canonical_url 
-                FROM articles 
+                SELECT canonical_url
+                FROM articles
                 WHERE archived = FALSE
-                GROUP BY canonical_url 
+                GROUP BY canonical_url
                 HAVING COUNT(*) > 1
             )
             AND archived = FALSE
@@ -149,11 +149,11 @@ async def verify_cleanup():
         # Check remaining duplicates
         result = await session.execute(
             text("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_articles,
                 COUNT(DISTINCT canonical_url) as unique_urls,
                 ROUND((COUNT(*) - COUNT(DISTINCT canonical_url))::numeric / COUNT(*) * 100, 2) as duplicate_percentage
-            FROM articles 
+            FROM articles
             WHERE archived = FALSE
         """)
         )

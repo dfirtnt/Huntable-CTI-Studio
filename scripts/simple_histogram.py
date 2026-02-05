@@ -12,7 +12,7 @@ def get_hunt_scores():
     """Query database for all hunt scores using Docker exec."""
     query = """
     SELECT (article_metadata->>'threat_hunting_score')::float as hunt_score
-    FROM articles 
+    FROM articles
     WHERE article_metadata->>'threat_hunting_score' IS NOT NULL
     AND (article_metadata->>'threat_hunting_score')::float > 0
     """

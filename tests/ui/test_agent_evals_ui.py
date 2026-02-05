@@ -2,6 +2,8 @@
 Playwright tests for Agent Evaluations page.
 """
 
+import contextlib
+
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -127,14 +129,12 @@ def _click_load_previous_results_and_wait(page: Page) -> None:
     """Click Load Previous Results and wait for response. Skips if no results."""
     page.wait_for_selector("#loadPreviousResultsBtn")
     page.click("#loadPreviousResultsBtn")
-    try:
+    with contextlib.suppress(Exception):
         page.wait_for_response(
             lambda r: "/api/evaluations/subagent-eval-results" in r.url
             or "/api/evaluations/subagent-eval-aggregate" in r.url,
             timeout=15000,
         )
-    except Exception:
-        pass
     page.wait_for_timeout(1500)
 
 

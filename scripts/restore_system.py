@@ -303,7 +303,7 @@ def restore_database(
         try:
             if "temp_path" in locals():
                 os.unlink(temp_path)
-        except:
+        except OSError:
             pass
 
 

@@ -293,7 +293,7 @@ def list_backups(backup_dir: str = "backups") -> None:
                     print(f"   💾 DB Size: {metadata['database_size']}")
                 if "ml_model_versions_count" in metadata:
                     print(f"   🤖 Model Versions: {metadata['ml_model_versions_count']}")
-            except:
+            except (OSError, json.JSONDecodeError, KeyError):
                 pass
 
         print()

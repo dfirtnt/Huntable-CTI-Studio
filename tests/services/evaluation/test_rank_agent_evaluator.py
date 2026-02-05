@@ -29,7 +29,7 @@ class TestRankAgentEvaluator:
             json.dump(test_data, f)
 
         with (
-            patch("src.services.evaluation.rank_agent_evaluator.LLMService") as mock_llm_class,
+            patch("src.services.evaluation.rank_agent_evaluator.LLMService"),
             patch("src.services.evaluation.rank_agent_evaluator.DatabaseManager") as mock_db_class,
         ):
             mock_db = Mock()

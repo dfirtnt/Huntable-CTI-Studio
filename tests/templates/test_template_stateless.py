@@ -15,7 +15,7 @@ from pathlib import Path
 def test_yaml_validation():
     """Test YAML validation logic."""
     # Load fixture
-    fixture_path = Path("tests/fixtures/sigma/valid_rule.yaml")
+    Path("tests/fixtures/sigma/valid_rule.yaml")
     # ... test logic ...
     pass
 
@@ -24,6 +24,6 @@ def test_yaml_validation():
 def test_similarity_deterministic():
     """Test similarity search deterministic ordering."""
     # Load golden file
-    golden_path = Path("tests/fixtures/similarity/expected_ordering.json")
+    Path("tests/fixtures/similarity/expected_ordering.json")
     # ... test logic ...
     pass

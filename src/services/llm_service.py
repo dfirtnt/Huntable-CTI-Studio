@@ -1253,7 +1253,7 @@ class LLMService:
                             if isinstance(error_json.get("error"), dict)
                             else error_text
                         )
-                    except:
+                    except (ValueError, KeyError, AttributeError):
                         error_message = error_text[:500]  # Limit length
 
                     last_error_detail = f"Status {response.status_code}: {error_message}"
@@ -1299,7 +1299,7 @@ class LLMService:
                         # Close client before raising
                         try:
                             await client.aclose()
-                        except:
+                        except Exception:
                             pass
 
                         # Check for common errors that indicate LMStudio isn't ready
@@ -1328,7 +1328,7 @@ class LLMService:
                     # Re-raise RuntimeErrors (like 400 errors) immediately without trying other URLs
                     try:
                         await client.aclose()
-                    except:
+                    except Exception:
                         pass
                     raise
 
@@ -3291,7 +3291,7 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                             try:
                                 fixed = fix_json_escapes(text)
                                 return json.loads(fixed), True
-                            except:
+                            except (json.JSONDecodeError, ValueError):
                                 return None, False
 
                     try:

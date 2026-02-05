@@ -26,7 +26,7 @@ def reset_training_flags():
         # Check current state
         check_query = text("""
             SELECT usage, COUNT(*) as count, SUM(CASE WHEN used_for_training THEN 1 ELSE 0 END) as used_count
-            FROM article_annotations 
+            FROM article_annotations
             WHERE annotation_type = 'CMD' AND usage IN ('gold', 'eval')
             GROUP BY usage
         """)
@@ -39,9 +39,9 @@ def reset_training_flags():
 
         # Reset the flag for gold/eval annotations
         reset_query = text("""
-            UPDATE article_annotations 
+            UPDATE article_annotations
             SET used_for_training = FALSE
-            WHERE annotation_type = 'CMD' 
+            WHERE annotation_type = 'CMD'
             AND usage IN ('gold', 'eval')
             AND used_for_training = TRUE
         """)
@@ -55,7 +55,7 @@ def reset_training_flags():
         # Verify after reset
         verify_query = text("""
             SELECT usage, COUNT(*) as count, SUM(CASE WHEN used_for_training THEN 1 ELSE 0 END) as used_count
-            FROM article_annotations 
+            FROM article_annotations
             WHERE annotation_type = 'CMD' AND usage IN ('gold', 'eval')
             GROUP BY usage
         """)

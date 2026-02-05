@@ -97,7 +97,7 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 
 ### Category A – Process Creation & Command-Line Arguments (0-4 pts)
 
-**Data Sources:** 
+**Data Sources:**
 - Windows: Sysmon Event ID 1, Security 4688
 - Linux: process logs, auditd
 - **macOS: Endpoint Security process events, unified logging (log show)**
@@ -121,7 +121,7 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 
 ### Category B – Persistence & System/Service Modification (0-3 pts)
 
-**Data Sources:** 
+**Data Sources:**
 - Windows: Sysmon Event IDs 12/13/19/7045, Security 4697
 - Linux: auditd, systemd logs
 - **macOS: LaunchAgent/LaunchDaemon creation, login items, authorization database changes**
@@ -184,7 +184,7 @@ Only content that maps to structured log telemetry receives points. Ignore netwo
 
 **macOS SIGMA Data Sources Include:**
 - Endpoint Security Framework events
-- Unified Logging System (log show commands)  
+- Unified Logging System (log show commands)
 - Authorization database logs
 - LaunchAgent/LaunchDaemon plist files
 - Gatekeeper and XProtect logs

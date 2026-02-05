@@ -35,7 +35,7 @@ class TestCollapsiblePanels:
 
         if panel_header.is_visible() and caret.is_visible():
             # Get initial state
-            initial_state = panel_header.get_attribute("aria-expanded")
+            panel_header.get_attribute("aria-expanded")
 
             # Toggle panel
             panel_header.click()

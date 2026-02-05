@@ -64,7 +64,7 @@ class TestSourcesListDisplay:
         expect(sources_section).to_be_visible()
 
         # Verify source cards exist (if any sources configured)
-        source_cards = page.locator(".bg-white.dark\\:bg-gray-800.border")
+        page.locator(".bg-white.dark\\:bg-gray-800.border")
         # Cards may or may not exist depending on configuration
 
     @pytest.mark.ui
@@ -76,7 +76,7 @@ class TestSourcesListDisplay:
         page.wait_for_load_state("networkidle")
 
         # Find article count badges (green circles with numbers)
-        badges = page.locator(".bg-green-100.text-green-800")
+        page.locator(".bg-green-100.text-green-800")
         # Badges may or may not exist
 
     @pytest.mark.ui
@@ -106,8 +106,8 @@ class TestSourcesListDisplay:
         page.wait_for_load_state("networkidle")
 
         # Find status badges
-        active_badges = page.locator("span:has-text('Active')")
-        inactive_badges = page.locator("span:has-text('Inactive')")
+        page.locator("span:has-text('Active')")
+        page.locator("span:has-text('Inactive')")
         # Badges may or may not exist
 
     @pytest.mark.ui
@@ -119,9 +119,9 @@ class TestSourcesListDisplay:
         page.wait_for_load_state("networkidle")
 
         # Verify metadata fields exist
-        url_labels = page.locator("text=URL")
-        collection_method_labels = page.locator("text=Collection Method")
-        last_check_labels = page.locator("text=Last Check")
+        page.locator("text=URL")
+        page.locator("text=Collection Method")
+        page.locator("text=Last Check")
         # Labels may or may not exist
 
     @pytest.mark.ui
@@ -133,7 +133,7 @@ class TestSourcesListDisplay:
         page.wait_for_load_state("networkidle")
 
         # Find quality metrics panels
-        quality_panels = page.locator("text=📊 Quality Metrics")
+        page.locator("text=📊 Quality Metrics")
         # Panels may or may not exist
 
     @pytest.mark.ui
@@ -145,7 +145,7 @@ class TestSourcesListDisplay:
         page.wait_for_load_state("networkidle")
 
         # Find manual source panel
-        manual_panel = page.locator("text=📝 Manual Source")
+        page.locator("text=📝 Manual Source")
         # Panel may or may not exist
 
     @pytest.mark.ui
@@ -157,7 +157,7 @@ class TestSourcesListDisplay:
         page.wait_for_load_state("networkidle")
 
         # Check for empty state message
-        empty_state = page.locator("text=No sources configured")
+        page.locator("text=No sources configured")
         # Empty state may or may not exist depending on configuration
 
     @pytest.mark.ui
@@ -733,7 +733,7 @@ class TestResultModal:
         page.wait_for_load_state("networkidle")
 
         # Result modal should have click-away handler
-        result_modal = page.locator("#resultModal")
+        page.locator("#resultModal")
         # Modal has event listener for click-away (tested via JavaScript)
 
     @pytest.mark.ui
@@ -745,7 +745,7 @@ class TestResultModal:
         page.wait_for_load_state("networkidle")
 
         # Result modal should have Escape key handler
-        result_modal = page.locator("#resultModal")
+        page.locator("#resultModal")
         # Modal has event listener for Escape key (tested via JavaScript)
 
 

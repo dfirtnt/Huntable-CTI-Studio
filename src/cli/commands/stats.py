@@ -28,7 +28,7 @@ def stats(ctx: CLIContext):
 [cyan]Articles:[/cyan] {stats_data["total_articles"]} total
 [cyan]Recent Activity:[/cyan]
   • Last 24h: {stats_data["articles_last_day"]} articles
-  • Last 7 days: {stats_data["articles_last_week"]} articles  
+  • Last 7 days: {stats_data["articles_last_week"]} articles
   • Last 30 days: {stats_data["articles_last_month"]} articles
             """.strip()
 

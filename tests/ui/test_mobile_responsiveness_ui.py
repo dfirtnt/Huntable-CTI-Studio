@@ -231,7 +231,7 @@ class TestMobileNavigation:
         page.wait_for_load_state("networkidle")
 
         # Verify breadcrumbs exist (if implemented)
-        breadcrumbs = page.locator("[aria-label='Breadcrumb'], .breadcrumb, nav[aria-label='Breadcrumb']")
+        page.locator("[aria-label='Breadcrumb'], .breadcrumb, nav[aria-label='Breadcrumb']")
         # Breadcrumbs may or may not exist depending on implementation
 
 
@@ -324,7 +324,7 @@ class TestMobileModals:
 
         # Verify modals can be displayed (if any exist)
         # Modals should be full-screen or properly sized on mobile
-        modals = page.locator("[role='dialog'], .modal")
+        page.locator("[role='dialog'], .modal")
         # Modals may or may not exist depending on page state
 
     @pytest.mark.ui
@@ -339,7 +339,7 @@ class TestMobileModals:
         page.wait_for_load_state("networkidle")
 
         # Test modal close button (if modal exists)
-        close_buttons = page.locator("button:has-text('Close'), button[aria-label*='close'], .modal button")
+        page.locator("button:has-text('Close'), button[aria-label*='close'], .modal button")
         # Close buttons may or may not exist depending on modal state
 
     @pytest.mark.ui
@@ -354,7 +354,7 @@ class TestMobileModals:
         page.wait_for_load_state("networkidle")
 
         # Test backdrop tap (if modal exists)
-        backdrop = page.locator(".modal-backdrop, [role='dialog'] + .backdrop")
+        page.locator(".modal-backdrop, [role='dialog'] + .backdrop")
         # Backdrop may or may not exist depending on modal state
 
 

@@ -25,7 +25,7 @@ def run_psql_command(sql_command):
 def get_coverage_stats():
     """Get current SimHash coverage statistics."""
     sql = """
-    SELECT 
+    SELECT
         COUNT(*) as total_articles,
         COUNT(CASE WHEN simhash IS NOT NULL THEN 1 END) as simhash_articles,
         ROUND((COUNT(CASE WHEN simhash IS NOT NULL THEN 1 END)::numeric / COUNT(*)) * 100, 1) as coverage_percent
@@ -76,7 +76,7 @@ def tokenize(text):
     """Tokenize text into features for SimHash."""
     if not text:
         return []
-    
+
     text = text.lower()
     tokens = re.findall(r'\\b\\w+\\b', text)
     stop_words = {
@@ -95,7 +95,7 @@ def get_weighted_vector(features):
     """Get weighted vector based on feature frequency."""
     feature_counts = Counter(features)
     vector = [0] * 64
-    
+
     for feature, count in feature_counts.items():
         feature_hash = get_feature_hash(feature)
         for i in range(64):
@@ -103,23 +103,23 @@ def get_weighted_vector(features):
                 vector[i] += count
             else:
                 vector[i] -= count
-    
+
     return vector
 
 def compute_simhash(text, title=""):
     """Compute SimHash for given text."""
     full_text = f"{title} {text}"
     features = tokenize(full_text)
-    
+
     if not features:
         return 0, 0
-    
+
     vector = get_weighted_vector(features)
     simhash = 0
     for i, weight in enumerate(vector):
         if weight > 0:
             simhash |= (1 << i)
-    
+
     bucket = simhash % 16
     return simhash, bucket
 
@@ -148,7 +148,7 @@ from simhash_func import compute_simhash
 postgres_password = os.getenv("POSTGRES_PASSWORD", "cti_password")
 conn = psycopg2.connect(
     host="postgres",
-    database="cti_scraper", 
+    database="cti_scraper",
     user="cti_user",
     password=postgres_password
 )
@@ -164,16 +164,16 @@ updated = 0
 for article_id, title, content in articles:
     try:
         simhash, bucket = compute_simhash(content or "", title or "")
-        
+
         cur.execute(
             "UPDATE articles SET simhash = %s, simhash_bucket = %s WHERE id = %s",
             (simhash, bucket, article_id)
         )
-        
+
         updated += 1
         if updated % 50 == 0:
             print(f"Updated {updated}/{len(articles)} articles")
-            
+
     except Exception as e:
         print(f"Error updating article {article_id}: {e}")
         continue

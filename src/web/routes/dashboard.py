@@ -110,10 +110,10 @@ async def api_dashboard_data():
 
         async with async_db_manager.get_session() as session:
             recent_articles_query = """
-                SELECT created_at, title 
-                FROM articles 
+                SELECT created_at, title
+                FROM articles
                 WHERE created_at > NOW() - INTERVAL '72 hours'
-                ORDER BY created_at DESC 
+                ORDER BY created_at DESC
                 LIMIT 3
             """
             recent_checks_query = """
@@ -121,7 +121,7 @@ async def api_dashboard_data():
                 FROM source_checks sc
                 JOIN sources s ON sc.source_id = s.id
                 WHERE check_time > NOW() - INTERVAL '72 hours'
-                ORDER BY check_time DESC 
+                ORDER BY check_time DESC
                 LIMIT 3
             """
 
@@ -175,7 +175,7 @@ async def api_dashboard_data():
             avg_score_query = text(
                 """
                 SELECT AVG((article_metadata->>'threat_hunting_score')::float) as avg_score
-                FROM articles 
+                FROM articles
                 WHERE (article_metadata->>'threat_hunting_score')::float > 0
                 """
             )
@@ -184,7 +184,7 @@ async def api_dashboard_data():
 
             efficiency_query = text(
                 """
-                SELECT 
+                SELECT
                     COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles,
                     COUNT(*) as total_articles
                 FROM articles
@@ -207,7 +207,7 @@ async def api_dashboard_data():
 
             top_query = text(
                 """
-                SELECT 
+                SELECT
                     a.id,
                     a.title,
                     a.article_metadata,

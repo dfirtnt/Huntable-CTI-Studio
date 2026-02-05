@@ -92,7 +92,7 @@ def trace_execution(execution_id: int):
                                     yaml_title = parsed.get("title", "")
                                     if yaml_title:
                                         print(f"         ⚠️  Title found in YAML but not extracted: '{yaml_title}'")
-                            except:
+                            except (yaml.YAMLError, AttributeError):
                                 # Try regex
                                 title_match = re.search(r"^title:\s*(.+)$", yaml_content, re.MULTILINE)
                                 if title_match:
@@ -142,7 +142,7 @@ def trace_execution(execution_id: int):
                                 yaml_title = parsed.get("title", "")
                                 if yaml_title:
                                     print(f"         🔧 FIXABLE: Title '{yaml_title}' exists in YAML")
-                        except:
+                        except (yaml.YAMLError, AttributeError):
                             title_match = re.search(r"^title:\s*(.+)$", yaml_content, re.MULTILINE)
                             if title_match:
                                 yaml_title = title_match.group(1).strip().strip('"').strip("'")

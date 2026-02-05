@@ -53,7 +53,7 @@ class TestSigmaSimilarityDeterministic:
         assert "queries" in golden
 
         # Check query structure
-        for query_id, query_data in golden["queries"].items():
+        for _query_id, query_data in golden["queries"].items():
             assert "rule_ids" in query_data
             assert "score_ranges" in query_data
             assert "relative_order" in query_data
@@ -73,14 +73,14 @@ class TestSigmaSimilarityDeterministic:
         # For each query, run similarity search and compare to golden file
         for query_data in queries["queries"]:
             query_id = query_data["id"]
-            query_text = query_data["text"]
+            query_data["text"]
 
             if query_id not in golden["queries"]:
                 pytest.skip(f"No golden data for query: {query_id}")
 
             golden_data = golden["queries"][query_id]
-            expected_order = golden_data["relative_order"]
-            expected_ranges = golden_data["score_ranges"]
+            golden_data["relative_order"]
+            golden_data["score_ranges"]
 
             # TODO: Run actual similarity search when test containers are available
             # results = rag_service.find_similar_sigma_rules(query_text, top_k=len(expected_order))

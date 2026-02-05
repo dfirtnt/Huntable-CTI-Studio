@@ -204,9 +204,7 @@ class TestSigmaMatchingService:
         mock_db_session.query.return_value = mock_chunk_query
 
         # Mock embedding generation - synchronous method (not async)
-        with patch.object(
-            service.embedding_service, "generate_embedding", new=Mock(return_value=[0.2] * 768)
-        ) as mock_embed:
+        with patch.object(service.embedding_service, "generate_embedding", new=Mock(return_value=[0.2] * 768)):
             # Mock database execute - result should be iterable
             # The execute method returns a result object that can be iterated
             mock_row = tuple(

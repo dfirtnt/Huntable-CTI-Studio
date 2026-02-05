@@ -211,7 +211,7 @@ class TestDashboardFlows:
 
         # Alternative: Check if a temporary success message appears in the button area
         # or if the button text changes temporarily
-        button_text_after = copy_urls_button.text_content()
+        copy_urls_button.text_content()
         # Button might show "Copied!" temporarily, then revert
 
         # Verify the button is still functional after clicking

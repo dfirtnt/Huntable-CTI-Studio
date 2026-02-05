@@ -21,8 +21,7 @@ class TestObservableModelEvaluator:
     @pytest.fixture
     def mock_session(self):
         """Create a mock database session."""
-        session = Mock()
-        return session
+        return Mock()
 
     @pytest.fixture
     def evaluator(self):

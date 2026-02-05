@@ -38,9 +38,9 @@ def run_migration():
         with engine.connect() as conn:
             # Check if column already exists
             check_query = text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'agentic_workflow_config' 
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'agentic_workflow_config'
                 AND column_name = 'auto_trigger_hunt_score_threshold'
             """)
             result = conn.execute(check_query)
@@ -51,7 +51,7 @@ def run_migration():
             # Add column with default value
             logger.info("Adding auto_trigger_hunt_score_threshold column to agentic_workflow_config table...")
             alter_query = text("""
-                ALTER TABLE agentic_workflow_config 
+                ALTER TABLE agentic_workflow_config
                 ADD COLUMN auto_trigger_hunt_score_threshold FLOAT NOT NULL DEFAULT 60.0
             """)
             conn.execute(alter_query)

@@ -47,8 +47,7 @@ class TestScraperParsing:
     @pytest.fixture
     def mock_http_client(self):
         """Mock HTTP client for testing."""
-        client = AsyncMock(spec=HTTPClient)
-        return client
+        return AsyncMock(spec=HTTPClient)
 
     @pytest.fixture
     def sample_feed_content(self, rss_fixture_path):

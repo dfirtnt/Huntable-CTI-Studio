@@ -202,7 +202,7 @@ def test_cmdline_extract_byte_preserving_no_sentence_split():
     """CmdlineExtract: no split on period; newline boundaries only (HARD CONTRACT)."""
     # Long line with period mid-sentence - should NOT split on period when agent=CmdlineExtract
     text = "x" * 300 + ". " + "y" * 300 + "\nThe attacker ran certutil -urlcache to download."
-    result_default = process(text)  # agent_name=None
+    process(text)  # agent_name=None
     result_cmdline = process(text, agent_name="CmdlineExtract")
     # With CmdlineExtract, we use full-line capture for long lines (byte_preserving)
     # so we get the full matching line, not sentence-split parts

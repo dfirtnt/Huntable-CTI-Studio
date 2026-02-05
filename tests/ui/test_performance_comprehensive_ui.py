@@ -82,10 +82,9 @@ class TestAPIPerformance:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
         # Track API response time
-        api_times = []
 
         def handle_route(route):
-            start_time = time.time()
+            time.time()
             route.continue_()
             # Note: Can't measure actual response time this way, but can verify API is called
 
@@ -201,7 +200,7 @@ class TestMemoryUsage:
         page.wait_for_load_state("networkidle")
 
         # Get memory usage (if available)
-        memory_info = page.evaluate("""
+        page.evaluate("""
             () => {
                 if (performance.memory) {
                     return {
@@ -225,7 +224,7 @@ class TestMemoryUsage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
         # Navigate multiple times
-        for i in range(3):
+        for _i in range(3):
             page.goto(f"{base_url}/")
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(1000)

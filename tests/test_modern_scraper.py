@@ -42,8 +42,7 @@ class TestURLDiscovery:
     @pytest.fixture
     def mock_http_client(self):
         """Create mock HTTP client."""
-        client = AsyncMockHTTPClient()
-        return client
+        return AsyncMockHTTPClient()
 
     @pytest.fixture
     def url_discovery(self, mock_http_client):
@@ -480,19 +479,19 @@ class TestModernScraper:
         # Mock JSON-LD data
         jsonld_data = {"@type": "Article", "headline": "JSON-LD Article", "articleBody": "JSON-LD content"}
 
-        with patch.object(
-            modern_scraper.structured_extractor, "extract_structured_data", return_value={"json-ld": [jsonld_data]}
+        with (
+            patch.object(
+                modern_scraper.structured_extractor, "extract_structured_data", return_value={"json-ld": [jsonld_data]}
+            ),
+            patch.object(modern_scraper.structured_extractor, "find_article_jsonld", return_value=jsonld_data),
         ):
-            with patch.object(modern_scraper.structured_extractor, "find_article_jsonld", return_value=jsonld_data):
-                with patch.object(
-                    modern_scraper.structured_extractor,
-                    "extract_from_jsonld",
-                    return_value={"title": "JSON-LD Article", "content": "JSON-LD content"},
-                ):
-                    with patch(
-                        "src.utils.content.validate_content", return_value=[]
-                    ):  # Empty list = no validation issues
-                        article = await modern_scraper._extract_article("https://example.com/article", sample_source)
+            with patch.object(
+                modern_scraper.structured_extractor,
+                "extract_from_jsonld",
+                return_value={"title": "JSON-LD Article", "content": "JSON-LD content"},
+            ):
+                with patch("src.utils.content.validate_content", return_value=[]):  # Empty list = no validation issues
+                    article = await modern_scraper._extract_article("https://example.com/article", sample_source)
 
         assert article is not None
         assert article.title == "JSON-LD Article"

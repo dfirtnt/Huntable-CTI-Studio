@@ -69,9 +69,9 @@ Fine-tuned BERT model for operating system detection in cybersecurity threat int
 
 OS-BERT is fine-tuned from {base_model} for multi-class OS classification. It identifies which operating system(s) a threat intelligence article focuses on.
 
-**Base Model:** {base_model}  
-**Task:** Multi-class classification  
-**Classes:** {", ".join(labels)}  
+**Base Model:** {base_model}
+**Task:** Multi-class classification
+**Classes:** {", ".join(labels)}
 **Number of Labels:** {num_labels}
 
 ## Intended Use

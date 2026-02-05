@@ -128,7 +128,7 @@ class TestPDFUploadProgress:
         page.wait_for_load_state("networkidle")
 
         # Verify progress indicator exists
-        progress_text = page.locator("text=Processing PDF...")
+        page.locator("text=Processing PDF...")
         # Progress text may be hidden initially
 
     @pytest.mark.ui
@@ -208,7 +208,7 @@ class TestPDFUploadAPI:
         page.wait_for_load_state("networkidle")
 
         # Verify success message appears
-        upload_success = page.locator("#upload-success")
+        page.locator("#upload-success")
         # Success div exists but may be hidden initially
 
     @pytest.mark.ui
@@ -277,7 +277,7 @@ class TestPDFUploadMultipleFiles:
         expect(file_input).to_be_visible()
 
         # Note: HTML5 file input without 'multiple' attribute supports single file
-        multiple_attr = file_input.get_attribute("multiple")
+        file_input.get_attribute("multiple")
         # Multiple attribute should not exist (single file only)
 
 

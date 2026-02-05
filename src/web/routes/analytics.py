@@ -229,7 +229,7 @@ async def api_hunt_overview():
             # Get average hunt score
             avg_score_query = text("""
                 SELECT AVG((article_metadata->>'threat_hunting_score')::float) as avg_score
-                FROM articles 
+                FROM articles
                 WHERE (article_metadata->>'threat_hunting_score')::float > 0
             """)
             avg_result = await session.execute(avg_score_query)
@@ -238,7 +238,7 @@ async def api_hunt_overview():
             # Get high quality articles (score > 50)
             high_quality_query = text("""
                 SELECT COUNT(*) as count
-                FROM articles 
+                FROM articles
                 WHERE (article_metadata->>'threat_hunting_score')::float > 50
             """)
             high_quality_result = await session.execute(high_quality_query)
@@ -247,7 +247,7 @@ async def api_hunt_overview():
             # Get perfect matches (articles with perfect keyword matches)
             perfect_query = text("""
                 SELECT COUNT(*) as count
-                FROM articles 
+                FROM articles
                 WHERE article_metadata::jsonb->'perfect_keyword_matches' IS NOT NULL
                    AND jsonb_array_length(article_metadata::jsonb->'perfect_keyword_matches') > 0
             """)
@@ -257,7 +257,7 @@ async def api_hunt_overview():
             # Get LOLBAS matches
             lolbas_query = text("""
                 SELECT COUNT(*) as count
-                FROM articles 
+                FROM articles
                 WHERE article_metadata::jsonb->'lolbas_matches' IS NOT NULL
                    AND jsonb_array_length(article_metadata::jsonb->'lolbas_matches') > 0
             """)
@@ -291,8 +291,8 @@ async def api_hunt_score_distribution():
         async with async_db_manager.get_session() as session:
             # Get score distribution in buckets
             distribution_query = text("""
-                SELECT 
-                    CASE 
+                SELECT
+                    CASE
                         WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Null'
                         WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN '0'
                         WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 10 THEN '1-10'
@@ -306,9 +306,9 @@ async def api_hunt_score_distribution():
                         ELSE 'Unknown'
                     END as score_bucket,
                     COUNT(*) as count
-                FROM articles 
-                GROUP BY 
-                    CASE 
+                FROM articles
+                GROUP BY
+                    CASE
                         WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Null'
                         WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN '0'
                         WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 10 THEN '1-10'
@@ -345,7 +345,7 @@ async def api_hunt_keyword_performance():
         async with async_db_manager.get_session() as session:
             # Get top keywords from perfect discriminators
             perfect_query = text("""
-                SELECT 
+                SELECT
                     keyword,
                     COUNT(*) as match_count
                 FROM articles,
@@ -377,12 +377,12 @@ async def api_hunt_keyword_analysis():
         async with async_db_manager.get_session() as session:
             # Get keyword analysis from all categories
             analysis_query = text("""
-                SELECT 
+                SELECT
                     'perfect' as category,
                     keyword,
                     COUNT(*) as match_count,
                     ROUND(AVG((article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score_impact,
-                    CASE 
+                    CASE
                         WHEN COUNT(*) > 10 THEN 95
                         WHEN COUNT(*) > 5 THEN 85
                         WHEN COUNT(*) > 2 THEN 75
@@ -425,10 +425,10 @@ async def api_hunt_score_trends():
         async with async_db_manager.get_session() as session:
             # Get daily average scores for last 30 days
             trends_query = text("""
-                SELECT 
+                SELECT
                     DATE(created_at) as date,
                     AVG((article_metadata->>'threat_hunting_score')::float) as avg_score
-                FROM articles 
+                FROM articles
                 WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                   AND (article_metadata->>'threat_hunting_score')::float > 0
                 GROUP BY DATE(created_at)
@@ -456,7 +456,7 @@ async def api_hunt_source_performance():
         async with async_db_manager.get_session() as session:
             # Get top sources by average hunt score
             source_query = text("""
-                SELECT 
+                SELECT
                     s.name as source_name,
                     ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score
                 FROM sources s
@@ -498,8 +498,8 @@ async def api_hunt_quality_distribution():
                     UNION ALL SELECT 'Score 99-100', 7
                 ),
                 article_counts AS (
-                    SELECT 
-                        CASE 
+                    SELECT
+                        CASE
                             WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
                             WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
                             WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
@@ -510,9 +510,9 @@ async def api_hunt_quality_distribution():
                             ELSE 'Unknown'
                         END as quality_level,
                         COUNT(*) as count
-                    FROM articles 
-                    GROUP BY 
-                        CASE 
+                    FROM articles
+                    GROUP BY
+                        CASE
                             WHEN article_metadata->>'threat_hunting_score' IS NULL THEN 'Unscored'
                             WHEN (article_metadata->>'threat_hunting_score')::float = 0 THEN 'Score 0'
                             WHEN (article_metadata->>'threat_hunting_score')::float BETWEEN 0.1 AND 25 THEN 'Score 1-25'
@@ -523,7 +523,7 @@ async def api_hunt_quality_distribution():
                             ELSE 'Unknown'
                         END
                 )
-                SELECT 
+                SELECT
                     ar.quality_level,
                     COALESCE(ac.count, 0) as count
                 FROM all_ranges ar
@@ -552,7 +552,7 @@ async def api_hunt_advanced_metrics():
         async with async_db_manager.get_session() as session:
             # Get scoring efficiency
             efficiency_query = text("""
-                SELECT 
+                SELECT
                     COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles,
                     COUNT(*) as total_articles
                 FROM articles
@@ -571,13 +571,13 @@ async def api_hunt_advanced_metrics():
 
             # Get average keywords per article
             keywords_query = text("""
-                SELECT 
+                SELECT
                     AVG(
                         COALESCE(jsonb_array_length(article_metadata::jsonb->'perfect_keyword_matches'), 0) +
                         COALESCE(jsonb_array_length(article_metadata::jsonb->'good_keyword_matches'), 0) +
                         COALESCE(jsonb_array_length(article_metadata::jsonb->'lolbas_matches'), 0)
                     ) as avg_keywords
-                FROM articles 
+                FROM articles
                 WHERE (article_metadata->>'threat_hunting_score')::float > 0
             """)
 
@@ -586,7 +586,7 @@ async def api_hunt_advanced_metrics():
 
             # Get perfect match rate
             perfect_query = text("""
-                SELECT 
+                SELECT
                     COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float = 100 THEN 1 END) as perfect_matches,
                     COUNT(CASE WHEN (article_metadata->>'threat_hunting_score')::float > 0 THEN 1 END) as scored_articles
                 FROM articles
@@ -623,7 +623,7 @@ async def api_hunt_recent_high_scores():
         async with async_db_manager.get_session() as session:
             # Get recent high-score articles
             recent_query = text("""
-                SELECT 
+                SELECT
                     a.id,
                     a.title,
                     s.name as source_name,
@@ -665,7 +665,7 @@ async def api_hunt_demo_articles():
         async with async_db_manager.get_session() as session:
             # Get articles with all metadata for demo
             articles_query = text("""
-                SELECT 
+                SELECT
                     a.id,
                     a.title,
                     a.published_at,
@@ -712,7 +712,7 @@ async def api_hunt_demo_sources():
         async with async_db_manager.get_session() as session:
             # Get sources with performance metrics
             sources_query = text("""
-                SELECT 
+                SELECT
                     s.id,
                     s.name,
                     s.identifier,
@@ -758,49 +758,49 @@ async def api_hunt_demo_keywords():
             # Get keyword frequency and impact data
             keywords_query = text("""
                 WITH keyword_stats AS (
-                    SELECT 
+                    SELECT
                         keyword,
                         category,
                         COUNT(*) as frequency,
                         AVG((article_metadata->>'threat_hunting_score')::float) as avg_impact
                     FROM (
-                        SELECT 
+                        SELECT
                             unnest(article_metadata->'perfect_keyword_matches') as keyword,
                             'perfect' as category,
                             article_metadata
-                        FROM articles 
+                        FROM articles
                         WHERE article_metadata->'perfect_keyword_matches' IS NOT NULL
-                        
+
                         UNION ALL
-                        
-                        SELECT 
+
+                        SELECT
                             unnest(article_metadata->'good_keyword_matches') as keyword,
                             'good' as category,
                             article_metadata
-                        FROM articles 
+                        FROM articles
                         WHERE article_metadata->'good_keyword_matches' IS NOT NULL
-                        
+
                         UNION ALL
-                        
-                        SELECT 
+
+                        SELECT
                             unnest(article_metadata->'lolbas_matches') as keyword,
                             'lolbas' as category,
                             article_metadata
-                        FROM articles 
+                        FROM articles
                         WHERE article_metadata->'lolbas_matches' IS NOT NULL
-                        
+
                         UNION ALL
-                        
-                        SELECT 
+
+                        SELECT
                             unnest(article_metadata->'intelligence_matches') as keyword,
                             'intelligence' as category,
                             article_metadata
-                        FROM articles 
+                        FROM articles
                         WHERE article_metadata->'intelligence_matches' IS NOT NULL
                     ) keyword_data
                     GROUP BY keyword, category
                 )
-                SELECT 
+                SELECT
                     keyword,
                     category,
                     frequency,

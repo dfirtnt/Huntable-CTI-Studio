@@ -307,7 +307,7 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
                     f"psql -U {DB_CONFIG['user']} -c 'DROP DATABASE IF EXISTS {restore_result['test_database']};'",
                 )
                 subprocess.run(drop_cmd, capture_output=True)
-        except:
+        except (subprocess.SubprocessError, KeyError):
             pass
 
     return restore_result

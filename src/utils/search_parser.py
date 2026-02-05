@@ -245,42 +245,42 @@ def get_search_help_text() -> str:
     """Get help text for boolean search syntax with wildcard support."""
     return """
     Boolean Search Syntax with Wildcard Support:
-    
+
     Basic Search:
     • Simple terms: malware, ransomware
     • AND operator: malware AND ransomware
-    • OR operator: malware OR ransomware  
+    • OR operator: malware OR ransomware
     • NOT operator: malware NOT ransomware
     • Quoted phrases: "advanced persistent threat"
     • Mixed: "APT" AND (malware OR virus) NOT basic
-    
+
     Wildcard Patterns:
     • * matches any characters: mal* matches malware, malicious, etc.
     • ? matches single character: mal?are matches malware, malpare, etc.
     • [abc] matches any character in brackets: mal[aw]are matches malware, malpare
     • [a-z] matches character range: mal[a-z]are matches malware, malpare, etc.
     • [!abc] matches any character NOT in brackets: mal[!aw]are excludes malware, malpare
-    
+
     Wildcard Examples:
     • mal* - matches malware, malicious, malformed, etc.
     • *.exe - matches any executable file
     • powershell* - matches powershell.exe, powershell_ise.exe, etc.
     • [0-9]*.log - matches numbered log files like 1.log, 2.log, etc.
     • *[!a-z] - matches words ending with non-letter characters
-    
+
     Combined Examples:
     • mal* AND ransomware - matches articles with malware/malicious AND ransomware
     • *.exe OR *.dll - matches articles mentioning any executables or DLLs
     • "powershell*" NOT basic - matches PowerShell-related content excluding basic topics
     • [0-9]*.log AND "error" - matches numbered log files containing "error"
-    
+
     Special Characters Supported:
     • File paths: "c:\\windows\\system32"
     • Process names: "powershell.exe"
     • Registry keys: "HKEY_LOCAL_MACHINE"
     • File extensions: ".bat", ".ps1"
     • Technical terms: "Event ID", "MZ"
-    
+
     Case Sensitivity:
     • All searches are case-insensitive
     • "rundll32" matches "RUNDLL32", "Rundll32", etc.

@@ -23,7 +23,7 @@ def verify_training_usage():
         # Check gold annotations
         gold_query = text("""
             SELECT id, usage, used_for_training, annotation_type
-            FROM article_annotations 
+            FROM article_annotations
             WHERE usage = 'gold' AND annotation_type = 'CMD'
             ORDER BY id
         """)
@@ -33,7 +33,7 @@ def verify_training_usage():
         # Check eval annotations
         eval_query = text("""
             SELECT id, usage, used_for_training, annotation_type
-            FROM article_annotations 
+            FROM article_annotations
             WHERE usage = 'eval' AND annotation_type = 'CMD'
             ORDER BY id
         """)
@@ -43,7 +43,7 @@ def verify_training_usage():
         # Check train annotations that were used
         train_used_query = text("""
             SELECT id, usage, used_for_training, annotation_type
-            FROM article_annotations 
+            FROM article_annotations
             WHERE usage = 'train' AND annotation_type = 'CMD' AND used_for_training = TRUE
             ORDER BY id
         """)

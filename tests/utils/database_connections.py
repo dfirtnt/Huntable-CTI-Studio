@@ -240,7 +240,7 @@ class TestDatabaseManager:
             async with self.db_manager.get_session() as session:
                 # Get all table names
                 result = await session.execute("""
-                    SELECT tablename FROM pg_tables 
+                    SELECT tablename FROM pg_tables
                     WHERE schemaname = 'public'
                 """)
                 tables = [row[0] for row in result.fetchall()]
@@ -257,7 +257,7 @@ class TestDatabaseManager:
     async def create_test_data(self, data: dict[str, Any]):
         """Create test data in database."""
         try:
-            async with self.db_manager.get_session() as session:
+            async with self.db_manager.get_session():
                 # This would create test data based on the provided data structure
                 logger.info("Creating test data...")
                 # Implementation would depend on your specific data models
