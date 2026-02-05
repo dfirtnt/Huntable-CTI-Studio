@@ -14,7 +14,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │                 │    │                 │    │     Tasks       │    │                 │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
-│ • 30+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
+│ • 303+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
 │ • Browser Ext.  │    │ • RAG Chat      │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
@@ -58,7 +58,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Source List   │───▶│  RSS Parser     │───▶│ Modern Scraper  │
-│   (30+ sources) │    │                 │    │                 │
+│   (303+ sources) │    │                 │    │                 │
 └─────────────────┘    └─────────┬───────┘    └─────────┬───────┘
                                  │                      │
                                  ▼                      ▼
@@ -323,7 +323,7 @@ API Endpoints:
 │ • name          │
 │ • url           │
 │ • rss_url       │
-│ • check_frequency│
+│ • check_frequencytier          │
 │ • active        │
 │ • config (JSON) │
 │ • last_check    │
@@ -343,7 +343,7 @@ API Endpoints:
 │ • published_at  │
 │ • article_metadata (JSON)│
 │ • word_count    │
-│ • threat_hunting_score (metadata)│
+│ • threat_hunting_score (metadata)   │
 └─────────┬───────┘
           │
           │ 1:N
@@ -722,3 +722,6 @@ These diagrams are designed to fit on single pages for easy screenshot capture i
 13. **HTTP Client** - Rate limiting, robots.txt compliance, and request handling
 
 Each diagram uses consistent ASCII art styling and is optimized for readability when captured as screenshots.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTE4NzgxMjk2MzZdfQ==
+-->
