@@ -208,6 +208,57 @@
             width: 16px;
             height: 16px;
         }
+
+        .image-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #f7fafc;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .image-item img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .image-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .image-item-name {
+            font-size: 11px;
+            color: #4a5568;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .image-item-status {
+            font-size: 10px;
+            color: #718096;
+        }
+
+        .image-item-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 10px;
+            min-width: auto;
+        }
+
+        #ocr-section {
+            margin-top: 12px;
+        }
     </style>
 </head>
 <body>
@@ -251,8 +302,27 @@
             <label for="force-scrape">Force scrape (ignore duplicates):</label>
             <input type="checkbox" id="force-scrape">
         </div>
+
+        <div class="config" id="ocr-section">
+            <h3>Image OCR</h3>
+            <div style="margin-bottom: 8px;">
+                <button id="extract-images-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;">
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                    Extract Images from Page
+                </button>
+            </div>
+            <div id="image-list" style="max-height: 150px; overflow-y: auto; margin-bottom: 8px;"></div>
+            <div id="ocr-status" class="status hidden"></div>
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                <input type="checkbox" id="enable-ocr" checked>
+                <span>Include OCR text in article content</span>
+            </label>
+        </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

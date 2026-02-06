@@ -17,19 +17,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function scrapeUrlToCTIScraper(data) {
-    const { url, title, apiUrl, forceScrape } = data;
+    const { url, title, apiUrl, forceScrape, content } = data;
     
     try {
+        const requestBody = {
+            url: url,
+            title: title || null,
+            force_scrape: forceScrape || false
+        };
+        
+        // Include content if provided (e.g., with OCR text)
+        if (content) {
+            requestBody.content = content;
+        }
+        
         const response = await fetch(`${apiUrl}/api/scrape-url`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                url: url,
-                title: title || null,
-                force_scrape: forceScrape || false
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {

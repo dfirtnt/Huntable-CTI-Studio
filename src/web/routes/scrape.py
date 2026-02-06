@@ -32,7 +32,12 @@ async def api_scrape_url(request: dict):
             return await _scrape_urls_batch(urls, request.get("force_scrape", False))
         if url:
             # Single URL mode (backward compatible)
-            return await _scrape_single_url(url, request.get("title"), request.get("force_scrape", False))
+            return await _scrape_single_url(
+                url,
+                request.get("title"),
+                request.get("force_scrape", False),
+                request.get("content"),  # Optional pre-scraped content (e.g., from browser extension with OCR)
+            )
         raise HTTPException(status_code=400, detail="URL or URLs list is required")
     except httpx.RequestError as exc:
         logger.error("Request error: %s", exc)
@@ -47,39 +52,69 @@ async def api_scrape_url(request: dict):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-async def _scrape_single_url(url: str, title: str | None, force_scrape: bool) -> dict:
+async def _scrape_single_url(
+    url: str,
+    title: str | None,
+    force_scrape: bool,
+    pre_scraped_content: str | None = None,
+) -> dict:
     """Scrape a single URL - extracted for reuse."""
-    # Scrape content using the working approach from test endpoint
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    }
+    html_content = None
 
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        try:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()  # Raise exception for 4xx/5xx status codes
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.status_text}",
-            ) from exc
-        except httpx.RequestError as exc:
-            raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(exc)}") from exc
+    # Use pre-scraped content if provided (e.g., from browser extension with OCR)
+    if pre_scraped_content:
+        sanitized_content = pre_scraped_content
+        # Still need to fetch HTML for title extraction if not provided
+        if not title:
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                )
+            }
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                try:
+                    response = await client.get(url, headers=headers)
+                    response.raise_for_status()
+                    html_content = response.content.decode("utf-8", errors="replace")
+                except Exception:
+                    # If we can't fetch, use pre-scraped content and continue
+                    pass
+    else:
+        # Scrape content using the working approach from test endpoint
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            )
+        }
 
-        html_content = response.content.decode("utf-8", errors="replace")
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            try:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()  # Raise exception for 4xx/5xx status codes
+            except httpx.HTTPStatusError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.status_text}",
+                ) from exc
+            except httpx.RequestError as exc:
+                raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(exc)}") from exc
 
-        soup = BeautifulSoup(html_content, "html.parser")
-        for script in soup(["script", "style", "meta", "noscript", "iframe"]):
-            script.decompose()
-        content_text = soup.get_text(separator=" ", strip=True)
+            html_content = response.content.decode("utf-8", errors="replace")
 
-        # Conservative sanitization
-        sanitized_content = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
-        sanitized_content = re.sub(r"\s+", " ", sanitized_content).strip()
+            soup = BeautifulSoup(html_content, "html.parser")
+            for script in soup(["script", "style", "meta", "noscript", "iframe"]):
+                script.decompose()
+            content_text = soup.get_text(separator=" ", strip=True)
+
+            # Conservative sanitization
+            sanitized_content = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
+            sanitized_content = re.sub(r"\s+", " ", sanitized_content).strip()
 
     # Extract title
     extracted_title = title
-    if not extracted_title:
+    if not extracted_title and html_content:
         try:
             soup = BeautifulSoup(html_content, "html.parser")
             title_tag = soup.find("title")
@@ -87,6 +122,8 @@ async def _scrape_single_url(url: str, title: str | None, force_scrape: bool) ->
         except Exception as exc:
             logger.warning("Error extracting title: %s", exc)
             extracted_title = "Untitled Article"
+    elif not extracted_title:
+        extracted_title = "Untitled Article"
 
     # Simple content hash
     import hashlib
@@ -207,9 +244,7 @@ async def _scrape_single_url(url: str, title: str | None, force_scrape: bool) ->
     if not force_scrape:
         with sync_db_manager.get_session() as session:
             existing = (
-                session.query(ArticleTable)
-                .filter(ArticleTable.canonical_url == url, ArticleTable.archived == False)
-                .first()
+                session.query(ArticleTable).filter(ArticleTable.canonical_url == url, ~ArticleTable.archived).first()
             )
             if existing:
                 logger.info(f"Article already exists for URL: {url} (ID: {existing.id})")

@@ -15,6 +15,7 @@ lxml==6.0.2
 feedparser==6.0.12
 extruct==0.18.0
 iocextract==1.16.1
+playwright==1.55.0  # Headless browser for JS-rendered content
 
 # Data processing and storage
 pandas==2.3.3

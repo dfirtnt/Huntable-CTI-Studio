@@ -9,8 +9,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const wordCount = document.getElementById('word-count');
     const apiUrlInput = document.getElementById('api-url');
     const forceScrapeCheckbox = document.getElementById('force-scrape');
+    const extractImagesBtn = document.getElementById('extract-images-btn');
+    const imageList = document.getElementById('image-list');
+    const ocrStatus = document.getElementById('ocr-status');
+    const enableOcrCheckbox = document.getElementById('enable-ocr');
 
     let currentArticleData = null;
+    let extractedImages = [];
+    let ocrResults = {};
 
     // Check if URL is from non-routable IP address
     function isNonRoutableIP(url) {
@@ -323,6 +329,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Append OCR text to content if enabled
+        let contentToSend = currentArticleData.content || '';
+        if (enableOcrCheckbox.checked && Object.keys(ocrResults).length > 0) {
+            const ocrText = getOCRText();
+            if (ocrText) {
+                contentToSend = contentToSend + ocrText;
+            }
+        }
+
         showStatus('Sending to CTIScraper...', 'loading');
         scrapeBtn.disabled = true;
         scrapeBtn.innerHTML = '<div class="spinner"></div> Sending...';
@@ -331,7 +346,8 @@ document.addEventListener('DOMContentLoaded', function() {
             url: currentArticleData.url,
             title: currentArticleData.title,
             apiUrl: apiUrl,
-            forceScrape: forceScrapeCheckbox.checked
+            forceScrape: forceScrapeCheckbox.checked,
+            content: contentToSend  // Include content with OCR text
         };
 
         chrome.runtime.sendMessage({
@@ -379,6 +395,237 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners
     scrapeBtn.addEventListener('click', scrapeToCTIScraper);
     refreshBtn.addEventListener('click', loadArticleData);
+
+    // Extract images from page
+    async function extractImagesFromPage() {
+        extractImagesBtn.disabled = true;
+        extractImagesBtn.innerHTML = '<div class="spinner"></div> Extracting...';
+        imageList.innerHTML = '';
+        extractedImages = [];
+        ocrResults = {};
+
+        chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+            if (!tabs[0]) {
+                extractImagesBtn.disabled = false;
+                extractImagesBtn.innerHTML = 'Extract Images from Page';
+                return;
+            }
+
+            try {
+                const results = await chrome.scripting.executeScript({
+                    target: { tabId: tabs[0].id },
+                    function: extractImagesFromPageDOM
+                });
+
+                if (results && results[0] && results[0].result) {
+                    extractedImages = results[0].result;
+                    displayImageList();
+                } else {
+                    showError('No images found on this page');
+                }
+            } catch (error) {
+                console.error('Error extracting images:', error);
+                showError('Failed to extract images: ' + error.message);
+            } finally {
+                extractImagesBtn.disabled = false;
+                extractImagesBtn.innerHTML = `
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                    Extract Images from Page
+                `;
+            }
+        });
+    }
+
+    // Function injected into page to extract images
+    function extractImagesFromPageDOM() {
+        const images = Array.from(document.querySelectorAll('img'));
+        const imageData = [];
+
+        images.forEach((img, index) => {
+            // Skip very small images (likely icons/sprites)
+            if (img.naturalWidth < 50 || img.naturalHeight < 50) {
+                return;
+            }
+
+            // Skip data URLs that are too small
+            if (img.src.startsWith('data:') && img.src.length < 1000) {
+                return;
+            }
+
+            // Get image source
+            let src = img.src || img.currentSrc;
+            
+            // Try to get full resolution image
+            if (img.dataset.src) {
+                src = img.dataset.src;
+            } else if (img.dataset.lazySrc) {
+                src = img.dataset.lazySrc;
+            }
+
+            // Skip if no valid source
+            if (!src || src.startsWith('data:image/svg')) {
+                return;
+            }
+
+            imageData.push({
+                id: `img_${index}`,
+                src: src,
+                alt: img.alt || `Image ${index + 1}`,
+                width: img.naturalWidth || img.width,
+                height: img.naturalHeight || img.height
+            });
+        });
+
+        return imageData;
+    }
+
+    // Display list of extracted images
+    function displayImageList() {
+        if (extractedImages.length === 0) {
+            imageList.innerHTML = '<div style="padding: 8px; color: #718096; font-size: 12px;">No images found</div>';
+            return;
+        }
+
+        imageList.innerHTML = extractedImages.map(img => `
+            <div class="image-item" data-image-id="${img.id}">
+                <img src="${img.src}" alt="${img.alt}" crossorigin="anonymous" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'40\\' height=\\'40\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'0.3em\\' fill=\\'%23999\\' font-size=\\'10\\'%3E?%3C/text%3E%3C/svg%3E'">
+                <div class="image-item-info">
+                    <div class="image-item-name">${img.alt || 'Image'}</div>
+                    <div class="image-item-status" id="status-${img.id}">Ready</div>
+                </div>
+                <div class="image-item-actions">
+                    <button class="btn btn-secondary btn-small" onclick="window.ocrImage('${img.id}')">OCR</button>
+                </div>
+            </div>
+        `).join('');
+
+        // Make OCR function available globally for onclick handlers
+        window.ocrImage = async (imageId) => {
+            await performOCR(imageId);
+        };
+    }
+
+    // Perform OCR on a specific image
+    async function performOCR(imageId) {
+        const image = extractedImages.find(img => img.id === imageId);
+        if (!image) return;
+
+        const statusEl = document.getElementById(`status-${imageId}`);
+        if (!statusEl) return;
+
+        statusEl.textContent = 'Processing...';
+        statusEl.style.color = '#2a4365';
+
+        try {
+            // Check if Tesseract is available
+            if (typeof Tesseract === 'undefined') {
+                throw new Error('Tesseract.js not loaded. Please refresh the extension.');
+            }
+
+            showStatus('Running OCR...', 'loading');
+
+            // Create a canvas to handle CORS issues
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            // Use a proxy approach: fetch image via content script
+            const imageData = await new Promise((resolve, reject) => {
+                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tabs[0].id },
+                        function: fetchImageAsDataURL,
+                        args: [image.src]
+                    }, (results) => {
+                        if (results && results[0] && results[0].result) {
+                            resolve(results[0].result);
+                        } else {
+                            reject(new Error('Failed to fetch image'));
+                        }
+                    });
+                });
+            });
+
+            // Perform OCR
+            const { data: { text } } = await Tesseract.recognize(imageData, 'eng', {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        statusEl.textContent = `OCR: ${Math.round(m.progress * 100)}%`;
+                    }
+                }
+            });
+
+            ocrResults[imageId] = text.trim();
+            statusEl.textContent = '✓ OCR Complete';
+            statusEl.style.color = '#22543d';
+            
+            hideStatus();
+            showSuccess(`OCR completed for ${image.alt || 'image'}`);
+
+        } catch (error) {
+            console.error('OCR error:', error);
+            statusEl.textContent = '✗ OCR Failed';
+            statusEl.style.color = '#742a2a';
+            showError(`OCR failed: ${error.message}`);
+        }
+    }
+
+    // Function to fetch image as data URL (injected into page)
+    function fetchImageAsDataURL(imageSrc) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                try {
+                    const dataURL = canvas.toDataURL('image/png');
+                    resolve(dataURL);
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = imageSrc;
+        });
+    }
+
+    // Get OCR text to append to content
+    function getOCRText() {
+        if (!enableOcrCheckbox.checked || Object.keys(ocrResults).length === 0) {
+            return '';
+        }
+
+        const ocrTexts = [];
+        extractedImages.forEach(img => {
+            if (ocrResults[img.id]) {
+                ocrTexts.push(`\n\n[Image OCR: ${img.alt || 'Image'}]\n${ocrResults[img.id]}`);
+            }
+        });
+
+        return ocrTexts.join('\n\n');
+    }
+
+
+    // Event listeners
+    extractImagesBtn.addEventListener('click', extractImagesFromPage);
+    enableOcrCheckbox.addEventListener('change', () => {
+        chrome.storage.local.set({ enableOCR: enableOcrCheckbox.checked });
+    });
+
+    // Load OCR preference
+    chrome.storage.local.get(['enableOCR'], (result) => {
+        if (result.enableOCR !== undefined) {
+            enableOcrCheckbox.checked = result.enableOCR;
+        }
+    });
 
     // Load article data on popup open
     loadArticleData();

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from celery import Celery
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
 from src.models.source import SourceFilter, SourceUpdate
@@ -17,8 +17,29 @@ from src.web.dependencies import logger
 router = APIRouter(prefix="/api/sources", tags=["Sources"])
 
 
+def _get_collection_method(source) -> str:
+    """Determine collection method for a source."""
+    # Check for Playwright first (newest method)
+    config = source.config if isinstance(source.config, dict) else {}
+    # Handle nested config structure
+    if isinstance(config, dict) and "config" in config and isinstance(config["config"], dict):
+        actual_config = config["config"]
+    else:
+        actual_config = config
+
+    if isinstance(actual_config, dict) and actual_config.get("use_playwright", False):
+        return "Playwright Scraping"
+
+    # Check for RSS
+    if source.rss_url and source.rss_url.strip():
+        return "RSS Feed"
+
+    # Default to Web Scraping
+    return "Web Scraping"
+
+
 @router.get("")
-async def api_sources_list(filter_params: SourceFilter = Depends()):
+async def api_sources_list(filter_params: SourceFilter):
     """API endpoint for listing sources."""
     try:
         sources = await async_db_manager.list_sources(filter_params)
@@ -276,20 +297,18 @@ async def api_source_stats(source_id: int):
                 date_key = article.published_at.strftime("%Y-%m-%d")
                 articles_by_date[date_key] = articles_by_date.get(date_key, 0) + 1
 
-        stats = {
+        return {
             "source_id": source_id,
             "source_name": source.name,
             "active": getattr(source, "active", True),
             "tier": getattr(source, "tier", 1),
-            "collection_method": "RSS" if source.rss_url else "Web Scraping",
+            "collection_method": _get_collection_method(source),
             "total_articles": total_articles,
             "avg_content_length": avg_content_length,
             "avg_threat_hunting_score": round(avg_threat_hunting_score, 1),
             "last_check": source.last_check.isoformat() if source.last_check else None,
             "articles_by_date": articles_by_date,
         }
-
-        return stats
     except HTTPException:
         raise
     except Exception as exc:

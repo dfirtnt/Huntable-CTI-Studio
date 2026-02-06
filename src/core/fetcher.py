@@ -1,11 +1,13 @@
 """Hierarchical content fetcher with RSS-first strategy and basic web scraping fallback."""
 
 import asyncio
+import contextlib
 import logging
 from datetime import datetime
 from typing import Any
 
 from src.core.modern_scraper import LegacyScraper, ModernScraper
+from src.core.playwright_scraper import PlaywrightScraper
 from src.core.rss_parser import RSSParser
 from src.models.article import ArticleCreate
 from src.models.source import Source
@@ -51,7 +53,10 @@ class ContentFetcher:
 
     def __init__(
         self,
-        user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        user_agent: str = (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        ),
         timeout: float = 30.0,
         max_concurrent: int = 5,
         rate_limit_delay: float = 1.0,
@@ -82,6 +87,7 @@ class ContentFetcher:
             "rss_successes": 0,
             "modern_scraping_successes": 0,
             "legacy_scraping_successes": 0,
+            "playwright_scraping_successes": 0,
             "avg_response_time": 0.0,
         }
 
@@ -146,7 +152,35 @@ class ContentFetcher:
                 except Exception as e:
                     logger.warning(f"RSS fetch failed for {source.name}: {e}")
 
-            # Tier 2: Basic scraping if RSS failed and scraping config available
+            # Tier 2: Playwright scraping for JS-rendered content (if enabled)
+            if self._should_use_playwright(source):
+                try:
+                    logger.debug(f"Attempting Playwright scraping for {source.name} (JS-rendered content)")
+
+                    # Create new Playwright scraper instance for this source
+                    playwright_scraper = PlaywrightScraper(headless=True, timeout=30000.0)
+
+                    async with playwright_scraper:
+                        articles = await playwright_scraper.scrape_source(source)
+
+                        if articles:
+                            response_time = (datetime.now() - start_time).total_seconds()
+                            self._update_stats("playwright_scraping_successes", len(articles), response_time, True)
+
+                            logger.info(f"Playwright scraping successful for {source.name}: {len(articles)} articles")
+                            return FetchResult(
+                                source=source,
+                                articles=articles,
+                                method="playwright_scraping",
+                                success=True,
+                                response_time=response_time,
+                            )
+                        logger.warning(f"Playwright scraping returned no articles for {source.name}")
+
+                except Exception as e:
+                    logger.warning(f"Playwright scraping failed for {source.name}: {e}")
+
+            # Tier 3: Basic scraping if RSS failed and scraping config available
             if self._has_modern_config(source):
                 try:
                     logger.debug(f"Attempting basic web scraping for {source.name}")
@@ -169,7 +203,7 @@ class ContentFetcher:
                 except Exception as e:
                     logger.warning(f"Basic scraping failed for {source.name}: {e}")
 
-            # Tier 3: Simple HTML scraping as last resort
+            # Tier 4: Simple HTML scraping as last resort
             try:
                 logger.debug(f"Attempting simple HTML scraping for {source.name}")
                 articles = await self.legacy_scraper.scrape_source(source)
@@ -302,13 +336,33 @@ class ContentFetcher:
 
         return await self.fetch_multiple_sources(due_sources)
 
+    def _should_use_playwright(self, source: Source) -> bool:
+        """Check if source should use Playwright for JS-rendered content."""
+        config = source.config if isinstance(source.config, dict) else {}
+
+        # Handle nested config structure (when loaded from YAML, config may be nested under 'config' key)
+        if isinstance(config, dict) and "config" in config and isinstance(config["config"], dict):
+            actual_config = config["config"]
+        else:
+            actual_config = config
+
+        config_keys = list(actual_config.keys()) if isinstance(actual_config, dict) else "N/A"
+        logger.debug(f"Checking Playwright for {source.name}: config type={type(actual_config)}, keys={config_keys}")
+        use_playwright = actual_config.get("use_playwright", False) if isinstance(actual_config, dict) else False
+        logger.debug(f"Playwright check for {source.name}: use_playwright={use_playwright}")
+
+        if use_playwright:
+            logger.info(f"Playwright enabled for {source.name}")
+            return True
+
+        return False
+
     def _has_modern_config(self, source: Source) -> bool:
         """Check if source has modern scraping configuration."""
         config = source.config
 
-        logger.debug(
-            f"Checking modern config for {source.name}: config type={type(config)}, config keys={list(config.keys()) if isinstance(config, dict) else 'not a dict'}"
-        )
+        config_keys = list(config.keys()) if isinstance(config, dict) else "not a dict"
+        logger.debug(f"Checking modern config for {source.name}: config type={type(config)}, config keys={config_keys}")
 
         # Check for discovery strategies
         discovery = config.get("discovery", {}) if isinstance(config, dict) else getattr(config, "discovery", {})
@@ -321,9 +375,11 @@ class ContentFetcher:
 
         # Check for extraction configuration beyond basic selectors
         extract = config.get("extract", {}) if isinstance(config, dict) else getattr(config, "extract", {})
-        logger.debug(
-            f"Extract config: {extract}, has selectors: {bool(extract and (extract.get('title_selectors') or extract.get('date_selectors') or extract.get('body_selectors')))}"
+        has_selectors = bool(
+            extract
+            and (extract.get("title_selectors") or extract.get("date_selectors") or extract.get("body_selectors"))
         )
+        logger.debug(f"Extract config: {extract}, has selectors: {has_selectors}")
         if extract and (
             extract.get("title_selectors") or extract.get("date_selectors") or extract.get("body_selectors")
         ):
@@ -401,10 +457,8 @@ class ScheduledFetcher:
 
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
 
         logger.info("Scheduled fetcher stopped")
 
@@ -416,7 +470,6 @@ class ScheduledFetcher:
 
                 # Find sources due for checking
                 due_sources = []
-                current_time = datetime.now()
 
                 for source in sources:
                     if not source.active:

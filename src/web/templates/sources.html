@@ -111,7 +111,7 @@
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Collection Method</p>
                                 <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                    {% if source.rss_url %}RSS Feed{% else %}Web Scraping{% endif %}
+                                    {{ get_collection_method(source) }}
                                 </p>
                             </div>
                             <div>
