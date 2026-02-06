@@ -853,6 +853,7 @@ sources:
     config:
       allow: ["splunk.com"]
       post_url_regex: ["^https://www\\.splunk\\.com/en_us/blog/security/.*"]
+      use_playwright: true  # Enable Playwright for JS-rendered content
       robots:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"

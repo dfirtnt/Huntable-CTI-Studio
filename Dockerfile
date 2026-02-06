@@ -70,6 +70,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY requirements-test.txt .
 RUN pip install --no-cache-dir -r requirements-test.txt
 
+# Install Playwright browsers (needed for JS-rendered content scraping)
+RUN playwright install chromium
+RUN playwright install-deps chromium || true
+
 # Ensure langgraph-cli is available system-wide
 RUN pip install --no-cache-dir "langgraph-cli[inmem]"
 

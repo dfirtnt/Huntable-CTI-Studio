@@ -256,6 +256,13 @@ async def sources_list(request: Request):
 
         sources_sorted = sorted(sources, key=get_hunt_score, reverse=True)
 
+        # Add collection method helper to template context
+        def get_collection_method(source):
+            """Helper to determine collection method for template."""
+            from src.web.routes.sources import _get_collection_method
+
+            return _get_collection_method(source)
+
         return templates.TemplateResponse(
             "sources.html",
             {
@@ -264,6 +271,7 @@ async def sources_list(request: Request):
                 "quality_stats": quality_lookup,
                 "hunt_score_lookup": hunt_score_lookup,
                 "total_articles": total_articles,
+                "get_collection_method": get_collection_method,
             },
         )
     except Exception as exc:
