@@ -2781,6 +2781,9 @@
 
 
 <h1 id="extract-agent-fine-tuning-guide">Extract Agent Fine-Tuning Guide</h1>
+<blockquote>
+<p><strong>Deprecated/No Longer Valid (2026-02)</strong>: HuggingFace-based Extract Agent fine-tuning is no longer part of the supported workflow. This page is retained for historical reference.</p>
+</blockquote>
 <p>Guide for fine-tuning models to improve Extract Agent performance.</p>
 <h2 id="overview">Overview</h2>
 <p>The Extract Agent extracts telemetry-aware observables from threat intelligence articles. Fine-tuning improves:
@@ -2887,7 +2890,7 @@ python scripts/harvest_extract_training_data.py \
 <p><strong>Test extraction:</strong>
    <code>bash
    # Test on a single article
-   python test_extract_agent.py --article-id 1937</code></p>
+   docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937</code></p>
 </li>
 </ol>
 <h3 id="model-naming">Model Naming</h3>
@@ -2903,10 +2906,11 @@ python scripts/harvest_extract_training_data.py \
 - <strong>Platform detection accuracy</strong>: Windows-only focus</p>
 <h3 id="benchmarking">Benchmarking</h3>
 <p>Compare fine-tuned model against baseline:</p>
-<pre><code class="language-bash"># Run extraction benchmark
-python score_extract_lmstudio.py \
+<pre><code class="language-bash"># Run extraction evaluation
+docker exec -it cti_web python3 scripts/eval_extract_agent.py \
     --model extract-agent-mistral-7b-20250115 \
-    --articles 1974 1909 1866 1860 1937 1794
+    --test-data outputs/training_data/test_finetuning_data.json \
+    --output outputs/evaluations/extract_agent_finetuned.json
 </code></pre>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="out-of-memory">Out of Memory</h3>
@@ -2962,7 +2966,7 @@ python scripts/finetune_extract_agent.py \
     --epochs 5
 
 # 4. Test
-python test_extract_agent.py --article-id 1937
+docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937
 </code></pre>
 <h2 id="dependencies">Dependencies</h2>
 <p>Install required packages:</p>

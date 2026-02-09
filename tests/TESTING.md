@@ -27,7 +27,7 @@ Comprehensive testing documentation for the CTI Scraper application, covering al
 
 ```bash
 # Quick smoke test
-python run_tests.py --smoke
+python3 run_tests.py smoke
 ```
 
 ### Install Test Dependencies
@@ -160,9 +160,12 @@ tests/
 ├── conftest.py           # Pytest configuration and fixtures
 ├── fixtures/             # Test data and fixtures
 ├── mocks/                # Mock objects and stubs
+├── api/                  # API endpoint tests
+├── cli/                  # CLI command tests
 ├── integration/          # Integration test suites
+├── services/             # Service layer tests (28+ files)
+├── smoke/                # Smoke/health check tests
 ├── ui/                   # UI test suites
-├── api/                  # API test suites
 ├── workflows/            # Workflow test suites
 └── e2e/                  # End-to-end test suites
 ```
@@ -863,4 +866,4 @@ For test-related issues:
 
 **Note**: This testing guide is maintained alongside the codebase. For the most up-to-date information, refer to the test files and configuration in the repository.
 
-*Last updated: January 2025*
+*Last updated: February 2026*

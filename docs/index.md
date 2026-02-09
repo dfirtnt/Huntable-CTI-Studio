@@ -15,7 +15,7 @@ CTI reports bury actionable signals in prose; manual extraction is slow and erro
 ## Highlights
 
 - **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension inputs feed the pipeline
-- **Agentic workflow** — OS detection → junk filter → LLM ranking → Extract Agent (command-line, process tree, hunt queries) → Sigma generation → similarity search
+- **Agentic workflow** — OS detection → junk filter → LLM ranking → Extract Agent (command-line, process tree, hunt queries) → Sigma generation → similarity search → Promote to Queue
 - **Detection support** — PySigma validation, SigmaHQ similarity matching, coverage classification with embeddings
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
 - **Chat & search** — RAG-powered search across collected intelligence, observable-aware annotations

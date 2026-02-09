@@ -79,6 +79,7 @@ docker compose exec -T web python scripts/eval_extract_agent.py \
 
 ```bash
 # Compare baseline vs fine-tuned
+# Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
 python scripts/compare_evaluations.py \
     --baseline outputs/evaluations/extract_agent_baseline.json \
     --finetuned outputs/evaluations/extract_agent_finetuned.json
@@ -183,6 +184,7 @@ After fine-tuning, aim for:
 
 4. **Compare:**
    ```bash
+   # Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
    python scripts/compare_evaluations.py \
        --baseline outputs/evaluations/baseline.json \
        --finetuned outputs/evaluations/finetuned.json

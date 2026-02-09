@@ -1354,6 +1354,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#per-agent-model-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Agent Model Overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#recommended-settings-for-deterministic-scoring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1422,6 +1433,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Endpoint
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2759,6 +2781,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#per-agent-model-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Agent Model Overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#recommended-settings-for-deterministic-scoring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2830,6 +2863,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#test-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Endpoint
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2872,7 +2916,7 @@ docker-compose up
 <li><strong>Configure Model Name</strong>:</li>
 <li>Edit <code>.env</code> file or set environment variables</li>
 <li>Set <code>LMSTUDIO_MODEL</code> to your loaded model name</li>
-<li>Example: <code>LMSTUDIO_MODEL=llama-3.1-8b-instruct</code></li>
+<li>Example: <code>LMSTUDIO_MODEL=deepseek-r1-qwen3-8b</code></li>
 <li>The main <code>docker-compose.yml</code> already includes LMStudio configuration pointing to <code>host.docker.internal:1234/v1</code></li>
 </ol>
 <h2 id="api-usage">API Usage</h2>
@@ -2892,7 +2936,14 @@ docker-compose up
 <h3 id="required">Required</h3>
 <ul>
 <li><code>LMSTUDIO_API_URL</code>: LMStudio API endpoint (default: <code>http://host.docker.internal:1234/v1</code>)</li>
-<li><code>LMSTUDIO_MODEL</code>: Model name in LMStudio (default: <code>llama-3.2-1b-instruct</code>)</li>
+<li><code>LMSTUDIO_MODEL</code>: Model name in LMStudio (default: <code>deepseek-r1-qwen3-8b</code>)</li>
+</ul>
+<h3 id="per-agent-model-overrides">Per-Agent Model Overrides</h3>
+<ul>
+<li><code>LMSTUDIO_MODEL_RANK</code>: Model for ranking agent (default: main model)</li>
+<li><code>LMSTUDIO_MODEL_EXTRACT</code>: Model for extraction agent (default: main model)</li>
+<li><code>LMSTUDIO_MODEL_SIGMA</code>: Model for SIGMA generation (default: main model)</li>
+<li><code>LMSTUDIO_MAX_CONTEXT</code>: Maximum context window size</li>
 </ul>
 <h3 id="recommended-settings-for-deterministic-scoring">Recommended Settings (for Deterministic Scoring)</h3>
 <ul>
@@ -2938,6 +2989,8 @@ docker-compose up
 - Varies by conversation length
 - Typically requires 4096-8192 tokens for standard queries</p>
 <p>The application uses the OpenAI-compatible HTTP API (<code>/v1/chat/completions</code>), which does not support runtime context length configuration. If you need programmatic context length control, you would need to switch to the LMStudio Python SDK, which is not currently implemented.</p>
+<h2 id="test-endpoint">Test Endpoint</h2>
+<p>Use <code>POST /api/test-lmstudio</code> from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.</p>
 
 
 

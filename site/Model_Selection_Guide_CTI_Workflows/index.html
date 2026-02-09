@@ -4392,7 +4392,7 @@
 <p>This guide provides model selection recommendations for a multi-stage CTI-to-SIGMA pipeline:</p>
 <ol>
 <li><strong>Rank Agent</strong> → Evaluates article quality and huntability</li>
-<li><strong>Extractor Agents</strong> → Extracts command lines, registry keys, event codes, KQL signatures</li>
+<li><strong>Extractor Agents</strong> → Extracts command lines, process trees, hunt queries</li>
 <li><strong>SIGMA Generator</strong> → Synthesizes observables into detection rules</li>
 </ol>
 <p><strong>Core Principle</strong>: Task-model alignment is non-negotiable. Each stage has different cognitive requirements. Model architecture matters more than size or general capability.</p>
@@ -4481,7 +4481,7 @@
 <h2 id="2-extractor-agents">2. Extractor Agents</h2>
 <h3 id="task-definition_1">Task Definition</h3>
 <p>Extract explicitly stated observables from CTI articles with zero inference or interpretation.</p>
-<p><strong>Agent Types</strong>: Command Line, Registry Key, Event Code, KQL Signature, Process Lineage, Network Observable</p>
+<p><strong>Active Agent Types</strong>: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract</p>
 <h3 id="cognitive-requirements_1">Cognitive Requirements</h3>
 <ul>
 <li>Deterministic pattern matching</li>
@@ -5071,7 +5071,7 @@ Verify: No syntax errors, rule activates correctly
 <p>Don't chase theoretical performance. Chase measured precision on your specific CTI pipeline.</p>
 <hr />
 <h2 id="appendix-model-availability-in-lm-studio">Appendix: Model Availability in LM Studio</h2>
-<p>As of December 2024, these models are available through LM Studio's model search:</p>
+<p>As of February 2026, these models are available through LM Studio's model search:</p>
 <p><strong>Qwen3 Series</strong>: ✅ Available<br />
 <strong>Qwen2.5 Series</strong>: ✅ Available<br />
 <strong>Llama 3.1/3.3 Series</strong>: ✅ Available<br />
@@ -5081,8 +5081,8 @@ Verify: No syntax errors, rule activates correctly
 <p>Search format: <code>TheBloke/{model-name}-GGUF</code> or <code>bartowski/{model-name}-GGUF</code></p>
 <p>Always verify model hash against official releases for security.</p>
 <hr />
-<p><strong>Document Version</strong>: 1.0<br />
-<strong>Last Updated</strong>: December 2024<br />
+<p><strong>Document Version</strong>: 1.1<br />
+<strong>Last Updated</strong>: February 2026<br />
 <strong>Maintainer</strong>: Andrew (Cybersecurity/Detection Engineering)</p>
 
 

@@ -3179,7 +3179,15 @@
 <h2 id="architecture">Architecture</h2>
 <h3 id="detection-methods">Detection Methods</h3>
 <ol>
-<li><strong>Embedding-Based Classification</strong> (Primary)</li>
+<li><strong>Keyword-Based Detection</strong> (Tier 1)</li>
+<li>Fast initial classification using keyword pattern matching</li>
+<li>Checks article content for OS-specific terms (e.g., Windows registry paths, PowerShell commands, Linux paths)</li>
+<li>
+<p>This is the fastest detection method and handles clear-cut cases before invoking ML models</p>
+</li>
+<li>
+<p><strong>Embedding-Based Classification</strong> (Primary)</p>
+</li>
 <li>Uses CTI-BERT or SEC-BERT embeddings</li>
 <li>RandomForest or LogisticRegression classifier</li>
 <li>Trained on OS-specific indicator texts</li>
@@ -3214,7 +3222,7 @@
 </code></pre>
 <p><strong>Workflow Behavior:</strong>
 - If Windows detected: Workflow continues to extraction
-- If non-Windows detected: Workflow terminates gracefully with <code>TERMINATION_REASON_NON_WINDOWS_OS</code>
+- If non-Windows detected: Workflow terminates gracefully with <code>TERMINATION_REASON_NON_WINDOWS_OS</code> (actual code string: <code>non_windows_os_detected</code>)
 - If multiple OS detected: Workflow continues (may include Windows)</p>
 <h3 id="api-integration">API Integration</h3>
 <p>OS Detection is available via:

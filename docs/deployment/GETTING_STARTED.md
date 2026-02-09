@@ -23,7 +23,7 @@ Access:
 - postgres: `pgvector/pgvector:pg15`, persistent volume `postgres_data`, port 5432
 - redis: `redis:7-alpine`, volume `redis_data`, port 6379
 - web: FastAPI app (`uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`), ports 8001/8888
-- worker: Celery worker (queues: default, source_checks, maintenance, reports, connectivity, collection)
+- worker: Celery worker (queues: default, source_checks, priority_checks, maintenance, reports, connectivity, collection)
 - workflow_worker: Celery worker (queue: workflows)
 - scheduler: Celery beat
 - cli (profile `tools`): `python -m src.cli.main`
@@ -31,7 +31,7 @@ Access:
 ## Required environment
 Set these in `.env` before running `./start.sh`:
 - `POSTGRES_PASSWORD=<strong password>`
-- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `CHATGPT_API_KEY` (optional AI features)
+- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` (optional AI features)
 - `LMSTUDIO_API_URL` (default: `http://host.docker.internal:1234/v1`)
 - `LMSTUDIO_MODEL`, `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, `LMSTUDIO_MODEL_SIGMA` (defaults set in compose)
 - Langfuse tracing: configure via Settings UI (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, etc.) or env vars
@@ -64,4 +64,4 @@ docker-compose logs -f web
 - AI errors: confirm API keys or LM Studio endpoint reachable
 - CLI errors: use `./run_cli.sh --help` to see current commands; arguments are passed directly to `python -m src.cli.main`
 
-_Last verified: Feb 2025_
+_Last verified: Feb 2026_

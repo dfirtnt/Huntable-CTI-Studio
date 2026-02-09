@@ -6,9 +6,9 @@ This document provides comprehensive guidance for setting up and testing local L
 
 CTI Scraper now supports 6 LLM providers with a performance-optimized fallback chain:
 
-1. **MLX** (Apple Metal) - Fastest for Apple Silicon
-2. **llama.cpp** (Metal backend) - Highly optimized C++ inference
-3. **LM Studio** (OpenAI-compatible) - User-friendly GUI with server mode
+1. **MLX** (Apple Metal) - *(not implemented — planned)*
+2. **llama.cpp** (Metal backend) - *(not implemented — planned)*
+3. **LM Studio** (OpenAI-compatible) - **Active local model provider** — User-friendly GUI with server mode
 4. **OpenAI** (Cloud) - GPT-4o-mini API
 5. **Anthropic** (Cloud) - Claude Haiku API
 
@@ -163,6 +163,8 @@ Add to your `.env` file:
 LMSTUDIO_API_URL=http://localhost:1234/v1
 LMSTUDIO_MODEL=llama-3.2-1b-instruct
 LMSTUDIO_ENABLED=false
+# Docker: Use http://host.docker.internal:1234/v1 (default in Docker).
+# Use http://localhost:1234/v1 only for non-Docker local development.
 
 MLX_MODEL_PATH=models/mlx/llama-3.2-1b-instruct
 MLX_ENABLED=false
@@ -314,4 +316,4 @@ For issues or questions:
 
 ---
 
-**Note:** This performance testing system is part of CTI Scraper v3.0.0-beta "Copernicus" - a major release focused on local LLM performance optimization for Apple Silicon Macs.
+**Note:** This performance testing system is focused on local LLM performance optimization for Apple Silicon Macs. Currently only LMStudio is implemented as an active local provider; MLX and llama.cpp are planned for future releases.

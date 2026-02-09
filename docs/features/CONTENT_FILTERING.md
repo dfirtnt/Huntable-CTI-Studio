@@ -173,7 +173,7 @@ Each chunk is analyzed against:
 - **Not huntable patterns:** `acknowledgement|gratitude`, `contact.*mandiant`, etc.
 
 ### Step 3: ML Classification
-The ML model extracts 23 features and classifies each chunk:
+The ML model extracts 27 features and classifies each chunk:
 - Pattern match counts
 - Text characteristics (length, word count)
 - Technical indicators (commands, URLs, IPs)
@@ -491,6 +491,8 @@ DEFAULT_CHUNK_SIZE=1000
 DEFAULT_OVERLAP=200
 DEFAULT_CONFIDENCE_THRESHOLD=0.7
 ```
+
+> **Note**: The standalone content filtering threshold defaults to 0.7. The agentic workflow's Junk Filter step uses a separate threshold defaulting to 0.8, configurable via `junk_filter_threshold` in the workflow configuration.
 
 ## API Integration
 

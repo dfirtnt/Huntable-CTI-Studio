@@ -1,5 +1,7 @@
 # Extract Agent Fine-Tuning Guide
 
+> DEPRECATION NOTICE (Feb 2026): The HuggingFace-based fine-tuning workflow described below is no longer maintained or supported. This guide is retained for historical reference only and may not work with current tooling or configuration.
+
 Guide for fine-tuning models to improve Extract Agent performance.
 
 ## Overview
@@ -128,7 +130,7 @@ python scripts/finetune_extract_agent.py \
 3. **Test extraction:**
    ```bash
    # Test on a single article
-   python test_extract_agent.py --article-id 1937
+   docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937
    ```
 
 ### Model Naming
@@ -152,10 +154,11 @@ Track these metrics before/after fine-tuning:
 Compare fine-tuned model against baseline:
 
 ```bash
-# Run extraction benchmark
-python score_extract_lmstudio.py \
+# Run extraction evaluation
+docker exec -it cti_web python3 scripts/eval_extract_agent.py \
     --model extract-agent-mistral-7b-20250115 \
-    --articles 1974 1909 1866 1860 1937 1794
+    --test-data outputs/training_data/test_finetuning_data.json \
+    --output outputs/evaluations/extract_agent_finetuned.json
 ```
 
 ## Troubleshooting
@@ -215,7 +218,7 @@ python scripts/finetune_extract_agent.py \
     --epochs 5
 
 # 4. Test
-python test_extract_agent.py --article-id 1937
+docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937
 ```
 
 ## Dependencies

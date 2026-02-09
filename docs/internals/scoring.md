@@ -2,14 +2,14 @@
 
 ## Overview
 
-Based on the analysis of Windows malware keywords across 319 articles (97 Chosen, 222 Rejected), I've implemented an enhanced scoring mechanism that automatically identifies high-quality threat hunting and malware analysis content.
+Based on analysis of Windows malware keywords across 319 historical training samples (labels: 'high-signal' and 'low-signal' with 97 and 222 samples respectively). These dataset labels are historical; article-level chosen/rejected classification has been removed from the UI. This scoring mechanism identifies high-quality threat hunting and malware analysis content.
 
 **Integration with ML Content Filtering:** The hunt scoring system is now fully integrated with the ML content filtering system, providing enhanced accuracy and cost optimization through shared threat hunting keywords and confidence scoring.
 
 ## Key Findings
 
-### Perfect Discriminators (100% Chosen, 0% others)
-These keywords appear **exclusively** in "Chosen" content:
+### Perfect Discriminators (100% precision in the historical high-signal subset)
+These keywords appeared exclusively in the historical high-signal subset of training data:
 
 - **Process Names**: `rundll32`, `msiexec`, `svchost`, `lsass.exe`
 - **Registry References**: `hklm`, `appdata`, `programdata`, `WINDIR`

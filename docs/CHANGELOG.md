@@ -77,9 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added finish_reason logging for debugging empty responses
   - Verified LMStudio connectivity and model availability
 
-## [Unreleased]
-
-### Added
 - **Infra guard: last-line circuit breaker and bundle illegal-state detection** (2026-02-02): Enforce invariant that LLM is never invoked with empty messages
   - Circuit breaker in `request_chat` and defense-in-depth in `_call_openai_chat`, `_call_anthropic_chat`, `_post_lmstudio_chat`
   - Bundle builder: when `messages==[]` and `status==completed`, set `infra_failed=True` and `ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED` warning
@@ -1070,7 +1067,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Async Processing**: Celery workers for background embedding generation
 - **Database**: Article and Sigma rule embeddings stored in PostgreSQL with pgvector
 
-## [Unreleased]
+## [Pre-3.0.0 Changes]
 
 ### Fixed
 - **Navigation UI**: Removed vertical divider borders between navigation items that were overlapping text

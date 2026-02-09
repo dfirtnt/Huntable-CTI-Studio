@@ -21,7 +21,7 @@ docker-compose up
 3. **Configure Model Name**:
    - Edit `.env` file or set environment variables
    - Set `LMSTUDIO_MODEL` to your loaded model name
-   - Example: `LMSTUDIO_MODEL=llama-3.1-8b-instruct`
+   - Example: `LMSTUDIO_MODEL=deepseek-r1-qwen3-8b`
    - The main `docker-compose.yml` already includes LMStudio configuration pointing to `host.docker.internal:1234/v1`
 
 ## API Usage
@@ -43,7 +43,13 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 
 ### Required
 - `LMSTUDIO_API_URL`: LMStudio API endpoint (default: `http://host.docker.internal:1234/v1`)
-- `LMSTUDIO_MODEL`: Model name in LMStudio (default: `llama-3.2-1b-instruct`)
+- `LMSTUDIO_MODEL`: Model name in LMStudio (default: `deepseek-r1-qwen3-8b`)
+
+### Per-Agent Model Overrides
+- `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: main model)
+- `LMSTUDIO_MODEL_EXTRACT`: Model for extraction agent (default: main model)
+- `LMSTUDIO_MODEL_SIGMA`: Model for SIGMA generation (default: main model)
+- `LMSTUDIO_MAX_CONTEXT`: Maximum context window size
 
 ### Recommended Settings (for Deterministic Scoring)
 - `LMSTUDIO_TEMPERATURE`: Temperature for inference (default: `0.0` for deterministic scoring)
@@ -99,3 +105,7 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
 - Typically requires 4096-8192 tokens for standard queries
 
 The application uses the OpenAI-compatible HTTP API (`/v1/chat/completions`), which does not support runtime context length configuration. If you need programmatic context length control, you would need to switch to the LMStudio Python SDK, which is not currently implemented.
+
+## Test Endpoint
+
+Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.

@@ -67,6 +67,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#observable-evaluation-design" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -1629,6 +1634,26 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -1646,6 +1671,80 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Endpoints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2521,6 +2620,71 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Endpoints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2537,9 +2701,36 @@
 
 
 
-  <h1>Observable Evaluation</h1>
-
-
+<h1 id="observable-evaluation-design">Observable Evaluation Design</h1>
+<blockquote>
+<p><strong>Status</strong>: Internal implementation — see source code for details.</p>
+</blockquote>
+<h2 id="overview">Overview</h2>
+<p>The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries).</p>
+<h2 id="implementation">Implementation</h2>
+<p>The evaluation pipeline is implemented in <code>src/services/observable_evaluation/</code>:</p>
+<ul>
+<li><strong><code>evaluator.py</code></strong> — Core evaluation logic comparing model predictions against ground truth</li>
+<li><strong><code>model_inference.py</code></strong> — Model inference for evaluation runs</li>
+<li><strong><code>pipeline.py</code></strong> — End-to-end evaluation pipeline orchestration</li>
+<li><strong><code>span_normalization.py</code></strong> — Normalizes extracted spans for consistent comparison</li>
+</ul>
+<h2 id="database-tables">Database Tables</h2>
+<ul>
+<li><code>observable_model_metrics</code> — Stores per-model, per-observable-type metric values</li>
+<li><code>observable_evaluation_failures</code> — Records evaluation failures for debugging</li>
+</ul>
+<h2 id="api-endpoints">API Endpoints</h2>
+<ul>
+<li><code>POST /api/observables/evaluation/run</code> — Trigger an evaluation run</li>
+<li><code>GET /api/observables/evaluation/metrics</code> — Retrieve evaluation metrics</li>
+<li><code>GET /api/observables/evaluation/failures</code> — List evaluation failures</li>
+</ul>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="/observables-training">Observable Training Dashboard</a> — UI for monitoring training</li>
+<li><a href="../../howto/extract_observables/">Extract Observables How-To</a> — Usage guide</li>
+</ul>
 
 
 

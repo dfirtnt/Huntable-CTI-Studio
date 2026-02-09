@@ -1051,6 +1051,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ranking-qa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ranking QA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operational-safeguards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2628,6 +2639,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ranking-qa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ranking QA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operational-safeguards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2660,7 +2682,7 @@
 <h2 id="extraction-qa-hybrid-cmdline-pipeline">Extraction QA (Hybrid Cmdline pipeline)</h2>
 <p>Based on <code>../EXTRACTION_PIPELINE_SPEC_FOR_AI.md</code>:
 1. <strong>Regex candidate extractor</strong>: High-recall regexes capture command-line shapes (executables with args, powershell, System32 utilities).
-2. <strong>Encoder classifier</strong>: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or <code>all-MiniLM-L6-v2</code>). Keeps only likely Windows commands.
+2. <strong>Encoder classifier</strong>: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or <code>all-mpnet-base-v2</code>). Keeps only likely Windows commands.
 3. <strong>Optional LLM QA validator</strong>: Lightweight model (Qwen2.5-Coder-7B or Llama-3.1-8B) re-checks borderline strings and flags invalid items. Output never expands the list—only prunes.
 4. <strong>Supervisor merge</strong>: Aggregates sub-agent items, produces <code>discrete_huntables_count</code>, and emits a newline-joined <code>content</code> string used by Sigma.</p>
 <h2 id="sigma-qa">Sigma QA</h2>
@@ -2669,6 +2691,11 @@
 - <strong>Iterative retries</strong>: Up to 3 attempts with validator feedback injected into the next prompt when a rule fails validation.
 - <strong>Similarity/coverage checks</strong>: Generated rules are compared to SigmaHQ embeddings to prevent duplication and classify coverage.
 - <strong>Storage</strong>: Attempt logs, validation errors, and final rules are stored in <code>agentic_workflow_executions.sigma_rules</code> for post-mortem review.</p>
+<h2 id="ranking-qa">Ranking QA</h2>
+<p>The ranking step includes a QA retry loop. After <code>LLMService.rank_article()</code> produces a score, the QA agent validates the ranking for consistency and compliance. If the QA check fails, the ranking is retried up to <code>qa_max_retries</code> times (configurable in <code>agentic_workflow_configs</code>).</p>
+<p><strong>QA Prompt</strong>: <code>QAAgentBase</code> (with ranking-specific context)
+<strong>Max Retries</strong>: Configurable via workflow config (<code>qa_max_retries</code>)
+<strong>Failure Behavior</strong>: Falls back to the last valid score or terminates with <code>rank_below_threshold</code></p>
 <h2 id="operational-safeguards">Operational safeguards</h2>
 <ul>
 <li>Workflow trigger blocks concurrent executions per article; stuck pending runs older than 5 minutes are marked failed before allowing a retry.</li>

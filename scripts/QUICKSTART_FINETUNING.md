@@ -135,7 +135,7 @@ See `docs/EXTRACT_AGENT_EVALUATION.md` for detailed evaluation metrics and troub
 
 3. **Test:**
    ```bash
-   python test_extract_agent.py --article-id 1937
+   docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937
    ```
 
 ## Troubleshooting

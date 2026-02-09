@@ -170,9 +170,11 @@ articles (
     canonical_url VARCHAR,
     published_at TIMESTAMP,
     created_at TIMESTAMP,
-    metadata JSONB  -- Quality scores, TTPs, etc.
+    article_metadata JSONB  -- Quality scores, TTPs, etc.
 )
 ```
+
+**Note**: Only core ingestion tables are shown here. The full database contains 28 tables including workflow, SIGMA, evaluation, and ML model tables. See [Database Schemas](../reference/schemas.md) for the complete reference.
 
 **Features**:
 - Async operations for web application
@@ -182,7 +184,9 @@ articles (
 
 ### 4. Background Processing (`src/worker/`)
 
-**Technology**: Celery + Redis
+**Technology**: Celery + Redis; agentic workflow orchestrated by **LangGraph**
+
+Celery triggers background tasks and schedules periodic jobs. The agentic workflow (7-step pipeline) is orchestrated by **LangGraph** as a state machine, running on a dedicated `workflows` queue.
 
 **Tasks**:
 - **Source Monitoring**: Periodic checks of all configured sources
@@ -190,6 +194,7 @@ articles (
 - **Quality Analysis**: Background content quality assessment
 - **TTP Extraction**: Threat technique identification
 - **Maintenance**: Database cleanup and optimization
+- **Agentic Workflow**: LangGraph-orchestrated 7-step pipeline (ranking, extraction, SIGMA generation, etc.)
 
 **Scheduling**:
 ```python
@@ -303,9 +308,11 @@ python run_tests.py --all --coverage
 # Docker-based testing
 python run_tests.py --docker --integration
 
-# CLI operations
+# CLI operations (local dev)
 python -m src.cli.main collect --dry-run
 ```
+
+> **Note**: In Docker deployments, use `./run_cli.sh` instead of `python -m src.cli.main`.
 
 ### Adding New Sources
 1. Open the `Source Config` tab and create or edit the source (regex helper and tooltips aid validation).
@@ -336,7 +343,7 @@ python -m src.cli.main collect --dry-run
 
 ### Performance Metrics
 - **Collection Rate**: Articles per hour
-- **Quality Distribution**: Chosen vs rejected ratios
+- **Quality Distribution**: Score distributions and quality trends
 - **Source Performance**: Success rates by source
 - **Database Performance**: Query response times
 
@@ -362,6 +369,12 @@ python -m src.cli.main collect --dry-run
 - **Real-time Updates**: WebSocket notifications
 - **Export Capabilities**: Multiple format support
 - **Integration**: SIEM and threat intelligence platform connectors
+
+### Core v5 Features
+- **Agentic Workflow**: LangGraph-orchestrated 7-step pipeline (rank → extract → enrich → SIGMA → embed → evaluate → report)
+- **SIGMA Rule Generation and Matching**: pgvector similarity search for rule deduplication
+- **Article Embeddings**: Sentence Transformers with Vector(768) for semantic search
+- **Browser Extension**: Manifest V3 Chrome extension with Tesseract.js OCR for screenshot-to-IOC extraction
 
 ### Scalability Improvements
 - **Horizontal Scaling**: Multiple worker instances
@@ -395,6 +408,8 @@ docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*)
 # Run initial collection
 python -m src.cli.main collect
 ```
+
+> **Note**: In Docker deployments, use `./run_cli.sh` instead of `python -m src.cli.main`.
 
 ### Development Environment
 ```bash

@@ -5,6 +5,7 @@ Provides LLM-based ranking and extraction for agentic workflow.
 """
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -633,7 +634,8 @@ class LLMService:
                                     # Don't trust it - we'll use Method 2 (test request) instead
                                     if detected_context > 65536:
                                         logger.debug(
-                                            f"/models endpoint returned theoretical max ({detected_context}) for {model_name}. "
+                                            f"/models endpoint returned theoretical max "
+                                            f"({detected_context}) for {model_name}. "
                                             f"Ignoring and will test actual configured length via request."
                                         )
                                         # Don't set context_length here - let Method 2 test it
@@ -1206,10 +1208,8 @@ class LLMService:
                         # Cancel pending tasks
                         for task in pending:
                             task.cancel()
-                            try:
+                            with contextlib.suppress(asyncio.CancelledError):
                                 await task
-                            except asyncio.CancelledError:
-                                pass
 
                         # Check if cancellation occurred
                         if cancellation_event.is_set():
@@ -1217,14 +1217,10 @@ class LLMService:
                             if not request_task.done():
                                 request_task.cancel()
                                 # Explicitly close the client connection to stop the underlying HTTP request
-                                try:
+                                with contextlib.suppress(Exception):
                                     await client.aclose()
-                                except Exception:
-                                    pass
-                                try:
+                                with contextlib.suppress(asyncio.CancelledError, httpx.RequestError, httpx.ConnectError):
                                     await request_task
-                                except (asyncio.CancelledError, httpx.RequestError, httpx.ConnectError):
-                                    pass
                             raise asyncio.CancelledError("Request cancelled by client")
 
                         # Get the response
@@ -1297,10 +1293,8 @@ class LLMService:
                                     logger.debug(f"Retry {retry_type} failed: {retry_exc}")
 
                         # Close client before raising
-                        try:
+                        with contextlib.suppress(Exception):
                             await client.aclose()
-                        except Exception:
-                            pass
 
                         # Check for common errors that indicate LMStudio isn't ready
                         if (
@@ -1326,10 +1320,8 @@ class LLMService:
 
                 except RuntimeError:
                     # Re-raise RuntimeErrors (like 400 errors) immediately without trying other URLs
-                    try:
+                    with contextlib.suppress(Exception):
                         await client.aclose()
-                    except Exception:
-                        pass
                     raise
 
                 except httpx.TimeoutException as e:
@@ -1368,10 +1360,8 @@ class LLMService:
                         raise RuntimeError(f"{failure_context}: {str(e)}") from e
         finally:
             # Ensure client is closed
-            try:
+            with contextlib.suppress(Exception):
                 await client.aclose()
-            except Exception:
-                pass
 
         raise RuntimeError(f"{failure_context}: All LMStudio URLs failed. Last error: {last_error_detail}")
 
@@ -1495,13 +1485,11 @@ class LLMService:
             )
         else:
             # Detected context is very small or unreliable - use conservative model-specific cap
-            if is_reasoning_model:
-                conservative_cap = min(4096, model_max_context)
-            else:
-                conservative_cap = min(2048, model_max_context)
+            conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
             actual_context_length = int(conservative_cap * 0.75)  # 25% safety margin for unreliable detection
             logger.warning(
-                f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
+                f"Using conservative context {actual_context_length} for {model_name} "
+                f"(detected: {detected_length}, method: {detection_method})"
             )
 
         logger.info(
@@ -1647,12 +1635,16 @@ class LLMService:
                 finish_reason = result["choices"][0].get("finish_reason", "")
                 response_truncation_warning = None
                 if finish_reason == "length":
+                    completion_tokens = result.get("usage", {}).get("completion_tokens", 0)
                     response_truncation_warning = (
-                        f"Response truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. "
+                        f"Response truncated (finish_reason=length). "
+                        f"Used {completion_tokens} tokens. "
                         f"max_tokens={max_output_tokens} may need to be increased."
                     )
                     logger.warning(
-                        f"Ranking response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_output_tokens} may need to be increased."
+                        f"Ranking response was truncated (finish_reason=length). "
+                        f"Used {completion_tokens} tokens. "
+                        f"max_tokens={max_output_tokens} may need to be increased."
                     )
 
                 # Fail if response is empty
@@ -1697,7 +1689,12 @@ class LLMService:
                 else:
                     # If truncated and no score found, provide helpful error
                     if finish_reason == "length":
-                        error_msg = f"Ranking response was truncated and no score found. Response length: {len(response_text)} chars. Try increasing max_tokens (current: {max_output_tokens}). Response preview: {response_text[-300:]}"
+                        error_msg = (
+                            f"Ranking response was truncated and no score found. "
+                            f"Response length: {len(response_text)} chars. "
+                            f"Try increasing max_tokens (current: {max_output_tokens}). "
+                            f"Response preview: {response_text[-300:]}"
+                        )
                     else:
                         error_msg = f"Could not parse score from LLM response. Response: {response_text[:500]}"
                     logger.error(error_msg)
@@ -1844,10 +1841,7 @@ class LLMService:
                 f"capping to {actual_context_length}"
             )
         else:
-            if is_reasoning_model:
-                conservative_cap = min(4096, model_max_context)
-            else:
-                conservative_cap = min(2048, model_max_context)
+            conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
             actual_context_length = int(conservative_cap * 0.75)
             logger.warning(
                 f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
@@ -2338,10 +2332,7 @@ class LLMService:
                 f"capping to {actual_context_length}"
             )
         else:
-            if is_reasoning_model:
-                conservative_cap = min(4096, model_max_context)
-            else:
-                conservative_cap = min(2048, model_max_context)
+            conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
             actual_context_length = int(conservative_cap * 0.75)
             logger.warning(
                 f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
@@ -2983,12 +2974,12 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             model_name = self.model_extract
         if not model_name:
             raise ValueError(
-                f"No model configured for {agent_name}. Please set {agent_name}_model or ExtractAgent model in workflow config."
+                f"No model configured for {agent_name}. "
+                f"Please set {agent_name}_model or ExtractAgent model in workflow config."
             )
 
-        logger.info(
-            f"{agent_name} resolved model: {model_name} (from: {'parameter' if model_name == prompt_config.get('model') else 'fallback'})"
-        )
+        source = "parameter" if model_name == prompt_config.get("model") else "fallback"
+        logger.info(f"{agent_name} resolved model: {model_name} (from: {source})")
 
         while current_try < max_retries:
             current_try += 1
@@ -3000,7 +2991,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 )
                 if not (provider and isinstance(provider, str) and provider.strip()):
                     logger.warning(
-                        f"{agent_name} provider was None/empty, falling back to ExtractAgent provider: {resolved_provider}. "
+                        f"{agent_name} provider was None/empty, "
+                        f"falling back to ExtractAgent provider: {resolved_provider}. "
                         f"This may indicate the provider wasn't set in workflow config."
                     )
                 effective_provider = self._canonicalize_provider(resolved_provider)
@@ -3063,7 +3055,9 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     truncated_content = self._truncate_content(content, context_limit_tokens, 1000)
 
                 logger.info(
-                    f"{agent_name} prompt construction: content_length={len(content)}, truncated_length={len(truncated_content)}, context_limit={context_limit_tokens}"
+                    f"{agent_name} prompt construction: content_length={len(content)}, "
+                    f"truncated_length={len(truncated_content)}, "
+                    f"context_limit={context_limit_tokens}"
                 )
 
                 # Check if using new template-based format or legacy format
@@ -3108,10 +3102,20 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     json_example = prompt_config.get("json_example")
                     json_example_str = ""
                     if json_example:
+                        json_format_instruction = (
+                            "\n\nYou MUST output JSON in this exact format. "
+                            "No markdown code fences, no prose, just the raw JSON object."
+                        )
                         if isinstance(json_example, dict):
-                            json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json.dumps(json_example, indent=2)}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                            json_example_str = (
+                                f"\n\nREQUIRED JSON STRUCTURE (example):\n"
+                                f"{json.dumps(json_example, indent=2)}"
+                                f"{json_format_instruction}"
+                            )
                         else:
-                            json_example_str = f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}\n\nYou MUST output JSON in this exact format. No markdown code fences, no prose, just the raw JSON object."
+                            json_example_str = (
+                                f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}{json_format_instruction}"
+                            )
 
                     user_prompt = f"""Title: {title}
 URL: {url}
@@ -3126,7 +3130,8 @@ Output Format Specification:
 
 CRITICAL INSTRUCTIONS: {instructions}
 
-IMPORTANT: Your response must end with a valid JSON object matching the structure above. If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
+IMPORTANT: Your response must end with a valid JSON object matching the structure above.
+If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
@@ -3175,12 +3180,16 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                     metadata=trace_metadata,
                 ) as generation:
                     logger.info(
-                        f"{agent_name} provider resolution: provider={provider}, effective_provider={effective_provider}, self.provider_extract={self.provider_extract}"
+                        f"{agent_name} provider resolution: provider={provider}, "
+                        f"effective_provider={effective_provider}, "
+                        f"self.provider_extract={self.provider_extract}"
                     )
                     # Use provided top_p or get from agent config
                     effective_top_p = top_p if top_p is not None else self.get_top_p_for_agent(agent_name)
                     logger.info(
-                        f"{agent_name} extraction attempt {current_try}: using provider={effective_provider}, model={model_name}, temperature={temperature}, top_p={effective_top_p}"
+                        f"{agent_name} extraction attempt {current_try}: "
+                        f"using provider={effective_provider}, model={model_name}, "
+                        f"temperature={temperature}, top_p={effective_top_p}"
                     )
                     response = await self.request_chat(
                         provider=effective_provider,
@@ -3229,7 +3238,8 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         # We match \\" (two backslashes + quote) and replace with \" (escaped quote)
                         # But be careful: we don't want to break Windows paths like C:\\ProgramData
                         # So we only fix \\" that appears in contexts suggesting quoted text
-                        # Pattern: \\" followed by alphanumeric (opening quote) OR preceded by alphanumeric (closing quote)
+                        # Pattern: \\" followed by alphanumeric (opening quote)
+                        # OR preceded by alphanumeric (closing quote)
                         # In regex: \\\\" means match two backslashes + quote
                         text = re.sub(r'\\\\"(?=[A-Za-z0-9])', r'\\"', text)  # Opening quotes: \\"Task -> \"Task
                         # For closing quotes, use a simpler pattern: match \\" that's not part of a path
@@ -3340,7 +3350,8 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                                         candidate = response_text[open_pos:json_end]
                                         parsed, success = try_parse_json(candidate)
                                         if success and parsed:
-                                            # Prefer structures with expected keys (support all extract agent result formats)
+                                            # Prefer structures with expected keys
+                                            # (support all extract agent result formats)
                                             if any(
                                                 key in parsed
                                                 for key in [
@@ -3366,7 +3377,26 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
                         if last_result:
                             logger.info(f"{agent_name} parsed JSON keys: {list(last_result.keys())}")
                             # Check for agent-specific result keys
-                            if "cmdline_items" in last_result:
+                            # IMPORTANT: Check for nested cmdline structure BEFORE checking cmdline_items
+                            # because the LLM might return {"cmdline": {"items": []}} instead of {"cmdline_items": []}
+                            if "cmdline" in last_result and isinstance(last_result["cmdline"], dict):
+                                # Handle nested cmdline structure: {"cmdline": {"items": [], "count": 0}}
+                                cmdline_data = last_result["cmdline"]
+                                if "items" in cmdline_data:
+                                    last_result["cmdline_items"] = cmdline_data["items"]
+                                    if "count" in cmdline_data:
+                                        last_result["count"] = cmdline_data["count"]
+                                    # Remove the nested cmdline structure
+                                    del last_result["cmdline"]
+                                    count = len(last_result.get("cmdline_items", []))
+                                    logger.info(
+                                        f"{agent_name} normalized nested cmdline structure: found {count} cmdline_items"
+                                    )
+                                    if count == 0:
+                                        logger.warning(
+                                            f"{agent_name}: cmdline_items array is empty after normalization!"
+                                        )
+                            elif "cmdline_items" in last_result:
                                 count = len(last_result.get("cmdline_items", []))
                                 logger.info(f"{agent_name} found {count} cmdline_items")
                                 if count == 0:
@@ -3704,7 +3734,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                                             after_prefix = qa_text[prefix_idx + len(prefix) :].strip()
                                             start_idx = after_prefix.find("{")
                                             if start_idx != -1:
-                                                # Try balanced brace extraction on remaining text (simplified, no string handling)
+                                                # Try balanced brace extraction on remaining text
+                                                # (simplified, no string handling)
                                                 brace_count = 0
                                                 end_idx = start_idx
                                                 for i in range(start_idx, len(after_prefix)):
@@ -3719,7 +3750,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                                                     json_str = after_prefix[start_idx : end_idx + 1]
                                                     qa_result = json.loads(json_str)
                                                     logger.info(
-                                                        f"{agent_name} QA parsed keys (after prefix '{prefix}'): {list(qa_result.keys())}"
+                                                        f"{agent_name} QA parsed keys "
+                                                        f"(after prefix '{prefix}'): {list(qa_result.keys())}"
                                                     )
                                                     break
                                     if not qa_result:
@@ -3746,7 +3778,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                                                         ):
                                                             qa_result = test_result
                                                             logger.info(
-                                                                f"{agent_name} QA parsed keys (brute force): {list(qa_result.keys())}"
+                                                                f"{agent_name} QA parsed keys "
+                                                                f"(brute force): {list(qa_result.keys())}"
                                                             )
                                                             break
                                                     except (json.JSONDecodeError, ValueError):
@@ -3758,16 +3791,23 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                                             raise ValueError("Brute force extraction failed")
                                     except (json.JSONDecodeError, ValueError) as e6:
                                         # All strategies failed
-                                        parse_error = f"All parsing strategies failed. Tried: {', '.join(strategies_tried)}. Last error: {str(e6)}"
+                                        strategies = ", ".join(strategies_tried)
+                                        parse_error = (
+                                            f"All parsing strategies failed. Tried: {strategies}. Last error: {str(e6)}"
+                                        )
                                         parsing_failed = True
                                         logger.error(
-                                            f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:500]}. Treating as pass to avoid retry loop."
+                                            f"{agent_name} QA parsing failed: {parse_error}. "
+                                            f"Response preview: {qa_text[:500]}. "
+                                            f"Treating as pass to avoid retry loop."
                                         )
                 except Exception as e:
                     parse_error = f"Unexpected parse error: {e}"
                     parsing_failed = True
                     logger.error(
-                        f"{agent_name} QA parsing failed: {parse_error}. Response preview: {qa_text[:500]}. Treating as pass to avoid retry loop."
+                        f"{agent_name} QA parsing failed: {parse_error}. "
+                        f"Response preview: {qa_text[:500]}. "
+                        f"Treating as pass to avoid retry loop."
                     )
 
                 # Default to pass if parse fail to avoid retry loops, but log as error
@@ -3825,18 +3865,22 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     if qa_result and "corrected_commands" in qa_result:
                         corrected = qa_result["corrected_commands"]
                         for removed in corrected.get("removed", []):
+                            cmd = removed.get("command", "")
+                            reason = removed.get("reason", "")
                             issues.append(
                                 {
                                     "type": "compliance",
-                                    "description": f"Removed: {removed.get('command', '')} - {removed.get('reason', '')}",
+                                    "description": f"Removed: {cmd} - {reason}",
                                     "severity": "medium",
                                 }
                             )
                         for added in corrected.get("added", []):
+                            cmd = added.get("command", "")
+                            found = added.get("found_in", "")
                             issues.append(
                                 {
                                     "type": "completeness",
-                                    "description": f"Added: {added.get('command', '')} - Found in: {added.get('found_in', '')}",
+                                    "description": f"Added: {cmd} - Found in: {found}",
                                     "severity": "low",
                                 }
                             )
@@ -3886,15 +3930,13 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         }
 
                 if status == "pass":
-                    logger.info(
-                        f"{agent_name} QA Passed on attempt {current_try}. Returning {len(last_result.get('cmdline_items', last_result.get('items', [])))} items"
-                    )
+                    items = last_result.get("cmdline_items", last_result.get("items", []))
+                    logger.info(f"{agent_name} QA Passed on attempt {current_try}. Returning {len(items)} items")
                     return last_result
                 # Use the extracted feedback (already extracted above)
                 feedback = extracted_feedback
-                logger.info(
-                    f"{agent_name} QA Failed on attempt {current_try}: {feedback}. Current items: {len(last_result.get('cmdline_items', last_result.get('items', [])))}"
-                )
+                items = last_result.get("cmdline_items", last_result.get("items", []))
+                logger.info(f"{agent_name} QA Failed on attempt {current_try}: {feedback}. Current items: {len(items)}")
                 # Continue loop
 
             except PreprocessInvariantError:

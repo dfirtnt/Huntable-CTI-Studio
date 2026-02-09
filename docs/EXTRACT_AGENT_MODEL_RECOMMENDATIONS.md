@@ -1,5 +1,9 @@
 # Extract Agent Model Selection Recommendations
 
+> **Status**: Coming Soon — Benchmarking in Progress
+> 
+> This document will be populated with model-specific recommendations after benchmark testing is complete.
+
 ## Executive Summary
 
 *This document will be populated after benchmarking is complete.*

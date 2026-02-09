@@ -21,11 +21,13 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
 
 3. **RAG Service** (`src/services/rag_service.py`)
    - **Dual Search**: Article-level + chunk-level retrieval
-   - **Similarity**: Cosine similarity using pgvector `<=>` operator
+   - **Similarity**: Cosine similarity using pgvector `<=>` operator (used for RAG retrieval)
    - **Chunk Strategy**: Uses `article_annotations` table for fine-grained retrieval
 
+Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm (Atom Jaccard 70% + Logic Shape Similarity 30%). Cosine similarity is retained for RAG-style document retrieval only and is not used for final SIGMA similarity ranking.
+
 4. **LLM Generation Service** (`src/services/llm_generation_service.py`)
-   - **Multi-Provider**: OpenAI GPT-4o, Anthropic Claude
+   - **Multi-Provider**: OpenAI GPT-4o, Anthropic Claude, LMStudio (local)
    - **Auto-Selection**: Automatically chooses best available provider
    - **Fallback**: Graceful degradation to template responses
    - **Context Management**: Conversation history integration
@@ -45,7 +47,7 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
 ### Multi-Provider LLM Support
 - **OpenAI GPT-4o**: Primary provider for high-quality analysis
 - **Anthropic Claude**: Alternative provider with different strengths
-- **Local Models**: Support removed - use OpenAI or Anthropic for cloud-based AI
+- **LMStudio (Local)**: Fully supported via LMStudio (see [LMStudio Integration](LMSTUDIO_INTEGRATION.md))
 - **Template Fallback**: Structured responses when LLM unavailable
 
 ### Semantic Search
@@ -78,7 +80,9 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
   "max_results": 10,
   "similarity_threshold": 0.3,
   "use_chunks": false,
-  "context_length": 2000
+  "context_length": 2000,
+  "include_sigma_rules": true,
+  "llm_model": "gpt-4o"
 }
 ```
 
@@ -88,8 +92,11 @@ The CTI Scraper implements a comprehensive RAG system that combines semantic sea
   "response": "Synthesized threat intelligence analysis...",
   "conversation_history": [...],
   "relevant_articles": [...],
+  "relevant_rules": [...],
   "total_results": 5,
+  "total_rules": 42,
   "llm_provider": "openai",
+  "llm_model_name": "gpt-4o",
   "use_llm_generation": true,
   "timestamp": "2025-01-23T00:00:00Z"
 }
@@ -145,7 +152,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
 - **Template Mode**: < 2 seconds
 - **OpenAI GPT-4o**: 3-5 seconds
 - **Anthropic Claude**: 4-6 seconds
-- **Local Models**: Support removed
+- **LMStudio (Local)**: Fully supported via LMStudio (see [LMStudio Integration](LMSTUDIO_INTEGRATION.md))
 
 ### Quality Metrics
 - **Relevance**: 60-95% similarity scores for retrieved content

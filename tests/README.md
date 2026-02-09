@@ -80,7 +80,10 @@ tests/
 │   └── test_*.py (24+ files)
 │
 ├── api/                         ← API endpoint tests
+├── cli/                         ← CLI command tests
+├── services/                    ← Service layer tests (28+ files)
 ├── ui/                          ← UI component tests
+├── workflows/                   ← Workflow tests
 └── utils/                       ← Test utilities
 ```
 
@@ -372,6 +375,6 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for testing guidelines.
 
 ---
 
-**Last Updated**: January 2025  
+**Last Updated**: February 2026  
 **Maintainer**: Test Engineering Team  
 **Questions**: Open a GitHub Issue

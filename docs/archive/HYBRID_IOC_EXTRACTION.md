@@ -1,8 +1,10 @@
 # Hybrid IOC Extraction System
 
+> **Deprecated/Disabled (2026-02)**: The IOC extraction feature and related AI Assistant UI integrations are fully disabled. This document is kept for historical reference only.
+
 ## Overview
 
-The Hybrid IOC Extraction System combines the speed and reliability of specialized regex-based extraction with the intelligence and context awareness of Large Language Model (LLM) validation. This provides the best of both worlds: fast, cost-effective processing with intelligent validation when needed.
+Historically, the Hybrid IOC Extraction System combined the speed and reliability of specialized regex-based extraction with LLM validation. The feature is currently disabled and documented here only for reference.
 
 ## Architecture
 
@@ -28,14 +30,12 @@ The Hybrid IOC Extraction System combines the speed and reliability of specializ
 ## Key Components
 
 ### 1. Web Frontend (`src/web/templates/article_detail.html`)
-- **IOC Button**: Triggers extraction from article detail pages (shows "Extract IOCs" or "Display IOCs" based on cache)
-- **Results Modal**: Displays extracted IOCs in categorized format via `generateAIAnalysis('iocs')`
-- **LLM Validation Toggle**: Checkbox in IOC modal to enable/disable LLM validation for regeneration (default: unchecked)
-- **Metadata Display**: Shows extraction method, confidence, processing time, and counts
-- **Regenerate Option**: Allows force regeneration of cached results with user-selected LLM validation setting
-- **Integration**: Uses JavaScript to call `/api/articles/{id}/extract-iocs` endpoint
+- **Status**: Deprecated/disabled
+- **Historical behavior**: Previously used an IOC modal and `generateAIAnalysis('iocs')` integration
+- **Historical integration**: Previously called `/api/articles/{id}/extract-iocs`
 
 ### 2. API Endpoint (`src/web/modern_main.py`)
+- **Status**: Deprecated/disabled
 - **Route**: `/api/articles/{article_id}/extract-iocs`
 - **Methods**: POST
 - **Parameters**:
@@ -47,6 +47,7 @@ The Hybrid IOC Extraction System combines the speed and reliability of specializ
 - **Response**: JSON with IOCs, metadata, and processing information
 
 ### 3. Hybrid IOC Extractor (`src/utils/ioc_extractor.py`)
+- **Status**: Deprecated/disabled
 - **Phase 1**: Fast extraction using `iocextract` library (default)
 - **Phase 2**: Optional LLM validation with filtered content for context and categorization
 - **Content Filtering**: Uses `ContentFilter` to send only high-value chunks to LLM
