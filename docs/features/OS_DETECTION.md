@@ -13,7 +13,12 @@ The OS Detection system identifies the target operating system(s) mentioned in t
 
 ### Detection Methods
 
-1. **Embedding-Based Classification** (Primary)
+1. **Keyword-Based Detection** (Tier 1)
+   - Fast initial classification using keyword pattern matching
+   - Checks article content for OS-specific terms (e.g., Windows registry paths, PowerShell commands, Linux paths)
+   - This is the fastest detection method and handles clear-cut cases before invoking ML models
+
+2. **Embedding-Based Classification** (Primary)
    - Uses CTI-BERT or SEC-BERT embeddings
    - RandomForest or LogisticRegression classifier
    - Trained on OS-specific indicator texts
@@ -50,7 +55,7 @@ OS Detection is integrated as **Step 0** (first) in the agentic workflow:
 
 **Workflow Behavior:**
 - If Windows detected: Workflow continues to extraction
-- If non-Windows detected: Workflow terminates gracefully with `TERMINATION_REASON_NON_WINDOWS_OS`
+- If non-Windows detected: Workflow terminates gracefully with `TERMINATION_REASON_NON_WINDOWS_OS` (actual code string: `non_windows_os_detected`)
 - If multiple OS detected: Workflow continues (may include Windows)
 
 ### API Integration

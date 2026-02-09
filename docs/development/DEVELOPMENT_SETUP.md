@@ -162,6 +162,7 @@ markers =
     api: marks tests as API tests
     integration: marks tests as integration tests
     smoke: marks tests as smoke tests
+    unit: marks tests as unit tests
 asyncio_mode = auto
 ```
 
@@ -169,8 +170,8 @@ asyncio_mode = auto
 ```bash
 # .env
 TESTING=true
-DATABASE_URL=postgresql://user:pass@postgres/test_db
-REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper
+REDIS_URL=redis://redis:6379/0
 CTI_SCRAPER_URL=http://localhost:8001  # Default port, change if needed
 ```
 
@@ -408,8 +409,8 @@ pip install -r requirements-dev.txt
 # Application settings
 ENVIRONMENT=development
 LOG_LEVEL=DEBUG
-DATABASE_URL=postgresql://user:pass@postgres/cti_scraper
-REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper
+REDIS_URL=redis://redis:6379/0
 
 # Testing settings
 TESTING=true
@@ -449,6 +450,7 @@ markers =
     api: marks tests as API tests
     integration: marks tests as integration tests
     smoke: marks tests as smoke tests
+    unit: marks tests as unit tests
 asyncio_mode = auto
 ```
 

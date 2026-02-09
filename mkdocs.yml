@@ -65,7 +65,6 @@ nav:
           - Advanced Quality System: development/ADVANCED_QUALITY_SYSTEM.md
           - Allure Reports: development/ALLURE_REPORTS.md
           - Debug Eval Logs: development/DEBUG_EVAL_LMSTUDIO_LOGS.md
-          - Hybrid IOC Extraction: development/HYBRID_IOC_EXTRACTION.md
           - Lightweight Integration Testing: development/LIGHTWEIGHT_INTEGRATION_TESTING.md
           - Multi Instance Setup: development/MULTI_INSTANCE_SETUP.md
           - Manual Checklist 30min: development/MANUAL_CHECKLIST_30MIN.md

@@ -1601,6 +1601,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#core-v5-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core v5 Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#scalability-improvements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3507,6 +3518,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#core-v5-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core v5 Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#scalability-improvements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3739,22 +3761,25 @@ articles (
     canonical_url VARCHAR,
     published_at TIMESTAMP,
     created_at TIMESTAMP,
-    metadata JSONB  -- Quality scores, TTPs, etc.
+    article_metadata JSONB  -- Quality scores, TTPs, etc.
 )
 </code></pre>
+<p><strong>Note</strong>: Only core ingestion tables are shown here. The full database contains 28 tables including workflow, SIGMA, evaluation, and ML model tables. See <a href="../../reference/schemas/">Database Schemas</a> for the complete reference.</p>
 <p><strong>Features</strong>:
 - Async operations for web application
 - Sync operations for CLI and background tasks
 - JSONB metadata for flexible data storage
 - Full-text search capabilities</p>
 <h3 id="4-background-processing-srcworker">4. Background Processing (<code>src/worker/</code>)</h3>
-<p><strong>Technology</strong>: Celery + Redis</p>
+<p><strong>Technology</strong>: Celery + Redis; agentic workflow orchestrated by <strong>LangGraph</strong></p>
+<p>Celery triggers background tasks and schedules periodic jobs. The agentic workflow (7-step pipeline) is orchestrated by <strong>LangGraph</strong> as a state machine, running on a dedicated <code>workflows</code> queue.</p>
 <p><strong>Tasks</strong>:
 - <strong>Source Monitoring</strong>: Periodic checks of all configured sources
 - <strong>Content Collection</strong>: Automated RSS and web scraping
 - <strong>Quality Analysis</strong>: Background content quality assessment
 - <strong>TTP Extraction</strong>: Threat technique identification
-- <strong>Maintenance</strong>: Database cleanup and optimization</p>
+- <strong>Maintenance</strong>: Database cleanup and optimization
+- <strong>Agentic Workflow</strong>: LangGraph-orchestrated 7-step pipeline (ranking, extraction, SIGMA generation, etc.)</p>
 <p><strong>Scheduling</strong>:</p>
 <pre><code class="language-python"># Example task scheduling
 @celery_app.task
@@ -3860,9 +3885,12 @@ python run_tests.py --all --coverage
 # Docker-based testing
 python run_tests.py --docker --integration
 
-# CLI operations
+# CLI operations (local dev)
 python -m src.cli.main collect --dry-run
 </code></pre>
+<blockquote>
+<p><strong>Note</strong>: In Docker deployments, use <code>./run_cli.sh</code> instead of <code>python -m src.cli.main</code>.</p>
+</blockquote>
 <h3 id="adding-new-sources">Adding New Sources</h3>
 <ol>
 <li>Open the <code>Source Config</code> tab and create or edit the source (regex helper and tooltips aid validation).</li>
@@ -3896,7 +3924,7 @@ python -m src.cli.main collect --dry-run
 <h3 id="performance-metrics">Performance Metrics</h3>
 <ul>
 <li><strong>Collection Rate</strong>: Articles per hour</li>
-<li><strong>Quality Distribution</strong>: Chosen vs rejected ratios</li>
+<li><strong>Quality Distribution</strong>: Score distributions and quality trends</li>
 <li><strong>Source Performance</strong>: Success rates by source</li>
 <li><strong>Database Performance</strong>: Query response times</li>
 </ul>
@@ -3923,6 +3951,13 @@ python -m src.cli.main collect --dry-run
 <li><strong>Real-time Updates</strong>: WebSocket notifications</li>
 <li><strong>Export Capabilities</strong>: Multiple format support</li>
 <li><strong>Integration</strong>: SIEM and threat intelligence platform connectors</li>
+</ul>
+<h3 id="core-v5-features">Core v5 Features</h3>
+<ul>
+<li><strong>Agentic Workflow</strong>: LangGraph-orchestrated 7-step pipeline (rank → extract → enrich → SIGMA → embed → evaluate → report)</li>
+<li><strong>SIGMA Rule Generation and Matching</strong>: pgvector similarity search for rule deduplication</li>
+<li><strong>Article Embeddings</strong>: Sentence Transformers with Vector(768) for semantic search</li>
+<li><strong>Browser Extension</strong>: Manifest V3 Chrome extension with Tesseract.js OCR for screenshot-to-IOC extraction</li>
 </ul>
 <h3 id="scalability-improvements">Scalability Improvements</h3>
 <ul>
@@ -3956,6 +3991,9 @@ docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c &quot;SELECT COU
 # Run initial collection
 python -m src.cli.main collect
 </code></pre>
+<blockquote>
+<p><strong>Note</strong>: In Docker deployments, use <code>./run_cli.sh</code> instead of <code>python -m src.cli.main</code>.</p>
+</blockquote>
 <h3 id="development-environment">Development Environment</h3>
 <pre><code class="language-bash"># Set up virtual environment
 python3 -m venv .venv

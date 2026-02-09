@@ -3302,7 +3302,10 @@
 <p><strong>See also:</strong> <a href="../../ML_HUNT_SCORING/">ML Hunt Scoring</a>, <a href="../../internals/chunking/">Chunking</a>.</p>
 <hr />
 <h3 id="embed">embed</h3>
-<p><strong>When:</strong> Manage article embeddings for RAG and Sigma similarity search. Use <code>embed stats</code> to see coverage; use <code>embed</code> (no subcommand) to generate embeddings for articles that don’t have them (queues a Celery task). Use <code>embed search</code> for semantic search from the CLI.</p>
+<p><strong>When:</strong> Manage article embeddings for RAG and Sigma similarity search. Use <code>embed stats</code> to see coverage; use <code>embed embed</code> (i.e., the <code>embed</code> group has an <code>embed</code> subcommand) to generate embeddings for articles that don’t have them (queues a Celery task). Use <code>embed search</code> for semantic search from the CLI.</p>
+<blockquote>
+<p><strong>Note:</strong> The embedding generation subcommand is <code>embed embed</code> (not just <code>embed</code> by itself). Example: <code>./run_cli.sh embed embed --batch-size 1000</code></p>
+</blockquote>
 <p><strong>Subcommands:</strong></p>
 <table>
 <thead>
@@ -3313,7 +3316,7 @@
 </thead>
 <tbody>
 <tr>
-<td><em>(none)</em></td>
+<td><code>embed</code></td>
 <td>Generate embeddings for articles missing them (interactive confirm; use <code>--dry-run</code> to preview)</td>
 </tr>
 <tr>
@@ -3326,7 +3329,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Options (embed, no subcommand):</strong></p>
+<p><strong>Options (embed embed):</strong></p>
 <table>
 <thead>
 <tr>
@@ -3382,8 +3385,8 @@
 </table>
 <p><strong>Examples:</strong></p>
 <pre><code class="language-bash">./run_cli.sh embed stats
-./run_cli.sh embed --dry-run
-./run_cli.sh embed --source-id 1
+./run_cli.sh embed embed --dry-run
+./run_cli.sh embed embed --source-id 1
 ./run_cli.sh embed search --limit 5 --threshold 0.75
 </code></pre>
 <p><strong>See also:</strong> <a href="../../RAG_SYSTEM/">RAG System</a>, <a href="../../features/SIGMA_DETECTION_RULES/">Sigma Detection Rules</a>.</p>
@@ -3506,8 +3509,8 @@
 <td>List archived articles</td>
 </tr>
 <tr>
-<td><code>restore</code></td>
-<td>Restore from a backup of archived articles (advanced)</td>
+<td><code>cleanup</code></td>
+<td>Show archive statistics</td>
 </tr>
 </tbody>
 </table>
@@ -3587,8 +3590,8 @@
 <td>Recompute ML-based hunt scores</td>
 </tr>
 <tr>
-<td><code>embed</code> / <code>embed stats</code> / <code>embed search</code></td>
-<td>Embedding coverage, generation, semantic search</td>
+<td><code>embed embed</code> / <code>embed stats</code> / <code>embed search</code></td>
+<td>Embedding generation, coverage stats, semantic search</td>
 </tr>
 <tr>
 <td><code>sigma sync/index/match/match-all/stats</code></td>
@@ -3603,8 +3606,8 @@
 <td>DB summary (sources, articles, activity)</td>
 </tr>
 <tr>
-<td><code>archive add/remove/list</code></td>
-<td>Soft-delete or restore articles</td>
+<td><code>archive add/remove/list/cleanup</code></td>
+<td>Soft-delete, restore, or clean up articles</td>
 </tr>
 </tbody>
 </table>

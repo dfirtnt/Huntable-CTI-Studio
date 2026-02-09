@@ -2874,7 +2874,7 @@
 <li>
 <p><strong>LLM Generation Service</strong> (<code>src/services/llm_generation_service.py</code>)</p>
 </li>
-<li><strong>Multi-Provider</strong>: OpenAI GPT-4o, Anthropic Claude</li>
+<li><strong>Multi-Provider</strong>: OpenAI GPT-4o, Anthropic Claude, LMStudio (local)</li>
 <li><strong>Auto-Selection</strong>: Automatically chooses best available provider</li>
 <li><strong>Fallback</strong>: Graceful degradation to template responses</li>
 <li>
@@ -2898,7 +2898,7 @@
 <ul>
 <li><strong>OpenAI GPT-4o</strong>: Primary provider for high-quality analysis</li>
 <li><strong>Anthropic Claude</strong>: Alternative provider with different strengths</li>
-<li><strong>Local Models</strong>: Support removed - use OpenAI or Anthropic for cloud-based AI</li>
+<li><strong>LMStudio (Local)</strong>: Fully supported via LMStudio (see <a href="../LMSTUDIO_INTEGRATION/">LMStudio Integration</a>)</li>
 <li><strong>Template Fallback</strong>: Structured responses when LLM unavailable</li>
 </ul>
 <h3 id="semantic-search">Semantic Search</h3>
@@ -2931,7 +2931,9 @@
   &quot;max_results&quot;: 10,
   &quot;similarity_threshold&quot;: 0.3,
   &quot;use_chunks&quot;: false,
-  &quot;context_length&quot;: 2000
+  &quot;context_length&quot;: 2000,
+  &quot;include_sigma_rules&quot;: true,
+  &quot;llm_model&quot;: &quot;gpt-4o&quot;
 }
 </code></pre>
 <h3 id="api-response">API Response</h3>
@@ -2939,8 +2941,11 @@
   &quot;response&quot;: &quot;Synthesized threat intelligence analysis...&quot;,
   &quot;conversation_history&quot;: [...],
   &quot;relevant_articles&quot;: [...],
+  &quot;relevant_rules&quot;: [...],
   &quot;total_results&quot;: 5,
+  &quot;total_rules&quot;: 42,
   &quot;llm_provider&quot;: &quot;openai&quot;,
+  &quot;llm_model_name&quot;: &quot;gpt-4o&quot;,
   &quot;use_llm_generation&quot;: true,
   &quot;timestamp&quot;: &quot;2025-01-23T00:00:00Z&quot;
 }
@@ -2992,7 +2997,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
 <li><strong>Template Mode</strong>: &lt; 2 seconds</li>
 <li><strong>OpenAI GPT-4o</strong>: 3-5 seconds</li>
 <li><strong>Anthropic Claude</strong>: 4-6 seconds</li>
-<li><strong>Local Models</strong>: Support removed</li>
+<li><strong>LMStudio (Local)</strong>: Fully supported via LMStudio (see <a href="../LMSTUDIO_INTEGRATION/">LMStudio Integration</a>)</li>
 </ul>
 <h3 id="quality-metrics">Quality Metrics</h3>
 <ul>

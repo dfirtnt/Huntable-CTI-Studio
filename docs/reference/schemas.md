@@ -24,7 +24,7 @@ Detail payloads:
 - `junk_filter_result`: filtering decisions before ranking
 - `extraction_result`: merged observables, `discrete_huntables_count`, per-agent `subresults`, and synthesized `content`
 - `sigma_rules`: generated rules with validation logs and pySigma errors
-- `similarity_results`: matches against indexed SigmaHQ rules (cosine similarity)
+- `similarity_results`: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shape)
 - `queued_rules_count` / `queued_rule_ids`: rules promoted to queue
 - `article_content` / `article_content_preview`: content snapshots used by the workflow
 
@@ -47,3 +47,99 @@ Each workflow execution stores the Extract Agent output in JSONB:
 When chunk analysis runs, results are attached to articles and reused by ML hunt scoring:
 - Chunk size defaults: 1,000 characters with 200-character overlap
 - Stored fields: `ml_prediction`, `ml_confidence`, text snippets, and aggregate statistics in `ml_hunt_score_details`
+
+## Additional Tables
+
+### Sigma Rules (`sigma_rules`)
+
+Indexed SIGMA detection rules from the SigmaHQ repository.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | Integer | Primary key |
+| `rule_id` | String (unique) | SIGMA rule identifier |
+| `title` | String | Rule title |
+| `logsource` | JSONB | Log source specification |
+| `detection` | JSONB | Detection logic |
+| `embedding` | Vector(768) | Rule embedding for similarity search |
+| `canonical_json` | JSONB | Canonical representation |
+| `exact_hash` | String | Exact duplicate hash |
+| `near_hash` | String | Near-duplicate hash |
+| `logsource_key` | String | Composite logsource key |
+
+### Article–Sigma Matches (`article_sigma_matches`)
+
+Matches between articles and existing SIGMA rules.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `article_id` | Integer (FK → articles) | Matched article |
+| `sigma_rule_id` | Integer (FK → sigma_rules) | Matched rule |
+| `similarity_score` | Float | Behavioral novelty score (0-1) — higher means more similar |
+| `match_level` | String | Match confidence level |
+| `coverage_status` | String | Coverage classification |
+| `coverage_confidence` | Float | Coverage confidence |
+
+### Agentic Workflow Configurations (`agentic_workflow_configs`)
+
+Active configuration for the agentic analysis workflow.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | Integer | Primary key |
+| `version` | Integer | Config version |
+| `is_active` | Boolean | Whether config is active |
+| `min_hunt_score` | Integer | Minimum hunt score to trigger |
+| `ranking_threshold` | Float | LLM ranking pass threshold |
+| `similarity_threshold` | Float | SIGMA similarity threshold |
+| `junk_filter_threshold` | Float | Content filter threshold |
+| `auto_trigger_hunt_score_threshold` | Integer | Auto-trigger threshold |
+| `agent_prompts` | JSONB | Per-agent prompt text |
+| `agent_models` | JSONB | Per-agent model configuration |
+| `qa_enabled` | JSONB | Per-agent QA toggle |
+| `qa_max_retries` | Integer | Max QA retry attempts |
+
+### Agentic Workflow Executions (`agentic_workflow_executions`)
+
+Records of agentic workflow runs.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | Integer | Primary key |
+| `article_id` | Integer (FK → articles) | Target article |
+| `status` | String | Execution status |
+| `current_step` | String | Current workflow step |
+| `config_snapshot` | JSONB | Frozen config at execution time |
+| `ranking_score` | Float | LLM ranking score |
+| `extraction_result` | JSONB | Extraction output |
+| `sigma_rules` | JSONB | Generated SIGMA rules |
+| `similarity_results` | JSONB | Similarity search results |
+| `error_log` | JSONB | Error details |
+
+### Sigma Rule Queue (`sigma_rule_queue`)
+
+Generated SIGMA rules pending human review.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | Integer | Primary key |
+| `article_id` | Integer (FK → articles) | Source article |
+| `workflow_execution_id` | Integer (FK) | Source execution |
+| `rule_yaml` | Text | Generated SIGMA rule YAML |
+| `status` | String | Review status |
+| `pr_submitted` | Boolean | Whether PR was submitted |
+| `pr_url` | String | GitHub PR URL |
+| `similarity_scores` | JSONB | Similarity check results |
+
+### Application Settings (`app_settings`)
+
+Key-value store for application-wide settings.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | Integer | Primary key |
+| `key` | String (unique) | Setting key |
+| `value` | Text | Setting value |
+| `category` | String | Setting category |
+
+> **Note**: The database contains 28 total tables. This reference covers the primary user-facing tables. For the complete schema, see the Alembic migrations in `alembic/versions/`.

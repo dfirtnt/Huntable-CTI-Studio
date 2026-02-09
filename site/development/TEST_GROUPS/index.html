@@ -2973,9 +2973,9 @@ python scripts/run_tests_by_group.py --group performance
 <strong>Dependencies</strong>: AI services (can be mocked)<br />
 <strong>Test Path</strong>: Specific files + <code>ai</code> marker<br />
 <strong>Integration</strong>: ✅ Fully integrated via <code>run_tests.py</code></p>
-<p><strong>Purpose</strong>: Test AI assistant functionality, LLM integration, and AI workflows.</p>
+<p><strong>Purpose</strong>: Test AI integrations and workflows (includes legacy AI Assistant test coverage).</p>
 <p><strong>Test Files</strong>:
-- <code>tests/ui/test_ai_assistant_ui.py</code>
+- <code>tests/ui/test_ai_assistant_ui.py</code> (deprecated/disabled with AI Assistant removal)
 - <code>tests/integration/test_ai_*.py</code>
 - Tests marked with <code>@pytest.mark.ai</code></p>
 <p><strong>Run Command</strong>:</p>

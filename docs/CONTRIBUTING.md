@@ -314,7 +314,7 @@ Clear description of what you expected to happen.
 **Environment:**
 - OS: [e.g. macOS 14.0]
 - Python: [e.g. 3.11.0]
-- CTI Scraper: [e.g. 2.0.0]
+- CTI Scraper: [e.g. 5.0.0]
 
 **Additional context**
 Add any other context about the problem here.

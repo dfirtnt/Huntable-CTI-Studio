@@ -28,7 +28,7 @@ Successfully implemented boolean search functionality (AND, OR, NOT operators) f
 - **Collapsible Help Section**: Shows boolean search syntax and examples
 - **JavaScript Toggle**: Click to show/hide help information
 
-### 4. Backend Integration (`src/web/modern_main.py`)
+### 4. Backend Integration (`src/web/routes/search.py`)
 - **Import Integration**: Added search parser to the web application
 - **Search Logic Update**: Replaced simple substring matching with boolean logic
 - **Article Filtering**: Converts articles to dict format for parser compatibility
@@ -94,7 +94,7 @@ threat NOT basic
 
 ## Files Modified
 - `src/utils/search_parser.py` (new)
-- `src/web/modern_main.py` (updated)
+- `src/web/routes/search.py` (updated)
 - `src/web/templates/articles.html` (updated)
 - `tests/test_search_parser.py` (new)
 

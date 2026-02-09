@@ -48,7 +48,7 @@ FROM sources
 ORDER BY name;
 
 -- Only active sources
-SELECT name, url, rss_url, tier 
+SELECT name, url, rss_url
 FROM sources 
 WHERE active = true 
 ORDER BY name;
@@ -131,15 +131,13 @@ ORDER BY date DESC;
 ### Source Management
 
 ```sql
--- Add a new source
-INSERT INTO sources (id, name, url, rss_url, check_frequency, active, created_at, updated_at)
+-- Add a new source (id is auto-increment, use identifier for the string key)
+INSERT INTO sources (identifier, name, url, rss_url, check_frequency, active, created_at, updated_at)
 VALUES (
     'new_source_id',
     'New Source Name',
     'https://example.com',
     'https://example.com/feed/',
-    2,
-    1.0,
     1800,
     true,
     NOW(),

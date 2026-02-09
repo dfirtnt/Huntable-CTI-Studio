@@ -202,8 +202,6 @@ if content_to_use is None:
 
 _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
 
-_Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
-
 **Why memory?**
 - Faster access (no database query)
 - Workflow is sequential (extraction → SIGMA within the same execution)

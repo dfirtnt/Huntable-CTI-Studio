@@ -3067,7 +3067,7 @@
   - <strong>Intelligence indicators</strong>: Core threat intelligence keywords
 - Uses regex matching with word boundaries to prevent false positives
 - Patterns are loaded from <code>HUNT_SCORING_KEYWORDS</code> dictionary</p>
-<p><strong>Accuracy:</strong> High - Uses validated keyword lists from analysis of 319 articles (97 Chosen, 222 Rejected)</p>
+<p><strong>Accuracy:</strong> High - Uses validated keyword lists from analysis of 319 historically labeled training samples (97 high-signal, 222 low-signal)</p>
 <p><strong>Examples:</strong>
 - Perfect: <code>rundll32.exe</code>, <code>msiexec.exe</code>, <code>powershell.exe</code>, <code>hklm</code>, <code>.lnk</code>
 - Good: <code>EventCode</code>, <code>KQL</code>, <code>parent-child</code>

@@ -4395,7 +4395,7 @@ Analysis Results + Cost Savings
 - <strong>Huntable patterns:</strong> <code>powershell\.exe.*-encodedCommand</code>, <code>invoke-webrequest.*-uri</code>, etc.
 - <strong>Not huntable patterns:</strong> <code>acknowledgement|gratitude</code>, <code>contact.*mandiant</code>, etc.</p>
 <h3 id="step-3-ml-classification">Step 3: ML Classification</h3>
-<p>The ML model extracts 23 features and classifies each chunk:
+<p>The ML model extracts 27 features and classifies each chunk:
 - Pattern match counts
 - Text characteristics (length, word count)
 - Technical indicators (commands, URLs, IPs)
@@ -4768,6 +4768,9 @@ DEFAULT_CHUNK_SIZE=1000
 DEFAULT_OVERLAP=200
 DEFAULT_CONFIDENCE_THRESHOLD=0.7
 </code></pre>
+<blockquote>
+<p><strong>Note</strong>: The standalone content filtering threshold defaults to 0.7. The agentic workflow's Junk Filter step uses a separate threshold defaulting to 0.8, configurable via <code>junk_filter_threshold</code> in the workflow configuration.</p>
+</blockquote>
 <h2 id="api-integration_1">API Integration</h2>
 <h3 id="new-endpoint">New Endpoint</h3>
 <p><strong>URL:</strong> <code>/api/articles/{article_id}/gpt4o-rank-optimized</code></p>

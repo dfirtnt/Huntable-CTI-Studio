@@ -36,21 +36,6 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 
 ## Version History
 
-### v3.0.0 "Copernicus" (2025-01-28)
-- **Named After**: Nicolaus Copernicus, astronomer who revolutionized our understanding of the solar system
-- **Significance**: Represents revolutionary changes and new paradigms
-- **Features**: SIGMA rule similarity search, weighted hybrid embeddings, enhanced threat intelligence matching
-
-### v2.0.0 "Tycho" (2025-01-15)
-- **Named After**: Tycho Brahe, Danish astronomer known for accurate astronomical measurements
-- **Significance**: One of the most prominent and visible craters on the moon
-- **Features**: Major architectural rewrite with PostgreSQL, async support, Docker containerization
-
-### v4.0.0 "Kepler" (2025-11-04)
-- **Named After**: Johannes Kepler, known for planetary motion laws
-- **Significance**: Represents precision and mathematical understanding
-- **Features**: Agent prompt version control system, database schema improvements, enhanced workflow configuration UI
-
 ### v5.0.0 "Callisto" (2026-01-15)
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons
 - **Significance**: Represents stability, maturity, and advanced capabilities
@@ -60,6 +45,21 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - **Named After**: Largest moon of Jupiter and the solar system; discovered by Galileo Galilei
 - **Significance**: Emphasizes scale, robustness, and exploration of new terrain
 - **Status**: Planned but superseded by Callisto release
+
+### v4.0.0 "Kepler" (2025-11-04)
+- **Named After**: Johannes Kepler, known for planetary motion laws
+- **Significance**: Represents precision and mathematical understanding
+- **Features**: Agent prompt version control system, database schema improvements, enhanced workflow configuration UI
+
+### v3.0.0 "Copernicus" (2025-01-28)
+- **Named After**: Nicolaus Copernicus, astronomer who revolutionized our understanding of the solar system
+- **Significance**: Represents revolutionary changes and new paradigms
+- **Features**: SIGMA rule similarity search, weighted hybrid embeddings, enhanced threat intelligence matching
+
+### v2.0.0 "Tycho" (2025-01-15)
+- **Named After**: Tycho Brahe, Danish astronomer known for accurate astronomical measurements
+- **Significance**: One of the most prominent and visible craters on the moon
+- **Features**: Major architectural rewrite with PostgreSQL, async support, Docker containerization
 
 ## Version Naming Convention
 
@@ -76,28 +76,28 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - Numeric only
 - Example: v2.1.1, v2.1.2
 
-## Available Crater Names
+## Available Planetary Moon Names
 
-With thousands of officially named lunar craters, there are plenty of options for future versions:
+The solar system's named moons provide a rich pool of candidates for future versions:
 
-### Well-Known Craters
-- **Tycho** - Most prominent crater (current)
-- **Copernicus** - Revolutionary astronomer
-- **Kepler** - Planetary motion laws
-- **Aristarchus** - First heliocentrism proponent
-- **Plato** - Philosopher
-- **Archimedes** - Mathematician
-- **Ptolemaeus** - Ancient astronomer
-- **Alphonsus** - King Alfonso X
-- **Clavius** - Jesuit mathematician
-- **Theophilus** - Byzantine emperor
+### Well-Known Moons
+- **Callisto** - Second-largest moon of Jupiter (v5, current)
+- **Kepler** - Named after laws of planetary motion (v4)
+- **Copernicus** - Revolutionary astronomer (v3)
+- **Tycho** - Danish astronomer (v2)
+- **Ganymede** - Largest moon of Jupiter (planned, superseded)
+- **Europa** - Jovian moon with subsurface ocean
+- **Titan** - Largest moon of Saturn
+- **Enceladus** - Saturn's icy moon
+- **Io** - Volcanic Jovian moon
+- **Triton** - Largest moon of Neptune
 
 ### Selection Criteria
 
-When choosing crater names for major versions:
-1. **Prominence**: Well-known and visible craters
-2. **Scientific Significance**: Named after important figures
-3. **Relevance**: Names that fit the platform's purpose
+When choosing planetary moon names for major versions:
+1. **Recognition**: Well-known moons from the solar system
+2. **Scientific Significance**: Named after important figures or discoveries
+3. **Relevance**: Names that fit the platform's exploration theme
 4. **Pronunciation**: Easy to say and remember
 5. **Uniqueness**: Distinctive and memorable
 

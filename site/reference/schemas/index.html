@@ -861,6 +861,89 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#additional-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional Tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Additional Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sigma-rules-sigma_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Rules (sigma_rules)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#articlesigma-matches-article_sigma_matches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Article–Sigma Matches (article_sigma_matches)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agentic-workflow-configurations-agentic_workflow_configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agentic Workflow Configurations (agentic_workflow_configs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agentic-workflow-executions-agentic_workflow_executions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agentic Workflow Executions (agentic_workflow_executions)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sigma-rule-queue-sigma_rule_queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Rule Queue (sigma_rule_queue)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#application-settings-app_settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application Settings (app_settings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2682,6 +2765,89 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#additional-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional Tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Additional Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sigma-rules-sigma_rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Rules (sigma_rules)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#articlesigma-matches-article_sigma_matches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Article–Sigma Matches (article_sigma_matches)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agentic-workflow-configurations-agentic_workflow_configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agentic Workflow Configurations (agentic_workflow_configs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agentic-workflow-executions-agentic_workflow_executions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agentic Workflow Executions (agentic_workflow_executions)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sigma-rule-queue-sigma_rule_queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Rule Queue (sigma_rule_queue)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#application-settings-app_settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application Settings (app_settings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2723,7 +2889,7 @@
 - <code>junk_filter_result</code>: filtering decisions before ranking
 - <code>extraction_result</code>: merged observables, <code>discrete_huntables_count</code>, per-agent <code>subresults</code>, and synthesized <code>content</code>
 - <code>sigma_rules</code>: generated rules with validation logs and pySigma errors
-- <code>similarity_results</code>: matches against indexed SigmaHQ rules (cosine similarity)
+- <code>similarity_results</code>: matches against indexed SigmaHQ rules (behavioral novelty weighted similarity)
 - <code>queued_rules_count</code> / <code>queued_rule_ids</code>: rules promoted to queue
 - <code>article_content</code> / <code>article_content_preview</code>: content snapshots used by the workflow</p>
 <h2 id="sigma-rules-sigma_rules-table">Sigma rules (<code>sigma_rules</code> table)</h2>
@@ -2743,6 +2909,338 @@
 <p>When chunk analysis runs, results are attached to articles and reused by ML hunt scoring:
 - Chunk size defaults: 1,000 characters with 200-character overlap
 - Stored fields: <code>ml_prediction</code>, <code>ml_confidence</code>, text snippets, and aggregate statistics in <code>ml_hunt_score_details</code></p>
+<h2 id="additional-tables">Additional Tables</h2>
+<h3 id="sigma-rules-sigma_rules">Sigma Rules (<code>sigma_rules</code>)</h3>
+<p>Indexed SIGMA detection rules from the SigmaHQ repository.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td><code>rule_id</code></td>
+<td>String (unique)</td>
+<td>SIGMA rule identifier</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>String</td>
+<td>Rule title</td>
+</tr>
+<tr>
+<td><code>logsource</code></td>
+<td>JSONB</td>
+<td>Log source specification</td>
+</tr>
+<tr>
+<td><code>detection</code></td>
+<td>JSONB</td>
+<td>Detection logic</td>
+</tr>
+<tr>
+<td><code>embedding</code></td>
+<td>Vector(768)</td>
+<td>Rule embedding for similarity search</td>
+</tr>
+<tr>
+<td><code>canonical_json</code></td>
+<td>JSONB</td>
+<td>Canonical representation</td>
+</tr>
+<tr>
+<td><code>exact_hash</code></td>
+<td>String</td>
+<td>Exact duplicate hash</td>
+</tr>
+<tr>
+<td><code>near_hash</code></td>
+<td>String</td>
+<td>Near-duplicate hash</td>
+</tr>
+<tr>
+<td><code>logsource_key</code></td>
+<td>String</td>
+<td>Composite logsource key</td>
+</tr>
+</tbody>
+</table>
+<h3 id="articlesigma-matches-article_sigma_matches">Article–Sigma Matches (<code>article_sigma_matches</code>)</h3>
+<p>Matches between articles and existing SIGMA rules.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>article_id</code></td>
+<td>Integer (FK → articles)</td>
+<td>Matched article</td>
+</tr>
+<tr>
+<td><code>sigma_rule_id</code></td>
+<td>Integer (FK → sigma_rules)</td>
+<td>Matched rule</td>
+</tr>
+<tr>
+<td><code>similarity_score</code></td>
+<td>Float</td>
+<td>Behavioral similarity score (higher = more similar)</td>
+</tr>
+<tr>
+<td><code>match_level</code></td>
+<td>String</td>
+<td>Match confidence level</td>
+</tr>
+<tr>
+<td><code>coverage_status</code></td>
+<td>String</td>
+<td>Coverage classification</td>
+</tr>
+<tr>
+<td><code>coverage_confidence</code></td>
+<td>Float</td>
+<td>Coverage confidence</td>
+</tr>
+</tbody>
+</table>
+<h3 id="agentic-workflow-configurations-agentic_workflow_configs">Agentic Workflow Configurations (<code>agentic_workflow_configs</code>)</h3>
+<p>Active configuration for the agentic analysis workflow.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>Integer</td>
+<td>Config version</td>
+</tr>
+<tr>
+<td><code>is_active</code></td>
+<td>Boolean</td>
+<td>Whether config is active</td>
+</tr>
+<tr>
+<td><code>min_hunt_score</code></td>
+<td>Integer</td>
+<td>Minimum hunt score to trigger</td>
+</tr>
+<tr>
+<td><code>ranking_threshold</code></td>
+<td>Float</td>
+<td>LLM ranking pass threshold</td>
+</tr>
+<tr>
+<td><code>similarity_threshold</code></td>
+<td>Float</td>
+<td>SIGMA similarity threshold</td>
+</tr>
+<tr>
+<td><code>junk_filter_threshold</code></td>
+<td>Float</td>
+<td>Content filter threshold</td>
+</tr>
+<tr>
+<td><code>auto_trigger_hunt_score_threshold</code></td>
+<td>Integer</td>
+<td>Auto-trigger threshold</td>
+</tr>
+<tr>
+<td><code>agent_prompts</code></td>
+<td>JSONB</td>
+<td>Per-agent prompt text</td>
+</tr>
+<tr>
+<td><code>agent_models</code></td>
+<td>JSONB</td>
+<td>Per-agent model configuration</td>
+</tr>
+<tr>
+<td><code>qa_enabled</code></td>
+<td>JSONB</td>
+<td>Per-agent QA toggle</td>
+</tr>
+<tr>
+<td><code>qa_max_retries</code></td>
+<td>Integer</td>
+<td>Max QA retry attempts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="agentic-workflow-executions-agentic_workflow_executions">Agentic Workflow Executions (<code>agentic_workflow_executions</code>)</h3>
+<p>Records of agentic workflow runs.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td><code>article_id</code></td>
+<td>Integer (FK → articles)</td>
+<td>Target article</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td>Execution status</td>
+</tr>
+<tr>
+<td><code>current_step</code></td>
+<td>String</td>
+<td>Current workflow step</td>
+</tr>
+<tr>
+<td><code>config_snapshot</code></td>
+<td>JSONB</td>
+<td>Frozen config at execution time</td>
+</tr>
+<tr>
+<td><code>ranking_score</code></td>
+<td>Float</td>
+<td>LLM ranking score</td>
+</tr>
+<tr>
+<td><code>extraction_result</code></td>
+<td>JSONB</td>
+<td>Extraction output</td>
+</tr>
+<tr>
+<td><code>sigma_rules</code></td>
+<td>JSONB</td>
+<td>Generated SIGMA rules</td>
+</tr>
+<tr>
+<td><code>similarity_results</code></td>
+<td>JSONB</td>
+<td>Similarity search results</td>
+</tr>
+<tr>
+<td><code>error_log</code></td>
+<td>JSONB</td>
+<td>Error details</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sigma-rule-queue-sigma_rule_queue">Sigma Rule Queue (<code>sigma_rule_queue</code>)</h3>
+<p>Generated SIGMA rules pending human review.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td><code>article_id</code></td>
+<td>Integer (FK → articles)</td>
+<td>Source article</td>
+</tr>
+<tr>
+<td><code>workflow_execution_id</code></td>
+<td>Integer (FK)</td>
+<td>Source execution</td>
+</tr>
+<tr>
+<td><code>rule_yaml</code></td>
+<td>Text</td>
+<td>Generated SIGMA rule YAML</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td>Review status</td>
+</tr>
+<tr>
+<td><code>pr_submitted</code></td>
+<td>Boolean</td>
+<td>Whether PR was submitted</td>
+</tr>
+<tr>
+<td><code>pr_url</code></td>
+<td>String</td>
+<td>GitHub PR URL</td>
+</tr>
+<tr>
+<td><code>similarity_scores</code></td>
+<td>JSONB</td>
+<td>Similarity check results</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-settings-app_settings">Application Settings (<code>app_settings</code>)</h3>
+<p>Key-value store for application-wide settings.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>String (unique)</td>
+<td>Setting key</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>Text</td>
+<td>Setting value</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>String</td>
+<td>Setting category</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note</strong>: The database contains 28 total tables. This reference covers the primary user-facing tables. For the complete schema, see the Alembic migrations in <code>alembic/versions/</code>.</p>
+</blockquote>
 
 
 

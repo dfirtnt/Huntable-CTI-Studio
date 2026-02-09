@@ -8,7 +8,7 @@
 This guide provides model selection recommendations for a multi-stage CTI-to-SIGMA pipeline:
 
 1. **Rank Agent** → Evaluates article quality and huntability
-2. **Extractor Agents** → Extracts command lines, registry keys, event codes, KQL signatures
+2. **Extractor Agents** → Extracts command lines, process trees, hunt queries
 3. **SIGMA Generator** → Synthesizes observables into detection rules
 
 **Core Principle**: Task-model alignment is non-negotiable. Each stage has different cognitive requirements. Model architecture matters more than size or general capability.
@@ -133,7 +133,7 @@ Test on 30+ diverse articles:
 ### Task Definition
 Extract explicitly stated observables from CTI articles with zero inference or interpretation.
 
-**Agent Types**: Command Line, Registry Key, Event Code, KQL Signature, Process Lineage, Network Observable
+**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract
 
 ### Cognitive Requirements
 - Deterministic pattern matching
@@ -743,7 +743,7 @@ Don't chase theoretical performance. Chase measured precision on your specific C
 
 ## Appendix: Model Availability in LM Studio
 
-As of December 2024, these models are available through LM Studio's model search:
+As of February 2026, these models are available through LM Studio's model search:
 
 **Qwen3 Series**: ✅ Available  
 **Qwen2.5 Series**: ✅ Available  
@@ -758,6 +758,6 @@ Always verify model hash against official releases for security.
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: December 2024  
+**Document Version**: 1.1  
+**Last Updated**: February 2026  
 **Maintainer**: Andrew (Cybersecurity/Detection Engineering)

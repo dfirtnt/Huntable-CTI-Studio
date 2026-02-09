@@ -1,13 +1,15 @@
 # Agents and Responsibilities
 
-The agentic workflow is a chain of specialized workers executed by Celery when you trigger `/api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
+The agentic workflow is a 7-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks** when you hit `/api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. LangGraph manages step sequencing, conditional branching (e.g. early termination on non-Windows OS), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
 
 ## Core agents
+- **OS Detection**: Classifies target OS using CTI-BERT embeddings and keyword matching. Non-Windows articles are terminated early.
 - **Junk filter**: Removes non-huntable content before spending tokens on ranking and extraction.
 - **LLM ranking**: Scores article quality (0–10) and gates the rest of the workflow.
 - **Extract Agent supervisor**: Orchestrates sub-agents and merges their observables into `extraction_result`.
 - **Sigma generator**: Builds Sigma rules from extracted content (prefers aggregated observables) and validates with pySigma.
 - **Similarity matcher**: Compares generated rules against SigmaHQ embeddings to avoid duplicates and classify coverage.
+- **Promote to Queue**: Queues novel SIGMA rules for human review based on similarity threshold.
 
 ## Extract Agent sub-agents
 - **CmdlineExtract**: Command-line observables with arguments and QA corrections. Optional **Attention Preprocessor** surfaces LOLBAS-aligned snippets earlier in the LLM prompt; toggle in Workflow Config (Cmdline Extract agent). See [Cmdline Attention Preprocessor](../features/CMDLINE_ATTENTION_PREPROCESSOR.md).

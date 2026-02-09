@@ -996,10 +996,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#perfect-discriminators-100-chosen-0-others" class="md-nav__link">
+  <a href="#perfect-discriminators-100-high-signal-0-low-signal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Perfect Discriminators (100% Chosen, 0% others)
+        Perfect Discriminators (100% high-signal, 0% low-signal)
       
     </span>
   </a>
@@ -2812,10 +2812,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#perfect-discriminators-100-chosen-0-others" class="md-nav__link">
+  <a href="#perfect-discriminators-100-high-signal-0-low-signal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Perfect Discriminators (100% Chosen, 0% others)
+        Perfect Discriminators (100% high-signal, 0% low-signal)
       
     </span>
   </a>
@@ -3023,11 +3023,11 @@
 
 <h1 id="enhanced-threat-hunting-scoring-mechanism">Enhanced Threat Hunting Scoring Mechanism</h1>
 <h2 id="overview">Overview</h2>
-<p>Based on the analysis of Windows malware keywords across 319 articles (97 Chosen, 222 Rejected), I've implemented an enhanced scoring mechanism that automatically identifies high-quality threat hunting and malware analysis content.</p>
+<p>Based on the analysis of Windows malware keywords across 319 historically labeled training samples (97 high-signal, 222 low-signal), this enhanced scoring mechanism automatically identifies high-quality threat hunting and malware analysis content.</p>
 <p><strong>Integration with ML Content Filtering:</strong> The hunt scoring system is now fully integrated with the ML content filtering system, providing enhanced accuracy and cost optimization through shared threat hunting keywords and confidence scoring.</p>
 <h2 id="key-findings">Key Findings</h2>
-<h3 id="perfect-discriminators-100-chosen-0-others">Perfect Discriminators (100% Chosen, 0% others)</h3>
-<p>These keywords appear <strong>exclusively</strong> in "Chosen" content:</p>
+<h3 id="perfect-discriminators-100-high-signal-0-low-signal">Perfect Discriminators (100% high-signal, 0% low-signal)</h3>
+<p>These keywords appear <strong>exclusively</strong> in high-signal training content:</p>
 <ul>
 <li><strong>Process Names</strong>: <code>rundll32</code>, <code>msiexec</code>, <code>svchost</code>, <code>lsass.exe</code></li>
 <li><strong>Registry References</strong>: <code>hklm</code>, <code>appdata</code>, <code>programdata</code>, <code>WINDIR</code></li>

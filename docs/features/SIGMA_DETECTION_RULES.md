@@ -27,6 +27,11 @@ The SIGMA Detection Rules System combines three powerful features:
 
 ### System Flow
 
+There are two entry paths into the SIGMA detection system:
+
+- **Web/API path**: Triggered via `POST /api/articles/{id}/analyze` — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store
+- **Agentic Workflow path**: Triggered via LangGraph pipeline — OS Detection → Junk Filter → Rank → Extract → Generate SIGMA → Similarity Search → Promote to Queue
+
 ```
 Article → Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
 ```
@@ -171,8 +176,8 @@ A three-layer pipeline that matches CTI articles to existing Sigma detection rul
 **Features:**
 - Article-level semantic search using existing embeddings
 - Chunk-level semantic search with on-the-fly embedding generation
-- Pgvector cosine similarity queries
-- Configurable threshold and limits
+- Behavioral novelty scoring for final SIGMA similarity assessment (Atom Jaccard 70% + Logic Shape Similarity 30%)
+- Configurable candidate retrieval limits and matching thresholds
 - Match storage with full metadata
 
 **Key Methods:**
@@ -182,15 +187,19 @@ A three-layer pipeline that matches CTI articles to existing Sigma detection rul
 - `get_article_matches()`: Retrieve matches with rule details
 - `get_coverage_summary()`: Aggregate coverage statistics
 
-**SQL Query Pattern:**
+**Candidate Retrieval Pattern (example):**
+The system first retrieves a shortlist of candidate rules using pgvector nearest-neighbors, then computes the behavioral novelty score in application code to rank final matches.
+
 ```sql
-SELECT sr.*, 1 - (sr.embedding <=> :embedding::vector) AS similarity
+-- Retrieve top N candidate rules by embedding distance (pgvector)
+SELECT sr.*
 FROM sigma_rules sr
 WHERE sr.embedding IS NOT NULL
-  AND 1 - (sr.embedding <=> :embedding::vector) >= :threshold
-ORDER BY similarity DESC
-LIMIT :limit
+ORDER BY sr.embedding <-> :embedding::vector
+LIMIT :candidate_limit; -- e.g. 50
 ```
+
+The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.
 
 #### 4. Coverage Classification Service
 
@@ -274,8 +283,9 @@ Enhances "Generate SIGMA Rules" by comparing proposed/generated rules against in
 User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
   1. Extract title + description
   2. Generate embedding
-  3. Query sigma_rules table (cosine similarity)
-  4. Return top 5 matches (≥70% similarity)
+  3. Retrieve candidate rules via pgvector nearest-neighbors
+  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%)
+  5. Return top 5 matches by behavioral novelty (threshold configurable)
 → Return Response with similar_rules field
 ```
 
@@ -284,9 +294,11 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 - **Model**: intfloat/e5-base-v2 via LM Studio (768 dimensions)
 - **Provider**: LM Studio local API server
 - **Input**: Enriched rule text (title, description, logsource, detection)
-- **Similarity Metric**: Cosine similarity (1 - cosine distance)
-- **Threshold**: 0.7 (70% similarity minimum)
-- **Performance**: ~100-300ms overhead per generated rule
+-- **Similarity Metric (SIGMA rules)**: Behavioral novelty score — weighted combination:
+   - Atom Jaccard (70%): predicate overlap of detection fields
+   - Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT)
+-- **Threshold**: Configurable (default 0.7 on normalized behavioral novelty score)
+-- **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms per generated rule)
 
 ### Similarity Interpretation
 
@@ -810,8 +822,8 @@ For issues and questions:
 - [Sigma Specification](https://github.com/SigmaHQ/sigma-specification)
 - [pgvector](https://github.com/pgvector/pgvector)
 - [Sentence Transformers](https://www.sbert.net/)
-- [pySIGMA Documentation](https://sigmahq-pysigma.readthedocs.io/)
-- [Cosine Similarity](https://en.wikipedia.org/wiki/Cosine_similarity)
+-- [pySIGMA Documentation](https://sigmahq-pysigma.readthedocs.io/)
+-- [Behavioral Novelty (algorithm notes)](internal-notes://behavioral_novelty)
 
 ---
 

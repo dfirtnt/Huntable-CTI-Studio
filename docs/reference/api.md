@@ -4,25 +4,26 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides **170+ API endpoints** across multiple categories:
+The CTI Scraper provides **210+ API endpoints** across multiple categories:
 - **Health & Monitoring**: 8 endpoints
-- **Web Pages**: 19 endpoints
+- **Web Pages**: 23 pages
 - **Sources Management**: 10 endpoints  
-- **Articles Management**: 12 endpoints
-- **AI & Analysis**: 15 endpoints
-- **RAG Chat Interface**: 1 endpoint
-- **ML Feedback & Model Management**: 10 endpoints
+- **Articles Management**: 15 endpoints
+- **AI & Analysis**: 16 endpoints
+- **RAG Chat Interface & Presets**: 5 endpoints
+- **ML Feedback & Model Management**: 11 endpoints
 - **Annotations**: 8 endpoints
 - **Jobs & Tasks**: 7 endpoints
 - **Metrics & Dashboard**: 20 endpoints
 - **Backup Management**: 3 endpoints
-- **Workflow Execution**: 9 endpoints
-- **Workflow Configuration**: 9 endpoints
-- **ML vs Hunt Comparison**: 7 endpoints
-- **Embeddings & ML**: 3 endpoints
+- **Workflow Execution**: 15 endpoints
+- **Workflow Configuration**: 14 endpoints
+- **ML vs Hunt Comparison**: 5 endpoints
+- **Embeddings & ML**: 2 endpoints
 - **Observable Evaluation**: 4 endpoints
 - **Observable Training**: 2 endpoints (inactive; planned for future release)
-- **Sigma Queue**: 3 endpoints
+- **Sigma Queue**: 11 endpoints
+- **Settings**: 5 endpoints
 - **File Upload**: 1 endpoint
 
 ## Health & Monitoring Endpoints
@@ -52,6 +53,12 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
     - `context_length` (integer): Context length per chunk (default: 2000)
   - **Response**: Synthesized analysis with source citations and conversation history
   - **Features**: Multi-turn conversations, context memory, LLM synthesis with fallback
+
+### Chat Presets
+- `POST /api/chat/preset/save` - Save a RAG chat preset
+- `GET /api/chat/preset/list` - List all RAG chat presets
+- `GET /api/chat/preset/{id}` - Get a specific RAG chat preset
+- `DELETE /api/chat/preset/{id}` - Delete a RAG chat preset
 
 ## ML Feedback & Model Management Endpoints
 
@@ -98,19 +105,29 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
 - `GET /api/workflow/executions/{execution_id}` - Get detailed workflow execution information
   - **Response**: Includes execution status, step results, ranking score, and error logs
 - `POST /api/workflow/executions/{execution_id}/retry` - Retry a failed workflow execution
-- `GET /api/workflow/executions/{execution_id}/debug-info` - Get debug information for workflow execution
-  - **Response**: Detailed debug data and execution state
+- `GET /api/workflow/executions/{execution_id}/stream` - SSE stream of execution updates
+  - **Response**: Server-sent events with real-time execution progress
 - `POST /api/workflow/articles/{article_id}/trigger` - Manually trigger agentic workflow for an article via Celery
+- `POST /api/workflow/executions/{execution_id}/cancel` - Cancel a running execution
+- `POST /api/workflow/executions/cancel-all-running` - Cancel all running executions
+- `POST /api/workflow/executions/cleanup-stale` - Clean up stale executions
+- `POST /api/workflow/executions/trigger-stuck` - Re-trigger stuck executions
+- `POST /api/workflow/executions/{execution_id}/export-bundle` - Export evaluation bundle
 
 ### Workflow Configuration
 - `GET /api/workflow/config` - Get current workflow configuration (includes `agent_models` and prompts)
 - `PUT /api/workflow/config` - Update workflow configuration (including agent model assignments via `agent_models`)
 - `GET /api/workflow/config/prompts` - Get all agent prompts
 - `GET /api/workflow/config/prompts/{agent_name}` - Get single agent prompt
-- `PUT /api/workflow/config/prompts` - Update agent prompts; body includes `agent_name`, `system_prompt`, `user_prompt` (bulk update)
+- `PUT /api/workflow/config/prompts/{agent}` - Update agent prompts; body includes `system_prompt`, `user_prompt` (per-agent update)
 - `GET /api/workflow/config/prompts/{agent_name}/versions` - Get prompt version history
 - `POST /api/workflow/config/prompts/{agent_name}/rollback` - Rollback prompt to a prior version
 - `GET /api/workflow/config/preset/list`, `GET /api/workflow/config/versions`, `GET /api/workflow/config/version/{version_number}` - Presets and version history
+- `POST /api/workflow/config/preset/save` - Save workflow config preset
+- `POST /api/workflow/config/test-subagent` - Test extraction sub-agent
+- `POST /api/workflow/config/test-sigmaagent` - Test SIGMA generation agent
+- `POST /api/workflow/config/test-rankagent` - Test ranking agent
+- `POST /api/workflow/config/prompts/bootstrap` - Bootstrap prompts from template files
 
 ## Sources Management Endpoints
 
@@ -139,9 +156,12 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
 - `GET /api/articles/{article_id}/similar` - Get similar articles using embeddings
 - `POST /api/articles/bulk-action` - Bulk delete articles (action `delete` only)
 - `DELETE /api/articles/{article_id}` - Delete specific article
+- `POST /api/articles/{article_id}/mark-reviewed` - Mark article as reviewed
 - `GET /api/search/help` - Get search syntax help
 
 ### Article Analysis
+- `GET /api/articles/{article_id}/ai-models` - Get AI model information for article analysis
+- `POST /api/articles/{article_id}/analyze` - Run AI analysis on article
 - `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
 - `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
 - `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
@@ -157,7 +177,8 @@ The CTI Scraper provides **170+ API endpoints** across multiple categories:
 - `POST /api/search/semantic` - Semantic search using embeddings
 - `POST /api/test-openai-key` - Test OpenAI API key validity
 - `POST /api/test-anthropic-key` - Test Anthropic API key validity
-- `POST /api/test-claude-summary` - Test Claude summary functionality
+- `POST /api/test-gemini-key` - Validate Gemini API key
+- `POST /api/test-lmstudio` - Test LMStudio connectivity
 - `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
 - `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
 - `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
@@ -255,7 +276,6 @@ Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI;
 - `GET /articles/{article_id}` - Article detail page
 - `GET /sources` - Sources management page
 - `GET /settings` - Settings page
-- `GET /health-checks` - Health checks monitoring page
 - `GET /chat` - RAG chat interface page
 - `GET /jobs` - Jobs monitoring page
 - `GET /pdf-upload` - PDF upload page
@@ -265,6 +285,37 @@ Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI;
 - `GET /analytics/hunt-metrics-demo` - Hunt metrics demo page
 - `GET /ml-hunt-comparison` - ML vs Hunt comparison page
 - `GET /diags` - Diagnostics page
+- `GET /share/articles/{id}` - Public shareable article summary
+- `GET /mlops` - MLOps control center
+- `GET /mlops/agent-evals` - Agent evaluation comparison
+- `GET /observables-training` - Observable training dashboard
+- `GET /sigma-ab-test` - SIGMA A/B testing interface
+- `GET /sigma-similarity-test` - SIGMA similarity testing
+- `GET /workflow` - Unified workflow management
+
+## Sigma Queue Endpoints
+
+### Sigma Rule Management
+- `GET /api/sigma-queue/rules` - List sigma rules in queue
+- `GET /api/sigma-queue/rules/{id}` - Get specific sigma rule from queue
+- `PUT /api/sigma-queue/rules/{id}` - Update sigma rule in queue
+- `PUT /api/sigma-queue/rules/{id}/yaml` - Update rule YAML content
+- `POST /api/sigma-queue/rules/{id}/enrich` - Enrich rule using LLM
+- `POST /api/sigma-queue/rules/{id}/validate` - Validate rule syntax and structure
+- `POST /api/sigma-queue/rules/{id}/submit-pr` - Submit rule as GitHub PR
+- `POST /api/sigma-queue/prompts/save` - Save enrichment prompt version
+- `GET /api/sigma-queue/prompts/versions` - List enrichment prompt versions
+- `POST /api/sigma-queue/presets/save` - Save enrichment preset
+- `GET /api/sigma-queue/presets` - List enrichment presets
+
+## Settings Endpoints
+
+### Application Settings
+- `GET /api/settings` - Get all application settings
+- `GET /api/settings/{key}` - Get a specific setting by key
+- `POST /api/settings` - Create or update a setting
+- `POST /api/settings/bulk` - Bulk update multiple settings
+- `DELETE /api/settings/{key}` - Delete a setting
 
 ## File Upload Endpoints
 

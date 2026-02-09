@@ -3079,7 +3079,7 @@ task_queues = {
 <h3 id="2-docker-compose-docker-composeyml">2. Docker Compose (<code>docker-compose.yml</code>)</h3>
 <p><strong>Updated main worker</strong> to exclude workflows queue:</p>
 <pre><code class="language-yaml">worker:
-  command: celery -A src.worker.celery_app worker --loglevel=debug -Q default,source_checks,maintenance,reports,connectivity,collection
+  command: celery -A src.worker.celery_app worker --loglevel=debug -Q default,source_checks,priority_checks,maintenance,reports,connectivity,collection
 </code></pre>
 <p><strong>Added dedicated workflow worker:</strong></p>
 <pre><code class="language-yaml">workflow_worker:
@@ -3114,8 +3114,8 @@ docker-compose restart worker
 </code></pre>
 <h2 id="queue-architecture">Queue Architecture</h2>
 <pre><code>┌─────────────────┐
-│  Main Worker    │  → Processes: default, source_checks, maintenance, 
-│  (cti_worker)   │              reports, connectivity, collection
+│  Main Worker    │  → Processes: default, source_checks, priority_checks,
+│  (cti_worker)   │              maintenance, reports, connectivity, collection
 └─────────────────┘
 
 ┌─────────────────┐

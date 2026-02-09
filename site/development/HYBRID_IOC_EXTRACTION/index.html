@@ -3726,8 +3726,11 @@
 
 
 <h1 id="hybrid-ioc-extraction-system">Hybrid IOC Extraction System</h1>
+<blockquote>
+<p><strong>Deprecated/Disabled (2026-02)</strong>: The IOC extraction feature and related AI Assistant UI integrations are fully disabled. This document is kept for historical reference only.</p>
+</blockquote>
 <h2 id="overview">Overview</h2>
-<p>The Hybrid IOC Extraction System combines the speed and reliability of specialized regex-based extraction with the intelligence and context awareness of Large Language Model (LLM) validation. This provides the best of both worlds: fast, cost-effective processing with intelligent validation when needed.</p>
+<p>Historically, the Hybrid IOC Extraction System combined the speed and reliability of specialized regex-based extraction with LLM validation. The feature is currently disabled and documented here only for reference.</p>
 <h2 id="architecture">Architecture</h2>
 <pre><code>┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Web Frontend  │    │   API Endpoint  │    │ Hybrid IOC      │
@@ -3749,15 +3752,13 @@
 <h2 id="key-components">Key Components</h2>
 <h3 id="1-web-frontend-srcwebtemplatesarticle_detailhtml">1. Web Frontend (<code>src/web/templates/article_detail.html</code>)</h3>
 <ul>
-<li><strong>IOC Button</strong>: Triggers extraction from article detail pages (shows "Extract IOCs" or "Display IOCs" based on cache)</li>
-<li><strong>Results Modal</strong>: Displays extracted IOCs in categorized format via <code>generateAIAnalysis('iocs')</code></li>
-<li><strong>LLM Validation Toggle</strong>: Checkbox in IOC modal to enable/disable LLM validation for regeneration (default: unchecked)</li>
-<li><strong>Metadata Display</strong>: Shows extraction method, confidence, processing time, and counts</li>
-<li><strong>Regenerate Option</strong>: Allows force regeneration of cached results with user-selected LLM validation setting</li>
-<li><strong>Integration</strong>: Uses JavaScript to call <code>/api/articles/{id}/extract-iocs</code> endpoint</li>
+<li><strong>Status</strong>: Deprecated/disabled</li>
+<li><strong>Historical behavior</strong>: Previously used an IOC modal and <code>generateAIAnalysis('iocs')</code> integration</li>
+<li><strong>Historical integration</strong>: Previously called <code>/api/articles/{id}/extract-iocs</code></li>
 </ul>
 <h3 id="2-api-endpoint-srcwebmodern_mainpy">2. API Endpoint (<code>src/web/modern_main.py</code>)</h3>
 <ul>
+<li><strong>Status</strong>: Deprecated/disabled</li>
 <li><strong>Route</strong>: <code>/api/articles/{article_id}/extract-iocs</code></li>
 <li><strong>Methods</strong>: POST</li>
 <li><strong>Parameters</strong>:</li>
@@ -3770,6 +3771,7 @@
 </ul>
 <h3 id="3-hybrid-ioc-extractor-srcutilsioc_extractorpy">3. Hybrid IOC Extractor (<code>src/utils/ioc_extractor.py</code>)</h3>
 <ul>
+<li><strong>Status</strong>: Deprecated/disabled</li>
 <li><strong>Phase 1</strong>: Fast extraction using <code>iocextract</code> library (default)</li>
 <li><strong>Phase 2</strong>: Optional LLM validation with filtered content for context and categorization</li>
 <li><strong>Content Filtering</strong>: Uses <code>ContentFilter</code> to send only high-value chunks to LLM</li>

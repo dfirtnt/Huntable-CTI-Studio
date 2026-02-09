@@ -840,6 +840,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#chat-presets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat Presets
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1231,6 +1242,62 @@
     <span class="md-ellipsis">
       
         HTML Pages
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sigma-queue-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Queue Endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sigma Queue Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sigma-rule-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Rule Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings Endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#application-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application Settings
       
     </span>
   </a>
@@ -3387,6 +3454,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#chat-presets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat Presets
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3790,6 +3868,62 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sigma-queue-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Queue Endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sigma Queue Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sigma-rule-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sigma Rule Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings Endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#application-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#file-upload-endpoints" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4098,25 +4232,26 @@
 <h1 id="cti-scraper-api-endpoints">CTI Scraper API Endpoints</h1>
 <p>This document provides a comprehensive list of all API endpoints available in the CTI Scraper application.</p>
 <h2 id="overview">Overview</h2>
-<p>The CTI Scraper provides <strong>170+ API endpoints</strong> across multiple categories:
+<p>The CTI Scraper provides <strong>210+ API endpoints</strong> across multiple categories:
 - <strong>Health &amp; Monitoring</strong>: 8 endpoints
-- <strong>Web Pages</strong>: 19 endpoints
+- <strong>Web Pages</strong>: 23 pages
 - <strong>Sources Management</strong>: 10 endpoints<br />
-- <strong>Articles Management</strong>: 12 endpoints
-- <strong>AI &amp; Analysis</strong>: 15 endpoints
-- <strong>RAG Chat Interface</strong>: 1 endpoint
-- <strong>ML Feedback &amp; Model Management</strong>: 10 endpoints
+- <strong>Articles Management</strong>: 15 endpoints
+- <strong>AI &amp; Analysis</strong>: 16 endpoints
+- <strong>RAG Chat Interface &amp; Presets</strong>: 5 endpoints
+- <strong>ML Feedback &amp; Model Management</strong>: 11 endpoints
 - <strong>Annotations</strong>: 8 endpoints
 - <strong>Jobs &amp; Tasks</strong>: 7 endpoints
 - <strong>Metrics &amp; Dashboard</strong>: 20 endpoints
 - <strong>Backup Management</strong>: 3 endpoints
-- <strong>Workflow Execution</strong>: 9 endpoints
-- <strong>Workflow Configuration</strong>: 9 endpoints
-- <strong>ML vs Hunt Comparison</strong>: 7 endpoints
-- <strong>Embeddings &amp; ML</strong>: 3 endpoints
+- <strong>Workflow Execution</strong>: 15 endpoints
+- <strong>Workflow Configuration</strong>: 14 endpoints
+- <strong>ML vs Hunt Comparison</strong>: 5 endpoints
+- <strong>Embeddings &amp; ML</strong>: 2 endpoints
 - <strong>Observable Evaluation</strong>: 4 endpoints
 - <strong>Observable Training</strong>: 2 endpoints (inactive; planned for future release)
-- <strong>Sigma Queue</strong>: 3 endpoints
+- <strong>Sigma Queue</strong>: 11 endpoints
+- <strong>Settings</strong>: 5 endpoints
 - <strong>File Upload</strong>: 1 endpoint</p>
 <h2 id="health-monitoring-endpoints">Health &amp; Monitoring Endpoints</h2>
 <h3 id="basic-health-checks">Basic Health Checks</h3>
@@ -4147,6 +4282,13 @@
 </li>
 <li><strong>Response</strong>: Synthesized analysis with source citations and conversation history</li>
 <li><strong>Features</strong>: Multi-turn conversations, context memory, LLM synthesis with fallback</li>
+</ul>
+<h3 id="chat-presets">Chat Presets</h3>
+<ul>
+<li><code>POST /api/chat/preset/save</code> - Save a RAG chat preset</li>
+<li><code>GET /api/chat/preset/list</code> - List all RAG chat presets</li>
+<li><code>GET /api/chat/preset/{id}</code> - Get a specific RAG chat preset</li>
+<li><code>DELETE /api/chat/preset/{id}</code> - Delete a RAG chat preset</li>
 </ul>
 <h2 id="ml-feedback-model-management-endpoints">ML Feedback &amp; Model Management Endpoints</h2>
 <h3 id="model-versioning-comparison">Model Versioning &amp; Comparison</h3>
@@ -4195,9 +4337,14 @@
 <li><code>GET /api/workflow/executions/{execution_id}</code> - Get detailed workflow execution information</li>
 <li><strong>Response</strong>: Includes execution status, step results, ranking score, and error logs</li>
 <li><code>POST /api/workflow/executions/{execution_id}/retry</code> - Retry a failed workflow execution</li>
-<li><code>GET /api/workflow/executions/{execution_id}/debug-info</code> - Get debug information for workflow execution</li>
-<li><strong>Response</strong>: Detailed debug data and execution state</li>
+<li><code>GET /api/workflow/executions/{execution_id}/stream</code> - SSE stream of execution updates</li>
+<li><strong>Response</strong>: Server-sent events with real-time execution progress</li>
 <li><code>POST /api/workflow/articles/{article_id}/trigger</code> - Manually trigger agentic workflow for an article via Celery</li>
+<li><code>POST /api/workflow/executions/{execution_id}/cancel</code> - Cancel a running execution</li>
+<li><code>POST /api/workflow/executions/cancel-all-running</code> - Cancel all running executions</li>
+<li><code>POST /api/workflow/executions/cleanup-stale</code> - Clean up stale executions</li>
+<li><code>POST /api/workflow/executions/trigger-stuck</code> - Re-trigger stuck executions</li>
+<li><code>POST /api/workflow/executions/{execution_id}/export-bundle</code> - Export evaluation bundle</li>
 </ul>
 <h3 id="workflow-configuration">Workflow Configuration</h3>
 <ul>
@@ -4205,10 +4352,15 @@
 <li><code>PUT /api/workflow/config</code> - Update workflow configuration (including agent model assignments via <code>agent_models</code>)</li>
 <li><code>GET /api/workflow/config/prompts</code> - Get all agent prompts</li>
 <li><code>GET /api/workflow/config/prompts/{agent_name}</code> - Get single agent prompt</li>
-<li><code>PUT /api/workflow/config/prompts</code> - Update agent prompts; body includes <code>agent_name</code>, <code>system_prompt</code>, <code>user_prompt</code> (bulk update)</li>
+<li><code>PUT /api/workflow/config/prompts/{agent}</code> - Update agent prompts; body includes <code>system_prompt</code>, <code>user_prompt</code> (per-agent update)</li>
 <li><code>GET /api/workflow/config/prompts/{agent_name}/versions</code> - Get prompt version history</li>
 <li><code>POST /api/workflow/config/prompts/{agent_name}/rollback</code> - Rollback prompt to a prior version</li>
 <li><code>GET /api/workflow/config/preset/list</code>, <code>GET /api/workflow/config/versions</code>, <code>GET /api/workflow/config/version/{version_number}</code> - Presets and version history</li>
+<li><code>POST /api/workflow/config/preset/save</code> - Save workflow config preset</li>
+<li><code>POST /api/workflow/config/test-subagent</code> - Test extraction sub-agent</li>
+<li><code>POST /api/workflow/config/test-sigmaagent</code> - Test SIGMA generation agent</li>
+<li><code>POST /api/workflow/config/test-rankagent</code> - Test ranking agent</li>
+<li><code>POST /api/workflow/config/prompts/bootstrap</code> - Bootstrap prompts from template files</li>
 </ul>
 <h2 id="sources-management-endpoints">Sources Management Endpoints</h2>
 <h3 id="source-operations">Source Operations</h3>
@@ -4237,13 +4389,16 @@
 <li><code>GET /api/articles/{article_id}/similar</code> - Get similar articles using embeddings</li>
 <li><code>POST /api/articles/bulk-action</code> - Bulk delete articles (action <code>delete</code> only)</li>
 <li><code>DELETE /api/articles/{article_id}</code> - Delete specific article</li>
+<li><code>POST /api/articles/{article_id}/mark-reviewed</code> - Mark article as reviewed</li>
 <li><code>GET /api/search/help</code> - Get search syntax help</li>
 </ul>
 <h3 id="article-analysis">Article Analysis</h3>
 <ul>
+<li><code>GET /api/articles/{article_id}/ai-models</code> - Get AI model information for article analysis</li>
+<li><code>POST /api/articles/{article_id}/analyze</code> - Run AI analysis on article</li>
 <li><code>POST /api/articles/{article_id}/custom-prompt</code> - Custom AI prompt analysis</li>
 <li><code>POST /api/articles/{article_id}/generate-sigma</code> - Generate SIGMA detection rules</li>
-<li><code>POST /api/articles/{article_id}/extract-iocs</code> - Extract IOCs using hybrid approach</li>
+<li><code>POST /api/articles/{article_id}/extract-iocs</code> - Deprecated/disabled (legacy hybrid IOC extraction endpoint)</li>
 <li><code>POST /api/articles/{article_id}/rank-with-gpt4o</code> - GPT4o huntability ranking</li>
 <li><code>POST /api/articles/{article_id}/gpt4o-rank-optimized</code> - Optimized GPT4o ranking</li>
 <li><code>POST /api/articles/{article_id}/embed</code> - Generate article embedding</li>
@@ -4256,10 +4411,11 @@
 <li><code>POST /api/search/semantic</code> - Semantic search using embeddings</li>
 <li><code>POST /api/test-openai-key</code> - Test OpenAI API key validity</li>
 <li><code>POST /api/test-anthropic-key</code> - Test Anthropic API key validity</li>
-<li><code>POST /api/test-claude-summary</code> - Test Claude summary functionality</li>
+<li><code>POST /api/test-gemini-key</code> - Validate Gemini API key</li>
+<li><code>POST /api/test-lmstudio</code> - Test LMStudio connectivity</li>
 <li><code>POST /api/articles/{article_id}/custom-prompt</code> - Custom AI prompt analysis</li>
 <li><code>POST /api/articles/{article_id}/generate-sigma</code> - Generate SIGMA detection rules</li>
-<li><code>POST /api/articles/{article_id}/extract-iocs</code> - Extract IOCs using hybrid approach</li>
+<li><code>POST /api/articles/{article_id}/extract-iocs</code> - Deprecated/disabled (legacy hybrid IOC extraction endpoint)</li>
 <li><code>POST /api/articles/{article_id}/rank-with-gpt4o</code> - GPT4o huntability ranking</li>
 <li><code>POST /api/articles/{article_id}/gpt4o-rank-optimized</code> - Optimized GPT4o ranking</li>
 <li><code>POST /api/articles/{article_id}/embed</code> - Generate article embedding</li>
@@ -4375,7 +4531,6 @@
 <li><code>GET /articles/{article_id}</code> - Article detail page</li>
 <li><code>GET /sources</code> - Sources management page</li>
 <li><code>GET /settings</code> - Settings page</li>
-<li><code>GET /health-checks</code> - Health checks monitoring page</li>
 <li><code>GET /chat</code> - RAG chat interface page</li>
 <li><code>GET /jobs</code> - Jobs monitoring page</li>
 <li><code>GET /pdf-upload</code> - PDF upload page</li>
@@ -4385,6 +4540,37 @@
 <li><code>GET /analytics/hunt-metrics-demo</code> - Hunt metrics demo page</li>
 <li><code>GET /ml-hunt-comparison</code> - ML vs Hunt comparison page</li>
 <li><code>GET /diags</code> - Diagnostics page</li>
+<li><code>GET /share/articles/{id}</code> - Public shareable article summary</li>
+<li><code>GET /mlops</code> - MLOps control center</li>
+<li><code>GET /mlops/agent-evals</code> - Agent evaluation comparison</li>
+<li><code>GET /observables-training</code> - Observable training dashboard</li>
+<li><code>GET /sigma-ab-test</code> - SIGMA A/B testing interface</li>
+<li><code>GET /sigma-similarity-test</code> - SIGMA similarity testing</li>
+<li><code>GET /workflow</code> - Unified workflow management</li>
+</ul>
+<h2 id="sigma-queue-endpoints">Sigma Queue Endpoints</h2>
+<h3 id="sigma-rule-management">Sigma Rule Management</h3>
+<ul>
+<li><code>GET /api/sigma-queue/rules</code> - List sigma rules in queue</li>
+<li><code>GET /api/sigma-queue/rules/{id}</code> - Get specific sigma rule from queue</li>
+<li><code>PUT /api/sigma-queue/rules/{id}</code> - Update sigma rule in queue</li>
+<li><code>PUT /api/sigma-queue/rules/{id}/yaml</code> - Update rule YAML content</li>
+<li><code>POST /api/sigma-queue/rules/{id}/enrich</code> - Enrich rule using LLM</li>
+<li><code>POST /api/sigma-queue/rules/{id}/validate</code> - Validate rule syntax and structure</li>
+<li><code>POST /api/sigma-queue/rules/{id}/submit-pr</code> - Submit rule as GitHub PR</li>
+<li><code>POST /api/sigma-queue/prompts/save</code> - Save enrichment prompt version</li>
+<li><code>GET /api/sigma-queue/prompts/versions</code> - List enrichment prompt versions</li>
+<li><code>POST /api/sigma-queue/presets/save</code> - Save enrichment preset</li>
+<li><code>GET /api/sigma-queue/presets</code> - List enrichment presets</li>
+</ul>
+<h2 id="settings-endpoints">Settings Endpoints</h2>
+<h3 id="application-settings">Application Settings</h3>
+<ul>
+<li><code>GET /api/settings</code> - Get all application settings</li>
+<li><code>GET /api/settings/{key}</code> - Get a specific setting by key</li>
+<li><code>POST /api/settings</code> - Create or update a setting</li>
+<li><code>POST /api/settings/bulk</code> - Bulk update multiple settings</li>
+<li><code>DELETE /api/settings/{key}</code> - Delete a setting</li>
 </ul>
 <h2 id="file-upload-endpoints">File Upload Endpoints</h2>
 <h3 id="document-processing">Document Processing</h3>

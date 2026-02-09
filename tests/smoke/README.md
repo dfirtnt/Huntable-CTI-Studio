@@ -7,7 +7,7 @@
 python3 run_tests.py smoke
 ```
 
-**Duration:** ~30 seconds | **Tests:** 25 passed ✅
+**Duration:** ~30 seconds | **Tests:** 26 passed ✅
 
 ## Overview
 
@@ -15,7 +15,7 @@ Smoke tests provide rapid health checks of critical system functionality, comple
 
 ## Current Coverage
 
-### ✅ Smoke Tests (25 tests)
+### ✅ Smoke Tests (26 tests)
 
 Smoke tests are distributed across multiple test files using the `@pytest.mark.smoke` and `@pytest.mark.ui_smoke` markers:
 

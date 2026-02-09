@@ -4513,6 +4513,11 @@
 <li><strong>Similarity Search</strong>: Compares generated rules against existing community rules to prevent duplication</li>
 </ol>
 <h3 id="system-flow">System Flow</h3>
+<p>There are two entry paths into the SIGMA detection system:</p>
+<ul>
+<li><strong>Web/API path</strong>: Triggered via <code>POST /api/articles/{id}/analyze</code> — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store</li>
+<li><strong>Agentic Workflow path</strong>: Triggered via LangGraph pipeline — OS Detection → Junk Filter → Rank → Extract → Generate SIGMA → Similarity Search → Promote to Queue</li>
+</ul>
 <pre><code>Article → Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
 </code></pre>
 <h3 id="key-benefits">Key Benefits</h3>
@@ -4642,7 +4647,7 @@
 <p><strong>Features:</strong>
 - Article-level semantic search using existing embeddings
 - Chunk-level semantic search with on-the-fly embedding generation
-- Pgvector cosine similarity queries
+- Behavioral novelty similarity scoring (Atom Jaccard 70% + Logic Shape 30%)
 - Configurable threshold and limits
 - Match storage with full metadata</p>
 <p><strong>Key Methods:</strong>
@@ -4651,13 +4656,12 @@
 - <code>store_match()</code>: Persist matches to database
 - <code>get_article_matches()</code>: Retrieve matches with rule details
 - <code>get_coverage_summary()</code>: Aggregate coverage statistics</p>
-<p><strong>SQL Query Pattern:</strong></p>
-<pre><code class="language-sql">SELECT sr.*, 1 - (sr.embedding &lt;=&gt; :embedding::vector) AS similarity
-FROM sigma_rules sr
-WHERE sr.embedding IS NOT NULL
-  AND 1 - (sr.embedding &lt;=&gt; :embedding::vector) &gt;= :threshold
-ORDER BY similarity DESC
-LIMIT :limit
+<p><strong>Behavioral Similarity Pattern (conceptual):</strong></p>
+<pre><code class="language-text">1. Canonicalize proposed and candidate rules into comparable behavior atoms
+2. Compute atom_jaccard overlap
+3. Compute logic_shape_similarity
+4. weighted_similarity = 0.70 * atom_jaccard + 0.30 * logic_shape_similarity
+5. Rank by weighted_similarity DESC and apply threshold
 </code></pre>
 <h4 id="4-coverage-classification-service">4. Coverage Classification Service</h4>
 <p><strong>File</strong>: <code>src/services/sigma_coverage_service.py</code></p>
@@ -4726,7 +4730,7 @@ LIMIT :limit
 <pre><code>User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
   1. Extract title + description
   2. Generate embedding
-  3. Query sigma_rules table (cosine similarity)
+  3. Assess novelty against sigma_rules using canonical behavior comparison
   4. Return top 5 matches (≥70% similarity)
 → Return Response with similar_rules field
 </code></pre>
@@ -4735,7 +4739,7 @@ LIMIT :limit
 <li><strong>Model</strong>: intfloat/e5-base-v2 via LM Studio (768 dimensions)</li>
 <li><strong>Provider</strong>: LM Studio local API server</li>
 <li><strong>Input</strong>: Enriched rule text (title, description, logsource, detection)</li>
-<li><strong>Similarity Metric</strong>: Cosine similarity (1 - cosine distance)</li>
+<li><strong>Similarity Metric</strong>: Behavioral novelty weighted similarity (0.70 Atom Jaccard + 0.30 Logic Shape)</li>
 <li><strong>Threshold</strong>: 0.7 (70% similarity minimum)</li>
 <li><strong>Performance</strong>: ~100-300ms overhead per generated rule</li>
 </ul>
@@ -5198,7 +5202,7 @@ GROUP BY similarity_range;
 <li><a href="https://github.com/pgvector/pgvector">pgvector</a></li>
 <li><a href="https://www.sbert.net/">Sentence Transformers</a></li>
 <li><a href="https://sigmahq-pysigma.readthedocs.io/">pySIGMA Documentation</a></li>
-<li><a href="https://en.wikipedia.org/wiki/Cosine_similarity">Cosine Similarity</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Jaccard_index">Jaccard Index</a></li>
 </ul>
 <hr />
 <p><strong>Status</strong>: ✅ Complete and Functional<br />

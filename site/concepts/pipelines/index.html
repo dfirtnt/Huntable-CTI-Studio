@@ -2612,7 +2612,7 @@
 
 
 <h1 id="agentic-workflow-execution-order">Agentic Workflow Execution Order</h1>
-<p>The Huntable agentic workflow runs whenever you trigger <code>/api/workflow/articles/{id}/trigger</code> or click <strong>Send to Workflow</strong> on an article. It is executed by Celery workers and persists state to <code>agentic_workflow_executions</code>, with extraction results feeding Sigma generation and similarity matching.</p>
+<p>The Huntable agentic workflow runs whenever you trigger <code>/api/workflow/articles/{id}/trigger</code> or click <strong>Send to Workflow</strong> on an article. It is <strong>orchestrated by LangGraph</strong> (which manages step sequencing, conditional branching, and state) and <strong>triggered via Celery tasks</strong>. State is persisted to <code>agentic_workflow_executions</code>, with extraction results feeding Sigma generation and similarity matching.</p>
 <p>```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         WORKFLOW EXECUTION FLOW                             │
@@ -2721,8 +2721,8 @@
      │                                                 │
      ▼                                                 ▼
 ┌──────────────────┐                                ┌──────────┐
-│ Cmdline Extract    │                                │   Sig    │
-│ (opt: Attn Preproc)│                                │ Extract  │
+│ Cmdline Extract    │                                │HuntQueries│
+│ (opt: Attn Preproc)│                                │ Extract   │
 └────┬──────────────┘                                └────┬─────┘
      │                                                 │
      ▼                                                 ▼
