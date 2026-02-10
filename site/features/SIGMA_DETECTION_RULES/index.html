@@ -3154,34 +3154,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/HYBRID_IOC_EXTRACTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hybrid IOC Extraction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
         
   
@@ -4647,8 +4619,8 @@
 <p><strong>Features:</strong>
 - Article-level semantic search using existing embeddings
 - Chunk-level semantic search with on-the-fly embedding generation
-- Behavioral novelty similarity scoring (Atom Jaccard 70% + Logic Shape 30%)
-- Configurable threshold and limits
+- Behavioral novelty scoring for final SIGMA similarity assessment (Atom Jaccard 70% + Logic Shape Similarity 30%)
+- Configurable candidate retrieval limits and matching thresholds
 - Match storage with full metadata</p>
 <p><strong>Key Methods:</strong>
 - <code>match_article_to_rules()</code>: Article-level matching
@@ -4656,13 +4628,16 @@
 - <code>store_match()</code>: Persist matches to database
 - <code>get_article_matches()</code>: Retrieve matches with rule details
 - <code>get_coverage_summary()</code>: Aggregate coverage statistics</p>
-<p><strong>Behavioral Similarity Pattern (conceptual):</strong></p>
-<pre><code class="language-text">1. Canonicalize proposed and candidate rules into comparable behavior atoms
-2. Compute atom_jaccard overlap
-3. Compute logic_shape_similarity
-4. weighted_similarity = 0.70 * atom_jaccard + 0.30 * logic_shape_similarity
-5. Rank by weighted_similarity DESC and apply threshold
+<p><strong>Candidate Retrieval Pattern (example):</strong>
+The system first retrieves a shortlist of candidate rules using pgvector nearest-neighbors, then computes the behavioral novelty score in application code to rank final matches.</p>
+<pre><code class="language-sql">-- Retrieve top N candidate rules by embedding distance (pgvector)
+SELECT sr.*
+FROM sigma_rules sr
+WHERE sr.embedding IS NOT NULL
+ORDER BY sr.embedding &lt;-&gt; :embedding::vector
+LIMIT :candidate_limit; -- e.g. 50
 </code></pre>
+<p>The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.</p>
 <h4 id="4-coverage-classification-service">4. Coverage Classification Service</h4>
 <p><strong>File</strong>: <code>src/services/sigma_coverage_service.py</code></p>
 <p><strong>Features:</strong>
@@ -4730,18 +4705,21 @@
 <pre><code>User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
   1. Extract title + description
   2. Generate embedding
-  3. Assess novelty against sigma_rules using canonical behavior comparison
-  4. Return top 5 matches (≥70% similarity)
+  3. Retrieve candidate rules via pgvector nearest-neighbors
+  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%)
+  5. Return top 5 matches by behavioral novelty (threshold configurable)
 → Return Response with similar_rules field
 </code></pre>
 <h3 id="embedding-details">Embedding Details</h3>
 <ul>
 <li><strong>Model</strong>: intfloat/e5-base-v2 via LM Studio (768 dimensions)</li>
 <li><strong>Provider</strong>: LM Studio local API server</li>
-<li><strong>Input</strong>: Enriched rule text (title, description, logsource, detection)</li>
-<li><strong>Similarity Metric</strong>: Behavioral novelty weighted similarity (0.70 Atom Jaccard + 0.30 Logic Shape)</li>
-<li><strong>Threshold</strong>: 0.7 (70% similarity minimum)</li>
-<li><strong>Performance</strong>: ~100-300ms overhead per generated rule</li>
+<li><strong>Input</strong>: Enriched rule text (title, description, logsource, detection)
+-- <strong>Similarity Metric (SIGMA rules)</strong>: Behavioral novelty score — weighted combination:</li>
+<li>Atom Jaccard (70%): predicate overlap of detection fields</li>
+<li>Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT)
+-- <strong>Threshold</strong>: Configurable (default 0.7 on normalized behavioral novelty score)
+-- <strong>Performance</strong>: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms per generated rule)</li>
 </ul>
 <h3 id="similarity-interpretation">Similarity Interpretation</h3>
 <ul>
@@ -5200,9 +5178,9 @@ GROUP BY similarity_range;
 <li><a href="https://github.com/SigmaHQ/sigma">SigmaHQ Repository</a></li>
 <li><a href="https://github.com/SigmaHQ/sigma-specification">Sigma Specification</a></li>
 <li><a href="https://github.com/pgvector/pgvector">pgvector</a></li>
-<li><a href="https://www.sbert.net/">Sentence Transformers</a></li>
-<li><a href="https://sigmahq-pysigma.readthedocs.io/">pySIGMA Documentation</a></li>
-<li><a href="https://en.wikipedia.org/wiki/Jaccard_index">Jaccard Index</a></li>
+<li><a href="https://www.sbert.net/">Sentence Transformers</a>
+-- <a href="https://sigmahq-pysigma.readthedocs.io/">pySIGMA Documentation</a>
+-- <a href="internal-notes://behavioral_novelty">Behavioral Novelty (algorithm notes)</a></li>
 </ul>
 <hr />
 <p><strong>Status</strong>: ✅ Complete and Functional<br />

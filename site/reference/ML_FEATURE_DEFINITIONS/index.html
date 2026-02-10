@@ -2150,34 +2150,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/HYBRID_IOC_EXTRACTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hybrid IOC Extraction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
         
   
@@ -3067,7 +3039,7 @@
   - <strong>Intelligence indicators</strong>: Core threat intelligence keywords
 - Uses regex matching with word boundaries to prevent false positives
 - Patterns are loaded from <code>HUNT_SCORING_KEYWORDS</code> dictionary</p>
-<p><strong>Accuracy:</strong> High - Uses validated keyword lists from analysis of 319 historically labeled training samples (97 high-signal, 222 low-signal)</p>
+<p><strong>Accuracy:</strong> High - Uses validated keyword lists from analysis of 319 historically labeled training samples (historical labels 'high-signal' and 'low-signal' with 97 and 222 samples respectively). Note: article-level "chosen/rejected" classification is removed from the UI and should not be relied upon.</p>
 <p><strong>Examples:</strong>
 - Perfect: <code>rundll32.exe</code>, <code>msiexec.exe</code>, <code>powershell.exe</code>, <code>hklm</code>, <code>.lnk</code>
 - Good: <code>EventCode</code>, <code>KQL</code>, <code>parent-child</code>
@@ -3424,13 +3396,11 @@
 - <strong>Elastic Security:</strong> <code>process.command_line</code>, <code>file.path</code></p>
 <hr />
 <h2 id="model-training-context">Model Training Context</h2>
-<ul>
-<li><strong>Algorithm:</strong> RandomForestClassifier</li>
-<li><strong>Training Data:</strong> 278 samples (222 annotations + 81 feedback samples)</li>
-<li><strong>Features:</strong> 27 base features (31 with new features)</li>
-<li><strong>Feature Importances:</strong> Learned during training (not equal weighting)</li>
-<li><strong>Accuracy:</strong> ~80% on test data</li>
-</ul>
+<p>-- <strong>Algorithm:</strong> RandomForestClassifier
+-- <strong>Training Data:</strong> 278 historical samples (annotations and feedback) — dataset labels reflect legacy "high/low signal" annotations and do not imply an active article-level classification UI
+-- <strong>Features:</strong> 27 base features (31 with new features)
+- <strong>Feature Importances:</strong> Learned during training (not equal weighting)
+- <strong>Accuracy:</strong> ~80% on test data</p>
 <p>The model learns which features are most important for classification, with features like <code>hunt_score</code>, <code>perfect_pattern_count</code>, and <code>huntable_pattern_count</code> typically having higher importances than structural features like <code>char_count</code> or <code>avg_word_length</code>.</p>
 
 
