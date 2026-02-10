@@ -130,6 +130,7 @@ coverage/
 allure-results/
 allure-report/
 .playwright-mcp/
+tests/**/*.html
 
 # Root-level test pollution prevention
 test_*.py

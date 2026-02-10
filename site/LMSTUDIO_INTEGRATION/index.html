@@ -1437,6 +1437,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lm-studio-040-optional-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LM Studio 0.4.0+ (optional improvements)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#test-endpoint" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2836,6 +2847,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lm-studio-040-optional-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LM Studio 0.4.0+ (optional improvements)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#test-endpoint" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2961,6 +2983,40 @@ docker-compose up
 - Varies by conversation length
 - Typically requires 4096-8192 tokens for standard queries</p>
 <p>The application uses the OpenAI-compatible HTTP API (<code>/v1/chat/completions</code>), which does not support runtime context length configuration. If you need programmatic context length control, you would need to switch to the LMStudio Python SDK, which is not currently implemented.</p>
+<h2 id="lm-studio-040-optional-improvements">LM Studio 0.4.0+ (optional improvements)</h2>
+<p>The following features from <a href="https://lmstudio.ai/blog/0.4.0">LM Studio 0.4.0</a> are relevant to CTIScraper:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Relevance</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>llmster (headless daemon)</strong></td>
+<td>High</td>
+<td>Run LM Studio backend without the GUI on a server/GPU rig. Install: <code>curl -fsSL https://lmstudio.ai/install.sh \| bash</code> then <code>lms daemon up</code>, <code>lms server start</code>. Point <code>LMSTUDIO_API_URL</code> at that host. No app code change.</td>
+</tr>
+<tr>
+<td><strong>Parallel requests (continuous batching)</strong></td>
+<td>High</td>
+<td>Multiple concurrent requests to the same model instead of queuing. In LM Studio model loader: set <strong>Max Concurrent Predictions</strong> (e.g. 4) and keep <strong>Unified KV Cache</strong> enabled. Improves throughput for workflow (rank, extract, sigma) and multi-article runs. No app code change.</td>
+</tr>
+<tr>
+<td><strong>Stateful <code>/v1/chat</code> API</strong></td>
+<td>Medium</td>
+<td>New endpoint with <code>response_id</code> / <code>previous_response_id</code> for smaller follow-up payloads and response stats. Current app uses stateless <code>/chat/completions</code>; migrating is optional and would require a dedicated client path and tests.</td>
+</tr>
+<tr>
+<td><strong>Permission keys</strong></td>
+<td>Low</td>
+<td>If exposing LM Studio (or llmster) on a shared network, generate keys in Settings → Server and pass via header. Document when we add optional auth to LM Studio requests.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Document llmster and parallel-request settings for users who run LM Studio 0.4.0+; consider <code>/v1/chat</code> only if we need smaller payloads or response metrics for multi-turn flows.</p>
 <h2 id="test-endpoint">Test Endpoint</h2>
 <p>Use <code>POST /api/test-lmstudio</code> from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.</p>
 
