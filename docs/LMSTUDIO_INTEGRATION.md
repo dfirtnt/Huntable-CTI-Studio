@@ -106,6 +106,19 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
 
 The application uses the OpenAI-compatible HTTP API (`/v1/chat/completions`), which does not support runtime context length configuration. If you need programmatic context length control, you would need to switch to the LMStudio Python SDK, which is not currently implemented.
 
+## LM Studio 0.4.0+ (optional improvements)
+
+The following features from [LM Studio 0.4.0](https://lmstudio.ai/blog/0.4.0) are relevant to CTIScraper:
+
+| Feature | Relevance | Action |
+|--------|-----------|--------|
+| **llmster (headless daemon)** | High | Run LM Studio backend without the GUI on a server/GPU rig. Install: `curl -fsSL https://lmstudio.ai/install.sh \| bash` then `lms daemon up`, `lms server start`. Point `LMSTUDIO_API_URL` at that host. No app code change. |
+| **Parallel requests (continuous batching)** | High | Multiple concurrent requests to the same model instead of queuing. In LM Studio model loader: set **Max Concurrent Predictions** (e.g. 4) and keep **Unified KV Cache** enabled. Improves throughput for workflow (rank, extract, sigma) and multi-article runs. No app code change. |
+| **Stateful `/v1/chat` API** | Medium | New endpoint with `response_id` / `previous_response_id` for smaller follow-up payloads and response stats. Current app uses stateless `/chat/completions`; migrating is optional and would require a dedicated client path and tests. |
+| **Permission keys** | Low | If exposing LM Studio (or llmster) on a shared network, generate keys in Settings → Server and pass via header. Document when we add optional auth to LM Studio requests. |
+
+**Recommendation:** Document llmster and parallel-request settings for users who run LM Studio 0.4.0+; consider `/v1/chat` only if we need smaller payloads or response metrics for multi-turn flows.
+
 ## Test Endpoint
 
 Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.
