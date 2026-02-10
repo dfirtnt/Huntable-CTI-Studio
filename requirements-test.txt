@@ -38,10 +38,6 @@ isort==5.12.0
 flake8==6.1.0
 mypy==1.8.0
 
-# Jupyter for test analysis
-jupyter==1.0.0
-notebook==7.5.1
-
 # Documentation testing
 sphinx==7.1.0
 sphinx-rtd-theme==3.0.2
