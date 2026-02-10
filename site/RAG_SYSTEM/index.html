@@ -2150,34 +2150,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/HYBRID_IOC_EXTRACTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hybrid IOC Extraction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
         
   
@@ -2867,13 +2839,12 @@
 <p><strong>RAG Service</strong> (<code>src/services/rag_service.py</code>)</p>
 </li>
 <li><strong>Dual Search</strong>: Article-level + chunk-level retrieval</li>
-<li><strong>Similarity</strong>: Cosine similarity using pgvector <code>&lt;=&gt;</code> operator</li>
-<li>
-<p><strong>Chunk Strategy</strong>: Uses <code>article_annotations</code> table for fine-grained retrieval</p>
-</li>
-<li>
-<p><strong>LLM Generation Service</strong> (<code>src/services/llm_generation_service.py</code>)</p>
-</li>
+<li><strong>Similarity</strong>: Cosine similarity using pgvector <code>&lt;=&gt;</code> operator (used for RAG retrieval)</li>
+<li><strong>Chunk Strategy</strong>: Uses <code>article_annotations</code> table for fine-grained retrieval</li>
+</ol>
+<p>Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm (Atom Jaccard 70% + Logic Shape Similarity 30%). Cosine similarity is retained for RAG-style document retrieval only and is not used for final SIGMA similarity ranking.</p>
+<ol>
+<li><strong>LLM Generation Service</strong> (<code>src/services/llm_generation_service.py</code>)</li>
 <li><strong>Multi-Provider</strong>: OpenAI GPT-4o, Anthropic Claude, LMStudio (local)</li>
 <li><strong>Auto-Selection</strong>: Automatically chooses best available provider</li>
 <li><strong>Fallback</strong>: Graceful degradation to template responses</li>

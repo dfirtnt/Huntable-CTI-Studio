@@ -2341,34 +2341,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/HYBRID_IOC_EXTRACTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hybrid IOC Extraction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
         
   
@@ -2889,7 +2861,7 @@
 - <code>junk_filter_result</code>: filtering decisions before ranking
 - <code>extraction_result</code>: merged observables, <code>discrete_huntables_count</code>, per-agent <code>subresults</code>, and synthesized <code>content</code>
 - <code>sigma_rules</code>: generated rules with validation logs and pySigma errors
-- <code>similarity_results</code>: matches against indexed SigmaHQ rules (behavioral novelty weighted similarity)
+- <code>similarity_results</code>: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shape)
 - <code>queued_rules_count</code> / <code>queued_rule_ids</code>: rules promoted to queue
 - <code>article_content</code> / <code>article_content_preview</code>: content snapshots used by the workflow</p>
 <h2 id="sigma-rules-sigma_rules-table">Sigma rules (<code>sigma_rules</code> table)</h2>
@@ -2997,7 +2969,7 @@
 <tr>
 <td><code>similarity_score</code></td>
 <td>Float</td>
-<td>Behavioral similarity score (higher = more similar)</td>
+<td>Behavioral novelty score (0-1) — higher means more similar</td>
 </tr>
 <tr>
 <td><code>match_level</code></td>

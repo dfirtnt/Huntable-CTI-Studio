@@ -2357,34 +2357,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/HYBRID_IOC_EXTRACTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hybrid IOC Extraction
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
         
   
@@ -2898,7 +2870,7 @@
 
 
 <h1 id="architecture">Architecture</h1>
-<p>ASCII diagrams of the main workflows in Huntable CTI Studio. The agentic workflow pipeline is <strong>orchestrated by LangGraph</strong> and triggered via Celery tasks. Use these diagrams to orient services, queues, and data flow when debugging or extending the stack.</p>
+<p>ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient services, queues, and data flow when debugging or extending the stack.</p>
 <h2 id="1-system-architecture">1. System Architecture</h2>
 <pre><code>┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              CTI Scraper Architecture                           │
@@ -2997,13 +2969,13 @@
           │
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Duplicate      │    │  Content Hash   │    │  URL + Title    │    │  SimHash        │
-│  Detection      │    │  Check          │    │  Check          │    │  Check          │
-│                 │    │                 │    │                 │    │                 │
-│ • Content Hash  │───▶│ • SHA256 Hash   │───▶│ • Normalized    │───▶│ • Locality-     │
-│ • URL Check     │    │ • Exact Match   │    │ • Combination   │    │   Sensitive Hash│
-│ • SimHash       │    │ • Fast Lookup   │    │ • RSS Updates   │    │ • Near-Duplicate│
-└─────────┬───────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+│  Duplicate      │    │  Content Hash   │    │  URL + Title    │
+│  Detection      │    │  Check          │    │  Check          │
+│                 │    │                 │    │                 │
+│ • Content Hash  │───▶│ • SHA256 Hash   │───▶│ • Normalized    │
+│ • URL Check     │    │ • Exact Match   │    │ • Combination   │
+│ • Similarity    │    │ • Fast Lookup   │    │ • RSS Updates   │
+└─────────┬───────┘    └─────────────────┘    └─────────────────┘
           │
           ▼
 ┌─────────────────┐
@@ -3250,9 +3222,6 @@ API Endpoints:
                                              │ • used_for_training│
                                              └─────────────────┘
 </code></pre>
-<blockquote>
-<p><strong>Note</strong>: Only core ingestion tables are shown. The database contains 28 total tables. See <a href="../../reference/schemas/">Database Schemas</a> for the complete reference.</p>
-</blockquote>
 <h2 id="8-ai-powered-analysis-workflow">8. AI-Powered Analysis Workflow</h2>
 <pre><code>┌─────────────────────────────────────────────────────────────────────────────────┐
 │                          AI-Powered Analysis Workflow                           │
@@ -3287,7 +3256,7 @@ API Endpoints:
 │                 │    │                 │    │                 │
 │ • Summaries     │    │ • Embeddings    │    │ • Syntax Check  │
 │ • Classifications│   │ • Similarity   │    │ • Error Fix     │
-│ • Observable Extraction│    │ • Context      │    │ • Retry Logic   │
+│ • IOC Extraction│    │ • Context      │    │ • Retry Logic   │
 │ • Custom Prompts│    │ • pgvector     │    │ • Audit Trail   │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
