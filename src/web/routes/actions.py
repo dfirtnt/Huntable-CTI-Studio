@@ -111,3 +111,28 @@ async def api_generate_report():
     except Exception as exc:  # noqa: BLE001
         logger.error("Generate report error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/trigger-ingestion")
+async def api_trigger_ingestion():
+    """Manually trigger article ingestion by running check_all_sources task."""
+    try:
+        from celery import Celery
+
+        celery_app = Celery("cti_scraper")
+        celery_app.config_from_object("src.worker.celeryconfig")
+
+        task = celery_app.send_task(
+            "src.worker.celery_app.check_all_sources",
+            queue="source_checks",
+        )
+
+        return {
+            "success": True,
+            "message": "Article ingestion started. This may take several minutes.",
+            "task_id": task.id,
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Trigger ingestion error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

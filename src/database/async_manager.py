@@ -127,6 +127,7 @@ class AsyncDatabaseManager:
         """Create all database tables asynchronously."""
         try:
             async with self.engine.begin() as conn:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 await conn.run_sync(Base.metadata.create_all)
             logger.info("Database tables created successfully")
         except Exception as e:
