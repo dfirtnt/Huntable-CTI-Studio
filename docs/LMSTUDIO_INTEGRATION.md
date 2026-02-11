@@ -21,7 +21,7 @@ docker-compose up
 3. **Configure Model Name**:
    - Edit `.env` file or set environment variables
    - Set `LMSTUDIO_MODEL` to your loaded model name
-   - Example: `LMSTUDIO_MODEL=deepseek-r1-qwen3-8b`
+   - Example: `LMSTUDIO_MODEL=deepseek-r1-qwen3-8bllama-3.1-8b-instruct`
    - The main `docker-compose.yml` already includes LMStudio configuration pointing to `host.docker.internal:1234/v1`
 
 ## API Usage
@@ -49,7 +49,7 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 - `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: main model)
 - `LMSTUDIO_MODEL_EXTRACT`: Model for extraction agent (default: main model)
 - `LMSTUDIO_MODEL_SIGMA`: Model for SIGMA generation (default: main model)
-- `LMSTUDIO_MAX_CONTEXT`: Maximum context window size
+- `LMSTUDIO_MAX_CONTEXT`: Maximum context window sizellama-3.2-1b-instruct`)
 
 ### Recommended Settings (for Deterministic Scoring)
 - `LMSTUDIO_TEMPERATURE`: Temperature for inference (default: `0.0` for deterministic scoring)
@@ -122,3 +122,6 @@ The following features from [LM Studio 0.4.0](https://lmstudio.ai/blog/0.4.0) ar
 ## Test Endpoint
 
 Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNjg3NjAzODU0XX0=
+-->
