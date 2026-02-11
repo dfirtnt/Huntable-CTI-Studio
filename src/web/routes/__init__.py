@@ -35,9 +35,9 @@ from . import (
     scrape,
     search,
     settings,
-    # sigma_ab_test,  # Module not found - commented out
-    # sigma_similarity_test,  # Module not found - commented out
+    sigma_ab_test,
     sigma_queue,
+    sigma_similarity_test,
     sources,
     tasks,
     workflow_config,
@@ -88,5 +88,5 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(workflow_ui.router)
     app.include_router(evaluation_api.router)
     app.include_router(sigma_queue.router)
-    # app.include_router(sigma_ab_test.router)  # Module not found - commented out
-    # app.include_router(sigma_similarity_test.router)  # Module not found - commented out
+    app.include_router(sigma_ab_test.router)
+    app.include_router(sigma_similarity_test.router)

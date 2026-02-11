@@ -5,6 +5,9 @@
 
 set -e
 
+# Print URL as clickable hyperlink (OSC 8; supported by iTerm2, Kitty, VS Code, Windows Terminal)
+url_link() { printf '\e]8;;%s\e\\%s\e]8;;\e\\' "$1" "${2:-$1}"; }
+
 # Prefer docker compose (plugin) if docker-compose not found
 if command -v docker-compose > /dev/null 2>&1; then
     DC="docker-compose"
@@ -132,7 +135,7 @@ echo ""
 echo "🎉 CTI Scraper is running!"
 echo ""
 echo "📊 Services:"
-echo "   • Web Interface: http://localhost:8001"
+echo -n "   • Web Interface: "; url_link "http://localhost:8001"; echo
 echo "   • PostgreSQL:    postgres:5432 (Docker container)"
 echo "   • Redis:         redis:6379 (Docker container)"
 echo ""
@@ -143,8 +146,8 @@ echo "   • Stop stack:    $DC down"
 echo "   • Restart:       $DC restart [service]"
 echo ""
 echo "📈 Monitoring:"
-echo "   • Health check:  http://localhost:8001/health"
-echo "   • Database stats: http://localhost:8001/api/sources"
+echo -n "   • Health check:  "; url_link "http://localhost:8001/health"; echo
+echo -n "   • Database stats: "; url_link "http://localhost:8001/api/sources"; echo
 echo ""
 
 # Show running containers
