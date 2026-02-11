@@ -5,7 +5,7 @@ alwaysApply: true
 
 # LG (Looks Good) Workflow
 
-When the user says **lg** or **LG**, **you must run the full workflow yourself** from hygiene through **push to main**. Do not stop at commit or ask the user to push manually.
+When the user says **lg** or **LG**, **you must run the full workflow yourself** from hygiene through **push to the current branch**. Do not stop at commit or ask the user to push manually.
 
 Perform in order:
 
@@ -17,7 +17,7 @@ Perform in order:
    - **Vulture** — Run `.venv/bin/vulture src scripts` for dead-code detection. Fix or whitelist findings before commit.
 2. **Stage** — `git add` (or equivalent) so all changes are staged.
 3. **Commit** — Commit with a clear message (no auto-commit before user says LG).
-4. **Push** — Push to **main** (e.g. `git push origin main`). Complete the push; do not hand off to the user.
+4. **Push** — Push the current branch (e.g. `git push origin HEAD` or `git push`). Complete the push; do not hand off to the user.
 
 If the environment’s `git` wrapper breaks (e.g. unsupported `--trailer`), use the real git binary (e.g. `/usr/local/bin/git`) so the workflow completes.
 

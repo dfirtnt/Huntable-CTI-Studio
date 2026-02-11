@@ -36,9 +36,7 @@ if _use_asgi_client():
         from src.web.modern_main import app
 
         transport = ASGITransport(app=app, raise_app_exceptions=False)
-        client = httpx.AsyncClient(
-            transport=transport, base_url="http://testserver", timeout=httpx.Timeout(60.0)
-        )
+        client = httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=httpx.Timeout(60.0))
         try:
             yield client
         finally:

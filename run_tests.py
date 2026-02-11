@@ -753,7 +753,11 @@ class RunTestRunner:
         cmd.extend(["-m", combined_expr])
 
         # API tests with in-process ASGI client need one event loop for the whole run
-        if self.config.test_type == RunTestType.API and os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes"):
+        if self.config.test_type == RunTestType.API and os.getenv("USE_ASGI_CLIENT", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
             cmd.extend(["-o", "asyncio_default_test_loop_scope=session"])
 
         # Add execution context specific options
