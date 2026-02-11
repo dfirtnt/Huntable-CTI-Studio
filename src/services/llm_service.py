@@ -1219,7 +1219,9 @@ class LLMService:
                                 # Explicitly close the client connection to stop the underlying HTTP request
                                 with contextlib.suppress(Exception):
                                     await client.aclose()
-                                with contextlib.suppress(asyncio.CancelledError, httpx.RequestError, httpx.ConnectError):
+                                with contextlib.suppress(
+                                    asyncio.CancelledError, httpx.RequestError, httpx.ConnectError
+                                ):
                                     await request_task
                             raise asyncio.CancelledError("Request cancelled by client")
 

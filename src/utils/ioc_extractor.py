@@ -141,9 +141,11 @@ class HybridIOCExtractor:
 
             # Prepare the validation prompt
             prompt = (
-                f"""You are a cybersecurity analyst. Validate and categorize these """
-                f"""extracted IOCs from threat intelligence content."""
-            ) + """
+                (
+                    """You are a cybersecurity analyst. Validate and categorize these """
+                    """extracted IOCs from threat intelligence content."""
+                )
+                + """
 
 CRITICAL: Return ONLY valid JSON. Do not include any explanatory text, comments, or markdown formatting.
 
@@ -172,6 +174,7 @@ Output format (return ONLY this JSON structure):
   "mutex": [],
   "named_pipe": []
 }}"""
+            )
 
             # Route to appropriate API based on model
             client = httpx.AsyncClient()
