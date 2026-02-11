@@ -11,6 +11,43 @@
         </div>
     </div>
 
+    <!-- First Launch Banner -->
+    {% if stats and stats.total_articles == 0 %}
+    <div id="first-launch-banner" class="mb-6 bg-blue-900 border border-blue-700 text-gray-100 p-6 rounded-2xl shadow-lg">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">🚀</span>
+                    Welcome to Huntable CTI Studio
+                </h3>
+                <div class="space-y-2 text-sm">
+                    <p class="text-gray-300">
+                        <strong>Article ingestion</strong> will start automatically on a scheduled basis (every 30 minutes). 
+                        You can also trigger it manually now to get started immediately.
+                    </p>
+                    <p class="text-gray-300">
+                        <strong>Important:</strong> Before using AI features, please configure your LLM API keys in 
+                        <a href="/settings" class="text-blue-400 hover:text-blue-300 underline font-medium">Settings</a>.
+                    </p>
+                </div>
+            </div>
+            <div class="ml-4 flex flex-col gap-2">
+                <button 
+                    onclick="triggerIngestion()" 
+                    id="trigger-ingestion-btn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium whitespace-nowrap">
+                    ▶️ Start Ingestion Now
+                </button>
+                <a 
+                    href="/settings" 
+                    class="bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium text-center whitespace-nowrap">
+                    ⚙️ Configure Settings
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- 3x3 Grid Layout -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         
@@ -201,6 +238,14 @@
             }
             
             // Update timestamp
+            
+            // Hide first-launch banner if articles exist
+            if (data.stats && data.stats.total_articles > 0) {
+                const banner = document.getElementById('first-launch-banner');
+                if (banner) {
+                    banner.style.display = 'none';
+                }
+            }
             
             // Update Failing Sources
             updateFailingSources();
@@ -492,6 +537,44 @@
             window.location.href = '/diags';
         } catch (error) {
             showNotification(`Navigation failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function triggerIngestion() {
+        try {
+            const btn = document.getElementById('trigger-ingestion-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ Starting...';
+            }
+            
+            showNotification('Starting article ingestion...', 'info');
+            
+            const response = await fetch('/api/actions/trigger-ingestion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showNotification(result.message || 'Article ingestion started successfully', 'success');
+                // Refresh dashboard data after a delay to show progress
+                setTimeout(() => loadDashboardData(), 5000);
+            } else {
+                const error = await response.json();
+                showNotification(`Failed to start ingestion: ${error.detail || 'Unknown error'}`, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '▶️ Start Ingestion Now';
+                }
+            }
+        } catch (error) {
+            showNotification(`Failed to start ingestion: ${error.message}`, 'error');
+            const btn = document.getElementById('trigger-ingestion-btn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '▶️ Start Ingestion Now';
+            }
         }
     }
 
