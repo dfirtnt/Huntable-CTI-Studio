@@ -93,6 +93,11 @@ async def dashboard(request: Request):
         sources = await async_db_manager.list_sources()
         recent_articles = await async_db_manager.list_articles(limit=5)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Allow forcing first-launch banner for testing: ?show_first_launch=1
+        q = request.query_params.get("show_first_launch", "").lower()
+        force_first_launch = q in ("1", "true", "yes")
+        total = (stats or {}).get("total_articles") or 0
+        show_first_launch_banner = force_first_launch or (total == 0)
 
         return templates.TemplateResponse(
             "dashboard.html.orig",
@@ -103,6 +108,7 @@ async def dashboard(request: Request):
                 "recent_articles": recent_articles,
                 "current_time": current_time,
                 "environment": ENVIRONMENT,
+                "show_first_launch_banner": show_first_launch_banner,
             },
         )
     except Exception as exc:
