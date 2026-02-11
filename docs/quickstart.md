@@ -16,7 +16,7 @@ End-to-end run using Docker Compose and the built-in workflow. Commands use `pyt
 ## 1) Prerequisites
 - Docker and the Docker Compose plugin available on your PATH
 - `python3` for running tests, `jq` for parsing JSON responses
-- Ports `8001` (web UI/API) and `8888` (auxiliary debug port) free on the host
+- Ports `8001` (web UI/API) and `8888` (auxiliary debug port)and `8888` free on the host
 - `.env` configured (copy from `.env.example` and set `POSTGRES_PASSWORD`; add LLM keys if you want AI features)
 
 ## 2) Start the stack
@@ -84,3 +84,6 @@ Stack shutdown (optional):
 ```bash
 docker-compose down
 ```
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNTUyNzE0ODA1XX0=
+-->
