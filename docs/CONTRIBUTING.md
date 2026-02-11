@@ -314,7 +314,7 @@ Clear description of what you expected to happen.
 **Environment:**
 - OS: [e.g. macOS 14.0]
 - Python: [e.g. 3.11.0]
-- CTI Scraper: [e.g. 5.0.0]
+- CTI Scraper: [e.g. 52.0.0]
 
 **Additional context**
 Add any other context about the problem here.
@@ -400,3 +400,6 @@ Thank you to all contributors who have helped make CTI Scraper better! Your cont
 ---
 
 **Note**: This contributing guide is a living document. Please suggest improvements through issues or pull requests.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbOTg4MjI5Mzc1XX0=
+-->

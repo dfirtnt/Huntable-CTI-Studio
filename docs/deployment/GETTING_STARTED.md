@@ -31,7 +31,7 @@ Access:
 ## Required environment
 Set these in `.env` before running `./start.sh`:
 - `POSTGRES_PASSWORD=<strong password>`
-- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` (optional AI features)
+- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINICHATGPT_API_KEY` (optional AI features)
 - `LMSTUDIO_API_URL` (default: `http://host.docker.internal:1234/v1`)
 - `LMSTUDIO_MODEL`, `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, `LMSTUDIO_MODEL_SIGMA` (defaults set in compose)
 - Langfuse tracing: configure via Settings UI (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, etc.) or env vars
@@ -64,4 +64,7 @@ docker-compose logs -f web
 - AI errors: confirm API keys or LM Studio endpoint reachable
 - CLI errors: use `./run_cli.sh --help` to see current commands; arguments are passed directly to `python -m src.cli.main`
 
-_Last verified: Feb 2026_
+_Last verified: Feb 20265_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTAzMzg3ODI4NF19
+-->

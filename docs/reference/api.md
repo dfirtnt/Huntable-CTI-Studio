@@ -4,26 +4,26 @@ This document provides a comprehensive list of all API endpoints available in th
 
 ## Overview
 
-The CTI Scraper provides **210+ API endpoints** across multiple categories:
+The CTI Scraper provides **2170+ API endpoints** across multiple categories:
 - **Health & Monitoring**: 8 endpoints
-- **Web Pages**: 23 pages
+- **Web Pages**: 23 page19 endpoints
 - **Sources Management**: 10 endpoints  
-- **Articles Management**: 15 endpoints
-- **AI & Analysis**: 16 endpoints
-- **RAG Chat Interface & Presets**: 5 endpoints
-- **ML Feedback & Model Management**: 11 endpoints
+- **Articles Management**: 152 endpoints
+- **AI & Analysis**: 165 endpoints
+- **RAG Chat Interface & Presets**: 51 endpoints
+- **ML Feedback & Model Management**: 110 endpoints
 - **Annotations**: 8 endpoints
 - **Jobs & Tasks**: 7 endpoints
 - **Metrics & Dashboard**: 20 endpoints
 - **Backup Management**: 3 endpoints
-- **Workflow Execution**: 15 endpoints
-- **Workflow Configuration**: 14 endpoints
-- **ML vs Hunt Comparison**: 5 endpoints
-- **Embeddings & ML**: 2 endpoints
+- **Workflow Execution**: 159 endpoints
+- **Workflow Configuration**: 149 endpoints
+- **ML vs Hunt Comparison**: 57 endpoints
+- **Embeddings & ML**: 23 endpoints
 - **Observable Evaluation**: 4 endpoints
 - **Observable Training**: 2 endpoints (inactive; planned for future release)
 - **Sigma Queue**: 11 endpoints
-- **Settings**: 5 endpoints
+- **Settings**: 53 endpoints
 - **File Upload**: 1 endpoint
 
 ## Health & Monitoring Endpoints
@@ -105,8 +105,8 @@ The CTI Scraper provides **210+ API endpoints** across multiple categories:
 - `GET /api/workflow/executions/{execution_id}` - Get detailed workflow execution information
   - **Response**: Includes execution status, step results, ranking score, and error logs
 - `POST /api/workflow/executions/{execution_id}/retry` - Retry a failed workflow execution
-- `GET /api/workflow/executions/{execution_id}/stream` - SSE stream of execution updates
-  - **Response**: Server-sent events with real-time execution progress
+- `GET /api/workflow/executions/{execution_id}/stream` - SSE stream ofdebug-info` - Get debug information for workflow execution updates
+  - **Response**: Server-sent events with real-timeDetailed debug data and execution progressstate
 - `POST /api/workflow/articles/{article_id}/trigger` - Manually trigger agentic workflow for an article via Celery
 - `POST /api/workflow/executions/{execution_id}/cancel` - Cancel a running execution
 - `POST /api/workflow/executions/cancel-all-running` - Cancel all running executions
@@ -119,7 +119,7 @@ The CTI Scraper provides **210+ API endpoints** across multiple categories:
 - `PUT /api/workflow/config` - Update workflow configuration (including agent model assignments via `agent_models`)
 - `GET /api/workflow/config/prompts` - Get all agent prompts
 - `GET /api/workflow/config/prompts/{agent_name}` - Get single agent prompt
-- `PUT /api/workflow/config/prompts/{agent}` - Update agent prompts; body includes `system_prompt`, `user_prompt` (per-agent update)
+- `PUT /api/workflow/config/prompts/{agent}` - Update agent prompts; body includes `agent_name`, `system_prompt`, `user_prompt` (per-agentbulk update)
 - `GET /api/workflow/config/prompts/{agent_name}/versions` - Get prompt version history
 - `POST /api/workflow/config/prompts/{agent_name}/rollback` - Rollback prompt to a prior version
 - `GET /api/workflow/config/preset/list`, `GET /api/workflow/config/versions`, `GET /api/workflow/config/version/{version_number}` - Presets and version history
@@ -161,7 +161,9 @@ The CTI Scraper provides **210+ API endpoints** across multiple categories:
 
 ### Article Analysis
 - `GET /api/articles/{article_id}/ai-models` - Get AI model information for article analysis
-- `POST /api/articles/{article_id}/analyze` - Run AI analysis on article
+- `POST /api/articles/{article_id}/analyze` - Run AI analysis on articleGET /api/search/help` - Get search syntax help
+
+### Article Analysis
 - `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
 - `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
 - `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
@@ -178,7 +180,7 @@ The CTI Scraper provides **210+ API endpoints** across multiple categories:
 - `POST /api/test-openai-key` - Test OpenAI API key validity
 - `POST /api/test-anthropic-key` - Test Anthropic API key validity
 - `POST /api/test-gemini-key` - Validate Gemini API key
-- `POST /api/test-lmstudio` - Test LMStudio connectivity
+- `POST /api/test-lmstudio` - Test LMStudio connectivclaude-summary` - Test Claude summary functionality
 - `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
 - `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
 - `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
@@ -276,6 +278,7 @@ Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI;
 - `GET /articles/{article_id}` - Article detail page
 - `GET /sources` - Sources management page
 - `GET /settings` - Settings page
+- `GET /health-checks` - Health checks monitoring page
 - `GET /chat` - RAG chat interface page
 - `GET /jobs` - Jobs monitoring page
 - `GET /pdf-upload` - PDF upload page
@@ -449,3 +452,6 @@ Rate limiting is implemented to prevent abuse:
 ---
 
 **Note**: This API documentation is automatically generated from the FastAPI application. For the most up-to-date information, visit the interactive documentation at `http://localhost:8001/docs`.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTE4MDQ1NTA3NV19
+-->

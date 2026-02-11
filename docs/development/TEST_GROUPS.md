@@ -185,7 +185,7 @@ python scripts/run_tests_by_group.py --group performance
 **Test Path**: Specific files + `ai` marker  
 **Integration**: ✅ Fully integrated via `run_tests.py`
 
-**Purpose**: Test AI integrations and workflows (includes legacy AI Assistant test coverage).
+**Purpose**: Test AI assistant functionality, LLM integrations, and AI workflows (includes legacy AI Assistant test coverage).
 
 **Test Files**:
 - `tests/ui/test_ai_assistant_ui.py` (deprecated/disabled with AI Assistant removal)
@@ -327,3 +327,7 @@ All test groups are verified to be non-impactful to production data and configur
 1. Add test group dependencies (e.g., integration depends on smoke passing)
 2. Add parallel execution support per group
 3. Add test group coverage reporting
+
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTIwNzQwNjgwNzVdfQ==
+-->

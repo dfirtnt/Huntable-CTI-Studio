@@ -591,7 +591,7 @@
                     </label>
                     <input type="text"
                            id="sigmaRepoPath"
-                           placeholder="sigma-repo"
+                           placeholder="huntable-sigma-repo"
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Path to the SIGMA rules repository inside the container.
@@ -607,7 +607,7 @@
                     </label>
                     <input type="text"
                            id="githubRepo"
-                           placeholder="dfirtnt/Huntable-SIGMA-Rules"
+                           placeholder=""
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
@@ -1226,12 +1226,12 @@
             if (data.success && data.exists && data.value) {
                 document.getElementById('sigmaRepoPath').value = data.value;
             } else {
-                // Fallback to localStorage or default (sigma-repo for Docker, ../Huntable-SIGMA-Rules for local)
-                document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
+                // Fallback to localStorage or default
+                document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'huntable-sigma-repo';
             }
         } catch (error) {
             console.log('Could not fetch SIGMA_REPO_PATH from database:', error);
-            document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
+            document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'huntable-sigma-repo';
         }
         
         // GitHub Repo - check database first
@@ -1241,12 +1241,12 @@
             if (data.success && data.exists && data.value) {
                 document.getElementById('githubRepo').value = data.value;
             } else {
-                // Fallback to localStorage or default
-                document.getElementById('githubRepo').value = settings.githubRepo || 'dfirtnt/Huntable-SIGMA-Rules';
+                // Fallback to localStorage or default (blank)
+                document.getElementById('githubRepo').value = settings.githubRepo || '';
             }
         } catch (error) {
             console.log('Could not fetch GITHUB_REPO from database:', error);
-            document.getElementById('githubRepo').value = settings.githubRepo || 'dfirtnt/Huntable-SIGMA-Rules';
+            document.getElementById('githubRepo').value = settings.githubRepo || '';
         }
         
         // Git User Name - check database first

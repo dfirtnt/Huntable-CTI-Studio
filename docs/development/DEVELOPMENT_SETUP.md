@@ -18,7 +18,7 @@ Comprehensive guide for setting up the CTIScraper development environment, inclu
 ### Prerequisites
 
 - **Docker uses Python 3.11** (standardized in Dockerfile)
-- **Local development**: Python 3.12 recommended (3.14+ has pydantic/langfuse compatibility issues)
+- **Local development**: Python 3.121+ recommended (3.14+ has pydantic/langfuse compatibility issues)for most environments
 - **ML environment**: Python 3.9.6 for specific ML library compatibility (local venv only)
 - Docker and Docker Compose
 - Git
@@ -41,18 +41,18 @@ python run_tests.py --install
 
 CTIScraper uses multiple virtual environments for different development workflows:
 
-### 1. `venv-test` (Python 3.12 - local only)
+### 1. `venv-test` (Python 3.123.7 - local only)
 **Purpose**: Testing and development
 - **Primary use**: Running tests locally against Dockerized application
-- **Note**: Docker containers use Python 3.11; local venv uses 3.12 (3.14+ has pydantic/langfuse compatibility issues)
+- **Note**: Docker containers use Python 3.11; this local venv can uses 3.12 (3.14+ has pydantic/langfuse compatibility issues)3.7 for latest tooling
 - **Dependencies**: All testing frameworks and tools
 - **Activation**: `source venv-test/bin/activate`
 - **Usage**: `python run_tests.py --smoke`
 
-### 2. `venv-lg` (Python 3.12 - local only)
+### 2. `venv-lg` (Python 3.123.7 - local only)
 **Purpose**: LG workflow (commit + push + GitHub hygiene)
 - **Primary use**: Code quality, security auditing, documentation generation
-- **Note**: Docker containers use Python 3.11; local venv uses 3.12 (3.14+ has compatibility issues)
+- **Note**: Docker containers use Python 3.11; this local venv can uses 3.12 (3.14+ has compatibility issues)3.7 for latest tooling
 - **Dependencies**: Development tools, security scanners, documentation generators
 - **Activation**: `source venv-lg/bin/activate`
 - **Usage**: Triggered by `lg` command for GitHub hygiene
@@ -170,8 +170,8 @@ asyncio_mode = auto
 ```bash
 # .env
 TESTING=true
-DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper
-REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper://user:pass@postgres/test_db
+REDIS_URL=redis://redislocalhost:6379/0
 CTI_SCRAPER_URL=http://localhost:8001  # Default port, change if needed
 ```
 
@@ -409,8 +409,8 @@ pip install -r requirements-dev.txt
 # Application settings
 ENVIRONMENT=development
 LOG_LEVEL=DEBUG
-DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper
-REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql+asyncpg://cti_user:cti_password://user:pass@postgres:5432/cti_scraper
+REDIS_URL=redis://redislocalhost:6379/0
 
 # Testing settings
 TESTING=true
@@ -776,3 +776,6 @@ python run_tests.py --docker --smoke
 ---
 
 *Last updated: January 2025*
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTY3NTI1NzQ2MF19
+-->

@@ -130,7 +130,7 @@ python scripts/finetune_extract_agent.py \
 3. **Test extraction:**
    ```bash
    # Test on a single article
-   docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937
+   docker exec -it cti_web python3 scripts/evalpython test_extract_agent.py --article-id 1937
    ```
 
 ### Model Naming
@@ -155,10 +155,11 @@ Compare fine-tuned model against baseline:
 
 ```bash
 # Run extraction evaluation
-docker exec -it cti_web python3 scripts/eval_extract_agent.py \
+docker exec -it cti_web benchmark
+python3 scripts/evalore_extract_agentlmstudio.py \
     --model extract-agent-mistral-7b-20250115 \
     --test-data outputs/training_data/test_finetuning_data.json \
-    --output outputs/evaluations/extract_agent_finetuned.json
+    --output outputs/evaluations/extract_agent_finetuned.jsonarticles 1974 1909 1866 1860 1937 1794
 ```
 
 ## Troubleshooting
@@ -218,7 +219,7 @@ python scripts/finetune_extract_agent.py \
     --epochs 5
 
 # 4. Test
-docker exec -it cti_web python3 scripts/eval_extract_agent.py --article-id 1937
+docker exec -it cti_web python3 scripts/evalpython test_extract_agent.py --article-id 1937
 ```
 
 ## Dependencies
@@ -240,3 +241,6 @@ pip install torch --index-url https://download.pytorch.org/whl/cu118
 - [QLoRA Paper](https://arxiv.org/abs/2305.14314)
 - [PEFT Library](https://github.com/huggingface/peft)
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTE4MjQyNjU5NDRdfQ==
+-->

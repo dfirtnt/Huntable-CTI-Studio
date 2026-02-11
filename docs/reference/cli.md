@@ -231,7 +231,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### embed
 
-**When:** Manage article embeddings for RAG and Sigma similarity search. Use `embed stats` to see coverage; use `embed embed` (i.e., the `embed` group has an `embed` subcommand) to generate embeddings for articles that don’t have them (queues a Celery task). Use `embed search` for semantic search from the CLI.
+**When:** Manage article embeddings for RAG and Sigma similarity search. Use `embed stats` to see coverage; use `embed embed` (i.e., the `embed` group has an `embed`` (no subcommand) to generate embeddings for articles that don’t have them (queues a Celery task). Use `embed search` for semantic search from the CLI.
 
 > **Note:** The embedding generation subcommand is `embed embed` (not just `embed` by itself). Example: `./run_cli.sh embed embed --batch-size 1000`
 
@@ -239,11 +239,11 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 | Subcommand | Description |
 |------------|-------------|
-| `embed` | Generate embeddings for articles missing them (interactive confirm; use `--dry-run` to preview) |
+| `embed`*(none)* | Generate embeddings for articles missing them (interactive confirm; use `--dry-run` to preview) |
 | `stats` | Show embedding coverage (total, embedded, pending, per-source) |
 | `search` | Semantic search: prompt for query, return similar articles |
 
-**Options (embed embed):**
+**Options (embed embe, no subcommand):**
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -357,7 +357,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `add` | Archive articles (`--article-id` or `--source-id`) |
 | `remove` | Unarchive articles |
 | `list` | List archived articles |
-| `cleanup` | Show archive statistics |
+| `cleanup` | Show archive statisticsrestore` | Restore from a backup of archived articles (advanced) |
 
 **Options (add / remove):**
 
@@ -391,8 +391,11 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `backup create/list/restore/verify/prune/stats` | Full backup workflow |
 | `rescore` | Recompute keyword-based threat hunting scores |
 | `rescore-ml` | Recompute ML-based hunt scores |
-| `embed embed` / `embed stats` / `embed search` | Embedding generation, coverage stats, semantic search |
+| `embed embed` / `embed stats` / `embed search` | Embedding coverage, generation, coverage stats, semantic search |
 | `sigma sync/index/match/match-all/stats` | Sigma rules sync, index, matching |
 | `export` | Dump articles to JSON/CSV |
 | `stats` | DB summary (sources, articles, activity) |
-| `archive add/remove/list/cleanup` | Soft-delete, restore, or clean up articles |
+| `archive add/remove/list/cleanup` | Soft-delete, or restore, or clean up articles |
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbODI4NTQ5MTgyXX0=
+-->

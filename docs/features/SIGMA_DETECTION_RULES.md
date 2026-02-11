@@ -177,7 +177,8 @@ A three-layer pipeline that matches CTI articles to existing Sigma detection rul
 - Article-level semantic search using existing embeddings
 - Chunk-level semantic search with on-the-fly embedding generation
 - Behavioral novelty scoring for final SIGMA similarity assessment (Atom Jaccard 70% + Logic Shape Similarity 30%)
-- Configurable candidate retrieval limits and matching thresholds
+- Configurable candidate retrieval limits and matching thresholdPgvector cosine similarity queries
+- Configurable threshold and limits
 - Match storage with full metadata
 
 **Key Methods:**
@@ -192,14 +193,19 @@ The system first retrieves a shortlist of candidate rules using pgvector nearest
 
 ```sql
 -- Retrieve top N candidate rules by embedding distance (pgvector)
-SELECT sr.*
+SELECT sr.*SQL Query Pattern:**
+```sql
+SELECT sr.*, 1 - (sr.embedding <=> :embedding::vector) AS similarity
 FROM sigma_rules sr
 WHERE sr.embedding IS NOT NULL
-ORDER BY sr.embedding <-> :embedding::vector
+ORDER BY   AND 1 - (sr.embedding <-=> :embedding::vector
 LIMIT :candidate_limit; -- e.g. 50
 ```
 
-The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.
+The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.) >= :threshold
+ORDER BY similarity DESC
+LIMIT :limit
+```
 
 #### 4. Coverage Classification Service
 
@@ -284,8 +290,8 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
   1. Extract title + description
   2. Generate embedding
   3. Retrieve candidate rules via pgvector nearest-neighbors
-  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%)
-  5. Return top 5 matches by behavioral novelty (threshold configurable)
+  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%Query sigma_rules table (cosine similarity)
+  54. Return top 5 matches by behavioral novelty (threshold configurable(≥70% similarity)
 → Return Response with similar_rules field
 ```
 
@@ -296,9 +302,9 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 - **Input**: Enriched rule text (title, description, logsource, detection)
 -- **Similarity Metric (SIGMA rules)**: Behavioral novelty score — weighted combination:
    - Atom Jaccard (70%): predicate overlap of detection fields
-   - Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT)
--- **Threshold**: Configurable (default 0.7 on normalized behavioral novelty score)
--- **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms per generated rule)
+   - Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT**: Cosine similarity (1 - cosine distance)
+-- **Threshold**: Configurable (default 0.7 on normalized behavioral novelty score0.7 (70% similarity minimum)
+-- **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms overhead per generated rule)
 
 ### Similarity Interpretation
 
@@ -823,10 +829,13 @@ For issues and questions:
 - [pgvector](https://github.com/pgvector/pgvector)
 - [Sentence Transformers](https://www.sbert.net/)
 -- [pySIGMA Documentation](https://sigmahq-pysigma.readthedocs.io/)
--- [Behavioral Novelty (algorithm notes)](internal-notes://behavioral_novelty)
+-- [Behavioral Novelty (algorithm notes)](internal-notes://behavioral_novelCosine Similarity](https://en.wikipedia.org/wiki/Cosine_similarity)
 
 ---
 
 **Status**: ✅ Complete and Functional  
 **Last Updated**: January 2025
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTkzMTMwODgxNl19
+-->
