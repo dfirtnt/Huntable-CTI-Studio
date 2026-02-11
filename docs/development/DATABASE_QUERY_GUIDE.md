@@ -48,7 +48,7 @@ FROM sources
 ORDER BY name;
 
 -- Only active sources
-SELECT name, url, rss_url
+SELECT name, url, rss_url, tier 
 FROM sources 
 WHERE active = true 
 ORDER BY name;
@@ -138,6 +138,8 @@ VALUES (
     'New Source Name',
     'https://example.com',
     'https://example.com/feed/',
+    2,
+    1.0,
     1800,
     true,
     NOW(),
@@ -397,3 +399,6 @@ WHERE NOT EXISTS (
 - Consider using connection pooling for production deployments
 - Regularly rotate database passwords
 - Monitor database access logs
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTc1NTQ0MzM4Ml19
+-->
