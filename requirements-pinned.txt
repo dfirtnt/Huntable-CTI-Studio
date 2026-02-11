@@ -45,7 +45,7 @@ colorama==0.4.6
 comm==0.2.3
 confection==0.1.5
 coverage==7.10.7
-cryptography==46.0.2
+cryptography==46.0.5
 cssselect==1.3.0
 cssutils==2.11.1
 cymem==2.0.13

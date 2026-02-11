@@ -86,6 +86,7 @@ try:
         analyze_test_failure,
         generate_failure_report,
     )
+
     FAILURE_ANALYZER_AVAILABLE = True
 except ImportError:
     FAILURE_ANALYZER_AVAILABLE = False
@@ -96,6 +97,7 @@ except ImportError:
 # Optional: test isolation
 try:
     from tests.utils.test_isolation import TestIsolationManager, test_isolation
+
     ISOLATION_AVAILABLE = True
 except ImportError:
     ISOLATION_AVAILABLE = False
@@ -109,6 +111,7 @@ try:
         print_test_failure,
         print_test_result,
     )
+
     OUTPUT_FORMATTER_AVAILABLE = True
 except ImportError:
     OUTPUT_FORMATTER_AVAILABLE = False
@@ -166,7 +169,9 @@ async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncCli
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     if _use_asgi_client():
         from httpx import ASGITransport
+
         from src.web.modern_main import app
+
         transport = ASGITransport(app=app, raise_app_exceptions=False)
         client = httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=timeout)
     else:
@@ -451,6 +456,7 @@ def integration_test_config(test_environment_config):
 # No-op fallbacks when optional utils are missing
 def _noop(*args, **kwargs):
     pass
+
 
 class _NoOpReporter:
     __getattr__ = lambda self, _: _noop

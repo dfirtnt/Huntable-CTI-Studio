@@ -56,7 +56,7 @@ certifi==2025.11.12
 urllib3==2.6.3
 charset-normalizer==3.4.4
 python-multipart==0.0.22
-cryptography==46.0.3  # Enhanced encryption
+cryptography==46.0.5  # Enhanced encryption
 
 # PDF processing
 pypdf==6.6.2
