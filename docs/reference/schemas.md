@@ -24,7 +24,7 @@ Detail payloads:
 - `junk_filter_result`: filtering decisions before ranking
 - `extraction_result`: merged observables, `discrete_huntables_count`, per-agent `subresults`, and synthesized `content`
 - `sigma_rules`: generated rules with validation logs and pySigma errors
-- `similarity_results`: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shape)
+- `similarity_results`: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shapecosine similarity)
 - `queued_rules_count` / `queued_rule_ids`: rules promoted to queue
 - `article_content` / `article_content_preview`: content snapshots used by the workflow
 
@@ -143,3 +143,6 @@ Key-value store for application-wide settings.
 | `category` | String | Setting category |
 
 > **Note**: The database contains 28 total tables. This reference covers the primary user-facing tables. For the complete schema, see the Alembic migrations in `alembic/versions/`.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbOTMzOTA2Ml19
+-->
