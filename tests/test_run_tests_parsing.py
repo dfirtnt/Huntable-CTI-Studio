@@ -6,19 +6,19 @@ from pathlib import Path
 
 import pytest
 
-from run_tests import ExecutionContext, TestConfig, TestRunner, TestType
+from run_tests import ExecutionContext, RunTestConfig, RunTestRunner, RunTestType
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
 def runner():
-    config = TestConfig(
-        test_type=TestType.UI,
+    config = RunTestConfig(
+        test_type=RunTestType.UI,
         context=ExecutionContext.LOCALHOST,
         validate_env=False,
     )
-    return TestRunner(config)
+    return RunTestRunner(config)
 
 
 class TestParsePytestOutput:
@@ -65,34 +65,34 @@ class TestAgentConfigExcludeEnv:
     """Test that --exclude-markers agent_config_mutation sets CTI_EXCLUDE_AGENT_CONFIG_TESTS in env (no agent config mutation)."""
 
     def test_exclude_agent_config_mutation_sets_env(self):
-        config = TestConfig(
-            test_type=TestType.UI,
+        config = RunTestConfig(
+            test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
             validate_env=False,
             exclude_markers=["agent_config_mutation"],
         )
-        runner = TestRunner(config)
+        runner = RunTestRunner(config)
         env = runner._get_agent_config_exclude_env()
         assert env == {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
 
     def test_no_exclude_markers_returns_empty(self):
-        config = TestConfig(
-            test_type=TestType.UI,
+        config = RunTestConfig(
+            test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
             validate_env=False,
             exclude_markers=None,
         )
-        runner = TestRunner(config)
+        runner = RunTestRunner(config)
         assert runner._get_agent_config_exclude_env() == {}
 
     def test_exclude_other_marker_returns_empty(self):
-        config = TestConfig(
-            test_type=TestType.UI,
+        config = RunTestConfig(
+            test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
             validate_env=False,
             exclude_markers=["slow", "integration"],
         )
-        runner = TestRunner(config)
+        runner = RunTestRunner(config)
         assert runner._get_agent_config_exclude_env() == {}
 
 

@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from src.database.async_manager import async_db_manager
 from src.utils.search_parser import parse_boolean_search
 from src.web.dependencies import ENVIRONMENT, logger, templates
+from src.web.routes.articles import SimpleFilter
 
 router = APIRouter()
 
@@ -299,12 +300,62 @@ async def articles_list(
 ):
     """Articles listing page with sorting and filtering."""
     try:
-        # Get all articles first to calculate total count
-        all_articles_unfiltered = await async_db_manager.list_articles()
         sources = await async_db_manager.list_sources()
-
         source_lookup = {source_.id: source_ for source_ in sources}
+        per_page = max(1, min(per_page or 1, 100))
+        page = max(1, page or 1)
 
+        # Server-side pagination when no search and no score-range filters (fast path)
+        if not search and not threat_hunting_range and not ml_hunt_range:
+            if source and source.isdigit():
+                source_id = source_id or int(source)
+            article_filter = SimpleFilter(
+                limit=per_page,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                source_id=source_id,
+            )
+            article_filter.offset = (page - 1) * per_page
+            articles_page = await async_db_manager.list_articles(
+                article_filter=article_filter,
+                load_content=False,
+            )
+            total_articles = await async_db_manager.get_articles_count(source_id=source_id)
+            total_pages = max(1, (total_articles + per_page - 1) // per_page)
+            page = min(page, total_pages)
+            pagination = {
+                "total_articles": total_articles,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "start_idx": (page - 1) * per_page + 1,
+                "end_idx": min((page - 1) * per_page + per_page, total_articles),
+            }
+            filters = {
+                "search": "",
+                "source": source or "",
+                "source_id": source_id,
+                "threat_hunting_range": "",
+                "ml_hunt_range": "",
+                "sort_by": sort_by,
+                "sort_order": sort_order,
+                "title_only": title_only,
+            }
+            return templates.TemplateResponse(
+                "articles.html",
+                {
+                    "request": request,
+                    "articles": articles_page,
+                    "sources": sources,
+                    "source_lookup": source_lookup,
+                    "pagination": pagination,
+                    "filters": filters,
+                },
+            )
+
+        # Filters active: load articles (defer content when title_only search only)
+        load_content = bool(search and not title_only)
+        all_articles_unfiltered = await async_db_manager.list_articles(load_content=load_content)
         filtered_articles = all_articles_unfiltered
 
         if search:
