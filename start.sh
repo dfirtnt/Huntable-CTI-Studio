@@ -26,6 +26,9 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# Skip embedding-dependent steps when we warned about limited/untested environment
+SKIP_SIGMA_INDEX=""
+
 # Check OS and CPU: warn if not macOS or not Apple Silicon
 if [ "$(uname -s)" != "Darwin" ]; then
     echo ""
@@ -37,7 +40,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
     printf "   Do you want to continue the install? [y/N] "
     read -r cont
     case "${cont:-n}" in
-        [yY]|[yY][eE][sS]) ;;
+        [yY]|[yY][eE][sS]) SKIP_SIGMA_INDEX=1 ;;
         *) echo "   Install cancelled."; exit 0 ;;
     esac
     echo ""
@@ -58,7 +61,7 @@ elif [ "$(uname -m)" != "arm64" ]; then
     printf "   Do you want to continue the install? [y/N] "
     read -r cont
     case "${cont:-n}" in
-        [yY]|[yY][eE][sS]) ;;
+        [yY]|[yY][eE][sS]) SKIP_SIGMA_INDEX=1 ;;
         *) echo "   Install cancelled."; exit 0 ;;
     esac
     echo ""
@@ -110,11 +113,13 @@ else
     exit 1
 fi
 
-# Sigma: sync SigmaHQ repo and index rules (embeddings)
+# Sigma: sync SigmaHQ repo; index rules (embeddings) only when not in limited-env mode
 echo ""
-echo "📋 Sigma: syncing SigmaHQ repo and indexing rules..."
+echo "📋 Sigma: syncing SigmaHQ repo..."
 if $DC run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
-    if $DC run --rm cli python -m src.cli.main sigma index 2>/dev/null; then
+    if [ -n "$SKIP_SIGMA_INDEX" ]; then
+        echo "⏭️  Skipping Sigma index (embeddings/LM Studio not assumed). Run ./run_cli.sh sigma index when LM Studio is available."
+    elif $DC run --rm cli python -m src.cli.main sigma index 2>/dev/null; then
         echo "✅ Sigma rules synced and indexed"
     else
         echo "⚠️ Sigma index failed (run manually: ./run_cli.sh sigma index)"
