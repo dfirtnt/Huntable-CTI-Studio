@@ -1,6 +1,6 @@
 # Agents and Responsibilities
 
-The agentic workflow is a 7-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks**chain of specialized workers executed by Celery when you hittrigger `/api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. LangGraph manages step sequencing, conditional branching (e.g. early termination on non-Windows OS), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
+The agentic workflow is a miulti-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks**chain of specialized workers executed by Celery when you hit trigger `/api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. LangGraph manages step sequencing, conditional branching (e.g. early termination on non-Windows OS), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
 
 ## Core agents
 - **OS Detection**: Classifies target OS using CTI-BERT embeddings and keyword matching. Non-Windows articles are terminated early.Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
@@ -30,5 +30,5 @@ Each sub-agent returns `items` and `count`; the supervisor aggregates them into 
 - Use existing directories for scripts (`scripts/`), temp utilities (`utils/temp/`), and generated outputs (`outputs/`).
 - Prefer API/CLI entry points (`./run_cli.sh`, workflow triggers) over ad-hoc code paths to keep telemetry and audits consistent.
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTY2MDQ0NDI0N119
+eyJoaXN0b3J5IjpbMTA4NjYzOTk2MF19
 -->
