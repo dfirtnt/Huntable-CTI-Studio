@@ -14,7 +14,7 @@ This reflects the current `docker-compose.yml`.
 ## Key environment
 - `POSTGRES_PASSWORD` required; `DATABASE_URL` injected by compose: `postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper`.
 - `REDIS_URL=redis://redis:6379/0`.
-- AI: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`), `LMSTUDIO_MODEL` and model-specific overrides. Langfuse tracing via Settings or `LANGFUSE_*` env vars (optional).
+- AI: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINICHATGPT_API_KEY`, `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`), `LMSTUDIO_MODEL` and model-specific overrides. Langfuse tracing via Settings or `LANGFUSE_*` env vars (optional).
 - Timezone: `TZ=America/New_York`.
 
 ## Volumes & mounts
@@ -36,4 +36,7 @@ This reflects the current `docker-compose.yml`.
 ## CLI alignment
 `./run_cli.sh` passes args directly to `python -m src.cli.main`, ensuring the containerized CLI uses the same Postgres and Redis as the web app.
 
-_Last verified: Feb 2026_
+_Last verified: Feb 20265_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTMyNjMxMzkwMF19
+-->
