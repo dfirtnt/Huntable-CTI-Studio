@@ -49,16 +49,15 @@ Do **not** call Todoist yet. Ask for approval, e.g. “Approve to create in CTIS
 
 When the user clearly approves (e.g. “yes”, “go”, “create it”):
 
-1. **Resolve project and section**
-   - Call `get_projects`; find the project whose `name` is **CTIScraper**.
-   - Call `get_sections(projectId)` for that project; find the section whose `name` matches the chosen **Section** (default **Intake**). Match case-insensitively; normalize "Up Next", "WIP", "Someday / Maybe" if needed.
+1. **Resolve project and section** (official Todoist MCP: **find-projects**, **find-sections**)
+   - Call **find-projects** with `{"search": "CTIScraper"}` (or no search and find by name in the list). Get the project `id` for CTIScraper.
+   - Call **find-sections** with `{"projectId": "<CTIScraper id>", "search": "<Section>"}` (e.g. `"Intake"`) or omit search and find the section by name. Get the section `id`. Match case-insensitively; normalize "Up Next", "WIP", "Someday / Maybe" if needed.
 
-2. **Create the main task**
-   - `create_task(content=<Title>, description=<Description>, projectId=<CTIScraper id>, sectionId=<resolved section id>)`
+2. **Create the main task** (official Todoist MCP: **add-tasks**)
+   - Call **add-tasks** with `{"tasks": [{"content": "<Title>", "description": "<Description>", "projectId": "<CTIScraper id>", "sectionId": "<resolved section id>"}]}`. From the response, capture the created task’s `id` for subtasks.
 
 3. **Create subtasks** (if any)
-   - For each subtask: `create_task(content=<Subtask title>, description=<Subtask description>, projectId=<CTIScraper id>, parentId=<id of the main task created above>)`
-   - Omit `sectionId` for subtasks; they inherit from the parent.
+   - Call **add-tasks** with `{"tasks": [{"content": "<Subtask title>", "parentId": "<main task id>"}, ...]}` for each subtask (optionally include `description` per subtask). Subtasks inherit project/section from the parent.
 
 4. **Report**
    - Confirm: main task (+ link if returned) and count of subtasks created.
@@ -74,10 +73,13 @@ Use the **exact** section names from the CTIScraper board when matching (after n
 - **Someday / Maybe**
 - **Cancelled** (use only if user explicitly asks for it)
 
-## Tool reference
+## Tool reference (Official Todoist MCP: https://ai.todoist.net/mcp)
 
-- **Todoist MCP** (server that provides Todoist tools): `get_projects`, `get_sections`, `create_task`.
-- **create_task** (concept): `content` = task title; `description` = body; `projectId` and `sectionId` or `parentId` as above.
+- **find-projects**: `{"search": "CTIScraper"}` (or omit for all) → returns projects with `id`, `name`. Use CTIScraper’s `id`.
+- **find-sections**: `{"projectId": "<project id>", "search": "Intake"}` (or omit search) → returns sections with `id`, `name`. Use section’s `id`.
+- **add-tasks**: `{"tasks": [{"content": "...", "description": "...", "projectId": "...", "sectionId": "..."}]}` for main task; response includes created task `id`. For subtasks: `{"tasks": [{"content": "...", "parentId": "<main task id>"}, ...]}`.
+
+**Setup:** Uses OAuth (no token in config). Restart Cursor after editing `.cursor/mcp.json`. On first use, complete the Todoist sign-in when prompted.
 
 ## Example proposal
 
