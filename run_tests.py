@@ -87,6 +87,7 @@ def _load_dotenv() -> None:
     except OSError:
         pass
 
+
 # Import test environment utilities
 try:
     from tests.utils.database_connections import (
@@ -927,7 +928,11 @@ class TestRunner:
             if self.config.test_type == TestType.API:
                 env["USE_ASGI_CLIENT"] = "1"
                 # In-process app must reach Redis on host (docker port map 6379)
-                if "REDIS_URL" not in env or "redis:6379" in env.get("REDIS_URL", "") or "redis:6380" in env.get("REDIS_URL", ""):
+                if (
+                    "REDIS_URL" not in env
+                    or "redis:6379" in env.get("REDIS_URL", "")
+                    or "redis:6380" in env.get("REDIS_URL", "")
+                ):
                     env["REDIS_URL"] = "redis://localhost:6379/0"
 
             env.update(self._get_agent_config_exclude_env())

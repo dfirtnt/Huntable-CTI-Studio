@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, func, or_
-from sqlalchemy.orm import Session, joinedload, load_only
+from sqlalchemy.orm import Session, joinedload
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable

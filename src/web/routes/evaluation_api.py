@@ -610,11 +610,7 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
 
             # Batch: resolve localhost IDs (verify existence)
             if localhost_ids:
-                found = (
-                    db_session.query(ArticleTable.id)
-                    .filter(ArticleTable.id.in_(localhost_ids))
-                    .all()
-                )
+                found = db_session.query(ArticleTable.id).filter(ArticleTable.id.in_(localhost_ids)).all()
                 found_ids = {r[0] for r in found}
                 for url, aid in localhost_url_to_id.items():
                     if aid in found_ids:
@@ -638,9 +634,7 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
                 if normalized == url:
                     continue
                 article = (
-                    db_session.query(ArticleTable)
-                    .filter(ArticleTable.canonical_url.like(f"{normalized}%"))
-                    .first()
+                    db_session.query(ArticleTable).filter(ArticleTable.canonical_url.like(f"{normalized}%")).first()
                 )
                 if article:
                     result[url] = article.id
