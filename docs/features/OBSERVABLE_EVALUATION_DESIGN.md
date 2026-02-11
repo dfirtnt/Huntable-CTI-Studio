@@ -1,6 +1,6 @@
 # Observable Evaluation Design
 
-> **Status**: **Unsupported.** This capability is not ready for use. The implementation exists in code but is not supported or maintained.
+> **Status**: **Unsupported.** This capability is not ready for use. The implementation exists in code but is not supported or maintainedInternal implementation — see source code for details.
 
 ## Overview
 
@@ -29,5 +29,8 @@ The evaluation pipeline is implemented in `src/services/observable_evaluation/`:
 
 ## Related
 
-- [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is running)
+- [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is runUI for monitoring training)
 - [Extract Observables How-To](../howto/extract_observables.md) — Usage guide
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTU0OTk2NjE0OF19
+-->
