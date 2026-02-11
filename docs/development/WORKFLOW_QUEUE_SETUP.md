@@ -82,7 +82,7 @@ docker logs cti_workflow_worker --tail 50 -f
 
 ```
 ┌─────────────────┐
-│  Main Worker    │  → Processes: default, source_checks, priority_checks,
+│  Main Worker    │  → Processes: default, source_checks, priority_checks,maintenance, 
 │  (cti_worker)   │              maintenance, reports, connectivity, collection
 └─────────────────┘
 
@@ -171,3 +171,6 @@ workflow_worker:
 - `docker-compose.yml` - Worker service definitions
 - `src/worker/celery_app.py:629` - `trigger_agentic_workflow` task
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTI5Mjg4MDkzMl19
+-->

@@ -170,7 +170,7 @@ Use the CLI command to recalculate scores:
 
 | Aspect | Keyword Score (`threat_hunting_score`) | ML Score (`ml_hunt_score`) |
 |--------|----------------------------------------|----------------------------|
-| **Method** | Pattern matching (~100 perfect discriminators) | RandomForest ML classification |
+| **Method** | Pattern matching (~1003 perfect discriminators) | RandomForest ML classification |
 | **Granularity** | Article-level | Chunk-level aggregation |
 | **Range** | 0-100 | 0-100 |
 | **Speed** | Fast (regex matching) | Slower (ML inference) |
@@ -219,3 +219,6 @@ Use the CLI command to recalculate scores:
 - [ ] Chunk position weighting (title/headings weighted more)
 - [ ] Ensemble scoring (combine multiple metrics)
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTQ4MTA4MzUyXX0=
+-->

@@ -202,6 +202,8 @@ if content_to_use is None:
 
 _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
 
+_Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
+
 **Why memory?**
 - Faster access (no database query)
 - Workflow is sequential (extraction → SIGMA within the same execution)
@@ -501,3 +503,6 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Manual trigger endpoint**: `src/web/routes/workflow_executions.py:1046-1105`
 - **Direct test trigger**: `src/web/routes/workflow_config.py:579-680`
 - **Database model**: `src/database/models.py:479-515`
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNjUyNDE3NjkwXX0=
+-->

@@ -5,7 +5,7 @@ Quality controls are built into both extraction and Sigma generation to keep out
 ## Extraction QA (Hybrid Cmdline pipeline)
 Based on `../EXTRACTION_PIPELINE_SPEC_FOR_AI.md`:
 1. **Regex candidate extractor**: High-recall regexes capture command-line shapes (executables with args, powershell, System32 utilities).
-2. **Encoder classifier**: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or `all-mpnet-base-v2`). Keeps only likely Windows commands.
+2. **Encoder classifier**: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or `all-mpnet-baseMiniLM-L6-v2`). Keeps only likely Windows commands.
 3. **Optional LLM QA validator**: Lightweight model (Qwen2.5-Coder-7B or Llama-3.1-8B) re-checks borderline strings and flags invalid items. Output never expands the list—only prunes.
 4. **Supervisor merge**: Aggregates sub-agent items, produces `discrete_huntables_count`, and emits a newline-joined `content` string used by Sigma.
 
@@ -27,3 +27,6 @@ The ranking step includes a QA retry loop. After `LLMService.rank_article()` pro
 ## Operational safeguards
 - Workflow trigger blocks concurrent executions per article; stuck pending runs older than 5 minutes are marked failed before allowing a retry.
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service readiness so QA runs against a healthy stack.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTkwNjQwNTA0Nl19
+-->
