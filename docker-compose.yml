@@ -3,6 +3,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg15
     container_name: cti_postgres
+    command: ["postgres", "-c", "log_min_duration_statement=500"]
     environment:
       POSTGRES_DB: cti_scraper
       POSTGRES_USER: cti_user

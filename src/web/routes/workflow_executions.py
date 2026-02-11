@@ -11,8 +11,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable
@@ -150,46 +150,53 @@ async def list_workflow_executions(
         db_session = db_manager.get_session()
 
         try:
-            # Base query for counting (no filters applied)
-            base_query = db_session.query(AgenticWorkflowExecutionTable)
+            E = AgenticWorkflowExecutionTable
+            base_filters = []
+            if article_id:
+                base_filters.append(E.article_id == article_id)
+            if step:
+                base_filters.append(E.current_step == step)
+
+            # Single aggregated count query instead of 5 separate COUNTs
+            count_q = db_session.query(
+                func.count(E.id).label("total"),
+                func.sum(case((E.status == "running", 1), else_=0)).label("running"),
+                func.sum(case((E.status == "completed", 1), else_=0)).label("completed"),
+                func.sum(case((E.status == "failed", 1), else_=0)).label("failed"),
+                func.sum(case((E.status == "pending", 1), else_=0)).label("pending"),
+            )
+            if base_filters:
+                count_q = count_q.filter(*base_filters)
+            row = count_q.first()
+            total = int(row.total or 0)
+            running = int(row.running or 0)
+            completed = int(row.completed or 0)
+            failed = int(row.failed or 0)
+            pending = int(row.pending or 0)
 
             # Filtered query for results
-            query = db_session.query(AgenticWorkflowExecutionTable)
-
+            query = db_session.query(E).options(
+                joinedload(E.article).load_only(ArticleTable.title, ArticleTable.canonical_url)
+            )
             if article_id:
-                query = query.filter(AgenticWorkflowExecutionTable.article_id == article_id)
-                base_query = base_query.filter(AgenticWorkflowExecutionTable.article_id == article_id)
-
+                query = query.filter(E.article_id == article_id)
             if status:
-                query = query.filter(AgenticWorkflowExecutionTable.status == status)
-                # Don't filter base_query by status for counts
-
+                query = query.filter(E.status == status)
             if step:
-                query = query.filter(AgenticWorkflowExecutionTable.current_step == step)
-                base_query = base_query.filter(AgenticWorkflowExecutionTable.current_step == step)
-
-            # Get total counts (before status filter)
-            total = base_query.count()
-            running = base_query.filter(AgenticWorkflowExecutionTable.status == "running").count()
-            completed = base_query.filter(AgenticWorkflowExecutionTable.status == "completed").count()
-            failed = base_query.filter(AgenticWorkflowExecutionTable.status == "failed").count()
-            pending = base_query.filter(AgenticWorkflowExecutionTable.status == "pending").count()
+                query = query.filter(E.current_step == step)
 
             # Sort
-            order_col = _SORT_COLUMNS.get(sort_by, AgenticWorkflowExecutionTable.created_at)
+            order_col = _SORT_COLUMNS.get(sort_by, E.created_at)
             desc = sort_order.lower() == "desc"
             order_clause = order_col.desc() if desc else order_col.asc()
-            # Nulls last for nullable columns (ranking_score, current_step)
             if sort_by in ("ranking_score", "current_step"):
                 order_clause = order_clause.nullslast()
 
-            # Get filtered executions
             executions = query.order_by(order_clause).limit(limit).all()
 
             result = []
             for execution in executions:
-                # Get article title
-                article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
+                article = execution.article
                 term_reason, term_details = extract_termination_info(execution.error_log)
 
                 # Convert timestamps to local time if they're timezone-aware

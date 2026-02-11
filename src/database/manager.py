@@ -25,11 +25,23 @@ class DatabaseManager:
 
     def __init__(
         self,
-        database_url: str = os.getenv("DATABASE_URL", "postgresql://cti_user:cti_password@postgres:5432/cti_scraper"),
+        database_url: str | None = None,
         echo: bool = False,
         pool_size: int = 10,
         max_overflow: int = 20,
     ):
+        # Prefer TEST_DATABASE_URL in test environment (same as async_manager)
+        if database_url is None:
+            if os.getenv("APP_ENV") == "test":
+                database_url = os.getenv(
+                    "TEST_DATABASE_URL",
+                    "postgresql://cti_user:cti_password@localhost:5433/cti_scraper_test",
+                )
+            else:
+                database_url = os.getenv(
+                    "DATABASE_URL",
+                    "postgresql://cti_user:cti_password@postgres:5432/cti_scraper",
+                )
         # Convert asyncpg URLs to psycopg2 for synchronous operations
         if "+asyncpg" in database_url:
             database_url = database_url.replace("+asyncpg", "")

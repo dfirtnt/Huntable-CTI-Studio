@@ -143,7 +143,9 @@ async def api_services_health() -> dict[str, Any]:
         try:
             import redis
 
-            redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            redis_url = os.getenv("REDIS_URL") or (
+                "redis://localhost:6379/0" if os.getenv("APP_ENV") == "test" else "redis://redis:6379/0"
+            )
             redis_client = redis.from_url(redis_url, decode_responses=True)
             redis_info = redis_client.info()
             services_status["redis"] = {

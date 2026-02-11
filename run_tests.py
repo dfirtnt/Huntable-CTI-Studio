@@ -58,6 +58,35 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+
+# Keys from .env that must not be applied in test (guard requires TEST_DATABASE_URL only; Redis host "redis" doesn't resolve on host)
+_DOTENV_SKIP_IN_TEST = frozenset({"DATABASE_URL", "REDIS_URL"})
+
+
+def _load_dotenv() -> None:
+    """Load .env from project root so POSTGRES_PASSWORD etc. match running Postgres. Does not override existing env.
+    Skips DATABASE_URL so test guard (TEST_DATABASE_URL only) passes."""
+    env_file = project_root / ".env"
+    if not env_file.is_file():
+        return
+    try:
+        with open(env_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                if key in _DOTENV_SKIP_IN_TEST:
+                    continue
+                value = value.strip().strip("'\"").strip()
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError:
+        pass
+
 # Import test environment utilities
 try:
     from tests.utils.database_connections import (
@@ -255,13 +284,17 @@ class TestRunner:
         # Set up test environment variables
         os.environ["APP_ENV"] = "test"
 
-        # Set TEST_DATABASE_URL if not already set
+        # Set TEST_DATABASE_URL if not already set (password/port match running Postgres via .env)
         if "TEST_DATABASE_URL" not in os.environ:
             postgres_password = os.getenv("POSTGRES_PASSWORD", "cti_password")
+            postgres_port = os.getenv("POSTGRES_PORT", "5433")
             os.environ["TEST_DATABASE_URL"] = (
-                f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:5433/cti_scraper_test"
+                f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:{postgres_port}/cti_scraper_test"
             )
-            logger.info("Auto-set TEST_DATABASE_URL (port 5433 for test containers)")
+            logger.info(
+                "Auto-set TEST_DATABASE_URL (port %s, password from POSTGRES_PASSWORD / .env)",
+                postgres_port,
+            )
 
         # Invoke test environment guard
         try:
@@ -718,6 +751,10 @@ class TestRunner:
 
         cmd.extend(["-m", combined_expr])
 
+        # API tests with in-process ASGI client need one event loop for the whole run
+        if self.config.test_type == TestType.API and os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes"):
+            cmd.extend(["-o", "asyncio_default_test_loop_scope=session"])
+
         # Add execution context specific options
         effective_context = self._get_effective_context(self.config.test_type)
         if effective_context == ExecutionContext.DOCKER:
@@ -857,11 +894,12 @@ class TestRunner:
             # Ensure APP_ENV=test is set (required by test environment guard)
             env["APP_ENV"] = "test"
 
-            # Ensure TEST_DATABASE_URL is set (required for stateful tests)
+            # Ensure TEST_DATABASE_URL is set (required for stateful tests; matches running Postgres via .env)
             if "TEST_DATABASE_URL" not in env:
                 postgres_password = os.getenv("POSTGRES_PASSWORD", "cti_password")
+                postgres_port = os.getenv("POSTGRES_PORT", "5433")
                 env["TEST_DATABASE_URL"] = (
-                    f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:5433/cti_scraper_test"
+                    f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:{postgres_port}/cti_scraper_test"
                 )
 
             if ENVIRONMENT_UTILS_AVAILABLE:
@@ -884,6 +922,13 @@ class TestRunner:
             # Add skip real API flag
             if self.config.skip_real_api:
                 env["SKIP_REAL_API_TESTS"] = "1"
+
+            # Use in-process ASGI client for API tests (no live server on 127.0.0.1:8001 required)
+            if self.config.test_type == TestType.API:
+                env["USE_ASGI_CLIENT"] = "1"
+                # In-process app must reach Redis on host (docker port map 6379)
+                if "REDIS_URL" not in env or "redis:6379" in env.get("REDIS_URL", "") or "redis:6380" in env.get("REDIS_URL", ""):
+                    env["REDIS_URL"] = "redis://localhost:6379/0"
 
             env.update(self._get_agent_config_exclude_env())
 
@@ -1721,6 +1766,7 @@ Manual Container Management:
 
 async def main():
     """Main entry point."""
+    _load_dotenv()
     try:
         # Parse configuration
         config = parse_arguments()
