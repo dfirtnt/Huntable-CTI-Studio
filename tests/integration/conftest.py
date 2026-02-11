@@ -34,7 +34,7 @@ sys.path.insert(0, str(project_root))
 @pytest.fixture(scope="session")
 def integration_test_marker():
     """Marker to identify integration workflow tests."""
-    pytest.mark.integration_workflow
+    return pytest.mark.integration_workflow
 
 
 # Removed event_loop fixture - pytest-asyncio handles event loops automatically
@@ -56,17 +56,8 @@ def celery_worker_available():
         return False
 
 
-@pytest_asyncio.fixture(scope="session")
-async def test_database_with_rollback(celery_worker_available):
-    """Test database fixture with transaction rollback for isolation.
-    Uses TEST_DATABASE_URL only. Never DATABASE_URL (production guard).
-    """
-    import os
-
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-    from sqlalchemy.orm import sessionmaker
-
-    # TEST_DATABASE_URL only — never DATABASE_URL to avoid production
+def _integration_db_url():
+    """TEST_DATABASE_URL only; never DATABASE_URL (production guard)."""
     _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
     if "test" not in db_url.lower():
@@ -74,40 +65,48 @@ async def test_database_with_rollback(celery_worker_available):
             f"Integration tests must use a test database (name contains 'test'). "
             f"Got: {db_url[:60]}... Use TEST_DATABASE_URL."
         )
+    return db_url
 
-    engine = create_async_engine(db_url, pool_pre_ping=True, echo=False)
 
+@pytest_asyncio.fixture(loop_scope="function")
+async def test_database_with_rollback():
+    """Per-test DB session in the test's event loop; rollback for isolation.
+    Function-scoped to avoid 'another operation in progress' and 'Future attached to a different loop'.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_async_engine(_integration_db_url(), pool_pre_ping=True, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
     async with async_session() as session:
-        # Begin transaction
         await session.begin()
-        yield session
-        # Rollback to clean state
-        await session.rollback()
-
+        try:
+            yield session
+        finally:
+            await session.rollback()
     await engine.dispose()
 
 
-@pytest.fixture
-def test_database_manager(test_database_with_rollback):
-    """Provide test database manager with transaction rollback."""
+@pytest_asyncio.fixture(loop_scope="function")
+async def test_database_manager(test_database_with_rollback):
+    """Provide test database manager with transaction rollback.
+    Async so it runs in the test's event loop (same as test_database_with_rollback),
+    avoiding 'Future attached to a different loop' on teardown.
+    """
     from contextlib import asynccontextmanager
 
     from src.database.async_manager import AsyncDatabaseManager
 
+    session = test_database_with_rollback
+
     class TestAsyncDatabaseManager(AsyncDatabaseManager):
         @asynccontextmanager
         async def get_session(self):
-            yield test_database_with_rollback
+            yield session
 
-    # TEST_DATABASE_URL only — never DATABASE_URL to avoid production
     _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
-    print(f"DEBUG: Creating TestAsyncDatabaseManager with {db_url}")
-    manager = TestAsyncDatabaseManager(database_url=db_url)
-    print(f"DEBUG: Manager type: {type(manager)}")
-    return manager
+    return TestAsyncDatabaseManager(database_url=db_url)
 
 
 @pytest.fixture
@@ -229,7 +228,8 @@ def mock_rss_feed():
             <link>https://test.example.com/apt29-persistence</link>
             <guid isPermaLink="true">https://test.example.com/apt29-persistence</guid>
             <pubDate>Wed, 01 Jan 2025 12:00:00 GMT</pubDate>
-            <description>Threat actors used rundll32.exe to execute malicious DLL at C:\\Windows\\System32\\evil.dll</description>
+            <description>Threat actors used rundll32.exe to execute malicious DLL at "
+            "C:\\Windows\\System32\\evil.dll</description>
         </item>
         <item>
             <title>Malware Campaign Analysis</title>
