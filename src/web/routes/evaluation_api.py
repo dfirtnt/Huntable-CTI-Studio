@@ -568,66 +568,89 @@ async def get_execution_commandlines(
 
 
 def resolve_article_by_url(url: str) -> int | None:
-    """
-    Resolve article ID from URL by querying articles table.
+    """Resolve article ID from URL (single-URL wrapper; prefer resolve_articles_by_urls for many URLs)."""
+    mapping = resolve_articles_by_urls([url])
+    return mapping.get(url)
 
-    Args:
-        url: Full article URL
+
+def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
+    """
+    Resolve multiple article URLs to article IDs in one session with batch queries.
 
     Returns:
-        Article ID if found, None otherwise
+        Dict mapping url -> article_id (only entries that were found).
     """
+    if not urls:
+        return {}
     try:
         import re
-        from urllib.parse import urlparse
-
-        # Handle localhost/article ID URLs (e.g., http://127.0.0.1:8001/articles/1523)
-        parsed = urlparse(url)
-        if parsed.netloc in ("127.0.0.1:8001", "localhost:8001", "127.0.0.1", "localhost"):
-            # Extract article ID from path like /articles/1523
-            match = re.match(r"/articles/(\d+)", parsed.path)
-            if match:
-                article_id = int(match.group(1))
-                # Verify article exists in database
-                db_manager = DatabaseManager()
-                db_session = db_manager.get_session()
-                try:
-                    article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
-                    if article:
-                        return article.id
-                finally:
-                    db_session.close()
+        from urllib.parse import urlparse, urlunparse
 
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
+        result: dict[str, int] = {}
 
         try:
-            # Try exact match on canonical_url first
-            article = db_session.query(ArticleTable).filter(ArticleTable.canonical_url == url).first()
+            # Split into localhost (by id) and external (by canonical_url)
+            localhost_ids: list[int] = []
+            localhost_url_to_id: dict[str, int] = {}
+            external_urls: list[str] = []
+            for url in urls:
+                if not url:
+                    continue
+                parsed = urlparse(url)
+                if parsed.netloc in ("127.0.0.1:8001", "localhost:8001", "127.0.0.1", "localhost"):
+                    match = re.match(r"/articles/(\d+)", parsed.path)
+                    if match:
+                        aid = int(match.group(1))
+                        localhost_ids.append(aid)
+                        localhost_url_to_id[url] = aid
+                else:
+                    external_urls.append(url)
 
-            if article:
-                return article.id
+            # Batch: resolve localhost IDs (verify existence)
+            if localhost_ids:
+                found = (
+                    db_session.query(ArticleTable.id)
+                    .filter(ArticleTable.id.in_(localhost_ids))
+                    .all()
+                )
+                found_ids = {r[0] for r in found}
+                for url, aid in localhost_url_to_id.items():
+                    if aid in found_ids:
+                        result[url] = aid
 
-            # Try partial match (URL might have query params or fragments)
-            # Normalize URL by removing query params and fragments for comparison
-            from urllib.parse import urlunparse
+            # Batch: exact match on canonical_url
+            if external_urls:
+                rows = (
+                    db_session.query(ArticleTable.canonical_url, ArticleTable.id)
+                    .filter(ArticleTable.canonical_url.in_(external_urls))
+                    .all()
+                )
+                for canonical_url, aid in rows:
+                    result[canonical_url] = aid
 
-            parsed = urlparse(url)
-            normalized_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+            # For any external URL not found, try normalized (path-only) LIKE
+            missing = [u for u in external_urls if u not in result]
+            for url in missing:
+                parsed = urlparse(url)
+                normalized = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+                if normalized == url:
+                    continue
+                article = (
+                    db_session.query(ArticleTable)
+                    .filter(ArticleTable.canonical_url.like(f"{normalized}%"))
+                    .first()
+                )
+                if article:
+                    result[url] = article.id
 
-            article = (
-                db_session.query(ArticleTable).filter(ArticleTable.canonical_url.like(f"{normalized_url}%")).first()
-            )
-
-            if article:
-                return article.id
-
-            return None
+            return result
         finally:
             db_session.close()
     except Exception as e:
-        logger.error(f"Error resolving article by URL {url}: {e}")
-        return None
+        logger.error(f"Error resolving articles by URLs: {e}")
+        return {}
 
 
 @router.get("/subagent-eval-articles")
@@ -656,17 +679,15 @@ async def get_subagent_eval_articles(
         if not isinstance(articles, list):
             articles = []
 
-        # Resolve article IDs for each URL
+        urls = [a.get("url") for a in articles if a.get("url")]
+        url_to_id = resolve_articles_by_urls(urls) if urls else {}
+
         results = []
         for article_def in articles:
             url = article_def.get("url")
-
             if not url:
                 continue
-
-            article_id = resolve_article_by_url(url)
-
-            # Standard single-count format for all subagents
+            article_id = url_to_id.get(url)
             expected_count = article_def.get("expected_count", 0)
             results.append(
                 {
@@ -712,13 +733,13 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
             if not active_config:
                 raise HTTPException(status_code=404, detail="No active workflow config found")
 
-            # Resolve article URLs to IDs
+            # Resolve article URLs to IDs (batch in one DB round-trip)
+            url_to_id = resolve_articles_by_urls(list(eval_request.article_urls))
             article_mappings = []
             for url in eval_request.article_urls:
-                article_id = resolve_article_by_url(url)
+                article_id = url_to_id.get(url)
                 if not article_id:
                     logger.warning(f"Article not found for URL: {url}")
-                    # Still create eval record but mark as failed
                     article_mappings.append({"url": url, "article_id": None, "found": False})
                 else:
                     article_mappings.append({"url": url, "article_id": article_id, "found": True})

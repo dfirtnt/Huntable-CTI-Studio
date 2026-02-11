@@ -312,7 +312,7 @@ class RAGService:
                 from pgvector.sqlalchemy import Vector
                 from sqlalchemy import Integer, bindparam, text
 
-                # Use raw SQL text to avoid asyncpg parameter parsing issues with ::vector casts
+                # Cast params to vector in SQL so asyncpg text params are accepted (vector <=> text avoided)
                 stmt = text("""
                     SELECT
                         sr.id,
@@ -324,10 +324,10 @@ class RAGService:
                         sr.status,
                         sr.file_path,
                         CASE
-                            WHEN sr.logsource_embedding IS NOT NULL AND :embedding != :zero_vec
-                                THEN 1 - (sr.logsource_embedding <=> :embedding)
-                            WHEN sr.embedding IS NOT NULL AND :embedding != :zero_vec
-                                THEN 1 - (sr.embedding <=> :embedding)
+                            WHEN sr.logsource_embedding IS NOT NULL AND :embedding::vector != :zero_vec::vector
+                                THEN 1 - (sr.logsource_embedding <=> :embedding::vector)
+                            WHEN sr.embedding IS NOT NULL AND :embedding::vector != :zero_vec::vector
+                                THEN 1 - (sr.embedding <=> :embedding::vector)
                             ELSE 0.0
                         END AS signature_sim
                     FROM sigma_rules sr

@@ -71,11 +71,6 @@ try:
         validate_test_environment,
     )
 
-    # Enhanced debugging imports
-    from tests.utils.test_failure_analyzer import TestFailureReporter, analyze_test_failure
-    from tests.utils.test_isolation import TestIsolationManager, test_isolation
-    from tests.utils.test_output_formatter import TestOutputFormatter, print_test_failure, print_test_result
-
     # Load test configuration
     test_config = get_test_config()
     ENVIRONMENT_UTILS_AVAILABLE = True
@@ -83,6 +78,43 @@ except ImportError as e:
     print(f"Warning: Test environment utilities not available: {e}")
     ENVIRONMENT_UTILS_AVAILABLE = False
     test_config = None
+
+# Optional: failure analyzer (missing module must not break conftest or teardown)
+try:
+    from tests.utils.test_failure_analyzer import (
+        TestFailureReporter,
+        analyze_test_failure,
+        generate_failure_report,
+    )
+    FAILURE_ANALYZER_AVAILABLE = True
+except ImportError:
+    FAILURE_ANALYZER_AVAILABLE = False
+    TestFailureReporter = None
+    analyze_test_failure = None
+    generate_failure_report = None
+
+# Optional: test isolation
+try:
+    from tests.utils.test_isolation import TestIsolationManager, test_isolation
+    ISOLATION_AVAILABLE = True
+except ImportError:
+    ISOLATION_AVAILABLE = False
+    TestIsolationManager = None
+    test_isolation = None
+
+# Optional: test output formatter
+try:
+    from tests.utils.test_output_formatter import (
+        TestOutputFormatter,
+        print_test_failure,
+        print_test_result,
+    )
+    OUTPUT_FORMATTER_AVAILABLE = True
+except ImportError:
+    OUTPUT_FORMATTER_AVAILABLE = False
+    TestOutputFormatter = None
+    print_test_failure = None
+    print_test_result = None
 
 # Set up logging for tests
 logging.basicConfig(
@@ -123,22 +155,34 @@ async def test_environment_validation():
     return is_valid
 
 
+def _use_asgi_client() -> bool:
+    """Use in-process ASGI client instead of live server (no server on 127.0.0.1 needed)."""
+    return os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes")
+
+
 @pytest_asyncio.fixture
 async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Async HTTP client for API testing."""
-    # Fallback to default port if test_environment_config is None
-    port = int(os.getenv("TEST_PORT", "8001")) if test_environment_config is None else test_environment_config.test_port
-    base_url = f"http://127.0.0.1:{port}"
+    """Async HTTP client for API testing. With USE_ASGI_CLIENT=1 uses in-process app (no live server)."""
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
-    client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
+    if _use_asgi_client():
+        from httpx import ASGITransport
+        from src.web.modern_main import app
+        transport = ASGITransport(app=app, raise_app_exceptions=False)
+        client = httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=timeout)
+    else:
+        port = (
+            int(os.getenv("TEST_PORT", "8001"))
+            if test_environment_config is None
+            else getattr(test_environment_config, "test_port", 8001)
+        )
+        base_url = f"http://127.0.0.1:{port}"
+        client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
     try:
         yield client
     finally:
-        # Manually close the client to avoid event loop closure issues
         try:
             await client.aclose()
         except RuntimeError:
-            # Event loop already closed, ignore
             pass
 
 
@@ -404,11 +448,21 @@ def integration_test_config(test_environment_config):
     }
 
 
+# No-op fallbacks when optional utils are missing
+def _noop(*args, **kwargs):
+    pass
+
+class _NoOpReporter:
+    __getattr__ = lambda self, _: _noop
+
+
 # Enhanced debugging fixtures
 @pytest.fixture
 def failure_reporter():
     """Provide test failure reporter."""
-    return TestFailureReporter()
+    if FAILURE_ANALYZER_AVAILABLE and TestFailureReporter is not None:
+        return TestFailureReporter()
+    return _NoOpReporter()
 
 
 @pytest.fixture
@@ -426,13 +480,17 @@ def performance_profiler():
 @pytest.fixture
 def test_output_formatter():
     """Provide test output formatter."""
-    return TestOutputFormatter()
+    if OUTPUT_FORMATTER_AVAILABLE and TestOutputFormatter is not None:
+        return TestOutputFormatter()
+    return _NoOpReporter()
 
 
 @pytest.fixture
 def isolation_manager():
     """Provide test isolation manager."""
-    return TestIsolationManager()
+    if ISOLATION_AVAILABLE and TestIsolationManager is not None:
+        return TestIsolationManager()
+    return _NoOpReporter()
 
 
 def pytest_configure(config):
@@ -504,36 +562,25 @@ def pytest_runtest_teardown(item, nextitem):
 # Enhanced debugging hooks
 def pytest_runtest_logreport(report):
     """Enhanced test reporting with debugging information."""
-    if report.when == "call":
-        if report.outcome == "failed":
-            # Generate failure report
-            try:
-                from tests.utils.test_failure_analyzer import generate_failure_report
-
-                # Extract test information
-                test_name = report.nodeid
-                exc_info = report.longrepr
-
-                # Generate failure report
-                generate_failure_report(
-                    test_name=test_name,
-                    exc_info=(Exception, Exception(str(exc_info)), None),
-                    test_duration=report.duration,
-                    environment_info={"test_file": report.fspath},
-                )
-
-                logger.error(f"Test failure analyzed: {test_name}")
-
-            except Exception as e:
-                logger.error(f"Failed to generate failure report: {e}")
-
-        elif report.outcome == "passed":
-            # Log successful test with timing
-            logger.info(f"Test passed: {report.nodeid} ({report.duration:.3f}s)")
-
-        elif report.outcome == "skipped":
-            # Log skipped test
-            logger.warning(f"Test skipped: {report.nodeid}")
+    if report.when != "call":
+        return
+    if report.outcome == "failed" and FAILURE_ANALYZER_AVAILABLE and generate_failure_report is not None:
+        try:
+            test_name = report.nodeid
+            exc_info = report.longrepr
+            generate_failure_report(
+                test_name=test_name,
+                exc_info=(Exception, Exception(str(exc_info)), None),
+                test_duration=report.duration,
+                environment_info={"test_file": report.fspath},
+            )
+            logger.error("Test failure analyzed: %s", test_name)
+        except Exception as e:
+            logger.error("Failed to generate failure report: %s", e)
+    elif report.outcome == "passed":
+        logger.info("Test passed: %s (%.3fs)", report.nodeid, report.duration)
+    elif report.outcome == "skipped":
+        logger.warning("Test skipped: %s", report.nodeid)
 
 
 def pytest_runtest_setup(item):
