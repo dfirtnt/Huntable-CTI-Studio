@@ -11,8 +11,8 @@
         </div>
     </div>
 
-    <!-- First Launch Banner -->
-    {% if stats and stats.total_articles == 0 %}
+    <!-- First Launch Banner (also shown when ?show_first_launch=1 for testing) -->
+    {% if show_first_launch_banner %}
     <div id="first-launch-banner" class="mb-6 bg-blue-900 border border-blue-700 text-gray-100 p-6 rounded-2xl shadow-lg">
         <div class="flex items-start justify-between">
             <div class="flex-1">
@@ -239,8 +239,9 @@
             
             // Update timestamp
             
-            // Hide first-launch banner if articles exist
-            if (data.stats && data.stats.total_articles > 0) {
+            // Hide first-launch banner if articles exist (unless ?show_first_launch=1 for testing)
+            const forceShowBanner = window.location.search.includes('show_first_launch=1');
+            if (!forceShowBanner && data.stats && data.stats.total_articles > 0) {
                 const banner = document.getElementById('first-launch-banner');
                 if (banner) {
                     banner.style.display = 'none';
