@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload
 
 from src.database.models import (
     ArticleAnnotationTable,
@@ -637,12 +637,14 @@ class AsyncDatabaseManager:
         self,
         article_filter: Optional["ArticleListFilter"] = None,
         limit: int | None = None,
+        load_content: bool = True,
     ) -> list[Article]:
         """List articles with optional filtering and sorting."""
         try:
             async with self.get_session() as session:
-                # Simple query without annotation counts to test for duplication
                 query = select(ArticleTable).where(ArticleTable.archived == False)
+                if not load_content:
+                    query = query.options(defer(ArticleTable.content))
 
                 # Apply filters if provided
                 logger.info(f"Article filter received: {article_filter}")
@@ -761,7 +763,6 @@ class AsyncDatabaseManager:
                         query = query.limit(limit)
 
                 logger.info("Executing query...")
-                logger.info(f"SQL Query: {query}")
                 try:
                     result = await session.execute(query)
                     rows = result.all()
@@ -770,56 +771,37 @@ class AsyncDatabaseManager:
                     logger.error(f"Query execution error: {query_e}", exc_info=True)
                     raise
 
-                # Debug: Check for duplicates
-                try:
-                    dfir_rows = []
-                    for i, row in enumerate(rows):
-                        db_article = row[0] if hasattr(row, "__getitem__") else row
-                        if hasattr(db_article, "source_id"):
-                            if db_article.source_id == 25:
-                                dfir_rows.append(db_article)
-                                logger.info(
-                                    f"Found DFIR article {len(dfir_rows)}: ID={db_article.id}, Title={db_article.title[:30]}..."
-                                )
+                article_ids = []
+                for row in rows:
+                    db_article = row[0] if hasattr(row, "__getitem__") else row
+                    if hasattr(db_article, "id"):
+                        article_ids.append(db_article.id)
 
-                    logger.info(f"Query returned {len(rows)} total rows, {len(dfir_rows)} DFIR rows")
-                except Exception as debug_e:
-                    logger.error(f"Debug error: {debug_e}")
+                # Batch annotation counts (one query instead of N)
+                annotation_counts: dict[int, int] = {}
+                if article_ids:
+                    count_stmt = (
+                        select(ArticleAnnotationTable.article_id, func.count(ArticleAnnotationTable.id))
+                        .where(ArticleAnnotationTable.article_id.in_(article_ids))
+                        .group_by(ArticleAnnotationTable.article_id)
+                    )
+                    count_result = await session.execute(count_stmt)
+                    for aid, cnt in count_result.all():
+                        annotation_counts[aid] = int(cnt)
 
-                # Convert to Article models
                 articles = []
                 for row in rows:
                     try:
-                        # Row is a SQLAlchemy Row object, access the ArticleTable object
                         db_article = row[0] if hasattr(row, "__getitem__") else row
-
-                        # Debug: Check what type of object we have
-                        logger.info(
-                            f"Row type: {type(row)}, Article type: {type(db_article)}, has id: {hasattr(db_article, 'id')}"
-                        )
                     except Exception as row_e:
                         logger.error(f"Error processing row: {row_e}")
                         continue
 
-                    # Use the proper conversion method
-                    article = self._db_article_to_model(db_article)
-
-                    # Get actual annotation count for this article
-                    try:
-                        annotation_count_query = select(func.count(ArticleAnnotationTable.id)).where(
-                            ArticleAnnotationTable.article_id == article.id
-                        )
-                        annotation_count_result = await session.execute(annotation_count_query)
-                        annotation_count = annotation_count_result.scalar() or 0
-                    except Exception as e:
-                        logger.error(f"Failed to get annotation count for article {article.id}: {e}")
-                        annotation_count = 0
-
-                    # Add annotation count to metadata
+                    article = self._db_article_to_model(db_article, skip_content=not load_content)
+                    annotation_count = annotation_counts.get(article.id, 0)
                     if article.article_metadata is None:
                         article.article_metadata = {}
                     article.article_metadata["annotation_count"] = annotation_count
-
                     articles.append(article)
 
                 return articles
@@ -1245,8 +1227,14 @@ class AsyncDatabaseManager:
             updated_at=db_source.updated_at,
         )
 
-    def _db_article_to_model(self, db_article: ArticleTable) -> Article:
-        """Convert database article to Pydantic model."""
+    def _db_article_to_model(self, db_article: ArticleTable, skip_content: bool = False) -> Article:
+        """Convert database article to Pydantic model. When skip_content=True, content is not read (avoids loading deferred column)."""
+        if skip_content:
+            content = ""
+            content_length = 0
+        else:
+            content = db_article.content
+            content_length = len(db_article.content) if db_article.content else None
         return Article(
             id=db_article.id,
             source_id=db_article.source_id,
@@ -1258,14 +1246,14 @@ class AsyncDatabaseManager:
             authors=db_article.authors,
             tags=db_article.tags,
             summary=db_article.summary,
-            content=db_article.content,
+            content=content,
             content_hash=db_article.content_hash,
             article_metadata=db_article.article_metadata,
             simhash=db_article.simhash,
             simhash_bucket=db_article.simhash_bucket,
             discovered_at=db_article.discovered_at,
             word_count=db_article.word_count,
-            content_length=len(db_article.content) if db_article.content else None,
+            content_length=content_length,
             collected_at=db_article.discovered_at,
             created_at=db_article.created_at,
             updated_at=db_article.updated_at,

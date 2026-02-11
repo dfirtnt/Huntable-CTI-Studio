@@ -136,7 +136,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-class TestType(Enum):
+class RunTestType(Enum):
     """Test execution types."""
 
     SMOKE = "smoke"
@@ -163,10 +163,10 @@ class ExecutionContext(Enum):
 
 
 @dataclass
-class TestConfig:
+class RunTestConfig:
     """Test execution configuration."""
 
-    test_type: TestType
+    test_type: RunTestType
     context: ExecutionContext
     verbose: bool = False
     debug: bool = False
@@ -185,10 +185,10 @@ class TestConfig:
     timeout: int | None = None
 
 
-class TestRunner:
+class RunTestRunner:
     """Unified test runner with enhanced functionality."""
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: RunTestConfig):
         self.config = config
         self.start_time = time.time()
         # Generate timestamp for result filenames (filesystem-safe format)
@@ -247,10 +247,10 @@ class TestRunner:
         """Set up test environment."""
         # Check if test containers are needed for stateful tests
         stateful_test_types = {
-            TestType.INTEGRATION,
-            TestType.E2E,
-            TestType.ALL,
-            TestType.COVERAGE,
+            RunTestType.INTEGRATION,
+            RunTestType.E2E,
+            RunTestType.ALL,
+            RunTestType.COVERAGE,
         }
 
         needs_test_containers = self.config.test_type in stateful_test_types
@@ -329,7 +329,7 @@ class TestRunner:
 
                 # For smoke tests, Redis validation is non-blocking
                 critical_validations = validation_results.copy()
-                if self.config.test_type == TestType.SMOKE:
+                if self.config.test_type == RunTestType.SMOKE:
                     if "redis" in critical_validations and not critical_validations["redis"]:
                         logger.warning("Redis validation failed (non-blocking for smoke tests)")
                         critical_validations.pop("redis")
@@ -498,18 +498,18 @@ class TestRunner:
 
         # Map test types to groups
         group_map = {
-            TestType.SMOKE: ["smoke"],
-            TestType.UNIT: ["unit", "core", "services", "utils"],
-            TestType.API: ["api"],
-            TestType.INTEGRATION: ["integration"],
-            TestType.UI: ["ui"],
-            TestType.E2E: ["e2e"],
-            TestType.PERFORMANCE: ["performance"],
-            TestType.AI: ["ai", "ui", "integration"],
-            TestType.AI_UI: ["ai", "ui"],
-            TestType.AI_INTEGRATION: ["ai", "integration"],
-            TestType.ALL: ["all"],
-            TestType.COVERAGE: ["all"],
+            RunTestType.SMOKE: ["smoke"],
+            RunTestType.UNIT: ["unit", "core", "services", "utils"],
+            RunTestType.API: ["api"],
+            RunTestType.INTEGRATION: ["integration"],
+            RunTestType.UI: ["ui"],
+            RunTestType.E2E: ["e2e"],
+            RunTestType.PERFORMANCE: ["performance"],
+            RunTestType.AI: ["ai", "ui", "integration"],
+            RunTestType.AI_UI: ["ai", "ui"],
+            RunTestType.AI_INTEGRATION: ["ai", "integration"],
+            RunTestType.ALL: ["all"],
+            RunTestType.COVERAGE: ["all"],
         }
 
         return group_map.get(test_type, ["all"])
@@ -537,18 +537,18 @@ class TestRunner:
 
         # Determine which Playwright tests to run based on test type
         test_path_map = {
-            TestType.SMOKE: [],  # Skip Playwright in smoke tests
-            TestType.UNIT: [],  # Skip Playwright in unit tests
-            TestType.API: [],  # Skip Playwright in API tests
-            TestType.INTEGRATION: [],  # Skip Playwright in integration tests (Python-based)
-            TestType.UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
-            TestType.E2E: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
-            TestType.PERFORMANCE: [],  # Skip Playwright in performance tests
-            TestType.AI: [],  # Skip Playwright in AI tests (Python-based)
-            TestType.AI_UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
-            TestType.AI_INTEGRATION: [],  # Skip Playwright in AI integration tests
-            TestType.ALL: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
-            TestType.COVERAGE: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.SMOKE: [],  # Skip Playwright in smoke tests
+            RunTestType.UNIT: [],  # Skip Playwright in unit tests
+            RunTestType.API: [],  # Skip Playwright in API tests
+            RunTestType.INTEGRATION: [],  # Skip Playwright in integration tests (Python-based)
+            RunTestType.UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.E2E: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.PERFORMANCE: [],  # Skip Playwright in performance tests
+            RunTestType.AI: [],  # Skip Playwright in AI tests (Python-based)
+            RunTestType.AI_UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.AI_INTEGRATION: [],  # Skip Playwright in AI integration tests
+            RunTestType.ALL: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.COVERAGE: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
         }
 
         if self.config.test_type in test_path_map:
@@ -616,7 +616,7 @@ class TestRunner:
                 logger.exception("Full traceback:")
             return False
 
-    def _requires_docker(self, test_type: TestType) -> bool:
+    def _requires_docker(self, test_type: RunTestType) -> bool:
         """Determine if a test type requires Docker execution.
 
         Most tests can run on the host and connect to test containers via exposed ports:
@@ -635,7 +635,7 @@ class TestRunner:
 
         return test_type in docker_required
 
-    def _get_effective_context(self, test_type: TestType) -> ExecutionContext:
+    def _get_effective_context(self, test_type: RunTestType) -> ExecutionContext:
         """Get the effective execution context, auto-selecting Docker when needed."""
         if self.config.context == ExecutionContext.AUTO:
             if self._requires_docker(test_type):
@@ -669,45 +669,45 @@ class TestRunner:
         else:
             # Default test paths based on test type
             test_path_map = {
-                TestType.SMOKE: [
+                RunTestType.SMOKE: [
                     "tests/",
                     "-m",
                     "smoke",
                 ],  # Restrict to tests/ directory to avoid collection errors
-                TestType.UNIT: [
+                RunTestType.UNIT: [
                     "tests/",
                     "--ignore=tests/test_web_application.py",  # Exclude web app tests (require running server)
                     "--ignore=tests/ui/",  # Exclude UI tests (require browser/Playwright)
                     "-m",
                     "not (smoke or integration or api or ui or e2e or performance or infrastructure or prod_data or production_data)",
                 ],
-                TestType.API: ["tests/api/"],
-                TestType.INTEGRATION: [
+                RunTestType.API: ["tests/api/"],
+                RunTestType.INTEGRATION: [
                     "tests/integration/",
                     "-m",
                     "integration_workflow",
                 ],
-                TestType.UI: ["tests/ui/"],
-                TestType.E2E: ["tests/e2e/"],
-                TestType.PERFORMANCE: ["tests/", "-m", "performance"],
-                TestType.AI: [
+                RunTestType.UI: ["tests/ui/"],
+                RunTestType.E2E: ["tests/e2e/"],
+                RunTestType.PERFORMANCE: ["tests/", "-m", "performance"],
+                RunTestType.AI: [
                     # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
                     "tests/integration/test_ai_*.py",
                     "-m",
                     "ai",
                 ],
-                TestType.AI_UI: [
+                RunTestType.AI_UI: [
                     # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
                     "-m",
                     "ui and ai",
                 ],
-                TestType.AI_INTEGRATION: [
+                RunTestType.AI_INTEGRATION: [
                     "tests/integration/test_ai_*.py",
                     "-m",
                     "integration and ai",
                 ],
-                TestType.ALL: ["tests/"],
-                TestType.COVERAGE: ["tests/", "--cov=src"],
+                RunTestType.ALL: ["tests/"],
+                RunTestType.COVERAGE: ["tests/", "--cov=src"],
             }
 
             if self.config.test_type in test_path_map:
@@ -717,16 +717,16 @@ class TestRunner:
 
         # Markers: apply defaults per test type, then exclusions
         default_markers_map = {
-            TestType.SMOKE: ["smoke"],
-            TestType.UNIT: [],  # Unit tests: exclude other types, don't require unit marker
-            TestType.API: ["api"],
-            TestType.INTEGRATION: ["integration"],
-            TestType.UI: ["ui"],
-            TestType.E2E: ["e2e"],
-            TestType.PERFORMANCE: ["performance"],
-            TestType.AI: ["ai"],
-            TestType.AI_UI: ["ai", "ui"],
-            TestType.AI_INTEGRATION: ["ai", "integration"],
+            RunTestType.SMOKE: ["smoke"],
+            RunTestType.UNIT: [],  # Unit tests: exclude other types, don't require unit marker
+            RunTestType.API: ["api"],
+            RunTestType.INTEGRATION: ["integration"],
+            RunTestType.UI: ["ui"],
+            RunTestType.E2E: ["e2e"],
+            RunTestType.PERFORMANCE: ["performance"],
+            RunTestType.AI: ["ai"],
+            RunTestType.AI_UI: ["ai", "ui"],
+            RunTestType.AI_INTEGRATION: ["ai", "integration"],
         }
 
         markers = self.config.markers or default_markers_map.get(self.config.test_type, [])
@@ -736,10 +736,10 @@ class TestRunner:
         default_excludes = ["infrastructure", "prod_data", "production_data"]
         # Keep smoke fast and under 30 seconds total - exclude UI tests that require browsers
         # UI tests can hang if browsers aren't installed, so exclude them from smoke for speed
-        if self.config.test_type == TestType.SMOKE:
+        if self.config.test_type == RunTestType.SMOKE:
             default_excludes.extend(["slow", "ui", "ui_smoke"])
         # For unit tests, exclude integration/api/ui/e2e/performance but don't require unit marker
-        elif self.config.test_type == TestType.UNIT:
+        elif self.config.test_type == RunTestType.UNIT:
             default_excludes.extend(["integration", "api", "ui", "ui_smoke", "e2e", "performance", "smoke"])
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
@@ -753,7 +753,7 @@ class TestRunner:
         cmd.extend(["-m", combined_expr])
 
         # API tests with in-process ASGI client need one event loop for the whole run
-        if self.config.test_type == TestType.API and os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes"):
+        if self.config.test_type == RunTestType.API and os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes"):
             cmd.extend(["-o", "asyncio_default_test_loop_scope=session"])
 
         # Add execution context specific options
@@ -925,7 +925,7 @@ class TestRunner:
                 env["SKIP_REAL_API_TESTS"] = "1"
 
             # Use in-process ASGI client for API tests (no live server on 127.0.0.1:8001 required)
-            if self.config.test_type == TestType.API:
+            if self.config.test_type == RunTestType.API:
                 env["USE_ASGI_CLIENT"] = "1"
                 # In-process app must reach Redis on host (docker port map 6379)
                 if (
@@ -1631,7 +1631,7 @@ class TestRunner:
         print("  • See docs/TESTING_STRATEGY.md for details")
 
 
-def parse_arguments() -> TestConfig:
+def parse_arguments() -> RunTestConfig:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="CTI Scraper Unified Test Runner",
@@ -1686,7 +1686,7 @@ Manual Container Management:
         "test_type",
         nargs="?",
         default="smoke",
-        choices=[t.value for t in TestType],
+        choices=[t.value for t in RunTestType],
         help="Type of tests to run",
     )
 
@@ -1746,9 +1746,9 @@ Manual Container Management:
         context = ExecutionContext(args.context)
 
     # Convert test type
-    test_type = TestType(args.test_type)
+    test_type = RunTestType(args.test_type)
 
-    return TestConfig(
+    return RunTestConfig(
         test_type=test_type,
         context=context,
         verbose=args.verbose,
@@ -1777,7 +1777,7 @@ async def main():
         config = parse_arguments()
 
         # Create test runner
-        runner = TestRunner(config)
+        runner = RunTestRunner(config)
 
         # Setup environment
         if not await runner.setup_environment():

@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, func, or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, defer, joinedload, load_only
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable
@@ -174,9 +174,13 @@ async def list_workflow_executions(
             failed = int(row.failed or 0)
             pending = int(row.pending or 0)
 
-            # Filtered query for results
+            # Filtered query for results: defer heavy columns not needed for list view
             query = db_session.query(E).options(
-                joinedload(E.article).load_only(ArticleTable.title, ArticleTable.canonical_url)
+                joinedload(E.article).load_only(ArticleTable.title, ArticleTable.canonical_url),
+                defer(E.junk_filter_result),
+                defer(E.ranking_reasoning),
+                defer(E.sigma_rules),
+                defer(E.similarity_results),
             )
             if article_id:
                 query = query.filter(E.article_id == article_id)
