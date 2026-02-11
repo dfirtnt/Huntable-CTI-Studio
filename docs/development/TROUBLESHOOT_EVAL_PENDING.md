@@ -13,7 +13,7 @@
 docker exec cti_worker celery -A src.worker.celery_app inspect reserved
 ```
 
-Shows multiple `trigger_agentic_workflow` tasks in the `workflows` queue:
+Shows multiple `trigger_agentic_workflow` tasks in the `workflowsdefault` queue:
 - All have `'time_start': None` and `'worker_pid': None`
 - Tasks are queued but not being executed
 
@@ -23,7 +23,7 @@ Shows multiple `trigger_agentic_workflow` tasks in the `workflows` queue:
 - **Active tasks:** Worker slots are filled with long-running tasks (especially `check_all_sources`)
 
 ### 3. Task Routing
-- `trigger_agentic_workflow` → `workflows` queue (as configured in celeryconfig.py)
+- `trigger_agentic_workflow` → `workflows` queue (as configured in celeryconfig.pydefault` queue (no specific routing)
 - `check_all_sources` → `source_checks` queue
 - Worker processes both queues, but `source_checks` tasks are long-running and block capacity
 
@@ -146,3 +146,6 @@ for exec in pending:
 - `src/worker/celery_app.py:629` - `trigger_agentic_workflow` task definition
 - `src/web/routes/evaluation_api.py:862` - Task dispatch in eval API
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTE4Mjc0ODc2MDldfQ==
+-->
