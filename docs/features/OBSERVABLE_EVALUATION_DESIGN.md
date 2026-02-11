@@ -1,10 +1,10 @@
 # Observable Evaluation Design
 
-> **Status**: Internal implementation — see source code for details.
+> **Status**: **Unsupported.** This capability is not ready for use. The implementation exists in code but is not supported or maintained.
 
 ## Overview
 
-The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries).
+The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries). **This capability is currently unsupported.**
 
 ## Implementation
 
@@ -24,9 +24,10 @@ The evaluation pipeline is implemented in `src/services/observable_evaluation/`:
 
 - `POST /api/observables/evaluation/run` — Trigger an evaluation run
 - `GET /api/observables/evaluation/metrics` — Retrieve evaluation metrics
+- `GET /api/observables/evaluation/metrics/aggregated` — Aggregated metrics by model version and usage (eval/gold)
 - `GET /api/observables/evaluation/failures` — List evaluation failures
 
 ## Related
 
-- [Observable Training Dashboard](/observables-training) — UI for monitoring training
+- [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is running)
 - [Extract Observables How-To](../howto/extract_observables.md) — Usage guide
