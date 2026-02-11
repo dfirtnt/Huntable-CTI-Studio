@@ -1,4 +1,4 @@
-# Huntables
+# Huntables.
 
 Huntables are repeatable, telemetry-rich observables extracted from CTI content (e.g. command lines, process chains, registry paths, Sigma-style queries, Windows Event IDs, etc) that can drive detections. They are tracked at two levels:
 - **Extraction results**: `discrete_huntables_count`, typed `observables`, and `subresults` are stored on each workflow execution.
@@ -31,3 +31,6 @@ For the purposes of this application, "huntables" are distinct from the more ind
 2. Trigger the workflow (`POST /api/workflow/articles/{article_id}/trigger` or from the article page).
 3. Extract Agent sub-agents emit typed observables; the supervisor aggregates them and stores huntable counts.
 4. Sigma generation uses the aggregated content when `discrete_huntables_count > 0` and the content length is sufficient.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTg4NTc5NTEyNV19
+-->
