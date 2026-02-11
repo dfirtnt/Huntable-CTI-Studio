@@ -2861,7 +2861,7 @@
 - <code>junk_filter_result</code>: filtering decisions before ranking
 - <code>extraction_result</code>: merged observables, <code>discrete_huntables_count</code>, per-agent <code>subresults</code>, and synthesized <code>content</code>
 - <code>sigma_rules</code>: generated rules with validation logs and pySigma errors
-- <code>similarity_results</code>: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shape)
+- <code>similarity_results</code>: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shapecosine similarity)
 - <code>queued_rules_count</code> / <code>queued_rule_ids</code>: rules promoted to queue
 - <code>article_content</code> / <code>article_content_preview</code>: content snapshots used by the workflow</p>
 <h2 id="sigma-rules-sigma_rules-table">Sigma rules (<code>sigma_rules</code> table)</h2>
@@ -3213,6 +3213,9 @@
 <blockquote>
 <p><strong>Note</strong>: The database contains 28 total tables. This reference covers the primary user-facing tables. For the complete schema, see the Alembic migrations in <code>alembic/versions/</code>.</p>
 </blockquote>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbOTMzOTA2Ml19
+-->
 
 
 

@@ -2728,7 +2728,7 @@
 <ul>
 <li>Docker and the Docker Compose plugin available on your PATH</li>
 <li><code>python3</code> for running tests, <code>jq</code> for parsing JSON responses</li>
-<li>Ports <code>8001</code> (web UI/API) and <code>8888</code> (auxiliary debug port) free on the host</li>
+<li>Ports <code>8001</code> (web UI/API) and <code>8888</code> (auxiliary debug port)and <code>8888</code> free on the host</li>
 <li><code>.env</code> configured (copy from <code>.env.example</code> and set <code>POSTGRES_PASSWORD</code>; add LLM keys if you want AI features)</li>
 </ul>
 <h2 id="2-start-the-stack">2) Start the stack</h2>
@@ -2781,6 +2781,9 @@ EXECUTION_ID=$(echo &quot;$TRIGGER&quot; | jq -r '.execution_id')
 <p>Stack shutdown (optional):</p>
 <pre><code class="language-bash">docker-compose down
 </code></pre>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNTUyNzE0ODA1XX0=
+-->
 
 
 

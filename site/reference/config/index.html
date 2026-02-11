@@ -2909,10 +2909,10 @@
 <ul>
 <li><code>POSTGRES_PASSWORD</code> (required): used by Postgres and <code>DATABASE_URL</code> in compose</li>
 <li><code>DATABASE_URL</code>: set in compose to <code>postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper</code></li>
-<li><code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>GEMINI_API_KEY</code>: optional LLM providers</li>
+<li><code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>GEMINICHATGPT_API_KEY</code>: optional LLM providers</li>
 <li><code>LMSTUDIO_API_URL</code> (default <code>http://host.docker.internal:1234/v1</code>), <code>LMSTUDIO_MODEL</code>, <code>LMSTUDIO_MODEL_RANK</code>, <code>LMSTUDIO_MODEL_EXTRACT</code>, <code>LMSTUDIO_MODEL_SIGMA</code></li>
 <li><code>LMSTUDIO_EMBEDDING_URL</code>, <code>LMSTUDIO_EMBEDDING_MODEL</code>: required for Sigma similarity search</li>
-<li><code>LANGFUSE_PUBLIC_KEY</code>, <code>LANGFUSE_SECRET_KEY</code>, <code>LANGFUSE_HOST</code>: optional tracing (see Settings UI)</li>
+<li><code>LANGFUSE_PUBLIC_KEY</code>, <code>LANGFUSE_SECRET_KEY</code>, <code>LANGFUSE_HOST</code>, <code>LANGFUSE_PROJECT_ID</code>: optional tracing (see Settings UI)</li>
 <li><code>DISABLE_SOURCE_AUTO_SYNC</code>: disable initial YAML seeding even when &lt;5 sources exist</li>
 </ul>
 <h2 id="docker-compose-services">Docker Compose services</h2>
@@ -3370,6 +3370,9 @@
 </tr>
 </tbody>
 </table>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNjQ5Nzg3MDgzXX0=
+-->
 
 
 

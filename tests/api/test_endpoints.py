@@ -316,6 +316,7 @@ class TestHealthEndpoints:
             "/health",
             "/api/health",
             "/api/health/database",
+            "/api/health/deduplication",
             "/api/health/services",
             "/api/health/celery",
             "/api/health/ingestion",
@@ -396,7 +397,7 @@ class TestCriticalAPIs:
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_workflow_trigger_endpoint_exists(self, async_client: httpx.AsyncClient):
-        """Test workflow trigger endpoint is accessible (may fail with 404 if article doesn't exist, but endpoint should be reachable)."""
+        """Workflow trigger endpoint reachable (404 if article missing is ok; endpoint must exist)."""
         # Use a non-existent article ID to test endpoint accessibility without side effects
         response = await async_client.post("/api/workflow/articles/999999/trigger")
         # Endpoint should exist (not 404) even if article doesn't exist
@@ -640,7 +641,7 @@ class TestCriticalAPIs:
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_search_smoke(self, async_client: httpx.AsyncClient):
-        """Smoke: search module is reachable (read-only). Uses /api/search/help to avoid route conflict with /api/articles/{id}."""
+        """Smoke: search module reachable (read-only). Uses /api/search/help to avoid /api/articles/{id} conflict."""
         response = await async_client.get("/api/search/help")
         if response.status_code == 422:
             pytest.skip("Search help returned 422 (validation/route may differ in this environment)")
@@ -726,6 +727,61 @@ class TestCriticalAPIs:
         data = response.json()
         assert isinstance(data, dict)
         assert "uptime" in data or "total_sources" in data or "avg_response_time" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_metrics_volume_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: metrics volume endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/metrics/volume")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "daily" in data and "hourly" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_annotations_stats_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: annotations stats endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/annotations/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert "stats" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_annotations_types_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: annotations types endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/annotations/types")
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert "modes" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_jobs_status_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: jobs status endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/jobs/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "status" in data or "timestamp" in data
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_workflow_config_versions_smoke(self, async_client: httpx.AsyncClient):
+        """Smoke: workflow config versions endpoint is accessible (read-only)."""
+        response = await async_client.get("/api/workflow/config/versions")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict) and "versions" in data
+        assert isinstance(data["versions"], list)
 
 
 class TestPerformance:

@@ -2654,7 +2654,7 @@
 <h2 id="extraction-qa-hybrid-cmdline-pipeline">Extraction QA (Hybrid Cmdline pipeline)</h2>
 <p>Based on <code>../EXTRACTION_PIPELINE_SPEC_FOR_AI.md</code>:
 1. <strong>Regex candidate extractor</strong>: High-recall regexes capture command-line shapes (executables with args, powershell, System32 utilities).
-2. <strong>Encoder classifier</strong>: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or <code>all-mpnet-base-v2</code>). Keeps only likely Windows commands.
+2. <strong>Encoder classifier</strong>: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or <code>all-mpnet-baseMiniLM-L6-v2</code>). Keeps only likely Windows commands.
 3. <strong>Optional LLM QA validator</strong>: Lightweight model (Qwen2.5-Coder-7B or Llama-3.1-8B) re-checks borderline strings and flags invalid items. Output never expands the list—only prunes.
 4. <strong>Supervisor merge</strong>: Aggregates sub-agent items, produces <code>discrete_huntables_count</code>, and emits a newline-joined <code>content</code> string used by Sigma.</p>
 <h2 id="sigma-qa">Sigma QA</h2>
@@ -2673,6 +2673,9 @@
 <li>Workflow trigger blocks concurrent executions per article; stuck pending runs older than 5 minutes are marked failed before allowing a retry.</li>
 <li>Health endpoints (<code>/health</code>, <code>/api/health/*</code>) surface ingestion and service readiness so QA runs against a healthy stack.</li>
 </ul>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTkwNjQwNTA0Nl19
+-->
 
 
 

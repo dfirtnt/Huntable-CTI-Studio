@@ -2650,12 +2650,13 @@
 
 
 <h1 id="observables">Observables</h1>
-<p>Observables are the structured outputs of the Extract Agent. They represent the huntable behaviors that downstream Sigma generation and similarity matching consume.</p>
+<p>Observables are the <strong>structured extraction output</strong> of the Extract Agent: typed items (command lines, process lineage, detection queries) that downstream Sigma generation and similarity matching consume. They are stored per workflow execution in <code>extraction_result</code>.</p>
+<p><strong>Relation to Huntables:</strong> Huntables are enterprise-specific, telemetry-rich content that can drive detections; they are tailored to your org and workflow (ML junk filtering, agent prompts). In this app, “observables” means the <strong>structured extraction output</strong> of that content—the <code>observables</code> array and <code>subresults</code> in <code>extraction_result</code>. See <a href="../huntables/">Huntables</a> for the full definition and article-level hunt scores.</p>
 <h2 id="types-emitted-active-sub-agents">Types emitted (active sub-agents)</h2>
 <ul>
 <li><code>cmdline</code>: command-line strings with arguments (CmdlineExtract)</li>
 <li><code>process_lineage</code>: parent/child process chains (ProcTreeExtract)</li>
-<li><code>sigma_queries</code> / <code>hunt_queries</code>: EDR and Sigma-style query fragments (HuntQueriesExtract)</li>
+<li><code>hunt_queries</code>: EDR and Sigma-style detection query fragments (HuntQueriesExtract)</li>
 </ul>
 <p><em>Deprecated (no longer extracted): <code>registry_keys</code>, <code>event_ids</code> — RegExtract and EventCodeExtract have been removed.</em></p>
 <h2 id="data-shape">Data shape</h2>
@@ -2664,28 +2665,31 @@
   &quot;discrete_huntables_count&quot;: 2,
   &quot;observables&quot;: [
     {&quot;type&quot;: &quot;cmdline&quot;, &quot;value&quot;: &quot;e.exe -d=\&quot;E:\\\&quot;&quot;, &quot;source&quot;: &quot;supervisor_aggregation&quot;},
-    {&quot;type&quot;: &quot;sigma_queries&quot;, &quot;value&quot;: &quot;DeviceProcessEvents | where ...&quot;, &quot;source&quot;: &quot;supervisor_aggregation&quot;}
+    {&quot;type&quot;: &quot;hunt_queries&quot;, &quot;value&quot;: &quot;DeviceProcessEvents | where ...&quot;, &quot;source&quot;: &quot;supervisor_aggregation&quot;}
   ],
   &quot;subresults&quot;: {
     &quot;cmdline&quot;: {&quot;items&quot;: [&quot;e.exe -d=\&quot;E:\\\&quot;&quot;], &quot;count&quot;: 1, &quot;raw&quot;: {&quot;cmdline_items&quot;: [&quot;...&quot;], &quot;qa_corrections&quot;: {}}},
     &quot;hunt_queries&quot;: {&quot;items&quot;: [&quot;DeviceProcessEvents | where ...&quot;], &quot;count&quot;: 1}
   },
   &quot;content&quot;: &quot;- e.exe -d=\&quot;E:\\\&quot;\n- DeviceProcessEvents | where ...&quot;,
-  &quot;summary&quot;: {&quot;source_url&quot;: &quot;https://...&quot;, &quot;platforms_detected&quot;: [&quot;Windows&quot;]}
+  &quot;summary&quot;: {&quot;count&quot;: 2, &quot;source_url&quot;: &quot;https://...&quot;, &quot;platforms_detected&quot;: [&quot;Windows&quot;]}
 }
 </code></pre>
-<p><code>content</code> is a stitched, newline-delimited view of the observables; Sigma uses it when at least one huntable is present and the content length is sufficient.</p>
+<ul>
+<li>Each entry in <code>observables</code> has <code>type</code> (matching a <code>subresults</code> key), <code>value</code>, and <code>source</code>; dict items may include <code>original_data</code>.</li>
+<li><code>content</code> is a stitched, newline-delimited view of the observables; Sigma uses it when <code>discrete_huntables_count &gt; 0</code> and content length is sufficient.</li>
+</ul>
 <h2 id="where-to-view-observables">Where to view observables</h2>
 <ul>
 <li><strong>API</strong>: <code>GET /api/workflow/executions/{execution_id}</code> → <code>extraction_result.observables</code> and <code>subresults</code>.</li>
-<li><strong>Workflow page</strong>: shows per-step status and observable counts.</li>
-<li><strong>Article page</strong>: displays extraction results and huntable counts after a workflow completes.</li>
+<li><strong>Workflow page</strong>: per-step status and observable counts.</li>
+<li><strong>Article page</strong>: extraction results and huntable counts after a workflow completes.</li>
 </ul>
 <h2 id="refreshing-observables">Refreshing observables</h2>
 <ol>
-<li>Ensure the article exists (via RSS ingestion or <code>POST /api/scrape-url</code>).</li>
+<li>Ensure the article exists (RSS ingestion or <code>POST /api/scrape-url</code>).</li>
 <li>Trigger the workflow (<code>POST /api/workflow/articles/{article_id}/trigger</code>).</li>
-<li>Wait for <code>status=completed</code>, then read <code>extraction_result</code> from the API or UI. Re-run the trigger if you update models/prompts or change input content.</li>
+<li>Wait for <code>status=completed</code>, then read <code>extraction_result</code> from the API or UI. Re-run the trigger if you change models, prompts, or input content.</li>
 </ol>
 
 

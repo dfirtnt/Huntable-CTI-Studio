@@ -59,7 +59,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 
-# Keys from .env that must not be applied in test (guard requires TEST_DATABASE_URL only; Redis host "redis" doesn't resolve on host)
+# Keys from .env that must not be applied in test (guard: TEST_DATABASE_URL only; Redis "redis" doesn't resolve on host)
 _DOTENV_SKIP_IN_TEST = frozenset({"DATABASE_URL", "REDIS_URL"})
 
 
@@ -90,16 +90,10 @@ def _load_dotenv() -> None:
 
 # Import test environment utilities
 try:
-    from tests.utils.database_connections import (
-        validate_database_connection,
-        validate_redis_connection,
-    )
+    import tests.utils.database_connections  # noqa: F401
     from tests.utils.test_environment import (
-        TestContext,
         TestEnvironmentManager,
         TestEnvironmentValidator,
-        get_test_config,
-        validate_test_environment,
     )
 
     ENVIRONMENT_UTILS_AVAILABLE = True
@@ -111,12 +105,7 @@ except ImportError:
 try:
     from tests.utils.test_failure_analyzer import TestFailureReporter
     from tests.utils.test_isolation import TestIsolationManager
-    from tests.utils.test_output_formatter import (
-        TestOutputFormatter,
-        print_header,
-        print_summary,
-        print_test_result,
-    )
+    from tests.utils.test_output_formatter import TestOutputFormatter
 
     from tests.utils.async_debug_utils import AsyncDebugger
     from tests.utils.performance_profiler import (
@@ -329,10 +318,13 @@ class RunTestRunner:
 
                 # For smoke tests, Redis validation is non-blocking
                 critical_validations = validation_results.copy()
-                if self.config.test_type == RunTestType.SMOKE:
-                    if "redis" in critical_validations and not critical_validations["redis"]:
-                        logger.warning("Redis validation failed (non-blocking for smoke tests)")
-                        critical_validations.pop("redis")
+                if (
+                    self.config.test_type == RunTestType.SMOKE
+                    and "redis" in critical_validations
+                    and not critical_validations["redis"]
+                ):
+                    logger.warning("Redis validation failed (non-blocking for smoke tests)")
+                    critical_validations.pop("redis")
 
                 if not all(critical_validations.values()):
                     logger.error("Environment validation failed")
@@ -679,7 +671,8 @@ class RunTestRunner:
                     "--ignore=tests/test_web_application.py",  # Exclude web app tests (require running server)
                     "--ignore=tests/ui/",  # Exclude UI tests (require browser/Playwright)
                     "-m",
-                    "not (smoke or integration or api or ui or e2e or performance or infrastructure or prod_data or production_data)",
+                    "not (smoke or integration or api or ui or e2e or performance "
+                    "or infrastructure or prod_data or production_data)",
                 ],
                 RunTestType.API: ["tests/api/"],
                 RunTestType.INTEGRATION: [
@@ -752,12 +745,8 @@ class RunTestRunner:
 
         cmd.extend(["-m", combined_expr])
 
-        # API tests with in-process ASGI client need one event loop for the whole run
-        if self.config.test_type == RunTestType.API and os.getenv("USE_ASGI_CLIENT", "").lower() in (
-            "1",
-            "true",
-            "yes",
-        ):
+        # API tests use in-process ASGI client (USE_ASGI_CLIENT=1 in subprocess env); one event loop for the whole run
+        if self.config.test_type == RunTestType.API:
             cmd.extend(["-o", "asyncio_default_test_loop_scope=session"])
 
         # Add execution context specific options
@@ -1026,8 +1015,10 @@ class RunTestRunner:
                                         else []
                                     )
                                     progress_bar = "".join(progress_chars)
+                                    n_cat = len(pytest_groups) if pytest_groups else 1
                                     print(
-                                        f"\n📊 Category: {detected_category.upper()} | Progress: [{progress_bar}] {len(categories_seen)}/{len(pytest_groups) if pytest_groups else 1} | Tests: {test_count} | Time: {elapsed:.1f}s",
+                                        f"\n📊 Category: {detected_category.upper()} | Progress: [{progress_bar}] "
+                                        f"{len(categories_seen)}/{n_cat} | Tests: {test_count} | Time: {elapsed:.1f}s",
                                         flush=True,
                                     )
                             except (IndexError, AttributeError):
@@ -1038,11 +1029,11 @@ class RunTestRunner:
                         elapsed = time.time() - pytest_start_time
                         progress_chars = ["=" if cat in categories_seen else " " for cat in pytest_groups]
                         progress_bar = "".join(progress_chars)
-                        print(
-                            f"\r⏳ Overall: [{progress_bar}] {len(categories_seen)}/{len(pytest_groups)} categories | {test_count} tests | {elapsed:.1f}s",
-                            end="",
-                            flush=True,
+                        msg = (
+                            f"\r⏳ Overall: [{progress_bar}] {len(categories_seen)}/{len(pytest_groups)} "
+                            f"categories | {test_count} tests | {elapsed:.1f}s"
                         )
+                        print(msg, end="", flush=True)
                         last_progress_update = time.time()
 
                 # Wait for process to complete
@@ -1080,10 +1071,11 @@ class RunTestRunner:
                 print("=" * 80)
                 status = "✅ PASSED" if pytest_success else "❌ FAILED"
                 print(f"PYTEST TESTS: {status} ({pytest_duration:.2f}s)")
-                print(
-                    f"   Passed: {pytest_counts.get('passed', 0)} | Failed: {pytest_counts.get('failed', 0)} | Skipped: {pytest_counts.get('skipped', 0)}"
-                    + (f" | Errors: {pytest_counts.get('errors', 0)}" if pytest_counts.get("errors", 0) else "")
-                )
+                passed = pytest_counts.get("passed", 0)
+                failed = pytest_counts.get("failed", 0)
+                skipped = pytest_counts.get("skipped", 0)
+                err_suffix = f" | Errors: {pytest_counts.get('errors', 0)}" if pytest_counts.get("errors", 0) else ""
+                print(f"   Passed: {passed} | Failed: {failed} | Skipped: {skipped}{err_suffix}")
                 if not pytest_success:
                     print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
                     print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
@@ -1158,11 +1150,11 @@ class RunTestRunner:
                                     "=" if i < estimated_progress else " " for i in range(len(playwright_groups))
                                 ]
                                 progress_bar = "".join(progress_chars)
-                                print(
-                                    f"\r⏳ Progress: [{progress_bar}] {estimated_progress}/{len(playwright_groups)} groups | Tests: {test_count} | Time: {elapsed:.1f}s",
-                                    end="",
-                                    flush=True,
+                                pmsg = (
+                                    f"\r⏳ Progress: [{progress_bar}] {estimated_progress}/"
+                                    f"{len(playwright_groups)} groups | Tests: {test_count} | Time: {elapsed:.1f}s"
                                 )
+                                print(pmsg, end="", flush=True)
                             last_progress_update = time.time()
 
                     returncode = process.wait(
@@ -1194,9 +1186,12 @@ class RunTestRunner:
                     print("=" * 80)
                     status = "✅ PASSED" if playwright_success else "❌ FAILED"
                     print(f"PLAYWRIGHT TESTS: {status} ({playwright_duration:.2f}s)")
-                    print(
-                        f"   Passed: {playwright_counts.get('passed', 0)} | Failed: {playwright_counts.get('failed', 0)} | Skipped: {playwright_counts.get('skipped', 0)}"
+                    pp, pf, ps = (
+                        playwright_counts.get("passed", 0),
+                        playwright_counts.get("failed", 0),
+                        playwright_counts.get("skipped", 0),
                     )
+                    print(f"   Passed: {pp} | Failed: {pf} | Skipped: {ps}")
                     print("=" * 80)
 
                 except subprocess.TimeoutExpired:
@@ -1665,7 +1660,8 @@ Test Infrastructure:
   - Test containers (Postgres:5433, Redis:6380) auto-started for stateful tests
   - Environment guards enforce APP_ENV=test and TEST_DATABASE_URL
   - Cloud LLM API keys blocked by default (set ALLOW_CLOUD_LLM_IN_TESTS=true to allow)
-  - Failure reports (timestamped): test-results/failures_YYYYMMDD_HHMMSS.log, test-results/junit_YYYYMMDD_HHMMSS.xml, test-results/report_YYYYMMDD_HHMMSS.html
+  - Failure reports (timestamped): test-results/failures_*.log, test-results/junit_*.xml,
+    test-results/report_*.html
   - Progress indicators show category-by-category execution
 
 Examples:

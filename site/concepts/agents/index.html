@@ -391,10 +391,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#core-agents" class="md-nav__link">
+  <a href="#core-agents-execution-order" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core agents
+        Core agents (execution order)
       
     </span>
   </a>
@@ -2589,10 +2589,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#core-agents" class="md-nav__link">
+  <a href="#core-agents-execution-order" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core agents
+        Core agents (execution order)
       
     </span>
   </a>
@@ -2650,17 +2650,17 @@
 
 
 <h1 id="agents-and-responsibilities">Agents and Responsibilities</h1>
-<p>The agentic workflow is a 7-step pipeline <strong>orchestrated by LangGraph</strong> and <strong>triggered via Celery tasks</strong> when you hit <code>/api/workflow/articles/{id}/trigger</code> or click <strong>Send to Workflow</strong> on an article. LangGraph manages step sequencing, conditional branching (e.g. early termination on non-Windows OS), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to <code>agentic_workflow_executions</code>.</p>
-<h2 id="core-agents">Core agents</h2>
-<ul>
+<p>The agentic workflow is a multi-step pipeline <strong>orchestrated by LangGraph</strong> and <strong>triggered via Celery tasks</strong> when you call <code>POST /api/workflow/articles/{id}/trigger</code> or click <strong>Send to Workflow</strong> on an article. LangGraph manages step sequencing, conditional branching (e.g. early termination on non-Windows OS), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to <code>agentic_workflow_executions</code>.</p>
+<h2 id="core-agents-execution-order">Core agents (execution order)</h2>
+<ol>
 <li><strong>OS Detection</strong>: Classifies target OS using CTI-BERT embeddings and keyword matching. Non-Windows articles are terminated early.</li>
 <li><strong>Junk filter</strong>: Removes non-huntable content before spending tokens on ranking and extraction.</li>
-<li><strong>LLM ranking</strong>: Scores article quality (0–10) and gates the rest of the workflow.</li>
+<li><strong>LLM ranking</strong>: Scores article quality (1–10) and gates the rest of the workflow.</li>
 <li><strong>Extract Agent supervisor</strong>: Orchestrates sub-agents and merges their observables into <code>extraction_result</code>.</li>
 <li><strong>Sigma generator</strong>: Builds Sigma rules from extracted content (prefers aggregated observables) and validates with pySigma.</li>
 <li><strong>Similarity matcher</strong>: Compares generated rules against SigmaHQ embeddings to avoid duplicates and classify coverage.</li>
 <li><strong>Promote to Queue</strong>: Queues novel SIGMA rules for human review based on similarity threshold.</li>
-</ul>
+</ol>
 <h2 id="extract-agent-sub-agents">Extract Agent sub-agents</h2>
 <ul>
 <li><strong>CmdlineExtract</strong>: Command-line observables with arguments and QA corrections. Optional <strong>Attention Preprocessor</strong> surfaces LOLBAS-aligned snippets earlier in the LLM prompt; toggle in Workflow Config (Cmdline Extract agent). See <a href="../../features/CMDLINE_ATTENTION_PREPROCESSOR/">Cmdline Attention Preprocessor</a>.</li>

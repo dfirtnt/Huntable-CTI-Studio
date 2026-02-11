@@ -2910,7 +2910,7 @@ docker-compose up
 <li><strong>Configure Model Name</strong>:</li>
 <li>Edit <code>.env</code> file or set environment variables</li>
 <li>Set <code>LMSTUDIO_MODEL</code> to your loaded model name</li>
-<li>Example: <code>LMSTUDIO_MODEL=deepseek-r1-qwen3-8b</code></li>
+<li>Example: <code>LMSTUDIO_MODEL=deepseek-r1-qwen3-8bllama-3.1-8b-instruct</code></li>
 <li>The main <code>docker-compose.yml</code> already includes LMStudio configuration pointing to <code>host.docker.internal:1234/v1</code></li>
 </ol>
 <h2 id="api-usage">API Usage</h2>
@@ -2937,7 +2937,7 @@ docker-compose up
 <li><code>LMSTUDIO_MODEL_RANK</code>: Model for ranking agent (default: main model)</li>
 <li><code>LMSTUDIO_MODEL_EXTRACT</code>: Model for extraction agent (default: main model)</li>
 <li><code>LMSTUDIO_MODEL_SIGMA</code>: Model for SIGMA generation (default: main model)</li>
-<li><code>LMSTUDIO_MAX_CONTEXT</code>: Maximum context window size</li>
+<li><code>LMSTUDIO_MAX_CONTEXT</code>: Maximum context window sizellama-3.2-1b-instruct`)</li>
 </ul>
 <h3 id="recommended-settings-for-deterministic-scoring">Recommended Settings (for Deterministic Scoring)</h3>
 <ul>
@@ -3019,6 +3019,9 @@ docker-compose up
 <p><strong>Recommendation:</strong> Document llmster and parallel-request settings for users who run LM Studio 0.4.0+; consider <code>/v1/chat</code> only if we need smaller payloads or response metrics for multi-turn flows.</p>
 <h2 id="test-endpoint">Test Endpoint</h2>
 <p>Use <code>POST /api/test-lmstudio</code> from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.</p>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNjg3NjAzODU0XX0=
+-->
 
 
 
