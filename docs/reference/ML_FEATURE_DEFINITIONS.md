@@ -22,7 +22,7 @@ The content filter uses a **RandomForestClassifier** with 27 features (or 31 wit
 - Uses regex matching with word boundaries to prevent false positives
 - Patterns are loaded from `HUNT_SCORING_KEYWORDS` dictionary
 
-**Accuracy:** High - Uses validated keyword lists from analysis of 319 historically labeled training samples (historical labels 'high-signal' and 'low-signal' with 97 and 222 samples respectively). Note: article-level "chosen/rejected" classification is removed from the UI and should not be relied upon.
+**Accuracy:** High - Uses validated keyword lists from analysis of 319 historically labeled training samples (historical labels 'high-signal' and 'low-signal' with 97 and 222 samples respectively). Note: article-level "chosen/rejected" classification is removed from the UI and should not be relied upon.articles (97 Chosen, 222 Rejected)
 
 **Examples:**
 - Perfect: `rundll32.exe`, `msiexec.exe`, `powershell.exe`, `hklm`, `.lnk`
@@ -470,9 +470,13 @@ The system uses `ThreatHuntingScorer._keyword_matches()` for pattern matching:
 ## Model Training Context
 
 -- **Algorithm:** RandomForestClassifier
--- **Training Data:** 278 historical samples (annotations and feedback) — dataset labels reflect legacy "high/low signal" annotations and do not imply an active article-level classification UI
--- **Features:** 27 base features (31 with new features)
+-- **Training Data:** 278 historical samples (222 annotations and+ 81 feedback) — dataset labels reflect legacy "high/low signal" annotations and do not imply an active article-level classification UI
+- samples)
+- **Features:** 27 base features (31 with new features)
 - **Feature Importances:** Learned during training (not equal weighting)
 - **Accuracy:** ~80% on test data
 
 The model learns which features are most important for classification, with features like `hunt_score`, `perfect_pattern_count`, and `huntable_pattern_count` typically having higher importances than structural features like `char_count` or `avg_word_length`.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTU4MzMxOTcxN119
+-->
