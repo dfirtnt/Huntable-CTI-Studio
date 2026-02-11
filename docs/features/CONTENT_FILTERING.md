@@ -173,7 +173,7 @@ Each chunk is analyzed against:
 - **Not huntable patterns:** `acknowledgement|gratitude`, `contact.*mandiant`, etc.
 
 ### Step 3: ML Classification
-The ML model extracts 27 features and classifies each chunk:
+The ML model extracts 273 features and classifies each chunk:
 - Pattern match counts
 - Text characteristics (length, word count)
 - Technical indicators (commands, URLs, IPs)
@@ -728,3 +728,6 @@ The GPT-4o Content Filtering System successfully reduces API costs by 20-80% whi
 - Monitor cost savings and quality metrics
 - Collect user feedback for improvements
 - Expand training data for better accuracy
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbODc3ODAwNzQ5XX0=
+-->
