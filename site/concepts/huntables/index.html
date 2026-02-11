@@ -363,10 +363,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-counts-as-a-huntable" class="md-nav__link">
+  <a href="#what-is-a-huntable" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What counts as a huntable
+        What is a “Huntable”?
       
     </span>
   </a>
@@ -385,10 +385,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-huntables-live" class="md-nav__link">
+  <a href="#where-huntables-appear" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where huntables live
+        Where huntables appear
       
     </span>
   </a>
@@ -2589,10 +2589,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-counts-as-a-huntable" class="md-nav__link">
+  <a href="#what-is-a-huntable" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What counts as a huntable
+        What is a “Huntable”?
       
     </span>
   </a>
@@ -2611,10 +2611,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-huntables-live" class="md-nav__link">
+  <a href="#where-huntables-appear" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where huntables live
+        Where huntables appear
       
     </span>
   </a>
@@ -2650,39 +2650,39 @@
 
 
 <h1 id="huntables">Huntables</h1>
-<p>Huntables are repeatable, telemetry-rich observables extracted from CTI content (e.g. command lines, process chains, registry paths, Sigma-style queries, Windows Event IDs, etc) that can drive detections. They are tracked at two levels:
-- <strong>Extraction results</strong>: <code>discrete_huntables_count</code>, typed <code>observables</code>, and <code>subresults</code> are stored on each workflow execution.
-- <strong>Article metadata</strong>: Regex-based <code>threat_hunting_score</code> and ML-based <code>ml_hunt_score</code> describe how “huntable” an article is before and after chunk analysis.</p>
-<h2 id="what-counts-as-a-huntable">What counts as a huntable</h2>
-<p>For the purposes of this application, "huntables" are distinct from the more industry standard term "observables" in that "huntables" are tailored to your workflow as you train the machine learning model used for junk filtering and as you tune your agent prompts. Out of the box in the Callisto release, huntables are:</p>
+<h2 id="what-is-a-huntable">What is a “Huntable”?</h2>
+<p><strong>Huntables</strong> are enterprise-specific, telemetry-rich observables extracted from CTI content—think command lines, process chains, registry paths, services, scheduled tasks, etc.—that can drive detections.</p>
+<p>For the purposes of this application, “huntables” are distinct from the more industry-standard term “observables” in that huntables are <strong>tailored to your organization and workflow</strong>. As you train the machine learning model used for junk filtering and tune your agent prompts and parameters, huntables become more tailored to your needs.</p>
+<p>Out of the box, the application supports these:</p>
 <ul>
-<li>Structured process and command-line patterns (cmd.exe, powershell patterns, LOLBAS usage)</li>
-<li>Registry keys and persistence paths</li>
-<li>Process lineage / parent-child chains with arguments</li>
-<li>Behavior patterns more than single IOCs (IPs/hashes are not scored as huntable by themselves)</li>
+<li><strong>Command lines</strong> — Literal command lines observable in an EDR, EventCode 4688 (security.evtx if configured), and/or EventCode 1 (Sysmon.evtx).</li>
+<li><strong>Process trees</strong> — Lineage information such as parent–child relationships.</li>
+<li><strong>Hunt queries</strong> — EDR, Splunk, SIEM, or SIGMA queries found in intel articles.</li>
 </ul>
+<p>In the workflow, these are emitted by the Extract Agent sub-agents as typed <strong>observables</strong> (<code>cmdline</code>, <code>process_lineage</code>, <code>hunt_queries</code>) and stored in <code>extraction_result</code>. See <a href="../observables/">Observables</a> for the extraction schema and API.</p>
+<p><strong>Where huntables are tracked:</strong> Article metadata holds regex-based <code>threat_hunting_score</code> and ML-based <code>ml_hunt_score</code> (how “huntable” an article is); each workflow execution holds <code>discrete_huntables_count</code> and the observables in <code>extraction_result</code>.</p>
 <h2 id="scoring-signals">Scoring signals</h2>
 <ul>
-<li><strong>Threat hunting score</strong> (regex driven; see <code>../internals/scoring.md</code>)</li>
-<li>Perfect discriminators such as <code>rundll32</code>, <code>msiexec</code>, <code>lsass.exe</code>, <code>.lnk</code>, <code>MZ</code>, <code>%WINDIR%</code> carry the most weight.</li>
-<li>LOLBAS executables (<code>certutil.exe</code>, <code>schtasks.exe</code>, <code>wmic.exe</code>, etc.) and registry/Windows path patterns add supporting points.</li>
-<li>Negative indicators (<code>what is</code>, <code>best practices</code>, marketing language) reduce the score.</li>
-<li><strong>ML hunt score</strong> (chunk-driven; see <code>../ML_HUNT_SCORING.md</code>)</li>
-<li>Articles are chunked (1,000 chars, 200 overlap) and each chunk is classified huntable/not.</li>
+<li><strong>Threat hunting score</strong> (regex-driven; see <a href="../../internals/scoring/">Scoring</a>)</li>
+<li>Perfect discriminators: <code>rundll32</code>, <code>msiexec</code>, <code>lsass.exe</code>, <code>.lnk</code>, <code>MZ</code>, <code>%WINDIR%</code>.</li>
+<li>LOLBAS executables and registry/Windows path patterns add supporting points.</li>
+<li>Negative indicators (e.g. “what is”, “best practices”, marketing) reduce the score.</li>
+<li><strong>ML hunt score</strong> (chunk-driven; see <a href="../../ML_HUNT_SCORING/">ML Hunt Scoring</a>)</li>
+<li>Articles are chunked (1,000 chars, 200 overlap); each chunk is classified huntable/not.</li>
 <li>Default metric: weighted average of confidences for huntable chunks, normalized to 0–100.</li>
 </ul>
-<h2 id="where-huntables-live">Where huntables live</h2>
+<h2 id="where-huntables-appear">Where huntables appear</h2>
 <ul>
-<li><strong>Article page</strong>: Hunt scores are displayed alongside metadata; the “Send to Workflow” action runs extraction.</li>
-<li><strong>Workflow executions</strong>: <code>extraction_result.observables</code> contains merged observables and per-type counts; <code>content</code> is the synthesized text Sigma consumes when huntables exist.</li>
-<li><strong>API</strong>: <code>GET /api/workflow/executions/{id}</code> exposes <code>discrete_huntables_count</code>, per-agent <code>subresults</code>, and the merged observable list.</li>
+<li><strong>Article page</strong>: Hunt scores (regex + ML) and “Send to Workflow”; after a run, extraction results and huntable counts.</li>
+<li><strong>Workflow executions</strong>: <code>extraction_result.observables</code>, <code>discrete_huntables_count</code>, and <code>content</code> (used by Sigma when huntables exist).</li>
+<li><strong>API</strong>: <code>GET /api/workflow/executions/{id}</code> → <code>extraction_result</code> with <code>discrete_huntables_count</code>, <code>subresults</code>, and merged <code>observables</code>.</li>
 </ul>
 <h2 id="producing-huntables">Producing huntables</h2>
 <ol>
-<li>Ingest an article (RSS, scrape endpoint, or browser extension).</li>
-<li>Trigger the workflow (<code>POST /api/workflow/articles/{article_id}/trigger</code> or from the article page).</li>
-<li>Extract Agent sub-agents emit typed observables; the supervisor aggregates them and stores huntable counts.</li>
-<li>Sigma generation uses the aggregated content when <code>discrete_huntables_count &gt; 0</code> and the content length is sufficient.</li>
+<li>Ingest an article (RSS, scrape, or browser extension).</li>
+<li>Trigger the workflow (<code>POST /api/workflow/articles/{article_id}/trigger</code> or “Send to Workflow” on the article page).</li>
+<li>Extract Agent sub-agents emit typed observables; the supervisor aggregates them into <code>observables</code> and sets <code>discrete_huntables_count</code>.</li>
+<li>Sigma generation uses the aggregated <code>content</code> when <code>discrete_huntables_count &gt; 0</code> and content length is sufficient.</li>
 </ol>
 
 

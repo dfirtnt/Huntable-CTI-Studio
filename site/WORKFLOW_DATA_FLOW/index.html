@@ -3002,6 +3002,7 @@ if content_to_use is None:
 2. <strong>Extracted content</strong> (if <code>discrete_huntables_count &gt; 0</code>, content length &gt; 100, and toggle is disabled)
 3. <strong>Skip SIGMA generation</strong> (if fallback disabled and no extraction results)</p>
 <p><em>Note: <code>sigma_fallback_enabled</code> defaults to <code>False</code>, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag.</em></p>
+<p><em>Note: <code>sigma_fallback_enabled</code> defaults to <code>False</code>, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag.</em></p>
 <p><strong>Why memory?</strong>
 - Faster access (no database query)
 - Workflow is sequential (extraction → SIGMA within the same execution)
@@ -3293,6 +3294,9 @@ agent_chat_url = f&quot;{langfuse_host}/project/{project_id}/sessions/{session_i
 <li><strong>Direct test trigger</strong>: <code>src/web/routes/workflow_config.py:579-680</code></li>
 <li><strong>Database model</strong>: <code>src/database/models.py:479-515</code></li>
 </ul>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNjUyNDE3NjkwXX0=
+-->
 
 
 

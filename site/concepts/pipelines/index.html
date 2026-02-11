@@ -2584,7 +2584,7 @@
 
 
 <h1 id="agentic-workflow-execution-order">Agentic Workflow Execution Order</h1>
-<p>The Huntable agentic workflow runs whenever you trigger <code>/api/workflow/articles/{id}/trigger</code> or click <strong>Send to Workflow</strong> on an article. It is <strong>orchestrated by LangGraph</strong> (which manages step sequencing, conditional branching, and state) and <strong>triggered via Celery tasks</strong>. State is persisted to <code>agentic_workflow_executions</code>, with extraction results feeding Sigma generation and similarity matching.</p>
+<p>The Huntable agentic workflow runs whenever you trigger <code>/api/workflow/articles/{id}/trigger</code> or click <strong>Send to Workflow</strong> on an article. It is <strong>orchestrated by LangGraph</strong> (which manages step sequencing, conditional branching, and state) and <strong>triggered via Celery tasks</strong>. State is persisexecuted by Celery workers and persists stated to <code>agentic_workflow_executions</code>, with extraction results feeding Sigma generation and similarity matching.</p>
 <p>```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         WORKFLOW EXECUTION FLOW                             │
@@ -2693,7 +2693,7 @@
      │                                                 │
      ▼                                                 ▼
 ┌──────────────────┐                                ┌──────────┐
-│ Cmdline Extract    │                                │HuntQueries│
+│ Cmdline Extract    │                                │HuntQueries   Sig    │
 │ (opt: Attn Preproc)│                                │ Extract   │
 └────┬──────────────┘                                └────┬─────┘
      │                                                 │
@@ -2747,6 +2747,9 @@
 <li><strong>Direct Test</strong> (Testing) - Single agent testing from the configuration page</li>
 </ol>
 <p>See <a href="../../internals/architecture/">architecture</a> for detailed diagrams and flow breakdowns.</p>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTU0ODgzMTY3MV19
+-->
 
 
 

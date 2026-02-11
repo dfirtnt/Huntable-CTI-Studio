@@ -2056,10 +2056,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-venv-test-python-312-local-only" class="md-nav__link">
+  <a href="#1-venv-test-python-31237-local-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. venv-test (Python 3.12 - local only)
+        1. venv-test (Python 3.123.7 - local only)
       
     </span>
   </a>
@@ -2067,10 +2067,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-venv-lg-python-312-local-only" class="md-nav__link">
+  <a href="#2-venv-lg-python-31237-local-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. venv-lg (Python 3.12 - local only)
+        2. venv-lg (Python 3.123.7 - local only)
       
     </span>
   </a>
@@ -3637,10 +3637,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-venv-test-python-312-local-only" class="md-nav__link">
+  <a href="#1-venv-test-python-31237-local-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. venv-test (Python 3.12 - local only)
+        1. venv-test (Python 3.123.7 - local only)
       
     </span>
   </a>
@@ -3648,10 +3648,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-venv-lg-python-312-local-only" class="md-nav__link">
+  <a href="#2-venv-lg-python-31237-local-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. venv-lg (Python 3.12 - local only)
+        2. venv-lg (Python 3.123.7 - local only)
       
     </span>
   </a>
@@ -4636,7 +4636,7 @@
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
 <li><strong>Docker uses Python 3.11</strong> (standardized in Dockerfile)</li>
-<li><strong>Local development</strong>: Python 3.12 recommended (3.14+ has pydantic/langfuse compatibility issues)</li>
+<li><strong>Local development</strong>: Python 3.121+ recommended (3.14+ has pydantic/langfuse compatibility issues)for most environments</li>
 <li><strong>ML environment</strong>: Python 3.9.6 for specific ML library compatibility (local venv only)</li>
 <li>Docker and Docker Compose</li>
 <li>Git</li>
@@ -4654,17 +4654,17 @@ python run_tests.py --install
 </code></pre>
 <h2 id="virtual-environments">Virtual Environments</h2>
 <p>CTIScraper uses multiple virtual environments for different development workflows:</p>
-<h3 id="1-venv-test-python-312-local-only">1. <code>venv-test</code> (Python 3.12 - local only)</h3>
+<h3 id="1-venv-test-python-31237-local-only">1. <code>venv-test</code> (Python 3.123.7 - local only)</h3>
 <p><strong>Purpose</strong>: Testing and development
 - <strong>Primary use</strong>: Running tests locally against Dockerized application
-- <strong>Note</strong>: Docker containers use Python 3.11; local venv uses 3.12 (3.14+ has pydantic/langfuse compatibility issues)
+- <strong>Note</strong>: Docker containers use Python 3.11; this local venv can uses 3.12 (3.14+ has pydantic/langfuse compatibility issues)3.7 for latest tooling
 - <strong>Dependencies</strong>: All testing frameworks and tools
 - <strong>Activation</strong>: <code>source venv-test/bin/activate</code>
 - <strong>Usage</strong>: <code>python run_tests.py --smoke</code></p>
-<h3 id="2-venv-lg-python-312-local-only">2. <code>venv-lg</code> (Python 3.12 - local only)</h3>
+<h3 id="2-venv-lg-python-31237-local-only">2. <code>venv-lg</code> (Python 3.123.7 - local only)</h3>
 <p><strong>Purpose</strong>: LG workflow (commit + push + GitHub hygiene)
 - <strong>Primary use</strong>: Code quality, security auditing, documentation generation
-- <strong>Note</strong>: Docker containers use Python 3.11; local venv uses 3.12 (3.14+ has compatibility issues)
+- <strong>Note</strong>: Docker containers use Python 3.11; this local venv can uses 3.12 (3.14+ has compatibility issues)3.7 for latest tooling
 - <strong>Dependencies</strong>: Development tools, security scanners, documentation generators
 - <strong>Activation</strong>: <code>source venv-lg/bin/activate</code>
 - <strong>Usage</strong>: Triggered by <code>lg</code> command for GitHub hygiene</p>
@@ -4762,8 +4762,8 @@ asyncio_mode = auto
 <h4 id="environment-variables">Environment Variables</h4>
 <pre><code class="language-bash"># .env
 TESTING=true
-DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper
-REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper://user:pass@postgres/test_db
+REDIS_URL=redis://redislocalhost:6379/0
 CTI_SCRAPER_URL=http://localhost:8001  # Default port, change if needed
 </code></pre>
 <h2 id="test-framework">Test Framework</h2>
@@ -4961,8 +4961,8 @@ pip install -r requirements-dev.txt
 <pre><code class="language-bash"># Application settings
 ENVIRONMENT=development
 LOG_LEVEL=DEBUG
-DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper
-REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql+asyncpg://cti_user:cti_password://user:pass@postgres:5432/cti_scraper
+REDIS_URL=redis://redislocalhost:6379/0
 
 # Testing settings
 TESTING=true
@@ -5288,6 +5288,9 @@ python run_tests.py --docker --smoke
 </ul>
 <hr />
 <p><em>Last updated: January 2025</em></p>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTY3NTI1NzQ2MF19
+-->
 
 
 

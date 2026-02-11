@@ -2835,8 +2835,8 @@
 <h2 id="overview">Overview</h2>
 <p>CTI Scraper now supports 6 LLM providers with a performance-optimized fallback chain:</p>
 <ol>
-<li><strong>MLX</strong> (Apple Metal) - <em>(not implemented — planned)</em></li>
-<li><strong>llama.cpp</strong> (Metal backend) - <em>(not implemented — planned)</em></li>
+<li><strong>MLX</strong> (Apple Metal) - <em>(not implemented — planned)</em>Fastest for Apple Silicon</li>
+<li><strong>llama.cpp</strong> (Metal backend) - <em>(not implemented — planned)</em>Highly optimized C++ inference</li>
 <li><strong>LM Studio</strong> (OpenAI-compatible) - <strong>Active local model provider</strong> — User-friendly GUI with server mode</li>
 <li><strong>OpenAI</strong> (Cloud) - GPT-4o-mini API</li>
 <li><strong>Anthropic</strong> (Cloud) - Claude Haiku API</li>
@@ -3144,7 +3144,10 @@ response = await service.generate_rag_response(
 4. Verify environment variables and model paths
 5. Test individual providers in the web UI</p>
 <hr />
-<p><strong>Note:</strong> This performance testing system is focused on local LLM performance optimization for Apple Silicon Macs. Currently only LMStudio is implemented as an active local provider; MLX and llama.cpp are planned for future releases.</p>
+<p><strong>Note:</strong> This performance testing system is part of CTI Scraper v3.0.0-beta "Copernicus" - a major release focused on local LLM performance optimization for Apple Silicon Macs. Currently only LMStudio is implemented as an active local provider; MLX and llama.cpp are planned for future releases.</p>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNjYzNzQ1MDddfQ==
+-->
 
 
 

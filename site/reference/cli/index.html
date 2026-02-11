@@ -3274,7 +3274,7 @@
 <p><strong>See also:</strong> <a href="../../ML_HUNT_SCORING/">ML Hunt Scoring</a>, <a href="../../internals/chunking/">Chunking</a>.</p>
 <hr />
 <h3 id="embed">embed</h3>
-<p><strong>When:</strong> Manage article embeddings for RAG and Sigma similarity search. Use <code>embed stats</code> to see coverage; use <code>embed embed</code> (i.e., the <code>embed</code> group has an <code>embed</code> subcommand) to generate embeddings for articles that don’t have them (queues a Celery task). Use <code>embed search</code> for semantic search from the CLI.</p>
+<p><strong>When:</strong> Manage article embeddings for RAG and Sigma similarity search. Use <code>embed stats</code> to see coverage; use <code>embed embed</code> (i.e., the <code>embed</code> group has an <code>embed`` (no subcommand) to generate embeddings for articles that don’t have them (queues a Celery task). Use</code>embed search` for semantic search from the CLI.</p>
 <blockquote>
 <p><strong>Note:</strong> The embedding generation subcommand is <code>embed embed</code> (not just <code>embed</code> by itself). Example: <code>./run_cli.sh embed embed --batch-size 1000</code></p>
 </blockquote>
@@ -3288,7 +3288,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>embed</code></td>
+<td><code>embed</code><em>(none)</em></td>
 <td>Generate embeddings for articles missing them (interactive confirm; use <code>--dry-run</code> to preview)</td>
 </tr>
 <tr>
@@ -3301,7 +3301,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Options (embed embed):</strong></p>
+<p><strong>Options (embed embe, no subcommand):</strong></p>
 <table>
 <thead>
 <tr>
@@ -3482,7 +3482,7 @@
 </tr>
 <tr>
 <td><code>cleanup</code></td>
-<td>Show archive statistics</td>
+<td>Show archive statisticsrestore`</td>
 </tr>
 </tbody>
 </table>
@@ -3563,7 +3563,7 @@
 </tr>
 <tr>
 <td><code>embed embed</code> / <code>embed stats</code> / <code>embed search</code></td>
-<td>Embedding generation, coverage stats, semantic search</td>
+<td>Embedding coverage, generation, coverage stats, semantic search</td>
 </tr>
 <tr>
 <td><code>sigma sync/index/match/match-all/stats</code></td>
@@ -3579,10 +3579,13 @@
 </tr>
 <tr>
 <td><code>archive add/remove/list/cleanup</code></td>
-<td>Soft-delete, restore, or clean up articles</td>
+<td>Soft-delete, or restore, or clean up articles</td>
 </tr>
 </tbody>
 </table>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbODI4NTQ5MTgyXX0=
+-->
 
 
 

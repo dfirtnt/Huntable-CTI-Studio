@@ -3086,7 +3086,7 @@ docker-compose restart worker
 </code></pre>
 <h2 id="queue-architecture">Queue Architecture</h2>
 <pre><code>┌─────────────────┐
-│  Main Worker    │  → Processes: default, source_checks, priority_checks,
+│  Main Worker    │  → Processes: default, source_checks, priority_checks,maintenance, 
 │  (cti_worker)   │              maintenance, reports, connectivity, collection
 └─────────────────┘
 
@@ -3161,6 +3161,9 @@ docker-compose restart worker
 <li><code>docker-compose.yml</code> - Worker service definitions</li>
 <li><code>src/worker/celery_app.py:629</code> - <code>trigger_agentic_workflow</code> task</li>
 </ul>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTI5Mjg4MDkzMl19
+-->
 
 
 

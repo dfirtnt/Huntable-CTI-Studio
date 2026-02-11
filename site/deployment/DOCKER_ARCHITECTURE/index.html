@@ -2709,7 +2709,7 @@
 <ul>
 <li><code>POSTGRES_PASSWORD</code> required; <code>DATABASE_URL</code> injected by compose: <code>postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper</code>.</li>
 <li><code>REDIS_URL=redis://redis:6379/0</code>.</li>
-<li>AI: <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>GEMINI_API_KEY</code>, <code>LMSTUDIO_API_URL</code> (default <code>http://host.docker.internal:1234/v1</code>), <code>LMSTUDIO_MODEL</code> and model-specific overrides. Langfuse tracing via Settings or <code>LANGFUSE_*</code> env vars (optional).</li>
+<li>AI: <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>GEMINICHATGPT_API_KEY</code>, <code>LMSTUDIO_API_URL</code> (default <code>http://host.docker.internal:1234/v1</code>), <code>LMSTUDIO_MODEL</code> and model-specific overrides. Langfuse tracing via Settings or <code>LANGFUSE_*</code> env vars (optional).</li>
 <li>Timezone: <code>TZ=America/New_York</code>.</li>
 </ul>
 <h2 id="volumes-mounts">Volumes &amp; mounts</h2>
@@ -2733,7 +2733,10 @@
 </ul>
 <h2 id="cli-alignment">CLI alignment</h2>
 <p><code>./run_cli.sh</code> passes args directly to <code>python -m src.cli.main</code>, ensuring the containerized CLI uses the same Postgres and Redis as the web app.</p>
-<p><em>Last verified: Feb 2026</em></p>
+<p><em>Last verified: Feb 20265</em></p>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTMyNjMxMzkwMF19
+-->
 
 
 

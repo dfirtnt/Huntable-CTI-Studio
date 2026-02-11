@@ -996,10 +996,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#perfect-discriminators-100-precision-in-the-historical-high-signal-subset" class="md-nav__link">
+  <a href="#perfect-discriminators-100-precision-in-the-historical-high-signal-subsetchosen-0-others" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Perfect Discriminators (100% precision in the historical high-signal subset)
+        Perfect Discriminators (100% precision in the historical high-signal subsetChosen, 0% others)
       
     </span>
   </a>
@@ -2784,10 +2784,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#perfect-discriminators-100-precision-in-the-historical-high-signal-subset" class="md-nav__link">
+  <a href="#perfect-discriminators-100-precision-in-the-historical-high-signal-subsetchosen-0-others" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Perfect Discriminators (100% precision in the historical high-signal subset)
+        Perfect Discriminators (100% precision in the historical high-signal subsetChosen, 0% others)
       
     </span>
   </a>
@@ -2995,11 +2995,11 @@
 
 <h1 id="enhanced-threat-hunting-scoring-mechanism">Enhanced Threat Hunting Scoring Mechanism</h1>
 <h2 id="overview">Overview</h2>
-<p>Based on analysis of Windows malware keywords across 319 historical training samples (labels: 'high-signal' and 'low-signal' with 97 and 222 samples respectively). These dataset labels are historical; article-level chosen/rejected classification has been removed from the UI. This scoring mechanism identifies high-quality threat hunting and malware analysis content.</p>
+<p>Based on the analysis of Windows malware keywords across 319 historical training samples (labels: 'high-signal' and 'low-signal' with 97 and 222 samples respectively). These dataset labels are historical; article-level chosen/rejected classification has been removed from the UI. This scoring mechanismarticles (97 Chosen, 222 Rejected), I've implemented an enhanced scoring mechanism that automatically identifies high-quality threat hunting and malware analysis content.</p>
 <p><strong>Integration with ML Content Filtering:</strong> The hunt scoring system is now fully integrated with the ML content filtering system, providing enhanced accuracy and cost optimization through shared threat hunting keywords and confidence scoring.</p>
 <h2 id="key-findings">Key Findings</h2>
-<h3 id="perfect-discriminators-100-precision-in-the-historical-high-signal-subset">Perfect Discriminators (100% precision in the historical high-signal subset)</h3>
-<p>These keywords appeared exclusively in the historical high-signal subset of training data:</p>
+<h3 id="perfect-discriminators-100-precision-in-the-historical-high-signal-subsetchosen-0-others">Perfect Discriminators (100% precision in the historical high-signal subsetChosen, 0% others)</h3>
+<p>These keywords appeared  <strong>exclusively</strong> in the historical high-signal subset of training data"Chosen" content:</p>
 <ul>
 <li><strong>Process Names</strong>: <code>rundll32</code>, <code>msiexec</code>, <code>svchost</code>, <code>lsass.exe</code></li>
 <li><strong>Registry References</strong>: <code>hklm</code>, <code>appdata</code>, <code>programdata</code>, <code>WINDIR</code></li>
@@ -3146,6 +3146,9 @@ Final Score = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negat
 <li><strong>Custom Keywords</strong>: Allow users to define their own keyword sets</li>
 <li><strong>Additional Regex Patterns</strong>: Expand cmd.exe obfuscation detection</li>
 </ol>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbNzI5ODQ0NzddfQ==
+-->
 
 
 
