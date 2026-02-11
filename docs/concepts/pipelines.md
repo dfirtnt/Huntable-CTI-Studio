@@ -1,6 +1,6 @@
 # Agentic Workflow Execution Order
 
-The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. It is **orchestrated by LangGraph** (which manages step sequencing, conditional branching, and state) and **triggered via Celery tasks**. State is persisted to `agentic_workflow_executions`, with extraction results feeding Sigma generation and similarity matching.
+The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. It is **orchestrated by LangGraph** (which manages step sequencing, conditional branching, and state) and **triggered via Celery tasks**. State is persisexecuted by Celery workers and persists stated to `agentic_workflow_executions`, with extraction results feeding Sigma generation and similarity matching.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -113,7 +113,7 @@ The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/
          │                                                 │
          ▼                                                 ▼
     ┌──────────────────┐                                ┌──────────┐
-    │ Cmdline Extract    │                                │HuntQueries│
+    │ Cmdline Extract    │                                │HuntQueries   Sig    │
     │ (opt: Attn Preproc)│                                │ Extract   │
     └────┬──────────────┘                                └────┬─────┘
          │                                                 │
@@ -170,3 +170,6 @@ The workflow can be executed via two methods:
 2. **Direct Test** (Testing) - Single agent testing from the configuration page
 
 See [architecture](../internals/architecture.md) for detailed diagrams and flow breakdowns.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTU0ODgzMTY3MV19
+-->
