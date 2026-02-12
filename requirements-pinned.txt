@@ -107,7 +107,7 @@ jsonschema-specifications==2025.9.1
 jstyleson==0.0.2
 keyring==25.6.0
 kombu==5.5.4
-langchain-core==1.2.9
+langchain-core==1.2.11
 langfuse==3.14.1
 langgraph==1.0.8
 langgraph-checkpoint==4.0.0
@@ -166,7 +166,7 @@ parso==0.8.5
 pathspec==0.12.1
 pexpect==4.9.0
 pgvector==0.4.1
-pillow==11.3.0
+pillow==12.1.1
 platformdirs==4.5.0
 playwright==1.55.0
 pluggy==1.6.0
