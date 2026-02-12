@@ -172,3 +172,6 @@ POST /api/workflow/executions/{execution_id}/retry
 - `src/services/llm_service.py:2629-2650` - LLM call with tracing
 - `src/services/llm_service.py:971-974` - LMStudio request logging
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMjAwMTk2ODU1Nl19
+-->
