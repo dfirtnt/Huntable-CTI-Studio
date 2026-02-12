@@ -1,0 +1,1131 @@
+# Sigma Rules
+
+<!-- MERGED FROM: features/SIGMA_DETECTION_RULES.md, reference/sigma.md -->
+
+# SIGMA Detection Rules System
+
+Comprehensive system for AI-powered SIGMA detection rule generation, matching against SigmaHQ repository, and similarity search.
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Rule Generation](#rule-generation)
+3. [Rule Matching Pipeline](#rule-matching-pipeline)
+4. [Similarity Search](#similarity-search)
+5. [Technical Architecture](#technical-architecture)
+6. [Usage & Examples](#usage--examples)
+7. [CLI Commands](#cli-commands)
+8. [API Reference](#api-reference)
+9. [Configuration](#configuration)
+10. [Troubleshooting](#troubleshooting)
+
+---
+
+## Overview
+
+The SIGMA Detection Rules System combines three powerful features:
+
+1. **AI-Powered Generation**: Automatically creates detection rules from threat intelligence articles
+2. **Rule Matching**: Matches articles to existing SigmaHQ rules (3,068+ indexed rules)
+3. **Similarity Search**: Compares generated rules against existing community rules to prevent duplication
+
+### System Flow
+
+There are two entry paths into the SIGMA detection system:
+
+- **Web/API path**: Triggered via `POST /api/articles/{id}/analyze` — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store
+- **Agentic Workflow path**: Triggered via LangGraph pipeline — OS Detection → Junk Filter → Rank → Extract → Generate SIGMA → Similarity Search → Promote to Queue
+
+```
+Article → Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
+```
+
+### Key Benefits
+
+- **Prevents Duplication**: Identifies existing coverage before generating new rules
+- **Improves Quality**: Validates rules through pySIGMA and community comparison
+- **Saves Time**: Automates rule creation and coverage analysis
+- **Provides Context**: Shows relationships between articles and detection rules
+
+---
+
+## Rule Generation
+
+### Features
+
+#### 🤖 AI-Powered Rule Generation
+- **Multiple AI Models**: Supports ChatGPT (OpenAI) and LMStudio (local LLM)
+- **Content Analysis**: Analyzes article content to extract detection patterns
+- **Context Awareness**: Understands threat techniques and attack patterns
+- **Multiple Rule Generation**: Can generate multiple rules per article
+- **Content Filtering**: ML-based optimization to reduce token usage
+- **Consistent Temperature**: Uses temperature 0.2 for deterministic output
+
+#### ✅ pySIGMA Validation
+- **Automatic Validation**: All rules validated using pySIGMA
+- **Compliance Checking**: Ensures SIGMA format requirements
+- **Error Detection**: Identifies syntax errors and missing fields
+- **Warning Detection**: Flags potential issues and best practices
+
+#### 🔄 Iterative Rule Fixing
+- **Automatic Retry**: Failed rules retried with error feedback
+- **Up to 3 Attempts**: Maximum 3 generation attempts per rule set
+- **Error Feedback**: AI receives detailed validation errors
+- **Progressive Improvement**: Each attempt incorporates previous results
+
+#### 📊 Metadata Storage
+- **Complete Audit Trail**: Stores all generation attempts and validation results
+- **Attempt Tracking**: Records number of attempts made
+- **Validation Results**: Stores detailed errors and warnings
+- **Generation Timestamps**: Tracks when rules were generated
+
+#### 🔄 Conversation Log Display
+- **Interactive Visualization**: Shows LLM ↔ pySigma validator conversation
+- **Attempt-by-Attempt View**: Each retry in separate card with visual indicators
+- **Collapsible Sections**: Long prompts/responses expandable
+- **Color-Coded Feedback**: Valid (green) and invalid (red) results
+- **Detailed Error Messages**: Specific validation errors from pySigma
+- **Progressive Learning**: See how LLM improves based on feedback
+
+### Prerequisites
+
+- Threat hunting score < 65 shows warning but allows proceeding
+- (Deprecated: article-level "chosen" classification requirement has been removed.)
+- AI model configured:
+  - **ChatGPT**: OpenAI API key required
+  - **LMStudio**: Local server running (no API key)
+- **LM Studio for Embeddings**: Required for SIGMA rule similarity search
+  - Model: intfloat/e5-base-v2 loaded in LM Studio
+  - API: http://localhost:1234/v1/embeddings
+  - Environment variables: `LMSTUDIO_EMBEDDING_URL` and `LMSTUDIO_EMBEDDING_MODEL`
+- pySIGMA library installed
+
+### Generation Process
+
+1. **Content Analysis**: AI analyzes article title and content
+2. **Content Filtering**: ML-based optimization reduces token usage
+3. **Pattern Extraction**: Identifies attack patterns and techniques
+4. **Rule Creation**: Generates appropriate SIGMA detection rules
+5. **Format Compliance**: Ensures proper YAML structure
+6. **Validation**: pySIGMA validates generated rules
+7. **Iterative Fixing**: Failed rules trigger retry with feedback (up to 3 attempts)
+8. **Storage**: Rules stored in article metadata with audit trail
+
+### Error Handling
+
+**Common Validation Errors:**
+- Missing required fields (title, logsource, detection)
+- Invalid YAML syntax
+- Incorrect field types
+- Missing condition statements
+- Invalid logsource configurations
+
+**Retry Logic:**
+- Maximum 3 attempts per rule set
+- Error feedback provided to AI model
+- Progressive improvement with each attempt
+- Graceful failure after max attempts
+- Complete conversation log captured for debugging
+
+---
+
+## Rule Matching Pipeline
+
+A three-layer pipeline that matches CTI articles to existing Sigma detection rules from SigmaHQ, classifies coverage status, and intelligently generates new rules only when needed.
+
+### Architecture Components
+
+#### 1. Database Schema
+
+**Tables:**
+- `sigma_rules`: Stores Sigma detection rules with embeddings
+  - 768-dimensional pgvector embeddings for semantic search
+  - JSONB fields for logsource and detection logic
+  - Full metadata (tags, level, status, author, references)
+  - Source tracking (file_path, repo_commit_sha)
+
+- `article_sigma_matches`: Stores article-to-rule matches
+  - Similarity scores and match levels (article/chunk)
+  - Coverage classification (covered/extend/new)
+  - Matched behaviors (discriminators, LOLBAS, intelligence)
+
+**Indexes:**
+- IVFFlat vector index for embedding similarity search
+- GIN indexes for JSONB logsource and tags arrays
+- BTree indexes for foreign keys and coverage status
+
+#### 2. Sigma Sync Service
+
+**File**: `src/services/sigma_sync_service.py`
+
+**Features:**
+- Clones/pulls SigmaHQ repository (read-only)
+- Parses YAML rule files using PyYAML
+- Extracts all rule fields (title, description, logsource, detection, tags)
+- Generates embeddings from enriched rule text
+- Batch indexing with progress tracking
+- Incremental updates (only new rules)
+
+**Key Methods:**
+- `clone_or_pull_repository()`: Git operations
+- `find_rule_files()`: Recursive file discovery
+- `parse_rule_file()`: YAML parsing and normalization
+- `create_rule_embedding_text()`: Embedding text generation
+- `index_rules()`: Batch indexing with embeddings
+
+#### 3. Sigma Matching Service
+
+**File**: `src/services/sigma_matching_service.py`
+
+**Features:**
+- Article-level semantic search using existing embeddings
+- Chunk-level semantic search with on-the-fly embedding generation
+- Behavioral novelty scoring for final SIGMA similarity assessment (Atom Jaccard 70% + Logic Shape Similarity 30%)
+- Configurable candidate retrieval limits and matching thresholdPgvector cosine similarity queries
+- Configurable threshold and limits
+- Match storage with full metadata
+
+**Key Methods:**
+- `match_article_to_rules()`: Article-level matching
+- `match_chunks_to_rules()`: Chunk-level matching with deduplication
+- `store_match()`: Persist matches to database
+- `get_article_matches()`: Retrieve matches with rule details
+- `get_coverage_summary()`: Aggregate coverage statistics
+
+**Candidate Retrieval Pattern (example):**
+The system first retrieves a shortlist of candidate rules using pgvector nearest-neighbors, then computes the behavioral novelty score in application code to rank final matches.
+
+```sql
+-- Retrieve top N candidate rules by embedding distance (pgvector)
+SELECT sr.*SQL Query Pattern:**
+```sql
+SELECT sr.*, 1 - (sr.embedding <=> :embedding::vector) AS similarity
+FROM sigma_rules sr
+WHERE sr.embedding IS NOT NULL
+ORDER BY   AND 1 - (sr.embedding <-=> :embedding::vector
+LIMIT :candidate_limit; -- e.g. 50
+```
+
+The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.) >= :threshold
+ORDER BY similarity DESC
+LIMIT :limit
+```
+
+#### 4. Coverage Classification Service
+
+**File**: `src/services/sigma_coverage_service.py`
+
+**Features:**
+- Extracts behaviors from `chunk_analysis_results`
+- Compares article behaviors to rule detection patterns
+- Classifies as covered/extend/new
+- Confidence scoring
+- Detailed reasoning generation
+
+**Classification Logic:**
+- **Covered** (similarity ≥ 0.85, overlap ≥ 0.7): Behaviors well represented
+- **Extend** (similarity ≥ 0.7, overlap ≥ 0.3): Partial overlap, room for extension
+- **New** (low overlap): Represents new detection opportunity
+
+**Key Methods:**
+- `extract_article_behaviors()`: Aggregate discriminators, LOLBAS, intelligence
+- `extract_rule_patterns()`: Parse Sigma detection fields
+- `calculate_behavior_overlap()`: Compare behaviors to patterns
+- `classify_match()`: Full classification with reasoning
+- `analyze_article_coverage()`: Overall coverage analysis
+
+### Enhanced Generation Workflow
+
+**File**: `src/web/routes/ai.py`
+
+1. **Match Phase**: Automatically match article to existing rules (threshold 0.7)
+2. **Classify Phase**: Classify each match as covered/extend/new
+3. **Store Phase**: Persist matches to database
+4. **Decision Phase**: 
+   - If ≥2 rules marked "covered": Skip generation, return matches
+   - Otherwise: Proceed with LLM generation
+
+**New Parameters:**
+- `skip_matching`: Boolean to bypass matching phase
+- Returns `matched_rules` and `coverage_summary` in all responses
+
+### Embedding Strategy
+
+- **Model**: all-mpnet-base-v2 (768 dimensions)
+- **Reuse**: Leverages existing `EmbeddingService`
+- **Article embeddings**: Already populated in `articles.embedding`
+- **Chunk embeddings**: Generated on-demand from `chunk_analysis_results`
+- **Rule embeddings**: Combines title + description + logsource + tags
+
+### Behavior Extraction
+
+**Source**: `chunk_analysis_results` table
+
+**Fields used:**
+- `perfect_discriminators_found`: High-confidence indicators
+- `good_discriminators_found`: Medium-confidence indicators
+- `lolbas_matches_found`: Living-off-the-land binaries
+- `intelligence_matches_found`: Intelligence indicators
+- `hunt_score`: Threat hunting relevance score
+
+### Coverage Classification
+
+- **Covered**: Article behaviors ⊆ rule detection patterns
+- **Extend**: Partial overlap, article has additional behaviors
+- **New**: Minimal overlap, new detection opportunity
+
+---
+
+## Similarity Search
+
+Enhances "Generate SIGMA Rules" by comparing proposed/generated rules against indexed SigmaHQ repository using semantic similarity search.
+
+### Purpose
+
+1. **Prevents Duplication**: Identifies if similar rules already exist
+2. **Provides Context**: Shows relationship to community rules
+3. **Improves Quality**: Helps understand coverage gaps
+4. **Saves Time**: Avoids recreating existing rules
+
+### How It Works
+
+```
+User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
+  1. Extract title + description
+  2. Generate embedding
+  3. Retrieve candidate rules via pgvector nearest-neighbors
+  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%Query sigma_rules table (cosine similarity)
+  54. Return top 5 matches by behavioral novelty (threshold configurable(≥70% similarity)
+→ Return Response with similar_rules field
+```
+
+### Embedding Details
+
+- **Model**: intfloat/e5-base-v2 via LM Studio (768 dimensions)
+- **Provider**: LM Studio local API server
+- **Input**: Enriched rule text (title, description, logsource, detection)
+-- **Similarity Metric (SIGMA rules)**: Behavioral novelty score — weighted combination:
+   - Atom Jaccard (70%): predicate overlap of detection fields
+   - Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT**: Cosine similarity (1 - cosine distance)
+-- **Threshold**: Configurable (default 0.7 on normalized behavioral novelty score0.7 (70% similarity minimum)
+-- **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms overhead per generated rule)
+
+### Similarity Interpretation
+
+- **High Similarity (>0.9)**: Consider using existing rule instead
+- **Medium Similarity (0.7-0.9)**: Review for potential extension
+- **No Matches**: Novel detection opportunity
+
+---
+
+## Technical Architecture
+
+### Technology Stack
+
+- **Database**: PostgreSQL with pgvector extension
+- **Embeddings**: intfloat/e5-base-v2 via LM Studio API
+- **Rule Format**: SIGMA YAML specification
+- **Validation**: pySIGMA library
+- **Repository**: SigmaHQ official repository
+- **API**: FastAPI with async support
+
+### Performance
+
+- **Indexing**: ~5000 rules indexed in 10-15 minutes
+- **Matching**: Article-level match ~100ms, chunk-level ~500ms
+- **Vector Index**: IVFFlat with 100 lists provides sub-second similarity search
+- **Batch Operations**: Process ~100 articles/minute with matching + classification
+- **Query Time**: ~50-200ms per rule similarity search
+- **Embedding Generation**: ~100-300ms per rule
+
+### Database Infrastructure
+
+- **Records**: 3,068+ indexed Sigma rules with embeddings
+- **Index Type**: IVFFlat vector index for fast similarity search
+- **Vector Dimension**: 768 (intfloat/e5-base-v2 model)
+- **Storage**: JSONB for flexible rule metadata
+
+---
+
+## Usage & Examples
+
+### Initial Setup
+
+```bash
+# 1. Sync SigmaHQ repository (first time)
+./run_cli.sh sigma sync
+
+# 2. Index all rules (generates embeddings)
+./run_cli.sh sigma index
+
+# 3. View statistics
+./run_cli.sh sigma stats
+```
+
+**Expected Output:**
+```
+Sigma Rule Index Statistics
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Metric                 ┃ Count ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ Total Rules            │ 5247  │
+│ Rules with Embeddings  │ 5247  │
+│ Total Matches          │ 0     │
+└────────────────────────┴───────┘
+```
+
+### Match Single Article
+
+```bash
+./run_cli.sh sigma match 123 --save
+```
+
+**Output:**
+```
+Matches for Article 123
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
+┃ Rule ID         ┃ Title                                   ┃ Similarity ┃ Level ┃ Coverage ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ a1b2c3d4...     │ PowerShell Suspicious Script Execution │ 0.875      │ high  │ covered  │
+│ e5f6g7h8...     │ Suspicious Process Creation            │ 0.823      │ med   │ extend   │
+│ i9j0k1l2...     │ Registry Modification Detection        │ 0.756      │ low   │ new      │
+└─────────────────┴─────────────────────────────────────────┴────────────┴───────┴──────────┘
+```
+
+### Batch Matching
+
+```bash
+# Match all articles with embeddings and hunt_score >= 50
+./run_cli.sh sigma match-all --min-hunt-score 50 --threshold 0.7
+```
+
+### Web Interface Usage
+
+1. Navigate to any article
+2. Click "Generate SIGMA Rules" button
+3. AI processes article content
+4. System checks for existing coverage
+5. Generates new rules if needed
+6. Shows similarity to existing rules
+7. View conversation log showing LLM ↔ pySigma interaction
+
+---
+
+## CLI Commands
+
+**File**: `src/cli/sigma_commands.py`
+
+### Available Commands
+
+```bash
+# Sync SigmaHQ repository
+./run_cli.sh sigma sync
+
+# Index rules with embeddings
+./run_cli.sh sigma index [--force]
+
+# Match single article
+./run_cli.sh sigma match <article_id> [--save]
+
+# Batch match articles
+./run_cli.sh sigma match-all [--limit N] [--min-hunt-score N]
+
+# Show index statistics
+./run_cli.sh sigma stats
+```
+
+### Features
+
+- Rich console output with tables
+- Progress tracking for batch operations
+- Option to save matches to database
+- Configurable thresholds
+- Hunt score filtering for batch operations
+
+---
+
+## API Reference
+
+### Generate SIGMA Rules (with Matching & Similarity)
+
+**Endpoint**: `POST /api/articles/{article_id}/generate-sigma`
+
+**Request:**
+```json
+{
+  "force_regenerate": false,
+  "include_content": true,
+  "ai_model": "chatgpt",
+  "api_key": "your_api_key_here",
+  "author_name": "CTIScraper User",
+  "temperature": 0.2,
+  "skip_matching": false,
+  "optimization_options": {
+    "useFiltering": true,
+    "minConfidence": 0.7
+  }
+}
+```
+
+**Response (Article is Covered):**
+```json
+{
+  "success": true,
+  "matched_rules": [
+    {
+      "rule_id": "a1b2c3d4-...",
+      "title": "PowerShell Suspicious Script Execution",
+      "similarity": 0.875,
+      "coverage_status": "covered",
+      "matched_behaviors": ["powershell.exe", "EncodedCommand", "bypass"]
+    }
+  ],
+  "coverage_summary": {
+    "covered": 2,
+    "extend": 1,
+    "new": 0,
+    "total": 3
+  },
+  "generated_rules": [],
+  "similar_rules": [],
+  "recommendation": "Article behaviors are covered by 2 existing Sigma rule(s). No new rules needed.",
+  "skipped_generation": true
+}
+```
+
+**Response (New Rules Generated):**
+```json
+{
+  "success": true,
+  "rules": [
+    {
+      "title": "Suspicious PowerShell Execution",
+      "description": "Detects suspicious PowerShell command execution...",
+      "logsource": {...},
+      "detection": {...}
+    }
+  ],
+  "similar_rules": [
+    {
+      "generated_rule": {
+        "title": "Suspicious PowerShell Execution",
+        "description": "Detects suspicious PowerShell command execution..."
+      },
+      "similar_existing_rules": [
+        {
+          "rule_id": "a1b2c3d4-...",
+          "title": "PowerShell Execution with Encoded Commands",
+          "similarity": 0.87,
+          "level": "high",
+          "status": "stable",
+          "file_path": "rules/windows/process_creation/proc_creation_win_powershell_encoded_cmd.yml"
+        }
+      ]
+    }
+  ],
+  "validation_results": [...],
+  "conversation": [...],
+  "validation_passed": true,
+  "attempts_made": 1,
+  "matched_rules": [],
+  "coverage_summary": {...}
+}
+```
+
+### Get Existing Matches
+
+**Endpoint**: `GET /api/articles/{article_id}/sigma-matches`
+
+**Response:**
+```json
+{
+  "success": true,
+  "matches": [
+    {
+      "rule_id": "a1b2c3d4-...",
+      "title": "PowerShell Suspicious Script Execution",
+      "similarity_score": 0.875,
+      "coverage_status": "covered",
+      "matched_discriminators": ["powershell.exe", "EncodedCommand"],
+      "matched_lolbas": ["powershell.exe", "cmd.exe"],
+      "created_at": "2025-01-16T10:30:00"
+    }
+  ],
+  "coverage_summary": {
+    "covered": 2,
+    "extend": 1,
+    "new": 0,
+    "total": 3
+  }
+}
+```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# SIGMA repository and matching
+SIGMA_REPO_PATH=./data/sigma-repo
+SIGMA_MATCH_THRESHOLD=0.7
+
+# LM Studio embedding configuration (required for SIGMA embeddings)
+LMSTUDIO_EMBEDDING_URL=http://localhost:1234/v1/embeddings
+LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
+```
+
+### AI Model Configuration
+
+**ChatGPT (OpenAI)**
+- Model: gpt-4o-mini
+- API Key: Required in request body
+- Temperature: 0.2 (for consistent output)
+- Best for: High-quality rule generation
+
+**LMStudio (Local LLM)**
+- Model: User-configured (e.g., llama-3.2-1b-instruct)
+- API Key: Not required
+- Temperature: 0.2 (for consistent output)
+- Best for: Local processing, privacy, cost savings
+
+**LM Studio for Embeddings** (SIGMA Rule Similarity Search)
+- Endpoint: http://localhost:1234/v1/embeddings
+- Model: intfloat/e5-base-v2 (must be loaded in LM Studio)
+- Dimension: 768
+- Purpose: Generate embeddings for SIGMA rule similarity search
+- Setup:
+  1. Open LM Studio
+  2. Download and load model: `intfloat/e5-base-v2`
+  3. Start local server
+  4. Verify endpoint is accessible
+
+### Similarity Thresholds
+
+- **Default**: 0.7 (70% similarity)
+- **Covered Classification**: ≥ 0.85 similarity, ≥ 0.7 overlap
+- **Extend Classification**: ≥ 0.7 similarity, ≥ 0.3 overlap
+- **New Classification**: Low overlap
+
+### Content Filtering
+
+```json
+{
+  "optimization_options": {
+    "useFiltering": true,      // Enable content filtering
+    "minConfidence": 0.7       // Minimum confidence threshold
+  }
+}
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### API Key Errors
+- Check API key configuration (ChatGPT only)
+- Verify API quota and billing
+- Monitor rate limiting
+- LMStudio requires no API key, verify local server running
+
+#### Embedding Generation Failures
+- **LM Studio not running**: Ensure LM Studio server is running at configured URL
+- **Model not loaded**: Verify intfloat/e5-base-v2 is loaded in LM Studio
+- **Connection timeout**: Check `LMSTUDIO_EMBEDDING_URL` environment variable
+- **Invalid model**: Ensure `LMSTUDIO_EMBEDDING_MODEL` is set to `intfloat/e5-base-v2`
+- **HTTP errors**: Check LM Studio server logs and network connectivity
+
+#### pySIGMA Validation Failures
+- Ensure pySIGMA properly installed
+- Check rule format compliance
+- Review validation error messages
+- Examine conversation log for debugging
+
+#### Generation Failures
+- Check threat hunting score (warning below 65)
+- Review AI model availability
+- Check content filtering settings
+
+#### No Similarity Results
+1. Verify SigmaHQ rules indexed with embeddings:
+   ```bash
+   ./run_cli.sh sigma stats
+   ```
+2. Check embedding service working:
+   ```bash
+   docker-compose exec web python -c "from src.services.embedding_service import EmbeddingService; e = EmbeddingService(); print(len(e.generate_embedding('test')))"
+   ```
+3. Lower similarity threshold temporarily to test
+
+#### Slow Performance
+1. Rebuild vector index:
+   ```sql
+   REINDEX INDEX idx_sigma_rules_embedding;
+   ```
+2. Adjust IVFFlat lists parameter
+3. Increase database resources
+
+#### Import Errors
+All operations should run inside Docker containers:
+```bash
+docker-compose exec web python -m src.cli.main sigma [command]
+```
+
+### Debug Commands
+
+```bash
+# Enable debug logging
+LOG_LEVEL=DEBUG
+
+# Check generation logs
+docker-compose logs -f web | grep "SIGMA"
+
+# Check service status
+docker-compose ps
+
+# Test embedding service
+docker-compose exec web python -c "from src.services.embedding_service import EmbeddingService; print('OK')"
+```
+
+### Monitoring
+
+```sql
+-- Average similarity scores
+SELECT AVG(similarity) 
+FROM article_sigma_matches 
+WHERE match_level = 'article';
+
+-- Distribution of similarity scores
+SELECT 
+    CASE 
+        WHEN similarity >= 0.9 THEN 'Very High (0.9+)'
+        WHEN similarity >= 0.8 THEN 'High (0.8-0.9)'
+        WHEN similarity >= 0.7 THEN 'Medium (0.7-0.8)'
+        ELSE 'Low (<0.7)'
+    END as similarity_range,
+    COUNT(*) as count
+FROM article_sigma_matches
+GROUP BY similarity_range;
+```
+
+---
+
+## Maintenance
+
+### Regular Updates
+
+```bash
+# Update SigmaHQ repository
+./run_cli.sh sigma sync
+
+# Re-index rules
+./run_cli.sh sigma index --force
+
+# Check statistics
+./run_cli.sh sigma stats
+```
+
+### Metrics Tracked
+
+- Rules generated per day
+- Validation success rate
+- Average attempts per generation
+- Most common validation errors
+- Generation processing time
+- Match coverage distribution
+
+### Health Checks
+
+- OpenAI API connectivity
+- pySIGMA validation status
+- Generation success rates
+- Average attempts per rule set
+- Similarity search performance
+
+---
+
+## Security Considerations
+
+### Data Privacy
+- Article content sent to AI model for analysis
+- No sensitive data stored in AI provider logs (ChatGPT)
+- Rules stored locally in database
+- LMStudio provides local processing for full privacy
+
+### Input Validation
+- Article ID validation
+- Threat score thresholds
+- (Deprecated: "chosen" classification requirement has been removed.)
+- Rate limiting on generation requests
+- API key validation for external models
+
+### Output Validation
+- pySIGMA validation ensures rule safety
+- No arbitrary code execution
+- Structured rule format only
+
+---
+
+## Future Enhancements
+
+### Planned Features
+- Custom rule templates
+- Automatic rule performance optimization
+- Bulk rule generation
+- Rule testing with SIEM frameworks
+- Rule sharing and export
+- Batch similarity search
+- Weighted similarity (consider detection logic)
+- Similarity explanations
+- Auto-merge suggestions
+- Cross-platform matching
+
+### Integration Opportunities
+- SIEM platform integration
+- Direct PR creation to SigmaHQ
+- Enhanced TTP extraction and mapping
+- ML-based rule quality assessment
+- Periodic automated SigmaHQ sync
+- Rule suggestions for "extend" matches
+- Performance optimization with chunk embedding caching
+
+---
+
+## Files & Components
+
+### Created Files
+- `init.sql/migrations/20250116_add_sigma_matching_tables.sql`
+- `src/services/sigma_sync_service.py`
+- `src/services/sigma_matching_service.py`
+- `src/services/sigma_coverage_service.py`
+- `src/cli/sigma_commands.py`
+
+### Modified Files
+- `src/database/models.py` (added SigmaRuleTable, ArticleSigmaMatchTable)
+- `src/web/routes/ai.py` (enhanced with match-first logic)
+- `src/cli/main.py` (registered sigma_group commands)
+- `requirements.txt` (added GitPython==3.1.43)
+
+### Dependencies
+- `GitPython==3.1.43`: Repository management
+- `pysigma==0.11.23`: Rule parsing/validation
+- `pgvector>=0.4.0`: Vector similarity
+- `sentence-transformers>=2.2.2`: Embeddings (all-mpnet-base-v2)
+
+---
+
+## Support
+
+For issues and questions:
+- **GitHub Issues**: Report bugs and feature requests
+- **Documentation**: Check this guide and API documentation
+- **Community**: Join CTI Scraper community discussions
+
+---
+
+## References
+
+- [SigmaHQ Repository](https://github.com/SigmaHQ/sigma)
+- [Sigma Specification](https://github.com/SigmaHQ/sigma-specification)
+- [pgvector](https://github.com/pgvector/pgvector)
+- [Sentence Transformers](https://www.sbert.net/)
+-- [pySIGMA Documentation](https://sigmahq-pysigma.readthedocs.io/)
+-- [Behavioral Novelty (algorithm notes)](internal-notes://behavioral_novelCosine Similarity](https://en.wikipedia.org/wiki/Cosine_similarity)
+
+---
+
+**Status**: ✅ Complete and Functional  
+**Last Updated**: January 2025
+
+---
+
+# Sigma Reference
+
+Sigma generation runs inside the workflow after extraction and is also available via CLI commands. Use this reference alongside `../howto/generate_sigma.md`.
+
+## Workflow and CLI summary
+- Workflow trigger: `POST /api/workflow/articles/{article_id}/trigger` (Sigma agent runs after extraction).
+- Repository sync: `./run_cli.sh sigma sync`
+- Index rules into PostgreSQL + pgvector: `./run_cli.sh sigma index` (use `--force` to re-index)
+- Match existing rules to an article: `./run_cli.sh sigma match <article_id> --threshold 0.7 --save`
+
+## LLM - SIGMA Rule Generation Prompt Template
+
+### System Role
+You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. You have extensive experience with:
+- Windows, Linux, and macOS security event analysis
+- MITRE ATT&CK framework mapping
+- SIEM platforms (Splunk, ELK Stack, QRadar, etc.)
+- Malware analysis and reverse engineering
+- Threat intelligence analysis
+
+## Task
+Analyze the provided threat intelligence article and generate high-quality, actionable SIGMA detection rules that security teams can implement immediately. Follow the official [SigmaHQ Rule Creation Guide](https://github.com/SigmaHQ/sigma/wiki/Rule-Creation-Guide) best practices.
+
+## Article Information
+**Title:** {article_title}
+**Source:** {source_name}
+**URL:** {canonical_url}
+**Published:** {published_date}
+**Content Length:** {content_length} characters
+
+## Article Content
+{article_content}
+
+## SIGMA Rule Generation Guidelines (Based on Official SigmaHQ Standards)
+
+### 1. Rule Structure Requirements
+Each SIGMA rule must include all required fields according to the official specification:
+
+```yaml
+title: [Short capitalized title with less than 50 characters]
+id: [UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]
+status: experimental
+description: [Starts with "Detects..." - clear description of what the rule detects and why it's important]
+references:
+  - [List of relevant references, links to blog posts, advisories, etc.]
+tags:
+  - attack.tactic_id
+  - attack.technique_id
+  - car.2014-04-003  # CAR framework tags when applicable
+author: [Author name(s) separated by commas]
+date: [YYYY/MM/DD format]
+logsource:
+  category: [process_creation/network_connection/file_event/registry_event/etc]
+  product: [windows/linux/macos]
+  service: [specific service if applicable]
+detection:
+  selection:
+    [specific detection criteria using lowercase field names]
+  filter:
+    [optional filters to reduce false positives]
+  condition: selection and not filter
+fields:
+  - [list of important fields for investigation]
+falsepositives:
+  - [specific false positive scenarios to help analysts]
+level: [informational/low/medium/high/critical]
+```
+
+### 2. Title Best Practices
+- **NO prefixes**: Don't use "Detects..." or similar prefixes
+- **Short and specific**: Less than 50 characters
+- **Title case**: Use proper capitalization
+- **Descriptive**: Include threat name or technique
+- **No explanations**: Save details for description
+
+**Good Examples:**
+- Process Injection Using Iexplore.exe
+- Suspicious PowerShell Cmdline with JAB
+- Certutil Lolbin Decode Use
+
+**Bad Examples:**
+- Detects a process execution in a Windows folder that shouldn't contain executables
+- Detects process injection
+
+### 3. Description Best Practices
+- **Start with "Detects..."**: Always begin with this phrase
+- **Explain significance**: What does a trigger mean?
+- **Provide context**: Help analysts understand the threat
+- **Be specific**: Don't just repeat the title
+
+**Good Example:**
+"Detects the execution of whoami, which could be part of administrative activity but is also often used by attackers that have exploited some local privilege escalation or remote code execution vulnerability. The command whoami reveals the current user context. Administrators usually know which user they've used to login. Attackers usually need to evaluate the user context after successful exploitation."
+
+### 4. Detection Logic Best Practices
+- **Single element lists**: Don't use lists for single values
+- **Lowercase only**: Use lowercase identifiers
+- **Comments**: Use `#` for inline comments with 2 spaces separation
+- **Avoid regex**: Use `contains`, `startswith`, `endswith` instead of regex when possible
+- **Field names**: Use exact field names from log source, remove spaces, keep hyphens
+- **No SIEM-specific logic**: Keep detection logic generic
+
+### 5. Backslash Handling
+- **Single backslashes**: Write as plain values (`C:\Windows\System32\cmd.exe`)
+- **Double backslashes**: Use four backslashes (`\\\\foo\bar` for `\\foo\bar`)
+- **Escaping wildcards**: Use `\*` for plain `*`, `\\*` for backslash + wildcard
+- **Regex backslashes**: Use double backslashes in regex patterns
+
+### 6. Value Modifiers Best Practices
+- **Ordering**: Wildcard modifiers first, then encoding modifiers
+- **Common combinations**:
+  - `|contains|all`: Order-agnostic command line parameters
+  - `|utf16|base64offset|contains`: Base64-encoded UTF16 values
+- **Avoid chaining**: Don't chain arbitrary modifiers
+- **End with encoding**: Character set modifiers should be followed by encoding modifiers
+
+### 7. Level Guidelines
+- **Critical**: Never trigger false positives, high relevance
+- **High**: High relevance threats requiring manual review
+- **Medium**: Suspicious activity and policy violations
+- **Low**: Suspicious activity, baselining required
+- **Informational**: Compliance and correlation purposes
+
+### 8. Detection Categories to Focus On
+
+#### Process Creation Rules
+- Suspicious process executions (PowerShell, cmd, wmic, etc.)
+- Malware process names and patterns
+- Command line arguments containing suspicious patterns
+- Parent-child process relationships
+- Process injection techniques
+- LOLBAS (Living Off The Land Binaries and Scripts) usage
+
+#### File System Rules
+- Suspicious file creations in specific directories
+- File extensions associated with malware (.exe, .dll, .bat, .ps1, etc.)
+- File hash detections (if available in the article)
+- File modification patterns
+- File deletion patterns
+- File access patterns
+
+#### Network Activity Rules
+- Command and control (C2) communication patterns
+- Suspicious domain queries
+- Malicious IP addresses
+- Unusual network protocols
+- Data exfiltration patterns
+- Network scanning activities
+
+#### Registry Rules
+- Persistence mechanisms (Run keys, services, etc.)
+- Configuration changes
+- Suspicious registry key modifications
+- Registry-based malware indicators
+- Privilege escalation attempts
+
+#### Authentication Rules
+- Failed login attempts
+- Privilege escalation
+- Account creation/modification
+- Suspicious authentication patterns
+- Lateral movement indicators
+
+### 9. MITRE ATT&CK Mapping
+- Map each rule to specific ATT&CK techniques (T####)
+- Include both tactic and technique IDs
+- Use official technique names from the ATT&CK framework
+- Consider sub-techniques when applicable
+- Use lowercase tags with dots or hyphens as dividers
+
+### 10. References Best Practices
+- **Web links only**: Use links to web pages or documents
+- **No raw content**: Don't link to EVTX files, PCAPs, or raw content
+- **No MITRE links**: Use tags for ATT&CK techniques instead
+- **Include**: Blog posts, advisories, project pages, manual pages, discussions
+
+### 11. False Positive Considerations
+- Document specific false positive scenarios
+- Include filters where appropriate
+- Consider legitimate administrative activities
+- Account for different environments (dev, test, prod)
+- Provide hints for analysts
+
+## Output Format
+
+Generate your response in the following format:
+
+```markdown
+# SIGMA Detection Rules for [Threat Name/Technique]
+
+## Overview
+Brief description of the threat and detection approach based on the article content.
+
+## Rule 1: [Rule Title]
+```yaml
+title: [Short, specific title < 50 chars]
+id: [UUID]
+status: experimental
+description: Detects [specific behavior and its significance]
+references:
+  - [relevant reference link]
+tags:
+  - attack.tactic_id
+  - attack.technique_id
+author: [Your name]
+date: [YYYY/MM/DD]
+logsource:
+  category: [category]
+  product: [product]
+detection:
+  selection:
+    [detection logic]
+  filter:
+    [optional filters]
+  condition: selection and not filter
+fields:
+  - [important investigation fields]
+falsepositives:
+  - [specific false positive scenarios]
+level: [high/medium/low]
+```
+
+## Rule 2: [Rule Title]
+[Continue with additional rules...]
+
+## Implementation Notes
+- Log source requirements
+- Performance considerations
+- Tuning recommendations
+- Additional context for security teams
+```
+
+## Additional Requirements
+
+1. **Generate 3-5 rules** based on the threat intelligence
+2. **Focus on high-confidence detections** that can be implemented immediately
+3. **Include both simple and complex detection logic** where appropriate
+4. **Provide implementation guidance** for security teams
+5. **Consider different environments** (enterprise, SMB, etc.)
+6. **Include relevant threat context** from the article
+7. **Follow SigmaHQ standards** for all rule components
+
+## Example Rule Structure
+```yaml
+title: Suspicious PowerShell Execution - Malware Download
+id: 12345678-1234-1234-1234-123456789012
+status: experimental
+description: Detects suspicious PowerShell execution patterns commonly used by malware for downloading and executing payloads. Attackers often use PowerShell with WebClient to download and execute malicious code from remote sources.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+tags:
+  - attack.execution
+  - attack.t1059.001
+  - attack.command_and_control
+author: Detection Engineer
+date: 2024/01/15
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name: powershell.exe
+    command_line:
+      - '*Invoke-Expression*'
+      - '*IEX*'
+      - '*DownloadString*'
+      - '*WebClient*'
+  filter:
+    command_line:
+      - '*Get-Help*'
+      - '*Get-Command*'
+  condition: selection and not filter
+fields:
+  - process.name
+  - process.command_line
+  - process.parent.name
+falsepositives:
+  - Legitimate PowerShell scripts using WebClient for automation
+  - System administration scripts downloading configuration files
+level: medium
+```
+
+Generate comprehensive, actionable SIGMA rules based on the threat intelligence provided, following all SigmaHQ best practices.
+
+
+---
+
+_Last updated: February 2025_

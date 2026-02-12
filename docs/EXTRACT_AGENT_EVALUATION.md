@@ -41,6 +41,10 @@ Evaluation framework for measuring Extract Agent performance before and after fi
 - **Error Rate**: Failures during extraction
 - **Processing Time**: Time per article (optional)
 
+## Eval articles rehydration
+
+Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) currently depend on articles existing in the DB; after rehydration they fail. Work to use static files as the source of eval data is tracked in [Eval Articles: Static Files](development/EVAL_ARTICLES_STATIC_FILES.md).
+
 ## Test Dataset
 
 **Location:** `outputs/training_data/test_finetuning_data.json`

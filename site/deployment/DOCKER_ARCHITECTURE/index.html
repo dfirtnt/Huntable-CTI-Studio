@@ -1161,10 +1161,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#volumes-mounts" class="md-nav__link">
+  <a href="#volumes-and-mounts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Volumes &amp; mounts
+        Volumes and mounts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-limits-env-overridable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource limits (env-overridable)
       
     </span>
   </a>
@@ -1198,6 +1209,17 @@
     <span class="md-ellipsis">
       
         CLI alignment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dockerfiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dockerfiles
       
     </span>
   </a>
@@ -2633,10 +2655,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#volumes-mounts" class="md-nav__link">
+  <a href="#volumes-and-mounts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Volumes &amp; mounts
+        Volumes and mounts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-limits-env-overridable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource limits (env-overridable)
       
     </span>
   </a>
@@ -2676,6 +2709,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dockerfiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dockerfiles
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2694,49 +2738,98 @@
 
 
 <h1 id="docker-architecture-guide">Docker Architecture Guide</h1>
-<p>This reflects the current <code>docker-compose.yml</code>.</p>
+<p>This reflects the current <code>docker-compose.yml</code> and <code>docker-compose.override.yml</code>.</p>
 <h2 id="services">Services</h2>
-<ul>
-<li><strong>postgres</strong> (<code>pgvector/pgvector:pg15</code>): primary DB, volume <code>postgres_data</code>, healthcheck <code>pg_isready</code>.</li>
-<li><strong>redis</strong> (<code>redis:7-alpine</code>): cache/broker, appendonly enabled, volume <code>redis_data</code>.</li>
-<li><strong>web</strong>: FastAPI app, command <code>uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload</code>; mounts source/config/logs/tests/models/outputs; ports <code>8001:8001</code>, <code>8888:8888</code>; depends on postgres/redis.</li>
-<li><strong>worker</strong>: Celery worker for default, source_checks, priority_checks, maintenance, reports, connectivity, collection queues.</li>
-<li><strong>workflow_worker</strong>: Celery worker for <code>workflows</code> queue (agentic workflow tasks); runs LangGraph state machine.</li>
-<li><strong>scheduler</strong>: Celery beat <code>celery -A src.worker.celery_app beat --loglevel=debug</code>; shares code/config volumes.</li>
-<li><strong>cli</strong> (profile <code>tools</code>): runs <code>python -m src.cli.main</code> with the same env/volumes for DB parity.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Image / Build</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>postgres</strong></td>
+<td><code>pgvector/pgvector:pg15</code></td>
+<td>Primary DB; pgvector extension. Container: <code>cti_postgres</code>.</td>
+</tr>
+<tr>
+<td><strong>redis</strong></td>
+<td><code>redis:7-alpine</code></td>
+<td>Cache and Celery broker. Appendonly + <code>maxmemory</code> / <code>allkeys-lru</code>. Container: <code>cti_redis</code>.</td>
+</tr>
+<tr>
+<td><strong>web</strong></td>
+<td><code>Dockerfile</code></td>
+<td>FastAPI app: <code>uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload</code>. Ports: 8001 (API/UI), 8888.</td>
+</tr>
+<tr>
+<td><strong>worker</strong></td>
+<td><code>Dockerfile</code></td>
+<td>Celery worker queues: <code>default</code>, <code>source_checks</code>, <code>maintenance</code>, <code>reports</code>, <code>connectivity</code>, <code>collection</code>.</td>
+</tr>
+<tr>
+<td><strong>workflow_worker</strong></td>
+<td><code>Dockerfile</code></td>
+<td>Celery worker for <code>workflows</code> queue (agentic/LangGraph tasks).</td>
+</tr>
+<tr>
+<td><strong>scheduler</strong></td>
+<td><code>Dockerfile</code></td>
+<td>Celery beat: <code>celery -A src.worker.celery_app beat --loglevel=debug</code>.</td>
+</tr>
+<tr>
+<td><strong>cli</strong></td>
+<td><code>Dockerfile</code></td>
+<td>Profile <code>tools</code>. Command: <code>python -m src.cli.main</code>. Same Postgres/Redis as app.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="key-environment">Key environment</h2>
 <ul>
-<li><code>POSTGRES_PASSWORD</code> required; <code>DATABASE_URL</code> injected by compose: <code>postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper</code>.</li>
-<li><code>REDIS_URL=redis://redis:6379/0</code>.</li>
-<li>AI: <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>GEMINICHATGPT_API_KEY</code>, <code>LMSTUDIO_API_URL</code> (default <code>http://host.docker.internal:1234/v1</code>), <code>LMSTUDIO_MODEL</code> and model-specific overrides. Langfuse tracing via Settings or <code>LANGFUSE_*</code> env vars (optional).</li>
-<li>Timezone: <code>TZ=America/New_York</code>.</li>
+<li><strong>DB:</strong> <code>POSTGRES_PASSWORD</code> required. <code>DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper</code>.</li>
+<li><strong>Broker:</strong> <code>REDIS_URL=redis://redis:6379/0</code>.</li>
+<li><strong>AI/LLM:</strong> <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>CHATGPT_API_KEY</code>; <code>LMSTUDIO_API_URL</code> (default <code>http://host.docker.internal:1234/v1</code>), <code>LMSTUDIO_MODEL*</code>, <code>LMSTUDIO_EMBEDDING_*</code>; optional Langfuse via <code>LANGFUSE_*</code>.</li>
+<li><strong>Timezone:</strong> <code>TZ=America/New_York</code>.</li>
 </ul>
-<h2 id="volumes-mounts">Volumes &amp; mounts</h2>
+<h2 id="volumes-and-mounts">Volumes and mounts</h2>
 <ul>
-<li>Named volumes: <code>postgres_data</code>, <code>redis_data</code>.</li>
-<li>Bind mounts: <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./outputs</code>, <code>./models</code>, <code>./scripts</code>, <code>./allure-results</code>, <code>./test-results</code>, <code>./backups</code> (web only), Docker socket for web/worker.</li>
-<li>Postgres init: <code>./init-scripts/init.sql</code> → <code>/docker-entrypoint-initdb.d/init.sql</code>.</li>
+<li><strong>Named volumes:</strong> <code>postgres_data</code>, <code>redis_data</code>, <code>langflow_data</code> (defined; LangFlow service is commented out).</li>
+<li><strong>Postgres init:</strong> With override, <code>./init-scripts</code> is mounted at <code>/docker-entrypoint-initdb.d</code> (all scripts there run on first init).</li>
+<li><strong>App bind mounts (web / workers):</strong> <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./models</code>, <code>./outputs</code>, <code>./scripts</code>, <code>./allure-results</code>, <code>./test-results</code>, <code>../Huntable-SIGMA-Rules</code> → <code>/app/sigma-repo</code>. Web only: <code>./backups</code>, Docker socket <code>/var/run/docker.sock</code>, and host timezone at <code>/etc/localtime</code>.</li>
+<li><strong>CLI:</strong> <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./data</code>, <code>./backups</code>.</li>
+</ul>
+<h2 id="resource-limits-env-overridable">Resource limits (env-overridable)</h2>
+<ul>
+<li>postgres: <code>POSTGRES_MEMORY_LIMIT</code> / <code>POSTGRES_MEMORY_RESERVATION</code> (defaults 2G / 512M).</li>
+<li>redis: <code>REDIS_MEMORY_LIMIT</code> / <code>REDIS_MEMORY_RESERVATION</code> (defaults 512M / 128M); <code>REDIS_MAXMEMORY</code> (default 512mb).</li>
+<li>web: <code>WEB_MEMORY_LIMIT</code> / <code>WEB_MEMORY_RESERVATION</code> (defaults 1G / 256M).</li>
+<li>worker: <code>WORKER_MEMORY_LIMIT</code> / <code>WORKER_MEMORY_RESERVATION</code> (defaults 2G / 512M), <code>WORKER_CONCURRENCY</code> (default 2).</li>
+<li>workflow_worker: <code>WORKFLOW_WORKER_MEMORY_LIMIT</code> / <code>WORKFLOW_WORKER_MEMORY_RESERVATION</code> (defaults 2G / 512M), <code>WORKFLOW_WORKER_CONCURRENCY</code> (default 2).</li>
+<li>scheduler: 256M / 64M (fixed in compose).</li>
 </ul>
 <h2 id="health-checks">Health checks</h2>
 <ul>
-<li>postgres: <code>pg_isready</code></li>
-<li>redis: <code>redis-cli ping</code></li>
-<li>web: <code>curl http://localhost:8001/health</code></li>
-<li>worker, workflow_worker: <code>celery ... inspect ping</code></li>
-<li>scheduler: trivial python exit 0</li>
+<li><strong>postgres:</strong> <code>pg_isready -U cti_user -d cti_scraper</code>.</li>
+<li><strong>redis:</strong> <code>timeout 3 redis-cli ping | grep -q PONG</code>.</li>
+<li><strong>web:</strong> Image <code>HEALTHCHECK</code>: <code>curl -f http://localhost:8001/health</code>.</li>
+<li><strong>worker / workflow_worker:</strong> <code>celery -A src.worker.celery_app inspect ping</code>.</li>
+<li><strong>scheduler:</strong> <code>python -c 'import sys; sys.exit(0)'</code>.</li>
 </ul>
 <h2 id="networking">Networking</h2>
 <ul>
-<li>Single bridge network <code>cti_network</code>; services address each other by name (<code>postgres</code>, <code>redis</code>, <code>web</code>).</li>
-<li>External access via mapped ports 8001 (API/UI) and 8888 (debug/aux port if needed).</li>
+<li>Single bridge network: <code>cti_network</code>. Services resolve by name (<code>postgres</code>, <code>redis</code>, <code>web</code>, etc.).</li>
+<li>Exposed ports: 5432 (postgres), 6379 (redis), 8001 and 8888 (web). Use 8001 for API/UI from the host.</li>
 </ul>
 <h2 id="cli-alignment">CLI alignment</h2>
-<p><code>./run_cli.sh</code> passes args directly to <code>python -m src.cli.main</code>, ensuring the containerized CLI uses the same Postgres and Redis as the web app.</p>
-<p><em>Last verified: Feb 20265</em></p>
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTMyNjMxMzkwMF19
--->
+<p><code>./run_cli.sh</code> runs <code>docker-compose run --rm cli python -m src.cli.main</code> with the given args, so the containerized CLI uses the same Postgres and Redis as the web app. The <code>cli</code> service is under profile <code>tools</code> (not started by default <code>docker-compose up</code>).</p>
+<h2 id="dockerfiles">Dockerfiles</h2>
+<ul>
+<li><strong>Dockerfile:</strong> Python 3.11-slim; system deps (Postgres client, Playwright/Chromium, Docker CLI); <code>requirements.txt</code> + <code>requirements-test.txt</code>; non-root user; used by compose for web, worker, workflow_worker, scheduler, cli.</li>
+<li><strong>Dockerfile.prod:</strong> Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images.</li>
+</ul>
+<p><em>Last verified: Feb 2025</em></p>
 
 
 

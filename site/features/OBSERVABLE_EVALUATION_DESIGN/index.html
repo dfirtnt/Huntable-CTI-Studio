@@ -2675,10 +2675,10 @@
 
 <h1 id="observable-evaluation-design">Observable Evaluation Design</h1>
 <blockquote>
-<p><strong>Status</strong>: Internal implementation — see source code for details.</p>
+<p><strong>Status</strong>: <strong>Unsupported.</strong> This capability is not ready for use. The implementation exists in code but is not supported or maintained.</p>
 </blockquote>
 <h2 id="overview">Overview</h2>
-<p>The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries).</p>
+<p>The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries). <strong>This capability is currently unsupported.</strong></p>
 <h2 id="implementation">Implementation</h2>
 <p>The evaluation pipeline is implemented in <code>src/services/observable_evaluation/</code>:</p>
 <ul>
@@ -2696,11 +2696,12 @@
 <ul>
 <li><code>POST /api/observables/evaluation/run</code> — Trigger an evaluation run</li>
 <li><code>GET /api/observables/evaluation/metrics</code> — Retrieve evaluation metrics</li>
+<li><code>GET /api/observables/evaluation/metrics/aggregated</code> — Aggregated metrics by model version and usage (eval/gold)</li>
 <li><code>GET /api/observables/evaluation/failures</code> — List evaluation failures</li>
 </ul>
 <h2 id="related">Related</h2>
 <ul>
-<li><a href="/observables-training">Observable Training Dashboard</a> — UI for monitoring training</li>
+<li><a href="http://localhost:8001/observables-training">Observable Training Dashboard</a> — in-app page (when the app is running)</li>
 <li><a href="../../howto/extract_observables/">Extract Observables How-To</a> — Usage guide</li>
 </ul>
 
