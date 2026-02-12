@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Documentation accuracy report** (`docs/ACCURACY_REPORT.md`): Audit of nav docs vs codebase; used to drive fixes below.
 - **Documentation Overhaul**: Complete reorganization and enhancement of MkDocs documentation
   - Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation
   - Enhanced quickstart.md with clear outcome statements
@@ -24,6 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Documentation Structure**: Reorganized navigation to match proposed structure with Advanced section
 - **File Organization**: Consolidated testing and historical documentation into appropriate subdirectories
+- **Docs vs code alignment (accuracy report fixes)**:
+  - Scoring doc: geometric formula and pattern counts (92/89/239/56); content-filtering and sigma-rules updated
+  - Git URL and clone path: quickstart now uses `dfirtnt/Huntable-CTI-Studio` and `cd Huntable-CTI-Studio`
+  - LM Studio default model: `deepseek/deepseek-r1-0528-qwen3-8b` in configuration and lmstudio docs
+  - Removed non-existent `priority_checks` queue from configuration and workflow-queue docs
+  - DATABASE_URL: doc now states it is built by Docker Compose from POSTGRES_PASSWORD
+  - Worker queue: installation doc clarifies `workflow_worker` consumes only `workflows` queue
+  - training_category: database-queries doc no longer claims deprecation; documents current usage
+  - Context length: lmstudio and configuration docs note web vs worker variance (compose)
+  - Line refs: workflow-data-flow.md updated to current agentic_workflow.py and models.py
+  - MkDocs: added `attr_list`; removed `navigation.expand` so nav sections toggle on click
+  - Orphans: moved root/development/reference orphans to docs/archive/; deleted features duplicates and case-dupe CHANGELOG/CONTRIBUTING (kept changelog.md/contributing.md)
+
+### Fixed
+- **Broken internal links**: 14+ links updated (concepts, architecture, features, guides, reference, sigma-rules malformed link, backup-and-restore, operations)
+- **MkDocs build**: Source/config links in debugging and archive docs converted to code refs (no more link warnings); sigma-rules stray code fence removed so Similarity Search / Technical Architecture / Usage & Examples headings render; explicit anchor for Usage & Examples; backup-and-restore and operations section anchors added
 
 ## [5.0.0 "Callisto"] - 2026-01-15
 
