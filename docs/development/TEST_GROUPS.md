@@ -24,8 +24,8 @@ Tests are organized into groups for organized execution and reporting. Each grou
 
 **Run Command**:
 ```bash
-python run_tests.py smoke
-python scripts/run_tests_by_group.py --group smoke
+python3 run_tests.py smoke
+python3 scripts/run_tests_by_group.py --group smoke
 ```
 
 ---
@@ -54,8 +54,8 @@ python scripts/run_tests_by_group.py --group smoke
 
 **Run Command**:
 ```bash
-python run_tests.py unit
-python scripts/run_tests_by_group.py --group unit
+python3 run_tests.py unit
+python3 scripts/run_tests_by_group.py --group unit
 ```
 
 **Note**: CLI, workflows, and services tests fall under this category but are not explicitly mapped. They are included via the unit test path.
@@ -78,8 +78,8 @@ python scripts/run_tests_by_group.py --group unit
 
 **Run Command**:
 ```bash
-python run_tests.py api
-python scripts/run_tests_by_group.py --group api
+python3 run_tests.py api
+python3 scripts/run_tests_by_group.py --group api
 ```
 
 ---
@@ -102,8 +102,8 @@ python scripts/run_tests_by_group.py --group api
 
 **Run Command**:
 ```bash
-python run_tests.py integration
-python scripts/run_tests_by_group.py --group integration
+python3 run_tests.py integration
+python3 scripts/run_tests_by_group.py --group integration
 ```
 
 **Note**: Uses test database (`cti_scraper_test`) with transaction rollback for isolation.
@@ -126,8 +126,8 @@ python scripts/run_tests_by_group.py --group integration
 
 **Run Command**:
 ```bash
-python run_tests.py ui
-python scripts/run_tests_by_group.py --group ui
+python3 run_tests.py ui
+python3 scripts/run_tests_by_group.py --group ui
 ```
 
 **Note**: UI tests are read-only and do not modify database or config files.
@@ -150,8 +150,8 @@ python scripts/run_tests_by_group.py --group ui
 
 **Run Command**:
 ```bash
-python run_tests.py e2e
-python scripts/run_tests_by_group.py --group e2e
+python3 run_tests.py e2e
+python3 scripts/run_tests_by_group.py --group e2e
 ```
 
 ---
@@ -171,8 +171,8 @@ python scripts/run_tests_by_group.py --group e2e
 
 **Run Command**:
 ```bash
-python run_tests.py performance
-python scripts/run_tests_by_group.py --group performance
+python3 run_tests.py performance
+python3 scripts/run_tests_by_group.py --group performance
 ```
 
 ---
@@ -194,8 +194,8 @@ python scripts/run_tests_by_group.py --group performance
 
 **Run Command**:
 ```bash
-python run_tests.py ai
-python scripts/run_tests_by_group.py --group ai
+python3 run_tests.py ai
+python3 scripts/run_tests_by_group.py --group ai
 ```
 
 ---
@@ -279,19 +279,19 @@ Use `scripts/run_tests_by_group.py` to execute tests by group:
 
 ```bash
 # Run all groups
-python scripts/run_tests_by_group.py
+python3 scripts/run_tests_by_group.py
 
 # Run specific group
-python scripts/run_tests_by_group.py --group smoke
+python3 scripts/run_tests_by_group.py --group smoke
 
 # Run multiple groups
-python scripts/run_tests_by_group.py --group ui --group e2e
+python3 scripts/run_tests_by_group.py --group ui --group e2e
 
 # Stop at first failure
-python scripts/run_tests_by_group.py --stop-on-failure
+python3 scripts/run_tests_by_group.py --stop-on-failure
 
 # Verbose output
-python scripts/run_tests_by_group.py --verbose
+python3 scripts/run_tests_by_group.py --verbose
 ```
 
 **Output**:

@@ -40,21 +40,21 @@ addopts =
 #### 1. Standard Test Execution
 ```bash
 # Run all tests with Allure reports
-python run_tests.py --all
+python3 run_tests.py --all
 
 # Run specific test categories
-python run_tests.py --unit
-python run_tests.py --integration
-python run_tests.py --ui
+python3 run_tests.py --unit
+python3 run_tests.py --integration
+python3 run_tests.py --ui
 ```
 
 #### 2. Manual Test Execution
 ```bash
 # Run tests with Allure results
-python -m pytest tests/ -v --alluredir=allure-results
+python3 -m pytest tests/ -v --alluredir=allure-results
 
 # Run specific test file
-python -m pytest tests/test_utils.py -v --alluredir=allure-results
+python3 -m pytest tests/test_utils.py -v --alluredir=allure-results
 ```
 
 ### Viewing Allure Reports
@@ -62,7 +62,7 @@ python -m pytest tests/test_utils.py -v --alluredir=allure-results
 #### 1. Generate Report Data
 ```bash
 # Run tests to generate Allure results
-python run_tests.py --all
+python3 run_tests.py --all
 ```
 
 #### 2. Containerized Reports (Recommended)
@@ -202,7 +202,7 @@ Allure reports are automatically integrated into the CI/CD pipeline:
 ```yaml
 - name: Run Tests with Allure
   run: |
-    python run_tests.py --all
+    python3 run_tests.py --all
     
 - name: Generate Allure Report
   run: |
@@ -218,7 +218,7 @@ Allure reports are automatically integrated into the CI/CD pipeline:
 ### Docker Environment
 ```bash
 # Run tests in Docker with Allure
-docker exec cti_web python -m pytest tests/ --alluredir=allure-results
+docker exec cti_web python3 -m pytest tests/ --alluredir=allure-results
 
 # Serve reports locally
 allure serve allure-results
@@ -314,7 +314,7 @@ sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
 #### 2. Empty Allure Results
 ```bash
 # Ensure tests are run with --alluredir flag
-python -m pytest tests/ --alluredir=allure-results
+python3 -m pytest tests/ --alluredir=allure-results
 
 # Check if allure-results directory exists
 ls -la allure-results/
@@ -326,7 +326,7 @@ ls -la allure-results/
 rm -rf allure-results/ allure-report/
 
 # Regenerate reports
-python run_tests.py --all
+python3 run_tests.py --all
 allure generate allure-results --clean -o allure-report
 ```
 
