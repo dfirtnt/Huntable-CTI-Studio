@@ -926,7 +926,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">Article ID</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">Article</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 120px; width: 100px; min-width: 100px; max-width: 100px;">Expected</th>';
     
     // Add one column per config version with tooltip and export button
@@ -950,16 +950,17 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
-    articleRows.forEach(article => {
+    articleRows.forEach((article, rowIndex) => {
         const expectedCount = article.expected_count || 0;
         
         // Get article_id from article object or first version result
         const articleId = article.article_id ?? (Object.values(article.versions)[0]?.article_id);
+        const ordinal = rowIndex + 1;
         
-        // Display Article ID (or truncated URL for static evals when article_id is null)
+        // Display: DB article ID (link) or ordinal #N for static/file evals (no DB id); tooltip shows URL
         const articleIdCell = articleId != null
             ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${(article.url || '')}">${articleId}</a>`
-            : `<span class="text-gray-600 dark:text-gray-400 font-mono text-xs" title="${(article.url || '')}">${article.url ? (article.url.length > 45 ? article.url.substring(0, 42) + '…' : article.url) : '—'}</span>`;
+            : `<span class="text-gray-700 dark:text-gray-300 font-mono" title="${(article.url || '')}">#${ordinal}</span>`;
         
         html += '<tr>';
         html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">${articleIdCell}</td>`;
@@ -1073,23 +1074,24 @@ function renderSubagentResults(results) {
     let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article ID</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>';
     html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
-    results.forEach(result => {
+    results.forEach((result, rowIndex) => {
         const expectedCount = result.expected_count || 0;
         const actualCount = result.actual_count !== null ? result.actual_count : '-';
         const score = result.score !== null ? result.score : '-';
+        const ordinal = rowIndex + 1;
         
-        // Display Article ID (or truncated URL for static evals when article_id is null)
+        // Display: DB article ID (link) or ordinal #N for static/file evals; tooltip shows URL
         const articleId = result.article_id;
         const articleIdCell = articleId != null
             ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${result.url || ''}">${articleId}</a>`
-            : `<span class="text-gray-600 dark:text-gray-400 font-mono text-xs" title="${result.url || ''}">${result.url ? (result.url.length > 45 ? result.url.substring(0, 42) + '…' : result.url) : '—'}</span>`;
+            : `<span class="text-gray-700 dark:text-gray-300 font-mono" title="${result.url || ''}">#${ordinal}</span>`;
         
         // Determine color coding based on score
         let scoreClass = 'status-pending';
