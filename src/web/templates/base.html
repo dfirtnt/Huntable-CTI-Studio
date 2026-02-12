@@ -174,9 +174,9 @@
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--panel-bg-0);">
 
     <!-- Navigation -->
-    <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50" style="border-color: var(--border-muted);" aria-label="Main navigation">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center h-[70px] justify-center">
+    <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50 overflow-x-auto" style="border-color: var(--border-muted);" aria-label="Main navigation">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
+            <div class="flex items-center h-[70px] justify-center min-w-0">
                 <button id="mobile-nav-toggle" type="button" class="md:hidden flex-shrink-0 p-2 rounded-md mr-2 transition-colors" style="color: var(--text-secondary);" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav-menu">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -188,7 +188,7 @@
                         <h1 class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</h1>
                     </a>
                 </div>
-                <div class="hidden md:flex items-center justify-center gap-8 flex-1">
+                <div class="hidden md:flex items-center justify-center gap-8 flex-1 min-w-0 shrink">
                     <a href="/" class="nav-item flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium relative" title="Dashboard">
                         <img src="/static/icons/huntable-icon.svg" alt="Home" class="w-[35px] h-[35px]" />
                         Home
@@ -218,7 +218,7 @@
                         Settings
                     </a>
                 </div>
-                <div class="flex-shrink-0 ml-6 invisible md:block" aria-hidden="true">
+                <div class="flex-shrink-0 ml-6 hidden xl:block" aria-hidden="true">
                     <div class="flex items-center gap-2">
                         <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
                         <h1 class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</h1>

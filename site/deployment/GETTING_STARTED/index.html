@@ -2737,7 +2737,7 @@ cp .env.example .env              # set POSTGRES_PASSWORD and API keys
 <li>postgres: <code>pgvector/pgvector:pg15</code>, persistent volume <code>postgres_data</code>, port 5432</li>
 <li>redis: <code>redis:7-alpine</code>, volume <code>redis_data</code>, port 6379</li>
 <li>web: FastAPI app (<code>uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload</code>), ports 8001/8888</li>
-<li>worker: Celery worker (queues: default, source_checks, priority_checks, maintenance, reports, connectivity, collection)</li>
+<li>worker: Celery worker (queues: default, source_checks, maintenance, reports, connectivity, collection)</li>
 <li>workflow_worker: Celery worker (queue: workflows)</li>
 <li>scheduler: Celery beat</li>
 <li>cli (profile <code>tools</code>): <code>python -m src.cli.main</code></li>
@@ -2745,7 +2745,7 @@ cp .env.example .env              # set POSTGRES_PASSWORD and API keys
 <h2 id="required-environment">Required environment</h2>
 <p>Set these in <code>.env</code> before running <code>./start.sh</code>:
 - <code>POSTGRES_PASSWORD=&lt;strong password&gt;</code>
-- <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code> / <code>GEMINICHATGPT_API_KEY</code> (optional AI features)
+- <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code> / <code>CHATGPT_API_KEY</code> (optional AI features)
 - <code>LMSTUDIO_API_URL</code> (default: <code>http://host.docker.internal:1234/v1</code>)
 - <code>LMSTUDIO_MODEL</code>, <code>LMSTUDIO_MODEL_RANK</code>, <code>LMSTUDIO_MODEL_EXTRACT</code>, <code>LMSTUDIO_MODEL_SIGMA</code> (defaults set in compose)
 - Langfuse tracing: configure via Settings UI (<code>LANGFUSE_PUBLIC_KEY</code>, <code>LANGFUSE_SECRET_KEY</code>, etc.) or env vars</p>
@@ -2773,7 +2773,7 @@ docker-compose logs -f web
 <li>AI errors: confirm API keys or LM Studio endpoint reachable</li>
 <li>CLI errors: use <code>./run_cli.sh --help</code> to see current commands; arguments are passed directly to <code>python -m src.cli.main</code></li>
 </ul>
-<p><em>Last verified: Feb 20265</em></p>
+<p><em>Last verified: Feb 2025</em></p>
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbMTAzMzg3ODI4NF19
 -->

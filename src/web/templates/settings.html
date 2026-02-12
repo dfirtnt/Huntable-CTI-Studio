@@ -35,6 +35,31 @@
     <!-- Settings Sections -->
     <div class="space-y-8">
 
+        <!-- Documentation -->
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+            <div id="documentation-header" data-collapsible-panel="documentation" class="flex items-center justify-between cursor-pointer">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📚 Documentation</h2>
+                <span id="documentation-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </span>
+            </div>
+            <div id="documentation-content" class="space-y-4 hidden">
+                <p class="text-sm text-gray-600 dark:text-gray-400">Open the MkDocs documentation site. If the page does not load, run <code class="bg-gray-700 px-1 rounded">./run_mkdocs.sh</code> in the project directory first.</p>
+                <a id="launchMkdocsBtn"
+                   href="http://127.0.0.1:8000"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-4L10 14"></path>
+                    </svg>
+                    Launch MkDocs server
+                </a>
+            </div>
+        </div>
+
         <!-- Backup Configuration -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
             <div id="backupConfig-header" data-collapsible-panel="backupConfig" class="flex items-center justify-between cursor-pointer">
@@ -668,8 +693,8 @@
     </div>
 </div>
 
-<!-- Success Notification -->
-<div id="successNotification" class="fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-green-500 text-white transform translate-x-full transition-transform duration-300">
+<!-- Success Notification (hidden when not in use) -->
+<div id="successNotification" class="hidden fixed top-4 right-4 z-[100] p-4 rounded-md shadow-lg w-full max-w-[min(24rem,calc(100vw-2rem))] bg-green-500 text-white transform translate-x-full transition-transform duration-300 pointer-events-none" aria-live="polite" aria-hidden="true">
     <div class="flex items-center">
         <span class="mr-2">✅</span>
         <span>Settings saved successfully!</span>
@@ -1565,13 +1590,19 @@
 
 
     
-    // Show success notification
+    // Show success notification (slide in, then after 5s slide out and hide completely)
     function showSuccessNotification() {
         const notification = document.getElementById('successNotification');
-        notification.classList.remove('translate-x-full');
-        
+        if (!notification) return;
+        notification.classList.remove('hidden', 'translate-x-full');
+        notification.setAttribute('aria-hidden', 'false');
         setTimeout(function() {
-            notification.remove();
+            notification.classList.add('translate-x-full');
+            notification.addEventListener('transitionend', function onEnd() {
+                notification.removeEventListener('transitionend', onEnd);
+                notification.classList.add('hidden');
+                notification.setAttribute('aria-hidden', 'true');
+            }, { once: true });
         }, 5000);
     }
 

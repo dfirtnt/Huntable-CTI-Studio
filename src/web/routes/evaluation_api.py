@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -23,8 +24,38 @@ from src.database.models import (
     SubagentEvaluationTable,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
+from src.services.llm_service import LLMService
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
+
+# Subagent name -> ExtractAgent-style agent name for run_extraction_agent
+_SUBAGENT_TO_AGENT = {
+    "cmdline": "CmdlineExtract",
+    "process_lineage": "ProcTreeExtract",
+    "hunt_queries": "HuntQueriesExtract",
+}
+
+
+def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> int | None:
+    """Derive observable count from run_extraction_agent result for a single subagent."""
+    if subagent_name == "hunt_queries":
+        n = agent_result.get("query_count")
+        if n is not None:
+            return int(n)
+        q = agent_result.get("queries") or agent_result.get("items", [])
+        return len(q) if isinstance(q, list) else 0
+    if subagent_name == "cmdline":
+        items = agent_result.get("cmdline_items") or agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    if subagent_name == "process_lineage":
+        items = agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    n = agent_result.get("count")
+    if n is not None:
+        return int(n)
+    items = agent_result.get("items", [])
+    return len(items) if isinstance(items, list) else 0
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +76,43 @@ def _resolve_subagent_query(subagent: str) -> tuple[str, list[str]]:
     return canonical_value, list(lookup_values)
 
 
+_ROOT = Path(__file__).parent.parent.parent.parent
+_EVAL_ARTICLES_DATA_DIR = _ROOT / "config" / "eval_articles_data"
+
+
+def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
+    """Load static eval article snapshots for a subagent.
+
+    Returns dict url -> {url, title, content, filtered_content?, expected_count}.
+    """
+    out: dict[str, dict] = {}
+    data_dir = _EVAL_ARTICLES_DATA_DIR / subagent_key
+    articles_path = data_dir / "articles.json"
+    if not articles_path.exists():
+        return out
+    try:
+        with open(articles_path) as f:
+            articles = json.load(f)
+        if not isinstance(articles, list):
+            return out
+        for entry in articles:
+            url = entry.get("url")
+            if url:
+                out[url] = {
+                    "url": url,
+                    "title": entry.get("title", ""),
+                    "content": entry.get("content", ""),
+                    "filtered_content": entry.get("filtered_content") or entry.get("content", ""),
+                    "expected_count": entry.get("expected_count", 0),
+                }
+    except Exception as e:
+        logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
+    return out
+
+
 def _load_preset_expected_by_url(subagent: str) -> dict[str, int]:
     """Load predetermined expected_count by article_url from eval_articles.yaml."""
-    config_path = Path(__file__).parent.parent.parent.parent / "config" / "eval_articles.yaml"
+    config_path = _ROOT / "config" / "eval_articles.yaml"
     if not config_path.exists():
         return {}
     with open(config_path) as f:
@@ -226,13 +291,17 @@ async def get_dataset_items(request: Request, dataset_name: str):
                                                 if article:
                                                     article_id = article.id
                                                     logger.info(
-                                                        f"Found article_id {article_id} by content matching (snippet size: {snippet_size})"
+                                                        "Found article_id %s by content matching (snippet size: %s)",
+                                                        article_id,
+                                                        snippet_size,
                                                     )
                                                     break
 
                                     if not article_id:
                                         logger.warning(
-                                            f"Could not find article_id for dataset item {item.id} - tried title, URL, and content matching"
+                                            "Could not find article_id for dataset item %s - "
+                                            "tried title, URL, and content matching",
+                                            item.id,
                                         )
                                 finally:
                                     db_session.close()
@@ -336,7 +405,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     # For proper eval support, workflow should be modified to use config_snapshot when present
                     original_active = (
                         db_session.query(AgenticWorkflowConfigTable)
-                        .filter(AgenticWorkflowConfigTable.is_active == True)
+                        .filter(AgenticWorkflowConfigTable.is_active.is_(True))
                         .first()
                     )
 
@@ -541,13 +610,12 @@ async def get_execution_commandlines(
 
             # Extract truncation warnings if any
             warnings = []
-            if extraction_result and isinstance(extraction_result, dict):
-                if "warnings" in extraction_result:
-                    extraction_warnings = extraction_result.get("warnings")
-                    if isinstance(extraction_warnings, list):
-                        warnings.extend(extraction_warnings)
+            if extraction_result and isinstance(extraction_result, dict) and "warnings" in extraction_result:
+                extraction_warnings = extraction_result.get("warnings")
+                if isinstance(extraction_warnings, list):
+                    warnings.extend(extraction_warnings)
 
-            response_data = {
+            return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
                 "commandlines": commandlines,
@@ -556,8 +624,6 @@ async def get_execution_commandlines(
                 "result_type": result_key,
                 "warnings": warnings if warnings else None,
             }
-
-            return response_data
         finally:
             db_session.close()
     except HTTPException:
@@ -654,9 +720,7 @@ async def get_subagent_eval_articles(
 ):
     """Get eval articles for a specific subagent from config file."""
     try:
-        # Load eval articles config (go up 4 levels from src/web/routes/ to project root)
-        config_path = Path(__file__).parent.parent.parent.parent / "config" / "eval_articles.yaml"
-
+        config_path = _ROOT / "config" / "eval_articles.yaml"
         if not config_path.exists():
             raise HTTPException(status_code=404, detail="eval_articles.yaml config file not found")
 
@@ -675,6 +739,7 @@ async def get_subagent_eval_articles(
 
         urls = [a.get("url") for a in articles if a.get("url")]
         url_to_id = resolve_articles_by_urls(urls) if urls else {}
+        url_to_static = _load_static_eval_articles(subagent_key)
 
         results = []
         for article_def in articles:
@@ -682,13 +747,16 @@ async def get_subagent_eval_articles(
             if not url:
                 continue
             article_id = url_to_id.get(url)
+            from_static = url in url_to_static
+            found = article_id is not None or from_static
             expected_count = article_def.get("expected_count", 0)
             results.append(
                 {
                     "url": url,
                     "expected_count": expected_count,
                     "article_id": article_id,
-                    "found": article_id is not None,
+                    "found": found,
+                    "from_static": from_static,
                 }
             )
 
@@ -719,7 +787,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
             # Get current active config
             active_config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active.is_(True))
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .first()
             )
@@ -745,8 +813,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
             if not canonical_subagent_name:
                 canonical_subagent_name = eval_request.subagent_name
 
-            # Get expected counts from config (go up 4 levels from src/web/routes/ to project root)
-            config_path = Path(__file__).parent.parent.parent.parent / "config" / "eval_articles.yaml"
+            config_path = _ROOT / "config" / "eval_articles.yaml"
             expected_counts = {}
             if config_path.exists():
                 with open(config_path) as f:
@@ -758,7 +825,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         if url:
                             expected_counts[url] = expected_count if expected_count is not None else 0
 
-            # Create SubagentEvaluationTable records and workflow executions
+            url_to_static = _load_static_eval_articles(canonical_subagent_name)
             eval_records = []
             executions = []
 
@@ -768,18 +835,108 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 expected_count = expected_counts.get(url, 0)
 
                 if not article_id:
-                    # Create eval record but mark as failed
-                    eval_record = SubagentEvaluationTable(
-                        subagent_name=canonical_subagent_name,
-                        article_url=url,
-                        article_id=None,
-                        expected_count=expected_count,
-                        workflow_config_id=active_config.id,
-                        workflow_config_version=active_config.version,
-                        status="failed",
-                    )
-                    db_session.add(eval_record)
-                    eval_records.append(eval_record)
+                    static_entry = url_to_static.get(url)
+                    if static_entry:
+                        agent_name = _SUBAGENT_TO_AGENT.get(canonical_subagent_name)
+                        if (
+                            not agent_name
+                            or not active_config.agent_prompts
+                            or agent_name not in active_config.agent_prompts
+                        ):
+                            eval_record = SubagentEvaluationTable(
+                                subagent_name=canonical_subagent_name,
+                                article_url=url,
+                                article_id=None,
+                                expected_count=expected_count,
+                                workflow_config_id=active_config.id,
+                                workflow_config_version=active_config.version,
+                                status="failed",
+                            )
+                            db_session.add(eval_record)
+                            eval_records.append(eval_record)
+                            continue
+                        try:
+                            agent_prompt_data = active_config.agent_prompts[agent_name]
+                            prompt_config = (
+                                json.loads(agent_prompt_data["prompt"])
+                                if isinstance(agent_prompt_data.get("prompt"), str)
+                                else None
+                            )
+                            if not prompt_config:
+                                raise ValueError(f"No prompt for {agent_name}")
+                            agent_models = active_config.agent_models or {}
+                            llm_service = LLMService(config_models=agent_models)
+                            content = static_entry.get("filtered_content") or static_entry.get("content", "")
+                            agent_result = await llm_service.run_extraction_agent(
+                                agent_name=agent_name,
+                                content=content,
+                                title=static_entry.get("title", ""),
+                                url=url,
+                                prompt_config=prompt_config,
+                                qa_prompt_config=None,
+                                max_retries=1,
+                                execution_id=None,
+                                model_name=agent_models.get(f"{agent_name}_model") or agent_models.get("ExtractAgent"),
+                                temperature=float(agent_models.get(f"{agent_name}_temperature", 0) or 0),
+                                top_p=float(agent_models.get(f"{agent_name}_top_p"))
+                                if agent_models.get(f"{agent_name}_top_p") is not None
+                                else None,
+                                qa_model_override=None,
+                                provider=agent_models.get(f"{agent_name}_provider")
+                                or agent_models.get("ExtractAgent_provider"),
+                                attention_preprocessor_enabled=True,
+                            )
+                            actual_count = _actual_count_from_agent_result(canonical_subagent_name, agent_result or {})
+                            if actual_count is None:
+                                actual_count = 0
+                            score = actual_count - expected_count
+                            eval_record = SubagentEvaluationTable(
+                                subagent_name=canonical_subagent_name,
+                                article_url=url,
+                                article_id=None,
+                                expected_count=expected_count,
+                                actual_count=actual_count,
+                                score=score,
+                                workflow_config_id=active_config.id,
+                                workflow_config_version=active_config.version,
+                                workflow_execution_id=None,
+                                status="completed",
+                                completed_at=datetime.utcnow(),
+                            )
+                            db_session.add(eval_record)
+                            eval_records.append(eval_record)
+                            logger.info(
+                                "Static eval %s url=%s actual=%s expected=%s",
+                                canonical_subagent_name,
+                                url[:50],
+                                actual_count,
+                                expected_count,
+                            )
+                        except Exception as e:
+                            logger.warning("Static eval failed for %s: %s", url[:50], e)
+                            eval_record = SubagentEvaluationTable(
+                                subagent_name=canonical_subagent_name,
+                                article_url=url,
+                                article_id=None,
+                                expected_count=expected_count,
+                                workflow_config_id=active_config.id,
+                                workflow_config_version=active_config.version,
+                                status="failed",
+                            )
+                            db_session.add(eval_record)
+                            eval_records.append(eval_record)
+                    else:
+                        eval_record = SubagentEvaluationTable(
+                            subagent_name=canonical_subagent_name,
+                            article_url=url,
+                            article_id=None,
+                            expected_count=expected_count,
+                            workflow_config_id=active_config.id,
+                            workflow_config_version=active_config.version,
+                            status="failed",
+                        )
+                        db_session.add(eval_record)
+                        eval_records.append(eval_record)
                     continue
 
                 # Create workflow execution
@@ -897,12 +1054,16 @@ async def get_subagent_eval_results(
                         .first()
                     )
 
-                    if execution and execution.extraction_result and isinstance(execution.extraction_result, dict):
+                    if (
+                        execution
+                        and execution.extraction_result
+                        and isinstance(execution.extraction_result, dict)
+                        and "warnings" in execution.extraction_result
+                    ):
                         # Extract warnings
-                        if "warnings" in execution.extraction_result:
-                            extraction_warnings = execution.extraction_result.get("warnings")
-                            if isinstance(extraction_warnings, list):
-                                warnings.extend(extraction_warnings)
+                        extraction_warnings = execution.extraction_result.get("warnings")
+                        if isinstance(extraction_warnings, list):
+                            warnings.extend(extraction_warnings)
 
                 # Calculate score if actual_count is set
                 score = None
@@ -1362,7 +1523,8 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
                 logger.error(f"AttributeError in bundle generation: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Error accessing data structure: {str(e)}. This may indicate a data format issue in the execution record.",
+                    detail=f"Error accessing data structure: {str(e)}. "
+                    "This may indicate a data format issue in the execution record.",
                 ) from e
 
             # Workflow metadata already set by service (includes actual attempt used)
@@ -1424,11 +1586,8 @@ async def get_eval_bundle_metadata(
                 error_log = execution.error_log or {}
                 # Filter out non-agent keys
                 agent_keys = ["rank_article", "extract_agent", "generate_sigma", "os_detection"]
-                available_agents = [k for k in error_log.keys() if k in agent_keys]
-                if available_agents:
-                    agent_name = available_agents[0]
-                else:
-                    agent_name = "extract_agent"  # Default
+                available_agents = [k for k in error_log if k in agent_keys]
+                agent_name = available_agents[0] if available_agents else "extract_agent"
 
             bundle_service = EvalBundleService(db_session)
             bundle = bundle_service.generate_bundle(
@@ -1550,7 +1709,9 @@ async def export_bundles_by_config_version(
                 buffer,
                 media_type="application/zip",
                 headers={
-                    "Content-Disposition": f"attachment; filename=eval_bundles_v{config_version}_{canonical_subagent or subagent}.zip"
+                    "Content-Disposition": (
+                        f"attachment; filename=eval_bundles_v{config_version}_{canonical_subagent or subagent}.zip"
+                    )
                 },
             )
         finally:
