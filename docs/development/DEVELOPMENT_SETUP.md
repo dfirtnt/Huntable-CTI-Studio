@@ -18,7 +18,7 @@ Comprehensive guide for setting up the CTIScraper development environment, inclu
 ### Prerequisites
 
 - **Docker uses Python 3.11** (standardized in Dockerfile)
-- **Local development**: Python 3.121+ recommended (3.14+ has pydantic/langfuse compatibility issues)for most environments
+- **Local development**: Python 3.12.1+ recommended (3.14+ has pydantic/langfuse compatibility issues) for most environments
 - **ML environment**: Python 3.9.6 for specific ML library compatibility (local venv only)
 - Docker and Docker Compose
 - Git
@@ -34,25 +34,25 @@ cd CTIScraper
 ./start.sh
 
 # Install test dependencies
-python run_tests.py --install
+python3 run_tests.py --install
 ```
 
 ## Virtual Environments
 
 CTIScraper uses multiple virtual environments for different development workflows:
 
-### 1. `venv-test` (Python 3.123.7 - local only)
+### 1. `venv-test` (Python 3.12.x - local only)
 **Purpose**: Testing and development
 - **Primary use**: Running tests locally against Dockerized application
-- **Note**: Docker containers use Python 3.11; this local venv can uses 3.12 (3.14+ has pydantic/langfuse compatibility issues)3.7 for latest tooling
+- **Note**: Docker containers use Python 3.11; this local venv can use 3.12.x for latest tooling (3.14+ has pydantic/langfuse compatibility issues)
 - **Dependencies**: All testing frameworks and tools
 - **Activation**: `source venv-test/bin/activate`
-- **Usage**: `python run_tests.py --smoke`
+- **Usage**: `python3 run_tests.py --smoke`
 
-### 2. `venv-lg` (Python 3.123.7 - local only)
+### 2. `venv-lg` (Python 3.12.x - local only)
 **Purpose**: LG workflow (commit + push + GitHub hygiene)
 - **Primary use**: Code quality, security auditing, documentation generation
-- **Note**: Docker containers use Python 3.11; this local venv can uses 3.12 (3.14+ has compatibility issues)3.7 for latest tooling
+- **Note**: Docker containers use Python 3.11; this local venv can use 3.12.x for latest tooling (3.14+ has compatibility issues)
 - **Dependencies**: Development tools, security scanners, documentation generators
 - **Activation**: `source venv-lg/bin/activate`
 - **Usage**: Triggered by `lg` command for GitHub hygiene
@@ -71,19 +71,19 @@ CTIScraper uses multiple virtual environments for different development workflow
 # Testing environment
 python3 -m venv venv-test
 source venv-test/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-test.txt
+pip3 install -r requirements.txt
+pip3 install -r requirements-test.txt
 
 # LG workflow environment
 python3 -m venv venv-lg
 source venv-lg/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-test.txt
+pip3 install -r requirements.txt
+pip3 install -r requirements-test.txt
 
 # ML environment (Python 3.9)
 python3.9 -m venv venv-ml
 source venv-ml/bin/activate
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 # Install ML-specific dependencies as needed
 ```
 
@@ -116,10 +116,10 @@ Pytest is the primary testing framework for CTIScraper. It provides:
 
 ```bash
 # Install test dependencies using unified interface
-python run_tests.py --install
+python3 run_tests.py --install
 
 # Or manually install from requirements
-pip install -r requirements-test.txt
+pip3 install -r requirements-test.txt
 
 # Core testing dependencies
 pytest>=7.0.0
@@ -132,23 +132,18 @@ coverage>=7.0.0
 
 ### Test Structure
 
-```
-tests/
-├── conftest.py              # Shared fixtures and configuration
-├── test_basic.py            # Basic functionality tests
-├── test_core.py             # Core system tests
-├── test_database.py         # Database tests
-├── test_utils.py            # Utility function tests
-├── api/                     # API endpoint tests
-│   └── test_endpoints.py
-├── e2e/                     # End-to-end tests
-│   ├── test_web_interface.py
-│   └── mcp_orchestrator.py
-├── integration/             # Integration tests
-│   └── test_system_integration.py
-└── utils/                   # Test utilities
-    └── test_data_generator.py
-```
+See `tests/README.md` and `tests/TEST_INDEX.md` for the current layout. Main areas:
+
+- **api/** — API endpoint tests
+- **cli/** — CLI command tests
+- **e2e/** — End-to-end / web interface tests
+- **integration/** — Cross-component, stateful tests
+- **playwright/** — Playwright (TypeScript) UI tests
+- **ui/** — UI (pytest) tests
+- **services/** — Service-layer unit tests
+- **workflows/** — Workflow execution tests
+- **smoke/** — Smoke / health checks
+- **database/** — Database manager tests
 
 ### Configuration Files
 
@@ -168,10 +163,10 @@ asyncio_mode = auto
 
 #### Environment Variables
 ```bash
-# .env
+# .env (examples; use TEST_DATABASE_URL for tests, never production DATABASE_URL)
 TESTING=true
-DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper://user:pass@postgres/test_db
-REDIS_URL=redis://redislocalhost:6379/0
+TEST_DATABASE_URL=postgresql+asyncpg://cti_user:cti_password@localhost:5433/cti_scraper_test
+REDIS_URL=redis://localhost:6380/0
 CTI_SCRAPER_URL=http://localhost:8001  # Default port, change if needed
 ```
 
@@ -374,13 +369,13 @@ def test_with_data_file():
 
 ```bash
 # Core application dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # Testing dependencies
-pip install -r requirements-test.txt
+pip3 install -r requirements-test.txt
 
 # Development dependencies (for LG workflow)
-pip install -r requirements-dev.txt
+pip3 install -r requirements-dev.txt
 ```
 
 ### Testing Dependencies
@@ -537,8 +532,8 @@ async def browser_page():
 source venv-test/bin/activate
 
 # Run tests
-python run_tests.py --smoke
-python run_tests.py --all --coverage
+python3 run_tests.py --smoke
+python3 run_tests.py --all --coverage
 
 ```
 
@@ -557,7 +552,7 @@ source venv-lg/bin/activate
 source venv-ml/bin/activate
 
 # Run ML experiments
-python scripts/ml_experiment.py
+python3 scripts/ml_experiment.py
 ```
 
 ### Running Tests
@@ -565,16 +560,16 @@ python scripts/ml_experiment.py
 #### Using Unified Interface
 ```bash
 # Quick health check
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 
 # Run all tests
-python run_tests.py --all
+python3 run_tests.py --all
 
 # Run with coverage
-python run_tests.py --all --coverage
+python3 run_tests.py --all --coverage
 
 # Docker-based testing
-python run_tests.py --docker --integration
+python3 run_tests.py --docker --integration
 ```
 
 #### Basic Commands
@@ -629,7 +624,7 @@ python3 -m venv venv-test
 #### Wrong Python version
 ```bash
 # Check Python version
-python --version
+python3 --version
 
 # Use specific version for ML environment
 python3.9 -m venv venv-ml
@@ -638,8 +633,8 @@ python3.9 -m venv venv-ml
 #### Dependencies not installed
 ```bash
 # Install requirements
-pip install -r requirements.txt
-pip install -r requirements-test.txt
+pip3 install -r requirements.txt
+pip3 install -r requirements-test.txt
 ```
 
 #### Environment conflicts
@@ -734,13 +729,13 @@ PWDEBUG=1 pytest tests/e2e/ -s
 ```bash
 # Local testing (using venv-test)
 source venv-test/bin/activate
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 
 # Docker testing
-python run_tests.py --docker --smoke
+python3 run_tests.py --docker --smoke
 
 # Unified script
-python run_tests.py --docker --smoke
+python3 run_tests.py --docker --smoke
 ```
 
 ## Maintenance
