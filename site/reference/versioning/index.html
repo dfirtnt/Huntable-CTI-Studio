@@ -6,15 +6,15 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modern docs for Huntable CTI Studio (CTIScraper)">
+        <meta name="description" content="Modern threat intelligence collection and analysis platform">
       
       
       
       
-        <link rel="prev" href="../sigma/">
+        <link rel="prev" href="../ml-features/">
       
       
-        <link rel="next" href="../../internals/architecture/">
+        <link rel="next" href="../../development/setup/">
       
       
         
@@ -48,8 +48,6 @@
       
     
     
-      <link rel="stylesheet" href="../../css/stackedit.css">
-    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -80,9 +78,7 @@
     
       
 
-  
-
-<header class="md-header md-header--shadow" data-md-component="header">
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
       
@@ -166,6 +162,293 @@
       
         
           
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/huntables/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/add-feed/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/sigma-rules/" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../llm/model-selection/" class="md-tabs__link">
+          
+  
+  
+  LLM & Models
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ml-training/hunt-scoring/" class="md-tabs__link">
+          
+  
+  
+  ML Training
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/setup/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../prompts/eval-bundle/" class="md-tabs__link">
+          
+  
+  
+  Prompts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -179,8 +462,12 @@
                     
 
 
+  
 
-<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
       
@@ -257,15 +544,167 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -283,8 +722,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -423,22 +862,29 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    How-To
+    Guides
   
 
     
@@ -449,12 +895,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
-    How-To
+    Guides
   
 
           </label>
@@ -467,14 +913,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/run_locally/" class="md-nav__link">
+      <a href="../../guides/add-feed/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Run locally
+    Add a Feed
   
 
     
@@ -495,14 +941,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/add_feed/" class="md-nav__link">
+      <a href="../../guides/extract-observables/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Add feed
+    Extract Observables
   
 
     
@@ -523,14 +969,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/extract_observables/" class="md-nav__link">
+      <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extract observables
+    Generate Sigma Rules
   
 
     
@@ -551,14 +997,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/generate_sigma/" class="md-nav__link">
+      <a href="../../guides/evaluate-models/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Generate Sigma
+    Evaluate Models
   
 
     
@@ -579,14 +1025,762 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/evaluate_models/" class="md-nav__link">
+      <a href="../../guides/backup-and-restore/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Evaluate models
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/source-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/memory-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/workflow-data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/qa-loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/sigma-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Detection Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/content-filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/os-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/cmdline-preprocessor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rag-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/observable-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM & Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM & Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/model-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/lmstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LM Studio Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/extract-agent-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Training
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Training
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/hunt-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/database-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Training
   
 
     
@@ -619,15 +1813,23 @@
     
     
     
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
             
   
   
@@ -645,8 +1847,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -671,34 +1873,6 @@
     
   
     CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../config/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Config
   
 
     
@@ -775,14 +1949,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../sigma/" class="md-nav__link">
+      <a href="../ml-features/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Sigma
+    ML Feature Definitions
   
 
     
@@ -1132,1062 +2306,22 @@
     
     
     
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Internals
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Internals
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/scoring/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scoring
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/chunking/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Chunking
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/qa_loops/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    QA loops
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
       
       
-  
-  
-  
-  
-    
-    
-    
+        
+      
     
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deployment
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Deployment
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../deployment/GETTING_STARTED/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../deployment/TECHNICAL_READOUT/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Technical Readout
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Advanced
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LLM & Models
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    LLM & Models
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../LMSTUDIO_INTEGRATION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LMStudio Integration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../Model_Selection_Guide_CTI_Workflows/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Model Selection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../OpenAI_Chat_Models_Reference/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAI Reference
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ML & Training
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    ML & Training
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../ML_HUNT_SCORING/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ML Hunt Scoring
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../HUNTABLE_WINDOWS_CLASSIFIER/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Huntable Windows
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../DATABASE_TRAINING_SYSTEM/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Database Training
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/CONTENT_FILTER_ML_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Content Filter ML
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Features
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Features
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/CONTENT_FILTERING/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Content Filtering
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cmdline Attention Preprocessor
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/OS_DETECTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OS Detection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/OBSERVABLE_EVALUATION_DESIGN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Observable Evaluation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Sigma Rules
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_4" id="__nav_8_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operations
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backup & Restore
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/CROSS_MACHINE_RESTORE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cross Machine Restore
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/MEMORY_OPTIMIZATION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Memory Optimization
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Source Config
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/VERIFY_ML_VERSIONS_BACKUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Verify ML Versions Backup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -2205,8 +2339,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2223,7 +2357,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/DEVELOPMENT_SETUP/" class="md-nav__link">
+      <a href="../../development/setup/" class="md-nav__link">
         
   
   
@@ -2251,14 +2385,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/PORT_CONFIGURATION/" class="md-nav__link">
+      <a href="../../development/testing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Port Configuration
+    Testing Strategy
   
 
     
@@ -2279,7 +2413,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/WEB_APP_TESTING/" class="md-nav__link">
+      <a href="../../development/manual-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/web-app-testing/" class="md-nav__link">
         
   
   
@@ -2307,7 +2469,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/DATABASE_QUERY_GUIDE/" class="md-nav__link">
+      <a href="../../development/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-queries/" class="md-nav__link">
         
   
   
@@ -2335,63 +2525,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Debugging Tools
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/ADVANCED_QUALITY_SYSTEM.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced Quality System
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/ALLURE_REPORTS/" class="md-nav__link">
+      <a href="../../development/allure-reports/" class="md-nav__link">
         
   
   
@@ -2419,14 +2553,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/DEBUG_EVAL_LMSTUDIO_LOGS/" class="md-nav__link">
+      <a href="../../development/multi-instance/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Debug Eval Logs
+    Multi-Instance
   
 
     
@@ -2447,98 +2581,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
+      <a href="../../development/workflow-queue/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Lightweight Integration Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/MULTI_INSTANCE_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multi Instance Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/MANUAL_CHECKLIST_30MIN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Manual Checklist 30min
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/MANUAL_TEST_CHECKLIST/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Manual Test Checklist
+    Workflow Queue
   
 
     
@@ -2580,6 +2630,67 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
                 
   
@@ -2587,14 +2698,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/boolean-search/" class="md-nav__link">
+      <a href="../../prompts/eval-bundle/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Boolean Search
+    Eval Bundle Analysis
   
 
     
@@ -2615,14 +2726,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/backfill_chunk_analysis_help/" class="md-nav__link">
+      <a href="../../prompts/huntquery-eval/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Backfill Chunk Analysis
+    Hunt Query Eval
   
 
     
@@ -2643,70 +2754,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/TROUBLESHOOT_EVAL_PENDING/" class="md-nav__link">
+      <a href="../../prompts/proctree-eval/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshoot Eval Pending
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/WORKFLOW_QUEUE_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Workflow Queue Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../development/WebAppDevtestingGuide/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Web App Dev Testing Guide
+    Process Tree Eval
   
 
     
@@ -2726,14 +2781,6 @@
     </li>
   
 
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
     
       
       
@@ -2742,7 +2789,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../CONTRIBUTING/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -2762,282 +2809,39 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
                 </div>
               </div>
             
-            
-              
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
-                <div class="md-sidebar__scrollwrap">
-                  <div class="md-sidebar__inner">
-                    
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#version-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Version Format
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-version" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current Version
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#planetary-moon-naming-system" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Planetary Moon Naming System
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Planetary Moon Naming System">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#why-planetary-moons" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why Planetary Moons?
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#named-after" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Named After
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#version-history" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Version History
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Version History">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#v5300-callistoopernicus-20265-01-1528" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v53.0.0 "Callistoopernicus" (20265-01-1528)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#v5200-ganymede-planned-superseded" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v52.0.0 "Ganymede" (Planned, Superseded)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#v400-kepler-2025-11-04" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v4.0.0 "Kepler" (2025-11-04)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#v3500-copernicusallisto-20256-01-2815" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v35.0.0 "Copernicusallisto" (20256-01-2815)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#v2500-tycho-2025-01-15" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v25.0.0 "Tycho" (2025-01-15)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#version-naming-convention" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Version Naming Convention
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Version Naming Convention">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#major-versions-x00" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Major Versions (X.0.0)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#minor-versions-xy0" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Minor Versions (X.Y.0)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#patch-versions-xyz" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Patch Versions (X.Y.Z)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#available-planetary-moon-names" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Available Planetary Moon Names
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Available Planetary Moon Names">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#well-known-moons" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Well-Known Moons
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#well-known-craters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Well-Known Craters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#selection-criteria" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Selection Criteria
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-                  </div>
-                </div>
-              </div>
             
           
           
@@ -3049,9 +2853,9 @@
 
 
 
-<h1 id="cti-scraper-versioning-system">CTI Scraper Versioning System</h1>
+<h1 id="cti-scraper-versioning-system">CTI Scraper Versioning System<a class="headerlink" href="#cti-scraper-versioning-system" title="Permanent link">&para;</a></h1>
 <p>CTI Scraper uses a combination of semantic versioning and planetary moon names for major releases.</p>
-<h2 id="version-format">Version Format</h2>
+<h2 id="version-format">Version Format<a class="headerlink" href="#version-format" title="Permanent link">&para;</a></h2>
 <p><strong>Major.Minor.Patch "Moon Name"</strong></p>
 <ul>
 <li><strong>Major</strong>: Significant architectural changes or breaking changes</li>
@@ -3059,25 +2863,25 @@
 <li><strong>Patch</strong>: Bug fixes, backward compatible</li>
 <li><strong>Moon Name</strong>: Named after prominent planetary moons</li>
 </ul>
-<h2 id="current-version">Current Version</h2>
+<h2 id="current-version">Current Version<a class="headerlink" href="#current-version" title="Permanent link">&para;</a></h2>
 <p><strong>v5.0.0 "Callisto"</strong> - Current stable release
 <strong>v4.0.0 "Kepler"</strong> - Previous stable release</p>
-<h2 id="planetary-moon-naming-system">Planetary Moon Naming System</h2>
+<h2 id="planetary-moon-naming-system">Planetary Moon Naming System<a class="headerlink" href="#planetary-moon-naming-system" title="Permanent link">&para;</a></h2>
 <p>Major versions are named after prominent planetary moons, honoring discovery, exploration, and planetary science achievements.</p>
-<h3 id="why-planetary-moons">Why Planetary Moons?</h3>
+<h3 id="why-planetary-moons">Why Planetary Moons?<a class="headerlink" href="#why-planetary-moons" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Scientific Theme</strong>: Aligns with exploration and discovery in planetary science</li>
 <li><strong>Systematic</strong>: A rich set of well-known moons across the solar system</li>
 <li><strong>Memorable</strong>: Names are recognizable and distinctive</li>
 <li><strong>Meaningful</strong>: Ties releases to milestones in space exploration</li>
 </ul>
-<h3 id="named-after">Named After</h3>
+<h3 id="named-after">Named After<a class="headerlink" href="#named-after" title="Permanent link">&para;</a></h3>
 <p>Planetary moons recognized by the International Astronomical Union (IAU), honoring:
 - Astronomers, scientists, and explorers tied to the parent body
 - Mythological figures associated with the parent planet
 - Historic missions and discoveries</p>
-<h2 id="version-history">Version History</h2>
-<h3 id="v5300-callistoopernicus-20265-01-1528">v53.0.0 "Callistoopernicus" (20265-01-1528)</h3>
+<h2 id="version-history">Version History<a class="headerlink" href="#version-history" title="Permanent link">&para;</a></h2>
+<h3 id="v5300-callistoopernicus-20265-01-1528">v53.0.0 "Callistoopernicus" (20265-01-1528)<a class="headerlink" href="#v5300-callistoopernicus-20265-01-1528" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Named After</strong>: Second-largest moon of Jupiter, one of the four Galilean moons</li>
 <li><strong>Significance</strong>: Represents stability, maturity, and advanced capabilities</li>
@@ -3085,7 +2889,7 @@
 <li><strong>Significance</strong>: Represents revolutionary changes and new paradigms</li>
 <li><strong>Features</strong>: SIGMA rule similarity search, weighted hybrid embeddings, enhanced threat intelligence matching</li>
 </ul>
-<h3 id="v5200-ganymede-planned-superseded">v52.0.0 "Ganymede" (Planned, Superseded)</h3>
+<h3 id="v5200-ganymede-planned-superseded">v52.0.0 "Ganymede" (Planned, Superseded)<a class="headerlink" href="#v5200-ganymede-planned-superseded" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Named After</strong>: Largest moon of Jupiter and the solar system; discovered by Galileo Galilei</li>
 <li><strong>Significance</strong>: Emphasizes scale, robustness, and exploration of new terraiTycho" (2025-01-15)</li>
@@ -3093,13 +2897,13 @@
 <li><strong>Significance</strong>: One of the most prominent and visible craters on the moon</li>
 <li><strong>StFeatures</strong>: Planned but superseded by Callisto releaseMajor architectural rewrite with PostgreSQL, async support, Docker containerization</li>
 </ul>
-<h3 id="v400-kepler-2025-11-04">v4.0.0 "Kepler" (2025-11-04)</h3>
+<h3 id="v400-kepler-2025-11-04">v4.0.0 "Kepler" (2025-11-04)<a class="headerlink" href="#v400-kepler-2025-11-04" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Named After</strong>: Johannes Kepler, known for planetary motion laws</li>
 <li><strong>Significance</strong>: Represents precision and mathematical understanding</li>
 <li><strong>Features</strong>: Agent prompt version control system, database schema improvements, enhanced workflow configuration UI</li>
 </ul>
-<h3 id="v3500-copernicusallisto-20256-01-2815">v35.0.0 "Copernicusallisto" (20256-01-2815)</h3>
+<h3 id="v3500-copernicusallisto-20256-01-2815">v35.0.0 "Copernicusallisto" (20256-01-2815)<a class="headerlink" href="#v3500-copernicusallisto-20256-01-2815" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Named After</strong>: Nicolaus Copernicus, astronomer who revolutionized our understanding of the solar system</li>
 <li><strong>Significance</strong>: Represents revolutionary changes and new paradigms</li>
@@ -3107,7 +2911,7 @@
 <li><strong>Significance</strong>: Represents stability, maturity, and advanced capabilities</li>
 <li><strong>Features</strong>: Stabilized agentic workflow and evaluation datasets, advanced SIGMA rule management with similarity searching, AI-assisted editing and enrichment, GitHub repository integration</li>
 </ul>
-<h3 id="v2500-tycho-2025-01-15">v25.0.0 "Tycho" (2025-01-15)</h3>
+<h3 id="v2500-tycho-2025-01-15">v25.0.0 "Tycho" (2025-01-15)<a class="headerlink" href="#v2500-tycho-2025-01-15" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Named After</strong>: Tycho Brahe, Danish astronomer known for accurate astronomical measurements</li>
 <li><strong>Significance</strong>: One of the most prominent and visible craters on the mooGanymede" (Planned, Superseded)</li>
@@ -3115,31 +2919,31 @@
 <li><strong>Significance</strong>: Emphasizes scale, robustness, and exploration of new terrain</li>
 <li><strong>FeStatures</strong>: Major architectural rewrite with PostgreSQL, async support, Docker containerizationPlanned but superseded by Callisto release</li>
 </ul>
-<h2 id="version-naming-convention">Version Naming Convention</h2>
-<h3 id="major-versions-x00">Major Versions (X.0.0)</h3>
+<h2 id="version-naming-convention">Version Naming Convention<a class="headerlink" href="#version-naming-convention" title="Permanent link">&para;</a></h2>
+<h3 id="major-versions-x00">Major Versions (X.0.0)<a class="headerlink" href="#major-versions-x00" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Named after prominent planetary moons</li>
 <li>Each name represents a significant milestone</li>
 <li>Names are chosen for scientific significance, recognizability, and alignment with release goals</li>
 </ul>
-<h3 id="minor-versions-xy0">Minor Versions (X.Y.0)</h3>
+<h3 id="minor-versions-xy0">Minor Versions (X.Y.0)<a class="headerlink" href="#minor-versions-xy0" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Use military phonetic alphabet suffixes</li>
 <li>Example: v2.1.0 "Tycho-Alpha", v2.2.0 "Tycho-Bravo"</li>
 </ul>
-<h3 id="patch-versions-xyz">Patch Versions (X.Y.Z)</h3>
+<h3 id="patch-versions-xyz">Patch Versions (X.Y.Z)<a class="headerlink" href="#patch-versions-xyz" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Numeric only</li>
 <li>Example: v2.1.1, v2.1.2</li>
 </ul>
-<h2 id="available-planetary-moon-names">Available Planetary Moon Names</h2>
+<h2 id="available-planetary-moon-names">Available Planetary Moon Names<a class="headerlink" href="#available-planetary-moon-names" title="Permanent link">&para;</a></h2>
 <p>The solar system's named moons provide a rich pool of candidates for future versions:</p>
-<h3 id="well-known-moons">Well-Known Moons</h3>
+<h3 id="well-known-moons">Well-Known Moons<a class="headerlink" href="#well-known-moons" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Callisto</strong> - Second-largest moon of JupiCrater Names</li>
 </ul>
 <p>With thousands of officially named lunar craters, there are plenty of options for future versions:</p>
-<h3 id="well-known-craters">Well-Known Craters</h3>
+<h3 id="well-known-craters">Well-Known Craters<a class="headerlink" href="#well-known-craters" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Tycho</strong> - Most prominent crater (v5, current)</li>
 <li><strong>Kepler</strong> - Named after laws of pCopernicus** - Revolutionary astronomer</li>
@@ -3158,14 +2962,14 @@
 <li><strong>Clavius</strong> - Jesuit mathematician</li>
 <li><strong>Theophilus</strong> - Byzantine emperor</li>
 </ul>
-<h3 id="selection-criteria">Selection Criteria</h3>
+<h3 id="selection-criteria">Selection Criteria<a class="headerlink" href="#selection-criteria" title="Permanent link">&para;</a></h3>
 <p>When choosing planetary mooncrater names for major versions:
 1. <strong>RecognitionProminence</strong>: Well-known moons from the solar systemand visible craters
 2. <strong>Scientific Significance</strong>: Named after important figures or discoveries
 3. <strong>Relevance</strong>: Names that fit the platform's exploration thempurpose
 4. <strong>Pronunciation</strong>: Easy to say and remember
 5. <strong>Uniqueness</strong>: Distinctive and memorable</p>
-<h2 id="references">References</h2>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="https://www.iau.org/">International Astronomical Union (IAU)</a></li>
 <li><a href="https://planetarynames.wr.usgs.gov/">USGS Planetary Names</a></li>
@@ -3225,12 +3029,10 @@ eyJoaXN0b3J5IjpbLTE4MjU5MTY5NzldfQ==
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
-      
-        <script src="../../js/stackedit.js"></script>
       
     
   </body>

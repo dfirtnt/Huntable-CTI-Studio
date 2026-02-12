@@ -6,15 +6,15 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modern docs for Huntable CTI Studio (CTIScraper)">
+        <meta name="description" content="Modern threat intelligence collection and analysis platform">
       
       
       
       
-        <link rel="prev" href="../MANUAL_TEST_CHECKLIST/">
+        <link rel="prev" href="../workflow-queue/">
       
       
-        <link rel="next" href="../boolean-search/">
+        <link rel="next" href="../../prompts/eval-bundle/">
       
       
         
@@ -48,8 +48,6 @@
       
     
     
-      <link rel="stylesheet" href="../../css/stackedit.css">
-    
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -68,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#improved-windows-malwarethreat-search-query" class="md-skip">
+        <a href="#search-queries" class="md-skip">
           Skip to content
         </a>
       
@@ -80,9 +78,7 @@
     
       
 
-  
-
-<header class="md-header md-header--shadow" data-md-component="header">
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
       
@@ -166,6 +162,293 @@
       
         
           
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/huntables/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/add-feed/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/sigma-rules/" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../llm/model-selection/" class="md-tabs__link">
+          
+  
+  
+  LLM & Models
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ml-training/hunt-scoring/" class="md-tabs__link">
+          
+  
+  
+  ML Training
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../setup/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../prompts/eval-bundle/" class="md-tabs__link">
+          
+  
+  
+  Prompts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -179,8 +462,12 @@
                     
 
 
+  
 
-<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
       
@@ -257,15 +544,167 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -283,8 +722,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -423,22 +862,29 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    How-To
+    Guides
   
 
     
@@ -449,12 +895,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
-    How-To
+    Guides
   
 
           </label>
@@ -467,14 +913,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/run_locally/" class="md-nav__link">
+      <a href="../../guides/add-feed/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Run locally
+    Add a Feed
   
 
     
@@ -495,14 +941,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/add_feed/" class="md-nav__link">
+      <a href="../../guides/extract-observables/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Add feed
+    Extract Observables
   
 
     
@@ -523,14 +969,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/extract_observables/" class="md-nav__link">
+      <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extract observables
+    Generate Sigma Rules
   
 
     
@@ -551,14 +997,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/generate_sigma/" class="md-nav__link">
+      <a href="../../guides/evaluate-models/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Generate Sigma
+    Evaluate Models
   
 
     
@@ -579,14 +1025,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../../howto/evaluate_models/" class="md-nav__link">
+      <a href="../../guides/backup-and-restore/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Evaluate models
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/source-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/memory-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Tuning
   
 
     
@@ -617,15 +1119,714 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/workflow-data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/qa-loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/sigma-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Detection Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/content-filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/os-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/cmdline-preprocessor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rag-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/observable-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM & Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM & Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/model-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/lmstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LM Studio Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/extract-agent-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Training
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Training
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/hunt-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/database-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -643,8 +1844,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -669,34 +1870,6 @@
     
   
     CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/config/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Config
   
 
     
@@ -773,14 +1946,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/sigma/" class="md-nav__link">
+      <a href="../../reference/ml-features/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Sigma
+    ML Feature Definitions
   
 
     
@@ -833,1072 +2006,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
-    
-    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Internals
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Internals
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/scoring/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scoring
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/chunking/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Chunking
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../internals/qa_loops/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    QA loops
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deployment
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Deployment
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../deployment/GETTING_STARTED/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../deployment/TECHNICAL_READOUT/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Technical Readout
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Advanced
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LLM & Models
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    LLM & Models
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../LMSTUDIO_INTEGRATION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LMStudio Integration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../Model_Selection_Guide_CTI_Workflows/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Model Selection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../OpenAI_Chat_Models_Reference/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAI Reference
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ML & Training
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    ML & Training
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../ML_HUNT_SCORING/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ML Hunt Scoring
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../HUNTABLE_WINDOWS_CLASSIFIER/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Huntable Windows
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../DATABASE_TRAINING_SYSTEM/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Database Training
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/CONTENT_FILTER_ML_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Content Filter ML
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Features
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Features
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/CONTENT_FILTERING/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Content Filtering
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cmdline Attention Preprocessor
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/OS_DETECTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OS Detection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/OBSERVABLE_EVALUATION_DESIGN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Observable Evaluation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Sigma Rules
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_4" id="__nav_8_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operations
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backup & Restore
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/CROSS_MACHINE_RESTORE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cross Machine Restore
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/MEMORY_OPTIMIZATION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Memory Optimization
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Source Config
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../operations/VERIFY_ML_VERSIONS_BACKUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Verify ML Versions Backup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
             
   
   
@@ -1916,8 +2048,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_8_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1934,7 +2066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../DEVELOPMENT_SETUP/" class="md-nav__link">
+      <a href="../setup/" class="md-nav__link">
         
   
   
@@ -1962,14 +2094,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../PORT_CONFIGURATION/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Port Configuration
+    Testing Strategy
   
 
     
@@ -1990,7 +2122,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../WEB_APP_TESTING/" class="md-nav__link">
+      <a href="../manual-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-app-testing/" class="md-nav__link">
         
   
   
@@ -2018,7 +2178,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../DATABASE_QUERY_GUIDE/" class="md-nav__link">
+      <a href="../debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-queries/" class="md-nav__link">
         
   
   
@@ -2046,63 +2234,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Debugging Tools
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ADVANCED_QUALITY_SYSTEM.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced Quality System
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ALLURE_REPORTS/" class="md-nav__link">
+      <a href="../allure-reports/" class="md-nav__link">
         
   
   
@@ -2130,14 +2262,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../DEBUG_EVAL_LMSTUDIO_LOGS/" class="md-nav__link">
+      <a href="../multi-instance/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Debug Eval Logs
+    Multi-Instance
   
 
     
@@ -2158,98 +2290,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
+      <a href="../workflow-queue/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Lightweight Integration Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../MULTI_INSTANCE_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multi Instance Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../MANUAL_CHECKLIST_30MIN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Manual Checklist 30min
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../MANUAL_TEST_CHECKLIST/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Manual Test Checklist
+    Workflow Queue
   
 
     
@@ -2279,6 +2327,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search Queries
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2296,153 +2362,218 @@
 
       </a>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../boolean-search/" class="md-nav__link">
         
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
-  <span class="md-ellipsis">
+  
     
   
-    Boolean Search
   
-
-    
-  </span>
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#boolean-search-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boolean Search Syntax
+      
+    </span>
+  </a>
   
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-windows-threat-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Windows Threat Queries
+      
+    </span>
+  </a>
   
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../backfill_chunk_analysis_help/" class="md-nav__link">
+    <nav class="md-nav" aria-label="Example Windows Threat Queries">
+      <ul class="md-nav__list">
         
+          <li class="md-nav__item">
+  <a href="#malware-indicators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Malware Indicators
+      
+    </span>
+  </a>
   
-  
-  <span class="md-ellipsis">
-    
-  
-    Backfill Chunk Analysis
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../TROUBLESHOOT_EVAL_PENDING/" class="md-nav__link">
+</li>
         
+          <li class="md-nav__item">
+  <a href="#process-injection-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Process Injection Patterns
+      
+    </span>
+  </a>
   
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshoot Eval Pending
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../WORKFLOW_QUEUE_SETUP/" class="md-nav__link">
+</li>
         
+          <li class="md-nav__item">
+  <a href="#registry-manipulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry Manipulation
+      
+    </span>
+  </a>
   
-  
-  <span class="md-ellipsis">
-    
-  
-    Workflow Queue Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../WebAppDevtestingGuide/" class="md-nav__link">
+</li>
         
+          <li class="md-nav__item">
+  <a href="#network-activity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Activity
+      
+    </span>
+  </a>
   
+</li>
+        
+      </ul>
+    </nav>
   
-  <span class="md-ellipsis">
-    
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search Tips
+      
+    </span>
+  </a>
   
-    Web App Dev Testing Guide
+    <nav class="md-nav" aria-label="Search Tips">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#case-sensitivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case Sensitivity
+      
+    </span>
+  </a>
   
-
-    
-  </span>
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#escaping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Escaping
+      
+    </span>
+  </a>
   
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Query Optimization
+      
+    </span>
+  </a>
   
-
-      </a>
-    </li>
+</li>
+        
+      </ul>
+    </nav>
   
-
-              
-            
-          </ul>
-        </nav>
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#file-system-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File System Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#credential-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credential Access
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lateral-movement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lateral Movement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-staging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Staging
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-implementation-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search Implementation Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2462,8 +2593,153 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
-      <a href="../../CONTRIBUTING/" class="md-nav__link">
+      <a href="../../prompts/eval-bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Bundle Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/huntquery-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Query Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/proctree-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Process Tree Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -2483,30 +2759,39 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
                 </div>
               </div>
             
-            
-              
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
-                <div class="md-sidebar__scrollwrap">
-                  <div class="md-sidebar__inner">
-                    
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-</nav>
-                  </div>
-                </div>
-              </div>
             
           
           
@@ -2518,96 +2803,95 @@
 
 
 
-<h1 id="improved-windows-malwarethreat-search-query">Improved Windows Malware/Threat Search Query</h1>
-<h1 id="fixed-backslashes-escaping-and-search-patterns">Fixed backslashes, escaping, and search patterns</h1>
-<h1 id="updated-for-case-insensitive-search-no-need-for-multiple-case-variations">Updated for case-insensitive search (no need for multiple case variations)</h1>
-<p>"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
-"hkey" OR "hklm" OR "appdata" OR "programdata" OR 
-"\temp\" OR 
-"powershell.exe" OR 
-"wbem" OR 
-"==" OR 
-"c:\windows\" OR 
-".bat" OR 
-".ps1" OR<br />
-".lnk" OR 
-"D:\" OR 
-".vhdx" OR 
-".iso" OR 
-"<Command>" OR 
-"\pipe\" OR 
-"MZ" OR 
-"svchost" OR 
-"::" OR 
-"-accepteula" OR 
-"lsass.exe" OR 
-"%WINDIR%" OR 
-"[.]" OR 
-"%wintmp%"</p>
-<h1 id="additional-improvements-to-consider">Additional improvements to consider:</h1>
-<h1 id="1-add-common-malware-indicators">1. Add common malware indicators</h1>
-<h1 id="2-include-registry-path-variations">2. Include registry path variations</h1>
-<h1 id="3-add-process-injection-patterns">3. Add process injection patterns</h1>
-<h1 id="4-include-network-connection-patterns">4. Include network connection patterns</h1>
-<h1 id="5-add-file-system-manipulation-patterns">5. Add file system manipulation patterns</h1>
-<h1 id="alternative-version-with-better-escaping-for-specific-search-engines">Alternative version with better escaping for specific search engines:</h1>
-<p>"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
-"hkey" OR "hklm" OR "appdata" OR "programdata" OR 
-"temp" OR 
-"powershell.exe" OR 
-"wbem" OR 
-".bat" OR 
-".ps1" OR 
-".lnk" OR 
-".vhdx" OR 
-".iso" OR 
-"Command" OR 
-"pipe" OR 
-"MZ" OR 
-"svchost" OR 
-"accepteula" OR 
-"lsass.exe" OR 
-"WINDIR" OR 
-"wintmp"</p>
-<h1 id="version-that-will-work-with-your-booleansearchparser">VERSION THAT WILL WORK WITH YOUR BOOLEANSEARCHPARSER:</h1>
-<h1 id="this-version-uses-only-word-characters-and-simple-terms-that-the-parser-can-handle">This version uses only word characters and simple terms that the parser can handle</h1>
-<h1 id="note-case-insensitive-search-means-we-dont-need-multiple-case-variations">Note: Case-insensitive search means we don't need multiple case variations</h1>
-<p>"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
-"hkey" OR "hklm" OR "appdata" OR "programdata" OR 
-"temp" OR 
-"powershell" OR 
-"wbem" OR 
-"Event" OR 
-"ID" OR 
-"bat" OR 
-"ps1" OR 
-"lnk" OR 
-"vhdx" OR 
-"iso" OR 
-"Command" OR 
-"pipe" OR 
-"MZ" OR 
-"svchost" OR 
-"accepteula" OR 
-"lsass" OR 
-"WINDIR" OR 
-"wintmp"</p>
-<h1 id="recommended-approach-for-your-search-function">RECOMMENDED APPROACH FOR YOUR SEARCH FUNCTION:</h1>
-<h1 id="break-into-multiple-focused-queries-for-better-results">Break into multiple focused queries for better results:</h1>
-<h1 id="query-1-process-names">Query 1: Process names</h1>
-<p>"rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR "powershell" OR "svchost" OR "lsass"</p>
-<h1 id="query-2-registry-and-paths">Query 2: Registry and paths</h1>
-<p>"hkey" OR "hklm" OR "appdata" OR "programdata" OR "temp" OR "windows" OR "windir"</p>
-<h1 id="query-3-file-extensions">Query 3: File extensions</h1>
-<p>"bat" OR "ps1" OR "lnk" OR "vhdx" OR "iso"</p>
-<h1 id="query-4-technical-indicators">Query 4: Technical indicators</h1>
-<p>"wbem" OR "Command" OR "pipe" OR "MZ" OR "accepteula"</p>
-<h1 id="notes">NOTES:</h1>
-<h1 id="-all-searches-are-case-insensitive-no-need-for-multiple-case-variations">- All searches are case-insensitive (no need for multiple case variations)</h1>
-<h1 id="-use-quotes-for-exact-phrase-matching">- Use quotes for exact phrase matching</h1>
-<h1 id="-use-or-for-multiple-terms-any-can-match">- Use OR for multiple terms (any can match)</h1>
-<h1 id="-use-and-for-required-terms-all-must-match">- Use AND for required terms (all must match)</h1>
-<h1 id="-use-not-to-exclude-terms">- Use NOT to exclude terms</h1>
+<h1 id="search-queries">Search Queries<a class="headerlink" href="#search-queries" title="Permanent link">&para;</a></h1>
+<p>This document provides example search queries and documentation for the boolean search implementation in Huntable CTI Studio.</p>
+<h2 id="boolean-search-syntax">Boolean Search Syntax<a class="headerlink" href="#boolean-search-syntax" title="Permanent link">&para;</a></h2>
+<p>The search system supports boolean operators for complex queries:</p>
+<ul>
+<li><strong>AND</strong>: Both terms must be present (e.g., <code>ransomware AND encryption</code>)</li>
+<li><strong>OR</strong>: Either term must be present (e.g., <code>malware OR trojan</code>)</li>
+<li><strong>NOT</strong>: Exclude term (e.g., <code>exploit NOT patched</code>)</li>
+<li><strong>Parentheses</strong>: Group expressions (e.g., <code>(ransomware OR malware) AND windows</code>)</li>
+<li><strong>Quotes</strong>: Exact phrase match (e.g., <code>"remote code execution"</code>)</li>
+</ul>
+<h2 id="example-windows-threat-queries">Example Windows Threat Queries<a class="headerlink" href="#example-windows-threat-queries" title="Permanent link">&para;</a></h2>
+<h3 id="malware-indicators">Malware Indicators<a class="headerlink" href="#malware-indicators" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>&quot;rundll32&quot; OR &quot;comspec&quot; OR &quot;msiexec&quot; OR &quot;wmic&quot; OR &quot;iex&quot; OR &quot;findstr&quot; OR 
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>&quot;hkey&quot; OR &quot;hklm&quot; OR &quot;appdata&quot; OR &quot;programdata&quot; OR 
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>&quot;\\temp\\&quot; OR 
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>&quot;powershell.exe&quot; OR 
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>&quot;wbem&quot; OR 
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>&quot;==&quot; OR 
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>&quot;c:\\windows\\&quot; OR 
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>&quot;.bat&quot; OR 
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>&quot;.ps1&quot; OR  
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>&quot;.lnk&quot; OR 
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>&quot;D:\\&quot; OR 
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>&quot;.vhdx&quot; OR 
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>&quot;.iso&quot; OR 
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>&quot;&lt;Command&gt;&quot; OR 
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>&quot;\\pipe\\&quot; OR 
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>&quot;MZ&quot; OR 
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>&quot;svchost&quot; OR 
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>&quot;::&quot; OR 
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>&quot;-accepteula&quot; OR 
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>&quot;lsass.exe&quot; OR 
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>&quot;%WINDIR%&quot; OR 
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>&quot;[.]&quot; OR 
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>&quot;%wintmp%&quot;
+</code></pre></div>
+<h3 id="process-injection-patterns">Process Injection Patterns<a class="headerlink" href="#process-injection-patterns" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>(&quot;createremotethread&quot; OR &quot;virtualallocex&quot; OR &quot;writeprocessmemory&quot;) AND &quot;injection&quot;
+</code></pre></div>
+<h3 id="registry-manipulation">Registry Manipulation<a class="headerlink" href="#registry-manipulation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>(&quot;HKEY_LOCAL_MACHINE&quot; OR &quot;HKLM&quot; OR &quot;HKEY_CURRENT_USER&quot; OR &quot;HKCU&quot;) AND 
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>(&quot;CurrentVersion\\Run&quot; OR &quot;RunOnce&quot; OR &quot;RunServices&quot;)
+</code></pre></div>
+<h3 id="network-activity">Network Activity<a class="headerlink" href="#network-activity" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>(&quot;connect&quot; OR &quot;socket&quot; OR &quot;wininet&quot; OR &quot;urlmon&quot;) AND 
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>(&quot;C2&quot; OR &quot;command and control&quot; OR &quot;exfiltration&quot;)
+</code></pre></div>
+<h2 id="search-tips">Search Tips<a class="headerlink" href="#search-tips" title="Permanent link">&para;</a></h2>
+<h3 id="case-sensitivity">Case Sensitivity<a class="headerlink" href="#case-sensitivity" title="Permanent link">&para;</a></h3>
+<p>Searches are case-insensitive by default. No need to provide multiple case variations.</p>
+<h3 id="escaping">Escaping<a class="headerlink" href="#escaping" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Backslashes in paths should be escaped: <code>c:\\windows\\</code></li>
+<li>Special characters may need quotes: <code>"[.]"</code></li>
+</ul>
+<h3 id="query-optimization">Query Optimization<a class="headerlink" href="#query-optimization" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Put most specific/rare terms first</li>
+<li>Use AND to narrow results</li>
+<li>Use OR to broaden results</li>
+<li>Group related terms with parentheses</li>
+<li>Use NOT sparingly (expensive operation)</li>
+</ol>
+<h2 id="advanced-patterns">Advanced Patterns<a class="headerlink" href="#advanced-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="file-system-operations">File System Operations<a class="headerlink" href="#file-system-operations" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>(&quot;.tmp&quot; OR &quot;.temp&quot; OR &quot;\\temp\\&quot;) AND (&quot;write&quot; OR &quot;create&quot; OR &quot;modify&quot;)
+</code></pre></div>
+<h3 id="credential-access">Credential Access<a class="headerlink" href="#credential-access" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>(&quot;lsass&quot; OR &quot;sam&quot; OR &quot;ntds.dit&quot; OR &quot;credential&quot; OR &quot;password&quot;) AND 
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>(&quot;dump&quot; OR &quot;extract&quot; OR &quot;steal&quot;)
+</code></pre></div>
+<h3 id="lateral-movement">Lateral Movement<a class="headerlink" href="#lateral-movement" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>(&quot;psexec&quot; OR &quot;wmi&quot; OR &quot;dcom&quot; OR &quot;rdp&quot; OR &quot;smb&quot;) AND 
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>(&quot;lateral&quot; OR &quot;movement&quot; OR &quot;propagation&quot;)
+</code></pre></div>
+<h3 id="data-staging">Data Staging<a class="headerlink" href="#data-staging" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>(&quot;rar&quot; OR &quot;zip&quot; OR &quot;7z&quot; OR &quot;archive&quot;) AND 
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>(&quot;staging&quot; OR &quot;compress&quot; OR &quot;prepare&quot;)
+</code></pre></div>
+<h2 id="search-implementation-notes">Search Implementation Notes<a class="headerlink" href="#search-implementation-notes" title="Permanent link">&para;</a></h2>
+<p>The boolean search parser handles:
+- Operator precedence (NOT &gt; AND &gt; OR)
+- Parenthetical grouping
+- Quoted phrase matching
+- Mixed operators in complex expressions</p>
+<p>See <code>src/utils/search_parser.py</code> for implementation details.</p>
+<hr />
+<p><em>Last updated: February 2025</em></p>
 
 
 
@@ -2657,12 +2941,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
-      
-        <script src="../../js/stackedit.js"></script>
       
     
   </body>

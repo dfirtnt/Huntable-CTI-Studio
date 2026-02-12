@@ -14,7 +14,7 @@ The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and 
 
 ## Extract Agent sub-agents
 
-- **CmdlineExtract**: Command-line observables with arguments and QA corrections. Optional **Attention Preprocessor** surfaces LOLBAS-aligned snippets earlier in the LLM prompt; toggle in Workflow Config (Cmdline Extract agent). See [Cmdline Attention Preprocessor](../features/CMDLINE_ATTENTION_PREPROCESSOR.md).
+- **CmdlineExtract**: Command-line observables with arguments and QA corrections. Optional **Attention Preprocessor** surfaces LOLBAS-aligned snippets earlier in the LLM prompt; toggle in Workflow Config (Cmdline Extract agent). See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 - **HuntQueriesExtract**: Detection queries (EDR queries and SIGMA rules) extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
 

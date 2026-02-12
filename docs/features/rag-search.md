@@ -47,7 +47,7 @@ Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm
 ### Multi-Provider LLM Support
 - **OpenAI GPT-4o**: Primary provider for high-quality analysis
 - **Anthropic Claude**: Alternative provider with different strengths
-- **LMStudio (Local)**: Fully supported via LMStudio (see [LMStudio Integration](LMSTUDIO_INTEGRATION.md))
+- **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
 - **Template Fallback**: Structured responses when LLM unavailable
 
 ### Semantic Search
@@ -152,7 +152,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
 - **Template Mode**: < 2 seconds
 - **OpenAI GPT-4o**: 3-5 seconds
 - **Anthropic Claude**: 4-6 seconds
-- **LMStudio (Local)**: Fully supported via LMStudio (see [LMStudio Integration](LMSTUDIO_INTEGRATION.md))
+- **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
 
 ### Quality Metrics
 - **Relevance**: 60-95% similarity scores for retrieved content

@@ -65,7 +65,7 @@ subresults = {
 The supervisor agent collects all sub-agent outputs and normalizes them before merging. Each item is tagged with its source level and a lightweight summary is appended for SIGMA input.
 
 ```python
-# Supervisor aggregation (lines 1641-1679 in agentic_workflow.py)
+# Supervisor aggregation (lines 1731-1784 in agentic_workflow.py)
 all_observables = []
 content_summary = []
 
@@ -117,7 +117,7 @@ extraction_result = {
 The execution row is updated with both the extracted conversation log and the aggregated result before committing:
 
 ```python
-# Lines 1718-1741 in agentic_workflow.py
+# Lines 1786-1818 in agentic_workflow.py
 if execution:
     execution.error_log = execution.error_log or {}
     execution.error_log['extract_agent'] = {
@@ -163,7 +163,7 @@ if execution:
 The SIGMA node reads the in-memory `extraction_result` and picks the best content before calling the SigmaGenerationService:
 
 ```python
-# Lines 1832-1859 in agentic_workflow.py
+# Lines 1904-1990 in agentic_workflow.py
 sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
 extraction_result = state.get('extraction_result', {})
 content_to_use = None
@@ -418,7 +418,7 @@ agent_chat_url = f"{langfuse_host}/project/{project_id}/sessions/{session_id}"
 - **Session View** (recommended): Shows all traces for an execution grouped together
 - **Trace View**: Shows individual trace details with spans, inputs, outputs, and token usage
 
-See [DEBUGGING_TOOLS_GUIDE.md](development/DEBUGGING_TOOLS_GUIDE.md#langfuse-workflow-debugging) for detailed debugging instructions.
+See [Debugging Tools (archive)](../archive/DEBUGGING_TOOLS_GUIDE.md#langfuse-workflow-debugging) for detailed debugging instructions.
 
 ## Execution Methods: Celery (LangGraph state machine) vs Direct Testing
 
@@ -502,7 +502,7 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Retry execution trigger**: `src/web/routes/workflow_executions.py:694-770`
 - **Manual trigger endpoint**: `src/web/routes/workflow_executions.py:1046-1105`
 - **Direct test trigger**: `src/web/routes/workflow_config.py:579-680`
-- **Database model**: `src/database/models.py:479-515`
+- **Database model**: `src/database/models.py:536-573` (AgenticWorkflowExecutionTable)
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbNjUyNDE3NjkwXX0=
 -->

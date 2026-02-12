@@ -4,8 +4,6 @@
 
 This guide covers setting up and optimizing LM Studio for local LLM inference with Huntable CTI Studio.
 
-# LMStudio Integration Guide
-
 ## Setup
 
 1. **Start LMStudio**:
@@ -27,7 +25,7 @@ docker-compose up
 3. **Configure Model Name**:
    - Edit `.env` file or set environment variables
    - Set `LMSTUDIO_MODEL` to your loaded model name
-   - Example: `LMSTUDIO_MODEL=deepseek-r1-qwen3-8bllama-3.1-8b-instruct`
+   - Example: `LMSTUDIO_MODEL=deepseek/deepseek-r1-0528-qwen3-8b`
    - The main `docker-compose.yml` already includes LMStudio configuration pointing to `host.docker.internal:1234/v1`
 
 ## API Usage
@@ -49,13 +47,13 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 
 ### Required
 - `LMSTUDIO_API_URL`: LMStudio API endpoint (default: `http://host.docker.internal:1234/v1`)
-- `LMSTUDIO_MODEL`: Model name in LMStudio (default: `deepseek-r1-qwen3-8b`)
+- `LMSTUDIO_MODEL`: Model name in LMStudio (default: `deepseek/deepseek-r1-0528-qwen3-8b`)
 
 ### Per-Agent Model Overrides
-- `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: main model)
-- `LMSTUDIO_MODEL_EXTRACT`: Model for extraction agent (default: main model)
-- `LMSTUDIO_MODEL_SIGMA`: Model for SIGMA generation (default: main model)
-- `LMSTUDIO_MAX_CONTEXT`: Maximum context window sizellama-3.2-1b-instruct`)
+- `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: `qwen/qwen3-4b-2507`)
+- `LMSTUDIO_MODEL_EXTRACT`: Model for extraction agent (default: `qwen/qwen3-4b-2507`)
+- `LMSTUDIO_MODEL_SIGMA`: Model for SIGMA generation (default: `qwen/qwen3-4b-2507`)
+- `LMSTUDIO_MAX_CONTEXT`: Maximum context window size (tokens). Must also be set in LM Studio UI.
 
 ### Recommended Settings (for Deterministic Scoring)
 - `LMSTUDIO_TEMPERATURE`: Temperature for inference (default: `0.0` for deterministic scoring)
@@ -91,6 +89,8 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
 - Context length is set at model load time and cannot be changed via API calls
 - Exceeding the model's maximum context length will cause errors like: "context overflow" or "context length of only X tokens, which is not enough"
 - Default context windows: 1B models (~2048), 3B models (~4096), 8B models (~8192), 20B+ models (~4096-8192 default)
+
+**Docker Compose variance:** In `docker-compose.yml`, the web service and worker/workflow_worker services can set different per-model context lengths (e.g. `LMSTUDIO_CONTEXT_LENGTH_<model_slug>`). For example, the web service may use 16384 for article scoring while workers use 4096. Check the compose file for your service if you see context-length errors in one component but not another.
 
 #### Context Length Requirements by Use Case
 
@@ -133,19 +133,15 @@ Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity.
 
 ## Performance Benchmarks
 
-# Local LLM Performance Testing Guide
+## Local LLM Performance Testing
 
-This document provides comprehensive guidance for setting up and testing local LLM providers for maximum performance on Apple Silicon Macs.
+### Active Providers
 
-## Overview
+1. **LM Studio** (OpenAI-compatible) — Active local model provider with GUI server mode
+2. **OpenAI** (Cloud) — GPT-4o-mini API
+3. **Anthropic** (Cloud) — Claude Haiku API
 
-CTI Scraper now supports 6 LLM providers with a performance-optimized fallback chain:
-
-1. **MLX** (Apple Metal) - *(not implemented — planned)*Fastest for Apple Silicon
-2. **llama.cpp** (Metal backend) - *(not implemented — planned)*Highly optimized C++ inference
-3. **LM Studio** (OpenAI-compatible) - **Active local model provider** — User-friendly GUI with server mode
-4. **OpenAI** (Cloud) - GPT-4o-mini API
-5. **Anthropic** (Cloud) - Claude Haiku API
+> **Note**: MLX and llama.cpp providers are planned but not yet implemented.
 
 ## Expected Performance Improvements
 
@@ -451,8 +447,4 @@ For issues or questions:
 
 ---
 
-**Note:** This performance testing system is part of CTI Scraper v3.0.0-beta "Copernicus" - a major release focused on local LLM performance optimization for Apple Silicon Macs. Currently only LMStudio is implemented as an active local provider; MLX and llama.cpp are planned for future releases.
-
----
-
-_Last updated: February 2025_
+**Note:** Currently only LM Studio is implemented as an active local provider. MLX and llama.cpp are planned for future releases.

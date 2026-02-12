@@ -749,7 +749,7 @@ Don't chase theoretical performance. Chase measured precision on your specific C
 
 ## Appendix: Model Availability in LM Studio
 
-As of FebruaryDecember 20264, these models are available through LM Studio's model search:
+As of February 2026, these models are available through LM Studio's model search:
 
 **Qwen3 Series**: ✅ Available  
 **Qwen2.5 Series**: ✅ Available  
@@ -765,7 +765,7 @@ Always verify model hash against official releases for security.
 ---
 
 **Document Version**: 1.10  
-**Last Updated**: FebruaryDecember 20264  
+**Last Updated**: February 2026  
 **Maintainer**: Andrew (Cybersecurity/Detection Engineering)
 
 ---

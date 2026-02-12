@@ -18,18 +18,18 @@ Use `./run_tests.py` or `python3 run_tests.py` per project rules.
 
 | Category | Expected passed |
 |----------|-----------------|
-| smoke    | 25              |
-| unit     | 603             |
+| smoke    | 31              |
+| unit     | 662             |
 
-Parse "X passed" (and failed/skipped) from each run. **PASS** only when passed equals expected and failed = 0.
+Parse "X passed" (and failed/skipped) from each run. **PASS** only when passed equals expected (smoke 31, unit 662) and failed = 0.
 
 ## Output format
 
 ```
 ## Pre-commit check
 | Category | Passed | Failed | Status (expected) |
-| smoke    | N      | N      | PASS/FAIL (25)    |
-| unit     | N      | N      | PASS/FAIL (603)   |
+| smoke    | N      | N      | PASS/FAIL (31)    |
+| unit     | N      | N      | PASS/FAIL (662)   |
 
 ## Result
 Baselines met / Mismatch: <category> expected X, got Y.

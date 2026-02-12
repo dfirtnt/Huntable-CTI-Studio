@@ -26,7 +26,7 @@ Comprehensive system for AI-powered SIGMA detection rule generation, matching ag
 The SIGMA Detection Rules System combines three powerful features:
 
 1. **AI-Powered Generation**: Automatically creates detection rules from threat intelligence articles
-2. **Rule Matching**: Matches articles to existing SigmaHQ rules (3,068+ indexed rules)
+2. **Rule Matching**: Matches articles to existing SigmaHQ rules (5,247+ indexed rules)
 3. **Similarity Search**: Compares generated rules against existing community rules to prevent duplication
 
 ### System Flow
@@ -206,10 +206,7 @@ ORDER BY   AND 1 - (sr.embedding <-=> :embedding::vector
 LIMIT :candidate_limit; -- e.g. 50
 ```
 
-The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.) >= :threshold
-ORDER BY similarity DESC
-LIMIT :limit
-```
+The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.
 
 #### 4. Coverage Classification Service
 
@@ -347,7 +344,7 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 
 ---
 
-## Usage & Examples
+## Usage & Examples { #usage--examples }
 
 ### Initial Setup
 
@@ -833,7 +830,7 @@ For issues and questions:
 - [pgvector](https://github.com/pgvector/pgvector)
 - [Sentence Transformers](https://www.sbert.net/)
 -- [pySIGMA Documentation](https://sigmahq-pysigma.readthedocs.io/)
--- [Behavioral Novelty (algorithm notes)](internal-notes://behavioral_novelCosine Similarity](https://en.wikipedia.org/wiki/Cosine_similarity)
+-- [Cosine Similarity](https://en.wikipedia.org/wiki/Cosine_similarity)
 
 ---
 
@@ -844,7 +841,7 @@ For issues and questions:
 
 # Sigma Reference
 
-Sigma generation runs inside the workflow after extraction and is also available via CLI commands. Use this reference alongside `../howto/generate_sigma.md`.
+Sigma generation runs inside the workflow after extraction and is also available via CLI commands. Use this reference alongside [Generate Sigma](../guides/generate-sigma.md).
 
 ## Workflow and CLI summary
 - Workflow trigger: `POST /api/workflow/articles/{article_id}/trigger` (Sigma agent runs after extraction).
