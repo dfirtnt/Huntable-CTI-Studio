@@ -6,7 +6,7 @@
 
 ## Overview
 
-This comprehensive testing checklist ensures all features of the CTI Scraper platform are thoroughly tested before deployment.
+This comprehensive testing checklist ensures all features of the Huntable CTI Studio platform are thoroughly tested before deployment.
 
 ## Pre-Testing Setup
 

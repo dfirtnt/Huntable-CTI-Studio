@@ -1,6 +1,6 @@
 # Commandline Extractor Evaluation
 
-This directory contains evaluation scripts for the commandline extractor component of the CTI Scraper system.
+This directory contains evaluation scripts for the commandline extractor component of the Huntable CTI Studio system.
 
 ## Overview
 

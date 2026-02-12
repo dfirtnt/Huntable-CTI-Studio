@@ -795,8 +795,14 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
             if not active_config:
                 raise HTTPException(status_code=404, detail="No active workflow config found")
 
+            urls_list = list(eval_request.article_urls)
+            logger.info(
+                "run_subagent_eval subagent=%s received %s article URL(s)",
+                eval_request.subagent_name,
+                len(urls_list),
+            )
             # Resolve article URLs to IDs (batch in one DB round-trip)
-            url_to_id = resolve_articles_by_urls(list(eval_request.article_urls))
+            url_to_id = resolve_articles_by_urls(urls_list)
             article_mappings = []
             for url in eval_request.article_urls:
                 article_id = url_to_id.get(url)

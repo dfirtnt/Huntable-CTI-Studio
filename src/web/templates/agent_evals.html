@@ -691,13 +691,19 @@ async function runEvaluation() {
         const data = await response.json();
         console.log('Evaluation run response:', data);
         
-        if (data.success && data.executions && data.executions.length > 0) {
-            statusText.textContent = `✅ Triggered ${data.executions.length} executions. Polling for results...`;
+        if (!data.success) {
+            throw new Error(data.message || 'Evaluation run failed');
+        }
+        
+        const totalArticles = data.total_articles || 0;
+        const executions = data.executions || [];
+        
+        if (executions.length > 0) {
+            // Some or all articles used workflow executions (DB path) — poll until they complete
+            statusText.textContent = `✅ Triggered ${executions.length} executions. Polling for results...`;
             statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
-            
-            // Store execution info for polling
             executionResults = {};
-            for (const exec of data.executions) {
+            for (const exec of executions) {
                 executionResults[exec.execution_id] = {
                     execution_id: exec.execution_id,
                     article_id: exec.article_id,
@@ -706,11 +712,14 @@ async function runEvaluation() {
                     status: 'pending'
                 };
             }
-            
-            // Poll for results
-            await pollSubagentResults(data.executions);
+            await pollSubagentResults(executions);
         } else {
-            throw new Error(data.message || 'No executions were created');
+            // All articles were evaluated from static files (no workflow executions) — refresh results immediately
+            statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
+            statusText.className = 'text-sm text-green-600 dark:text-green-400';
+            setTimeout(() => {
+                loadPreviousResults();
+            }, 100);
         }
     } catch (error) {
         console.error('Error running evaluation:', error);
@@ -945,12 +954,12 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         const expectedCount = article.expected_count || 0;
         
         // Get article_id from article object or first version result
-        const articleId = article.article_id || (Object.values(article.versions)[0]?.article_id);
+        const articleId = article.article_id ?? (Object.values(article.versions)[0]?.article_id);
         
-        // Display Article ID, clickable if available
-        const articleIdCell = articleId 
-            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${article.url}">${articleId}</a>`
-            : `<span class="text-gray-400 dark:text-gray-600" title="${article.url}">-</span>`;
+        // Display Article ID (or truncated URL for static evals when article_id is null)
+        const articleIdCell = articleId != null
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${(article.url || '')}">${articleId}</a>`
+            : `<span class="text-gray-600 dark:text-gray-400 font-mono text-xs" title="${(article.url || '')}">${article.url ? (article.url.length > 45 ? article.url.substring(0, 42) + '…' : article.url) : '—'}</span>`;
         
         html += '<tr>';
         html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10" style="width: 120px; min-width: 120px; max-width: 120px;">${articleIdCell}</td>`;
@@ -1076,11 +1085,11 @@ function renderSubagentResults(results) {
         const actualCount = result.actual_count !== null ? result.actual_count : '-';
         const score = result.score !== null ? result.score : '-';
         
-        // Display Article ID, clickable if available
+        // Display Article ID (or truncated URL for static evals when article_id is null)
         const articleId = result.article_id;
-        const articleIdCell = articleId 
-            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${result.url}">${articleId}</a>`
-            : `<span class="text-gray-400 dark:text-gray-600" title="${result.url}">-</span>`;
+        const articleIdCell = articleId != null
+            ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${result.url || ''}">${articleId}</a>`
+            : `<span class="text-gray-600 dark:text-gray-400 font-mono text-xs" title="${result.url || ''}">${result.url ? (result.url.length > 45 ? result.url.substring(0, 42) + '…' : result.url) : '—'}</span>`;
         
         // Determine color coding based on score
         let scoreClass = 'status-pending';
@@ -1744,25 +1753,28 @@ async function loadPreviousResults() {
         
         // Predetermined expected_count from preset (eval_articles.yaml), not derived from results
         let presetByArticleId = {};
+        let presetByUrl = {};
         try {
             const presetResp = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${apiSubagent}`);
             if (presetResp.ok) {
                 const presetData = await presetResp.json();
                 (presetData.articles || []).forEach(a => {
                     if (a.article_id != null) presetByArticleId[a.article_id] = a.expected_count != null ? a.expected_count : 0;
+                    if (a.url) presetByUrl[a.url] = a.expected_count != null ? a.expected_count : 0;
                 });
             }
         } catch (e) {
             console.warn('Could not load preset expected counts:', e);
         }
         
-        // Group by article_id - one row per article, with config versions as columns
-        const byArticleId = {};
+        // Group by article_id when present, by url when article_id is null (static eval) so each article gets one row
+        const byArticleKey = {};
         results.forEach(result => {
             const articleId = result.article_id;
-            if (!byArticleId[articleId]) {
-                const presetExpected = presetByArticleId[articleId];
-                byArticleId[articleId] = {
+            const key = articleId != null ? articleId : `url:${result.url || ''}`;
+            if (!byArticleKey[key]) {
+                const presetExpected = articleId != null ? presetByArticleId[articleId] : presetByUrl[result.url];
+                byArticleKey[key] = {
                     url: result.url,
                     expected_count: presetExpected !== undefined ? presetExpected : (result.expected_count ?? 0),
                     article_id: articleId,
@@ -1770,7 +1782,7 @@ async function loadPreviousResults() {
                 };
             }
             const version = result.config_version || 'unknown';
-            byArticleId[articleId].versions[version] = result;
+            byArticleKey[key].versions[version] = result;
         });
         
         // Get all unique config versions and sort them (ascending - oldest first)
@@ -1792,8 +1804,15 @@ async function loadPreviousResults() {
             }
         }
         
-        // Convert to array of article objects, sorted by article_id
-        const articleRows = Object.values(byArticleId).sort((a, b) => a.article_id - b.article_id);
+        // Sort: numeric article_id first (asc), then rows with null article_id (by url)
+        const articleRows = Object.values(byArticleKey).sort((a, b) => {
+            const aidA = a.article_id;
+            const aidB = b.article_id;
+            if (aidA != null && aidB != null) return aidA - aidB;
+            if (aidA != null) return -1;
+            if (aidB != null) return 1;
+            return (a.url || '').localeCompare(b.url || '');
+        });
         
         renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
         

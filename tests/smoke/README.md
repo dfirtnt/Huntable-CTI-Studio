@@ -1,4 +1,4 @@
-# CTI Scraper Smoke Test Documentation
+# Huntable CTI Studio Smoke Test Documentation
 
 ## Quick Start
 

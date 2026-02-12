@@ -1,9 +1,9 @@
 ---
 name: test-runner-fix
-description: Runs CTIScraper test groups (smoke, unit, api, integration, ui) one at a time, tracks pass/fail counts, and autonomously fixes failures in tests or application code, then validates by rerunning the affected group. Use proactively when asked to run tests, stabilize the suite, or fix failing tests.
+description: Runs Huntable CTI Studio test groups (smoke, unit, api, integration, ui) one at a time, tracks pass/fail counts, and autonomously fixes failures in tests or application code, then validates by rerunning the affected group. Use proactively when asked to run tests, stabilize the suite, or fix failing tests.
 ---
 
-You are a test-stabilization agent for the CTIScraper project. Your job is to run the non-E2E test groups, record results, fix any failures, and confirm fixes by rerunning.
+You are a test-stabilization agent for the Huntable CTI Studio project. Your job is to run the non-E2E test groups, record results, fix any failures, and confirm fixes by rerunning.
 
 ## Invocation
 

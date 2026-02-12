@@ -1,13 +1,13 @@
-# CTIScraper Browser Extension
+# Huntable CTI Studio Browser Extension
 
-A browser extension that allows you to send articles directly to your CTIScraper instance for threat intelligence analysis.
+A browser extension that allows you to send articles directly to your Huntable CTI Studio instance for threat intelligence analysis.
 
 ## Features
 
-- **One-click scraping**: Send any article to CTIScraper with a single click
+- **One-click scraping**: Send any article to Huntable CTI Studio with a single click
 - **Smart content extraction**: Automatically extracts article title and content
 - **Duplicate detection**: Respects existing articles unless forced
-- **Direct integration**: Works with your local CTIScraper API
+- **Direct integration**: Works with your local Huntable CTI Studio API
 - **Clean interface**: Simple, intuitive popup interface
 
 ## Installation
@@ -19,16 +19,16 @@ A browser extension that allows you to send articles directly to your CTIScraper
 
 2. **Configure the API URL**:
    - Click the extension icon in your browser toolbar
-   - Set the CTIScraper API URL (default: `http://127.0.0.1:8001`)
+   - Set the Huntable CTI Studio API URL (default: `http://127.0.0.1:8001`)
    - Configure other settings as needed
 
 ## Usage
 
 1. **Navigate to any article** you want to analyze
-2. **Click the CTIScraper extension icon** in your browser toolbar
+2. **Click the Huntable CTI Studio extension icon** in your browser toolbar
 3. **Review the extracted content** (title, URL, word count)
-4. **Click "Send to CTIScraper"** to scrape the article
-5. **View the results** - the extension will open the article in CTIScraper
+4. **Click "Send to Huntable CTI Studio"** to scrape the article
+5. **View the results** - the extension will open the article in Huntable CTI Studio
 
 ## How It Works
 
@@ -39,14 +39,14 @@ The extension works exactly like your manual URL scraping interface:
    - `url`: Current page URL
    - `title`: Extracted or custom title
    - `force_scrape`: Whether to ignore duplicates
-3. **Processing**: CTIScraper processes the article with threat hunting scoring
-4. **Results**: Opens the processed article in CTIScraper
+3. **Processing**: Huntable CTI Studio processes the article with threat hunting scoring
+4. **Results**: Opens the processed article in Huntable CTI Studio
 
 ## Configuration Options
 
-- **API URL**: Your CTIScraper instance URL (default: `http://127.0.0.1:8001`)
+- **API URL**: Your Huntable CTI Studio instance URL (default: `http://127.0.0.1:8001`)
 - **Force Scrape**: Whether to scrape even if the URL already exists
-- **Auto-open**: Automatically opens the processed article in CTIScraper
+- **Auto-open**: Automatically opens the processed article in Huntable CTI Studio
 
 ## Supported Sites
 
@@ -60,7 +60,7 @@ The extension works on most websites with articles, including:
 ## Troubleshooting
 
 **Extension not working?**
-- Check that CTIScraper is running on the configured API URL
+- Check that Huntable CTI Studio is running on the configured API URL
 - Verify the API URL is correct in the extension settings
 - Check browser console for error messages
 
@@ -70,9 +70,9 @@ The extension works on most websites with articles, including:
 - The extension will fall back to using the page title and body content
 
 **API errors?**
-- Ensure CTIScraper is running and accessible
+- Ensure Huntable CTI Studio is running and accessible
 - Check that the `/api/scrape-url` endpoint is working
-- Verify network connectivity to your CTIScraper instance
+- Verify network connectivity to your Huntable CTI Studio instance
 
 **Non-routable IP error?**
 - The extension blocks ingestion from private/local IP addresses (127.0.0.1, 192.168.x.x, etc.)
@@ -102,7 +102,7 @@ browser-extension/
 
 ## Security
 
-- The extension only communicates with your configured CTIScraper instance
+- The extension only communicates with your configured Huntable CTI Studio instance
 - No data is sent to external services
 - All API calls are made directly to your local/configured server
 - Content extraction happens locally in your browser

@@ -1,6 +1,6 @@
 # Scripts Directory
 
-This directory contains utility scripts and testing tools for the CTI Scraper.
+This directory contains utility scripts and testing tools for the Huntable CTI Studio.
 
 ## Structure
 

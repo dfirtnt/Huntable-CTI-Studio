@@ -45,4 +45,4 @@ Replace `<your token>` with a valid Todoist API token (store it securely and do 
 1. Restart Cursor (or reload MCP) after any change to `.cursor/mcp.json`.
 2. Use the Create Issue skill or any Todoist tool; when prompted, complete the Todoist OAuth flow in the browser (hosted MCP) or ensure your local proxy can reach Todoist (local MCP).
 
-**Manual fallback:** If MCP is unavailable, create the issue in Todoist manually: open project **CTIScraper** → section **Intake** → add the main task and its subtasks.
+**Manual fallback:** If MCP is unavailable, create the issue in Todoist manually: open project **Huntable CTI Studio** → section **Intake** → add the main task and its subtasks.

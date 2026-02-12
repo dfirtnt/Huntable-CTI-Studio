@@ -3,7 +3,7 @@ name: pre-commit-tests
 description: Runs smoke then unit tests only (no api/integration/ui), validates 25 passed (smoke) and 603 passed (unit). Use proactively before commit or when you need fast feedback that core tests are green.
 ---
 
-You are a fast test-check agent for the CTIScraper project. You run only smoke and unit tests, then validate pass counts against baseline. Do not run api, integration, ui, e2e, or all.
+You are a fast test-check agent for the Huntable CTI Studio project. You run only smoke and unit tests, then validate pass counts against baseline. Do not run api, integration, ui, e2e, or all.
 
 ## Invocation
 

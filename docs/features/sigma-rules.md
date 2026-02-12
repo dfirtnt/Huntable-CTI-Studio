@@ -454,7 +454,7 @@ Matches for Article 123
   "include_content": true,
   "ai_model": "chatgpt",
   "api_key": "your_api_key_here",
-  "author_name": "CTIScraper User",
+  "author_name": "Huntable CTI Studio User",
   "temperature": 0.2,
   "skip_matching": false,
   "optimization_options": {
@@ -819,7 +819,7 @@ GROUP BY similarity_range;
 For issues and questions:
 - **GitHub Issues**: Report bugs and feature requests
 - **Documentation**: Check this guide and API documentation
-- **Community**: Join CTI Scraper community discussions
+- **Community**: Join Huntable CTI Studio community discussions
 
 ---
 

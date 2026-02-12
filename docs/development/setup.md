@@ -1,6 +1,6 @@
 # Development Setup Guide
 
-Comprehensive guide for setting up the CTIScraper development environment, including pytest configuration, virtual environments, and testing frameworks.
+Comprehensive guide for setting up the Huntable CTI Studio development environment, including pytest configuration, virtual environments, and testing frameworks.
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@ Comprehensive guide for setting up the CTIScraper development environment, inclu
 ```bash
 # Clone repository
 git clone <repository-url>
-cd CTIScraper
+cd Huntable-CTI-Studio
 
 # Start application
 ./start.sh
@@ -39,7 +39,7 @@ python3 run_tests.py --install
 
 ## Virtual Environments
 
-CTIScraper uses multiple virtual environments for different development workflows:
+Huntable CTI Studio uses multiple virtual environments for different development workflows:
 
 ### 1. `venv-test` (Python 3.12.x - local only)
 **Purpose**: Testing and development
@@ -104,7 +104,7 @@ source venv-ml/bin/activate
 
 ### Core Concepts
 
-Pytest is the primary testing framework for CTIScraper. It provides:
+Pytest is the primary testing framework for Huntable CTI Studio. It provides:
 
 - **Test Discovery**: Automatic test discovery and execution
 - **Fixtures**: Reusable test setup and teardown
@@ -245,7 +245,7 @@ async def test_homepage_loads(browser_page):
     """Test homepage loads correctly."""
     await browser_page.goto("http://localhost:8001/")
     title = await browser_page.title()
-    assert "CTI Scraper" in title
+    assert "Huntable CTI Studio" in title
 ```
 
 ### Test Markers

@@ -2,9 +2,9 @@
 
 <!-- MERGED FROM: development/DEBUGGING_TOOLS_GUIDE.md, development/DEBUG_EVAL_LMSTUDIO_LOGS.md, development/TROUBLESHOOT_EVAL_PENDING.md -->
 
-# CTI Scraper Debugging Tools Guide
+# Huntable CTI Studio Debugging Tools Guide
 
-This comprehensive guide covers the enhanced debugging capabilities available in the CTI Scraper test suite. These tools are designed to improve developer productivity by providing detailed failure analysis, performance monitoring, and debugging utilities.
+This comprehensive guide covers the enhanced debugging capabilities available in the Huntable CTI Studio test suite. These tools are designed to improve developer productivity by providing detailed failure analysis, performance monitoring, and debugging utilities.
 
 ## Table of Contents
 
@@ -20,7 +20,7 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 
 ## Overview
 
-The CTI Scraper debugging tools provide:
+The Huntable CTI Studio debugging tools provide:
 
 - **LangFuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to LangFuse UI
 - **Comprehensive Failure Analysis**: Automatic categorization and analysis of test failures with actionable suggestions
@@ -663,7 +663,7 @@ The test runner automatically:
 
 ## Conclusion
 
-The CTI Scraper debugging tools provide comprehensive support for test debugging and optimization. By using these tools effectively, you can:
+The Huntable CTI Studio debugging tools provide comprehensive support for test debugging and optimization. By using these tools effectively, you can:
 
 - Quickly identify and resolve test failures
 - Debug complex async operations
@@ -672,9 +672,9 @@ The CTI Scraper debugging tools provide comprehensive support for test debugging
 - Get rich, informative test output
 
 For more information, refer to the individual module documentation and examples in the `tests/utils/` directory.
-# CTI Scraper Debugging Tools Guide
+# Huntable CTI Studio Debugging Tools Guide
 
-This comprehensive guide covers the enhanced debugging capabilities available in the CTI Scraper test suite. These tools are designed to improve developer productivity by providing detailed failure analysis, performance monitoring, and debugging utilities.
+This comprehensive guide covers the enhanced debugging capabilities available in the Huntable CTI Studio test suite. These tools are designed to improve developer productivity by providing detailed failure analysis, performance monitoring, and debugging utilities.
 
 ## Table of Contents
 
@@ -690,7 +690,7 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 
 ## Overview
 
-The CTI Scraper debugging tools provide:
+The Huntable CTI Studio debugging tools provide:
 
 - **LangFuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to LangFuse UI
 - **Comprehensive Failure Analysis**: Automatic categorization and analysis of test failures with actionable suggestions
@@ -1333,7 +1333,7 @@ The test runner automatically:
 
 ## Conclusion
 
-The CTI Scraper debugging tools provide comprehensive support for test debugging and optimization. By using these tools effectively, you can:
+The Huntable CTI Studio debugging tools provide comprehensive support for test debugging and optimization. By using these tools effectively, you can:
 
 - Quickly identify and resolve test failures
 - Debug complex async operations

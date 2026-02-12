@@ -2,7 +2,7 @@
 
 ## Overview
 
-CTIScraper now includes Allure Reports integration for comprehensive test visualization and debugging. Allure provides interactive, step-by-step test execution reports that are particularly valuable for ML/AI testing, UI testing, and complex integration scenarios.
+Huntable CTI Studio now includes Allure Reports integration for comprehensive test visualization and debugging. Allure provides interactive, step-by-step test execution reports that are particularly valuable for ML/AI testing, UI testing, and complex integration scenarios.
 
 ## Features
 
@@ -12,7 +12,7 @@ CTIScraper now includes Allure Reports integration for comprehensive test visual
 - **Historical tracking**: Compare test results over time
 - **Filtering and search**: Find specific tests or failures quickly
 
-### 🔍 **CTIScraper-Specific Benefits**
+### 🔍 **Huntable CTI Studio-specific benefits**
 - **ML/AI Debugging**: Visualize AI inference steps and confidence scores
 - **UI Test Screenshots**: Automatic Playwright screenshot capture on failures
 - **Threat Intelligence Context**: Step-by-step IOC extraction and threat hunting
@@ -126,7 +126,7 @@ allure-results/
 - **Parameters**: Test parameters and environment info
 - **History**: Test execution history and trends
 
-## CTIScraper-Specific Features
+## Huntable CTI Studio-specific features
 
 ### 1. ML/AI Test Visualization
 Perfect for debugging AI inference and ML feedback tests:
@@ -181,7 +181,7 @@ def test_ioc_extraction():
 ## Integration with Existing Tools
 
 ### Complementary Reporting Ecosystem
-Allure works alongside existing CTIScraper reporting tools:
+Allure works alongside existing Huntable CTI Studio reporting tools:
 
 - **Duration Insights**: Performance analysis and bottleneck identification
 - **Coverage Reports**: Code coverage analysis
@@ -345,13 +345,13 @@ allure generate allure-results --clean -o allure-report
 ## Future Enhancements
 
 - **Real-time Reporting**: Live test execution monitoring
-- **Custom Dashboards**: CTIScraper-specific metrics
+- **Custom Dashboards**: Huntable CTI Studio-specific metrics
 - **Integration with Monitoring**: Connect with external monitoring tools
 - **Advanced Filtering**: Custom test categorization and filtering
 
 ## Summary
 
-Allure Reports provide CTIScraper with:
+Allure Reports provide Huntable CTI Studio with:
 - **Enhanced Debugging**: Step-by-step test visualization
 - **ML/AI Focus**: Perfect for AI inference debugging
 - **UI Testing**: Automatic screenshot capture

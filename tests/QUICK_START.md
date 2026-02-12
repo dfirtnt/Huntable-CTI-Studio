@@ -1,6 +1,6 @@
 # Testing Quick Start
 
-Get up and running with CTIScraper testing in 5 minutes.
+Get up and running with Huntable CTI Studio testing in 5 minutes.
 
 ## Prerequisites
 

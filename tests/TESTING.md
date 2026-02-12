@@ -1,6 +1,6 @@
-# CTIScraper Testing Guide
+# Huntable CTI Studio Testing Guide
 
-Comprehensive testing documentation for the CTI Scraper application, covering all test types, execution contexts, and best practices.
+Comprehensive testing documentation for the Huntable CTI Studio application, covering all test types, execution contexts, and best practices.
 
 ## Table of Contents
 
@@ -811,7 +811,7 @@ docker-compose ps
 
 ## Visual Test Tracking
 
-CTIScraper includes advanced visual test tracking capabilities:
+Huntable CTI Studio includes advanced visual test tracking capabilities:
 
 ### Allure Reports
 

@@ -22,6 +22,8 @@ The `start.sh` script will:
 - Create necessary `logs/` and `data/` directories
 - Run `docker-compose up --build -d`
 - Health-check PostgreSQL, Redis, and the web application
+- Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
+- Optionally prompt: **Run MkDocs docs build/server?** If you answer **y**, it runs `./run_mkdocs.sh` in the background (logs in `logs/mkdocs.log`); the terminal stays free
 
 ## Access Points
 

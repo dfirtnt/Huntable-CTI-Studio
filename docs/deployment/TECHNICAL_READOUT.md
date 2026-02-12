@@ -1,8 +1,8 @@
-# CTI Scraper - Technical Readout
+# Huntable CTI Studio - Technical Readout
 
 ## Project Overview
 
-**CTI Scraper** is a modern threat intelligence collection and analysis platform designed to aggregate, process, and analyze cybersecurity content from multiple sources. The system provides both automated collection capabilities and a web-based interface for threat intelligence analysts.
+**Huntable CTI Studio** is a modern threat intelligence collection and analysis platform designed to aggregate, process, and analyze cybersecurity content from multiple sources. The system provides both automated collection capabilities and a web-based interface for threat intelligence analysts.
 
 ### Core Mission
 - **Collect**: Automatically gather threat intelligence articles from RSS feeds and web scraping
@@ -34,7 +34,7 @@
 ## Directory Structure
 
 ```
-CTIScraper/
+Huntable-CTI-Studio/
 ├── 📁 src/                          # Main application code
 │   ├── 📁 web/                      # FastAPI web application
 │   │   ├── modern_main.py           # Main FastAPI app entry point
@@ -394,7 +394,7 @@ python -m src.cli.main collect --dry-run
 ```bash
 # Clone repository
 git clone <repository-url>
-cd CTIScraper
+cd Huntable-CTI-Studio
 
 # Start services
 docker-compose up -d
@@ -425,4 +425,4 @@ export DATABASE_URL="postgresql+asyncpg://cti_user:cti_password_2024@postgres:54
 uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-This technical readout provides a comprehensive overview of the CTI Scraper architecture, implementation details, and development workflow for engineers and developers joining the project.
+This technical readout provides a comprehensive overview of the Huntable CTI Studio architecture, implementation details, and development workflow for engineers and developers joining the project.

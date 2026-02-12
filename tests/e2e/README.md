@@ -1,6 +1,6 @@
 # E2E Test Suite
 
-This directory contains end-to-end tests for the CTIScraper web application using Playwright.
+This directory contains end-to-end tests for the Huntable CTI Studio web application using Playwright.
 
 ## Status
 - Phase 1 (critical workflows) ✅ complete: classification, annotation, RAG chat, ML feedback (AI assistant deprecated)

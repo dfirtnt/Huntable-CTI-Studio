@@ -6,7 +6,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CTI Scraper Architecture                           │
+│                         Huntable CTI Studio Architecture                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -625,7 +625,7 @@ Manual backups via CLI: ./scripts/backup_restore.sh create
           │
           ▼
 ┌─────────────────┐
-│ CTIScraper API  │
+│ Huntable CTI Studio API  │
 │                 │
 │ • /api/scrape-url│
 │ • Process Article│
@@ -705,7 +705,7 @@ Manual backups via CLI: ./scripts/backup_restore.sh create
 
 ## Usage Notes
 
-These diagrams are designed to fit on single pages for easy screenshot capture into PowerPoint slides. Each diagram shows a specific workflow or component of the CTI Scraper system:
+These diagrams are designed to fit on single pages for easy screenshot capture into PowerPoint slides. Each diagram shows a specific workflow or component of the Huntable CTI Studio system:
 
 1. **System Architecture** - Overall system components and Docker environment with all services
 2. **Article Collection** - How articles are collected from RSS feeds and web scraping

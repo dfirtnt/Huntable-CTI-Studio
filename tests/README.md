@@ -1,6 +1,6 @@
-# CTIScraper Testing Documentation
+# Huntable CTI Studio Testing Documentation
 
-**Welcome to the CTIScraper testing suite.** This is your starting point for understanding and running all tests.
+**Welcome to the Huntable CTI Studio testing suite.** This is your starting point for understanding and running all tests.
 
 ## 📋 Quick Navigation
 

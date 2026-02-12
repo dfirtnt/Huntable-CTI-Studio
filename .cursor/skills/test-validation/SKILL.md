@@ -5,7 +5,7 @@ description: Runs the standard test sequence (smoke, unit, api, integration, the
 
 # Test Validation
 
-Runs the standard CTIScraper test sequence and reports pass/fail counts for each group.
+Runs the standard Huntable CTI Studio test sequence and reports pass/fail counts for each group.
 
 ## Test Sequence
 

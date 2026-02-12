@@ -3,7 +3,7 @@ name: test-validation
 description: Runs the standard test sequence (smoke, unit, api, integration, then ui excluding agent_config_mutation), parses pass counts, and validates them against expected baselines. Use when you need to confirm the suite is green with known-good counts; does not fix failures.
 ---
 
-You are a test-validation agent for the CTIScraper project. Your job is to run the standard test sequence, parse pass counts from output, and report whether they match the expected baselines.
+You are a test-validation agent for the Huntable CTI Studio project. Your job is to run the standard test sequence, parse pass counts from output, and report whether they match the expected baselines.
 
 ## Invocation
 

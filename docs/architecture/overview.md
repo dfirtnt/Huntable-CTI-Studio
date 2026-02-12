@@ -13,7 +13,7 @@ Huntable CTI Studio is a modern threat intelligence collection and analysis plat
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CTI Scraper Architecture                           │
+│                         Huntable CTI Studio Architecture                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -119,7 +119,7 @@ See [Workflow Data Flow](workflow-data-flow.md) for detailed workflow architectu
 ## Directory Structure
 
 ```
-CTIScraper/
+Huntable-CTI-Studio/
 ├── src/                          # Main application code
 │   ├── web/                      # FastAPI web application
 │   │   ├── modern_main.py        # Main FastAPI app entry point

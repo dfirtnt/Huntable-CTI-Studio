@@ -1,6 +1,6 @@
-# DO NOT - CTI Scraper Anti-Patterns
+# DO NOT - Huntable CTI Studio Anti-Patterns
 
-Critical mistakes to avoid in the CTI Scraper codebase.
+Critical mistakes to avoid in the Huntable CTI Studio codebase.
 
 ## 🚨 CRITICAL DATABASE OPERATIONS
 
