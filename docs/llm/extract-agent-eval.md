@@ -47,7 +47,7 @@ Evaluation framework for measuring Extract Agent performance before and after fi
 
 ## Eval articles rehydration
 
-Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) currently depend on articles existing in the DB; after rehydration they fail. Work to use static files as the source of eval data is tracked in [Eval Articles: Static Files (archive)](../archive/EVAL_ARTICLES_STATIC_FILES.md).
+Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) currently depend on articles existing in the DB; after rehydration they fail. Work to use static files as the source of eval data is tracked in the project (archived spec in git history).
 
 ## Test Dataset
 

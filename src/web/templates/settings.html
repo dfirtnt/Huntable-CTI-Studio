@@ -369,14 +369,15 @@
                             </label>
                         </div>
 
-                        <!-- LMStudio Provider -->
-                        <div class="flex items-center">
+                        <!-- LMStudio Provider (greyed out when user proceeded without LMStudio at start.sh) -->
+                        <div id="workflowLmstudioRow" class="flex items-center">
                             <input type="checkbox"
                                    id="workflowLmstudioEnabled"
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                             <label for="workflowLmstudioEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 LMStudio (Local)
                             </label>
+                            <span id="workflowLmstudioProceedNote" class="ml-2 text-xs text-gray-500 dark:text-gray-400 hidden" aria-hidden="true"></span>
                         </div>
                     </div>
                 </div>
@@ -825,6 +826,22 @@
             settings.workflowLmstudioEnabled || false
         );
         document.getElementById('workflowLmstudioEnabled').checked = workflowLmstudioEnabled;
+        const proceedWithoutLmstudio = String(workflowAppSettings.PROCEED_WITHOUT_LMSTUDIO || '').trim() !== '';
+        window.__proceedWithoutLmstudio = proceedWithoutLmstudio;
+        if (proceedWithoutLmstudio) {
+            const row = document.getElementById('workflowLmstudioRow');
+            if (row) {
+                row.classList.add('opacity-50', 'pointer-events-none');
+                row.title = 'Disabled: you chose to proceed without LMStudio at startup.';
+            }
+            const cb = document.getElementById('workflowLmstudioEnabled');
+            if (cb) cb.disabled = true;
+            const note = document.getElementById('workflowLmstudioProceedNote');
+            if (note) {
+                note.textContent = '(disabled: proceeded without LMStudio at startup)';
+                note.classList.remove('hidden');
+            }
+        }
 
         const workflowOpenaiApiKey = parseWorkflowStringSetting(
             workflowAppSettings,
@@ -1040,11 +1057,12 @@
 
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
 
+        const lmstudioEnabledForSave = window.__proceedWithoutLmstudio ? false : settings.workflowLmstudioEnabled;
         const workflowSettingsPayload = {
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiEnabled]: settings.workflowOpenaiEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicEnabled]: settings.workflowAnthropicEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.geminiEnabled]: settings.workflowGeminiEnabled ? 'true' : 'false',
-            [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: settings.workflowLmstudioEnabled ? 'true' : 'false',
+            [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: settings.workflowOpenaiApiKey,
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: settings.workflowAnthropicApiKey,
             [WORKFLOW_PROVIDER_SETTING_KEYS.geminiApiKey]: settings.workflowGeminiApiKey

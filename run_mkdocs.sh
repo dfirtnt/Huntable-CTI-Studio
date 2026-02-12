@@ -11,8 +11,11 @@ if [ ! -f "mkdocs.yml" ]; then
     exit 1
 fi
 
-if [ -d ".venv" ]; then
-    source .venv/bin/activate
+if [ ! -d ".venv" ]; then
+    python3 -m venv .venv
 fi
+PYTHON=".venv/bin/python3"
 
-exec python3 -m mkdocs serve "$@"
+# Ensure mkdocs and theme are installed in venv
+"$PYTHON" -m pip install -q mkdocs mkdocs-material
+exec "$PYTHON" -m mkdocs serve "$@"
