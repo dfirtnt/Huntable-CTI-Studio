@@ -4,6 +4,7 @@ FastAPI application entrypoint for the Huntable CTI Studio platform.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -22,17 +23,40 @@ from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
 from src.web.routes import register_routes
 
 
+# Startup DB retry: wait for postgres to be ready (e.g. after compose up).
+STARTUP_DB_RETRIES = int(os.getenv("STARTUP_DB_RETRIES", "5"))
+STARTUP_DB_DELAY_SEC = float(os.getenv("STARTUP_DB_DELAY_SEC", "2.0"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown events."""
     logger.info("Starting Huntable CTI Studio application…")
 
-    try:
-        await async_db_manager.create_tables()
-        logger.info("Database tables created/verified successfully")
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to create database tables: %s", exc)
-        raise
+    last_exc: Exception | None = None
+    for attempt in range(1, STARTUP_DB_RETRIES + 1):
+        try:
+            await async_db_manager.create_tables()
+            logger.info("Database tables created/verified successfully")
+            last_exc = None
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            logger.warning(
+                "Database create_tables attempt %s/%s failed: %s",
+                attempt,
+                STARTUP_DB_RETRIES,
+                exc,
+            )
+            if attempt < STARTUP_DB_RETRIES:
+                await asyncio.sleep(STARTUP_DB_DELAY_SEC)
+    if last_exc is not None:
+        logger.exception(
+            "Failed to create database tables after %s attempts: %s",
+            STARTUP_DB_RETRIES,
+            last_exc,
+        )
+        raise last_exc
 
     try:
         existing_identifiers = await async_db_manager.list_source_identifiers()
@@ -110,7 +134,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         logger.info("Startup collection disabled to prevent UI performance issues")
     except Exception as exc:  # noqa: BLE001
-        logger.error("Database connection failed: %s", exc)
+        logger.exception("Database connection failed: %s", exc)
         raise
 
     yield

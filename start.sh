@@ -29,6 +29,13 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# Ensure .env exists so Docker Compose does not warn on every ${VAR} (one warning per occurrence).
+# Creates from .env.example if missing; set POSTGRES_PASSWORD and API keys as needed.
+if [ ! -f ".env" ]; then
+    echo "📄 No .env found; creating from .env.example (set POSTGRES_PASSWORD and API keys as needed)."
+    cp .env.example .env
+fi
+
 # Skip embedding-dependent steps when we warned about limited/untested environment
 SKIP_SIGMA_INDEX=""
 
