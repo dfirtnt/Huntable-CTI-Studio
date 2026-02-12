@@ -1,11 +1,11 @@
 # Database Query Instructions
 
-This document provides instructions for directly querying the CTI Scraper database using PostgreSQL commands.
+This document provides instructions for directly querying the Huntable CTI Studio database using PostgreSQL commands.
 
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- CTI Scraper application running (`docker-compose up -d`)
+- Huntable CTI Studio application running (`docker-compose up -d`)
 
 ## Database Connection Details
 

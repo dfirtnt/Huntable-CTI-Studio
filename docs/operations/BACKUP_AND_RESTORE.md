@@ -1,6 +1,6 @@
 # Backup and Restore System
 
-Comprehensive guide for CTI Scraper backup and restore operations, including database-only backups, full system backups, and automated backup configuration.
+Comprehensive guide for Huntable CTI Studio backup and restore operations, including database-only backups, full system backups, and automated backup configuration.
 
 ## Table of Contents
 
@@ -375,13 +375,13 @@ The automated backup system creates two cron jobs:
 **Daily Backup Job:**
 ```bash
 # Runs daily at 2:00 AM
-0 2 * * * cd /path/to/CTIScraper && ./scripts/backup_restore.sh create --type full >> logs/backup.log 2>&1
+0 2 * * * cd /path/to/Huntable-CTI-Studio && ./scripts/backup_restore.sh create --type full >> logs/backup.log 2>&1
 ```
 
 **Weekly Cleanup Job:**
 ```bash
 # Runs weekly on Sundays at 3:00 AM
-0 3 * * 0 cd /path/to/CTIScraper && ./scripts/backup_restore.sh prune --daily 7 --weekly 4 --monthly 3 --max-size-gb 50 --force >> logs/backup.log 2>&1
+0 3 * * 0 cd /path/to/Huntable-CTI-Studio && ./scripts/backup_restore.sh prune --daily 7 --weekly 4 --monthly 3 --max-size-gb 50 --force >> logs/backup.log 2>&1
 ```
 
 ### Monitoring Logs

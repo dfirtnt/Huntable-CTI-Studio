@@ -1,6 +1,6 @@
 # Scripts and How To Use Them
 
-Comprehensive guide to all utility scripts in the CTIScraper project.
+Comprehensive guide to all utility scripts in the Huntable CTI Studio project.
 
 ## Table of Contents
 

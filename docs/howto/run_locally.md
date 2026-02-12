@@ -20,6 +20,7 @@ What happens:
 - Creates `logs/` and `data/` directories
 - Runs `docker-compose up --build -d`
 - Health-checks Postgres, Redis, and the web app
+- Optionally prompts to run the MkDocs docs server; if **y**, runs `./run_mkdocs.sh` in the background (logs: `logs/mkdocs.log`)
 
 ## Service endpoints
 - Web UI + API: http://localhost:8001

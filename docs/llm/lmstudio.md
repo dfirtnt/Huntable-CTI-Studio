@@ -13,7 +13,7 @@ This guide covers setting up and optimizing LM Studio for local LLM inference wi
    - Start server (default port: 1234)
    - Load your preferred model
 
-2. **Run CTIScraper with LMStudio**:
+2. **Run Huntable CTI Studio with LMStudio**:
 ```bash
 # Start services (LMStudio config is already in docker-compose.yml)
 docker-compose up web
@@ -101,7 +101,7 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
 - **Error if too small:** "Trying to keep the first X tokens when context overflows. However, the model is loaded with context length of only Y tokens"
 
 **SIGMA Rule Generation:**
-- CTIScraper automatically truncates content based on detected model size:
+- Huntable CTI Studio automatically truncates content based on detected model size:
   - 1B models: ~550 tokens of content (~2200 chars)
   - 3B models: ~2600 tokens of content (~10400 chars)  
   - 8B+ models: ~6700 tokens of content (~26800 chars)
@@ -114,7 +114,7 @@ The application uses the OpenAI-compatible HTTP API (`/v1/chat/completions`), wh
 
 ## LM Studio 0.4.0+ (optional improvements)
 
-The following features from [LM Studio 0.4.0](https://lmstudio.ai/blog/0.4.0) are relevant to CTIScraper:
+The following features from [LM Studio 0.4.0](https://lmstudio.ai/blog/0.4.0) are relevant to Huntable CTI Studio:
 
 | Feature | Relevance | Action |
 |--------|-----------|--------|
@@ -399,7 +399,7 @@ CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python --force-reinstall
 2. **llama.cpp** with 7B model: 10-15 second responses
 3. **LM Studio** with 7B model: 12-20 second responses
 
-## Integration with CTI Scraper
+## Integration with Huntable CTI Studio
 
 ### RAG System Integration
 

@@ -1,6 +1,6 @@
-# CTI Scraper Versioning System
+# Huntable CTI Studio Versioning System
 
-CTI Scraper uses a combination of semantic versioning and planetary moon names for major releases.
+Huntable CTI Studio uses a combination of semantic versioning and planetary moon names for major releases.
 
 ## Version Format
 
@@ -128,7 +128,7 @@ When choosing planetary mooncrater names for major versions:
 
 ---
 
-**Note**: This versioning system provides a unique and meaningful way to identify major releases while maintaining the scientific and technical theme of the CTI Scraper platform.
+**Note**: This versioning system provides a unique and meaningful way to identify major releases while maintaining the scientific and technical theme of the Huntable CTI Studio platform.
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTE4MjU5MTY5NzldfQ==
 -->

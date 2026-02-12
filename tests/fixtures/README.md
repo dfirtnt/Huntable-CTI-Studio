@@ -1,6 +1,6 @@
 # Test Fixtures
 
-This directory contains reusable test data and fixtures for the CTIScraper test suite.
+This directory contains reusable test data and fixtures for the Huntable CTI Studio test suite.
 
 ## Directory Structure
 

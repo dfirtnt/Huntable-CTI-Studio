@@ -1,4 +1,4 @@
-# CTIScraper Test Index
+# Huntable CTI Studio Test Index
 
 ## 📋 Complete Test Inventory
 

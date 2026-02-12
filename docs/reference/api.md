@@ -1,10 +1,10 @@
-# CTI Scraper API Endpoints
+# Huntable CTI Studio API Endpoints
 
-This document provides a comprehensive list of all API endpoints available in the CTI Scraper application.
+This document provides a comprehensive list of all API endpoints available in the Huntable CTI Studio application.
 
 ## Overview
 
-The CTI Scraper provides **2170+ API endpoints** across multiple categories:
+Huntable CTI Studio provides **2170+ API endpoints** across multiple categories:
 - **Health & Monitoring**: 8 endpoints
 - **Web Pages**: 23 page19 endpoints
 - **Sources Management**: 10 endpoints  

@@ -1,6 +1,6 @@
-# Contributing to CTI Scraper
+# Contributing to Huntable CTI Studio
 
-Thank you for your interest in contributing to CTI Scraper! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to Huntable CTI Studio! This document provides guidelines and information for contributors.
 
 ## Table of Contents
 
@@ -33,12 +33,12 @@ This project and everyone participating in it is governed by our Code of Conduct
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/your-username/CTIScraper.git
-   cd CTIScraper
+   git clone https://github.com/your-username/Huntable-CTI-Studio.git
+   cd Huntable-CTI-Studio
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/original-owner/CTIScraper.git
+   git remote add upstream https://github.com/original-owner/Huntable-CTI-Studio.git
    ```
 
 ## Development Setup
@@ -129,7 +129,7 @@ pre-commit install
 Organize files according to their purpose and lifecycle:
 
 ```
-CTIScraper/
+Huntable-CTI-Studio/
 ├── utils/temp/              # Temporary scripts (ephemeral, one-off)
 │   ├── debug_*.py          # Debug scripts
 │   ├── test_*.py           # One-off test scripts
@@ -314,7 +314,7 @@ Clear description of what you expected to happen.
 **Environment:**
 - OS: [e.g. macOS 14.0]
 - Python: [e.g. 3.11.0]
-- CTI Scraper: [e.g. 52.0.0]
+- Huntable CTI Studio: [e.g. 52.0.0]
 
 **Additional context**
 Add any other context about the problem here.
@@ -395,7 +395,7 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ## Acknowledgments
 
-Thank you to all contributors who have helped make CTI Scraper better! Your contributions are greatly appreciated.
+Thank you to all contributors who have helped make Huntable CTI Studio better! Your contributions are greatly appreciated.
 
 ---
 

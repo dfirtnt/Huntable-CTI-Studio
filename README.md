@@ -7,7 +7,7 @@
 This app is a suite of utilities for processing open source intel. It is for research, learning, and automation purposes. Code is NOT SECURE, and is not intended to be used in production!!
 ##
 
-**CTIScraper v5.0.0 "Callisto"** -  A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 33+ OSINT sources.
+**Huntable CTI Studio v5.0.0 "Callisto"** -  A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 33+ OSINT sources.
 
 ## Purpose
 
@@ -61,7 +61,7 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Quickstart**: `docs/quickstart.md` (Docker-first run, ingest → workflow → Sigma → pytest)
 - **Docs site**: `mkdocs serve` to preview locally; navigation mirrors `/docs` (concepts, how-tos, reference, internals).
 - **UI**: http://localhost:8001 (OpenAPI at `/docs`; LangFuse traces for workflow debugging when configured)
-- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh`.
+- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh` (optionally prompts to run MkDocs docs server in background).
 
 For full details, begin at `docs/index.md`.
 

@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document defines the testing strategy for CTIScraper, a single-user, local-first CTI research application. The strategy focuses on regression confidence across core analyst workflows while maintaining testability and speed.
+This document defines the testing strategy for Huntable CTI Studio, a single-user, local-first CTI research application. The strategy focuses on regression confidence across core analyst workflows while maintaining testability and speed.
 
 ## Test Pyramid
 
@@ -233,7 +233,7 @@ This excludes:
 
 ## Overview
 
-This document outlines the test plan for CTIScraper, focusing on critical analyst workflows and high-risk modules.
+This document outlines the test plan for Huntable CTI Studio, focusing on critical analyst workflows and high-risk modules.
 
 ## Top 20 Critical Analyst Workflows (Risk-Based)
 

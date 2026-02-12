@@ -2,7 +2,7 @@
 
 ## Overview
 
-The CTI Scraper implements a comprehensive RAG system that combines semantic search with LLM-powered response generation to provide intelligent threat intelligence analysis through conversational AI.
+Huntable CTI Studio implements a comprehensive RAG system that combines semantic search with LLM-powered response generation to provide intelligent threat intelligence analysis through conversational AI.
 
 ## Architecture
 

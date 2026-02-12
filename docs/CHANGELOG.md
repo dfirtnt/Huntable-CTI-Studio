@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to CTI Scraper will be documented in this file.
+All notable changes to Huntable CTI Studio will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -1444,7 +1444,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Release Notes
 
 ### Version 2.0.0
-This is a major release with significant architectural improvements. The new async architecture provides better performance, scalability, and reliability. The addition of PostgreSQL, Redis, and Docker makes CTI Scraper production-ready.
+This is a major release with significant architectural improvements. The new async architecture provides better performance, scalability, and reliability. The addition of PostgreSQL, Redis, and Docker makes Huntable CTI Studio production-ready.
 
 ### Version 1.2.3
 Security-focused release addressing critical vulnerabilities and improving overall stability.

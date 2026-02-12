@@ -1,7 +1,7 @@
 # Multi-Instance Docker Setup
 
 ## Overview
-This guide explains how to run multiple instances of CTIScraper simultaneously without port conflicts.
+This guide explains how to run multiple instances of Huntable CTI Studio simultaneously without port conflicts.
 
 ## Port Allocation
 
@@ -15,8 +15,8 @@ This guide explains how to run multiple instances of CTIScraper simultaneously w
 
 ### 1. Clone Repository
 ```bash
-git clone /path/to/CTIScraper /path/to/CTIScraper-dev2
-cd /path/to/CTIScraper-dev2
+git clone /path/to/Huntable-CTI-Studio /path/to/Huntable-CTI-Studio-dev2
+cd /path/to/Huntable-CTI-Studio-dev2
 ```
 
 ### 2. Copy Environment Configuration

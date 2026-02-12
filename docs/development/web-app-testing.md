@@ -4,11 +4,11 @@
 
 # 🌐 Web App Testing
 
-Comprehensive guide for testing the CTI Scraper web interface with Playwright.
+Comprehensive guide for testing the Huntable CTI Studio web interface with Playwright.
 
 ## 🎯 Overview
 
-This guide covers browser-based testing of the CTI Scraper web application using Playwright, including UI flows, responsive design, and user experience validation.
+This guide covers browser-based testing of the Huntable CTI Studio web application using Playwright, including UI flows, responsive design, and user experience validation.
 
 ## 🛠️ Tools and Setup
 
@@ -105,7 +105,7 @@ def test_basic_navigation(page: Page):
     page.goto("http://localhost:8001/")
     
     # Verify page loaded
-    expect(page).to_have_title("CTI Scraper")
+    expect(page).to_have_title("Huntable CTI Studio")
     
     # Check for key elements
     expect(page.locator("h1")).to_be_visible()
@@ -121,7 +121,7 @@ def test_homepage_loads(page: Page):
     page.goto("http://localhost:8001/")
     
     # Verify page title
-    expect(page).to_have_title("CTI Scraper")
+    expect(page).to_have_title("Huntable CTI Studio")
     
     # Check navigation menu
     nav_items = ["Dashboard", "Articles", "Sources", "Analysis"]
@@ -460,7 +460,7 @@ def test_form_validation(page: Page):
     expect(page.locator("text=Invalid URL format")).to_be_visible()
 ```
 
-## 🎯 CTIScraper-Specific Tests
+## 🎯 Huntable CTI Studio-specific tests
 
 ### Source Management
 ```python

@@ -1,16 +1,16 @@
 ---
 name: create-issue
-description: Summarizes problems or bugs from the open chat (or uses user-provided content), proposes a Todoist issue with Title and Description and optionally subtasks, then creates tasks in the CTIScraper Todoist project via Todoist MCP after user approval. Use when the user says "Create Issue", "create issue", or asks to turn chat discussion into Todoist tasks in CTIScraper.
+description: Summarizes problems or bugs from the open chat (or uses user-provided content), proposes a Todoist issue with Title and Description and optionally subtasks, then creates tasks in the Huntable CTI Studio Todoist project via Todoist MCP after user approval. Use when the user says "Create Issue", "create issue", or asks to turn chat discussion into Todoist tasks in Huntable CTI Studio.
 ---
 
 # Create Issue
 
-Turns chat-surfaced problems/bugs (or user-provided text) into Todoist tasks in the **CTIScraper** project. Default section: **Intake**. User may override with a section name (e.g. "Up Next", "WIP").
+Turns chat-surfaced problems/bugs (or user-provided text) into Todoist tasks in the **Huntable CTI Studio** project. Default section: **Intake**. User may override with a section name (e.g. "Up Next", "WIP").
 
 ## When to use
 
 - User says "Create Issue" or "create issue"
-- User asks to log bugs/tasks from the conversation in CTIScraper/Todoist
+- User asks to log bugs/tasks from the conversation in Huntable CTI Studio/Todoist
 
 ## Workflow
 
@@ -39,7 +39,7 @@ Output a single **Create Issue Proposal** in this shape:
 
 - **Subtasks:** Add them only when the issue naturally breaks into 2+ concrete, separate steps or sub-bugs. Otherwise use "*(none)*".
 
-Do **not** call Todoist yet. Ask for approval, e.g. “Approve to create in CTIScraper?” or “Say 'yes' / 'go' to create, or edit Title/Description/Section/Subtasks.”
+Do **not** call Todoist yet. Ask for approval, e.g. “Approve to create in Huntable CTI Studio?” or “Say 'yes' / 'go' to create, or edit Title/Description/Section/Subtasks.”
 
 ### 3. Apply user feedback
 
@@ -50,11 +50,11 @@ Do **not** call Todoist yet. Ask for approval, e.g. “Approve to create in CTIS
 When the user clearly approves (e.g. “yes”, “go”, “create it”):
 
 1. **Resolve project and section** (official Todoist MCP: **find-projects**, **find-sections**)
-   - Call **find-projects** with `{"search": "CTIScraper"}` (or no search and find by name in the list). Get the project `id` for CTIScraper.
-   - Call **find-sections** with `{"projectId": "<CTIScraper id>", "search": "<Section>"}` (e.g. `"Intake"`) or omit search and find the section by name. Get the section `id`. Match case-insensitively; normalize "Up Next", "WIP", "Someday / Maybe" if needed.
+   - Call **find-projects** with `{"search": "Huntable CTI Studio"}` (or no search and find by name in the list). Get the project `id` for Huntable CTI Studio.
+   - Call **find-sections** with `{"projectId": "<Huntable CTI Studio id>", "search": "<Section>"}` (e.g. `"Intake"`) or omit search and find the section by name. Get the section `id`. Match case-insensitively; normalize "Up Next", "WIP", "Someday / Maybe" if needed.
 
 2. **Create the main task** (official Todoist MCP: **add-tasks**)
-   - Call **add-tasks** with `{"tasks": [{"content": "<Title>", "description": "<Description>", "projectId": "<CTIScraper id>", "sectionId": "<resolved section id>"}]}`. From the response, capture the created task’s `id` for subtasks.
+   - Call **add-tasks** with `{"tasks": [{"content": "<Title>", "description": "<Description>", "projectId": "<Huntable CTI Studio id>", "sectionId": "<resolved section id>"}]}`. From the response, capture the created task’s `id` for subtasks.
 
 3. **Create subtasks** (if any)
    - Call **add-tasks** with `{"tasks": [{"content": "<Subtask title>", "parentId": "<main task id>"}, ...]}` for each subtask (optionally include `description` per subtask). Subtasks inherit project/section from the parent.
@@ -65,7 +65,7 @@ When the user clearly approves (e.g. “yes”, “go”, “create it”):
 
 ## Section names
 
-Use the **exact** section names from the CTIScraper board when matching (after normalizing case):
+Use the **exact** section names from the Huntable CTI Studio board when matching (after normalizing case):
 
 - **Intake** (default)
 - **Up Next**
@@ -75,7 +75,7 @@ Use the **exact** section names from the CTIScraper board when matching (after n
 
 ## Tool reference (Official Todoist MCP: https://ai.todoist.net/mcp)
 
-- **find-projects**: `{"search": "CTIScraper"}` (or omit for all) → returns projects with `id`, `name`. Use CTIScraper’s `id`.
+- **find-projects**: `{"search": "Huntable CTI Studio"}` (or omit for all) → returns projects with `id`, `name`. Use Huntable CTI Studio’s `id`.
 - **find-sections**: `{"projectId": "<project id>", "search": "Intake"}` (or omit search) → returns sections with `id`, `name`. Use section’s `id`.
 - **add-tasks**: `{"tasks": [{"content": "...", "description": "...", "projectId": "...", "sectionId": "..."}]}` for main task; response includes created task `id`. For subtasks: `{"tasks": [{"content": "...", "parentId": "<main task id>"}, ...]}`.
 
@@ -97,4 +97,4 @@ Use the **exact** section names from the CTIScraper board when matching (after n
 - **2.** Fix filter reset on sort change — Preserve existing filters when sort is updated.
 ```
 
-After user says “yes” or “go”, resolve CTIScraper + Intake, create the main task, then the two subtasks with `parentId` set to that task’s id.
+After user says “yes” or “go”, resolve Huntable CTI Studio + Intake, create the main task, then the two subtasks with `parentId` set to that task’s id.
