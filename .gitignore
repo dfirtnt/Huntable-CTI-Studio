@@ -167,6 +167,7 @@ datasets/
 *.json
 !workflows/presets/*.json
 !presets/**/*.json
+!config/eval_articles_data/**/articles.json
 *.parquet
 
 

@@ -28,13 +28,23 @@ Each element in `articles.json`:
 
 ## Generating the files
 
-When the application DB contains the eval articles (from [config/eval_articles.yaml](../eval_articles.yaml)):
+**Option A — Fetch from URLs (no DB required)**  
+When you have a fresh DB or rehydrated environment, populate static files by fetching article content from the web:
+
+```bash
+python3 scripts/fetch_eval_articles_static.py
+```
+
+This fetches each external URL in [config/eval_articles.yaml](../eval_articles.yaml) and writes `config/eval_articles_data/{subagent}/articles.json`. Localhost URLs (e.g. `http://127.0.0.1:8001/articles/123`) are skipped.
+
+**Option B — Dump from database**  
+When the application DB already contains the eval articles:
 
 ```bash
 python3 scripts/dump_eval_articles_static.py
 ```
 
-This writes or overwrites `config/eval_articles_data/{subagent}/articles.json` for each subagent that has entries in `eval_articles.yaml`. Commit the updated JSON files so evals can run without the DB.
+This writes or overwrites `config/eval_articles_data/{subagent}/articles.json` for each subagent from the DB (includes localhost articles and applies the junk filter for `filtered_content`). Commit the updated JSON files so evals can run without the DB.
 
 ## See also
 
