@@ -26,12 +26,11 @@ LIMIT 5;
 If `use_hybrid_extractor=True`, the hybrid extractor runs first and may return results without calling LMStudio.
 
 **Check:**
-- Workflow sets `use_hybrid_extractor=False` at line 944 in `src/workflows/agentic_workflow.py`
-- But if hybrid extractor finds results, it returns early (line 2564)
+- If a hybrid extractor is enabled, it may run first and return results without calling LMStudio. Verify workflow configuration and execution logs.
 
 **Fix:**
-- Verify `USE_HYBRID_CMDLINE_EXTRACTOR` env var is not set to "true"
-- Check execution logs for "Using hybrid command-line extractor pipeline"
+- Verify no hybrid extractor is enabled for the eval path (check env and workflow config).
+- Check execution logs for hybrid extractor usage.
 
 ### 3. Execution Failing Before LLM Call
 The workflow may be failing at an earlier step (junk filter, OS detection, etc.).

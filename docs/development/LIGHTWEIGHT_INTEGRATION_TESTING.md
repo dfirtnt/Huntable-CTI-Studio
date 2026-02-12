@@ -56,34 +56,34 @@ tests/
 ### Using the Unified Test Runner (Recommended)
 ```bash
 # Run lightweight integration tests
-python run_tests.py --integration
+python3 run_tests.py --integration
 
 # Run full integration tests (Docker-based)
-python run_tests.py --docker --integration
+python3 run_tests.py --docker --integration
 
 # Run unit tests
-python run_tests.py --unit
+python3 run_tests.py --unit
 
 # Run smoke tests (quick health check)
-python run_tests.py --smoke
+python3 run_tests.py --smoke
 ```
 
 ### Using the Legacy Test Runner
 ```bash
 # Run lightweight integration tests
-python tests/run_lightweight_tests.py light
+python3 tests/run_lightweight_tests.py light
 
 # Run full integration tests (requires Docker)
-python tests/run_lightweight_tests.py full
+python3 tests/run_lightweight_tests.py full
 
 # Run unit tests only
-python tests/run_lightweight_tests.py unit
+python3 tests/run_lightweight_tests.py unit
 
 # Run critical path tests
-python tests/run_lightweight_tests.py critical
+python3 tests/run_lightweight_tests.py critical
 
 # Run all tests
-python tests/run_lightweight_tests.py all
+python3 tests/run_lightweight_tests.py all
 ```
 
 ### Using pytest directly

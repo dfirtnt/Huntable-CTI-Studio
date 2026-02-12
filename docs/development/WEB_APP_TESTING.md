@@ -11,7 +11,7 @@ This guide covers browser-based testing of the CTI Scraper web application using
 ### Required Dependencies
 ```bash
 # Install Playwright and dependencies
-pip install playwright pytest-playwright
+pip3 install playwright pytest-playwright
 playwright install chromium
 
 # Optional: Install additional browsers

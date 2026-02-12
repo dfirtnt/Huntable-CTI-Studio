@@ -62,7 +62,6 @@ nav:
           - Web App Testing: development/WEB_APP_TESTING.md
           - Database Queries: development/DATABASE_QUERY_GUIDE.md
           - Debugging Tools: development/DEBUGGING_TOOLS_GUIDE.md
-          - Advanced Quality System: development/ADVANCED_QUALITY_SYSTEM.md
           - Allure Reports: development/ALLURE_REPORTS.md
           - Debug Eval Logs: development/DEBUG_EVAL_LMSTUDIO_LOGS.md
           - Lightweight Integration Testing: development/LIGHTWEIGHT_INTEGRATION_TESTING.md
@@ -74,7 +73,6 @@ nav:
           - Backfill Chunk Analysis: development/backfill_chunk_analysis_help.md
           - Troubleshoot Eval Pending: development/TROUBLESHOOT_EVAL_PENDING.md
           - Workflow Queue Setup: development/WORKFLOW_QUEUE_SETUP.md
-          - Web App Dev Testing Guide: development/WebAppDevtestingGuide.md
   - Contributing: CONTRIBUTING.md
 plugins:
   - search
