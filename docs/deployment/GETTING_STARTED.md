@@ -9,9 +9,9 @@ Concise setup that matches the current Docker and CLI.
 
 ## Quick Start
 ```bash
-git clone <repository-url>
-cd CTIScraper
-cp .env.example .env              # set POSTGRES_PASSWORD and API keys
+git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
+cd Huntable-CTI-Studio
+cp .env.example .env              # set POSTGRES_PASSWORD and API keys [optional for secure install. Default passwords work for demo purposes.]
 ./start.sh                        # builds + starts compose stack
 ```
 
@@ -66,5 +66,5 @@ docker-compose logs -f web
 
 _Last verified: Feb 2025_
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTAzMzg3ODI4NF19
+eyJoaXN0b3J5IjpbLTk0NTYwODIyNywxMDMzODc4Mjg0XX0=
 -->

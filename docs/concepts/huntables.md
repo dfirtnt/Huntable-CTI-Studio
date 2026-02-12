@@ -1,4 +1,4 @@
-# Huntables
+# Huntables.
 
 ## What is a “Huntable”?
 
