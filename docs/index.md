@@ -43,7 +43,7 @@ cp .env.example .env
 - **Add feeds and extract data** → [Add a Feed](guides/add-feed.md) | [Extract Observables](guides/extract-observables.md) | [Generate Sigma Rules](guides/generate-sigma.md)
 - **Understand the architecture** → [Architecture Overview](architecture/overview.md) | [Workflow Data Flow](architecture/workflow-data-flow.md) | [Scoring](architecture/scoring.md)
 - **Extend or integrate** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [Schemas](reference/schemas.md)
-- **Develop and contribute** → [Development Setup](development/setup.md) | [Testing](development/testing.md) | [Contributing](contributing.md)
+- **Develop and contribute** → [Development Setup](development/setup.md) | [Testing](development/testing.md) | [Contributing](CONTRIBUTING.md)
 
 ## Features
 
@@ -73,7 +73,7 @@ See [Model Selection Guide](llm/model-selection.md) for recommendations.
 
 - **Documentation**: You're reading it! Navigate using the sidebar
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
-- **Contributing**: See [Contributing Guide](contributing.md)
+- **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 
 ---
 

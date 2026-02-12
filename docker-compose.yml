@@ -90,6 +90,8 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=16384
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
+      - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
       - TZ=America/New_York
     ports:
       - "8001:8001"
@@ -151,6 +153,8 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
+      - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
       - ./src:/app/src
       - ./config:/app/config
@@ -211,6 +215,8 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
+      - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
       - ./src:/app/src
       - ./config:/app/config

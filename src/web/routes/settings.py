@@ -3,6 +3,7 @@ API endpoints for managing application settings.
 """
 
 import logging
+import os
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -28,17 +29,25 @@ class SettingsBulkUpdate(BaseModel):
     settings: dict[str, str | None]
 
 
+# Env keys merged into GET /api/settings so start.sh "proceed without LMStudio" is visible to UI
+_SETTINGS_ENV_OVERRIDE_KEYS = ("WORKFLOW_LMSTUDIO_ENABLED", "PROCEED_WITHOUT_LMSTUDIO")
+
+
 @router.get("")
 async def get_all_settings():
-    """Get all application settings."""
+    """Get all application settings. Merges allowlisted env vars (e.g. from start.sh) over DB."""
     try:
         async with async_db_manager.get_session() as session:
             from sqlalchemy import select
 
             result = await session.execute(select(AppSettingsTable))
             settings = result.scalars().all()
-
-            return {"success": True, "settings": {setting.key: setting.value for setting in settings}}
+            out = {setting.key: setting.value for setting in settings}
+            for key in _SETTINGS_ENV_OVERRIDE_KEYS:
+                val = os.environ.get(key)
+                if val is not None:
+                    out[key] = val
+            return {"success": True, "settings": out}
 
     except Exception as e:
         logger.error(f"Error fetching settings: {e}")

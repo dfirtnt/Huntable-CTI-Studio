@@ -53,6 +53,19 @@ if [ "$(uname -s)" != "Darwin" ]; then
         [yY]|[yY][eE][sS]) SKIP_SIGMA_INDEX=1 ;;
         *) echo "   Install cancelled."; exit 0 ;;
     esac
+    # Persist "proceed without LMStudio" so Settings and AgentConfig grey out / hide LMStudio
+    if [ -n "$SKIP_SIGMA_INDEX" ]; then
+        if grep -q '^WORKFLOW_LMSTUDIO_ENABLED=' .env 2>/dev/null; then
+            sed -i.bak 's/^WORKFLOW_LMSTUDIO_ENABLED=.*/WORKFLOW_LMSTUDIO_ENABLED=false/' .env && rm -f .env.bak
+        else
+            echo 'WORKFLOW_LMSTUDIO_ENABLED=false' >> .env
+        fi
+        if grep -q '^PROCEED_WITHOUT_LMSTUDIO=' .env 2>/dev/null; then
+            sed -i.bak 's/^PROCEED_WITHOUT_LMSTUDIO=.*/PROCEED_WITHOUT_LMSTUDIO=1/' .env && rm -f .env.bak
+        else
+            echo 'PROCEED_WITHOUT_LMSTUDIO=1' >> .env
+        fi
+    fi
     echo ""
 elif [ "$(uname -m)" != "arm64" ]; then
     echo ""
@@ -74,6 +87,19 @@ elif [ "$(uname -m)" != "arm64" ]; then
         [yY]|[yY][eE][sS]) SKIP_SIGMA_INDEX=1 ;;
         *) echo "   Install cancelled."; exit 0 ;;
     esac
+    # Persist "proceed without LMStudio" so Settings and AgentConfig grey out / hide LMStudio
+    if [ -n "$SKIP_SIGMA_INDEX" ]; then
+        if grep -q '^WORKFLOW_LMSTUDIO_ENABLED=' .env 2>/dev/null; then
+            sed -i.bak 's/^WORKFLOW_LMSTUDIO_ENABLED=.*/WORKFLOW_LMSTUDIO_ENABLED=false/' .env && rm -f .env.bak
+        else
+            echo 'WORKFLOW_LMSTUDIO_ENABLED=false' >> .env
+        fi
+        if grep -q '^PROCEED_WITHOUT_LMSTUDIO=' .env 2>/dev/null; then
+            sed -i.bak 's/^PROCEED_WITHOUT_LMSTUDIO=.*/PROCEED_WITHOUT_LMSTUDIO=1/' .env && rm -f .env.bak
+        else
+            echo 'PROCEED_WITHOUT_LMSTUDIO=1' >> .env
+        fi
+    fi
     echo ""
 fi
 
@@ -137,6 +163,23 @@ if $DC run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
 else
     echo "⚠️ Sigma sync failed (run manually: ./run_cli.sh sigma sync)"
 fi
+
+# Optional: run MkDocs build/server
+echo ""
+printf "Run MkDocs docs build/server? [y/N] "
+read -r run_mkdocs
+case "${run_mkdocs:-n}" in
+    [yY]|[yY][eE][sS])
+        if [ -x "./run_mkdocs.sh" ]; then
+            nohup ./run_mkdocs.sh >> logs/mkdocs.log 2>&1 </dev/null &
+            disown -h
+            echo "✅ MkDocs server starting in background (./run_mkdocs.sh); logs: logs/mkdocs.log"
+        else
+            echo "⚠️ ./run_mkdocs.sh not found or not executable"
+        fi
+        ;;
+    *) ;;
+esac
 
 echo ""
 echo "🎉 CTI Scraper is running!"

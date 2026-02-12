@@ -418,7 +418,7 @@ agent_chat_url = f"{langfuse_host}/project/{project_id}/sessions/{session_id}"
 - **Session View** (recommended): Shows all traces for an execution grouped together
 - **Trace View**: Shows individual trace details with spans, inputs, outputs, and token usage
 
-See [Debugging Tools (archive)](../archive/DEBUGGING_TOOLS_GUIDE.md#langfuse-workflow-debugging) for detailed debugging instructions.
+See [Debugging](../development/debugging.md) and Langfuse for workflow trace details.
 
 ## Execution Methods: Celery (LangGraph state machine) vs Direct Testing
 
