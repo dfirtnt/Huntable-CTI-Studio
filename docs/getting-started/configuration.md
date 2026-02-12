@@ -68,7 +68,7 @@ To resolve conflicts, either:
 
 | Variable | Purpose | Default | Required |
 |----------|---------|---------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper` | Yes |
+| `DATABASE_URL` | PostgreSQL connection string | Built by Docker Compose from `POSTGRES_PASSWORD` (see `.env.example`); not a literal default in repo | Yes |
 | `POSTGRES_PASSWORD` | PostgreSQL password | — | **Yes** |
 | `REDIS_URL` | Redis connection | `redis://redis:6379/0` | Yes |
 | `SOURCES_CONFIG` | Path to sources YAML | `config/sources.yaml` | No |
@@ -110,7 +110,7 @@ To resolve conflicts, either:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `LMSTUDIO_API_URL` | LM Studio API base URL | `http://host.docker.internal:1234/v1` |
-| `LMSTUDIO_MODEL` | Default LM Studio model | `deepseek-r1-qwen3-8b` |
+| `LMSTUDIO_MODEL` | Default LM Studio model | `deepseek/deepseek-r1-0528-qwen3-8b` |
 | `LMSTUDIO_MODEL_RANK` | Model for ranking agent | — |
 | `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | — |
 | `LMSTUDIO_MODEL_SIGMA` | Model for SIGMA generation | — |
@@ -121,7 +121,7 @@ To resolve conflicts, either:
 | `LMSTUDIO_SEED` | Random seed for reproducibility | — |
 | `LMSTUDIO_MAX_CONTEXT` | Max context window size | — |
 
-**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to access services on the host.
+**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to access services on the host. Context length can differ by service: `docker-compose.yml` may set `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` to 16384 for web and 4096 for workers; see [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
 ### Content Filtering
 
@@ -168,7 +168,6 @@ The system uses specialized queues for workload isolation:
 |-------|---------|
 | `default` | General tasks, embeddings |
 | `source_checks` | Periodic source polling |
-| `priority_checks` | High-priority source checks |
 | `maintenance` | Cleanup, pruning, SIGMA sync |
 | `reports` | Daily report generation |
 | `connectivity` | Source connectivity testing |

@@ -58,7 +58,7 @@ Each workflow execution creates:
 
 ### Implementation Details
 
-The LangFuse integration is implemented in [src/utils/langfuse_client.py](../src/utils/langfuse_client.py):
+The LangFuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
 # Create trace with session context
@@ -137,9 +137,9 @@ LANGFUSE_PROJECT_ID=your-project-id
 
 ### Code References
 
-- **Trace creation**: [src/utils/langfuse_client.py:155-189](../src/utils/langfuse_client.py#L155-L189)
-- **Workflow execution**: [src/workflows/agentic_workflow.py:1662](../src/workflows/agentic_workflow.py#L1662)
-- **Debug link generation**: [src/web/routes/workflow_executions.py:805-814](../src/web/routes/workflow_executions.py#L805-L814)
+- **Trace creation**: `src/utils/langfuse_client.py` (lines 155-189)
+- **Workflow execution**: `src/workflows/agentic_workflow.py` (line 1662)
+- **Debug link generation**: `src/web/routes/workflow_executions.py` (lines 805-814)
 
 ## Test Failure Analysis
 
@@ -728,7 +728,7 @@ Each workflow execution creates:
 
 ### Implementation Details
 
-The LangFuse integration is implemented in [src/utils/langfuse_client.py](../src/utils/langfuse_client.py):
+The LangFuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
 # Create trace with session context
@@ -807,9 +807,9 @@ LANGFUSE_PROJECT_ID=your-project-id
 
 ### Code References
 
-- **Trace creation**: [src/utils/langfuse_client.py:155-189](../src/utils/langfuse_client.py#L155-L189)
-- **Workflow execution**: [src/workflows/agentic_workflow.py:1662](../src/workflows/agentic_workflow.py#L1662)
-- **Debug link generation**: [src/web/routes/workflow_executions.py:805-814](../src/web/routes/workflow_executions.py#L805-L814)
+- **Trace creation**: `src/utils/langfuse_client.py` (lines 155-189)
+- **Workflow execution**: `src/workflows/agentic_workflow.py` (line 1662)
+- **Debug link generation**: `src/web/routes/workflow_executions.py` (lines 805-814)
 
 ## Test Failure Analysis
 

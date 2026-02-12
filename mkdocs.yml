@@ -6,7 +6,6 @@ theme:
     - content.code.copy
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
     - toc.integrate
 
 nav:
@@ -74,6 +73,7 @@ nav:
   - Changelog: changelog.md
 
 markdown_extensions:
+  - attr_list
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.superfences

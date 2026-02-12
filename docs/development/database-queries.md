@@ -56,7 +56,7 @@ ORDER BY name;
 
 ### View Articles
 
-> **Note:** Article-level chosen/rejected/unclassified classification has been deprecated and removed from the UI/API. The `training_category` field in `article_metadata` may still exist in older data but is no longer used.
+> **Note:** The `training_category` field in `article_metadata` (values such as `chosen`, `rejected`, or NULL) is still used by the codebase for filtering (e.g. in `async_manager.py`). Use it when querying articles for training or classification workflows.
 
 ```sql
 -- Recent articles with source information

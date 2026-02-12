@@ -73,8 +73,8 @@ The `docker-compose.yml` stack includes:
 - **postgres**: `pgvector/pgvector:pg15` with persistent `postgres_data` volume
 - **redis**: `redis:7-alpine` with `redis_data` volume
 - **web**: FastAPI application (uvicorn on port 8001/8888)
-- **worker**: Celery worker handling queues: default, source_checks, maintenance, reports, connectivity, collection
-- **workflow_worker**: Celery worker for workflows queue
+- **worker**: Celery worker handling queues: default, source_checks, maintenance, reports, connectivity, collection (does not process `workflows` queue)
+- **workflow_worker**: Dedicated Celery worker that consumes only the `workflows` queue (agentic workflow execution); separate from the main worker
 - **scheduler**: Celery beat for scheduled tasks
 - **cli** (profile `tools`): CLI interface for management commands
 

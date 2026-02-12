@@ -758,7 +758,7 @@ python3 run_tests.py --docker --smoke
 ## Next Steps
 
 - **Learn test categories** → See the testing guide in the tests directory
-- **Test web interface** → [Web App Testing](WEB_APP_TESTING.md)
+- **Test web interface** → [Web App Testing](web-app-testing.md)
 
 ## Resources
 
@@ -766,7 +766,7 @@ python3 run_tests.py --docker --smoke
 - [pytest-asyncio](https://pytest-asyncio.readthedocs.io/)
 - [Playwright Python](https://playwright.dev/python/)
 - [Faker Documentation](https://faker.readthedocs.io/)
-- [Docker Architecture Guide](../deployment/DOCKER_ARCHITECTURE.md)
+- [Docker Architecture Guide](../getting-started/installation.md#docker-services)
 
 ---
 

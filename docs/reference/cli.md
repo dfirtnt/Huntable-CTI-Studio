@@ -1,6 +1,6 @@
 # CLI Reference
 
-All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `python -m src.cli.main`. See [Config](config.md) for environment and [Docker Architecture](../deployment/DOCKER_ARCHITECTURE.md) for how the CLI container connects to Postgres and Redis.
+All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `python -m src.cli.main`. See [Configuration](../getting-started/configuration.md) for environment and [Docker Architecture](../getting-started/installation.md#docker-services) for how the CLI container connects to Postgres and Redis.
 
 ## Running the CLI
 
@@ -39,7 +39,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh init --config config/sources.yaml --no-validate-feeds
 ```
 
-**See also:** [Add feed](../howto/add_feed.md), [Source config precedence](../operations/SOURCE_CONFIG_PRECEDENCE.md).
+**See also:** [Add feed](../guides/add-feed.md), [Source config precedence](../guides/source-config.md).
 
 ---
 
@@ -107,7 +107,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sync-sources --config config/sources.yaml
 ```
 
-**See also:** [Add feed](../howto/add_feed.md), [Source config precedence](../operations/SOURCE_CONFIG_PRECEDENCE.md).
+**See also:** [Add feed](../guides/add-feed.md), [Source config precedence](../guides/source-config.md).
 
 ---
 
@@ -128,7 +128,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh compare-sources --config-path config/sources.yaml
 ```
 
-**See also:** [Sync sources](#sync-sources), [Source config precedence](../operations/SOURCE_CONFIG_PRECEDENCE.md).
+**See also:** [Sync sources](#sync-sources), [Source config precedence](../guides/source-config.md).
 
 ---
 
@@ -199,7 +199,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh rescore
 ```
 
-**See also:** [Scoring](../internals/scoring.md). After scoring-rule changes, run `./run_cli.sh rescore --force` (per AGENTS.md).
+**See also:** [Scoring](../architecture/scoring.md). After scoring-rule changes, run `./run_cli.sh rescore --force` (per AGENTS.md).
 
 ---
 
@@ -225,7 +225,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh rescore-ml --force
 ```
 
-**See also:** [ML Hunt Scoring](../ML_HUNT_SCORING.md), [Chunking](../internals/chunking.md).
+**See also:** [ML Hunt Scoring](../ml-training/hunt-scoring.md), [Chunking](../architecture/chunking.md).
 
 ---
 
@@ -268,7 +268,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh embed search --limit 5 --threshold 0.75
 ```
 
-**See also:** [RAG System](../RAG_SYSTEM.md), [Sigma Detection Rules](../features/SIGMA_DETECTION_RULES.md).
+**See also:** [RAG Search](../features/rag-search.md), [Sigma Detection Rules](../features/sigma-rules.md).
 
 ---
 
@@ -305,7 +305,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma stats
 ```
 
-**See also:** [Generate Sigma](../howto/generate_sigma.md), [Sigma Detection Rules](../features/SIGMA_DETECTION_RULES.md), [Sigma reference](sigma.md).
+**See also:** [Generate Sigma](../guides/generate-sigma.md), [Sigma Detection Rules](../features/sigma-rules.md), [Sigma Detection Rules](../features/sigma-rules.md).
 
 ---
 

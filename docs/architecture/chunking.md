@@ -8,7 +8,7 @@ Chunking is used for analysis and ML scoring, not for training or extraction its
 - Chunk analysis runs when `threat_hunting_score > 50` so compute cycles focus on high-value content.
 
 ## Uses
-- **ML hunt scoring**: Chunks are classified huntable/not; confidences are aggregated into `ml_hunt_score` and `ml_hunt_score_details` (see `../ML_HUNT_SCORING.md`).
+- **ML hunt scoring**: Chunks are classified huntable/not; confidences are aggregated into `ml_hunt_score` and `ml_hunt_score_details` (see `../ml-training/hunt-scoring.md`).
 - **Fine-tuning prep**: `scripts/prepare_articles_for_finetuning.py` surfaces observable-rich chunks and suitability scores to help pick articles; training still uses full articles.
 - **Operator review**: Chunk previews identify where observables are concentrated before kicking off extraction or fine-tuning.
 

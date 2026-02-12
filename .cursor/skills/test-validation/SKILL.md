@@ -34,13 +34,13 @@ Test Validation Results
 
 Group         | Passed | Failed | Skipped | Status
 ------------- | ------ | ------ | ------- | ------
-smoke         |     25 |      0 |       0 | ✅ PASS
-unit          |    603 |      0 |       5 | ✅ PASS
+smoke         |     31 |      0 |       0 | ✅ PASS
+unit          |    662 |      0 |      27 | ✅ PASS
 api           |     42 |      1 |       0 | ❌ FAIL
 integration   |     38 |      0 |       2 | ✅ PASS
 ui            |     15 |      0 |       1 | ✅ PASS
 ------------- | ------ | ------ | ------- | ------
-TOTAL         |    723 |      1 |       8 | ❌ FAIL
+TOTAL         |    788 |      1 |      30 | ❌ FAIL
 ```
 
 ## Implementation

@@ -1,0 +1,3640 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern threat intelligence collection and analysis platform">
+      
+      
+      
+      
+        <link rel="prev" href="../../architecture/qa-loops/">
+      
+      
+        <link rel="next" href="../content-filtering/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Sigma Detection Rules - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sigma-rules" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sigma Detection Rules
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/huntables/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/add-feed/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../llm/model-selection/" class="md-tabs__link">
+          
+  
+  
+  LLM & Models
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ml-training/hunt-scoring/" class="md-tabs__link">
+          
+  
+  
+  ML Training
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/setup/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../prompts/eval-bundle/" class="md-tabs__link">
+          
+  
+  
+  Prompts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/add-feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/extract-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generate-sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/evaluate-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/source-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/memory-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/workflow-data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/qa-loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Detection Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content-filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../os-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cmdline-preprocessor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rag-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observable-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM & Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM & Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/model-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/lmstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LM Studio Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/extract-agent-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Training
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Training
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/hunt-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/database-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ml-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Feature Definitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/manual-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/web-app-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/allure-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Allure Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/multi-instance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Instance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/workflow-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/search-queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/eval-bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Bundle Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/huntquery-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Query Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/proctree-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Process Tree Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sigma-rules">Sigma Rules<a class="headerlink" href="#sigma-rules" title="Permanent link">&para;</a></h1>
+<!-- MERGED FROM: features/SIGMA_DETECTION_RULES.md, reference/sigma.md -->
+
+<h1 id="sigma-detection-rules-system">SIGMA Detection Rules System<a class="headerlink" href="#sigma-detection-rules-system" title="Permanent link">&para;</a></h1>
+<p>Comprehensive system for AI-powered SIGMA detection rule generation, matching against SigmaHQ repository, and similarity search.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#rule-generation">Rule Generation</a></li>
+<li><a href="#rule-matching-pipeline">Rule Matching Pipeline</a></li>
+<li><a href="#similarity-search">Similarity Search</a></li>
+<li><a href="#technical-architecture">Technical Architecture</a></li>
+<li><a href="#usage--examples">Usage &amp; Examples</a></li>
+<li><a href="#cli-commands">CLI Commands</a></li>
+<li><a href="#api-reference">API Reference</a></li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ol>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The SIGMA Detection Rules System combines three powerful features:</p>
+<ol>
+<li><strong>AI-Powered Generation</strong>: Automatically creates detection rules from threat intelligence articles</li>
+<li><strong>Rule Matching</strong>: Matches articles to existing SigmaHQ rules (5,247+ indexed rules)</li>
+<li><strong>Similarity Search</strong>: Compares generated rules against existing community rules to prevent duplication</li>
+</ol>
+<h3 id="system-flow">System Flow<a class="headerlink" href="#system-flow" title="Permanent link">&para;</a></h3>
+<p>There are two entry paths into the SIGMA detection system:</p>
+<ul>
+<li><strong>Web/API path</strong>: Triggered via <code>POST /api/articles/{id}/analyze</code> — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store</li>
+<li><strong>Agentic Workflow path</strong>: Triggered via LangGraph pipeline — OS Detection → Junk Filter → Rank → Extract → Generate SIGMA → Similarity Search → Promote to Queue</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Article → Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
+</code></pre></div>
+<h3 id="key-benefits">Key Benefits<a class="headerlink" href="#key-benefits" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Prevents Duplication</strong>: Identifies existing coverage before generating new rules</li>
+<li><strong>Improves Quality</strong>: Validates rules through pySIGMA and community comparison</li>
+<li><strong>Saves Time</strong>: Automates rule creation and coverage analysis</li>
+<li><strong>Provides Context</strong>: Shows relationships between articles and detection rules</li>
+</ul>
+<hr />
+<h2 id="rule-generation">Rule Generation<a class="headerlink" href="#rule-generation" title="Permanent link">&para;</a></h2>
+<h3 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h3>
+<h4 id="ai-powered-rule-generation">🤖 AI-Powered Rule Generation<a class="headerlink" href="#ai-powered-rule-generation" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Multiple AI Models</strong>: Supports ChatGPT (OpenAI) and LMStudio (local LLM)</li>
+<li><strong>Content Analysis</strong>: Analyzes article content to extract detection patterns</li>
+<li><strong>Context Awareness</strong>: Understands threat techniques and attack patterns</li>
+<li><strong>Multiple Rule Generation</strong>: Can generate multiple rules per article</li>
+<li><strong>Content Filtering</strong>: ML-based optimization to reduce token usage</li>
+<li><strong>Consistent Temperature</strong>: Uses temperature 0.2 for deterministic output</li>
+</ul>
+<h4 id="pysigma-validation">✅ pySIGMA Validation<a class="headerlink" href="#pysigma-validation" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Automatic Validation</strong>: All rules validated using pySIGMA</li>
+<li><strong>Compliance Checking</strong>: Ensures SIGMA format requirements</li>
+<li><strong>Error Detection</strong>: Identifies syntax errors and missing fields</li>
+<li><strong>Warning Detection</strong>: Flags potential issues and best practices</li>
+</ul>
+<h4 id="iterative-rule-fixing">🔄 Iterative Rule Fixing<a class="headerlink" href="#iterative-rule-fixing" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Automatic Retry</strong>: Failed rules retried with error feedback</li>
+<li><strong>Up to 3 Attempts</strong>: Maximum 3 generation attempts per rule set</li>
+<li><strong>Error Feedback</strong>: AI receives detailed validation errors</li>
+<li><strong>Progressive Improvement</strong>: Each attempt incorporates previous results</li>
+</ul>
+<h4 id="metadata-storage">📊 Metadata Storage<a class="headerlink" href="#metadata-storage" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Complete Audit Trail</strong>: Stores all generation attempts and validation results</li>
+<li><strong>Attempt Tracking</strong>: Records number of attempts made</li>
+<li><strong>Validation Results</strong>: Stores detailed errors and warnings</li>
+<li><strong>Generation Timestamps</strong>: Tracks when rules were generated</li>
+</ul>
+<h4 id="conversation-log-display">🔄 Conversation Log Display<a class="headerlink" href="#conversation-log-display" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Interactive Visualization</strong>: Shows LLM ↔ pySigma validator conversation</li>
+<li><strong>Attempt-by-Attempt View</strong>: Each retry in separate card with visual indicators</li>
+<li><strong>Collapsible Sections</strong>: Long prompts/responses expandable</li>
+<li><strong>Color-Coded Feedback</strong>: Valid (green) and invalid (red) results</li>
+<li><strong>Detailed Error Messages</strong>: Specific validation errors from pySigma</li>
+<li><strong>Progressive Learning</strong>: See how LLM improves based on feedback</li>
+</ul>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Threat hunting score &lt; 65 shows warning but allows proceeding</li>
+<li>(Deprecated: article-level "chosen" classification requirement has been removed.)</li>
+<li>AI model configured:</li>
+<li><strong>ChatGPT</strong>: OpenAI API key required</li>
+<li><strong>LMStudio</strong>: Local server running (no API key)</li>
+<li><strong>LM Studio for Embeddings</strong>: Required for SIGMA rule similarity search</li>
+<li>Model: intfloat/e5-base-v2 loaded in LM Studio</li>
+<li>API: http://localhost:1234/v1/embeddings</li>
+<li>Environment variables: <code>LMSTUDIO_EMBEDDING_URL</code> and <code>LMSTUDIO_EMBEDDING_MODEL</code></li>
+<li>pySIGMA library installed</li>
+</ul>
+<h3 id="generation-process">Generation Process<a class="headerlink" href="#generation-process" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Content Analysis</strong>: AI analyzes article title and content</li>
+<li><strong>Content Filtering</strong>: ML-based optimization reduces token usage</li>
+<li><strong>Pattern Extraction</strong>: Identifies attack patterns and techniques</li>
+<li><strong>Rule Creation</strong>: Generates appropriate SIGMA detection rules</li>
+<li><strong>Format Compliance</strong>: Ensures proper YAML structure</li>
+<li><strong>Validation</strong>: pySIGMA validates generated rules</li>
+<li><strong>Iterative Fixing</strong>: Failed rules trigger retry with feedback (up to 3 attempts)</li>
+<li><strong>Storage</strong>: Rules stored in article metadata with audit trail</li>
+</ol>
+<h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
+<p><strong>Common Validation Errors:</strong>
+- Missing required fields (title, logsource, detection)
+- Invalid YAML syntax
+- Incorrect field types
+- Missing condition statements
+- Invalid logsource configurations</p>
+<p><strong>Retry Logic:</strong>
+- Maximum 3 attempts per rule set
+- Error feedback provided to AI model
+- Progressive improvement with each attempt
+- Graceful failure after max attempts
+- Complete conversation log captured for debugging</p>
+<hr />
+<h2 id="rule-matching-pipeline">Rule Matching Pipeline<a class="headerlink" href="#rule-matching-pipeline" title="Permanent link">&para;</a></h2>
+<p>A three-layer pipeline that matches CTI articles to existing Sigma detection rules from SigmaHQ, classifies coverage status, and intelligently generates new rules only when needed.</p>
+<h3 id="architecture-components">Architecture Components<a class="headerlink" href="#architecture-components" title="Permanent link">&para;</a></h3>
+<h4 id="1-database-schema">1. Database Schema<a class="headerlink" href="#1-database-schema" title="Permanent link">&para;</a></h4>
+<p><strong>Tables:</strong>
+- <code>sigma_rules</code>: Stores Sigma detection rules with embeddings
+  - 768-dimensional pgvector embeddings for semantic search
+  - JSONB fields for logsource and detection logic
+  - Full metadata (tags, level, status, author, references)
+  - Source tracking (file_path, repo_commit_sha)</p>
+<ul>
+<li><code>article_sigma_matches</code>: Stores article-to-rule matches</li>
+<li>Similarity scores and match levels (article/chunk)</li>
+<li>Coverage classification (covered/extend/new)</li>
+<li>Matched behaviors (discriminators, LOLBAS, intelligence)</li>
+</ul>
+<p><strong>Indexes:</strong>
+- IVFFlat vector index for embedding similarity search
+- GIN indexes for JSONB logsource and tags arrays
+- BTree indexes for foreign keys and coverage status</p>
+<h4 id="2-sigma-sync-service">2. Sigma Sync Service<a class="headerlink" href="#2-sigma-sync-service" title="Permanent link">&para;</a></h4>
+<p><strong>File</strong>: <code>src/services/sigma_sync_service.py</code></p>
+<p><strong>Features:</strong>
+- Clones/pulls SigmaHQ repository (read-only)
+- Parses YAML rule files using PyYAML
+- Extracts all rule fields (title, description, logsource, detection, tags)
+- Generates embeddings from enriched rule text
+- Batch indexing with progress tracking
+- Incremental updates (only new rules)</p>
+<p><strong>Key Methods:</strong>
+- <code>clone_or_pull_repository()</code>: Git operations
+- <code>find_rule_files()</code>: Recursive file discovery
+- <code>parse_rule_file()</code>: YAML parsing and normalization
+- <code>create_rule_embedding_text()</code>: Embedding text generation
+- <code>index_rules()</code>: Batch indexing with embeddings</p>
+<h4 id="3-sigma-matching-service">3. Sigma Matching Service<a class="headerlink" href="#3-sigma-matching-service" title="Permanent link">&para;</a></h4>
+<p><strong>File</strong>: <code>src/services/sigma_matching_service.py</code></p>
+<p><strong>Features:</strong>
+- Article-level semantic search using existing embeddings
+- Chunk-level semantic search with on-the-fly embedding generation
+- Behavioral novelty scoring for final SIGMA similarity assessment (Atom Jaccard 70% + Logic Shape Similarity 30%)
+- Configurable candidate retrieval limits and matching thresholdPgvector cosine similarity queries
+- Configurable threshold and limits
+- Match storage with full metadata</p>
+<p><strong>Key Methods:</strong>
+- <code>match_article_to_rules()</code>: Article-level matching
+- <code>match_chunks_to_rules()</code>: Chunk-level matching with deduplication
+- <code>store_match()</code>: Persist matches to database
+- <code>get_article_matches()</code>: Retrieve matches with rule details
+- <code>get_coverage_summary()</code>: Aggregate coverage statistics</p>
+<p><strong>Candidate Retrieval Pattern (example):</strong>
+The system first retrieves a shortlist of candidate rules using pgvector nearest-neighbors, then computes the behavioral novelty score in application code to rank final matches.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">-- Retrieve top N candidate rules by embedding distance (pgvector)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">sr</span><span class="p">.</span><span class="o">*</span><span class="k">SQL</span><span class="w"> </span><span class="n">Query</span><span class="w"> </span><span class="n">Pattern</span><span class="p">:</span><span class="o">**</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="o">```</span><span class="k">sql</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">sr</span><span class="p">.</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">sr</span><span class="p">.</span><span class="n">embedding</span><span class="w"> </span><span class="o">&lt;=&gt;</span><span class="w"> </span><span class="p">:</span><span class="n">embedding</span><span class="p">::</span><span class="n">vector</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">similarity</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">FROM</span><span class="w"> </span><span class="n">sigma_rules</span><span class="w"> </span><span class="n">sr</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">sr</span><span class="p">.</span><span class="n">embedding</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w">   </span><span class="k">AND</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">sr</span><span class="p">.</span><span class="n">embedding</span><span class="w"> </span><span class="o">&lt;-=&gt;</span><span class="w"> </span><span class="p">:</span><span class="n">embedding</span><span class="p">::</span><span class="n">vector</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">LIMIT</span><span class="w"> </span><span class="p">:</span><span class="n">candidate_limit</span><span class="p">;</span><span class="w"> </span><span class="c1">-- e.g. 50</span>
+</code></pre></div>
+<p>The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.</p>
+<h4 id="4-coverage-classification-service">4. Coverage Classification Service<a class="headerlink" href="#4-coverage-classification-service" title="Permanent link">&para;</a></h4>
+<p><strong>File</strong>: <code>src/services/sigma_coverage_service.py</code></p>
+<p><strong>Features:</strong>
+- Extracts behaviors from <code>chunk_analysis_results</code>
+- Compares article behaviors to rule detection patterns
+- Classifies as covered/extend/new
+- Confidence scoring
+- Detailed reasoning generation</p>
+<p><strong>Classification Logic:</strong>
+- <strong>Covered</strong> (similarity ≥ 0.85, overlap ≥ 0.7): Behaviors well represented
+- <strong>Extend</strong> (similarity ≥ 0.7, overlap ≥ 0.3): Partial overlap, room for extension
+- <strong>New</strong> (low overlap): Represents new detection opportunity</p>
+<p><strong>Key Methods:</strong>
+- <code>extract_article_behaviors()</code>: Aggregate discriminators, LOLBAS, intelligence
+- <code>extract_rule_patterns()</code>: Parse Sigma detection fields
+- <code>calculate_behavior_overlap()</code>: Compare behaviors to patterns
+- <code>classify_match()</code>: Full classification with reasoning
+- <code>analyze_article_coverage()</code>: Overall coverage analysis</p>
+<h3 id="enhanced-generation-workflow">Enhanced Generation Workflow<a class="headerlink" href="#enhanced-generation-workflow" title="Permanent link">&para;</a></h3>
+<p><strong>File</strong>: <code>src/web/routes/ai.py</code></p>
+<ol>
+<li><strong>Match Phase</strong>: Automatically match article to existing rules (threshold 0.7)</li>
+<li><strong>Classify Phase</strong>: Classify each match as covered/extend/new</li>
+<li><strong>Store Phase</strong>: Persist matches to database</li>
+<li><strong>Decision Phase</strong>: </li>
+<li>If ≥2 rules marked "covered": Skip generation, return matches</li>
+<li>Otherwise: Proceed with LLM generation</li>
+</ol>
+<p><strong>New Parameters:</strong>
+- <code>skip_matching</code>: Boolean to bypass matching phase
+- Returns <code>matched_rules</code> and <code>coverage_summary</code> in all responses</p>
+<h3 id="embedding-strategy">Embedding Strategy<a class="headerlink" href="#embedding-strategy" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Model</strong>: all-mpnet-base-v2 (768 dimensions)</li>
+<li><strong>Reuse</strong>: Leverages existing <code>EmbeddingService</code></li>
+<li><strong>Article embeddings</strong>: Already populated in <code>articles.embedding</code></li>
+<li><strong>Chunk embeddings</strong>: Generated on-demand from <code>chunk_analysis_results</code></li>
+<li><strong>Rule embeddings</strong>: Combines title + description + logsource + tags</li>
+</ul>
+<h3 id="behavior-extraction">Behavior Extraction<a class="headerlink" href="#behavior-extraction" title="Permanent link">&para;</a></h3>
+<p><strong>Source</strong>: <code>chunk_analysis_results</code> table</p>
+<p><strong>Fields used:</strong>
+- <code>perfect_discriminators_found</code>: High-confidence indicators
+- <code>good_discriminators_found</code>: Medium-confidence indicators
+- <code>lolbas_matches_found</code>: Living-off-the-land binaries
+- <code>intelligence_matches_found</code>: Intelligence indicators
+- <code>hunt_score</code>: Threat hunting relevance score</p>
+<h3 id="coverage-classification">Coverage Classification<a class="headerlink" href="#coverage-classification" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Covered</strong>: Article behaviors ⊆ rule detection patterns</li>
+<li><strong>Extend</strong>: Partial overlap, article has additional behaviors</li>
+<li><strong>New</strong>: Minimal overlap, new detection opportunity</li>
+</ul>
+<hr />
+<h2 id="similarity-search">Similarity Search<a class="headerlink" href="#similarity-search" title="Permanent link">&para;</a></h2>
+<p>Enhances "Generate SIGMA Rules" by comparing proposed/generated rules against indexed SigmaHQ repository using semantic similarity search.</p>
+<h3 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Prevents Duplication</strong>: Identifies if similar rules already exist</li>
+<li><strong>Provides Context</strong>: Shows relationship to community rules</li>
+<li><strong>Improves Quality</strong>: Helps understand coverage gaps</li>
+<li><strong>Saves Time</strong>: Avoids recreating existing rules</li>
+</ol>
+<h3 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  1. Extract title + description
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  2. Generate embedding
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  3. Retrieve candidate rules via pgvector nearest-neighbors
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%Query sigma_rules table (cosine similarity)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  54. Return top 5 matches by behavioral novelty (threshold configurable(≥70% similarity)
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>→ Return Response with similar_rules field
+</code></pre></div>
+<h3 id="embedding-details">Embedding Details<a class="headerlink" href="#embedding-details" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Model</strong>: intfloat/e5-base-v2 via LM Studio (768 dimensions)</li>
+<li><strong>Provider</strong>: LM Studio local API server</li>
+<li><strong>Input</strong>: Enriched rule text (title, description, logsource, detection)
+-- <strong>Similarity Metric (SIGMA rules)</strong>: Behavioral novelty score — weighted combination:</li>
+<li>Atom Jaccard (70%): predicate overlap of detection fields</li>
+<li>Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT<strong>: Cosine similarity (1 - cosine distance)
+-- </strong>Threshold<strong>: Configurable (default 0.7 on normalized behavioral novelty score0.7 (70% similarity minimum)
+-- </strong>Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms overhead per generated rule)</li>
+</ul>
+<h3 id="similarity-interpretation">Similarity Interpretation<a class="headerlink" href="#similarity-interpretation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>High Similarity (&gt;0.9)</strong>: Consider using existing rule instead</li>
+<li><strong>Medium Similarity (0.7-0.9)</strong>: Review for potential extension</li>
+<li><strong>No Matches</strong>: Novel detection opportunity</li>
+</ul>
+<hr />
+<h2 id="technical-architecture">Technical Architecture<a class="headerlink" href="#technical-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Database</strong>: PostgreSQL with pgvector extension</li>
+<li><strong>Embeddings</strong>: intfloat/e5-base-v2 via LM Studio API</li>
+<li><strong>Rule Format</strong>: SIGMA YAML specification</li>
+<li><strong>Validation</strong>: pySIGMA library</li>
+<li><strong>Repository</strong>: SigmaHQ official repository</li>
+<li><strong>API</strong>: FastAPI with async support</li>
+</ul>
+<h3 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Indexing</strong>: ~5000 rules indexed in 10-15 minutes</li>
+<li><strong>Matching</strong>: Article-level match ~100ms, chunk-level ~500ms</li>
+<li><strong>Vector Index</strong>: IVFFlat with 100 lists provides sub-second similarity search</li>
+<li><strong>Batch Operations</strong>: Process ~100 articles/minute with matching + classification</li>
+<li><strong>Query Time</strong>: ~50-200ms per rule similarity search</li>
+<li><strong>Embedding Generation</strong>: ~100-300ms per rule</li>
+</ul>
+<h3 id="database-infrastructure">Database Infrastructure<a class="headerlink" href="#database-infrastructure" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Records</strong>: 3,068+ indexed Sigma rules with embeddings</li>
+<li><strong>Index Type</strong>: IVFFlat vector index for fast similarity search</li>
+<li><strong>Vector Dimension</strong>: 768 (intfloat/e5-base-v2 model)</li>
+<li><strong>Storage</strong>: JSONB for flexible rule metadata</li>
+</ul>
+<hr />
+<h2 id="usage--examples">Usage &amp; Examples<a class="headerlink" href="#usage--examples" title="Permanent link">&para;</a></h2>
+<h3 id="initial-setup">Initial Setup<a class="headerlink" href="#initial-setup" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># 1. Sync SigmaHQ repository (first time)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># 2. Index all rules (generates embeddings)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># 3. View statistics</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+</code></pre></div>
+<p><strong>Expected Output:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Sigma Rule Index Statistics
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>┃ Metric                 ┃ Count ┃
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>│ Total Rules            │ 5247  │
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>│ Rules with Embeddings  │ 5247  │
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>│ Total Matches          │ 0     │
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>└────────────────────────┴───────┘
+</code></pre></div></p>
+<h3 id="match-single-article">Match Single Article<a class="headerlink" href="#match-single-article" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match<span class="w"> </span><span class="m">123</span><span class="w"> </span>--save
+</code></pre></div>
+<p><strong>Output:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Matches for Article 123
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>┃ Rule ID         ┃ Title                                   ┃ Similarity ┃ Level ┃ Coverage ┃
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>│ a1b2c3d4...     │ PowerShell Suspicious Script Execution │ 0.875      │ high  │ covered  │
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│ e5f6g7h8...     │ Suspicious Process Creation            │ 0.823      │ med   │ extend   │
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>│ i9j0k1l2...     │ Registry Modification Detection        │ 0.756      │ low   │ new      │
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>└─────────────────┴─────────────────────────────────────────┴────────────┴───────┴──────────┘
+</code></pre></div></p>
+<h3 id="batch-matching">Batch Matching<a class="headerlink" href="#batch-matching" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Match all articles with embeddings and hunt_score &gt;= 50</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match-all<span class="w"> </span>--min-hunt-score<span class="w"> </span><span class="m">50</span><span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.7
+</code></pre></div>
+<h3 id="web-interface-usage">Web Interface Usage<a class="headerlink" href="#web-interface-usage" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Navigate to any article</li>
+<li>Click "Generate SIGMA Rules" button</li>
+<li>AI processes article content</li>
+<li>System checks for existing coverage</li>
+<li>Generates new rules if needed</li>
+<li>Shows similarity to existing rules</li>
+<li>View conversation log showing LLM ↔ pySigma interaction</li>
+</ol>
+<hr />
+<h2 id="cli-commands">CLI Commands<a class="headerlink" href="#cli-commands" title="Permanent link">&para;</a></h2>
+<p><strong>File</strong>: <code>src/cli/sigma_commands.py</code></p>
+<h3 id="available-commands">Available Commands<a class="headerlink" href="#available-commands" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Sync SigmaHQ repository</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Index rules with embeddings</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index<span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Match single article</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match<span class="w"> </span>&lt;article_id&gt;<span class="w"> </span><span class="o">[</span>--save<span class="o">]</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># Batch match articles</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match-all<span class="w"> </span><span class="o">[</span>--limit<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--min-hunt-score<span class="w"> </span>N<span class="o">]</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># Show index statistics</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+</code></pre></div>
+<h3 id="features_1">Features<a class="headerlink" href="#features_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Rich console output with tables</li>
+<li>Progress tracking for batch operations</li>
+<li>Option to save matches to database</li>
+<li>Configurable thresholds</li>
+<li>Hunt score filtering for batch operations</li>
+</ul>
+<hr />
+<h2 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>
+<h3 id="generate-sigma-rules-with-matching-similarity">Generate SIGMA Rules (with Matching &amp; Similarity)<a class="headerlink" href="#generate-sigma-rules-with-matching-similarity" title="Permanent link">&para;</a></h3>
+<p><strong>Endpoint</strong>: <code>POST /api/articles/{article_id}/generate-sigma</code></p>
+<p><strong>Request:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;force_regenerate&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;include_content&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">&quot;ai_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;chatgpt&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">&quot;api_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;your_api_key_here&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">&quot;author_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CTIScraper User&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nt">&quot;skip_matching&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="nt">&quot;optimization_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="nt">&quot;useFiltering&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="nt">&quot;minConfidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.7</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Response (Article is Covered):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">&quot;matched_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">      </span><span class="nt">&quot;rule_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4-...&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PowerShell Suspicious Script Execution&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="nt">&quot;similarity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.875</span><span class="p">,</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="nt">&quot;coverage_status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;covered&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="nt">&quot;matched_behaviors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;powershell.exe&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;EncodedCommand&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bypass&quot;</span><span class="p">]</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">  </span><span class="nt">&quot;coverage_summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="nt">&quot;covered&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">    </span><span class="nt">&quot;extend&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="nt">&quot;new&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">    </span><span class="nt">&quot;total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">  </span><span class="nt">&quot;generated_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">  </span><span class="nt">&quot;similar_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">  </span><span class="nt">&quot;recommendation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Article behaviors are covered by 2 existing Sigma rule(s). No new rules needed.&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">  </span><span class="nt">&quot;skipped_generation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Response (New Rules Generated):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Suspicious PowerShell Execution&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">      </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Detects suspicious PowerShell command execution...&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="nt">&quot;logsource&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">},</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">      </span><span class="nt">&quot;detection&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">&quot;similar_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">      </span><span class="nt">&quot;generated_rule&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">        </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Suspicious PowerShell Execution&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">        </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Detects suspicious PowerShell command execution...&quot;</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">      </span><span class="p">},</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">      </span><span class="nt">&quot;similar_existing_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">        </span><span class="p">{</span>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">          </span><span class="nt">&quot;rule_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4-...&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">          </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PowerShell Execution with Encoded Commands&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">          </span><span class="nt">&quot;similarity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.87</span><span class="p">,</span>
+<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="w">          </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="w">          </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;stable&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="w">          </span><span class="nt">&quot;file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rules/windows/process_creation/proc_creation_win_powershell_encoded_cmd.yml&quot;</span>
+<a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="w">      </span><span class="p">]</span>
+<a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="w">  </span><span class="nt">&quot;validation_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="err">...</span><span class="p">],</span>
+<a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a><span class="w">  </span><span class="nt">&quot;conversation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="err">...</span><span class="p">],</span>
+<a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="w">  </span><span class="nt">&quot;validation_passed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a><span class="w">  </span><span class="nt">&quot;attempts_made&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a><span class="w">  </span><span class="nt">&quot;matched_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a><span class="w">  </span><span class="nt">&quot;coverage_summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}</span>
+<a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="get-existing-matches">Get Existing Matches<a class="headerlink" href="#get-existing-matches" title="Permanent link">&para;</a></h3>
+<p><strong>Endpoint</strong>: <code>GET /api/articles/{article_id}/sigma-matches</code></p>
+<p><strong>Response:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">&quot;matches&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">      </span><span class="nt">&quot;rule_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4-...&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PowerShell Suspicious Script Execution&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">      </span><span class="nt">&quot;similarity_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.875</span><span class="p">,</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="nt">&quot;coverage_status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;covered&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">      </span><span class="nt">&quot;matched_discriminators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;powershell.exe&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;EncodedCommand&quot;</span><span class="p">],</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">      </span><span class="nt">&quot;matched_lolbas&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;powershell.exe&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;cmd.exe&quot;</span><span class="p">],</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">      </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-01-16T10:30:00&quot;</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">  </span><span class="nt">&quot;coverage_summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">&quot;covered&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">    </span><span class="nt">&quot;extend&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">    </span><span class="nt">&quot;new&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">    </span><span class="nt">&quot;total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="p">}</span>
+</code></pre></div></p>
+<hr />
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># SIGMA repository and matching</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">SIGMA_REPO_PATH</span><span class="o">=</span>./data/sigma-repo
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nv">SIGMA_MATCH_THRESHOLD</span><span class="o">=</span><span class="m">0</span>.7
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># LM Studio embedding configuration (required for SIGMA embeddings)</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="nv">LMSTUDIO_EMBEDDING_URL</span><span class="o">=</span>http://localhost:1234/v1/embeddings
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="nv">LMSTUDIO_EMBEDDING_MODEL</span><span class="o">=</span>intfloat/e5-base-v2
+</code></pre></div>
+<h3 id="ai-model-configuration">AI Model Configuration<a class="headerlink" href="#ai-model-configuration" title="Permanent link">&para;</a></h3>
+<p><strong>ChatGPT (OpenAI)</strong>
+- Model: gpt-4o-mini
+- API Key: Required in request body
+- Temperature: 0.2 (for consistent output)
+- Best for: High-quality rule generation</p>
+<p><strong>LMStudio (Local LLM)</strong>
+- Model: User-configured (e.g., llama-3.2-1b-instruct)
+- API Key: Not required
+- Temperature: 0.2 (for consistent output)
+- Best for: Local processing, privacy, cost savings</p>
+<p><strong>LM Studio for Embeddings</strong> (SIGMA Rule Similarity Search)
+- Endpoint: http://localhost:1234/v1/embeddings
+- Model: intfloat/e5-base-v2 (must be loaded in LM Studio)
+- Dimension: 768
+- Purpose: Generate embeddings for SIGMA rule similarity search
+- Setup:
+  1. Open LM Studio
+  2. Download and load model: <code>intfloat/e5-base-v2</code>
+  3. Start local server
+  4. Verify endpoint is accessible</p>
+<h3 id="similarity-thresholds">Similarity Thresholds<a class="headerlink" href="#similarity-thresholds" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Default</strong>: 0.7 (70% similarity)</li>
+<li><strong>Covered Classification</strong>: ≥ 0.85 similarity, ≥ 0.7 overlap</li>
+<li><strong>Extend Classification</strong>: ≥ 0.7 similarity, ≥ 0.3 overlap</li>
+<li><strong>New Classification</strong>: Low overlap</li>
+</ul>
+<h3 id="content-filtering">Content Filtering<a class="headerlink" href="#content-filtering" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">&quot;optimization_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nt">&quot;useFiltering&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">      </span><span class="c1">// Enable content filtering</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">&quot;minConfidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.7</span><span class="w">       </span><span class="c1">// Minimum confidence threshold</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
+<h4 id="api-key-errors">API Key Errors<a class="headerlink" href="#api-key-errors" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Check API key configuration (ChatGPT only)</li>
+<li>Verify API quota and billing</li>
+<li>Monitor rate limiting</li>
+<li>LMStudio requires no API key, verify local server running</li>
+</ul>
+<h4 id="embedding-generation-failures">Embedding Generation Failures<a class="headerlink" href="#embedding-generation-failures" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>LM Studio not running</strong>: Ensure LM Studio server is running at configured URL</li>
+<li><strong>Model not loaded</strong>: Verify intfloat/e5-base-v2 is loaded in LM Studio</li>
+<li><strong>Connection timeout</strong>: Check <code>LMSTUDIO_EMBEDDING_URL</code> environment variable</li>
+<li><strong>Invalid model</strong>: Ensure <code>LMSTUDIO_EMBEDDING_MODEL</code> is set to <code>intfloat/e5-base-v2</code></li>
+<li><strong>HTTP errors</strong>: Check LM Studio server logs and network connectivity</li>
+</ul>
+<h4 id="pysigma-validation-failures">pySIGMA Validation Failures<a class="headerlink" href="#pysigma-validation-failures" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Ensure pySIGMA properly installed</li>
+<li>Check rule format compliance</li>
+<li>Review validation error messages</li>
+<li>Examine conversation log for debugging</li>
+</ul>
+<h4 id="generation-failures">Generation Failures<a class="headerlink" href="#generation-failures" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Check threat hunting score (warning below 65)</li>
+<li>Review AI model availability</li>
+<li>Check content filtering settings</li>
+</ul>
+<h4 id="no-similarity-results">No Similarity Results<a class="headerlink" href="#no-similarity-results" title="Permanent link">&para;</a></h4>
+<ol>
+<li>Verify SigmaHQ rules indexed with embeddings:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+</code></pre></div></li>
+<li>Check embedding service working:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from src.services.embedding_service import EmbeddingService; e = EmbeddingService(); print(len(e.generate_embedding(&#39;test&#39;)))&quot;</span>
+</code></pre></div></li>
+<li>Lower similarity threshold temporarily to test</li>
+</ol>
+<h4 id="slow-performance">Slow Performance<a class="headerlink" href="#slow-performance" title="Permanent link">&para;</a></h4>
+<ol>
+<li>Rebuild vector index:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">REINDEX</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">idx_sigma_rules_embedding</span><span class="p">;</span>
+</code></pre></div></li>
+<li>Adjust IVFFlat lists parameter</li>
+<li>Increase database resources</li>
+</ol>
+<h4 id="import-errors">Import Errors<a class="headerlink" href="#import-errors" title="Permanent link">&para;</a></h4>
+<p>All operations should run inside Docker containers:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>src.cli.main<span class="w"> </span>sigma<span class="w"> </span><span class="o">[</span>command<span class="o">]</span>
+</code></pre></div></p>
+<h3 id="debug-commands">Debug Commands<a class="headerlink" href="#debug-commands" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Enable debug logging</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Check generation logs</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>docker-compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>web<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;SIGMA&quot;</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Check service status</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>docker-compose<span class="w"> </span>ps
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="c1"># Test embedding service</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from src.services.embedding_service import EmbeddingService; print(&#39;OK&#39;)&quot;</span>
+</code></pre></div>
+<h3 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1">-- Average similarity scores</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">AVG</span><span class="p">(</span><span class="n">similarity</span><span class="p">)</span><span class="w"> </span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="k">FROM</span><span class="w"> </span><span class="n">article_sigma_matches</span><span class="w"> </span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">match_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;article&#39;</span><span class="p">;</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="c1">-- Distribution of similarity scores</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="k">SELECT</span><span class="w"> </span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="k">CASE</span><span class="w"> </span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">9</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;Very High (0.9+)&#39;</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">8</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;High (0.8-0.9)&#39;</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">7</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;Medium (0.7-0.8)&#39;</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">        </span><span class="k">ELSE</span><span class="w"> </span><span class="s1">&#39;Low (&lt;0.7)&#39;</span>
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">similarity_range</span><span class="p">,</span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="k">count</span>
+<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="k">FROM</span><span class="w"> </span><span class="n">article_sigma_matches</span>
+<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">similarity_range</span><span class="p">;</span>
+</code></pre></div>
+<hr />
+<h2 id="maintenance">Maintenance<a class="headerlink" href="#maintenance" title="Permanent link">&para;</a></h2>
+<h3 id="regular-updates">Regular Updates<a class="headerlink" href="#regular-updates" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Update SigmaHQ repository</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># Re-index rules</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index<span class="w"> </span>--force
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="c1"># Check statistics</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+</code></pre></div>
+<h3 id="metrics-tracked">Metrics Tracked<a class="headerlink" href="#metrics-tracked" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Rules generated per day</li>
+<li>Validation success rate</li>
+<li>Average attempts per generation</li>
+<li>Most common validation errors</li>
+<li>Generation processing time</li>
+<li>Match coverage distribution</li>
+</ul>
+<h3 id="health-checks">Health Checks<a class="headerlink" href="#health-checks" title="Permanent link">&para;</a></h3>
+<ul>
+<li>OpenAI API connectivity</li>
+<li>pySIGMA validation status</li>
+<li>Generation success rates</li>
+<li>Average attempts per rule set</li>
+<li>Similarity search performance</li>
+</ul>
+<hr />
+<h2 id="security-considerations">Security Considerations<a class="headerlink" href="#security-considerations" title="Permanent link">&para;</a></h2>
+<h3 id="data-privacy">Data Privacy<a class="headerlink" href="#data-privacy" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Article content sent to AI model for analysis</li>
+<li>No sensitive data stored in AI provider logs (ChatGPT)</li>
+<li>Rules stored locally in database</li>
+<li>LMStudio provides local processing for full privacy</li>
+</ul>
+<h3 id="input-validation">Input Validation<a class="headerlink" href="#input-validation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Article ID validation</li>
+<li>Threat score thresholds</li>
+<li>(Deprecated: "chosen" classification requirement has been removed.)</li>
+<li>Rate limiting on generation requests</li>
+<li>API key validation for external models</li>
+</ul>
+<h3 id="output-validation">Output Validation<a class="headerlink" href="#output-validation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>pySIGMA validation ensures rule safety</li>
+<li>No arbitrary code execution</li>
+<li>Structured rule format only</li>
+</ul>
+<hr />
+<h2 id="future-enhancements">Future Enhancements<a class="headerlink" href="#future-enhancements" title="Permanent link">&para;</a></h2>
+<h3 id="planned-features">Planned Features<a class="headerlink" href="#planned-features" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Custom rule templates</li>
+<li>Automatic rule performance optimization</li>
+<li>Bulk rule generation</li>
+<li>Rule testing with SIEM frameworks</li>
+<li>Rule sharing and export</li>
+<li>Batch similarity search</li>
+<li>Weighted similarity (consider detection logic)</li>
+<li>Similarity explanations</li>
+<li>Auto-merge suggestions</li>
+<li>Cross-platform matching</li>
+</ul>
+<h3 id="integration-opportunities">Integration Opportunities<a class="headerlink" href="#integration-opportunities" title="Permanent link">&para;</a></h3>
+<ul>
+<li>SIEM platform integration</li>
+<li>Direct PR creation to SigmaHQ</li>
+<li>Enhanced TTP extraction and mapping</li>
+<li>ML-based rule quality assessment</li>
+<li>Periodic automated SigmaHQ sync</li>
+<li>Rule suggestions for "extend" matches</li>
+<li>Performance optimization with chunk embedding caching</li>
+</ul>
+<hr />
+<h2 id="files-components">Files &amp; Components<a class="headerlink" href="#files-components" title="Permanent link">&para;</a></h2>
+<h3 id="created-files">Created Files<a class="headerlink" href="#created-files" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>init.sql/migrations/20250116_add_sigma_matching_tables.sql</code></li>
+<li><code>src/services/sigma_sync_service.py</code></li>
+<li><code>src/services/sigma_matching_service.py</code></li>
+<li><code>src/services/sigma_coverage_service.py</code></li>
+<li><code>src/cli/sigma_commands.py</code></li>
+</ul>
+<h3 id="modified-files">Modified Files<a class="headerlink" href="#modified-files" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>src/database/models.py</code> (added SigmaRuleTable, ArticleSigmaMatchTable)</li>
+<li><code>src/web/routes/ai.py</code> (enhanced with match-first logic)</li>
+<li><code>src/cli/main.py</code> (registered sigma_group commands)</li>
+<li><code>requirements.txt</code> (added GitPython==3.1.43)</li>
+</ul>
+<h3 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>GitPython==3.1.43</code>: Repository management</li>
+<li><code>pysigma==0.11.23</code>: Rule parsing/validation</li>
+<li><code>pgvector&gt;=0.4.0</code>: Vector similarity</li>
+<li><code>sentence-transformers&gt;=2.2.2</code>: Embeddings (all-mpnet-base-v2)</li>
+</ul>
+<hr />
+<h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link">&para;</a></h2>
+<p>For issues and questions:
+- <strong>GitHub Issues</strong>: Report bugs and feature requests
+- <strong>Documentation</strong>: Check this guide and API documentation
+- <strong>Community</strong>: Join CTI Scraper community discussions</p>
+<hr />
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/SigmaHQ/sigma">SigmaHQ Repository</a></li>
+<li><a href="https://github.com/SigmaHQ/sigma-specification">Sigma Specification</a></li>
+<li><a href="https://github.com/pgvector/pgvector">pgvector</a></li>
+<li><a href="https://www.sbert.net/">Sentence Transformers</a>
+-- <a href="https://sigmahq-pysigma.readthedocs.io/">pySIGMA Documentation</a>
+-- <a href="https://en.wikipedia.org/wiki/Cosine_similarity">Cosine Similarity</a></li>
+</ul>
+<hr />
+<p><strong>Status</strong>: ✅ Complete and Functional<br />
+<strong>Last Updated</strong>: January 2025</p>
+<hr />
+<h1 id="sigma-reference">Sigma Reference<a class="headerlink" href="#sigma-reference" title="Permanent link">&para;</a></h1>
+<p>Sigma generation runs inside the workflow after extraction and is also available via CLI commands. Use this reference alongside <a href="../../guides/generate-sigma/">Generate Sigma</a>.</p>
+<h2 id="workflow-and-cli-summary">Workflow and CLI summary<a class="headerlink" href="#workflow-and-cli-summary" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Workflow trigger: <code>POST /api/workflow/articles/{article_id}/trigger</code> (Sigma agent runs after extraction).</li>
+<li>Repository sync: <code>./run_cli.sh sigma sync</code></li>
+<li>Index rules into PostgreSQL + pgvector: <code>./run_cli.sh sigma index</code> (use <code>--force</code> to re-index)</li>
+<li>Match existing rules to an article: <code>./run_cli.sh sigma match &lt;article_id&gt; --threshold 0.7 --save</code></li>
+</ul>
+<h2 id="llm-sigma-rule-generation-prompt-template">LLM - SIGMA Rule Generation Prompt Template<a class="headerlink" href="#llm-sigma-rule-generation-prompt-template" title="Permanent link">&para;</a></h2>
+<h3 id="system-role">System Role<a class="headerlink" href="#system-role" title="Permanent link">&para;</a></h3>
+<p>You are a senior cybersecurity detection engineer specializing in SIGMA rule creation and threat hunting. You have extensive experience with:
+- Windows, Linux, and macOS security event analysis
+- MITRE ATT&amp;CK framework mapping
+- SIEM platforms (Splunk, ELK Stack, QRadar, etc.)
+- Malware analysis and reverse engineering
+- Threat intelligence analysis</p>
+<h2 id="task">Task<a class="headerlink" href="#task" title="Permanent link">&para;</a></h2>
+<p>Analyze the provided threat intelligence article and generate high-quality, actionable SIGMA detection rules that security teams can implement immediately. Follow the official <a href="https://github.com/SigmaHQ/sigma/wiki/Rule-Creation-Guide">SigmaHQ Rule Creation Guide</a> best practices.</p>
+<h2 id="article-information">Article Information<a class="headerlink" href="#article-information" title="Permanent link">&para;</a></h2>
+<p><strong>Title:</strong> {article_title}
+<strong>Source:</strong> {source_name}
+<strong>URL:</strong> {canonical_url}
+<strong>Published:</strong> {published_date}
+<strong>Content Length:</strong> {content_length} characters</p>
+<h2 id="article-content">Article Content<a class="headerlink" href="#article-content" title="Permanent link">&para;</a></h2>
+<p>{article_content}</p>
+<h2 id="sigma-rule-generation-guidelines-based-on-official-sigmahq-standards">SIGMA Rule Generation Guidelines (Based on Official SigmaHQ Standards)<a class="headerlink" href="#sigma-rule-generation-guidelines-based-on-official-sigmahq-standards" title="Permanent link">&para;</a></h2>
+<h3 id="1-rule-structure-requirements">1. Rule Structure Requirements<a class="headerlink" href="#1-rule-structure-requirements" title="Permanent link">&para;</a></h3>
+<p>Each SIGMA rule must include all required fields according to the official specification:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Short capitalized title with less than 50 characters</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">UUID format</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">experimental</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Starts with &quot;Detects...&quot; - clear description of what the rule detects and why it&#39;s important</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="nt">references</span><span class="p">:</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">List of relevant references</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">links to blog posts</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">advisories</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">etc.</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="nt">tags</span><span class="p">:</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">attack.tactic_id</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">attack.technique_id</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">car.2014-04-003</span><span class="w">  </span><span class="c1"># CAR framework tags when applicable</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Author name(s) separated by commas</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="nt">date</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">YYYY/MM/DD format</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="nt">logsource</span><span class="p">:</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="w">  </span><span class="nt">category</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">process_creation/network_connection/file_event/registry_event/etc</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a><span class="w">  </span><span class="nt">product</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">windows/linux/macos</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="w">  </span><span class="nt">service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">specific service if applicable</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a><span class="nt">detection</span><span class="p">:</span>
+<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a><span class="w">  </span><span class="nt">selection</span><span class="p">:</span>
+<a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">specific detection criteria using lowercase field names</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a><span class="w">  </span><span class="nt">filter</span><span class="p">:</span>
+<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">optional filters to reduce false positives</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a><span class="w">  </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selection and not filter</span>
+<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">list of important fields for investigation</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a><span class="nt">falsepositives</span><span class="p">:</span>
+<a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">specific false positive scenarios to help analysts</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">informational/low/medium/high/critical</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<h3 id="2-title-best-practices">2. Title Best Practices<a class="headerlink" href="#2-title-best-practices" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>NO prefixes</strong>: Don't use "Detects..." or similar prefixes</li>
+<li><strong>Short and specific</strong>: Less than 50 characters</li>
+<li><strong>Title case</strong>: Use proper capitalization</li>
+<li><strong>Descriptive</strong>: Include threat name or technique</li>
+<li><strong>No explanations</strong>: Save details for description</li>
+</ul>
+<p><strong>Good Examples:</strong>
+- Process Injection Using Iexplore.exe
+- Suspicious PowerShell Cmdline with JAB
+- Certutil Lolbin Decode Use</p>
+<p><strong>Bad Examples:</strong>
+- Detects a process execution in a Windows folder that shouldn't contain executables
+- Detects process injection</p>
+<h3 id="3-description-best-practices">3. Description Best Practices<a class="headerlink" href="#3-description-best-practices" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Start with "Detects..."</strong>: Always begin with this phrase</li>
+<li><strong>Explain significance</strong>: What does a trigger mean?</li>
+<li><strong>Provide context</strong>: Help analysts understand the threat</li>
+<li><strong>Be specific</strong>: Don't just repeat the title</li>
+</ul>
+<p><strong>Good Example:</strong>
+"Detects the execution of whoami, which could be part of administrative activity but is also often used by attackers that have exploited some local privilege escalation or remote code execution vulnerability. The command whoami reveals the current user context. Administrators usually know which user they've used to login. Attackers usually need to evaluate the user context after successful exploitation."</p>
+<h3 id="4-detection-logic-best-practices">4. Detection Logic Best Practices<a class="headerlink" href="#4-detection-logic-best-practices" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Single element lists</strong>: Don't use lists for single values</li>
+<li><strong>Lowercase only</strong>: Use lowercase identifiers</li>
+<li><strong>Comments</strong>: Use <code>#</code> for inline comments with 2 spaces separation</li>
+<li><strong>Avoid regex</strong>: Use <code>contains</code>, <code>startswith</code>, <code>endswith</code> instead of regex when possible</li>
+<li><strong>Field names</strong>: Use exact field names from log source, remove spaces, keep hyphens</li>
+<li><strong>No SIEM-specific logic</strong>: Keep detection logic generic</li>
+</ul>
+<h3 id="5-backslash-handling">5. Backslash Handling<a class="headerlink" href="#5-backslash-handling" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Single backslashes</strong>: Write as plain values (<code>C:\Windows\System32\cmd.exe</code>)</li>
+<li><strong>Double backslashes</strong>: Use four backslashes (<code>\\\\foo\bar</code> for <code>\\foo\bar</code>)</li>
+<li><strong>Escaping wildcards</strong>: Use <code>\*</code> for plain <code>*</code>, <code>\\*</code> for backslash + wildcard</li>
+<li><strong>Regex backslashes</strong>: Use double backslashes in regex patterns</li>
+</ul>
+<h3 id="6-value-modifiers-best-practices">6. Value Modifiers Best Practices<a class="headerlink" href="#6-value-modifiers-best-practices" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Ordering</strong>: Wildcard modifiers first, then encoding modifiers</li>
+<li><strong>Common combinations</strong>:</li>
+<li><code>|contains|all</code>: Order-agnostic command line parameters</li>
+<li><code>|utf16|base64offset|contains</code>: Base64-encoded UTF16 values</li>
+<li><strong>Avoid chaining</strong>: Don't chain arbitrary modifiers</li>
+<li><strong>End with encoding</strong>: Character set modifiers should be followed by encoding modifiers</li>
+</ul>
+<h3 id="7-level-guidelines">7. Level Guidelines<a class="headerlink" href="#7-level-guidelines" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Critical</strong>: Never trigger false positives, high relevance</li>
+<li><strong>High</strong>: High relevance threats requiring manual review</li>
+<li><strong>Medium</strong>: Suspicious activity and policy violations</li>
+<li><strong>Low</strong>: Suspicious activity, baselining required</li>
+<li><strong>Informational</strong>: Compliance and correlation purposes</li>
+</ul>
+<h3 id="8-detection-categories-to-focus-on">8. Detection Categories to Focus On<a class="headerlink" href="#8-detection-categories-to-focus-on" title="Permanent link">&para;</a></h3>
+<h4 id="process-creation-rules">Process Creation Rules<a class="headerlink" href="#process-creation-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Suspicious process executions (PowerShell, cmd, wmic, etc.)</li>
+<li>Malware process names and patterns</li>
+<li>Command line arguments containing suspicious patterns</li>
+<li>Parent-child process relationships</li>
+<li>Process injection techniques</li>
+<li>LOLBAS (Living Off The Land Binaries and Scripts) usage</li>
+</ul>
+<h4 id="file-system-rules">File System Rules<a class="headerlink" href="#file-system-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Suspicious file creations in specific directories</li>
+<li>File extensions associated with malware (.exe, .dll, .bat, .ps1, etc.)</li>
+<li>File hash detections (if available in the article)</li>
+<li>File modification patterns</li>
+<li>File deletion patterns</li>
+<li>File access patterns</li>
+</ul>
+<h4 id="network-activity-rules">Network Activity Rules<a class="headerlink" href="#network-activity-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Command and control (C2) communication patterns</li>
+<li>Suspicious domain queries</li>
+<li>Malicious IP addresses</li>
+<li>Unusual network protocols</li>
+<li>Data exfiltration patterns</li>
+<li>Network scanning activities</li>
+</ul>
+<h4 id="registry-rules">Registry Rules<a class="headerlink" href="#registry-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Persistence mechanisms (Run keys, services, etc.)</li>
+<li>Configuration changes</li>
+<li>Suspicious registry key modifications</li>
+<li>Registry-based malware indicators</li>
+<li>Privilege escalation attempts</li>
+</ul>
+<h4 id="authentication-rules">Authentication Rules<a class="headerlink" href="#authentication-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Failed login attempts</li>
+<li>Privilege escalation</li>
+<li>Account creation/modification</li>
+<li>Suspicious authentication patterns</li>
+<li>Lateral movement indicators</li>
+</ul>
+<h3 id="9-mitre-attck-mapping">9. MITRE ATT&amp;CK Mapping<a class="headerlink" href="#9-mitre-attck-mapping" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Map each rule to specific ATT&amp;CK techniques (T####)</li>
+<li>Include both tactic and technique IDs</li>
+<li>Use official technique names from the ATT&amp;CK framework</li>
+<li>Consider sub-techniques when applicable</li>
+<li>Use lowercase tags with dots or hyphens as dividers</li>
+</ul>
+<h3 id="10-references-best-practices">10. References Best Practices<a class="headerlink" href="#10-references-best-practices" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Web links only</strong>: Use links to web pages or documents</li>
+<li><strong>No raw content</strong>: Don't link to EVTX files, PCAPs, or raw content</li>
+<li><strong>No MITRE links</strong>: Use tags for ATT&amp;CK techniques instead</li>
+<li><strong>Include</strong>: Blog posts, advisories, project pages, manual pages, discussions</li>
+</ul>
+<h3 id="11-false-positive-considerations">11. False Positive Considerations<a class="headerlink" href="#11-false-positive-considerations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Document specific false positive scenarios</li>
+<li>Include filters where appropriate</li>
+<li>Consider legitimate administrative activities</li>
+<li>Account for different environments (dev, test, prod)</li>
+<li>Provide hints for analysts</li>
+</ul>
+<h2 id="output-format">Output Format<a class="headerlink" href="#output-format" title="Permanent link">&para;</a></h2>
+<p>Generate your response in the following format:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="gh"># SIGMA Detection Rules for [Threat Name/Technique]</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="gu">## Overview</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>Brief description of the threat and detection approach based on the article content.
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="gu">## Rule 1: [Rule Title]</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>```yaml
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>title: [Short, specific title &lt; 50 chars]
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>id: [UUID]
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>status: experimental
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>description: Detects [specific behavior and its significance]
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>references:
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[relevant reference link]
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>tags:
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>attack.tactic_id
+<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>attack.technique_id
+<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>author: [Your name]
+<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>date: [YYYY/MM/DD]
+<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>logsource:
+<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a>  category: [category]
+<a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a>  product: [product]
+<a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a>detection:
+<a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a>  selection:
+<a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a>    [detection logic]
+<a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a>  filter:
+<a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a>    [optional filters]
+<a id="__codelineno-23-27" name="__codelineno-23-27" href="#__codelineno-23-27"></a>  condition: selection and not filter
+<a id="__codelineno-23-28" name="__codelineno-23-28" href="#__codelineno-23-28"></a>fields:
+<a id="__codelineno-23-29" name="__codelineno-23-29" href="#__codelineno-23-29"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[important investigation fields]
+<a id="__codelineno-23-30" name="__codelineno-23-30" href="#__codelineno-23-30"></a>falsepositives:
+<a id="__codelineno-23-31" name="__codelineno-23-31" href="#__codelineno-23-31"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[specific false positive scenarios]
+<a id="__codelineno-23-32" name="__codelineno-23-32" href="#__codelineno-23-32"></a>level: [high/medium/low]
+</code></pre></div>
+<h2 id="rule-2-rule-title">Rule 2: [Rule Title]<a class="headerlink" href="#rule-2-rule-title" title="Permanent link">&para;</a></h2>
+<p>[Continue with additional rules...]</p>
+<h2 id="implementation-notes">Implementation Notes<a class="headerlink" href="#implementation-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Log source requirements</li>
+<li>Performance considerations</li>
+<li>Tuning recommendations</li>
+<li>Additional context for security teams
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>## Additional Requirements
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>1. **Generate 3-5 rules** based on the threat intelligence
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>2. **Focus on high-confidence detections** that can be implemented immediately
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>3. **Include both simple and complex detection logic** where appropriate
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>4. **Provide implementation guidance** for security teams
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>5. **Consider different environments** (enterprise, SMB, etc.)
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>6. **Include relevant threat context** from the article
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>7. **Follow SigmaHQ standards** for all rule components
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>## Example Rule Structure
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>```yaml
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>title: Suspicious PowerShell Execution - Malware Download
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>id: 12345678-1234-1234-1234-123456789012
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a>status: experimental
+<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>description: Detects suspicious PowerShell execution patterns commonly used by malware for downloading and executing payloads. Attackers often use PowerShell with WebClient to download and execute malicious code from remote sources.
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>references:
+<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>  - https://attack.mitre.org/techniques/T1059/001/
+<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>tags:
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a>  - attack.execution
+<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>  - attack.t1059.001
+<a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a>  - attack.command_and_control
+<a id="__codelineno-24-23" name="__codelineno-24-23" href="#__codelineno-24-23"></a>author: Detection Engineer
+<a id="__codelineno-24-24" name="__codelineno-24-24" href="#__codelineno-24-24"></a>date: 2024/01/15
+<a id="__codelineno-24-25" name="__codelineno-24-25" href="#__codelineno-24-25"></a>logsource:
+<a id="__codelineno-24-26" name="__codelineno-24-26" href="#__codelineno-24-26"></a>  category: process_creation
+<a id="__codelineno-24-27" name="__codelineno-24-27" href="#__codelineno-24-27"></a>  product: windows
+<a id="__codelineno-24-28" name="__codelineno-24-28" href="#__codelineno-24-28"></a>detection:
+<a id="__codelineno-24-29" name="__codelineno-24-29" href="#__codelineno-24-29"></a>  selection:
+<a id="__codelineno-24-30" name="__codelineno-24-30" href="#__codelineno-24-30"></a>    process.name: powershell.exe
+<a id="__codelineno-24-31" name="__codelineno-24-31" href="#__codelineno-24-31"></a>    command_line:
+<a id="__codelineno-24-32" name="__codelineno-24-32" href="#__codelineno-24-32"></a>      - &#39;*Invoke-Expression*&#39;
+<a id="__codelineno-24-33" name="__codelineno-24-33" href="#__codelineno-24-33"></a>      - &#39;*IEX*&#39;
+<a id="__codelineno-24-34" name="__codelineno-24-34" href="#__codelineno-24-34"></a>      - &#39;*DownloadString*&#39;
+<a id="__codelineno-24-35" name="__codelineno-24-35" href="#__codelineno-24-35"></a>      - &#39;*WebClient*&#39;
+<a id="__codelineno-24-36" name="__codelineno-24-36" href="#__codelineno-24-36"></a>  filter:
+<a id="__codelineno-24-37" name="__codelineno-24-37" href="#__codelineno-24-37"></a>    command_line:
+<a id="__codelineno-24-38" name="__codelineno-24-38" href="#__codelineno-24-38"></a>      - &#39;*Get-Help*&#39;
+<a id="__codelineno-24-39" name="__codelineno-24-39" href="#__codelineno-24-39"></a>      - &#39;*Get-Command*&#39;
+<a id="__codelineno-24-40" name="__codelineno-24-40" href="#__codelineno-24-40"></a>  condition: selection and not filter
+<a id="__codelineno-24-41" name="__codelineno-24-41" href="#__codelineno-24-41"></a>fields:
+<a id="__codelineno-24-42" name="__codelineno-24-42" href="#__codelineno-24-42"></a>  - process.name
+<a id="__codelineno-24-43" name="__codelineno-24-43" href="#__codelineno-24-43"></a>  - process.command_line
+<a id="__codelineno-24-44" name="__codelineno-24-44" href="#__codelineno-24-44"></a>  - process.parent.name
+<a id="__codelineno-24-45" name="__codelineno-24-45" href="#__codelineno-24-45"></a>falsepositives:
+<a id="__codelineno-24-46" name="__codelineno-24-46" href="#__codelineno-24-46"></a>  - Legitimate PowerShell scripts using WebClient for automation
+<a id="__codelineno-24-47" name="__codelineno-24-47" href="#__codelineno-24-47"></a>  - System administration scripts downloading configuration files
+<a id="__codelineno-24-48" name="__codelineno-24-48" href="#__codelineno-24-48"></a>level: medium
+</code></pre></div></li>
+</ul>
+<p>Generate comprehensive, actionable SIGMA rules based on the threat intelligence provided, following all SigmaHQ best practices.</p>
+<hr />
+<p><em>Last updated: February 2025</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

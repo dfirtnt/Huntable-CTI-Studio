@@ -6,10 +6,12 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modern docs for Huntable CTI Studio (CTIScraper)">
+        <meta name="description" content="Modern threat intelligence collection and analysis platform">
       
       
       
+      
+        <link rel="prev" href="../contributing/">
       
       
       
@@ -44,8 +46,6 @@
       
     
     
-      <link rel="stylesheet" href="../css/stackedit.css">
-    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -76,9 +76,7 @@
     
       
 
-  
-
-<header class="md-header md-header--shadow" data-md-component="header">
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
       
@@ -162,6 +160,293 @@
       
         
           
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../concepts/huntables/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/add-feed/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../features/sigma-rules/" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../llm/model-selection/" class="md-tabs__link">
+          
+  
+  
+  LLM & Models
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../ml-training/hunt-scoring/" class="md-tabs__link">
+          
+  
+  
+  ML Training
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../development/setup/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../prompts/eval-bundle/" class="md-tabs__link">
+          
+  
+  
+  Prompts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -175,8 +460,12 @@
                     
 
 
+  
 
-<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
       
@@ -253,15 +542,167 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/first-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -279,8 +720,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -419,22 +860,29 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    How-To
+    Guides
   
 
     
@@ -445,12 +893,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
-    How-To
+    Guides
   
 
           </label>
@@ -463,14 +911,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../howto/run_locally/" class="md-nav__link">
+      <a href="../guides/add-feed/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Run locally
+    Add a Feed
   
 
     
@@ -491,14 +939,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../howto/add_feed/" class="md-nav__link">
+      <a href="../guides/extract-observables/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Add feed
+    Extract Observables
   
 
     
@@ -519,14 +967,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../howto/extract_observables/" class="md-nav__link">
+      <a href="../guides/generate-sigma/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Extract observables
+    Generate Sigma Rules
   
 
     
@@ -547,14 +995,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../howto/generate_sigma/" class="md-nav__link">
+      <a href="../guides/evaluate-models/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Generate Sigma
+    Evaluate Models
   
 
     
@@ -575,14 +1023,70 @@
   
   
     <li class="md-nav__item">
-      <a href="../howto/evaluate_models/" class="md-nav__link">
+      <a href="../guides/backup-and-restore/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Evaluate models
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/source-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/memory-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Tuning
   
 
     
@@ -613,15 +1117,714 @@
     
     
     
+      
+      
+        
+      
+    
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/workflow-data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/qa-loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/sigma-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Detection Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/content-filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/os-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/cmdline-preprocessor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/rag-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/observable-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM & Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM & Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llm/model-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llm/lmstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LM Studio Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llm/extract-agent-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Training
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Training
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ml-training/hunt-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ml-training/database-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -639,8 +1842,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -665,34 +1868,6 @@
     
   
     CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../reference/config/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Config
   
 
     
@@ -769,14 +1944,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/sigma/" class="md-nav__link">
+      <a href="../reference/ml-features/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Sigma
+    ML Feature Definitions
   
 
     
@@ -835,1062 +2010,22 @@
     
     
     
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Internals
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Internals
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../internals/architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../internals/scoring/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scoring
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../internals/chunking/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Chunking
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../internals/qa_loops/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    QA loops
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
       
       
-  
-  
-  
-  
-    
-    
-    
+        
+      
     
     
     <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deployment
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Deployment
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../deployment/GETTING_STARTED/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../deployment/DOCKER_ARCHITECTURE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../deployment/TECHNICAL_READOUT/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Technical Readout
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
-        
-          
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Advanced
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LLM & Models
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    LLM & Models
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../LMSTUDIO_INTEGRATION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LMStudio Integration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../Model_Selection_Guide_CTI_Workflows/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Model Selection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../OpenAI_Chat_Models_Reference/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAI Reference
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ML & Training
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    ML & Training
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ML_HUNT_SCORING/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ML Hunt Scoring
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../HUNTABLE_WINDOWS_CLASSIFIER/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Huntable Windows
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../DATABASE_TRAINING_SYSTEM/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Database Training
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../features/CONTENT_FILTER_ML_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Content Filter ML
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Features
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Features
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../features/CONTENT_FILTERING/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Content Filtering
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../features/CMDLINE_ATTENTION_PREPROCESSOR/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cmdline Attention Preprocessor
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../features/OS_DETECTION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OS Detection
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../features/OBSERVABLE_EVALUATION_DESIGN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Observable Evaluation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../features/SIGMA_DETECTION_RULES/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Sigma Rules
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_4" id="__nav_8_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operations
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/BACKUP_AND_RESTORE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backup & Restore
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/CROSS_MACHINE_RESTORE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cross Machine Restore
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/MEMORY_OPTIMIZATION/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Memory Optimization
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/SOURCE_CONFIG_PRECEDENCE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Source Config
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../operations/VERIFY_ML_VERSIONS_BACKUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Verify ML Versions Backup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -1908,8 +2043,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1926,7 +2061,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/DEVELOPMENT_SETUP/" class="md-nav__link">
+      <a href="../development/setup/" class="md-nav__link">
         
   
   
@@ -1954,14 +2089,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/PORT_CONFIGURATION/" class="md-nav__link">
+      <a href="../development/testing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Port Configuration
+    Testing Strategy
   
 
     
@@ -1982,7 +2117,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/WEB_APP_TESTING/" class="md-nav__link">
+      <a href="../development/manual-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/web-app-testing/" class="md-nav__link">
         
   
   
@@ -2010,7 +2173,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/DATABASE_QUERY_GUIDE/" class="md-nav__link">
+      <a href="../development/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/database-queries/" class="md-nav__link">
         
   
   
@@ -2038,63 +2229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/DEBUGGING_TOOLS_GUIDE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Debugging Tools
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/ADVANCED_QUALITY_SYSTEM.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Advanced Quality System
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/ALLURE_REPORTS/" class="md-nav__link">
+      <a href="../development/allure-reports/" class="md-nav__link">
         
   
   
@@ -2122,14 +2257,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/DEBUG_EVAL_LMSTUDIO_LOGS/" class="md-nav__link">
+      <a href="../development/multi-instance/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Debug Eval Logs
+    Multi-Instance
   
 
     
@@ -2150,98 +2285,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/LIGHTWEIGHT_INTEGRATION_TESTING/" class="md-nav__link">
+      <a href="../development/workflow-queue/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Lightweight Integration Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/MULTI_INSTANCE_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multi Instance Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/MANUAL_CHECKLIST_30MIN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Manual Checklist 30min
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/MANUAL_TEST_CHECKLIST/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Manual Test Checklist
+    Workflow Queue
   
 
     
@@ -2283,6 +2334,67 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
                 
   
@@ -2290,14 +2402,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/boolean-search/" class="md-nav__link">
+      <a href="../prompts/eval-bundle/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Boolean Search
+    Eval Bundle Analysis
   
 
     
@@ -2318,14 +2430,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/backfill_chunk_analysis_help/" class="md-nav__link">
+      <a href="../prompts/huntquery-eval/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Backfill Chunk Analysis
+    Hunt Query Eval
   
 
     
@@ -2346,70 +2458,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../development/TROUBLESHOOT_EVAL_PENDING/" class="md-nav__link">
+      <a href="../prompts/proctree-eval/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshoot Eval Pending
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/WORKFLOW_QUEUE_SETUP/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Workflow Queue Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/WebAppDevtestingGuide/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Web App Dev Testing Guide
+    Process Tree Eval
   
 
     
@@ -2429,14 +2485,6 @@
     </li>
   
 
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
     
       
       
@@ -2445,7 +2493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../CONTRIBUTING/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -2465,18 +2513,58 @@
   
 
     
-  </ul>
-</nav>
-                  </div>
-                </div>
-              </div>
-            
-            
-              
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
-                <div class="md-sidebar__scrollwrap">
-                  <div class="md-sidebar__inner">
-                    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
 
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
@@ -3910,9 +3998,17 @@
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
                   </div>
                 </div>
               </div>
+            
             
           
           
@@ -3924,12 +4020,12 @@
 
 
 
-<h1 id="changelog">Changelog</h1>
+<h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <p>All notable changes to CTI Scraper will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
-<h2 id="unreleased">[Unreleased]</h2>
-<h3 id="added">Added</h3>
+<h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Documentation Overhaul</strong>: Complete reorganization and enhancement of MkDocs documentation</li>
 <li>Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation</li>
@@ -3944,13 +4040,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Integrated StackEdit for browser-based Markdown editing</li>
 <li>Added custom JavaScript and CSS for StackEdit integration with modal instructions</li>
 </ul>
-<h3 id="changed">Changed</h3>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Documentation Structure</strong>: Reorganized navigation to match proposed structure with Advanced section</li>
 <li><strong>File Organization</strong>: Consolidated testing and historical documentation into appropriate subdirectories</li>
 </ul>
-<h2 id="500-callisto-2026-01-15">[5.0.0 "Callisto"] - 2026-01-15</h2>
-<h3 id="added_1">Added</h3>
+<h2 id="500-callisto-2026-01-15">[5.0.0 "Callisto"] - 2026-01-15<a class="headerlink" href="#500-callisto-2026-01-15" title="Permanent link">&para;</a></h2>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Stabilized Agentic Workflow and Evaluation Datasets</strong>: Production-ready agentic workflow system with comprehensive evaluation framework</li>
 <li>Complete evaluation dataset management for testing and validation</li>
@@ -3977,7 +4073,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Submit PR functionality from SIGMA Queue interface</li>
 <li>Docker volume mounting for repository access</li>
 </ul>
-<h3 id="changed_1">Changed</h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>SIGMA Similarity Algorithm</strong>: Replaced cosine similarity with behavioral novelty assessment</li>
 <li>Atom Jaccard measures overlap of detection predicates (field/operator/value combinations)</li>
@@ -3988,7 +4084,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Better retry logic for failed steps</li>
 <li>Improved evaluation dataset handling</li>
 </ul>
-<h3 id="fixed">Fixed</h3>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Rule Enrichment Modal</strong>: Fixed enrichment interface issues</li>
 <li>Improved provider detection and display</li>
@@ -4003,8 +4099,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Added finish_reason logging for debugging empty responses</li>
 <li>Verified LMStudio connectivity and model availability</li>
 </ul>
-<h2 id="unreleased_1">[Unreleased]</h2>
-<h3 id="added_2">Added</h3>
+<h2 id="unreleased_1">[Unreleased]<a class="headerlink" href="#unreleased_1" title="Permanent link">&para;</a></h2>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Infra guard: last-line circuit breaker and bundle illegal-state detection</strong> (2026-02-02): Enforce invariant that LLM is never invoked with empty messages</li>
 <li>Circuit breaker in <code>request_chat</code> and defense-in-depth in <code>_call_openai_chat</code>, <code>_call_anthropic_chat</code>, <code>_post_lmstudio_chat</code></li>
@@ -4016,7 +4112,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Cursor rule: Agent config test confirmation</strong> (2026-02-02): New rule <code>.cursor/rules/agent-config-test-confirmation.mdc</code> requiring explicit user approval before running or creating tests that mutate active agent configs</li>
 <li><strong>Cmdline Attention Preprocessor documentation</strong> (2026-02-02): New feature doc and workflow diagram updates</li>
 </ul>
-<h3 id="removed">Removed</h3>
+<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Root cleanup</strong> (2026-02-04): Removed obsolete root files; moved dev scripts to <code>scripts/</code></li>
 <li>Deleted: <code>gittree.txt</code>, <code>run_tests_standardized.py</code>, <code>tmp_workflow_script9_updated.js</code></li>
@@ -4032,7 +4128,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Renamed API field <code>uses_langsmith</code> → <code>uses_langfuse</code> in workflow debug info</li>
 <li>Updated docs (config, deployment) to document Langfuse env vars instead</li>
 </ul>
-<h3 id="changed_2">Changed</h3>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Docs: deprecated agent references</strong> (2026-02-02): Removed/updated references to RegExtract, EventCodeExtract, SigExtract</li>
 <li>observables.md: Active types only (cmdline, process_lineage, hunt_queries); deprecated registry_keys, event_ids noted</li>
@@ -4051,7 +4147,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>DATABASE_QUERY_GUIDE: Deprecation note for training_category; removed chosen/rejected from example queries</li>
 <li>agentic_workflow.py: Fixed top-level docstring step order</li>
 </ul>
-<h3 id="removed_1">Removed</h3>
+<h3 id="removed_1">Removed<a class="headerlink" href="#removed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Duplicate eval article 62</strong> (2026-02-02): Removed article 62 from cmdline/process_lineage eval config (duplicate of 602 "Blurring the Lines"); deleted <code>scripts/eval_bundles/under_5113.json</code>; updated docs and test docstring to reference 602</li>
 <li><strong>test_backup_restore.py</strong> (2026-01-30): Removed integration tests for backup/restore scripts (<code>calculate_checksum</code>, <code>validate_backup_directory</code>, <code>validate_backup_file</code>); references removed from <code>tests/TEST_INDEX.md</code> and <code>tests/TESTING.md</code></li>
@@ -4062,7 +4158,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Search no longer accepts <code>classification</code> query param; dashboard top articles no longer include classification</li>
 <li>Docs and tests updated: AGENTS.md, api.md, DO_NOT.md, TECHNICAL_READOUT, SIGMA_DETECTION_RULES, MANUAL_CHECKLIST, skip reasons</li>
 </ul>
-<h3 id="fixed_1">Fixed</h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Security: Removed PyPDF2 dependency</strong> (2026-02-04): Removed <code>PyPDF2==3.0.1</code> from requirements-pinned.txt to eliminate infinite loop vulnerability (CVSS 6.2). Package was unused; codebase uses <code>pypdf==6.6.2</code> for PDF processing. No patched version available for PyPDF2.</li>
 <li><strong>Security: Removed aiohttp dependency</strong> (2026-02-04): Removed <code>aiohttp</code> from requirements to eliminate 7 Dependabot alerts (1 high, 3 moderate, 3 low). Package was only used in unused test utility <code>tests/e2e/mcp_orchestrator.py</code>; codebase uses <code>httpx</code> for HTTP requests. Deleted unused orchestrator file.</li>
@@ -4084,7 +4180,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>test_bulk_action_mark_as_chosen</code>, <code>test_bulk_action_reject</code>, <code>test_bulk_action_unclassify</code>: Skipped—bulk toolbar currently has only Delete; Mark as Chosen/Reject/Unclassify are not in toolbar</li>
 <li><code>test_classification_badge_display</code>: Skipped—classification badges (Chosen/Rejected/Unclassified) are not shown on article list cards</li>
 </ul>
-<h3 id="added_3">Added</h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Cmdline attention preprocessor</strong> (2026-02-02): Optional preprocessor for Windows command-line extraction that surfaces LOLBAS-aligned anchors earlier in the LLM prompt. Toggle in Workflow Config (Cmdline Extract agent); integrated into agentic workflow and llm_service. New <code>cmdline_attention_preprocessor.py</code>; config field <code>cmdline_attention_preprocessor_enabled</code>.</li>
 <li><strong>LG workflow Vulture step</strong> (2026-01-30): Added vulture dead-code detection to <code>.cursor/rules/lg-workflow.mdc</code> hygiene; run <code>vulture src scripts</code> before commit.</li>
@@ -4103,7 +4199,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed parsing to handle markdown code blocks for backward compatibility with existing model outputs</li>
 <li>Addresses issue where only 1 rule was generated despite multiple observable types (cmdline + process_lineage)</li>
 </ul>
-<h3 id="changed_3">Changed</h3>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>sources.yaml RSS vs scraping</strong> (2026-01-29): Updated source config so new installs get known-good RSS/scraping preferences — header comment documents RSS vs scraping and per-source fallbacks; Sekoia: set <code>rss_url</code> to category feed (was null with <code>rss_only: true</code>); Group-IB kept scraping-only with comment; VMRay and Microsoft Defender Endpoint: comments added for alternate feed URLs if primary fails</li>
 <li><strong>Observables Mode Disabled</strong> (2026-01-22): Disabled Observables annotation mode, marked as inactive for future release</li>
@@ -4118,13 +4214,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed missing <code>used_for_training</code> field handling in database manager</li>
 <li>Improved error handling to surface actual database errors instead of generic messages</li>
 </ul>
-<h3 id="removed_2">Removed</h3>
+<h3 id="removed_2">Removed<a class="headerlink" href="#removed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>MLOps Operational Checklist Panel</strong> (2026-01-21): Removed Operational Checklist panel from MLOps page</li>
 <li>Removed checklist UI component and associated CSS classes</li>
 <li>Cleaned up unused <code>.mlops-checklist</code> and <code>.mlops-gear-icon</code> styles</li>
 </ul>
-<h3 id="changed_4">Changed</h3>
+<h3 id="changed_4">Changed<a class="headerlink" href="#changed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Workflow UI Button Label</strong> (2026-01-21): Updated "Generate Commands" button to "Generate LMStudio Commands" for clarity</li>
 <li><strong>Modal Management Improvements</strong> (2026-01-21): Enhanced prompt history modal cleanup and registration</li>
@@ -4132,7 +4228,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Better timing for modal registration and cleanup</li>
 <li>Removed promptHistoryModal from hardcoded modal list (now dynamic)</li>
 </ul>
-<h3 id="added_4">Added</h3>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Restore from Backup Feature</strong> (2026-01-15): Added restore functionality to settings page</li>
 <li>Restore from Backup button in Backup Actions section</li>
@@ -4142,14 +4238,14 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>/api/backup/restore</code> endpoint for backup restoration</li>
 <li>Progress indicators and error handling</li>
 </ul>
-<h3 id="fixed_2">Fixed</h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Article Detail Page UI Improvements</strong> (2026-01-15): Fixed mobile annotation instructions overlap and button positioning</li>
 <li>Removed "Mobile Annotation" instructions banner that was cluttering the article detail page</li>
 <li>Added top padding (pt-20) to article-content divs to prevent button overlap with article text</li>
 <li>Applied padding fix to both article-content and article-content-plain elements</li>
 </ul>
-<h3 id="added_5">Added</h3>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>SIGMA PR Submission Feature with GitHub Integration</strong> (2026-01-15): Complete GitHub PR submission system for approved SIGMA rules</li>
 <li>SigmaPRService for submitting approved rules via GitHub PRs</li>
@@ -4184,7 +4280,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Values saved to workflow config and persist across saves</li>
 <li>Applied to all QA agent LLM calls</li>
 </ul>
-<h3 id="changed_5">Changed</h3>
+<h3 id="changed_5">Changed<a class="headerlink" href="#changed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Preset System QA Top_P Values</strong> (2026-01-14): Updated preset system to include QA top_p values</li>
 <li>Presets now configure top_p for all QA agents</li>
@@ -4201,7 +4297,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Better handling of dynamically added content (QA prompts, agent configs)</li>
 <li>Prevents panel toggle issues after config changes</li>
 </ul>
-<h3 id="removed_3">Removed</h3>
+<h3 id="removed_3">Removed<a class="headerlink" href="#removed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>SIGMA QA Agent Toggle</strong> (2026-01-14): Removed SIGMA QA agent toggle and configuration</li>
 <li>QA validation not applicable for SIGMA rule generation</li>
@@ -4209,7 +4305,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed JavaScript references to SIGMA QA functionality</li>
 <li>SIGMA Agent now runs without QA validation</li>
 </ul>
-<h3 id="fixed_3">Fixed</h3>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Rule Preview Modal from Execution View</strong> (2026-01-15): Fixed rule preview modal opening from execution view</li>
 <li>Changed 'View Queued Rule' links in execution modal to open rule preview modal</li>
@@ -4256,7 +4352,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Updated both <code>restore_database.py</code> and <code>restore_system.py</code> scripts</li>
 <li>Added verification steps in backup/restore documentation</li>
 </ul>
-<h3 id="added_6">Added</h3>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Queued Rule Preview Modal</strong> (2026-01-14): Added comprehensive rule preview and management from execution view</li>
 <li>Modal displays queued SIGMA rule details including YAML, similarity scores, and metadata</li>
@@ -4284,7 +4380,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Recalculates scores for completed evaluations</li>
 <li>Supports both article_id and URL-based lookups</li>
 </ul>
-<h3 id="changed_6">Changed</h3>
+<h3 id="changed_6">Changed<a class="headerlink" href="#changed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>SIGMA Similarity Algorithm</strong> (2026-01-14): Replaced cosine similarity with behavioral novelty assessment for SIGMA rule similarity search</li>
 <li>Similarity now calculated as weighted combination: 70% atom Jaccard + 30% logic shape similarity</li>
@@ -4342,7 +4438,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Fallback model</strong> (2025-12-18): Respects provider selection and uses appropriate input type</li>
 <li><strong>Current Configuration display</strong> (2025-12-18): Now shows selected models with their providers (filtered by enabled status)</li>
 </ul>
-<h3 id="changed_7">Changed</h3>
+<h3 id="changed_7">Changed<a class="headerlink" href="#changed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Eval Articles Config</strong> (2026-01-02): Updated <code>config/eval_articles.yaml</code> with 13 articles for cmdline extractor</li>
 <li>Added new articles: Trustwave/LevelBlue, Fortinet Darkcloud, Recorded Future, Elastic RONINGLOADER</li>
@@ -4362,7 +4458,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Added keyboard support (Enter/Space) and proper ARIA attributes for accessibility</li>
 <li>Updated panels: articles.html (filters), workflow.html (12 panels), article_detail.html (keyword matches), diags.html (job history), scraper_metrics.html (source performance), hunt_metrics.html (keyword analysis)</li>
 </ul>
-<h3 id="fixed_4">Fixed</h3>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Top_P Parameter Handling</strong> (2026-01-07): Fixed Top_P values not being passed correctly to LMStudio</li>
 <li>Added explicit float conversion for Top_P values from JSONB config (handles string/number types)</li>
@@ -4422,7 +4518,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Added comprehensive LangFuse debugging documentation to <code>DEBUGGING_TOOLS_GUIDE.md</code> and <code>WORKFLOW_DATA_FLOW.md</code></li>
 <li><strong>Articles Page Dark Mode</strong>: Darkened filter panel, dropdowns, article cards, and button bar using CSS variables (<code>--color-bg-card</code>, <code>--color-bg-panel</code>)</li>
 </ul>
-<h3 id="changed_8">Changed</h3>
+<h3 id="changed_8">Changed<a class="headerlink" href="#changed_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Fixed Navigation Bar</strong>: Top navigation bar is now fixed/sticky and remains visible when scrolling down pages.</p>
@@ -4436,11 +4532,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Design System</strong>: Deep navy backgrounds with purple/white theme (#8B5CF6, #A78BFA, #C4B5FD) for consistent brand identity</li>
 <li><strong>Icon Concepts</strong>: Articles (document with text lines), Sources (hub with connected nodes), Analytics (bar chart with trend), MLOps (neural network), Diags (hexagonal diagnostic frame), Agents (central hub with nodes), Settings (gear with 8 teeth)</li>
 </ul>
-<h3 id="fixed_5">Fixed</h3>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Annotation Usage Immutability</strong>: Enforced usage field immutability in <code>AsyncDatabaseManager.update_annotation()</code> to prevent modification of annotation usage (train/eval/gold) after creation. Service layer now raises <code>ValueError</code> if usage change is attempted, which is converted to 422 HTTP response at API layer.</li>
 </ul>
-<h3 id="changed_9">Changed</h3>
+<h3 id="changed_9">Changed<a class="headerlink" href="#changed_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Smoke runner now excludes <code>ui</code>/<code>slow</code> markers by default and enforces subprocess timeouts without relying on pytest-timeout.</li>
 <li>Pytest config registers all UI markers and uses function-scoped asyncio loops to prevent teardown loop reuse errors; warnings from pydantic v2 deprecations are silenced in tests.</li>
@@ -4453,20 +4549,20 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Documentation true-up: README and docs index now match current compose services, ports (8001/2024/8888), and LMStudio defaults; Getting Started and Docker Architecture aligned to pgvector Postgres + containerized CLI; port guide updated and run_cli.sh now passes args directly to <code>python -m src.cli.main</code>.</li>
 <li>Settings: hid Gemini workflow provider and API key UI until workflow support is implemented.</li>
 </ul>
-<h3 id="fixed_6">Fixed</h3>
+<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>LMStudio Model Display &amp; RAG Results</strong>: LMStudio responses now report the actual model returned by the API (e.g., DeepSeek variants) and Sigma similarity search uses typed vector bindings to avoid asyncpg syntax errors; vector indexes rebuilt to allow embedding writes and restore RAG retrieval.</li>
 <li><strong>Chunk Debug Gaps</strong>: <code>ContentFilter.chunk_content</code> now advances the next chunk start based on the previous chunk end minus the configured overlap (and always moves forward when a chunk is shorter than the overlap), so sentence-boundary trimming cannot skip characters and the chunk debugger never shows gaps.</li>
 <li>Workflow debug modal normalizes Langfuse links to direct <code>/traces/{id}</code> targets, preventing <code>?search</code> regressions.</li>
 </ul>
-<h3 id="security">Security</h3>
+<h3 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>API Key Exposure</strong>: Removed scripts containing hardcoded API keys from version control</li>
 <li><code>scripts/eval_observables_count_multiple_models.py</code> and <code>scripts/get_full_extract_results.py</code></li>
 <li>Added to .gitignore to prevent future commits</li>
 <li>Scripts remain on disk for local development but are no longer tracked</li>
 </ul>
-<h3 id="changed_10">Changed</h3>
+<h3 id="changed_10">Changed<a class="headerlink" href="#changed_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Navigation Bar Alignment</strong>: Centered primary navigation links with balanced spacing while retaining the brand anchor.</li>
 <li><strong>Dashboard Header</strong>: Removed the “Huntable CTI Studio &amp; Workbench” title for a leaner landing header.</li>
@@ -4485,7 +4581,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Workflow Configuration Page</strong>: Removed all recommendation statements from help modals</li>
 <li><strong>Agent Workflow Pages</strong>: Removed all "🧪 Test with Article 2155" buttons and all recommendation statements</li>
 </ul>
-<h3 id="fixed_7">Fixed</h3>
+<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Backup System Critical Bug</strong>: Fixed automated system backup failures that were creating empty backup files</li>
 <li>Root cause: Hardcoded <code>/app/backups</code> path didn't exist in containers</li>
@@ -4499,7 +4595,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Added proper environment variable passing and host specifications</li>
 <li>Restore operations now work correctly with containerized database</li>
 </ul>
-<h3 id="added_7">Added</h3>
+<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Provider Model Catalog Service</strong>: Added <code>config/provider_model_catalog.json</code>, <code>src/services/provider_model_catalog.py</code>, and <code>scripts/maintenance/update_provider_model_catalogs.py</code> to centrally manage OpenAI/Anthropic/Gemini curated model lists with both CLI and API accessors.</li>
 <li><strong>UI Tests for Dashboard Functionality</strong>: Added comprehensive UI tests for dashboard features</li>
@@ -4523,7 +4619,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Now creates manual source on-demand if it doesn't exist</li>
 <li>Added <code>scripts/ensure_manual_source.py</code> utility script</li>
 </ul>
-<h3 id="changed_11">Changed</h3>
+<h3 id="changed_11">Changed<a class="headerlink" href="#changed_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Provider Test Buttons Refresh Models</strong>: Settings “Test API Key” buttons now call provider model listings (OpenAI, Anthropic, Gemini), persist refreshed catalogs, and update Workflow dropdowns instantly via <code>/api/provider-model-catalog</code> with local caching.</li>
 <li><strong>Merged Health Checks and Diagnostics Pages</strong>: Combined <code>/health-checks</code> and <code>/diags</code> into single comprehensive diagnostics page</li>
@@ -4531,7 +4627,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed redundant <code>/health-checks</code> page and route</li>
 <li>Updated dashboard navigation to use merged diagnostics page</li>
 </ul>
-<h3 id="removed_4">Removed</h3>
+<h3 id="removed_4">Removed<a class="headerlink" href="#removed_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Workflow Executions Visualization Panel</strong>: Removed the LangGraph state machine panel and toggle from the Executions tab (UI and tests).</li>
 <li><strong>Evaluations UI</strong>: Removed the Evaluations navigation entry and disabled evaluation UI routes.</li>
@@ -4544,7 +4640,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Cleaned up all Ollama environment variables and configurations</li>
 <li>Updated available AI models to exclude Ollama options</li>
 </ul>
-<h3 id="fixed_8">Fixed</h3>
+<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Web Server Import Error</strong>: Fixed ImportError preventing web application startup</li>
 <li>Removed non-existent <code>test_scrape</code> module from route imports in <code>src/web/routes/__init__.py</code></li>
@@ -4568,7 +4664,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Unit/smoke tests run locally when dependencies are available</li>
 <li>Eliminates need for users to manually specify <code>--docker</code> for different test types</li>
 </ul>
-<h3 id="added_8">Added</h3>
+<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>File Organization Structure</strong>: Implemented standardized file organization for temporary scripts, reports, and utilities</li>
 <li>Created directory structure: <code>utils/temp/</code> (temporary scripts), <code>scripts/</code> (reusable utilities), <code>outputs/</code> (reports/exports/benchmarks)</li>
@@ -4577,7 +4673,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Added file organization guidelines to <code>CONTRIBUTING.md</code> and <code>AGENTS.md</code></li>
 <li>Organized scripts by purpose: <code>scripts/maintenance/</code> (fix scripts), <code>scripts/testing/</code>, <code>scripts/analysis/</code></li>
 </ul>
-<h3 id="fixed_9">Fixed</h3>
+<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Documentation: LangGraph Debug Button Behavior</strong>: Corrected documentation to accurately reflect debug button functionality</li>
 <li>Fixed <code>docs/LANGGRAPH_INTEGRATION.md</code> and <code>docs/LANGGRAPH_QUICKSTART.md</code> to state that debug button opens LangFuse traces (post-execution viewing), not Agent Chat UI</li>
@@ -4593,7 +4689,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Applied same fix to PDF upload endpoint for consistency</li>
 <li>Fixed PostgreSQL sequence sync issue that was causing primary key conflicts</li>
 </ul>
-<h3 id="added_9">Added</h3>
+<h3 id="added_9">Added<a class="headerlink" href="#added_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>LMStudio Context Window Command Generator</strong>: Added button on workflow config page to generate terminal commands for setting context windows</li>
 <li>Collects all selected LLM models from workflow configuration</li>
@@ -4603,7 +4699,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Commands displayed in modal with copy-to-clipboard functionality</li>
 <li>Configurable context length (default: 16384 tokens)</li>
 </ul>
-<h3 id="fixed_10">Fixed</h3>
+<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Disabled Sub-Agents Execution</strong>: Fixed issue where disabled sub-agents were still being executed</li>
 <li>Added disabled agents check to <code>langgraph_server.py</code> workflow execution path</li>
@@ -4626,7 +4722,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Visual feedback added with opacity and cursor styling for disabled QA toggles</li>
 <li>Logic applies on page load, config sync, and manual toggle changes</li>
 </ul>
-<h3 id="added_10">Added</h3>
+<h3 id="added_10">Added<a class="headerlink" href="#added_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Comprehensive UI Test Coverage</strong>: Added 17 new comprehensive UI test files covering all major pages (544 tests total)</li>
 <li><code>test_workflow_comprehensive_ui.py</code>: 89 tests for workflow configuration, executions, and queue management</li>
@@ -4674,7 +4770,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Execution API now exposes an <code>extraction_counts</code> map populated from <code>extraction_result.subresults</code> or the merged observable list, covering Cmdline, ProcTree, Reg, Signature, and EventID sub-agents</li>
 <li>The toggle inserts CmdLine#/ProcTree#/Reg#/Signature#/EventID# columns immediately after the ranking score so teams can quickly see which telemetry families produced observables</li>
 </ul>
-<h3 id="fixed_11">Fixed</h3>
+<h3 id="fixed_11">Fixed<a class="headerlink" href="#fixed_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>ML Comparison Chart Enhancements</strong>: Added zoom and scroll controls for evaluation metrics chart</li>
 <li>Horizontal scrolling to view all model version history</li>
@@ -4692,7 +4788,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Added DISABLE_SOURCE_AUTO_SYNC environment variable to disable YAML sync entirely</li>
 <li>Database is authoritative source for source settings (active status, lookback_days, check_frequency) after initial setup</li>
 </ul>
-<h3 id="fixed_12">Fixed</h3>
+<h3 id="fixed_12">Fixed<a class="headerlink" href="#fixed_12" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Generator Errors Failing Workflows</strong>: Fixed "generator didn't stop after throw()" errors causing workflow failures</li>
 <li>Generator errors from Langfuse cleanup are now suppressed and logged as warnings</li>
@@ -4751,7 +4847,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed logger statements to use new context detection variables</li>
 <li>All methods now use the same improved context length logic</li>
 </ul>
-<h3 id="added_11">Added</h3>
+<h3 id="added_11">Added<a class="headerlink" href="#added_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Help Circles for All Agents</strong>: Contextual help buttons with detailed information for all agent and sub-agent model selectors</li>
 <li>Help circles added to Rank Agent, Extract Agent, SIGMA Agent, and OS Detection Agent model selectors</li>
@@ -4774,7 +4870,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Instructions for loading models with proper context</li>
 <li>Prevention strategies and troubleshooting tips</li>
 </ul>
-<h3 id="changed_12">Changed</h3>
+<h3 id="changed_12">Changed<a class="headerlink" href="#changed_12" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Test Wrapper Configuration</strong>: Updated test runner to exclude infrastructure and production data tests by default</li>
 <li><code>run_tests.py</code> now automatically excludes <code>infrastructure</code>, <code>prod_data</code>, and <code>production_data</code> markers</li>
@@ -4796,12 +4892,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Source health checks</strong>: <code>check_all_sources</code> now uses the hierarchical <code>ContentFetcher</code> (RSS → modern scraping → legacy) with safer bookkeeping for articles/errors, improving health metrics and logging across all sources.</li>
 <li><strong>Source scraping configs</strong>: Updated selectors and discovery for Assetnote Research (verified RSS URL and Webflow containers), Picus Security Blog (HubSpot body selectors), and Splunk Security Blog (AEM containers) to improve extraction coverage.</li>
 </ul>
-<h3 id="current-status-next-steps">Current Status &amp; Next Steps</h3>
+<h3 id="current-status-next-steps">Current Status &amp; Next Steps<a class="headerlink" href="#current-status-next-steps" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Assetnote, Picus, and Splunk remain failing due to JS-rendered/anti-bot content; selectors are in place but static fetch still returns empty. Next steps: add headless/JS-capable fetch (Playwright) or alternative article API path; retest and adjust min_content_length as needed.</li>
 <li>Group-IB, NCSC UK, MSRC: still blocked (403/SPA/placeholder feeds). Next steps: investigate API/back-end endpoints or headless rendering; consider temporary deactivation if access remains blocked.</li>
 </ul>
-<h3 id="removed_5">Removed</h3>
+<h3 id="removed_5">Removed<a class="headerlink" href="#removed_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>OS Detection QA Agent</strong>: Removed QA validation system for OS Detection Agent</li>
 <li>Removed QA retry loop and evaluation logic from OS Detection workflow node</li>
@@ -4813,13 +4909,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed JavaScript references to description field</li>
 <li>Backend continues to use default description values when not provided</li>
 </ul>
-<h3 id="fixed_13">Fixed</h3>
+<h3 id="fixed_13">Fixed<a class="headerlink" href="#fixed_13" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>QA Agent Indentation Error</strong>: Fixed syntax error in qa_agent_service.py</li>
 <li>Corrected indentation of code block inside <code>with trace_llm_call()</code> statement</li>
 <li>Resolved "expected an indented block after 'with' statement" error</li>
 </ul>
-<h3 id="improved">Improved</h3>
+<h3 id="improved">Improved<a class="headerlink" href="#improved" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>LMStudio Busy Error Handling</strong>: Enhanced error messages and user experience when LMStudio is busy or unavailable</li>
 <li>Updated LangFuse client to provide informative error messages when generator errors occur (often indicates LMStudio busy)</li>
@@ -4828,7 +4924,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Frontend now shows "Wait and Retry" button when LMStudio is detected as busy</li>
 <li>Improved error detection for timeout, connection, and overload scenarios</li>
 </ul>
-<h3 id="added_12">Added</h3>
+<h3 id="added_12">Added<a class="headerlink" href="#added_12" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Workflow Agent Config Subpages Test</strong>: Playwright test suite to verify workflow agent configuration subpages remain visible</li>
 <li>TypeScript Playwright test (<code>tests/playwright/workflow_tabs.spec.ts</code>) with 10 test cases</li>
@@ -4884,7 +4980,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>LLM model dropdown filtered to only show chat models</li>
 <li>Model selection persists through Settings page configuration</li>
 </ul>
-<h3 id="changed_13">Changed</h3>
+<h3 id="changed_13">Changed<a class="headerlink" href="#changed_13" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>OS Detection Similarity Logic</strong>: Improved decision-making for embedding-based OS detection</li>
 <li>High confidence (&gt;0.8): Prefer top OS unless gap to second is &lt; 0.5%</li>
@@ -4895,14 +4991,14 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>SIGMA Section Embeddings</strong>: Combined logsource, detection_structure, and detection_fields into single "Signature" segment</li>
 <li><strong>Similarity Calculation</strong>: Updated weights to reflect combined Signature segment</li>
 </ul>
-<h3 id="fixed_14">Fixed</h3>
+<h3 id="fixed_14">Fixed<a class="headerlink" href="#fixed_14" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>LLM Model Dropdown</strong>: Fixed duplicate ID conflict causing dropdown to stop working</li>
 <li><strong>Embedding Model Selection</strong>: Fixed similarity search to use selected embedding model instead of default</li>
 <li><strong>LLM Reranking Model</strong>: Fixed to use selected LLM model from dropdown instead of default</li>
 </ul>
-<h2 id="400-kepler-2025-11-04">[4.0.0 "Kepler"] - 2025-11-04</h2>
-<h3 id="added_13">Added</h3>
+<h2 id="400-kepler-2025-11-04">[4.0.0 "Kepler"] - 2025-11-04<a class="headerlink" href="#400-kepler-2025-11-04" title="Permanent link">&para;</a></h2>
+<h3 id="added_13">Added<a class="headerlink" href="#added_13" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Agentic Workflow System</strong>: Complete LangGraph-based workflow orchestration for automated threat intelligence processing</li>
 <li><strong>6-Step Automated Pipeline</strong>: Junk Filter → LLM Ranking → Extract Agent → SIGMA Generation → Similarity Search → Queue Promotion</li>
@@ -4967,7 +5063,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Test Coverage: Dramatically improved from 27 to 222 passing tests (722% increase)</li>
 <li>Test Infrastructure: Enhanced test reliability and maintainability with comprehensive supporting classes</li>
 </ul>
-<h3 id="changed_14">Changed</h3>
+<h3 id="changed_14">Changed<a class="headerlink" href="#changed_14" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Workflow Config UI</strong>: Enhanced agent prompts section with edit/view toggle and version history access</li>
 <li><strong>Prompt Update API</strong>: Now saves version history automatically on each prompt update</li>
@@ -4981,7 +5077,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Frontend Configuration</strong>: Added LLM provider selection and synthesis controls</li>
 <li><strong>Documentation</strong>: Updated README, API endpoints, and Docker architecture docs</li>
 </ul>
-<h3 id="fixed_15">Fixed</h3>
+<h3 id="fixed_15">Fixed<a class="headerlink" href="#fixed_15" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Database Schema Mismatch</strong>: Fixed <code>agent_prompt_versions</code> table column names to match SQLAlchemy model</li>
 <li><strong>Version History Display</strong>: Improved readability of prompt and instructions text in version history modal</li>
@@ -5004,15 +5100,15 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>ContentCleaner Logic</strong>: Fixed HTML cleaning, Unicode normalization, and text processing</li>
 <li><strong>HTTPClient Logic</strong>: Fixed rate limiting, async/await issues, and request configuration</li>
 </ul>
-<h3 id="security_1">Security</h3>
+<h3 id="security_1">Security<a class="headerlink" href="#security_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>None (security hardening was completed in previous versions)</li>
 </ul>
-<h3 id="removed_6">Removed</h3>
+<h3 id="removed_6">Removed<a class="headerlink" href="#removed_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Redundant UI Cleanup</strong>: Removed redundant "Save Configuration" button from settings page</li>
 </ul>
-<h3 id="technical-details">Technical Details</h3>
+<h3 id="technical-details">Technical Details<a class="headerlink" href="#technical-details" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Database Migration</strong>: PostgreSQL migration script updates table schema while preserving existing data</li>
 <li><strong>Version Control</strong>: Each prompt update creates a new version linked to workflow config version</li>
@@ -5026,8 +5122,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Agent System</strong>: Extract Agent, Rank Agent, and Sigma Agent orchestrated via LangGraph</li>
 <li><strong>Observability</strong>: LangFuse integration for workflow and LLM call tracing</li>
 </ul>
-<h2 id="300-copernicus-2025-10-28">[3.0.0 "Copernicus"] - 2025-10-28</h2>
-<h3 id="added_14">Added</h3>
+<h2 id="300-copernicus-2025-10-28">[3.0.0 "Copernicus"] - 2025-10-28<a class="headerlink" href="#300-copernicus-2025-10-28" title="Permanent link">&para;</a></h2>
+<h3 id="added_14">Added<a class="headerlink" href="#added_14" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>SIGMA Rule Similarity Search</strong>: Advanced similarity matching between generated SIGMA rules and existing SigmaHQ rules</li>
 <li><strong>Weighted Hybrid Embeddings</strong>: Enhanced embedding strategy combining title, description, tags, logsource, and detection logic</li>
@@ -5038,14 +5134,14 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Enhanced Sigma Generation</strong>: Added MITRE ATT&amp;CK technique extraction and tagging to SIGMA rule generation</li>
 <li><strong>PostgreSQL Vector Index</strong>: Efficient vector similarity search using pgvector extension</li>
 </ul>
-<h3 id="changed_15">Changed</h3>
+<h3 id="changed_15">Changed<a class="headerlink" href="#changed_15" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Embedding Model</strong>: Enhanced to use all-mpnet-base-v2 (768-dimensional vectors)</li>
 <li><strong>Sigma Sync Service</strong>: Updated to generate weighted hybrid embeddings for better semantic matching</li>
 <li><strong>Article Detail UI</strong>: Enhanced modal with dynamic button states based on embedding status</li>
 <li><strong>Sigma Matching Service</strong>: Improved similarity search with proper SQL parameter binding</li>
 </ul>
-<h3 id="fixed_16">Fixed</h3>
+<h3 id="fixed_16">Fixed<a class="headerlink" href="#fixed_16" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>SQL Syntax Errors</strong>: Fixed mixing SQLAlchemy named parameters with psycopg2 format</li>
 <li><strong>PostgreSQL Index Size</strong>: Removed B-tree index on embedding column exceeding size limits</li>
@@ -5053,15 +5149,15 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>NumPy Array Truth Value</strong>: Fixed ambiguous truth value when checking embedding existence</li>
 <li><strong>Article Embedding API</strong>: Proper handling of list-like embeddings with length validation</li>
 </ul>
-<h3 id="technical-details_1">Technical Details</h3>
+<h3 id="technical-details_1">Technical Details<a class="headerlink" href="#technical-details_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Vector Similarity</strong>: Cosine similarity with configurable threshold (default 0.7)</li>
 <li><strong>API Endpoints</strong>: <code>/api/articles/{id}/embed</code>, <code>/api/sigma/matches/{article_id}</code>, <code>/api/generate-sigma</code></li>
 <li><strong>Async Processing</strong>: Celery workers for background embedding generation</li>
 <li><strong>Database</strong>: Article and Sigma rule embeddings stored in PostgreSQL with pgvector</li>
 </ul>
-<h2 id="pre-300-changesunreleased">[Pre-3.0.0 ChangesUnreleased]</h2>
-<h3 id="fixed_17">Fixed</h3>
+<h2 id="pre-300-changesunreleased">[Pre-3.0.0 ChangesUnreleased]<a class="headerlink" href="#pre-300-changesunreleased" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_17">Fixed<a class="headerlink" href="#fixed_17" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Navigation UI</strong>: Removed vertical divider borders between navigation items that were overlapping text</li>
 <li><strong>SIGMA Generation Quality Restoration</strong>: Fixed deteriorated SIGMA rule generation that was producing malformed rules</li>
@@ -5073,7 +5169,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed issue where MITRE ATT&amp;CK tags were incorrectly placed in detection/selection fields</li>
 <li>Temperature correctly set to 0.2 for deterministic SIGMA YAML generation</li>
 </ul>
-<h3 id="added_15">Added</h3>
+<h3 id="added_15">Added<a class="headerlink" href="#added_15" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Full GitHub Hygiene Audit (LG)</strong>: Comprehensive security and quality audit completed</li>
 <li><strong>Dependency Security</strong>: All 269 dependencies audited with pip-audit - no CVE vulnerabilities found</li>
@@ -5091,20 +5187,20 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Source Attribution</strong>: All responses include relevance scores and source citations</li>
 <li><strong>RAG Documentation</strong>: Comprehensive RAG system documentation in <code>docs/RAG_SYSTEM.md</code></li>
 </ul>
-<h3 id="changed_16">Changed</h3>
+<h3 id="changed_16">Changed<a class="headerlink" href="#changed_16" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>RAG Architecture</strong>: Upgraded from template-only to full LLM synthesis</li>
 <li><strong>API Response Format</strong>: Enhanced with LLM provider and synthesis status</li>
 <li><strong>Frontend Configuration</strong>: Added LLM provider selection and synthesis controls</li>
 <li><strong>Documentation</strong>: Updated README, API endpoints, and Docker architecture docs</li>
 </ul>
-<h3 id="fixed_18">Fixed</h3>
+<h3 id="fixed_18">Fixed<a class="headerlink" href="#fixed_18" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>OpenAI API Integration</strong>: Proper API key handling and error fallback</li>
 <li><strong>Conversation Context</strong>: Fixed context truncation and memory management</li>
 <li><strong>Response Quality</strong>: Improved synthesis quality with professional formatting</li>
 </ul>
-<h3 id="technical-details_2">Technical Details</h3>
+<h3 id="technical-details_2">Technical Details<a class="headerlink" href="#technical-details_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Embedding Model</strong>: all-mpnet-base-v2 (768-dimensional vectors)</li>
 <li><strong>Vector Storage</strong>: PostgreSQL with pgvector extension</li>
@@ -5112,7 +5208,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Response Times</strong>: 3-5 seconds (OpenAI), 4-6 seconds (Claude), 10-30 seconds (Ollama)</li>
 <li><strong>Fallback Strategy</strong>: Template → Ollama → Claude → OpenAI priority order</li>
 </ul>
-<h3 id="added_16">Added</h3>
+<h3 id="added_16">Added<a class="headerlink" href="#added_16" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Allure Reports Integration</strong>: Rich visual test analytics with pie charts, bar charts, and trend graphs</li>
 <li><strong>Dedicated Allure Container</strong>: Containerized Allure Reports server for reliable access</li>
@@ -5129,7 +5225,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Usage Tracking</strong>: <code>used_for_training</code> flag to prevent duplicate data usage</li>
 <li><strong>Real-Time Feedback Count</strong>: API endpoint showing available training samples from database</li>
 </ul>
-<h3 id="changed_17">Changed</h3>
+<h3 id="changed_17">Changed<a class="headerlink" href="#changed_17" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Training Data Source</strong>: Now uses database tables instead of CSV files</li>
 <li><strong>Annotation Requirements</strong>: Enforces 950-1050 character length for training data quality</li>
@@ -5137,7 +5233,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Model Version Display</strong>: Shows proper version numbers and training sample counts</li>
 <li><strong>Error Handling</strong>: Improved error messages for missing training data</li>
 </ul>
-<h3 id="fixed_19">Fixed</h3>
+<h3 id="fixed_19">Fixed<a class="headerlink" href="#fixed_19" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>JavaScript Infinite Loops</strong>: Fixed auto-expand functionality causing repeated errors</li>
 <li><strong>Modal Recreation Issues</strong>: Prevented infinite loops in annotation modal updates</li>
@@ -5145,7 +5241,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Training Sample Counting</strong>: Accurate count of available feedback and annotations</li>
 <li><strong>Version Information Display</strong>: Proper model version and accuracy reporting</li>
 </ul>
-<h3 id="technical-details_3">Technical Details</h3>
+<h3 id="technical-details_3">Technical Details<a class="headerlink" href="#technical-details_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Database Schema</strong>: Added <code>chunk_classification_feedback</code> table with proper indexes</li>
 <li><strong>API Updates</strong>: Modified <code>/api/model/retrain</code> and <code>/api/model/feedback-count</code> endpoints</li>
@@ -5153,7 +5249,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Test Updates</strong>: Updated unit tests for database-based training system</li>
 <li><strong>Documentation</strong>: Added comprehensive database training system documentation</li>
 </ul>
-<h3 id="added_17">Added</h3>
+<h3 id="added_17">Added<a class="headerlink" href="#added_17" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Chunk Deduplication System</strong>: Database unique constraint prevents duplicate chunk storage</li>
 <li><strong>Chunk Analysis Tests</strong>: Comprehensive test suite verifying deduplication and data integrity</li>
@@ -5177,7 +5273,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Backup Status API</strong>: Fixed backup status parsing to show accurate size and last backup information</li>
 <li><strong>Redundant UI Cleanup</strong>: Removed redundant "Save Configuration" button from settings page</li>
 </ul>
-<h3 id="fixed_20">Fixed</h3>
+<h3 id="fixed_20">Fixed<a class="headerlink" href="#fixed_20" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Chunk Analysis Duplicates</strong>: Fixed bug where chunks were stored twice (duplicate entries) for same article/model</li>
 <li><strong>ML Prediction Optimization</strong>: Eliminated redundant <code>predict_huntability()</code> calls (50% reduction from 2x to 1x per chunk)</li>
@@ -5190,7 +5286,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Status Parsing</strong>: Fixed backup status parsing to extract correct backup names and sizes</li>
 <li><strong>Container Permissions</strong>: Resolved Docker socket permission issues for backup operations</li>
 </ul>
-<h3 id="security_2">Security</h3>
+<h3 id="security_2">Security<a class="headerlink" href="#security_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Credential Removal</strong>: Removed hardcoded passwords from docker-compose.yml and backup scripts</li>
 <li><strong>Environment Variables</strong>: All sensitive configuration now uses environment variables</li>
@@ -5208,7 +5304,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>LLM Integration</strong>: Added LLM integration with template fallback for RAG chat responses</li>
 <li><strong>Ollama Parallelism</strong>: Increased Ollama parallelism to handle multiple concurrent AI endpoints</li>
 </ul>
-<h3 id="changed_18">Changed</h3>
+<h3 id="changed_18">Changed<a class="headerlink" href="#changed_18" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Chunk Debug Modal</strong>: Enhanced with threshold selector, real-time updates, and user feedback system</li>
 <li><strong>ML Model Integration</strong>: Improved model loading and retraining capabilities with user feedback</li>
@@ -5220,7 +5316,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Chat Interface</strong>: Updated UI message from "LLM disabled" to "AI-powered responses enabled"</li>
 <li><strong>Ollama Configuration</strong>: Increased <code>OLLAMA_NUM_PARALLEL</code> from 1 to 3 and <code>OLLAMA_MAX_LOADED_MODELS</code> from 1 to 2</li>
 </ul>
-<h3 id="fixed_21">Fixed</h3>
+<h3 id="fixed_21">Fixed<a class="headerlink" href="#fixed_21" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Statistics Cards</strong>: Fixed statistics cards not updating when threshold slider changes</li>
 <li><strong>Chunk Visualization</strong>: Fixed chunk visualization not reflecting threshold changes</li>
@@ -5231,7 +5327,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>LLM Resource Contention</strong>: Fixed Ollama timeout issues caused by multiple AI endpoints competing for resources</li>
 <li><strong>Chat Interface Status</strong>: Removed hardcoded "LLM disabled" message and implemented proper status display</li>
 </ul>
-<h2 id="previous-releases">[Previous Releases]</h2>
+<h2 id="previous-releases">[Previous Releases]<a class="headerlink" href="#previous-releases" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>SIGMA Conversation Log</strong>: Enhanced SIGMA rule generation UI to display the full back-and-forth conversation between LLM and pySigma validator</li>
 <li>Shows each attempt with prompts, LLM responses, and validation results</li>
@@ -5253,11 +5349,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Dependencies</strong>: Added scikit-learn and pandas for ML-based content filtering</li>
 <li><strong>Test Documentation</strong>: Updated SKIPPED_TESTS.md with current test status and progress tracking</li>
 </ul>
-<h3 id="removed_7">Removed</h3>
+<h3 id="removed_7">Removed<a class="headerlink" href="#removed_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Vestigial Fields</strong>: Removed unused <code>tier</code> and <code>weight</code> fields from source management (all sources had identical default values, no logic utilized these fields)</li>
 </ul>
-<h3 id="added-previous">Added (Previous)</h3>
+<h3 id="added-previous">Added (Previous)<a class="headerlink" href="#added-previous" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Source Config Workspace</strong>: Interactive tab for editing source metadata, filtering, crawlers, and selectors with local regex testing</li>
 <li><strong>SIGMA Rule Generation</strong>: AI-powered detection rule generation from threat intelligence articles</li>
@@ -5276,7 +5372,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Environment variable configuration template</li>
 <li>Automated dependency vulnerability scanning</li>
 </ul>
-<h3 id="changed_19">Changed</h3>
+<h3 id="changed_19">Changed<a class="headerlink" href="#changed_19" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Test Coverage</strong>: Dramatically improved from 27 to 222 passing tests (722% increase)</li>
 <li><strong>Test Infrastructure</strong>: Enhanced test reliability and maintainability with comprehensive supporting classes</li>
@@ -5288,7 +5384,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Improved code documentation and type hints</li>
 <li>Enhanced security practices and guidelines</li>
 </ul>
-<h3 id="fixed_22">Fixed</h3>
+<h3 id="fixed_22">Fixed<a class="headerlink" href="#fixed_22" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Test Suite Reliability</strong>: Fixed 5 major test modules with comprehensive supporting class implementations</li>
 <li><strong>ContentFilter Logic</strong>: Fixed ML-based filtering, cost optimization, and quality scoring algorithms</li>
@@ -5305,7 +5401,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed debug prints and sensitive TODOs</li>
 <li>Implemented proper environment variable handling</li>
 </ul>
-<h3 id="security_3">Security</h3>
+<h3 id="security_3">Security<a class="headerlink" href="#security_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Enhanced input validation for SIGMA rule generation</li>
 <li>Improved query safety validation for database chatbot</li>
@@ -5313,8 +5409,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed debug prints and sensitive TODOs</li>
 <li>Implemented proper environment variable handling</li>
 </ul>
-<h2 id="200-tycho-2025-08-28">[2.0.0 "Tycho"] - 2025-08-28</h2>
-<h3 id="added_18">Added</h3>
+<h2 id="200-tycho-2025-08-28">[2.0.0 "Tycho"] - 2025-08-28<a class="headerlink" href="#200-tycho-2025-08-28" title="Permanent link">&para;</a></h2>
+<h3 id="added_18">Added<a class="headerlink" href="#added_18" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>PostgreSQL Database</strong>: Replaced SQLite with production-grade PostgreSQL</li>
 <li><strong>Async/Await Support</strong>: Full async support with FastAPI and SQLAlchemy</li>
@@ -5326,7 +5422,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>TTP Extraction Engine</strong>: Advanced threat technique detection</li>
 <li><strong>Modern Web Interface</strong>: HTMX-powered dynamic UI</li>
 </ul>
-<h3 id="changed_20">Changed</h3>
+<h3 id="changed_20">Changed<a class="headerlink" href="#changed_20" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Architecture</strong>: Complete rewrite with modern async architecture</li>
 <li><strong>Performance</strong>: 10x improvement in concurrent operations</li>
@@ -5334,26 +5430,26 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Security</strong>: Enhanced security features and practices</li>
 <li><strong>Monitoring</strong>: Built-in health checks and metrics</li>
 </ul>
-<h3 id="deprecated">Deprecated</h3>
+<h3 id="deprecated">Deprecated<a class="headerlink" href="#deprecated" title="Permanent link">&para;</a></h3>
 <ul>
 <li>SQLite database support</li>
 <li>Old CLI interface</li>
 <li>Legacy web interface</li>
 </ul>
-<h3 id="removed_8">Removed</h3>
+<h3 id="removed_8">Removed<a class="headerlink" href="#removed_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Old architecture components</li>
 <li>Deprecated APIs and endpoints</li>
 <li>Legacy configuration formats</li>
 </ul>
-<h3 id="fixed_23">Fixed</h3>
+<h3 id="fixed_23">Fixed<a class="headerlink" href="#fixed_23" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Database locking issues</li>
 <li>Memory leaks in long-running processes</li>
 <li>Connection timeout problems</li>
 <li>Rate limiting inconsistencies</li>
 </ul>
-<h3 id="security_4">Security</h3>
+<h3 id="security_4">Security<a class="headerlink" href="#security_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Input validation for all endpoints</li>
 <li>SQL injection protection</li>
@@ -5362,80 +5458,80 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>CORS configuration</li>
 <li>Environment variable configuration</li>
 </ul>
-<h2 id="123-2024-12-10">[1.2.3] - 2024-12-10</h2>
-<h3 id="fixed_24">Fixed</h3>
+<h2 id="123-2024-12-10">[1.2.3] - 2024-12-10<a class="headerlink" href="#123-2024-12-10" title="Permanent link">&para;</a></h2>
+<h3 id="fixed_24">Fixed<a class="headerlink" href="#fixed_24" title="Permanent link">&para;</a></h3>
 <ul>
 <li>SQL injection vulnerability in search functionality</li>
 <li>Memory leak in RSS parsing</li>
 <li>Connection timeout issues</li>
 <li>Rate limiting bypass</li>
 </ul>
-<h3 id="security_5">Security</h3>
+<h3 id="security_5">Security<a class="headerlink" href="#security_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Updated dependencies with security patches</li>
 <li>Enhanced input validation</li>
 <li>Improved error handling</li>
 </ul>
-<h2 id="122-2024-11-25">[1.2.2] - 2024-11-25</h2>
-<h3 id="added_19">Added</h3>
+<h2 id="122-2024-11-25">[1.2.2] - 2024-11-25<a class="headerlink" href="#122-2024-11-25" title="Permanent link">&para;</a></h2>
+<h3 id="added_19">Added<a class="headerlink" href="#added_19" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Enhanced logging system</li>
 <li>Better error reporting</li>
 <li>Configuration validation</li>
 </ul>
-<h3 id="fixed_25">Fixed</h3>
+<h3 id="fixed_25">Fixed<a class="headerlink" href="#fixed_25" title="Permanent link">&para;</a></h3>
 <ul>
 <li>RSS feed parsing issues</li>
 <li>Database connection problems</li>
 <li>Memory usage optimization</li>
 </ul>
-<h2 id="121-2024-11-15">[1.2.1] - 2024-11-15</h2>
-<h3 id="added_20">Added</h3>
+<h2 id="121-2024-11-15">[1.2.1] - 2024-11-15<a class="headerlink" href="#121-2024-11-15" title="Permanent link">&para;</a></h2>
+<h3 id="added_20">Added<a class="headerlink" href="#added_20" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Content deduplication</li>
 <li>Source health monitoring</li>
 <li>Basic web interface</li>
 </ul>
-<h3 id="changed_21">Changed</h3>
+<h3 id="changed_21">Changed<a class="headerlink" href="#changed_21" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Improved RSS parsing accuracy</li>
 <li>Better error handling</li>
 <li>Enhanced logging</li>
 </ul>
-<h3 id="fixed_26">Fixed</h3>
+<h3 id="fixed_26">Fixed<a class="headerlink" href="#fixed_26" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Memory leaks in content processing</li>
 <li>Database connection issues</li>
 <li>File handling problems</li>
 </ul>
-<h2 id="120-2024-10-30">[1.2.0] - 2024-10-30</h2>
-<h3 id="added_21">Added</h3>
+<h2 id="120-2024-10-30">[1.2.0] - 2024-10-30<a class="headerlink" href="#120-2024-10-30" title="Permanent link">&para;</a></h2>
+<h3 id="added_21">Added<a class="headerlink" href="#added_21" title="Permanent link">&para;</a></h3>
 <ul>
 <li>RSS feed support</li>
 <li>Content extraction</li>
 <li>Basic database storage</li>
 <li>CLI interface</li>
 </ul>
-<h3 id="changed_22">Changed</h3>
+<h3 id="changed_22">Changed<a class="headerlink" href="#changed_22" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Improved content parsing</li>
 <li>Better source management</li>
 <li>Enhanced error handling</li>
 </ul>
-<h2 id="110-2024-09-15">[1.1.0] - 2024-09-15</h2>
-<h3 id="added_22">Added</h3>
+<h2 id="110-2024-09-15">[1.1.0] - 2024-09-15<a class="headerlink" href="#110-2024-09-15" title="Permanent link">&para;</a></h2>
+<h3 id="added_22">Added<a class="headerlink" href="#added_22" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Basic web scraping functionality</li>
 <li>Source configuration</li>
 <li>Simple data storage</li>
 </ul>
-<h3 id="changed_23">Changed</h3>
+<h3 id="changed_23">Changed<a class="headerlink" href="#changed_23" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Improved performance</li>
 <li>Better error handling</li>
 </ul>
-<h2 id="100-2024-08-01">[1.0.0] - 2024-08-01</h2>
-<h3 id="added_23">Added</h3>
+<h2 id="100-2024-08-01">[1.0.0] - 2024-08-01<a class="headerlink" href="#100-2024-08-01" title="Permanent link">&para;</a></h2>
+<h3 id="added_23">Added<a class="headerlink" href="#added_23" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Initial release</li>
 <li>Basic web scraping</li>
@@ -5443,30 +5539,30 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Basic CLI interface</li>
 </ul>
 <hr />
-<h2 id="migration-guides">Migration Guides</h2>
-<h3 id="upgrading-from-1x-to-20">Upgrading from 1.x to 2.0</h3>
+<h2 id="migration-guides">Migration Guides<a class="headerlink" href="#migration-guides" title="Permanent link">&para;</a></h2>
+<h3 id="upgrading-from-1x-to-20">Upgrading from 1.x to 2.0<a class="headerlink" href="#upgrading-from-1x-to-20" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>Database Migration</strong>: Export data from SQLite and import to PostgreSQL</li>
 <li><strong>Configuration</strong>: Update to new environment variable format</li>
 <li><strong>Dependencies</strong>: Install new requirements</li>
 <li><strong>Docker</strong>: Use new docker-compose configuration</li>
 </ol>
-<h3 id="upgrading-from-11-to-12">Upgrading from 1.1 to 1.2</h3>
+<h3 id="upgrading-from-11-to-12">Upgrading from 1.1 to 1.2<a class="headerlink" href="#upgrading-from-11-to-12" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>Database</strong>: Backup existing data</li>
 <li><strong>Configuration</strong>: Update RSS feed configurations</li>
 <li><strong>Dependencies</strong>: Update to latest versions</li>
 </ol>
 <hr />
-<h2 id="release-notes">Release Notes</h2>
-<h3 id="version-200">Version 2.0.0</h3>
+<h2 id="release-notes">Release Notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h2>
+<h3 id="version-200">Version 2.0.0<a class="headerlink" href="#version-200" title="Permanent link">&para;</a></h3>
 <p>This is a major release with significant architectural improvements. The new async architecture provides better performance, scalability, and reliability. The addition of PostgreSQL, Redis, and Docker makes CTI Scraper production-ready.</p>
-<h3 id="version-123">Version 1.2.3</h3>
+<h3 id="version-123">Version 1.2.3<a class="headerlink" href="#version-123" title="Permanent link">&para;</a></h3>
 <p>Security-focused release addressing critical vulnerabilities and improving overall stability.</p>
-<h3 id="version-100">Version 1.0.0</h3>
+<h3 id="version-100">Version 1.0.0<a class="headerlink" href="#version-100" title="Permanent link">&para;</a></h3>
 <p>Initial release with basic functionality for web scraping and data collection.</p>
 <hr />
-<h2 id="support">Support</h2>
+<h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link">&para;</a></h2>
 <p>For support and questions:
 - <strong>Issues</strong>: GitHub issue tracker
 - <strong>Documentation</strong>: Project README and docs
@@ -5525,12 +5621,10 @@ eyJoaXN0b3J5IjpbMjkxMjYwXX0=
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
-      
-        <script src="../js/stackedit.js"></script>
       
     
   </body>

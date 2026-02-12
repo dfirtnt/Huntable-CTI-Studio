@@ -87,7 +87,7 @@ Comprehensive guide for CTI Scraper backup and restore operations, including dat
 5. **Docker Volumes** - Persistent data (postgres_data, redis_data)
 6. **Logs** - Application logs (`logs/` directory)
 
-**✅ Source Configuration**: Database values are the source of truth. `config/sources.yaml` is only used for brand new builds (< 5 sources). After restore, database settings are automatically preserved. See [Source Configuration Precedence](./SOURCE_CONFIG_PRECEDENCE.md) for details.
+**✅ Source Configuration**: Database values are the source of truth. `config/sources.yaml` is only used for brand new builds (< 5 sources). After restore, database settings are automatically preserved. See [Source Configuration Precedence](./source-config.md) for details.
 
 ### Backup Structure
 
@@ -545,7 +545,7 @@ python -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
 
 ---
 
-## Retention & Pruning
+## Retention & Pruning {#retention--pruning}
 
 ### Default Retention Policy
 
@@ -582,7 +582,7 @@ rm -f backups/cti_scraper_backup_20250901_*.{sql.gz,json}
 
 ---
 
-## Monitoring & Troubleshooting
+## Monitoring & Troubleshooting {#monitoring--troubleshooting}
 
 ### Health Checks
 

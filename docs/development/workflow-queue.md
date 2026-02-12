@@ -29,7 +29,7 @@ task_queues = {
 **Updated main worker** to exclude workflows queue:
 ```yaml
 worker:
-  command: celery -A src.worker.celery_app worker --loglevel=debug -Q default,source_checks,priority_checks,maintenance,reports,connectivity,collection
+  command: celery -A src.worker.celery_app worker --loglevel=debug -Q default,source_checks,maintenance,reports,connectivity,collection
 ```
 
 **Added dedicated workflow worker:**
@@ -82,8 +82,8 @@ docker logs cti_workflow_worker --tail 50 -f
 
 ```
 ┌─────────────────┐
-│  Main Worker    │  → Processes: default, source_checks, priority_checks,maintenance, 
-│  (cti_worker)   │              maintenance, reports, connectivity, collection
+│  Main Worker    │  → Processes: default, source_checks, maintenance, reports,
+│  (cti_worker)   │              connectivity, collection
 └─────────────────┘
 
 ┌─────────────────┐

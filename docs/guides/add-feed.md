@@ -4,7 +4,7 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 
 ## Precedence rules
 - Database values win at runtime.
-- On startup, YAML seeding only runs if fewer than 5 sources exist (see `../operations/SOURCE_CONFIG_PRECEDENCE.md`).
+- On startup, YAML seeding only runs if fewer than 5 sources exist (see `../guides/source-config.md`).
 - Manual sync: `./run_cli.sh sync-sources` overwrites database entries with YAML values unless `--no-remove` is set.
 
 ## Steps to add a source

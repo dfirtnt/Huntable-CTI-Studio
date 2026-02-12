@@ -1,0 +1,3580 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern threat intelligence collection and analysis platform">
+      
+      
+      
+      
+        <link rel="prev" href="../../features/observable-evaluation/">
+      
+      
+        <link rel="next" href="../lmstudio/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Model Selection - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#model-selection-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Model Selection
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/huntables/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/add-feed/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/sigma-rules/" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  LLM & Models
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ml-training/hunt-scoring/" class="md-tabs__link">
+          
+  
+  
+  ML Training
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/setup/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../prompts/eval-bundle/" class="md-tabs__link">
+          
+  
+  
+  Prompts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/add-feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/extract-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generate-sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/evaluate-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/source-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/memory-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/workflow-data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/qa-loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/sigma-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Detection Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/content-filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/os-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/cmdline-preprocessor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rag-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/observable-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM & Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM & Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lmstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LM Studio Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extract-agent-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Training
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Training
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/hunt-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/database-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ml-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Feature Definitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/manual-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/web-app-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/allure-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Allure Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/multi-instance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Instance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/workflow-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/search-queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/eval-bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Bundle Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/huntquery-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Query Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/proctree-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Process Tree Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="model-selection-guide">Model Selection Guide<a class="headerlink" href="#model-selection-guide" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>This guide helps you choose the right LLM models for different workflows in Huntable CTI Studio.</p>
+<h1 id="model-selection-guide-for-agentic-cti-workflows">Model Selection Guide for Agentic CTI Workflows<a class="headerlink" href="#model-selection-guide-for-agentic-cti-workflows" title="Permanent link">&para;</a></h1>
+<p><strong>Practical, Field-Tested Guidance for SIGMA Detection Pipelines</strong></p>
+<hr />
+<h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
+<p>This guide provides model selection recommendations for a multi-stage CTI-to-SIGMA pipeline:</p>
+<ol>
+<li><strong>Rank Agent</strong> → Evaluates article quality and huntability</li>
+<li><strong>Extractor Agents</strong> → Extracts command lines, process trees, hunt queriregistry keys, event codes, KQL signatures</li>
+<li><strong>SIGMA Generator</strong> → Synthesizes observables into detection rules</li>
+</ol>
+<p><strong>Core Principle</strong>: Task-model alignment is non-negotiable. Each stage has different cognitive requirements. Model architecture matters more than size or general capability.</p>
+<p><strong>Quick Answer</strong>: Start with Qwen3-14B-Instruct across all stages. Optimize from there based on measured performance.</p>
+<hr />
+<h2 id="foundational-principles">Foundational Principles<a class="headerlink" href="#foundational-principles" title="Permanent link">&para;</a></h2>
+<h3 id="1-there-is-no-universal-best-model">1. There Is No Universal "Best Model"<a class="headerlink" href="#1-there-is-no-universal-best-model" title="Permanent link">&para;</a></h3>
+<p>Model performance is task-dependent. The best extraction model will likely fail at generation. The best generation model will hallucinate during extraction.</p>
+<p><strong>Implication</strong>: Evaluate models within task classes, not across your entire pipeline.</p>
+<h3 id="2-model-architecture-prompt-engineering">2. Model Architecture &gt; Prompt Engineering<a class="headerlink" href="#2-model-architecture-prompt-engineering" title="Permanent link">&para;</a></h3>
+<p>Prompt tuning improves performance 10-30%. Choosing the right model improves performance 200-500%. </p>
+<p>You cannot prompt a creative model into literal extraction. You cannot prompt a small model into complex synthesis.</p>
+<p><strong>Implication</strong>: Select architecturally appropriate models first. Optimize prompts second.</p>
+<h3 id="3-reasoning-models-harm-deterministic-tasks">3. Reasoning Models Harm Deterministic Tasks<a class="headerlink" href="#3-reasoning-models-harm-deterministic-tasks" title="Permanent link">&para;</a></h3>
+<p>Models trained for chain-of-thought reasoning (DeepSeek-R1, QwQ, o1-style) excel at:
+- Multi-step planning
+- Strategic analysis<br />
+- Explanatory generation</p>
+<p>They actively harm:
+- Literal extraction (will infer missing context)
+- Binary classification (will justify edge cases into wrong buckets)
+- Deterministic parsing (will "fix" malformed input)</p>
+<p><strong>Implication</strong>: Reserve reasoning models for synthesis tasks only. Never use them for extraction or scoring.</p>
+<h3 id="4-bigger-better-but-smaller-has-limits">4. Bigger ≠ Better (But Smaller Has Limits)<a class="headerlink" href="#4-bigger-better-but-smaller-has-limits" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>7B models</strong>: Minimum viable for simple extraction</li>
+<li><strong>14B models</strong>: Sweet spot for precision extraction and generation</li>
+<li><strong>33B+ models</strong>: Marginal gains for most CTI tasks, significant VRAM cost</li>
+</ul>
+<p><strong>Implication</strong>: 14B is the pragmatic target size. Scale down to 7-8B only when hardware-constrained.</p>
+<hr />
+<h2 id="agent-specific-recommendations">Agent-Specific Recommendations<a class="headerlink" href="#agent-specific-recommendations" title="Permanent link">&para;</a></h2>
+<hr />
+<h2 id="1-rank-agent">1. Rank Agent<a class="headerlink" href="#1-rank-agent" title="Permanent link">&para;</a></h2>
+<h3 id="task-definition">Task Definition<a class="headerlink" href="#task-definition" title="Permanent link">&para;</a></h3>
+<p>Evaluate threat intelligence articles and assign huntability scores (1-10 scale) based on SIGMA detection potential.</p>
+<h3 id="cognitive-requirements">Cognitive Requirements<a class="headerlink" href="#cognitive-requirements" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ordinal classification with brief justification</li>
+<li>Consistent scoring against fixed rubric</li>
+<li>Conservative judgment (avoid score inflation)</li>
+<li>Minimal creative interpretation</li>
+</ul>
+<h3 id="critical-success-factors">Critical Success Factors<a class="headerlink" href="#critical-success-factors" title="Permanent link">&para;</a></h3>
+<p>✅ Instruction following<br />
+✅ Score consistency (same article → same score)<br />
+✅ Conservative scoring (resist over-enthusiasm)<br />
+✅ Concise justifications  </p>
+<p>❌ No creative elaboration<br />
+❌ No deep reasoning chains<br />
+❌ No verbose explanations  </p>
+<h3 id="recommended-models">Recommended Models<a class="headerlink" href="#recommended-models" title="Permanent link">&para;</a></h3>
+<p><strong>Tier 1 - Primary Choices</strong></p>
+<p><strong>Qwen3-8B-Instruct</strong> ⭐⭐⭐
+- Fast, stable, excellent instruction adherence
+- Minimal over-reasoning tendency
+- Best performance/VRAM ratio for classification
+- <strong>Default choice</strong></p>
+<p><strong>Llama 3.3-8B-Instruct</strong> ⭐⭐
+- Strong evaluative reasoning
+- Slightly more verbose than Qwen3
+- Good alternative if Qwen3 unavailable</p>
+<p><strong>Tier 2 - Acceptable Alternatives</strong></p>
+<ul>
+<li>Mistral-7B-Instruct-v0.3</li>
+<li>Phi-3-Medium-14B-Instruct (conservative scorer)</li>
+<li>Qwen2.5-7B-Instruct (if Qwen3 unavailable)</li>
+</ul>
+<h3 id="models-to-avoid">Models to Avoid<a class="headerlink" href="#models-to-avoid" title="Permanent link">&para;</a></h3>
+<p>❌ Reasoning models (DeepSeek-R1, QwQ, any "thought" model)<br />
+❌ Code-specialized models<br />
+❌ Creative/chat-optimized models<br />
+❌ Models &gt;14B (overkill for this task)  </p>
+<h3 id="configuration-guidance">Configuration Guidance<a class="headerlink" href="#configuration-guidance" title="Permanent link">&para;</a></h3>
+<p><strong>Quantization</strong>: Q4_K_M sufficient<br />
+<strong>Context Window</strong>: 8K minimum (articles can be long)<br />
+<strong>Temperature</strong>: 0.1-0.3 (consistency over variety)<br />
+<strong>VRAM Requirement</strong>: ~5GB  </p>
+<h3 id="validation-criteria">Validation Criteria<a class="headerlink" href="#validation-criteria" title="Permanent link">&para;</a></h3>
+<p>Test on 30+ diverse articles:
+- Score consistency: Rephrased article → same score (±1)
+- Score distribution: Reasonable spread (avoid all 8-10 or all 3-5)
+- Inter-rater reliability: Spearman correlation &gt;0.80 with human rankings</p>
+<p><strong>Red Flag</strong>: If scores drift upward over time or with minor rephrasing, model is too creative.</p>
+<hr />
+<h2 id="2-extractor-agents">2. Extractor Agents<a class="headerlink" href="#2-extractor-agents" title="Permanent link">&para;</a></h2>
+<h3 id="task-definition_1">Task Definition<a class="headerlink" href="#task-definition_1" title="Permanent link">&para;</a></h3>
+<p>Extract explicitly stated observables from CTI articles with zero inference or interpretation.</p>
+<p><strong>Active Agent Types</strong>: CmdlineExtract, ProcTreeExtract, HuntQueriesExtractommand Line, Registry Key, Event Code, KQL Signature, Process Lineage, Network Observable</p>
+<h3 id="cognitive-requirements_1">Cognitive Requirements<a class="headerlink" href="#cognitive-requirements_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Deterministic pattern matching</li>
+<li>Literal text grounding</li>
+<li>High precision over recall (false positives are critical failures)</li>
+<li>Strict structured output (JSON)</li>
+</ul>
+<h3 id="critical-success-factors_1">Critical Success Factors<a class="headerlink" href="#critical-success-factors_1" title="Permanent link">&para;</a></h3>
+<p>✅ Literal grounding ("only what's written")<br />
+✅ Pattern recognition without elaboration<br />
+✅ Disciplined JSON output<br />
+✅ Silence when uncertain (empty result &gt; hallucinated result)  </p>
+<p>❌ No inference or gap-filling<br />
+❌ No explanatory text<br />
+❌ No "helpful" completion of partial patterns<br />
+❌ No reasoning traces  </p>
+<h3 id="key-principle">Key Principle<a class="headerlink" href="#key-principle" title="Permanent link">&para;</a></h3>
+<p><strong>"If a model explains its extraction decision unprompted, it's the wrong model."</strong></p>
+<p>Extractors should be boring. Extraction should feel mechanical.</p>
+<h3 id="recommended-models_1">Recommended Models<a class="headerlink" href="#recommended-models_1" title="Permanent link">&para;</a></h3>
+<p><strong>Tier 1 - Primary Choices</strong></p>
+<p><strong>Qwen3-14B-Instruct</strong> ⭐⭐⭐⭐
+- Exceptional literal grounding
+- Strong "do not infer" compliance
+- Excellent JSON discipline
+- <strong>Default choice for precision-critical extraction</strong></p>
+<p><strong>Qwen3-8B-Instruct</strong> ⭐⭐⭐
+- Fast, accurate, resource-efficient
+- Ideal for parallel deployment (4x instances)
+- <strong>Best choice when running multiple extractors simultaneously</strong></p>
+<p><strong>Qwen2.5-14B-Instruct</strong> ⭐⭐
+- Proven reliability
+- Slightly higher inference tendency than Qwen3
+- Good fallback if Qwen3 unavailable</p>
+<p><strong>Tier 2 - Acceptable Alternatives</strong></p>
+<ul>
+<li>Llama 3.1-8B-Instruct (requires stricter prompts)</li>
+<li>Mistral-Nemo-12B-Instruct (underrated for extraction)</li>
+<li>Phi-3.5-14B-Instruct (good instruction following)</li>
+</ul>
+<h3 id="models-to-avoid_1">Models to Avoid<a class="headerlink" href="#models-to-avoid_1" title="Permanent link">&para;</a></h3>
+<p>❌ Any reasoning-focused model (will infer context)<br />
+❌ Creative/chat-optimized models (will elaborate)<br />
+❌ Code-specialized without instruction tuning<br />
+❌ Base models (no instruction capability)<br />
+❌ Models &lt;7B (insufficient context handling)  </p>
+<h3 id="size-vs-parallelism-trade-off">Size vs. Parallelism Trade-off<a class="headerlink" href="#size-vs-parallelism-trade-off" title="Permanent link">&para;</a></h3>
+<p><strong>Sequential Extraction</strong> (one agent at a time):
+- Use Qwen3-14B-Instruct
+- Better precision per extraction
+- Slower total pipeline time</p>
+<p><strong>Parallel Extraction</strong> (multiple agents simultaneously):
+- Use 4x Qwen3-8B-Instruct instances
+- Faster total pipeline time
+- Requires ~20GB VRAM (4x 5GB)</p>
+<p><strong>Recommendation</strong>: Parallel 8B if VRAM permits. Precision difference is minimal for most CTI articles.</p>
+<h3 id="configuration-guidance_1">Configuration Guidance<a class="headerlink" href="#configuration-guidance_1" title="Permanent link">&para;</a></h3>
+<p><strong>Quantization</strong>: Q4_K_M minimum, Q5_K_M preferred<br />
+<strong>Context Window</strong>: 8K minimum, 16K preferred (long articles)<br />
+<strong>Temperature</strong>: 0.0-0.1 (deterministic extraction)<br />
+<strong>VRAM per instance</strong>: 5GB (8B) or 9GB (14B)  </p>
+<h3 id="validation-criteria_1">Validation Criteria<a class="headerlink" href="#validation-criteria_1" title="Permanent link">&para;</a></h3>
+<p>Test on 20+ articles with manual ground truth:</p>
+<p><strong>Precision</strong>: &gt;95% (false positives destroy SIGMA rules)<br />
+<strong>Recall</strong>: &gt;80% (missing some observables is acceptable)<br />
+<strong>JSON validity</strong>: 100% (no malformed output)  </p>
+<p><strong>Critical Test</strong>: "Empty Article Test"
+- Feed article with zero observables of extractor's type
+- Expected result: Empty JSON array
+- If model invents observables → wrong model</p>
+<p><strong>Red Flags</strong>:
+- Extracting observables not in source text
+- Adding context not explicitly stated
+- "Fixing" or "completing" partial patterns
+- Explaining why it extracted something</p>
+<hr />
+<h2 id="3-sigma-generator-agent">3. SIGMA Generator Agent<a class="headerlink" href="#3-sigma-generator-agent" title="Permanent link">&para;</a></h2>
+<h3 id="task-definition_2">Task Definition<a class="headerlink" href="#task-definition_2" title="Permanent link">&para;</a></h3>
+<p>Synthesize extracted observables into valid, actionable SIGMA detection rules (YAML format).</p>
+<h3 id="cognitive-requirements_2">Cognitive Requirements<a class="headerlink" href="#cognitive-requirements_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Structured synthesis from facts</li>
+<li>Multi-step logical reasoning</li>
+<li>Schema-constrained output</li>
+<li>Combining multiple observables coherently</li>
+</ul>
+<h3 id="critical-success-factors_2">Critical Success Factors<a class="headerlink" href="#critical-success-factors_2" title="Permanent link">&para;</a></h3>
+<p>✅ Code/structured format awareness (YAML, logic operators)<br />
+✅ Moderate reasoning capability<br />
+✅ Strong output format fidelity<br />
+✅ Logical composition (AND/OR) of multiple observables  </p>
+<p>❌ No invention of unextracted observables<br />
+❌ No speculation about attacker intent<br />
+❌ No hallucinated telemetry sources<br />
+❌ No "helpful" additions beyond extracted facts  </p>
+<h3 id="reasoning-boundaries">Reasoning Boundaries<a class="headerlink" href="#reasoning-boundaries" title="Permanent link">&para;</a></h3>
+<p><strong>Allowed</strong>:
+- ✅ Combining command line + registry key into single detection
+- ✅ Selecting appropriate SIGMA field mappings (CommandLine, Image, etc.)
+- ✅ Logical operators (AND/OR) based on article context
+- ✅ Choosing detection level (low/medium/high/critical)</p>
+<p><strong>Forbidden</strong>:
+- ❌ Adding observables not extracted by upstream agents
+- ❌ Inventing process relationships not in source
+- ❌ Speculating on evasion techniques
+- ❌ Creating multi-stage detections unsupported by extractions</p>
+<h3 id="recommended-models_2">Recommended Models<a class="headerlink" href="#recommended-models_2" title="Permanent link">&para;</a></h3>
+<p><strong>Tier 1 - Primary Choices</strong></p>
+<p><strong>Qwen3-14B-Instruct</strong> ⭐⭐⭐⭐
+- Best balance: reasoning + structured output
+- Excellent SIGMA schema compliance
+- Strong logical composition
+- <strong>Default choice</strong></p>
+<p><strong>Qwen3-Coder-14B-Instruct</strong> ⭐⭐⭐
+- Slightly better YAML formatting
+- Marginally better field mapping
+- Not significantly better than base Instruct variant
+- Use if available, but not required</p>
+<p><strong>Llama 3.1-70B-Instruct</strong> ⭐⭐⭐
+- Superior reasoning for complex multi-observable rules
+- Better handling of ambiguous field mappings
+- Requires 40GB VRAM
+- <strong>Best choice if VRAM available</strong></p>
+<p><strong>Tier 2 - Acceptable Alternatives</strong></p>
+<ul>
+<li>Qwen2.5-Coder-14B-Instruct (proven reliability)</li>
+<li>DeepSeek-Coder-33B-Instruct (excellent but heavy: 20GB VRAM)</li>
+<li>Mistral-Nemo-12B-Instruct (requires strong prompting)</li>
+</ul>
+<p><strong>Tier 3 - Workable with Strict Templates</strong></p>
+<ul>
+<li>Phi-3.5-14B-Instruct</li>
+<li>CodeLlama-34B-Instruct</li>
+<li>Qwen2.5-14B-Instruct (non-Coder)</li>
+</ul>
+<h3 id="models-to-avoid_2">Models to Avoid<a class="headerlink" href="#models-to-avoid_2" title="Permanent link">&para;</a></h3>
+<p>❌ Models &lt;7B (will produce invalid YAML)<br />
+❌ Chat-optimized without structured output training<br />
+❌ Reasoning-first models (will invent observables)<br />
+❌ Pure code models without instruction tuning  </p>
+<h3 id="code-specialized-vs-instruction-tuned">Code-Specialized vs. Instruction-Tuned<a class="headerlink" href="#code-specialized-vs-instruction-tuned" title="Permanent link">&para;</a></h3>
+<p><strong>Common Misconception</strong>: "Code models are better for YAML generation"</p>
+<p><strong>Reality</strong>: 
+- SIGMA YAML is relatively simple
+- Logical reasoning matters more than code syntax
+- Over-specialized code models can add "best practices" not in extractions</p>
+<p><strong>Recommendation</strong>: Base Instruct models (Qwen3-14B-Instruct) are sufficient. Code variants provide marginal improvement.</p>
+<h3 id="configuration-guidance_2">Configuration Guidance<a class="headerlink" href="#configuration-guidance_2" title="Permanent link">&para;</a></h3>
+<p><strong>Quantization</strong>: Q4_K_M minimum, Q5_K_M strongly preferred<br />
+<strong>Context Window</strong>: 16K+ (needs full extraction results + SIGMA template)<br />
+<strong>Temperature</strong>: 0.2-0.4 (balance structure and variety)<br />
+<strong>VRAM Requirement</strong>: 9GB (14B), 20GB (33B), 40GB (70B)  </p>
+<h3 id="validation-criteria_2">Validation Criteria<a class="headerlink" href="#validation-criteria_2" title="Permanent link">&para;</a></h3>
+<p>Test on 20+ extracted observable sets:</p>
+<p><strong>YAML Validity</strong>: 100% (yamllint with SIGMA schema)<br />
+<strong>Observable Fidelity</strong>: 100% (no unextracted content)<br />
+<strong>Field Mapping Accuracy</strong>: &gt;95% (correct log source selection)<br />
+<strong>Deployability</strong>: &gt;90% (rules work in test SIEM/EDR)  </p>
+<p><strong>Critical Tests</strong>:</p>
+<ol>
+<li><strong>Empty Extraction Test</strong>: Zero observables → No rule or valid empty rule</li>
+<li><strong>Single Observable Test</strong>: One observable → Minimal valid rule</li>
+<li><strong>Multi-Observable Test</strong>: Multiple observables → Logical AND/OR composition</li>
+<li><strong>Complex Article Test</strong>: 10+ observables → Reasonable rule grouping</li>
+</ol>
+<p><strong>Red Flags</strong>:
+- Invalid YAML syntax (fails yamllint)
+- Observables not in extraction results
+- Field mappings that don't match log source
+- Logic operators that contradict article context
+- Detection level inflation (everything is "critical")</p>
+<hr />
+<h2 id="quick-reference-matrix">Quick Reference Matrix<a class="headerlink" href="#quick-reference-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Model</th>
+<th>Size</th>
+<th>Quantization</th>
+<th>VRAM</th>
+<th>Temperature</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Rank</strong></td>
+<td>Qwen3-8B-Instruct</td>
+<td>8B</td>
+<td>Q4_K_M</td>
+<td>~5GB</td>
+<td>0.1-0.3</td>
+<td>Simple classification</td>
+</tr>
+<tr>
+<td><strong>Extract</strong></td>
+<td>Qwen3-14B-Instruct</td>
+<td>14B</td>
+<td>Q5_K_M</td>
+<td>~9GB</td>
+<td>0.0-0.1</td>
+<td>Precision critical</td>
+</tr>
+<tr>
+<td><strong>Extract (Parallel)</strong></td>
+<td>Qwen3-8B-Instruct</td>
+<td>8B</td>
+<td>Q4_K_M</td>
+<td>~5GB each</td>
+<td>0.0-0.1</td>
+<td>Speed + efficiency</td>
+</tr>
+<tr>
+<td><strong>SIGMA Gen</strong></td>
+<td>Qwen3-14B-Instruct</td>
+<td>14B</td>
+<td>Q5_K_M</td>
+<td>~9GB</td>
+<td>0.2-0.4</td>
+<td>Logic + structure</td>
+</tr>
+<tr>
+<td><strong>SIGMA Gen (Optimal)</strong></td>
+<td>Llama 3.1-70B-Instruct</td>
+<td>70B</td>
+<td>Q4_K_M</td>
+<td>~40GB</td>
+<td>0.2-0.4</td>
+<td>Best reasoning</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="hardware-configurations">Hardware Configurations<a class="headerlink" href="#hardware-configurations" title="Permanent link">&para;</a></h2>
+<h3 id="minimum-viable-12gb-vram">Minimum Viable (12GB VRAM)<a class="headerlink" href="#minimum-viable-12gb-vram" title="Permanent link">&para;</a></h3>
+<p><strong>Setup</strong>: Sequential processing
+- Rank: Qwen3-8B (Q4) → 5GB
+- Extract: Qwen3-8B (Q4) → 5GB (run sequentially per type)
+- Generate: Qwen3-14B (Q4) → 9GB</p>
+<p><strong>Performance</strong>: ~2-3 minutes per article end-to-end</p>
+<h3 id="standard-configuration-24gb-vram">Standard Configuration (24GB VRAM)<a class="headerlink" href="#standard-configuration-24gb-vram" title="Permanent link">&para;</a></h3>
+<p><strong>Setup</strong>: Parallel extraction
+- Rank: Qwen3-8B (Q4) → 5GB
+- Extract: 4x Qwen3-8B (Q4) → 20GB total (parallel)
+- Generate: Qwen3-14B (Q5) → 9GB</p>
+<p><strong>Performance</strong>: ~1-1.5 minutes per article end-to-end</p>
+<h3 id="optimal-configuration-48gb-vram">Optimal Configuration (48GB+ VRAM)<a class="headerlink" href="#optimal-configuration-48gb-vram" title="Permanent link">&para;</a></h3>
+<p><strong>Setup</strong>: Maximum quality
+- Rank: Qwen3-8B (Q4) → 5GB
+- Extract: 4x Qwen3-14B (Q5) → 36GB total (parallel)
+- Generate: Llama 3.1-70B (Q4) → 40GB</p>
+<p><strong>Performance</strong>: ~1 minute per article, highest precision</p>
+<h3 id="cpu-only-fallback">CPU-Only Fallback<a class="headerlink" href="#cpu-only-fallback" title="Permanent link">&para;</a></h3>
+<p><strong>Reality Check</strong>: Viable but slow (5-10x longer inference)</p>
+<p><strong>Recommendation</strong>: 
+- Use GPU for extractors and generator (precision-critical)
+- CPU acceptable for rank agent only (least latency-sensitive)
+- Consider cloud API for generator only if CPU-bound</p>
+<hr />
+<h2 id="quantization-strategy">Quantization Strategy<a class="headerlink" href="#quantization-strategy" title="Permanent link">&para;</a></h2>
+<h3 id="q4_k_m-default">Q4_K_M (Default)<a class="headerlink" href="#q4_k_m-default" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Use for</strong>: All agents when VRAM-constrained</li>
+<li><strong>Quality loss</strong>: Minimal for instruction-following</li>
+<li><strong>VRAM savings</strong>: ~40% vs. Q5</li>
+</ul>
+<h3 id="q5_k_m-preferred">Q5_K_M (Preferred)<a class="headerlink" href="#q5_k_m-preferred" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Use for</strong>: Extractors and generator when VRAM permits</li>
+<li><strong>Quality improvement</strong>: Noticeable on complex extractions</li>
+<li><strong>VRAM cost</strong>: +40% vs. Q4</li>
+</ul>
+<h3 id="q6_k-q8-rarely-worth-it">Q6_K / Q8 (Rarely Worth It)<a class="headerlink" href="#q6_k-q8-rarely-worth-it" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Quality improvement</strong>: Marginal (&lt;5%) vs. Q5</li>
+<li><strong>VRAM cost</strong>: Significant (+60-100%)</li>
+<li><strong>Recommendation</strong>: Skip unless validating precision limits</li>
+</ul>
+<h3 id="q3-q2-avoid">Q3 / Q2 (Avoid)<a class="headerlink" href="#q3-q2-avoid" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Quality loss</strong>: Severe on structured tasks</li>
+<li><strong>Risk</strong>: Invalid JSON/YAML output</li>
+<li><strong>Recommendation</strong>: Never use for production</li>
+</ul>
+<hr />
+<h2 id="context-window-requirements">Context Window Requirements<a class="headerlink" href="#context-window-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Minimum</th>
+<th>Recommended</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank</td>
+<td>8K</td>
+<td>16K</td>
+<td>Long-form threat reports</td>
+</tr>
+<tr>
+<td>Extract</td>
+<td>8K</td>
+<td>16K</td>
+<td>Full article context needed</td>
+</tr>
+<tr>
+<td>Generator</td>
+<td>8K</td>
+<td>16K</td>
+<td>Extraction results + template</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Critical</strong>: Models with 4K context will silently truncate. Always verify context window before deployment.</p>
+<hr />
+<h2 id="model-testing-protocol">Model Testing Protocol<a class="headerlink" href="#model-testing-protocol" title="Permanent link">&para;</a></h2>
+<h3 id="before-production-deployment">Before Production Deployment<a class="headerlink" href="#before-production-deployment" title="Permanent link">&para;</a></h3>
+<p>Test each model on YOUR specific CTI sources. Generic benchmarks don't predict your performance.</p>
+<h3 id="1-rank-agent-validation">1. Rank Agent Validation<a class="headerlink" href="#1-rank-agent-validation" title="Permanent link">&para;</a></h3>
+<p><strong>Dataset</strong>: 30+ diverse articles (technical reports, vendor blogs, CISA advisories)</p>
+<p><strong>Metrics</strong>:
+- Score consistency: Rephrase 10 articles, measure variance (target: ±1 point)
+- Score distribution: Verify reasonable spread (avoid clustering at 8-10)
+- Inter-rater reliability: Compare to human rankings (target: ρ &gt;0.80)</p>
+<p><strong>Red Flags</strong>:
+- All scores &gt;7 (model is too enthusiastic)
+- Scores change &gt;2 points on minor rephrasing
+- Scores drift upward over conversation history</p>
+<h3 id="2-extractor-agent-validation">2. Extractor Agent Validation<a class="headerlink" href="#2-extractor-agent-validation" title="Permanent link">&para;</a></h3>
+<p><strong>Dataset</strong>: 20+ articles with manual ground truth</p>
+<p><strong>Metrics</strong>:
+- <strong>Precision</strong>: TP/(TP+FP) → target &gt;95%
+- <strong>Recall</strong>: TP/(TP+FN) → target &gt;80%
+- <strong>JSON validity</strong>: 100% (no parsing errors)</p>
+<p><strong>Critical Tests</strong>:</p>
+<p><strong>Empty Article Test</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Input: Article with zero command lines
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Expected: {&quot;command_lines&quot;: []}
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Fail if: Model invents examples or returns null
+</code></pre></div></p>
+<p><strong>Ambiguous Pattern Test</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Input: &quot;The attacker may have used PowerShell&quot;
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Expected: {} (no extraction - not explicit)
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Fail if: Model extracts &quot;powershell.exe&quot;
+</code></pre></div></p>
+<p><strong>Red Flags</strong>:
+- Extracting content not in source text
+- Adding context or explanation
+- "Fixing" malformed patterns
+- Precision &lt;90% (too many false positives)</p>
+<h3 id="3-sigma-generator-validation">3. SIGMA Generator Validation<a class="headerlink" href="#3-sigma-generator-validation" title="Permanent link">&para;</a></h3>
+<p><strong>Dataset</strong>: 20+ extraction result sets with expected rules</p>
+<p><strong>Metrics</strong>:
+- <strong>YAML validity</strong>: 100% (yamllint passes)
+- <strong>Observable fidelity</strong>: 100% (no invented content)
+- <strong>Field mapping accuracy</strong>: &gt;95%
+- <strong>Deployability</strong>: &gt;90% (rules execute in test environment)</p>
+<p><strong>Critical Tests</strong>:</p>
+<p><strong>YAML Syntax Test</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>yamllint<span class="w"> </span>--config-file<span class="o">=</span>sigma_schema.yaml<span class="w"> </span>generated_rule.yml
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Must pass with zero errors</span>
+</code></pre></div></p>
+<p><strong>Observable Provenance Test</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>For each observable in rule:
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  Assert: Observable in extraction results
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>Fail if: Any observable not extracted upstream
+</code></pre></div></p>
+<p><strong>Deployment Test</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Load rule into test SIEM/EDR
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Execute against test dataset
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Verify: No syntax errors, rule activates correctly
+</code></pre></div></p>
+<p><strong>Red Flags</strong>:
+- Invalid YAML (fails yamllint)
+- Observables not in extractions
+- Field mappings incompatible with log source
+- Logic errors (AND should be OR, or vice versa)
+- Detection level inflation</p>
+<hr />
+<h2 id="common-pitfalls-solutions">Common Pitfalls &amp; Solutions<a class="headerlink" href="#common-pitfalls-solutions" title="Permanent link">&para;</a></h2>
+<h3 id="pitfall-1-ill-use-my-best-model-everywhere">Pitfall 1: "I'll Use My Best Model Everywhere"<a class="headerlink" href="#pitfall-1-ill-use-my-best-model-everywhere" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: A 70B reasoning model will hallucinate observables during extraction.</p>
+<p><strong>Solution</strong>: Task-appropriate models outperform general-purpose "best" models. Match model to cognitive requirements.</p>
+<h3 id="pitfall-2-reasoning-models-are-more-accurate">Pitfall 2: "Reasoning Models Are More Accurate"<a class="headerlink" href="#pitfall-2-reasoning-models-are-more-accurate" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: For extraction and classification, reasoning introduces noise and inconsistency.</p>
+<p><strong>Solution</strong>: Reserve reasoning capability for synthesis tasks (SIGMA generation). Use instruction-tuned models without reasoning bias for extraction/ranking.</p>
+<h3 id="pitfall-3-i-can-prompt-my-way-out">Pitfall 3: "I Can Prompt My Way Out"<a class="headerlink" href="#pitfall-3-i-can-prompt-my-way-out" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Prompts optimize model behavior within architectural constraints. They don't change fundamental capabilities.</p>
+<p><strong>Solution</strong>: Select architecturally appropriate model first. Optimize prompts second. Never rely on prompting to fix model mismatch.</p>
+<h3 id="pitfall-4-json-output-structured-capability">Pitfall 4: "JSON Output = Structured Capability"<a class="headerlink" href="#pitfall-4-json-output-structured-capability" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Many models produce syntactically valid JSON with semantically incorrect content.</p>
+<p><strong>Solution</strong>: Test on your specific schema. Prefer instruction-tuned models with demonstrated structured output discipline.</p>
+<h3 id="pitfall-5-bigger-models-are-always-better">Pitfall 5: "Bigger Models Are Always Better"<a class="headerlink" href="#pitfall-5-bigger-models-are-always-better" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: 70B models are overkill for classification. 7B models are insufficient for complex generation.</p>
+<p><strong>Solution</strong>: 
+- 8B for ranking (sufficient)
+- 14B for extraction (precision matters)
+- 14-70B for generation (depends on rule complexity)</p>
+<h3 id="pitfall-6-code-models-are-required-for-yaml">Pitfall 6: "Code Models Are Required for YAML"<a class="headerlink" href="#pitfall-6-code-models-are-required-for-yaml" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: SIGMA YAML is simple. Over-specialized code models may add unrequested features.</p>
+<p><strong>Solution</strong>: Base instruction models (Qwen3-14B-Instruct) are sufficient. Code variants provide marginal benefit.</p>
+<hr />
+<h2 id="prompt-engineering-considerations">Prompt Engineering Considerations<a class="headerlink" href="#prompt-engineering-considerations" title="Permanent link">&para;</a></h2>
+<p>While model selection is primary, prompts still matter significantly.</p>
+<h3 id="rank-agent-prompts">Rank Agent Prompts<a class="headerlink" href="#rank-agent-prompts" title="Permanent link">&para;</a></h3>
+<p><strong>Key Elements</strong>:
+- Explicit scoring rubric (1-10 with criteria)
+- Examples of low/medium/high scores
+- Instruction: "Be conservative, avoid score inflation"
+- Format: "Score: X/10. Justification: [1-2 sentences]"</p>
+<h3 id="extractor-agent-prompts">Extractor Agent Prompts<a class="headerlink" href="#extractor-agent-prompts" title="Permanent link">&para;</a></h3>
+<p><strong>Critical Instructions</strong>:
+- "Extract ONLY what is explicitly stated"
+- "Do not infer, assume, or complete partial patterns"
+- "Return empty array if no observables found"
+- "Do not explain your extraction process"
+- Include JSON schema
+- Provide few-shot examples with edge cases</p>
+<p><strong>Edge Case Examples</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>&quot;The attacker MAY use PowerShell&quot; → No extraction (not explicit)
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>&quot;PowerShell is commonly used&quot; → No extraction (general statement)
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>&quot;The attacker executed powershell.exe -enc&quot; → Extract (explicit)
+</code></pre></div></p>
+<h3 id="generator-agent-prompts">Generator Agent Prompts<a class="headerlink" href="#generator-agent-prompts" title="Permanent link">&para;</a></h3>
+<p><strong>Key Elements</strong>:
+- Complete SIGMA rule template
+- Explicit field mapping guide
+- Instruction: "Use ONLY observables from extraction results"
+- Logic operator guidance (when to use AND vs OR)
+- Detection level criteria</p>
+<hr />
+<h2 id="migration-iteration-strategy">Migration &amp; Iteration Strategy<a class="headerlink" href="#migration-iteration-strategy" title="Permanent link">&para;</a></h2>
+<h3 id="starting-from-scratch">Starting From Scratch<a class="headerlink" href="#starting-from-scratch" title="Permanent link">&para;</a></h3>
+<p><strong>Week 1</strong>: Deploy baseline
+- All stages: Qwen3-14B-Instruct (Q4)
+- Measure baseline precision/recall
+- Identify bottlenecks</p>
+<p><strong>Week 2</strong>: Optimize extractors
+- Test Qwen3-8B parallel vs 14B sequential
+- Measure precision difference
+- Choose based on speed/accuracy trade-off</p>
+<p><strong>Week 3</strong>: Optimize generator
+- If VRAM available, test Llama 3.1-70B
+- Measure YAML validity improvement
+- Assess if improvement justifies VRAM cost</p>
+<p><strong>Week 4</strong>: Production deployment
+- Lock model versions
+- Document model hashes (reproducibility)
+- Establish monitoring metrics</p>
+<h3 id="migrating-from-qwen25-to-qwen3">Migrating from Qwen2.5 to Qwen3<a class="headerlink" href="#migrating-from-qwen25-to-qwen3" title="Permanent link">&para;</a></h3>
+<p><strong>Good News</strong>: Same prompt format, drop-in replacement</p>
+<p><strong>Migration Path</strong>:
+1. Test Qwen3 on subset (20 articles)
+2. Compare precision/recall to Qwen2.5 baseline
+3. If improvement &gt;5%, migrate
+4. If improvement &lt;5%, defer migration</p>
+<p><strong>Reality Check</strong>: Qwen2.5 remains viable. Migrate only if measurable improvement.</p>
+<hr />
+<h2 id="production-monitoring">Production Monitoring<a class="headerlink" href="#production-monitoring" title="Permanent link">&para;</a></h2>
+<h3 id="metrics-to-track">Metrics to Track<a class="headerlink" href="#metrics-to-track" title="Permanent link">&para;</a></h3>
+<p><strong>Rank Agent</strong>:
+- Score distribution over time (detect drift)
+- Score variance on duplicate articles
+- Processing time per article</p>
+<p><strong>Extractor Agents</strong>:
+- Precision (manual sampling: 10 articles/week)
+- Empty result rate (should be ~20-30% for specialized extractors)
+- JSON parsing error rate (target: 0%)
+- Processing time per article</p>
+<p><strong>SIGMA Generator</strong>:
+- YAML validation pass rate (target: 100%)
+- Rule deployment success rate (target: &gt;90%)
+- Average observables per rule (detect over/under-synthesis)
+- Processing time per rule</p>
+<h3 id="drift-detection">Drift Detection<a class="headerlink" href="#drift-detection" title="Permanent link">&para;</a></h3>
+<p><strong>Symptom</strong>: Increasing false positives from extractors</p>
+<p><strong>Causes</strong>:
+- Model temperature too high
+- Prompt erosion over conversation history
+- Model version change (LM Studio auto-update)</p>
+<p><strong>Solution</strong>: Lock model versions, reset conversation context periodically</p>
+<hr />
+<h2 id="final-recommendations">Final Recommendations<a class="headerlink" href="#final-recommendations" title="Permanent link">&para;</a></h2>
+<h3 id="default-configuration-start-here">Default Configuration (Start Here)<a class="headerlink" href="#default-configuration-start-here" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Model</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank</td>
+<td>Qwen3-8B-Instruct Q4</td>
+<td>temp=0.2, ctx=16K</td>
+</tr>
+<tr>
+<td>Extract</td>
+<td>Qwen3-14B-Instruct Q5</td>
+<td>temp=0.0, ctx=16K</td>
+</tr>
+<tr>
+<td>Generate</td>
+<td>Qwen3-14B-Instruct Q5</td>
+<td>temp=0.3, ctx=16K</td>
+</tr>
+</tbody>
+</table>
+<p><strong>VRAM Required</strong>: ~23GB (sequential extraction)</p>
+<h3 id="optimized-configuration-if-vram-available">Optimized Configuration (If VRAM Available)<a class="headerlink" href="#optimized-configuration-if-vram-available" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Model</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank</td>
+<td>Qwen3-8B-Instruct Q4</td>
+<td>temp=0.2, ctx=16K</td>
+</tr>
+<tr>
+<td>Extract</td>
+<td>4x Qwen3-8B-Instruct Q4 (parallel)</td>
+<td>temp=0.0, ctx=16K</td>
+</tr>
+<tr>
+<td>Generate</td>
+<td>Llama 3.1-70B-Instruct Q4</td>
+<td>temp=0.3, ctx=16K</td>
+</tr>
+</tbody>
+</table>
+<p><strong>VRAM Required</strong>: ~60GB</p>
+<h3 id="budget-configuration-12gb-vram">Budget Configuration (12GB VRAM)<a class="headerlink" href="#budget-configuration-12gb-vram" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Model</th>
+<th>Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank</td>
+<td>Qwen3-8B-Instruct Q4</td>
+<td>temp=0.2, ctx=8K</td>
+</tr>
+<tr>
+<td>Extract</td>
+<td>Qwen3-8B-Instruct Q4 (sequential)</td>
+<td>temp=0.0, ctx=8K</td>
+</tr>
+<tr>
+<td>Generate</td>
+<td>Qwen3-14B-Instruct Q4</td>
+<td>temp=0.3, ctx=8K</td>
+</tr>
+</tbody>
+</table>
+<p><strong>VRAM Required</strong>: ~9GB peak</p>
+<hr />
+<h2 id="the-bottom-line">The Bottom Line<a class="headerlink" href="#the-bottom-line" title="Permanent link">&para;</a></h2>
+<p><strong>If you remember three things</strong>:</p>
+<ol>
+<li>
+<p><strong>Task-model alignment is non-negotiable</strong> - Reasoning models destroy extraction precision. Small models produce invalid YAML.</p>
+</li>
+<li>
+<p><strong>14B is the sweet spot</strong> - Sufficient capability for complex extraction and generation. Better than 7B, not significantly worse than 70B for most tasks.</p>
+</li>
+<li>
+<p><strong>Measure on YOUR data</strong> - Generic benchmarks don't predict your performance. Test on actual CTI sources and measure precision/recall.</p>
+</li>
+</ol>
+<p><strong>Start with Qwen3-14B across the board. Optimize based on measured bottlenecks.</strong></p>
+<p>Don't chase theoretical performance. Chase measured precision on your specific CTI pipeline.</p>
+<hr />
+<h2 id="appendix-model-availability-in-lm-studio">Appendix: Model Availability in LM Studio<a class="headerlink" href="#appendix-model-availability-in-lm-studio" title="Permanent link">&para;</a></h2>
+<p>As of February 2026, these models are available through LM Studio's model search:</p>
+<p><strong>Qwen3 Series</strong>: ✅ Available<br />
+<strong>Qwen2.5 Series</strong>: ✅ Available<br />
+<strong>Llama 3.1/3.3 Series</strong>: ✅ Available<br />
+<strong>Mistral/Mistral-Nemo</strong>: ✅ Available<br />
+<strong>DeepSeek-Coder</strong>: ✅ Available<br />
+<strong>Phi-3/3.5 Series</strong>: ✅ Available  </p>
+<p>Search format: <code>TheBloke/{model-name}-GGUF</code> or <code>bartowski/{model-name}-GGUF</code></p>
+<p>Always verify model hash against official releases for security.</p>
+<hr />
+<p><strong>Document Version</strong>: 1.10<br />
+<strong>Last Updated</strong>: February 2026<br />
+<strong>Maintainer</strong>: Andrew (Cybersecurity/Detection Engineering)</p>
+<hr />
+<h2 id="openai-models-reference">OpenAI Models Reference<a class="headerlink" href="#openai-models-reference" title="Permanent link">&para;</a></h2>
+<h1 id="openai-chat-models-reference">OpenAI Chat Models Reference<a class="headerlink" href="#openai-chat-models-reference" title="Permanent link">&para;</a></h1>
+<p>Source: <a href="https://platform.openai.com/docs/models">platform.openai.com/docs/models</a> (Jan 2025)</p>
+<h2 id="chat-completions-models-text-in-text-out">Chat Completions Models (text-in, text-out)<a class="headerlink" href="#chat-completions-models-text-in-text-out" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Context Window</th>
+<th>Max Output Tokens</th>
+<th>API Params</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GPT-5 series</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>gpt-5.2</td>
+<td>400,000</td>
+<td>128,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-5.2-pro</td>
+<td>400,000</td>
+<td>128,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-5.1</td>
+<td>400,000</td>
+<td>128,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-5</td>
+<td>400,000</td>
+<td>128,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-5-mini</td>
+<td>400,000</td>
+<td>128,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-5-nano</td>
+<td>400,000</td>
+<td>128,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td><strong>GPT-4.1 series</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>gpt-4.1</td>
+<td>1,047,576</td>
+<td>32,768</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-4.1-mini</td>
+<td>1,047,576</td>
+<td>32,768</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-4.1-nano</td>
+<td>1,047,576</td>
+<td>32,768</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td><strong>Reasoning (o-series)</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>o3</td>
+<td>200,000</td>
+<td>100,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>o3-pro</td>
+<td>200,000</td>
+<td>100,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>o3-mini</td>
+<td>200,000</td>
+<td>100,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>o4-mini</td>
+<td>200,000</td>
+<td>100,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>o1</td>
+<td>200,000</td>
+<td>100,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td>o1-pro</td>
+<td>200,000</td>
+<td>100,000</td>
+<td><code>max_completion_tokens</code>, no <code>temperature</code></td>
+</tr>
+<tr>
+<td><strong>GPT-4o series</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>gpt-4o</td>
+<td>128,000</td>
+<td>16,384</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-4o-mini</td>
+<td>128,000</td>
+<td>16,384</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td><strong>Legacy</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>gpt-4-turbo</td>
+<td>128,000</td>
+<td>4,096</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-4</td>
+<td>8,192</td>
+<td>4,096</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+<tr>
+<td>gpt-3.5-turbo</td>
+<td>16,385</td>
+<td>4,096</td>
+<td><code>max_tokens</code>, <code>temperature</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="api-parameter-rules">API Parameter Rules<a class="headerlink" href="#api-parameter-rules" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Model Family</th>
+<th>Token Param</th>
+<th>Temperature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gpt-5.x, o1, o3, o4</td>
+<td><code>max_completion_tokens</code></td>
+<td>Not supported</td>
+</tr>
+<tr>
+<td>gpt-4.x, gpt-4o, gpt-3.5</td>
+<td><code>max_tokens</code></td>
+<td>Supported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="specialized-not-chat-completions">Specialized (not Chat Completions)<a class="headerlink" href="#specialized-not-chat-completions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Deep research</strong>: o3-deep-research, o4-mini-deep-research</li>
+<li><strong>Codex</strong>: gpt-5.2-codex, gpt-5.1-codex, gpt-5-codex</li>
+<li><strong>Realtime/Audio</strong>: gpt-realtime, gpt-audio, gpt-4o-audio-preview</li>
+<li><strong>Image</strong>: gpt-image-1.5, gpt-image-1</li>
+<li><strong>TTS/Transcribe</strong>: gpt-4o-mini-tts, gpt-4o-transcribe</li>
+</ul>
+<hr />
+<p><em>Last updated: February 2025</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

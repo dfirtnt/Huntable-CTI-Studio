@@ -18,11 +18,11 @@ In the workflow, these are emitted by the Extract Agent sub-agents as typed **ob
 
 ## Scoring signals
 
-- **Threat hunting score** (regex-driven; see [Scoring](../internals/scoring.md))
+- **Threat hunting score** (regex-driven; see [Scoring](../architecture/scoring.md))
   - Perfect discriminators: `rundll32`, `msiexec`, `lsass.exe`, `.lnk`, `MZ`, `%WINDIR%`.
   - LOLBAS executables and registry/Windows path patterns add supporting points.
   - Negative indicators (e.g. “what is”, “best practices”, marketing) reduce the score.
-- **ML hunt score** (chunk-driven; see [ML Hunt Scoring](../ML_HUNT_SCORING.md))
+- **ML hunt score** (chunk-driven; see [ML Hunt Scoring](../ml-training/hunt-scoring.md))
   - Articles are chunked (1,000 chars, 200 overlap); each chunk is classified huntable/not.
   - Default metric: weighted average of confidences for huntable chunks, normalized to 0–100.
 

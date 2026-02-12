@@ -5,8 +5,8 @@ Key persisted structures for Huntable CTI Studio. All payloads live in PostgreSQ
 ## Articles (`articles` table)
 - `id`, `title`, `canonical_url`, `source_id`, `published_at`, `content`, `summary`
 - `article_metadata` (JSONB) commonly includes:
-  - `threat_hunting_score` and keyword match lists (see `../internals/scoring.md`)
-  - `ml_hunt_score` and `ml_hunt_score_details` (see `../ML_HUNT_SCORING.md`)
+  - `threat_hunting_score` and keyword match lists (see `../architecture/scoring.md`)
+  - `ml_hunt_score` and `ml_hunt_score_details` (see `../ml-training/hunt-scoring.md`)
   - `simhash`, `simhash_bucket`, `content_hash`
   - `processing_status`, `scraped_manually`, timestamps
 - `content_hash` and `canonical_url` enforce deduplication.

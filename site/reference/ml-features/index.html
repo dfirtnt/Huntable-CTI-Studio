@@ -1,0 +1,3566 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modern threat intelligence collection and analysis platform">
+      
+      
+      
+      
+        <link rel="prev" href="../schemas/">
+      
+      
+        <link rel="next" href="../versioning/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>ML Feature Definitions - Huntable CTI Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ml-model-feature-definitions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Huntable CTI Studio" class="md-header__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Huntable CTI Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ML Feature Definitions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/huntables/" class="md-tabs__link">
+          
+  
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/add-feed/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/sigma-rules/" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../llm/model-selection/" class="md-tabs__link">
+          
+  
+  
+  LLM & Models
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ml-training/hunt-scoring/" class="md-tabs__link">
+          
+  
+  
+  ML Training
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../cli/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/setup/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../prompts/eval-bundle/" class="md-tabs__link">
+          
+  
+  
+  Prompts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Huntable CTI Studio" class="md-nav__button md-logo" aria-label="Huntable CTI Studio" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Huntable CTI Studio
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/huntables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Huntables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/add-feed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Add a Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/extract-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generate-sigma/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sigma Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/evaluate-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluate Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/backup-and-restore/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backup & Restore
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/source-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/memory-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/workflow-data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/chunking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chunking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/qa-loops/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA Loops
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/sigma-rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sigma Detection Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/content-filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content Filtering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/os-detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OS Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/cmdline-preprocessor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cmdline Preprocessor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rag-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RAG Search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/observable-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observable Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM & Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    LLM & Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/model-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/lmstudio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LM Studio Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../llm/extract-agent-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Agent Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Training
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Training
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/hunt-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ml-training/database-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Feature Definitions
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Feature Definitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pattern-based-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern-Based Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pattern-Based Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#huntable_pattern_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        huntable_pattern_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not_huntable_pattern_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        not_huntable_pattern_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#perfect_pattern_count-new-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        perfect_pattern_count (New Feature)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_huntable_pattern_count-new-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        other_huntable_pattern_count (New Feature)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#huntable_pattern_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        huntable_pattern_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not_huntable_pattern_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        not_huntable_pattern_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#perfect_pattern_ratio-new-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        perfect_pattern_ratio (New Feature)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other_huntable_pattern_ratio-new-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        other_huntable_pattern_ratio (New Feature)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Text Characteristics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Text Characteristics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#char_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        char_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#word_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        word_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sentence_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sentence_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#avg_word_length" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        avg_word_length
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#technical-content-indicators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Technical Content Indicators
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Technical Content Indicators">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        command_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#url_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        url_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ip_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ip_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file_path_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        file_path_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        process_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cve_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cve_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#content-quality-indicators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content Quality Indicators
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Content Quality Indicators">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#technical_term_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        technical_term_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#marketing_term_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        marketing_term_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acknowledgment_count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        acknowledgment_count
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#technical_term_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        technical_term_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#marketing_term_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        marketing_term_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#structural-features-boolean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structural Features (Boolean)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Structural Features (Boolean)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#has_code_blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_code_blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#has_commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#has_urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_urls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#has_file_paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_file_paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hunt-score-integration-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hunt Score Integration Features
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hunt Score Integration Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hunt_score" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hunt_score
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hunt_score_high" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hunt_score_high
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hunt_score_medium" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hunt_score_medium
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hunt_score_low" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hunt_score_low
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feature-identification-accuracy-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature Identification Accuracy Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pattern-matching-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pattern Matching Details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pattern Matching Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyword-matching-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyword Matching Algorithm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#perfect-discriminators-103-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Perfect Discriminators (103 patterns)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-training-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Training Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/manual-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/web-app-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web App Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/allure-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Allure Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/multi-instance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Instance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/workflow-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/search-queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search Queries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prompts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/eval-bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Bundle Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/huntquery-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hunt Query Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prompts/proctree-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Process Tree Eval
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="ml-model-feature-definitions">ML Model Feature Definitions<a class="headerlink" href="#ml-model-feature-definitions" title="Permanent link">&para;</a></h1>
+<p>Detailed definitions of all parameters used in the content filter ML model, including how each feature is accurately identified.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The content filter uses a <strong>RandomForestClassifier</strong> with 27 features (or 31 with new features enabled). Features are <strong>NOT weighted equally</strong> - the model learns feature importances during training, with some features (like <code>hunt_score</code> and <code>perfect_pattern_count</code>) having significantly higher weights.</p>
+<hr />
+<h2 id="pattern-based-features">Pattern-Based Features<a class="headerlink" href="#pattern-based-features" title="Permanent link">&para;</a></h2>
+<h3 id="huntable_pattern_count"><code>huntable_pattern_count</code><a class="headerlink" href="#huntable_pattern_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Total count of huntable pattern matches in the text chunk.</p>
+<p><strong>How it's identified:</strong>
+- Searches text (case-insensitive) against a combined list of:
+  - <strong>Perfect discriminators</strong> (103 patterns): Keywords that appear exclusively in high-quality threat hunting content
+  - <strong>Good discriminators</strong>: Supporting technical keywords
+  - <strong>LOLBAS executables</strong>: Living Off the Land Binaries and Scripts
+  - <strong>Intelligence indicators</strong>: Core threat intelligence keywords
+- Uses regex matching with word boundaries to prevent false positives
+- Patterns are loaded from <code>HUNT_SCORING_KEYWORDS</code> dictionary</p>
+<p><strong>Accuracy:</strong> High - Uses validated keyword lists from analysis of 319 historically labeled training samples (historical labels 'high-signal' and 'low-signal' with 97 and 222 samples respectively). Note: article-level "chosen/rejected" classification is removed from the UI and should not be relied upon.articles (97 Chosen, 222 Rejected)</p>
+<p><strong>Examples:</strong>
+- Perfect: <code>rundll32.exe</code>, <code>msiexec.exe</code>, <code>powershell.exe</code>, <code>hklm</code>, <code>.lnk</code>
+- Good: <code>EventCode</code>, <code>KQL</code>, <code>parent-child</code>
+- LOLBAS: <code>certutil.exe</code>, <code>schtasks.exe</code>, <code>wmic.exe</code></p>
+<hr />
+<h3 id="not_huntable_pattern_count"><code>not_huntable_pattern_count</code><a class="headerlink" href="#not_huntable_pattern_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of negative indicator patterns that suggest non-huntable content.</p>
+<p><strong>How it's identified:</strong>
+- Searches for marketing, educational, or acknowledgment patterns
+- Patterns include: <code>demo</code>, <code>free trial</code>, <code>book a demo</code>, <code>managed service</code>, <code>platform</code>, <code>acknowledgement</code>, <code>gratitude</code>, <code>thank you</code>, <code>contact</code>
+- Case-insensitive regex matching</p>
+<p><strong>Accuracy:</strong> High - Identifies common marketing/PR language patterns</p>
+<hr />
+<h3 id="perfect_pattern_count-new-feature"><code>perfect_pattern_count</code> (New Feature)<a class="headerlink" href="#perfect_pattern_count-new-feature" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of perfect discriminator matches only (subset of huntable patterns).</p>
+<p><strong>How it's identified:</strong>
+- Searches against <strong>103 perfect discriminators</strong> only
+- These are keywords that had <strong>100% precision</strong> in training data analysis
+- Includes Windows executables, registry paths, PowerShell techniques, EDR query syntax</p>
+<p><strong>Accuracy:</strong> Very High - Perfect discriminators have 100% precision (0% false positives in training data)</p>
+<p><strong>Examples:</strong>
+- <code>rundll32.exe</code>, <code>comspec</code>, <code>msiexec.exe</code>, <code>wmic.exe</code>
+- <code>hklm</code>, <code>appdata</code>, <code>programdata</code>, <code>powershell.exe</code>
+- <code>.lnk</code>, <code>D:\</code>, <code>.iso</code>, <code>MZ</code>
+- <code>svchost.exe</code>, <code>lsass.exe</code>, <code>WINDIR</code>, <code>wintmp</code>
+- KQL tables: <code>DeviceProcessEvents</code>, <code>DeviceNetworkEvents</code>
+- Falcon EDR fields: <code>ProcessRollup2</code>, <code>event_simpleName</code></p>
+<hr />
+<h3 id="other_huntable_pattern_count-new-feature"><code>other_huntable_pattern_count</code> (New Feature)<a class="headerlink" href="#other_huntable_pattern_count-new-feature" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of huntable patterns excluding perfect discriminators.</p>
+<p><strong>How it's identified:</strong>
+- Good discriminators + LOLBAS executables + Intelligence indicators
+- Excludes patterns already counted in perfect discriminators</p>
+<p><strong>Accuracy:</strong> High - Supporting technical content indicators</p>
+<hr />
+<h3 id="huntable_pattern_ratio"><code>huntable_pattern_ratio</code><a class="headerlink" href="#huntable_pattern_ratio" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Ratio of huntable patterns to total word count.</p>
+<p><strong>Calculation:</strong> <code>huntable_pattern_count / word_count</code></p>
+<p><strong>Purpose:</strong> Normalizes pattern count by text length to compare chunks of different sizes.</p>
+<hr />
+<h3 id="not_huntable_pattern_ratio"><code>not_huntable_pattern_ratio</code><a class="headerlink" href="#not_huntable_pattern_ratio" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Ratio of negative indicators to total word count.</p>
+<p><strong>Calculation:</strong> <code>not_huntable_pattern_count / word_count</code></p>
+<p><strong>Purpose:</strong> Identifies marketing/PR content density.</p>
+<hr />
+<h3 id="perfect_pattern_ratio-new-feature"><code>perfect_pattern_ratio</code> (New Feature)<a class="headerlink" href="#perfect_pattern_ratio-new-feature" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Ratio of perfect discriminators to total word count.</p>
+<p><strong>Calculation:</strong> <code>perfect_pattern_count / word_count</code></p>
+<p><strong>Purpose:</strong> Measures technical depth density.</p>
+<hr />
+<h3 id="other_huntable_pattern_ratio-new-feature"><code>other_huntable_pattern_ratio</code> (New Feature)<a class="headerlink" href="#other_huntable_pattern_ratio-new-feature" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Ratio of other huntable patterns to total word count.</p>
+<p><strong>Calculation:</strong> <code>other_huntable_pattern_count / word_count</code></p>
+<hr />
+<h2 id="text-characteristics">Text Characteristics<a class="headerlink" href="#text-characteristics" title="Permanent link">&para;</a></h2>
+<h3 id="char_count"><code>char_count</code><a class="headerlink" href="#char_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Total character count in the text chunk.</p>
+<p><strong>How it's identified:</strong>
+- Direct: <code>len(text)</code>
+- Includes all characters (spaces, punctuation, etc.)</p>
+<p><strong>Accuracy:</strong> Exact</p>
+<hr />
+<h3 id="word_count"><code>word_count</code><a class="headerlink" href="#word_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Total word count in the text chunk.</p>
+<p><strong>How it's identified:</strong>
+- Direct: <code>len(text.split())</code>
+- Splits on whitespace</p>
+<p><strong>Accuracy:</strong> High - Simple whitespace splitting (may miscount hyphenated words)</p>
+<hr />
+<h3 id="sentence_count"><code>sentence_count</code><a class="headerlink" href="#sentence_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Number of sentences in the text chunk.</p>
+<p><strong>How it's identified:</strong>
+- Uses <code>count_sentences()</code> function from <code>sentence_splitter</code> module
+- Uses SpaCy sentence boundary detection for accuracy
+- Handles abbreviations and decimal numbers correctly</p>
+<p><strong>Accuracy:</strong> High - Uses NLP sentence boundary detection</p>
+<hr />
+<h3 id="avg_word_length"><code>avg_word_length</code><a class="headerlink" href="#avg_word_length" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Average length of words in the chunk.</p>
+<p><strong>How it's identified:</strong>
+- Calculation: <code>mean([len(word) for word in text.split()])</code>
+- Uses NumPy for calculation</p>
+<p><strong>Accuracy:</strong> High - Simple statistical measure</p>
+<p><strong>Purpose:</strong> Longer words may indicate technical terminology.</p>
+<hr />
+<h2 id="technical-content-indicators">Technical Content Indicators<a class="headerlink" href="#technical-content-indicators" title="Permanent link">&para;</a></h2>
+<h3 id="command_count"><code>command_count</code><a class="headerlink" href="#command_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of command execution patterns.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"\b(powershell|cmd|bash|ssh|curl|wget|invoke)\b"</code>
+- Case-insensitive word boundary matching
+- Matches common command-line tools and execution keywords</p>
+<p><strong>Accuracy:</strong> High - Specific command keywords with word boundaries</p>
+<p><strong>Examples:</strong>
+- <code>powershell</code>, <code>cmd</code>, <code>bash</code>, <code>ssh</code>, <code>curl</code>, <code>wget</code>, <code>invoke</code></p>
+<hr />
+<h3 id="url_count"><code>url_count</code><a class="headerlink" href="#url_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of HTTP/HTTPS URLs in the text.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"http[s]?://[^\s]+"</code>
+- Matches <code>http://</code> or <code>https://</code> followed by non-whitespace characters</p>
+<p><strong>Accuracy:</strong> Very High - Standard URL pattern matching</p>
+<hr />
+<h3 id="ip_count"><code>ip_count</code><a class="headerlink" href="#ip_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of IPv4 addresses in the text.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"</code>
+- Matches 1-3 digit groups separated by dots with word boundaries
+- <strong>Note:</strong> Does not validate IP ranges (e.g., 999.999.999.999 would match)</p>
+<p><strong>Accuracy:</strong> Medium-High - May have false positives for non-IP numbers (e.g., version numbers)</p>
+<p><strong>Limitation:</strong> Does not validate that numbers are in valid IP range (0-255)</p>
+<hr />
+<h3 id="file_path_count"><code>file_path_count</code><a class="headerlink" href="#file_path_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of file system paths in the text.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"[A-Za-z]:\\\\[^\s]+|/[^\s]+"</code>
+- Matches:
+  - Windows paths: <code>C:\path\to\file</code> (drive letter + backslashes)
+  - Unix paths: <code>/path/to/file</code> (leading slash)</p>
+<p><strong>Accuracy:</strong> High - Common path patterns</p>
+<p><strong>Examples:</strong>
+- <code>C:\Windows\System32\cmd.exe</code>
+- <code>/usr/bin/bash</code>
+- <code>D:\temp\file.txt</code></p>
+<hr />
+<h3 id="process_count"><code>process_count</code><a class="headerlink" href="#process_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of specific process names in the text.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"\b(node\.exe|ws_tomcatservice\.exe|powershell\.exe|cmd\.exe)\b"</code>
+- Case-insensitive word boundary matching
+- Matches specific executable names commonly referenced in threat hunting</p>
+<p><strong>Accuracy:</strong> High - Specific process names</p>
+<p><strong>Limitation:</strong> Only matches 4 specific processes (not comprehensive)</p>
+<hr />
+<h3 id="cve_count"><code>cve_count</code><a class="headerlink" href="#cve_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of CVE (Common Vulnerabilities and Exposures) references.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"CVE-\d{4}-\d+"</code> (case-insensitive)
+- Matches format: <code>CVE-YYYY-NNNN+</code></p>
+<p><strong>Accuracy:</strong> Very High - Standard CVE format is unique</p>
+<p><strong>Examples:</strong>
+- <code>CVE-2023-1234</code>
+- <code>CVE-2024-56789</code></p>
+<hr />
+<h2 id="content-quality-indicators">Content Quality Indicators<a class="headerlink" href="#content-quality-indicators" title="Permanent link">&para;</a></h2>
+<h3 id="technical_term_count"><code>technical_term_count</code><a class="headerlink" href="#technical_term_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of technical security terminology.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"\b(dll|exe|payload|backdoor|shell|exploit|vulnerability|malware)\b"</code>
+- Case-insensitive word boundary matching
+- Matches common security/technical terms</p>
+<p><strong>Accuracy:</strong> High - Specific technical keywords</p>
+<p><strong>Examples:</strong>
+- <code>dll</code>, <code>exe</code>, <code>payload</code>, <code>backdoor</code>, <code>shell</code>, <code>exploit</code>, <code>vulnerability</code>, <code>malware</code></p>
+<hr />
+<h3 id="marketing_term_count"><code>marketing_term_count</code><a class="headerlink" href="#marketing_term_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of marketing/PR terminology.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"\b(demo|free trial|book a demo|managed service|platform)\b"</code>
+- Case-insensitive word boundary matching
+- Identifies commercial/marketing language</p>
+<p><strong>Accuracy:</strong> High - Common marketing phrases</p>
+<p><strong>Examples:</strong>
+- <code>demo</code>, <code>free trial</code>, <code>book a demo</code>, <code>managed service</code>, <code>platform</code></p>
+<hr />
+<h3 id="acknowledgment_count"><code>acknowledgment_count</code><a class="headerlink" href="#acknowledgment_count" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Count of acknowledgment/gratitude phrases.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"\b(acknowledgement|gratitude|thank you|appreciate|contact)\b"</code>
+- Case-insensitive word boundary matching
+- Identifies author bios, contact sections, acknowledgments</p>
+<p><strong>Accuracy:</strong> High - Common acknowledgment phrases</p>
+<p><strong>Examples:</strong>
+- <code>acknowledgement</code>, <code>gratitude</code>, <code>thank you</code>, <code>appreciate</code>, <code>contact</code></p>
+<hr />
+<h3 id="technical_term_ratio"><code>technical_term_ratio</code><a class="headerlink" href="#technical_term_ratio" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Ratio of technical terms to total word count.</p>
+<p><strong>Calculation:</strong> <code>technical_term_count / word_count</code></p>
+<p><strong>Purpose:</strong> Measures technical content density.</p>
+<hr />
+<h3 id="marketing_term_ratio"><code>marketing_term_ratio</code><a class="headerlink" href="#marketing_term_ratio" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Ratio of marketing terms to total word count.</p>
+<p><strong>Calculation:</strong> <code>marketing_term_count / word_count</code></p>
+<p><strong>Purpose:</strong> Identifies marketing content density.</p>
+<hr />
+<h2 id="structural-features-boolean">Structural Features (Boolean)<a class="headerlink" href="#structural-features-boolean" title="Permanent link">&para;</a></h2>
+<h3 id="has_code_blocks"><code>has_code_blocks</code><a class="headerlink" href="#has_code_blocks" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating presence of code blocks.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"```|</code>[^<code>]+</code>"<code>- Matches:
+  - Triple backticks:</code> <code>` `
+  - Inline code:</code> <code>code</code> ``</p>
+<p><strong>Accuracy:</strong> High - Standard markdown code block patterns</p>
+<hr />
+<h3 id="has_commands"><code>has_commands</code><a class="headerlink" href="#has_commands" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating presence of command markers.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"Command:|Cleartext:"</code>
+- Matches specific command extraction markers</p>
+<p><strong>Accuracy:</strong> High - Specific markers from extraction system</p>
+<p><strong>Purpose:</strong> Identifies extracted command-line data.</p>
+<hr />
+<h3 id="has_urls"><code>has_urls</code><a class="headerlink" href="#has_urls" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating presence of URLs.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"http[s]?://"</code>
+- Simple presence check (not count)</p>
+<p><strong>Accuracy:</strong> Very High</p>
+<hr />
+<h3 id="has_file_paths"><code>has_file_paths</code><a class="headerlink" href="#has_file_paths" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating presence of file paths.</p>
+<p><strong>How it's identified:</strong>
+- Regex pattern: <code>r"[A-Za-z]:\\\\|/[^\s]+"</code>
+- Matches Windows or Unix path patterns</p>
+<p><strong>Accuracy:</strong> High</p>
+<hr />
+<h2 id="hunt-score-integration-features">Hunt Score Integration Features<a class="headerlink" href="#hunt-score-integration-features" title="Permanent link">&para;</a></h2>
+<h3 id="hunt_score"><code>hunt_score</code><a class="headerlink" href="#hunt_score" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Normalized threat hunting score (0-1 range).</p>
+<p><strong>How it's identified:</strong>
+- Source: Article metadata <code>threat_hunting_score</code> (0-100 range)
+- Normalization: <code>hunt_score / 100.0</code>
+- Calculated by <code>ThreatHuntingScorer.score_threat_hunting_content()</code></p>
+<p><strong>Calculation Method:</strong>
+- Uses logarithmic bucket scoring with geometric series
+- Perfect discriminators: 75 points max
+- LOLBAS: 10 points max
+- Intelligence indicators: 10 points max
+- Good discriminators: 5 points max
+- Negative penalty: -10 points max
+- Final score: 0-99.9 range (never reaches 100)</p>
+<p><strong>Accuracy:</strong> Very High - Based on validated keyword analysis of 319 articles</p>
+<hr />
+<h3 id="hunt_score_high"><code>hunt_score_high</code><a class="headerlink" href="#hunt_score_high" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating high-quality content (score ≥ 70).</p>
+<p><strong>How it's identified:</strong>
+- Calculation: <code>1.0 if hunt_score &gt;= 70 else 0.0</code>
+- Binary feature for high-quality threshold</p>
+<p><strong>Accuracy:</strong> Exact</p>
+<hr />
+<h3 id="hunt_score_medium"><code>hunt_score_medium</code><a class="headerlink" href="#hunt_score_medium" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating medium-quality content (30-69).</p>
+<p><strong>How it's identified:</strong>
+- Calculation: <code>1.0 if 30 &lt;= hunt_score &lt; 70 else 0.0</code>
+- Binary feature for medium-quality range</p>
+<p><strong>Accuracy:</strong> Exact</p>
+<hr />
+<h3 id="hunt_score_low"><code>hunt_score_low</code><a class="headerlink" href="#hunt_score_low" title="Permanent link">&para;</a></h3>
+<p><strong>Definition:</strong> Boolean indicating low-quality content (score &lt; 30).</p>
+<p><strong>How it's identified:</strong>
+- Calculation: <code>1.0 if hunt_score &lt; 30 else 0.0</code>
+- Binary feature for low-quality threshold</p>
+<p><strong>Accuracy:</strong> Exact</p>
+<hr />
+<h2 id="feature-identification-accuracy-summary">Feature Identification Accuracy Summary<a class="headerlink" href="#feature-identification-accuracy-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Accuracy</th>
+<th>Method</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>perfect_pattern_count</code></td>
+<td>Very High</td>
+<td>Regex + validated keywords</td>
+<td>100% precision in training data</td>
+</tr>
+<tr>
+<td><code>hunt_score</code></td>
+<td>Very High</td>
+<td>Logarithmic scoring system</td>
+<td>Based on 319 article analysis</td>
+</tr>
+<tr>
+<td><code>cve_count</code></td>
+<td>Very High</td>
+<td>Regex pattern</td>
+<td>Standard CVE format</td>
+</tr>
+<tr>
+<td><code>url_count</code></td>
+<td>Very High</td>
+<td>Regex pattern</td>
+<td>Standard URL format</td>
+</tr>
+<tr>
+<td><code>huntable_pattern_count</code></td>
+<td>High</td>
+<td>Regex + keyword lists</td>
+<td>Validated keyword sets</td>
+</tr>
+<tr>
+<td><code>command_count</code></td>
+<td>High</td>
+<td>Regex with word boundaries</td>
+<td>Specific command keywords</td>
+</tr>
+<tr>
+<td><code>file_path_count</code></td>
+<td>High</td>
+<td>Regex pattern</td>
+<td>Common path patterns</td>
+</tr>
+<tr>
+<td><code>sentence_count</code></td>
+<td>High</td>
+<td>NLP (SpaCy)</td>
+<td>Sentence boundary detection</td>
+</tr>
+<tr>
+<td><code>ip_count</code></td>
+<td>Medium-High</td>
+<td>Regex pattern</td>
+<td>May match non-IP numbers</td>
+</tr>
+<tr>
+<td><code>process_count</code></td>
+<td>High</td>
+<td>Regex pattern</td>
+<td>Limited to 4 specific processes</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pattern-matching-details">Pattern Matching Details<a class="headerlink" href="#pattern-matching-details" title="Permanent link">&para;</a></h2>
+<h3 id="keyword-matching-algorithm">Keyword Matching Algorithm<a class="headerlink" href="#keyword-matching-algorithm" title="Permanent link">&para;</a></h3>
+<p>The system uses <code>ThreatHuntingScorer._keyword_matches()</code> for pattern matching:</p>
+<ol>
+<li><strong>Regex Patterns:</strong> If keyword starts with <code>r"</code>, treated as raw regex</li>
+<li><strong>Word Boundaries:</strong> Literal keywords use word boundaries to prevent false positives</li>
+<li><strong>Obfuscation Detection:</strong> Includes regex patterns for cmd.exe obfuscation:</li>
+<li>Environment variable substring access: <code>%VAR:~0,5%</code></li>
+<li>Delayed expansion: <code>!VAR!</code></li>
+<li>Caret obfuscation: <code>s^e^t</code>, <code>c^a^l^l</code></li>
+<li>FOR loop obfuscation</li>
+<li><strong>Case-Insensitive:</strong> All matching is case-insensitive</li>
+</ol>
+<h3 id="perfect-discriminators-103-patterns">Perfect Discriminators (103 patterns)<a class="headerlink" href="#perfect-discriminators-103-patterns" title="Permanent link">&para;</a></h3>
+<p><strong>Source:</strong> Analysis of 319 articles showing 100% precision (0% false positives)</p>
+<p><strong>Categories:</strong>
+- <strong>Windows Executables:</strong> <code>rundll32.exe</code>, <code>msiexec.exe</code>, <code>svchost.exe</code>, <code>lsass.exe</code>
+- <strong>Registry/Paths:</strong> <code>hklm</code>, <code>appdata</code>, <code>programdata</code>, <code>WINDIR</code>, <code>wintmp</code>
+- <strong>Command Execution:</strong> <code>powershell.exe</code>, <code>wmic.exe</code>, <code>iex</code>, <code>findstr.exe</code>
+- <strong>File Types:</strong> <code>.lnk</code>, <code>.iso</code>, <code>MZ</code>
+- <strong>PowerShell Techniques:</strong> <code>FromBase64String</code>, <code>MemoryStream</code>, <code>DownloadString</code>
+- <strong>KQL Tables:</strong> <code>DeviceProcessEvents</code>, <code>DeviceNetworkEvents</code>, <code>EmailEvents</code>
+- <strong>Falcon EDR Fields:</strong> <code>ProcessRollup2</code>, <code>event_simpleName</code>, <code>ImageFileName</code>
+- <strong>SentinelOne Fields:</strong> <code>TgtFileProcessPath</code>, <code>SrcProcParentPath</code>
+- <strong>Splunk CIM:</strong> <code>Processes</code>, <code>Network_Traffic</code>
+- <strong>Elastic Security:</strong> <code>process.command_line</code>, <code>file.path</code></p>
+<hr />
+<h2 id="model-training-context">Model Training Context<a class="headerlink" href="#model-training-context" title="Permanent link">&para;</a></h2>
+<p>-- <strong>Algorithm:</strong> RandomForestClassifier
+-- <strong>Training Data:</strong> 278 historical samples (222 annotations and+ 81 feedback) — dataset labels reflect legacy "high/low signal" annotations and do not imply an active article-level classification UI
+- samples)
+- <strong>Features:</strong> 27 base features (31 with new features)
+- <strong>Feature Importances:</strong> Learned during training (not equal weighting)
+- <strong>Accuracy:</strong> ~80% on test data</p>
+<p>The model learns which features are most important for classification, with features like <code>hunt_score</code>, <code>perfect_pattern_count</code>, and <code>huntable_pattern_count</code> typically having higher importances than structural features like <code>char_count</code> or <code>avg_word_length</code>.</p>
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTU4MzMxOTcxN119
+-->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.tabs", "navigation.sections", "navigation.expand", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
