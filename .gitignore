@@ -74,9 +74,6 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
-# Docker
-.dockerignore
-
 # Logs
 logs/
 *.log
