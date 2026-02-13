@@ -1,0 +1,117 @@
+# Git
+.git/
+.github/
+.gitignore
+
+# Models folder - exclude from Docker builds
+models/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.so
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+*.egg
+.venv
+venv/
+venv-*/
+env/
+ENV/
+
+# Coverage and test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+tests/
+test_*.py
+*_test.py
+run_tests.py
+run_tests.sh
+playwright-report/
+allure-results/
+allure-report/
+.playwright-mcp/
+
+# Docs and site (MkDocs output)
+site/
+docs/
+
+# IDE and OS
+.DS_Store
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Logs and temp
+logs/
+*.log
+log/
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+
+# Node (if not used in image)
+node_modules/
+
+# Large data and datasets
+data/
+datasets/
+*.csv
+*.parquet
+*.joblib
+*.h5
+*.onnx
+
+# Config with sensitive data (optional at build time)
+config/local.yaml
+config/production.yaml
+config/secrets.yaml
+
+# Database and backups (runtime data)
+*.db
+*.sqlite
+*.sqlite3
+backups/
+*.dump
+
+# Project-specific
+outputs/
+Downloaded_PDF_Reports/
+Workshop/
+README.md
+*.md
