@@ -43,28 +43,31 @@ def assert_test_environment():
     if "cti_scraper" in test_db_url and "test" not in test_db_url:
         raise RuntimeError(f"Cannot use production database 'cti_scraper' in tests: {test_db_url}")
 
-    # API Key Safety: Prohibit cloud LLM API keys without explicit authorization
-    cloud_llm_keys = {
-        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
-        "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
-        "CHATGPT_API_KEY": os.getenv("CHATGPT_API_KEY"),
-    }
+    # API Key Safety: Prohibit cloud LLM API keys without explicit authorization.
+    # Smoke and unit runs do not rely on cloud LLMs; skip this check so local dev with keys set can run.
+    test_group = os.getenv("TEST_GROUP", "")
+    if test_group not in ("smoke", "unit"):
+        cloud_llm_keys = {
+            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
+            "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
+            "CHATGPT_API_KEY": os.getenv("CHATGPT_API_KEY"),
+        }
 
-    present_keys = [key for key, value in cloud_llm_keys.items() if value]
+        present_keys = [key for key, value in cloud_llm_keys.items() if value]
 
-    if present_keys:
-        allow_cloud_llm = os.getenv("ALLOW_CLOUD_LLM_IN_TESTS", "false").lower() in ("true", "1", "yes")
+        if present_keys:
+            allow_cloud_llm = os.getenv("ALLOW_CLOUD_LLM_IN_TESTS", "false").lower() in ("true", "1", "yes")
 
-        if not allow_cloud_llm:
-            raise RuntimeError(
-                f"Cloud LLM API keys detected in test environment: {', '.join(present_keys)}. "
-                "Tests are prohibited from using cloud LLM APIs to prevent accidental costs. "
-                "If you explicitly need cloud LLM APIs in tests, set ALLOW_CLOUD_LLM_IN_TESTS=true. "
-                "Use local LLM (LMSTUDIO_API_URL) or mocks for testing instead."
+            if not allow_cloud_llm:
+                raise RuntimeError(
+                    f"Cloud LLM API keys detected in test environment: {', '.join(present_keys)}. "
+                    "Tests are prohibited from using cloud LLM APIs to prevent accidental costs. "
+                    "If you explicitly need cloud LLM APIs in tests, set ALLOW_CLOUD_LLM_IN_TESTS=true. "
+                    "Use local LLM (LMSTUDIO_API_URL) or mocks for testing instead."
+                )
+            warnings.warn(
+                f"Cloud LLM API keys are enabled in tests: {', '.join(present_keys)}. "
+                "This may incur API costs. Ensure this is intentional.",
+                UserWarning,
+                stacklevel=2,
             )
-        warnings.warn(
-            f"Cloud LLM API keys are enabled in tests: {', '.join(present_keys)}. "
-            "This may incur API costs. Ensure this is intentional.",
-            UserWarning,
-            stacklevel=2,
-        )
