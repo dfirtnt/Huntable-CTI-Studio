@@ -14,7 +14,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
-from src.database.models import ArticleTable, EnrichmentPresetTable, EnrichmentPromptVersionTable, SigmaRuleQueueTable
+from src.database.models import AgenticWorkflowConfigTable, AppSettingsTable, ArticleTable, EnrichmentPresetTable, EnrichmentPromptVersionTable, SigmaRuleQueueTable
+from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
 from src.services.sigma_validator import validate_sigma_rule
@@ -24,6 +25,55 @@ from src.utils.prompt_loader import format_prompt
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sigma-queue", tags=["sigma-queue"])
+
+
+def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None]:
+    """Resolve provider, model, and API key for Sigma agent from active workflow config and AppSettings.
+    Returns (provider, model, api_key). api_key is None for lmstudio."""
+    config = (
+        db_session.query(AgenticWorkflowConfigTable)
+        .filter(AgenticWorkflowConfigTable.is_active == True)
+        .order_by(AgenticWorkflowConfigTable.version.desc())
+        .first()
+    )
+    if not config or not config.agent_models:
+        raise HTTPException(
+            status_code=400,
+            detail="No active workflow configuration or Sigma agent model. Configure Agents (Sigma Agent) in Workflow first.",
+        )
+    agent_models = config.agent_models or {}
+    provider = (agent_models.get("SigmaAgent_provider") or "lmstudio").lower().strip()
+    if provider not in ("openai", "anthropic", "gemini", "lmstudio"):
+        provider = "lmstudio"
+    model = (agent_models.get("SigmaAgent") or "").strip()
+    if not model and provider != "lmstudio":
+        model = {
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-sonnet-4-5",
+            "gemini": "gemini-1.5-pro",
+        }.get(provider, "gpt-4o-mini")
+    if not model:
+        model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+
+    api_key = None
+    if provider == "openai":
+        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]).first()
+        api_key = (row.value if row else None) or os.getenv("WORKFLOW_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    elif provider == "anthropic":
+        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]).first()
+        api_key = (row.value if row else None) or os.getenv("WORKFLOW_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    elif provider == "gemini":
+        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]).first()
+        api_key = (row.value if row else None) or os.getenv("WORKFLOW_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    elif provider == "lmstudio":
+        api_key = "not_required"
+
+    if provider != "lmstudio" and (not api_key or not str(api_key).strip()):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sigma agent uses {provider} but no API key is configured. Set it in Settings or environment.",
+        )
+    return provider, model, (api_key.strip() if api_key and provider != "lmstudio" else api_key)
 
 
 class QueuedRuleResponse(BaseModel):
@@ -1399,25 +1449,29 @@ async def validate_rule(request: Request, queue_id: int):
             except Exception:
                 pass
 
-            # Get provider and model from request, default to OpenAI
-            provider = (body.get("provider") or "openai").lower()
-            model = body.get("model") or "gpt-4o-mini"
+            # Use workflow Sigma agent LLM when requested (same as agent workflow)
+            use_workflow_sigma_agent = body.get("use_workflow_sigma_agent") is True
+            if use_workflow_sigma_agent:
+                provider, model, api_key = _get_sigma_agent_llm_from_workflow(db_session)
+            else:
+                # Get provider and model from request, default to OpenAI
+                provider = (body.get("provider") or "openai").lower()
+                model = body.get("model") or "gpt-4o-mini"
+                # Get API key from request headers (not needed for LMStudio)
+                api_key = None
+                if provider == "openai":
+                    api_key = request.headers.get("X-OpenAI-API-Key")
+                elif provider == "anthropic":
+                    api_key = request.headers.get("X-Anthropic-API-Key")
+                elif provider == "gemini":
+                    api_key = request.headers.get("X-Gemini-API-Key")
+                elif provider == "lmstudio":
+                    api_key = "not_required"
+
             # Use modal rule YAML when provided so edits are validated
             current_rule_yaml_from_request = None
             if body.get("rule_yaml") and isinstance(body["rule_yaml"], str) and body["rule_yaml"].strip():
                 current_rule_yaml_from_request = body["rule_yaml"].strip()
-
-            # Get API key from request headers (not needed for LMStudio)
-            api_key = None
-            if provider == "openai":
-                api_key = request.headers.get("X-OpenAI-API-Key")
-            elif provider == "anthropic":
-                api_key = request.headers.get("X-Anthropic-API-Key")
-            elif provider == "gemini":
-                api_key = request.headers.get("X-Gemini-API-Key")
-            elif provider == "lmstudio":
-                # LMStudio doesn't need an API key, uses local URL
-                api_key = "not_required"
 
             # Initialize conversation log before any early returns
             conversation_log = []
@@ -1433,6 +1487,8 @@ async def validate_rule(request: Request, queue_id: int):
                     "message": f"API key is required for {provider}",
                     "conversation_log": conversation_log,
                     "validation_results": validation_results,
+                    "provider": provider,
+                    "model": model,
                 }
 
             # System message for validation (same as AI/ML Assistant modal)
@@ -1795,6 +1851,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 "message": f"Rule validated successfully after {attempt} attempt(s)",
                                 "conversation_log": conversation_log,
                                 "validation_results": validation_results,
+                                "provider": provider,
+                                "model": model,
                             }
                         # Validation failed, collect errors for next attempt
                         validation_errors = validation_result.errors
@@ -1867,6 +1925,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                 "message": f"Validation failed after {max_attempts} attempts",
                 "conversation_log": conversation_log,
                 "validation_results": validation_results,
+                "provider": provider,
+                "model": model,
             }
 
         finally:
@@ -1883,6 +1943,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                 "message": str(e.detail),
                 "conversation_log": conversation_log if "conversation_log" in locals() else [],
                 "validation_results": validation_results if "validation_results" in locals() else [],
+                "provider": provider if "provider" in locals() else "workflow",
+                "model": model if "model" in locals() else "Sigma agent",
             }
         raise
     except Exception as e:
@@ -1897,6 +1959,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                 "message": f"Error validating rule: {str(e)}",
                 "conversation_log": conversation_log,
                 "validation_results": validation_results if "validation_results" in locals() else [],
+                "provider": provider if "provider" in locals() else "workflow",
+                "model": model if "model" in locals() else "Sigma agent",
             }
         raise HTTPException(status_code=500, detail=str(e)) from e
 

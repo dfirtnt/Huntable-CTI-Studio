@@ -1972,7 +1972,8 @@ END SYSTEM PROMPT</textarea>
                             </div>
                         </div>
                         <div id="enrichDiffView" class="hidden mt-4">
-                            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
+                            <div id="enrichDiffError" class="hidden mb-4"></div>
+                            <div id="enrichDiffContent" class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
                                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Results</h3>
                                 
                                 <!-- Overall Similarity & Novelty Classification -->
@@ -11101,6 +11102,37 @@ function previewRule(ruleId) {
     pushModal('ruleModal', false); // Don't hide previous, rule modal is base level
 }
 
+async function seedValidateDropdownsFromWorkflowConfig() {
+    const validateProviderSelect = document.getElementById('validateProviderSelect');
+    const validateModelSelect = document.getElementById('validateModelSelect');
+    if (!validateProviderSelect || !validateModelSelect) return;
+    let agentModels = (typeof currentConfig !== 'undefined' && currentConfig?.agent_models) ? currentConfig.agent_models : null;
+    if (!agentModels) {
+        try {
+            const res = await fetch('/api/workflow/config');
+            if (res.ok) {
+                const cfg = await res.json();
+                agentModels = cfg.agent_models || {};
+            }
+        } catch (e) {
+            return;
+        }
+    }
+    const provider = (agentModels['SigmaAgent_provider'] || 'lmstudio').toLowerCase();
+    const model = (agentModels['SigmaAgent'] || '').trim();
+    if (provider && validateProviderSelect.value !== provider) {
+        validateProviderSelect.value = provider;
+        validateProviderSelect.dispatchEvent(new Event('change'));
+    }
+    setTimeout(() => {
+        if (model && validateModelSelect.querySelector(`option[value="${model}"]`)) {
+            validateModelSelect.value = model;
+        } else if (model) {
+            validateModelSelect.value = model;
+        }
+    }, 100);
+}
+
 function initializeValidateDropdowns() {
     const validateProviderSelect = document.getElementById('validateProviderSelect');
     const validateModelSelect = document.getElementById('validateModelSelect');
@@ -11185,8 +11217,11 @@ function renderRulePreview(rule) {
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
     
-    // Initialize validate dropdowns when rule preview is rendered
-    setTimeout(() => initializeValidateDropdowns(), 100);
+    // Initialize validate dropdowns when rule preview is rendered; seed with workflow Sigma agent (display-only, Validate uses workflow LLM)
+    setTimeout(() => {
+        initializeValidateDropdowns();
+        setTimeout(() => seedValidateDropdownsFromWorkflowConfig(), 150);
+    }, 100);
     
     let similarRulesHtml = '';
     if (similarityScores.length > 0) {
@@ -11479,54 +11514,23 @@ async function validateRule() {
         showNotification('No rule selected', 'warning');
         return;
     }
-    
-    // Get provider and model from dropdowns
-    const providerSelect = document.getElementById('validateProviderSelect');
-    const modelSelect = document.getElementById('validateModelSelect');
-    const selectedProvider = providerSelect ? providerSelect.value : 'openai';
-    const selectedModel = modelSelect ? modelSelect.value : 'gpt-4o-mini';
-    
-    if (!selectedProvider || !selectedModel) {
-        showNotification('Please select both a provider and model.', 'error');
-        return;
-    }
-    
-    // Get API key based on provider
-    let apiKey = null;
-    try {
-        const response = await fetch('/api/settings');
-        if (response.ok) {
-            const data = await response.json();
-            const settings = data.settings || {};
-            if (selectedProvider === 'openai') {
-                apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
-            } else if (selectedProvider === 'anthropic') {
-                apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-            } else if (selectedProvider === 'gemini') {
-                apiKey = settings.WORKFLOW_GEMINI_API_KEY || settings.GEMINI_API_KEY;
-            }
-            // LMStudio doesn't need API key
-        }
-    } catch (error) {
-        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
-    }
-    
-    if (!apiKey && selectedProvider !== 'lmstudio') {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        if (selectedProvider === 'openai') {
-            apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
-        } else if (selectedProvider === 'anthropic') {
-            apiKey = settings.aiAnthropicApiKey;
-        } else if (selectedProvider === 'gemini') {
-            apiKey = settings.geminiApiKey;
+
+    // Sync and persist current modal content so validation uses edits
+    const currentYaml = getCurrentRuleYamlFromModal();
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (rule && currentYaml !== rule.rule_yaml) {
+        const putRes = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: currentYaml })
+        });
+        if (putRes.ok) {
+            rule.rule_yaml = currentYaml;
+            editedYaml = currentYaml;
+            originalYaml = currentYaml;
         }
     }
-    
-    if (!apiKey && selectedProvider !== 'lmstudio') {
-        showNotification('Please configure your ' + selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1) + ' API key in Settings first.', 'error');
-        return;
-    }
-    
+
     // Show loading indicator
     const loadingMsg = document.createElement('div');
     loadingMsg.id = 'validationLoading';
@@ -11535,49 +11539,20 @@ async function validateRule() {
         <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 dark:text-gray-300">Validating rule with LLM + pySIGMA...</p>
+                <p class="text-gray-700 dark:text-gray-300">Validating rule with workflow Sigma agent (LLM + pySIGMA)...</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take up to 3 attempts</p>
             </div>
         </div>
     `;
     document.body.appendChild(loadingMsg);
-    
+
     try {
-        // Build request headers
-        const headers = {
-            'Content-Type': 'application/json'
-        };
-        
-        if (selectedProvider === 'openai') {
-            headers['X-OpenAI-API-Key'] = apiKey;
-        } else if (selectedProvider === 'anthropic') {
-            headers['X-Anthropic-API-Key'] = apiKey;
-        } else if (selectedProvider === 'gemini') {
-            headers['X-Gemini-API-Key'] = apiKey;
-        }
-        
-        // Sync and persist current modal content so validation uses edits
-        const currentYaml = getCurrentRuleYamlFromModal();
-        const rule = queue.find(r => r.id === currentRuleId);
-        if (rule && currentYaml !== rule.rule_yaml) {
-            const putRes = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rule_yaml: currentYaml })
-            });
-            if (putRes.ok) {
-                rule.rule_yaml = currentYaml;
-                editedYaml = currentYaml;
-                originalYaml = currentYaml;
-            }
-        }
-        
+        // Use same LLM as agent workflow (Sigma agent from workflow config; API keys server-side)
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/validate`, {
             method: 'POST',
-            headers: headers,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                provider: selectedProvider,
-                model: selectedModel,
+                use_workflow_sigma_agent: true,
                 rule_yaml: currentYaml
             })
         });
@@ -11603,7 +11578,9 @@ async function validateRule() {
                 attempts: 0,
                 conversation_log: [],
                 validation_results: [],
-                errors: [data.detail || data.message || 'Unknown error']
+                errors: [data.detail || data.message || 'Unknown error'],
+                provider: data.provider || 'workflow',
+                model: data.model || 'Sigma agent'
             };
         }
         
@@ -11615,8 +11592,8 @@ async function validateRule() {
             data.validation_results = [];
         }
         
-        // Show conversation log modal
-        showValidationConversationModal(data, selectedProvider, selectedModel);
+        // Show conversation log modal (provider/model from response = workflow Sigma agent)
+        showValidationConversationModal(data, data.provider || 'workflow', data.model || 'Sigma agent');
         
     } catch (error) {
         // Remove loading indicator
@@ -12835,36 +12812,53 @@ function escapeHtml(text) {
 
 async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
     const diffView = document.getElementById('enrichDiffView');
+    const diffError = document.getElementById('enrichDiffError');
+    const diffContent = document.getElementById('enrichDiffContent');
     
     if (!diffView) {
         console.warn('Diff view element not found');
         return;
     }
     
+    function showDiffError(html) {
+        diffView.classList.remove('hidden');
+        if (diffError) {
+            diffError.innerHTML = html;
+            diffError.classList.remove('hidden');
+        }
+        if (diffContent) diffContent.classList.add('hidden');
+    }
+    
+    function hideDiffError() {
+        if (diffError) {
+            diffError.innerHTML = '';
+            diffError.classList.add('hidden');
+        }
+        if (diffContent) diffContent.classList.remove('hidden');
+    }
+    
     // Basic validation - check if rules are not empty
     if (!originalYaml || !originalYaml.trim()) {
-        diffView.classList.remove('hidden');
-        diffView.innerHTML = `<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        showDiffError(`<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div class="flex items-center">
                 <span class="text-amber-400 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
                 <span class="text-yellow-800 dark:text-yellow-200">Original rule is empty. Cannot compare.</span>
             </div>
-        </div>`;
+        </div>`);
         return;
     }
     
     if (!enrichedYaml || !enrichedYaml.trim()) {
-        diffView.classList.remove('hidden');
-        diffView.innerHTML = `<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        showDiffError(`<div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div class="flex items-center">
                 <span class="text-amber-400 dark:text-yellow-400 font-semibold mr-2">⚠️ Warning:</span>
                 <span class="text-yellow-800 dark:text-yellow-200">Enriched rule is empty. Cannot compare.</span>
             </div>
-        </div>`;
+        </div>`);
         return;
     }
     
-    // Show loading state
+    hideDiffError();
     diffView.classList.remove('hidden');
     const overallSimilarityEl = document.getElementById('enrichOverallSimilarity');
     const noveltyLabelEl = document.getElementById('enrichNoveltyLabel');
@@ -12921,27 +12915,22 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
         
     } catch (error) {
         console.error('Error generating enrichment diff:', error);
-        // Show error in diff view with more detail
-        const diffView = document.getElementById('enrichDiffView');
-        if (diffView) {
-            // Preserve the structure but show error message
-            const errorMsg = error.message || 'Failed to compare rules';
-            const isValidationError = errorMsg.includes('validation') || errorMsg.includes('Invalid YAML') || errorMsg.includes('Rule') || errorMsg.includes('validation');
-            
-            diffView.innerHTML = `<div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Error</h3>
-                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <div class="flex items-start">
-                        <span class="text-red-600 dark:text-red-400 font-semibold mr-2 mt-1">❌</span>
-                        <div class="flex-1">
-                            <div class="text-red-800 dark:text-red-200 font-semibold mb-2">${isValidationError ? 'Validation Error' : 'Comparison Failed'}</div>
-                            <div class="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap">${escapeHtml(errorMsg)}</div>
-                            ${isValidationError ? '<div class="text-red-600 dark:text-red-400 text-xs mt-2 italic">Tip: Ensure both rules are valid Sigma YAML before comparing.</div>' : ''}
-                        </div>
+        const errorMsg = error.message || 'Failed to compare rules';
+        const isValidationError = errorMsg.includes('validation') || errorMsg.includes('Invalid YAML') || errorMsg.includes('Rule') || errorMsg.includes('validation');
+        const errorHtml = `<div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Error</h3>
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div class="flex items-start">
+                    <span class="text-red-600 dark:text-red-400 font-semibold mr-2 mt-1">❌</span>
+                    <div class="flex-1">
+                        <div class="text-red-800 dark:text-red-200 font-semibold mb-2">${isValidationError ? 'Validation Error' : 'Comparison Failed'}</div>
+                        <div class="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap">${escapeHtml(errorMsg)}</div>
+                        ${isValidationError ? '<div class="text-red-600 dark:text-red-400 text-xs mt-2 italic">Tip: The enriched output may include prose before the YAML. Comparison extracts the YAML block when possible.</div>' : ''}
                     </div>
                 </div>
-            </div>`;
-        }
+            </div>
+        </div>`;
+        showDiffError(errorHtml);
     }
 }
 
