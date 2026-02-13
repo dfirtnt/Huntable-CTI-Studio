@@ -164,22 +164,14 @@ else
     echo "⚠️ Sigma sync failed (run manually: ./run_cli.sh sigma sync)"
 fi
 
-# Optional: run MkDocs build/server
+# Seed eval articles from static files into DB (so evals and Articles list work after rehydration)
 echo ""
-printf "Run MkDocs docs build/server? [y/N] "
-read -r run_mkdocs
-case "${run_mkdocs:-n}" in
-    [yY]|[yY][eE][sS])
-        if [ -x "./run_mkdocs.sh" ]; then
-            nohup ./run_mkdocs.sh >> logs/mkdocs.log 2>&1 </dev/null &
-            disown -h
-            echo "✅ MkDocs server starting in background (./run_mkdocs.sh); logs: logs/mkdocs.log"
-        else
-            echo "⚠️ ./run_mkdocs.sh not found or not executable"
-        fi
-        ;;
-    *) ;;
-esac
+echo "📄 Eval articles: seeding from config/eval_articles_data..."
+if $DC run --rm cli python scripts/seed_eval_articles_to_db.py 2>/dev/null; then
+    echo "✅ Eval articles seeded (or already present)"
+else
+    echo "⚠️ Eval articles seed failed (run manually: $DC run --rm cli python scripts/seed_eval_articles_to_db.py)"
+fi
 
 echo ""
 echo "🎉 CTI Scraper is running!"
@@ -215,4 +207,21 @@ echo ""
 echo "   • Reload sources from YAML:  ./run_cli.sh init"
 echo "   • DB stats (sources):       ./run_cli.sh stats"
 echo "   • Collect articles now:     ./run_cli.sh collect  (otherwise wait for the next 30-min run)"
+echo ""
+
+# Optional: run MkDocs build/server (prompt last so startup clearly finishes first)
+printf "Optionally run MkDocs docs server? [y/N] "
+read -r run_mkdocs
+case "${run_mkdocs:-n}" in
+    [yY]|[yY][eE][sS])
+        if [ -x "./run_mkdocs.sh" ]; then
+            nohup ./run_mkdocs.sh >> logs/mkdocs.log 2>&1 </dev/null &
+            disown -h
+            echo "✅ MkDocs server starting in background (./run_mkdocs.sh); logs: logs/mkdocs.log"
+        else
+            echo "⚠️ ./run_mkdocs.sh not found or not executable"
+        fi
+        ;;
+    *) ;;
+esac
 echo ""

@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Preset prompt merge**: Script and preset for filling workflow presets from repo prompts
+  - `scripts/merge_prompts_into_preset.py` — merges `src/prompts` contents into a preset JSON's `agent_prompts`
+  - `presets/AgentConfigs/anthropic-no-lmstudio-prompts.json` — Anthropic-focused preset with all agent prompts populated
 - **Documentation Overhaul**: Complete reorganization and enhancement of MkDocs documentation
   - Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation
   - Enhanced quickstart.md with clear outcome statements

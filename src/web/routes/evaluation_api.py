@@ -615,9 +615,20 @@ async def get_execution_commandlines(
                 if isinstance(extraction_warnings, list):
                     warnings.extend(extraction_warnings)
 
+            # Article title and URL for display
+            article_title = ""
+            article_url = ""
+            if execution.article_id is not None:
+                article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
+                if article:
+                    article_title = (article.title or "").strip()
+                    article_url = article.canonical_url or ""
+
             return {
                 "execution_id": execution_id,
                 "article_id": execution.article_id,
+                "article_title": article_title or None,
+                "article_url": article_url or None,
                 "commandlines": commandlines,
                 "count": len(commandlines),
                 "subagent_eval": normalized_subagent_eval or (raw_subagent_eval or ""),
@@ -741,6 +752,25 @@ async def get_subagent_eval_articles(
         url_to_id = resolve_articles_by_urls(urls) if urls else {}
         url_to_static = _load_static_eval_articles(subagent_key)
 
+        # Batch-fetch titles for DB-resolved articles
+        article_ids = [url_to_id[u] for u in urls if url_to_id.get(u)]
+        id_to_title: dict[int, str] = {}
+        if article_ids:
+            try:
+                db_manager = DatabaseManager()
+                db_session = db_manager.get_session()
+                try:
+                    rows = (
+                        db_session.query(ArticleTable.id, ArticleTable.title)
+                        .filter(ArticleTable.id.in_(article_ids))
+                        .all()
+                    )
+                    id_to_title = {r[0]: (r[1] or "") for r in rows}
+                finally:
+                    db_session.close()
+            except Exception as e:
+                logger.warning("Could not fetch article titles for eval list: %s", e)
+
         results = []
         for article_def in articles:
             url = article_def.get("url")
@@ -750,9 +780,15 @@ async def get_subagent_eval_articles(
             from_static = url in url_to_static
             found = article_id is not None or from_static
             expected_count = article_def.get("expected_count", 0)
+            title = ""
+            if from_static and url in url_to_static:
+                title = (url_to_static[url].get("title") or "").strip()
+            if not title and article_id is not None:
+                title = (id_to_title.get(article_id) or "").strip()
             results.append(
                 {
                     "url": url,
+                    "title": title or None,
                     "expected_count": expected_count,
                     "article_id": article_id,
                     "found": found,
@@ -1046,6 +1082,26 @@ async def get_subagent_eval_results(
 
             eval_records = query.order_by(SubagentEvaluationTable.created_at.desc()).all()
 
+            # Batch-fetch article titles for records with article_id
+            article_ids = [r.article_id for r in eval_records if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS]
+            id_to_title: dict[int, str] = {}
+            if article_ids:
+                rows = (
+                    db_session.query(ArticleTable.id, ArticleTable.title)
+                    .filter(ArticleTable.id.in_(article_ids))
+                    .all()
+                )
+                id_to_title = {r[0]: (r[1] or "") for r in rows}
+
+            # For static evals (article_id null), get title from static data
+            url_to_static = _load_static_eval_articles(canonical_subagent)
+            def _title_for_record(rec: SubagentEvaluationTable) -> str:
+                if rec.article_id is not None:
+                    return (id_to_title.get(rec.article_id) or "").strip()
+                if rec.article_url and rec.article_url in url_to_static:
+                    return (url_to_static[rec.article_url].get("title") or "").strip()
+                return ""
+
             results = []
             for record in eval_records:
                 if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
@@ -1080,6 +1136,7 @@ async def get_subagent_eval_results(
                     {
                         "id": record.id,
                         "url": record.article_url,
+                        "title": _title_for_record(record) or None,
                         "article_id": record.article_id,
                         "subagent_name": record.subagent_name,  # Include subagent_name for filtering
                         "expected_count": record.expected_count,
