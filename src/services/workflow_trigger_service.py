@@ -9,6 +9,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
+from src.utils.default_agent_prompts import get_default_agent_prompts
 from src.worker.celery_app import trigger_agentic_workflow
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,8 @@ class WorkflowTriggerService:
             )
 
             if not config:
-                # Create default config if none exists
+                # Create default config if none exists (with prompts from src/prompts)
+                default_prompts = get_default_agent_prompts()
                 config = AgenticWorkflowConfigTable(
                     min_hunt_score=97.0,
                     ranking_threshold=6.0,
@@ -43,11 +45,17 @@ class WorkflowTriggerService:
                     is_active=True,
                     description="Default configuration",
                     qa_enabled={},
+                    agent_prompts=default_prompts if default_prompts else None,
                 )
                 self.db.add(config)
                 self.db.commit()
                 logger.info("Created default agentic workflow configuration")
 
+            # Fallback: if DB has no agent_prompts, use defaults from src/prompts so agents work out of the box
+            if not config.agent_prompts or (isinstance(config.agent_prompts, dict) and len(config.agent_prompts) == 0):
+                defaults = get_default_agent_prompts()
+                if defaults:
+                    config.agent_prompts = defaults
             return config
 
         except Exception as e:

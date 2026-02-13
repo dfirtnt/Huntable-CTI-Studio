@@ -12,6 +12,7 @@ from sqlalchemy import func
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable, WorkflowConfigPresetTable
+from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,8 @@ async def get_workflow_config(request: Request):
             )
 
             if not config:
-                # Create default config
+                # Create default config with prompts from src/prompts so agents ship with working defaults
+                default_prompts = get_default_agent_prompts()
                 config = AgenticWorkflowConfigTable(
                     min_hunt_score=97.0,
                     ranking_threshold=6.0,
@@ -113,6 +115,7 @@ async def get_workflow_config(request: Request):
                     sigma_fallback_enabled=False,
                     qa_enabled={},
                     qa_max_retries=5,
+                    agent_prompts=default_prompts if default_prompts else None,
                 )
                 db_session.add(config)
                 db_session.commit()
@@ -122,6 +125,9 @@ async def get_workflow_config(request: Request):
             # JSONB fields should already be dicts, but ensure they're not None
             agent_models = config.agent_models if config.agent_models is not None else {}
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
+            # Fallback: if DB has no prompts, use defaults from src/prompts so UI and workflow get working prompts
+            if not agent_prompts:
+                agent_prompts = get_default_agent_prompts()
             qa_enabled = config.qa_enabled if config.qa_enabled is not None else {}
 
             # Get auto_trigger_hunt_score_threshold, handling both attribute access and potential None

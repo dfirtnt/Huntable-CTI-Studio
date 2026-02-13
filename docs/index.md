@@ -40,7 +40,7 @@ If prompted, you can run the MkDocs docs server in the background (**y**); logs 
 
 - **Run it now** → [Quickstart](quickstart.md) — ingest an article, run the workflow, see Sigma rules in 5 minutes
 - **Understand the concepts** → [Huntables](concepts/huntables.md) | [Agents](concepts/agents.md) | [Pipelines](concepts/pipelines.md) | [Observables](concepts/observables.md)
-- **Configure and operate** → [Installation](getting-started/installation.md) | [Configuration](getting-started/configuration.md) | [First Workflow](getting-started/first-workflow.md)
+- **Configure and operate** → [Installation](getting-started/installation.md) | [Configuration](getting-started/configuration.md) | [First Workflow](getting-started/first-workflow.md) — load a [workflow baseline preset](getting-started/configuration.md#workflow-baseline-presets-getting-started) to get started with prompts and models
 - **Add feeds and extract data** → [Add a Feed](guides/add-feed.md) | [Extract Observables](guides/extract-observables.md) | [Generate Sigma Rules](guides/generate-sigma.md)
 - **Understand the architecture** → [Architecture Overview](architecture/overview.md) | [Workflow Data Flow](architecture/workflow-data-flow.md) | [Scoring](architecture/scoring.md)
 - **Extend or integrate** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [Schemas](reference/schemas.md)
