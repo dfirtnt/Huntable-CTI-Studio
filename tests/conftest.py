@@ -6,6 +6,107 @@ import os
 import sys
 import warnings
 
+# Ensure transformers modules have names they use but do not import (LRScheduler, nn).
+# Resolve values at install time to avoid re-entrant imports during hook execution.
+def _install_transformers_compat_hooks():
+    import importlib.abc
+    import importlib.machinery
+    import importlib.util
+
+    _lrs_val = None
+    _nn_val = None
+    try:
+        m = importlib.import_module("torch.optim.lr_scheduler")
+        _lrs_val = getattr(m, "LRScheduler", None) or getattr(m, "_LRScheduler", None)
+    except Exception:
+        pass
+    try:
+        _torch = importlib.import_module("torch")
+        _nn_val = _torch.nn
+        # torch.uint16/32/64 added in 2.3; older builds lack them — alias so imports succeed
+        for u, i in [("uint16", "int16"), ("uint32", "int32"), ("uint64", "int64")]:
+            if not hasattr(_torch, u):
+                setattr(_torch, u, getattr(_torch, i, None))
+    except Exception:
+        _torch = None
+        _nn_val = None
+
+    def _make_hook(target_name, inject_pairs):
+        # inject_pairs: list of (name, value); value can be None if not yet resolved
+        class _LoaderWrapper:
+            def __init__(self, original_loader):
+                self._loader = original_loader
+                self._pairs = inject_pairs
+
+            def create_module(self, spec):
+                return self._loader.create_module(spec)
+
+            def exec_module(self, module):
+                for name, val in self._pairs:
+                    if val is not None:
+                        module.__dict__[name] = val
+                self._loader.exec_module(module)
+
+        class _Finder(importlib.abc.MetaPathFinder):
+            def find_spec(self, name, path=None, target=None):
+                if name != target_name:
+                    return None
+                sys.meta_path.remove(self)
+                try:
+                    real_spec = importlib.util.find_spec(name)
+                finally:
+                    sys.meta_path.insert(0, self)
+                if real_spec is None or real_spec.loader is None:
+                    return None
+                wrapped = _LoaderWrapper(real_spec.loader)
+                return importlib.machinery.ModuleSpec(
+                    name, wrapped, origin=real_spec.origin, is_package=False
+                )
+
+        return _Finder()
+
+    if _lrs_val is not None:
+        sys.meta_path.insert(0, _make_hook("transformers.trainer_pt_utils", [("LRScheduler", _lrs_val)]))
+    if _nn_val is not None and _torch is not None:
+        # Any transformers.integrations.* module may use torch/nn in annotations
+        def _make_integrations_hook():
+            pairs = [("nn", _nn_val), ("torch", _torch)]
+
+            class _LoaderWrapper:
+                def __init__(self, original_loader):
+                    self._loader = original_loader
+                    self._pairs = pairs
+
+                def create_module(self, spec):
+                    return self._loader.create_module(spec)
+
+                def exec_module(self, module):
+                    for name, val in self._pairs:
+                        if val is not None:
+                            module.__dict__[name] = val
+                    self._loader.exec_module(module)
+
+            class _Finder(importlib.abc.MetaPathFinder):
+                def find_spec(self, name, path=None, target=None):
+                    if not name.startswith("transformers.integrations.") or name == "transformers.integrations":
+                        return None
+                    sys.meta_path.remove(self)
+                    try:
+                        real_spec = importlib.util.find_spec(name)
+                    finally:
+                        sys.meta_path.insert(0, self)
+                    if real_spec is None or real_spec.loader is None:
+                        return None
+                    wrapped = _LoaderWrapper(real_spec.loader)
+                    return importlib.machinery.ModuleSpec(
+                        name, wrapped, origin=real_spec.origin, is_package=False
+                    )
+
+            return _Finder()
+
+        sys.meta_path.insert(0, _make_integrations_hook())
+_install_transformers_compat_hooks()
+
 import pydantic.warnings
 import pytest
 import pytest_asyncio
