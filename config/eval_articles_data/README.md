@@ -46,6 +46,18 @@ python3 scripts/dump_eval_articles_static.py
 
 This writes or overwrites `config/eval_articles_data/{subagent}/articles.json` for each subagent from the DB (includes localhost articles and applies the junk filter for `filtered_content`). Commit the updated JSON files so evals can run without the DB.
 
+## Duplicates across subagents
+
+Three URLs appear in more than one subagent file (same article used for different evals):
+
+| URL |
+|-----|
+| `https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/` (cmdline + process_lineage) |
+| `https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-th...` (cmdline + process_lineage) |
+| `https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up` (cmdline + process_lineage) |
+
+The seed script dedupes by URL (first file wins), so only one DB row is created per URL. Having the same URL in multiple files is intentional so each subagent eval can reference that article. If the seed reports “3 errors”, those are usually duplicate `content_hash` (same article already in the DB from another source); the 29 articles are still inserted.
+
 ## See also
 
 - [Eval Articles: Static Files](../../docs/development/EVAL_ARTICLES_STATIC_FILES.md) — tracking doc and current flow.

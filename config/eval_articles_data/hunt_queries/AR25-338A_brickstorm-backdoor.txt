@@ -1,0 +1,902 @@
+   
+Malware 
+Analysis 
+Report 
+This document is marked TLP:CLEAR. Disclosure is not limited. Sources may use TLP:CLEAR when information carries 
+minimal or no foreseeable risk of misuse, in accordance with applicable rules and procedures for public release. Subject 
+to standard copyright rules, TLP:CLEAR information may be distributed without restriction. For more information, see 
+Traffic Light Protocol (TLP) Definitions and Usage. 
+TLP:CLEAR 
+BRICKSTORM Backdoor 
+Initial Publication: December 4, 2025 
+U.S. Cybersecurity and Infrastructure Security Agency 
+U.S. National Security Agency 
+Canadian Centre for Cyber Security 
+ 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 2 of 48 TLP:CLEAR 
+Malware Analysis at a Glance 
+Malware Name BRICKSTORM 
+Original Publication Dec. 4, 2025 
+Last Update Feb. 11, 2026 
+Executive Summary 
+The Cybersecurity and Infrastructure Security Agency (CISA), National Security 
+Agency (NSA), and Canadian Centre for Cyber Security (Cyber Centre) assess 
+People’s Republic of China (PRC) state-sponsored cyber actors are using 
+BRICKSTORM malware for long-term persistence on victim systems. CISA, NSA, 
+and Cyber Centre are releasing this Malware Analysis Report to share indicators 
+of compromise (IOCs) and detection signatures based off analysis of 12 
+BRICKSTORM samples. CISA, NSA, and Cyber Centre urge organizations to use 
+the IOCs and detection signatures to identify BRICKSTORM malware samples. 
+Last Update Description 
+CISA, NSA, and Cyber Centre updated this Malware Analysis Report on Feb. 11, 
+2026, with analysis, IOCs, and detection signatures from a new variant of 
+BRICKSTORM. 
+Key Actions 
+▪ Use the IOCs and detection signatures to identify BRICKSTORM samples. 
+▪ If BRICKSTORM, similar malware, or potentially related activity is detected, 
+report the incident to CISA, Cyber Centre, or required authorities 
+immediately. 
+Indicators of 
+Compromise 
+For a downloadable copy of IOCs associated with this malware, see:  
+▪ MAR-251165.c1.v1.CLEAR (Dec. 4, 2025) 
+▪ MAR-2512217.c1.v2.CLEAR (Dec. 19, 2025) 
+▪ MAR-261234.c1.v1.CLEAR (Feb. 11, 2026) 
+Detection 
+This Malware Analysis Report includes YARA and Sigma rules. 
+For a downloadable copy of the Sigma rules associated with this malware, see: 
+AR25-338A Sigma YAML. 
+Intended Audience 
+Organizations: Government and critical infrastructure organizations. 
+Roles: Digital forensics analysts, incident responders, vulnerability analysts, 
+system administrators. 
+  
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 3 of 48 TLP:CLEAR 
+Table of Contents 
+Introduction ................................................................................................................................................................... 4 
+Malware Summary ....................................................................................................................................................... 5 
+Malware Delivery .......................................................................................................................................................... 5 
+Malware Metadata ....................................................................................................................................................... 6 
+Malware Functionality .............................................................................................................................................. 10 
+Detection .................................................................................................................................................................... 22 
+Incident Response ..................................................................................................................................................... 36 
+Mitigations .................................................................................................................................................................. 36 
+Disclaimer ................................................................................................................................................................... 37 
+Acknowledgements ................................................................................................................................................... 37 
+Version History ........................................................................................................................................................... 37 
+Appendix A: MITRE ATT&CK Techniques ............................................................................................................... 38 
+Appendix B: Scanning Guidance on Remote Hosts ............................................................................................. 40 
+Appendix C: Dec. 19, 2025, Updates ..................................................................................................................... 41 
+Appendix D: Feb. 11, 2026, Updates ..................................................................................................................... 45 
+Notes ........................................................................................................................................................................... 48 
+  
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 4 of 48 TLP:CLEAR 
+Introduction 
+Note: This Malware Analysis Report was originally published Dec. 4, 2025, to share indicators of 
+compromise (IOCs) and detection signatures for BRICKSTORM malware. The Cybersecurity and 
+Infrastructure Security Agency (CISA), National Security Agency (NSA), and Canadian Centre for Cyber 
+Security (Cyber Centre) have updated this Malware Analysis Report three times. 
+▪ Dec. 19, 2025, with IOCs and detection signatures for three additional BRICKSTORM samples. See 
+Appendix C: Dec. 19, 2025, Updates and Table 12. 
+▪ Jan. 20, 2026, with detection signatures. See Table 12. 
+▪ Feb. 11, 2026, with analysis, IOCs, and detection signatures for an additional sample of 
+BRICKSTORM. This sample is a different variant than the other samples. See Appendix D: Feb. 11, 
+2026, Updates and Table 12. 
+CISA, NSA, and Cyber Centre assess People’s Republic of China (PRC) state-sponsored cyber actors are 
+using BRICKSTORM malware for long-term persistence on victim systems. Victim organizations are 
+primarily in the Government Services and Facilities and Information Technology Sectors. BRICKSTORM is a 
+sophisticated backdoor for VMware vSphere (specifically VMware vCenter servers,1 VMware ESXI,2 and 
+VMware Aria Automation Orchestrator) and Windows environments.3  
+These cyber actors have been observed targeting VMware vSphere platforms. Once compromised, the 
+cyber actors can use their access to the vCenter management console to steal cloned virtual machine (VM) 
+snapshots for credential extraction and create hidden, rogue VMs. See CISA’s Alert PRC State-Sponsored 
+APT Actors Employ BRICKSTORM Malware Across Public Sector and Information Technology. 
+CISA analyzed 12 BRICKSTORM samples obtained from victim organizations, including an organization 
+where CISA conducted an incident response engagement. (CISA initially analyzed eight samples. The Dec. 
+19, 2025, update includes analysis of three additional samples and the Feb. 11, 2026, update includes 
+analysis of one sample.) 
+At the victim organization where CISA conducted an incident response engagement, PRC state-sponsored 
+cyber actors gained long-term persistent access to the organization’s internal network in April 2024 and 
+uploaded BRICKSTORM malware to an internal VMware vCenter server. They also gained access to two 
+domain controllers and an Active Directory Federation Services (ADFS) server. They successfully 
+compromised the ADFS server and exported cryptographic keys. The cyber actors used BRICKSTORM for 
+persistent access from at least April 2024 through at least Sep. 3, 2025. 
+CISA, NSA, and Cyber Centre urge organizations to use the IOCs and detection signatures in this Malware 
+Analysis Report to identify BRICKSTORM malware samples. If identified, follow the guidance in the Incident 
+Response section. 
+For a downloadable copy of IOCs associated with this malware, see:  
+▪ MAR-251165.c1.v1.CLEAR (Dec. 4, 2025) 
+▪ MAR-2512217.c1.v2.CLEAR (Dec. 19, 2025) 
+▪ MAR-261234.c1.v1.CLEAR (Feb. 11, 2026) 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 5 of 48 TLP:CLEAR 
+For a downloadable copy of the Sigma rule associated with this malware, see: AR25-338A Sigma YAML. 
+For more information on PRC state-sponsored cyber activity, see CISA’s People’s Republic of China Threat 
+Overview and Advisories webpage. 
+Malware Summary 
+BRICKSTORM is a custom Executable and Linkable Format (ELF) Go- or Rust-based backdoor (eight 
+originally analyzed samples are Go-based, and two of the three new samples in the Dec. 19, 2025, update 
+are Rust-based). The analyzed samples differ in function, but all enable cyber actors to maintain stealthy 
+access and provide capabilities for initiation, persistence, and secure command and control (C2). Even 
+though the analyzed samples were for VMware vSphere environments, there is reporting about Windows 
+versions. 
+BRICKSTORM initiates by running checks and maintains persistence by using a self-watching function and 
+automatically reinstalls or restarts if disrupted. 
+For C2, BRICKSTORM uses multiple layers of encryption (HTTPS, WebSockets, nested Transport Layer 
+Security [TLS]) to hide its communications with the cyber actors’ C2 server. It also uses DNS-over-HTTPS 
+(DoH) and mimics web server functionality to blend its communications with legitimate traffic. For remote 
+system control, BRICKSTORM gives cyber actors interactive shell access on the system and allows them to 
+browse, upload, download, create, delete, and manipulate files. In addition, some samples act as a SOCKS 
+proxy, facilitating lateral movement and allowing cyber actors to compromise additional systems. 
+Malware Delivery 
+Note: This advisory uses the MITRE ATT&CK® Matrix for Enterprise framework, version 18. See Appendix A: 
+MITRE ATT&CK Techniques for tables mapping the cyber actors’ activity to MITRE ATT&CK tactics and 
+techniques. 
+At the victim organization where CISA conducted an incident response engagement, PRC state-sponsored 
+cyber actors accessed a web server on April 11, 2024. The web server was inside the organization’s 
+demilitarized zone (DMZ), and cyber actors accessed it through a web shell [T1505.003] present on the 
+server. Incident data does not indicate how they obtained initial access to the web server or when the web 
+shell was implanted. On the same day, the cyber actors used service account credentials [T1078] to move 
+laterally using Remote Desktop Protocol (RDP) [T1021.001] from the web server to a domain controller in 
+the DMZ, from which they copied the Active Directory (AD) database (ntds.dit) [T1003.003]. 
+On April 12, 2024, the cyber actors moved laterally from the web server to a domain controller within the 
+internal network using RDP and credentials associated with a second service account. It is unknown how 
+they obtained the credentials. Subsequently, they copied the AD database, obtaining credentials for a 
+managed service provider (MSP) account. Using the MSP credentials, the cyber actors proceeded to move 
+from the internal domain controller to the VMware vCenter server. 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 6 of 48 TLP:CLEAR 
+From the web server, the actors also moved laterally using Server Message Block (SMB) to two jump 
+servers and an ADFS server, from which they exfiltrated cryptographic keys. See Figure 1 for a diagram of 
+the cyber actors’ movement. 
+ 
+Figure 1. PRC State-Sponsored Cyber Actors’ Lateral Movement 
+After gaining access to vCenter, the cyber actors elevated privileges using the sudo command 
+[T1548.003], dropped BRICKSTORM malware in the server’s /etc/sysconfig/ directory [T1105], and 
+modified the system’s init file in /etc/sysconfig/ to run BRICKSTORM. 
+The modified init file controls the bootup process [T1037] on VMware vSphere systems and executes 
+BRICKSTORM. Typically, this file is used to define certain visual variables for the bootup process. After the 
+setting for visual variables, an additional line was added to the script to execute BRICKSTORM from the 
+hard-coded file path /etc/sysconfig/. 
+Note: CISA is still completing analysis to understand the malicious activity and full impact of the 
+compromise. 
+Malware Metadata 
+See Table 1 through Table 8 for metadata of the analyzed malware Samples 1 through 8. See Appendix C: 
+Dec. 19, 2025, Updates for metadata of Samples 9 through 11 and Appendix D: Feb. 11, 2026, Updates 
+for metadata of Sample 12. 
+Table 1. BRICKSTORM Sample 1 
+File Name vmsrc 
+Size 7692288 bytes 
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 7 of 48 TLP:CLEAR 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 8e4c88d00b6eb46229a1ed7001451320 
+SHA1 9bf4c786ebd68c0181cfe3eb85d2fd202ed12c54 
+SHA256 aaf5569c8e349c15028bc3fac09eb982efb06eabac955b705a6d447263658e38 
+SHA512 5e654776e9c419e11e6f93a452415a601bd9a2079710f1074608570e498a9af37b81bb
+57c98cb8bb626c5ee4b3e35757d3ae8c1c3717f28d9f3fe7a4cebe0608 
+ssdeep 49152:9lDeYNeYunc1S3/U05q+CIKUbwgBfd1Vww/uUJSZina/TokDDko0n8oQhEoAgsUJ:O3l
+cE380sIDbdB11p3i/TokEIowlb/r 
+Entropy 5.993799 
+Table 2. BRICKSTORM Sample 2 
+File Name vnetd 
+Size 26603668 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 39111508bfde89ce6e0fe6abe0365552 
+SHA1 f639d9404c03af86ce452db5c5e0c528b81dc0d7 
+SHA256 013211c56caaa697914b5b5871e4998d0298902e336e373ebb27b7db30917eaf 
+SHA512 74b4c6f7c7cae07c6f8edf3f2fb1e9206d4f1f9734e8e4784b15d192eec8cd8a4f59078fc0
+c56dc4ad0856cdd792337b5c92ffd3d2240c8a287a776df4363bba 
+ssdeep 196608:GbkKsdDjru3WUIOsW5SYVRk/Qvk1LzK3RMxy2wBW:GwKMjr3Os4k/QiLzERMMdW 
+Entropy 6.211446 
+Table 3. BRICKSTORM Sample 3 
+File Name if-up 
+Size 15511700 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 8 of 48 TLP:CLEAR 
+MD5 dbca28ad420408850a94d5c325183b28 
+SHA1 fb11c6caa4ea844942fe97f46d7eb42bc76911ab 
+SHA256 57bd98dbb5a00e54f07ffacda1fea91451a0c0b532cd7d570e98ce2ff741c21d 
+SHA512 659205fa2cfa85e484c091cc2e85a7ec4e332b196e423b1f39bafdc8fca33e3db712bbe07
+afcc091ff26d9b4f641fa9a73f2a66dce9a0ced54ebeb8c2be82a7f 
+ssdeep 98304:dzB06b0KX4Mnb+sJf+AjBzH3MF4m1d4U2TuAJ5VGY3glknTSk2nH:dFQKIsJBBzXMu
+m83RJ5VGY3gS2nH 
+Entropy 6.102490 
+Table 4. BRICKSTORM Sample 4 
+File Name viocli 
+Size 6311936 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 0a4fa52803a389311a9ddc49b7b19138 
+SHA1 97001baaa379bcd83677dca7bc5b8048fdfaaddc 
+SHA256 b3b6a992540da96375e4781afd3052118ad97cfe60ccf004d732f76678f6820a 
+SHA512 65ebf5dfafb8972ffead44271436ec842517cfaaf3d1f1f1237a32d66e1d280943bd3a69f1
+d539a1b7aca6152e96b29bc822e1047e2243f6aec8959595560147 
+ssdeep 49152:BgClz8/9cMSThwhWyh/zypzOzRzqm9hRp6FY+fAn/bkNqr+HfHF2xkdpb3gAiDli:W08/
+9I6WMzUcRz9zvn//Z5D 
+Entropy 6.005898 
+Table 5. BRICKSTORM Sample 5 
+File Name vts 
+Size 6303744 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 82bf31e7d768e6d4d3bc7c8c8ef2b358 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 9 of 48 TLP:CLEAR 
+SHA1 de28546ec356c566cd8bca205101a733e9a4a22d 
+SHA256 22c15a32b69116a46eb5d0f2b228cc37cd1b5915a91ec8f38df79d3eed1da26b 
+SHA512 4c52caf2e5f114103ed5f60c6add3aa26c741b07869bb66e3c25a1dc290d4a8bf87c42c3
+36e8ac8ebf82d9a9b23eaa18c31f7051a5970a8fe1125a2da890340f 
+ssdeep 49152:uP9kPWdmrJl+9zxKsSJ32ssUZGHZ9ECKDfvCb3XKRbaYJcRHMH9xkdgY3gqF2HxR:yq
+Wdmd4x5SgssUZ0OCKDfvChYrRq 
+Entropy 6.005438 
+Table 6. BRICKSTORM Sample 6 
+File Name vmckd 
+Size 6311936 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 18f895e24fe1181bb559215ff9cf6ce3 
+SHA1 c3549d4e5e39a11f609fc6fbf5cc1f2c0ec272b4 
+SHA256 f7cda90174b806a34381d5043e89b23ba826abcc89f7abd520060a64475ed506 
+SHA512 79276523a6a507e3fa1b12b96e09b10a01c783a53d58b9ae7f5780a379431639a8016
+5e81154522649b8e2098e86d1a310efffebe32faafc7b3bc093eec60a64 
+ssdeep 49152:6XUQ9anktEg7z/QbPB83A+FQGQzqufqCjt2F81jh+eS53OOwJylHJHuxkdqz3gHG:mVa
+nkxn2Pe3JQGQz57t2Y4f3TwrQHAz 
+Entropy 6.005752 
+Table 7. BRICKSTORM Sample 7 
+Size 8332689 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 a52e36a70b5e0307cbcaa5fd7c97882c 
+SHA1 44a3d3f15ef75d9294345462e1b82272b0d11985 
+SHA256 39b3d8a8aedffc1b40820f205f6a4dc041cd37262880e5030b008175c45b0c46 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 10 of 48 TLP:CLEAR 
+SHA512 bbe18d32bef66ccfa931468511e8ba55b32943e47a1df1e68bb5c8f8ae97a5bf99120185
+8ae9632fa24df5f6c674b6cb260297a1c11889ca61bda68513f440ce 
+ssdeep 98304:78Se5lqfYMKDdopPx0E4j+dM/GLaCXNwqYL6wt/5APUnb:78Se54fYMUaiE4j+dM/GL
+aCXNmLP+ 
+Entropy 6.063930 
+Table 8. BRICKSTORM Sample 8 
+Size 8332689 bytes 
+Type ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped 
+MD5 a02469742f7b0bc9a8ab5e26822b3fa8 
+SHA1 10d811029f6e5f58cd06143d6353d3b05bc06d0f 
+SHA256 73fe8b8fb4bd7776362fd356fdc189c93cf5d9f6724f6237d829024c10263fe5 
+SHA512 8e29aeb3603ffe307b2d60f7401bd9978bebe8883235eb88052ebf6b9e04ce6bf356674
+80cedea5712c1e13e8c6dcfb34d5fde0ddca6ca31328de0152509bf8f 
+ssdeep 98304:78Se5lqfYMKDdopPx0E4j+dM/GLaCXNwqYL6wt/5APUnU:78Se54fYMUaiE4j+dM/GL
+aCXNmLP+ 
+Entropy 6.063928 
+Malware Functionality 
+Note: This analysis is of Samples 1 through 8. See Appendix C: Dec. 19, 2025, Updates for functionality of 
+Samples 9 through 11. 
+All analyzed samples enable cyber actors to maintain stealthy access and provide capabilities for 
+environment configuration (initiation), persistence, and secure C2. While initiation and persistence 
+functions are similar across the samples, the secure C2 function varies. BRICKSTORM uses custom 
+handlers to set up a SOCKS proxy, create a web server on the compromised system, and execute 
+commands on the compromised system. 
+Samples 7 and 8 were designed to work in virtualized environments, using a virtual socket (VSOCK) 
+interface to enable inter-VM communication, facilitate data exfiltration, and maintain persistence. 
+Most samples used Exclusive OR (XOR) cipher encryption to hide key strings, such as the Internet Protocol 
+version 4 (IPv4) addresses of public DoH servers, within their code. 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 11 of 48 TLP:CLEAR 
+Initiation Capabilities 
+Upon execution, BRICKSTORM runs checks and can reinstall and restart itself to maintain persistence. 
+BRICKSTORM initiates a function (referred to as main_startNew in some samples) to configure 
+environment variables specific to the compromised environment, enabling it to operate effectively. 
+Following this, BRICKSTORM identifies if it is already in its intended state and proceeds to continue 
+running, copy itself for execution, or terminate based on the following logic: 
+1. Environment Variable Check: BRICKSTORM checks a specified environment variable (differs by 
+sample; see Table 9) to determine if it is running as a child process (to identify if it is running in its 
+intended state). 
+a. If the specified variable is set, indicating it is running as a child process, BRICKSTORM 
+continues its code execution. 
+b. If the specified variable is not set (indicating it is not running as a child process), BRICKSTORM 
+checks whether it is executing from /etc/sysconfig/ (Samples 1 through 2 and 4 through 7) 
+or /etc/sysconfig/network/ (Sample 3) by attempting to load file contents from that path. 
+2. File Path Validation and Copying: If BRICKSTORM is running from the validated path, it copies itself 
+to a specific location with a specific file name. 
+c. Next, the parent BRICKSTORM instance modifies the PATH environment variable by appending 
+the copied location’s path [T1574.007]. This ensures the newly copied version of BRICKSTORM 
+will be executed first if any commands or processes attempt to run VMware vSphere. 
+d. The parent instance subsequently executes the copied instance of BRICKSTORM with the 
+specified variable set in the context of the child process and terminates its own execution. 
+3. Termination: If BRICKSTORM is not running from the validated path, it terminates its own 
+execution. 
+See Figure 2 for the operational flow of the malware. 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 12 of 48 TLP:CLEAR 
+ 
+Figure 2. BRICKSTORM Operational Flow, Malware Initiation 
+See Table 9 for checked variables, copied locations, and copied file names of the analyzed samples. 
+Table 9. BRICKSTORM Initiation Checks and Copied File Information 
+Sample 
+Checked Environment Variable 
+to Determine if Running as a 
+Child Process 
+Copied Location Copied File Name 
+Sample 1 VMware [T1036] /opt/vmware/sbin vmware-sphere 
+Sample 2 [redacted]ET4 /usr/java/jre-vmware/bin/ updatemgr 
+Sample 3 CZePMeGj etc/applmgmt/appliance/ vami 
+Sample 4 [redacted]NET6 /usr/java/jre-vmware/bin/ updatemgr 
+Sample 5 FIOON /usr/java/jre-vmware/bin/ updatemgr 
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 13 of 48 TLP:CLEAR 
+Sample 
+Checked Environment Variable 
+to Determine if Running as a 
+Child Process 
+Copied Location Copied File Name 
+Sample 6 [redacted]NET4 /usr/java/jre-vmware/bin/ updatemgr 
+Sample 7 VREG   
+Sample 8 VARGS   
+Persistence Capabilities 
+To ensure its continued operations, BRICKSTORM uses built-in self-monitoring and persistence capabilities 
+while running. Specifically, it has a built-in self-watching function (referred to as main_selfWatcher in 
+some samples) to maintain persistence. This function monitors if BRICKSTORM is running correctly and, if 
+not, BRICKSTORM reinstalls and executes itself, mirroring its initiation capabilities. 
+The self-watching function begins by checking a specific environment variable (see Table 10) to confirm 
+whether BRICKSTORM is running as an active process. If the check returns a false value (indicating the 
+variable is not set), BRICKSTORM assumes it is not running properly. In response, BRICKSTORM re-installs 
+itself from predefined file path—/etc/sysconfig/ (Samples 1 through 2 and 4 through 8) or 
+/etc/sysconfig/network/ (Sample 3)—to a new location (the file name of the new BRICKSTORM 
+instance and location copied varies by sample; see Table 10). BRICKSTORM then updates the PATH 
+environment variable to include the new file location, ensuring the newly copied backdoor file is executed 
+first. Subsequently, the parent instance terminates its own execution, allowing the new process to take 
+over. 
+If the initial checks confirm that BRICKSTORM is running as intended (the variable is set), the self-watcher 
+function allows the code to continue its operations. 
+See Table 10 for details on checked variables, processes, copied locations, and file names associated with 
+the analyzed samples. 
+Table 10. BRICKSTORM Checked Variables, Processes, and Copied Names and Locations 
+Sample Checked 
+Environment Variable 
+Checked Process 
+Existence 
+Copies To Newly Copied 
+File Name 
+Sample 1 Sphere vmware-sphere /opt/vmware/sbin/ vmware-
+sphere 
+Sample 2 [redacted]NET3 vnetd /usr/java/jre-vmware/bin/ updatemgr 
+Sample 3 rcMJVF vami /etc/applmgmt/appliance/ vami 
+Sample 4 [redacted]NET5 updatemgr /usr/java/jre-vmware/bin/ updatemgr 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 14 of 48 TLP:CLEAR 
+Sample Checked 
+Environment Variable 
+Checked Process 
+Existence 
+Copies To Newly Copied 
+File Name 
+Sample 5 DIGNN updatemgr /usr/java/jre-vmware/bin/ updatemgr 
+Sample 6 [redacted]NET3 updatemgr /usr/java/jre-vmware/ updatemgr 
+Sample 7 VREG    
+Sample 8 VARGS    
+Secure Command and Control 
+After passing initiation checks, BRICKSTORM establishes a connection to a C2 server, secures 
+communications with the server, and enables cyber actors’ full control over the compromised system. This 
+control includes capabilities such as file system management and interactive shell access. In most 
+samples, BRICKSTORM also provides a SOCKS proxy to facilitate tunneling and lateral movement. 
+The implementation of these capabilities varies across samples, with notable differences in Samples 7 and 
+8, which specifically target virtualized environments. 
+Sample 1 
+Initial Connection to the C2 Server: Sample 1 first creates an encrypted Domain Name System (DNS) query 
+for a hard-coded C2 domain (the domain has been redacted from this report because according to public 
+reporting, the cyber threat actors are not reusing C2 domains).4 The sample uses DoH to resolve the 
+address of its C2 servers by sending an encrypted HTTPS request to one of the following legitimate public 
+DoH resolvers [T1071.001]: 
+▪ https[:]//1.0.0[.]1/dns-query (Cloudflare) 
+▪ https[:]//1.1.1[.]1/dns-query (Cloudflare) 
+▪ https[:]//8.8.4[.]4/dns-query (Google) 
+▪ https[:]//8.8.8[.]8/dns-query (Google) 
+▪ https[:]//9.9.9[.]9/dns-query (Quad9) 
+If the C2 domain is not found in the public DoH resolver cache, the legitimate resolver forwards the request 
+to the next server in the DNS hierarchy, ultimately reaching the threat actors’ DNS server. The DNS server 
+responds with the correct IP address for the domain. The response is sent back through the legitimate DoH 
+resolver to BRICKSTORM, which receives the encrypted response, decrypts it to get the C2 server’s IP 
+address, and establishes a connection. 
+Establishing Secure Communications: Sample 1 establishes an encrypted connection to the C2 server 
+using HTTPS, then upgrades the session to WebSockets with an additional layer of TLS encryption. To do 
+this, Sample 1 first communicates over HTTPS with a specific legitimate cloud platform (redacted). The 
+sample then sends an HTTP upgrade request to convert the initial encrypted HTTPS connection into a 
+persistent WebSocket connection: wss://[REDACTED].com/api. Sample 1 nests additional layers of TLS 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 15 of 48 TLP:CLEAR 
+encryption within the WebSocket session and performs a series of nested TLS handshakes within the 
+established WebSocket tunnel. The first handshake is the standard TLS handshake for the initial HTTPS 
+request to the cloud platform. The second TLS handshake occurs within the WebSocket tunnel, during 
+which BRICKSTORM authenticates itself to the C2 server using a hard-coded key. 
+Upon successful authentication, BRICKSTORM establishes a multiplexing layer, which allows it to send 
+multiple commands and data streams over the same connection. It does this using both Simple 
+Multiplexing (smux) and Yet Another Multiplexer (Yamux) libraries to create virtual streams over a single 
+underlying TLS-secured connection based on client configuration or handshake data. Multiplexing conceals 
+threat actor activity by embedding multiple commands and network tunnels within a single encrypted 
+stream. 
+See Figure 3 for the applicable decompiler output. 
+ 
+Figure 3. BRICKSTORM Decompiler Output for Establishing Secure Connections 
+  
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 16 of 48 TLP:CLEAR 
+Full System Control: Once the secure connection to the C2 domain is established, Sample 1 uses a custom 
+Go package wssoft2 to manage incoming network connections and to process commands it receives. 
+Commands are directed to one of three handlers based on the function it needs: SOCKS Handler, Web 
+Service Handler, and Command Handler. 
+The SOCKS Handler sets up a SOCKS proxy [T1090.001] to route C2 traffic and facilitate lateral movement 
+within the victim network. To set up the proxy, the handler parses JSON requests from the C2 server. If the 
+request is valid, the handler delegates request handling to 
+wssoft2/core/handler/socks.SocksWithLocalAddr, which performs SOCKS relaying and network 
+tunneling over Transmission Control Protocol (TCP), User Datagram Protocol (UDP), and Internet Control 
+Message Protocol (ICMP). 
+See Figure 4 for the handler’s decompiler output. 
+ 
+Figure 4. SOCKS Handler Decompiler Output 
+The Web Service Handler establishes covert C2 communication by creating a legitimate-appearing web 
+server on the compromised system. It uses the net/http package and gorilla/mux library to create 
+the web server, which includes a hidden Application Programming Interface (API) endpoint for receiving and 
+executing commands from the C2 server. See Figure 5 for the Web Service Handler decompiler output that 
+sets up specific API endpoints. 
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 17 of 48 TLP:CLEAR 
+ 
+Figure 5. Web Service Handler Decompiler Output Setting Up the Web Server With Specific API Endpoints 
+Through the API, the cyber actors can browse, upload, download, create, delete, and manipulate files and 
+folders on the victim’s system. See Table 11 for file management commands contained in BRICKSTORM. 
+Table 11. BRICKSTORM File Management Commands 
+Command Function 
+file-md5 Calculates the MD5 checksum of a specified file to verify file integrity. 
+get-file Downloads a file from the compromised system to the C2 server [T1041]. 
+list-dir Lists the contents of a directory on the compromised system (e.g., browses the file system) 
+[T1083]. 
+put-file Uploads a file from the C2 server to the compromised system. 
+slice-up Reads and downloads specific, partial sections of a file. 
+To evade detection, BRICKSTORM serves seemingly legitimate web file types, such as Hypertext Markup 
+Language (HTML), Cascading Style Sheets (CSS), and JavaScript, from a designated directory. 
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 18 of 48 TLP:CLEAR 
+See Figure 6 for the Web Service Handler decompiler output. 
+ 
+Figure 6. Web Service Handler Decompiler Output 
+The Command Handler executes shell commands on the compromised system, giving the cyber threat 
+actors full control over the compromised system through interactive command-line access. The handler 
+receives a JSON request from the C2 server, parses it, and extracts it. The handler then sets up a pseudo-
+terminal (a virtual command-line interface) and runs the command on the victim system. 
+See Figure 7 for the Command Handler decompiler output. 
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 19 of 48 TLP:CLEAR 
+ 
+Figure 7. Command Handler Decompiler Output 
+Samples 2 Through 6 
+Initial Connection to the C2 Server: Like Sample 1, these samples create an encrypted DNS query for hard-
+coded C2 domains (redacted) and use DoH to resolve the addresses of their C2 servers by sending an 
+encrypted HTTPS request to one of the following legitimate public DoH resolvers: 
+▪ https[:]//1.0.0[.]1/dns-query (Cloudflare) 
+▪ https[:]//1.1.1[.]1/dns-query (Cloudflare) 
+▪ https[:]//149.112.112[.]11/dns-query (Quad9) 
+▪ https[:]//45.90.28.160/dns-query (NextDNS) 
+
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 20 of 48 TLP:CLEAR 
+▪ https[:]//8.8.4[.]4/dns-query (Google) 
+▪ https[:]//8.8.8[.]8/dns-query (Google) 
+▪ https[:]//9.9.9[.]11/dns-query (Quad9) 
+▪ https[:]//9.9.9[.]9/dns-query (Quad9) 
+Note: Some of these samples use XOR encryption to decrypt IPv4 addresses for DoH servers. 
+Establishing Secure Communications: Like Sample 1, these samples establish WebSocket Secure (WSS) 
+connections with the C2 server and set up a multiplexing layer. 
+Full System Control: Once the connection is established with the C2 server via WebSockets, these 
+BRICKSTORM samples receive commands that are directed to one of four specific handlers to perform 
+tasks on the compromised system: SOCKS Handler, Web Service Handler, Command Handler, or 
+CommandNoContext Handler. The SOCKS, Web Service, and Command Handlers function similar to the 
+Sample 1 handlers. The CommandNoContext Handler executes shell commands on the compromised 
+system without using an explicit security context. 
+Sample 7 
+Initial Connection to the C2 Server: Sample 7 retrieves configuration parameters from environment 
+variables, performs checks, generates a TLS configuration used for secure communication to 
+BRICKSTORM’s client, and starts a network communications routine. This sample also uses a VSOCK 
+interface to enable inter-VM communication, support data exfiltration, and maintain persistence in 
+virtualized environments.  
+Upon execution, Sample 7 retrieves the following three configuration values from environment variables 
+using the os_Getenv function: 
+▪ listenAddr (listen address and port) 
+▪ listenPath (listen path to route requests to the WSS connection) 
+▪ password (authentication key) 
+Establishing Secure Communications: Sample 7 establishes a secure WebSocket server with minimal 
+external dependencies; specifically, all communication is encrypted using in-memory self-signed 
+certificates. This enables encrypted communication without relying on publicly trusted Certificate 
+Authorities (CAs) or storing certificate files on disk. It dynamically generates a self-signed X.509 certificate 
+and a corresponding 2048-bit Rivest–Shamir–Adleman (RSA) private key in memory, which are loaded into 
+a tls.Certificate struct and assigned to the certificate field’s tls.Config object. This allows the 
+server to handle HTTPS/WSS connections using the in-memory self-signed certificate, as standard 
+NET/HTTP servers are configured to use tls.Config. 
+Sample 7 uses a single, multiplexed connection over secure WebSockets to communicate with a specified 
+C2 address (retrieved from the listenAddr value) and path (retrieved from the listenPath value). 
+During or before the WSS handshake, Sample 7 implements a custom authentication check, involving the 
+specific pre-shared authentication key (retrieved from password value). 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 21 of 48 TLP:CLEAR 
+Full System Control: Once the WSS connection with the C2 server is established, Sample 7 processes 
+incoming commands through one of four handlers: Web Service Handler, Command Handler, VSOCK-proxy 
+handler, or VSOCK handler. 
+The Web Service Handler functions similar to Sample 1’s Web Service Handler. 
+The Command Handler functions similar to Sample 1’s Command Handler. 
+The VSOCK-proxy Handler performs VSOCK relaying and network tunneling. It implements a proxy with 
+specific configuration arguments to establish a tunneled connection to process JSON payloads. First, the 
+handler unmarshals the payload data and extracts and validates the TunnelAddr, Context ID (CID), 
+Port, and Family configuration arguments. Based on the validated arguments, the handler binds to a 
+specific VSOCK address (defined by the CID and port) and establishes a connection to the destination 
+specified by TunnelAddr. When the connection is completed or terminated, the handler sends an 
+appropriate success or error response back to the client. This functionality enables cyber actors to 
+maintain covert communication channels, evade detection, and pivot within virtualized environments. 
+The VSOCK Connection Handler creates and connects to VSOCK endpoints to maintain covert connections 
+within the virtual environment. It processes incoming network requests containing a JSON payload with 
+specific configuration arguments for connecting to a VSOCK endpoint. The handler extracts the JSON 
+payload from the request and uses a JSON parser to unmarshal the data into a structured object with fields 
+for Context (CID), Port, and Family. The handler checks the unmarshalled data for validity and, if the 
+configuration is valid, the handler establishes a connection to a VSOCK endpoint using a specified CID and 
+port number. If the virtual socket creation is successful, the handler allocates a new runtime object to hold 
+the CID and port information. If unmarshalling fails, validation fails, or the destination connection cannot 
+be established, the handler returns an appropriate error to the client. 
+Sample 8 
+Like Sample 7, Sample 8: 
+▪ Retrieves C2 parameters (listenAddr, listenPath, and password) from environment variables, 
+▪ Uses a self-signed X.509 certificate and a corresponding 2048-bit RSA private key in memory to 
+facilitate encrypted communications without relying on a CA, 
+▪ Establishes a secure WebSocket server for encrypted communication, and 
+▪ Directs commands to specific handlers. 
+Sample 8’s handlers directing commands differ from Sample 7. In addition to a Web Service Handler, 
+Command Handler, VSOCK-proxy Handler, and VSOCK Connection Handler, Sample 8 also has two 
+additional handlers: The SOCKS Handler (which functions similar to Sample 1’s SOCKS Handler) and the 
+CommandNoContext Handler (which functions similar to Samples 2 through 6’s CommandNoContext 
+Handler). 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 22 of 48 TLP:CLEAR 
+Detection 
+YARA Rules 
+Deploy the CISA-created YARA rules in Table 12 to detect malicious activity. See Appendix B: Scanning 
+Guidance on Remote Hosts for guidance on how to identify activity with these rules.  
+Table 12. YARA Rules 
+BRICKSTORM Rule 1 
+rule CISA_251165_02 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "251165" 
+date = "2025-09-29" 
+last_modified = "202051001_1008" 
+actor = "n/a" 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+tool_type = "unknown" 
+description = "Detects Go-Based BRICKSTORM backdoor samples" 
+sha256_1 = "aaf5569c8e349c15028bc3fac09eb982efb06eabac955b705a6d447263658e38" 
+strings: 
+$s0 = { 6D 61 69 6E 2E 73 74 61 72 74 4E 65 77 } 
+$s1 = { 6D 61 69 6E 2E 73 65 6C 66 57 61 74 63 68 65 72 } 
+$s2 = { 6D 61 69 6E 2E 73 65 74 53 65 72 76 69 63 65 43 66 67 } 
+$s3 = { 73 6F 63 6B 73 2E 48 61 6E 64 6C 65 53 6F 63 6B 73 52 65 71 75 65 73 74 } 
+$s4 = { 77 65 62 2E 57 65 62 53 65 72 76 69 63 65 } 
+$s5 = { 63 6F 6D 6D 61 6E 64 2E 48 61 6E 64 6C 65 54 54 59 52 65 71 75 65 73 74 } 
+$s6 = { 77 65 62 73 6F 63 6B 65 74 2E 28 2A 57 53 43 6F 6E 6E 65 63 74 6F 72 29 2E 43 6F 6E 
+6E 65 63 74 } 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 23 of 48 TLP:CLEAR 
+$s7 = { 66 73 2E 28 2A 57 65 62 53 65 72 76 65 72 29 2E 52 75 6E 53 65 72 76 65 72 } 
+$s8 = { 68 74 74 70 73 3A 2F 2F 31 2E 30 2E 30 2E 31 2F 64 6E 73 2D 71 75 65 72 79 } 
+$s9 = { 68 74 74 70 73 3A 2F 2F 31 2E 31 2E 31 2E 31 2F 64 6E 73 2D 71 75 65 72 79 } 
+$s10 = { 68 74 74 70 73 3A 2F 2F 38 2E 38 2E 34 2E 34 2F 64 6E 73 2D 71 75 65 72 79 } 
+$s11 = { 68 74 74 70 73 3A 2F 2F 38 2E 38 2E 38 2E 38 2F 64 6E 73 2D 71 75 65 72 79 } 
+$s12 = { 68 74 74 70 73 3A 2F 2F 39 2E 39 2E 39 2E 39 2F 64 6E 73 2D 71 75 65 72 79 } 
+condition: 
+8 of them 
+} 
+BRICKSTORM Rule 2 
+rule CISA_251155_02 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "251155" 
+date = "2025-09-15" 
+last_modified = "20250916_1511" 
+actor = "n/a" 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+tool_type = "unknown" 
+description = "Detects Go-Based BRICKSTORM backdoor samples" 
+sha256_1 = "320a0b5d4900697e125cebb5ff03dee7368f8f087db1c1570b0b62f5a986d759" 
+sha256_1 = "dfac2542a0ee65c474b91d3b352540a24f4e223f1b808b741cfe680263f0ee44" 
+sha256_1 = "b91881cb1aa861138f2063ec130b2b01a8aaf0e3f04921e5cbfc61b09024bf12" 
+sha256_1 = "bfb3ffd46b21b2281374cd60bc756fe2dcc32486dcc156c9bd98f24101145454" 
+strings: 
+$s0 = { 04 30 0F B6 54 04 2C 31 D1 88 4C 04 34 48 FF C0 } 
+$s1 = { 48 83 F8 04 7C E7 48 C7 04 24 } 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 24 of 48 TLP:CLEAR 
+$s2 = { 48 8D 44 24 34 48 89 44 24 08 48 C7 44 24 10 04 } 
+$s3 = { 48 89 44 24 48 48 89 4C 24 50 48 8B 6C 24 38 48 } 
+$s4 = { 48 83 EC 40 48 89 6C 24 38 48 8D 6C 24 38 C7 44 24 } 
+$s5 = { 83 EC 38 48 89 6C 24 30 48 8D 6C 24 30 C6 44 24 } 
+$s6 = { 4C 24 20 48 89 44 24 40 48 89 4C 24 48 48 8B 6C } 
+$s7 = { 64 48 8B 0C 25 F8 FF FF FF 48 3B 61 10 0F 86 81 } 
+$s8 = { 64 48 8B 0C 25 F8 FF FF FF 48 3B 61 10 0F 86 91 } 
+condition: 
+all of them 
+} 
+BRICKSTORM Rule 3 (Added Dec. 19, 2025) 
+rule CISA_251155_01 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "251155" 
+date = "2025-09-15" 
+last_modified = "20250916_1511" 
+actor = "n/a" 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+tool_type = "unknown" 
+description = "Detects Go-Based BRICKSTORM backdoor samples" 
+sha256_1 = "2bf9bfa1f9bcbcad0eada7e3be8d380d809248f08609f6e9d971b37ce09f7e93" 
+sha256_2 = "6d42e9a0757670b9837034b5202d1673093577757b44bb0f0253f366413393e9" 
+sha256_3 = "b30041b986ee3231fd53522c9d0c57e4567d6c60959fa06c125dde2af558fc9f" 
+strings: 
+$s0 = { 88 14 08 48 FF C1 } 
+$s1 = { 2F 63 6F 72 65 2F 74 61 73 6B 2E 44 6F 54 61 73 6B 2E 66 75 6E 63 31 } 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 25 of 48 TLP:CLEAR 
+$s2 = { 2F 63 6F 72 65 2F 74 61 73 6B 2E 44 6F 54 61 73 6B 2E 66 75 6E 63 31 2E 32 } 
+$s3 = { 2F 63 6F 72 65 2F 65 78 74 65 6E 64 73 2F 77 65 62 2E 57 65 62 53 65 72 76 69 63 65 
+} 
+$s4 = { 2F 63 6F 72 65 2F 65 78 74 65 6E 64 73 2F 77 65 62 2E 57 65 62 53 65 72 76 69 63 65 
+2E 66 75 6E 63 31 } 
+$s5 = { 63 6F 72 65 2F 65 78 74 65 6E 64 73 2F 73 6F 63 6B 73 2E 53 6F 63 6B 73 } 
+$s6 = { 63 6F 72 65 2F 65 78 74 65 6E 64 73 2F 73 6F 63 6B 73 2E 53 6F 63 6B 73 2E 66 75 6E 
+63 31 } 
+$s7 = { 63 6F 72 65 2F 65 78 74 65 6E 64 73 2F 63 6F 6D 6D 61 6E 64 2E 43 6F 6D 6D 61 6E 64 
+} 
+$s8 = { 6C 69 62 73 2F 64 6F 68 2E 51 75 65 72 79 } 
+$s9 = { 2F 76 65 6E 64 6F 72 2F 68 61 73 68 69 63 6F 72 70 2F 79 61 6D 75 78 2E 53 65 72 76 
+65 72 } 
+condition: 
+3 of them 
+} 
+Rule 4 (Rust-based Samples) (Added Dec. 19, 2025) 
+rule CISA_251217_03 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "251217" 
+date = "2025-12-10" 
+last_modified = "20251216_729" 
+actor = "n/a" 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+tool_type = "unknown" 
+description = "Detects Rust BRICKSTORM backdoor samples" 
+sha256_1 = "6a67a9769a55ec889a5dd4199b2fc08965d39d737838836853bc13c81c56a800" 
+sha256_2 = "ed907d39efd5750236b075ca9fbb1f090d7bf578578c38faab24210d298a60ae"  
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 26 of 48 TLP:CLEAR 
+sha256_3 = "0e92009fc6519c837982b3fbfd42946e827de47b73a264d693739168533d07f4" 
+sha256_4 = "fb22eea57e00b83edad50ee6e02320377efc10586584c476d5018dbba3643c32" 
+sha256_5 = "28a16e782f04d9394b5dfa3363d41d9f5eecc206166aeffd73363d83734a026d" 
+strings: 
+$s0 = { 20 55 70 67 72 61 64 65 3A 20 77 65 62 73 6F 63 6B 65 74 43 6F 6E 6E 65 63 74 69 6F 
+6E 3A } 
+$s1 = { 20 55 70 67 72 61 64 65 53 65 63 2D 57 65 62 73 6F 63 6B 65 74 2D 4B 65 79 3A } 
+$s2 = { 20 53 65 63 2D 57 65 62 53 6F 63 6B 65 74 2D 56 65 72 73 69 6F 6E 3A } 
+$s3 = { 57 65 62 53 6F 63 6B 65 74 53 65 63 2D 57 65 62 53 6F 63 6B 65 74 2D 41 63 63 65 
+70 74 3A } 
+$s4 = { 53 77 69 74 63 68 69 6E 67 20 50 72 6F 74 6F 63 6F 6C 73 } 
+$s5 = { 32 35 38 45 41 46 41 35 2D 45 39 31 34 2D 34 37 44 41 2D 39 35 43 41 2D 43 35 41 
+42 30 44 43 38 
+35 42 31 31 } 
+$s6 = { 2F 64 65 76 2F 70 74 6D 78 64 6F 20 66 6F 72 6B 6F 70 65 6E 20 } 
+$s7 = { 53 6F 63 6B 73 35 20 63 6D 64 20 6E 6F 74 20 73 75 70 70 6F 72 74 } 
+$s8 = { 62 39 32 37 35 38 61 39 61 65 66 31 63 65 66 37 62 37 39 65 32 62 37 32 63 33 64 
+38 62 61 31 31 33 65 35 34 37 66 38 39 } 
+$s9 = { 58 34 34 38 52 69 6E 67 47 45 54 20 0D 0A 0D 0A 70 69 70 65 50 69 6E 67 50 6F 6E 67 
+44 61 74 61 } 
+condition: 
+9 of them 
+} 
+Rule 5 (Added Jan. 20, 2026) 
+rule CISA_251155_03 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "251155" 
+date = "2025-09-15" 
+last_modified = "20250916_1511" 
+actor = "n/a" 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 27 of 48 TLP:CLEAR 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+tool_type = "unknown" 
+description = "Detects Go-Based BRICKSTORM backdoor samples" 
+sha256_1 = "0cba5c6d16c7b94a450c36bfbaeab79107ac10aa9548b02c42b4b6ba8cef6a51" 
+strings: 
+$s0 = { CE 73 63 44 0F B6 04 30 44 31 C7 48 83 FE 19 72 DA EB 53 48 C7 04 24 } 
+$s1 = { 64 48 8B 0C 25 F8 FF FF FF 48 8D 44 24 E8 48 3B } 
+$s2 = { 8D 44 24 5F 48 89 04 24 48 8D 05 F9 4C 12 00 48 } 
+$s3 = { 8B 4C 24 20 48 89 4C 24 30 48 8D 54 24 58 48 89 } 
+$s4 = { 8B 44 24 20 48 89 44 24 30 48 8B 4C 24 18 48 89 } 
+$s5 = { E8 8E 6A D5 FF 48 8B 44 24 18 48 89 84 24 98 } 
+$s6 = { E8 A4 69 D5 FF 48 8B 44 24 20 48 8B 4C 24 28 48 89 84 24 B0 } 
+$s7 = { 48 8D 44 24 3F 48 89 44 24 08 48 C7 44 24 10 19 } 
+condition: 
+all of them 
+} 
+Rule 6 (Added Jan. 20, 2026) 
+rule CISA_251186_02 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "251186" 
+date = "2025-11-17" 
+last_modified = "n/a" 
+actor = "n/a" 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 28 of 48 TLP:CLEAR 
+tool_type = "unknown" 
+description = "Detects Go-Based BRICKSTORM backdoor samples" 
+sha256_1 = "57bd98dbb5a00e54f07ffacda1fea91451a0c0b532cd7d570e98ce2ff741c21d" 
+strings: 
+$s0 = { 31 F7 40 88 7C 04 4C 48 FF C0 } 
+$s1 = { 44 01 C7 40 88 7C 14 30 48 FF C2 0F 1F 00 } 
+$s2 = { 41 89 F0 31 FE 01 D6 66 90 49 83 F8 11 } 
+$s3 = { 48 8B 44 24 08 48 8B 5C 24 10 48 8B 4C 24 18 } 
+$s4 = { 48 89 C1 48 89 DF 48 8D 05 0F 6F 15 00} 
+$s5 = { 48 8D 3D 9A 6D 15 00 4D 89 C1 49 89 F0 } 
+$s6 = { 81 39 49 43 4D 50 74 0C } 
+$s7 = { E8 FB E6 FF FF E8 76 D0 FF FF E8 91 C0 FF FF 48 8B 05 EA BF 53 } 
+condition: 
+all of them 
+} 
+Rule 7 (Added Feb. 11, 2026) 
+rule CISA_261234_01 : BRICKSTORM backdoor installs_other_components communicates_with_c2 
+exfiltrates_data 
+{ 
+meta: 
+author = "CISA Code & Media Analysis" 
+incident = "261234" 
+date = "2026-02-03" 
+last_modified = "20260203_1426" 
+actor = "n/a" 
+family = "BRICKSTORM" 
+capabilities = "installs-other-components communicates-with-c2 exfiltrates-data" 
+malware_type = "backdoor" 
+tool_type = "unknown" 
+description = "Detects AOT BRICKSTORM backdoor samples" 
+sha256_1 = "24a11a26a2586f4fba7bfe89df2e21a0809ad85069e442da98c37c4add369a0c" 
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 29 of 48 TLP:CLEAR 
+strings: 
+$s0 = { 2F 00 75 00 73 00 72 00 2F 00 73 00 62 00 69 00 6E 00 2F 00 73 00 71 00 69 00 75 00 
+64 } 
+$s1 = { 2F 00 62 00 69 00 6E 00 2F 00 62 00 61 00 73 00 68 } 
+$s2 = { 2F 00 63 00 6D 00 64 00 6C 00 69 00 6E 00 65 } 
+$s3 = { 2F 00 64 00 65 00 76 00 2F 00 6E 00 75 00 6C } 
+$s4 = { 2F 00 65 00 74 00 63 00 2F 00 73 00 61 00 6D 00 62 00 61 00 2F 00 73 00 6D 00 62 } 
+$s5 = { 2F 00 70 00 72 00 6F 00 63 00 2F 00 6E 00 65 00 74 00 2F 00 72 00 6F 00 75 00 74 } 
+$s6 = { 44 6F 74 4E 65 74 52 75 6E 74 69 6D 65 44 65 62 75 67 48 65 61 64 65 72 } 
+$s7 = { 32 35 38 45 41 46 41 35 2D 45 39 31 34 2D 34 37 44 41 2D 39 35 43 41 2D 43 35 41 
+42 30 44 43 38 35 42 31 31 } 
+$s8 = { 63 66 73 65 74 6F 73 70 65 65 64 00 63 68 64 69 72 00 63 6C 6F 73 65 00 64 75 70 32 
+} 
+$s9 = { 65 78 65 63 76 00 65 78 65 63 76 70 00 66 6F 72 6B 00 66 6F 72 6B 70 74 79 00 6B 69 
+6C 6C } 
+$s10 = { 32 31 35 31 30 31 32 31 33 62 35 63 34 35 34 38 61 62 36 63 63 65 38 31 38 35 34 
+61 31 33 65 65 } 
+condition: 
+9 of them 
+} 
+Sigma Rule 
+Deploy the CISA-created Sigma rule in Table 13 to detect BRICKSTORM. 
+Note: This rule can be run in an entity’s security information and event management (SIEM) system, but it 
+will only be useful if the SIEM contains the vCenter logs. Additionally, this detection method will not work if 
+run on endpoint detection and response (EDR) logs. 
+Table 13. Sigma Rule 
+BRICKSTORM 
+                             ## CISA Code & Media Analysis ## 
+                            ############ README ############### 
+## Edit rules and queries as needed for your hunt and based on your environment. 
+## Ensure your EDR/SIEM instance has enough memory to run these AND/OR condition based queries. May 
+take longer to run than conventional Sigma rule query.  
+BRICKSTORM Backdoor TLP:CLEAR 
+CISA | NSA | Cyber Centre 
+AR25-338A  
+Page 30 of 48 TLP:CLEAR 
+## Do not edit "logsource-product:" unless you are editing this rule to meet specific logsources/fields and 
+know your environment. 
+## TLP GREEN + Please use local installation of Sigma to convert this rule. 
+## TLP CLEAR may convert rules using online converter of choice. 
+                            ################################### 
+title: BRICKSTORM Backdoor Activity r2 
+incident: 251157.r2 
+tlp: CLEAR 
+id: 329bec83-54bd-405f-a5ab-ba97ec5e6057 
+status: test 
+description: BRICKSTORM malware is a backdoor with multiple capabilities that threat actors use to set up 
+persistence on exploited systems.  
+references: 
+    - https://cloud.google.com/blog/topics/threat-intelligence/brickstorm-espionage-campaign 
+    - https://cloud.google.com/blog/topics/threat-intelligence

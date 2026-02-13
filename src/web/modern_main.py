@@ -100,6 +100,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             stats["total_articles"],
         )
 
+        # Seed eval articles from static files so evals and Articles list work after rehydration
+        try:
+            from src.services.seed_eval_articles import run as seed_eval_articles
+
+            created, errs = await asyncio.to_thread(seed_eval_articles, None)
+            logger.info("Eval articles seed at startup: %s created, %s errors", created, errs)
+        except Exception as e:
+            logger.exception("Eval articles seed at startup failed: %s", e)
+
         updated_agents = await async_db_manager.set_robots_user_agent_for_all(DEFAULT_SOURCE_USER_AGENT)
         if updated_agents:
             logger.info("Normalized robots user-agent for %s sources", updated_agents)
