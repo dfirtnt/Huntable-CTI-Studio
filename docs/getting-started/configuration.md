@@ -123,6 +123,28 @@ To resolve conflicts, either:
 
 **Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to access services on the host. Context length can differ by service: `docker-compose.yml` may set `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` to 16384 for web and 4096 for workers; see [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
+### Workflow baseline presets (getting started)
+
+Pre-built workflow config presets with **all agent prompts included** are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent.
+
+| Preset file | Provider | Model | Use when |
+|-------------|----------|--------|----------|
+| `config/presets/AgentConfigs/anthropic-sonnet-4.5.json` | Anthropic | Claude Sonnet 4.5 | You have `ANTHROPIC_API_KEY` and want to use Claude for all agents. |
+| `config/presets/AgentConfigs/chatgpt-4o-mini.json` | OpenAI | gpt-4o-mini | You have `OPENAI_API_KEY` or `CHATGPT_API_KEY` and want 4o-mini for all agents. |
+| `config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json` | LM Studio | Qwen 2.5 8B (local) | You run LM Studio with a model such as Qwen2.5-8B-Instruct and want to use it for all agents. |
+
+**How to load a preset**
+
+1. Open the **Workflow** page in the web UI.
+2. In the workflow config panel, use **Import from file** and choose one of the JSON files above (e.g. `config/presets/AgentConfigs/chatgpt-4o-mini.json`).
+3. Confirm the import; the active workflow config (thresholds, agent models, and **agent prompts**) will be replaced by the preset. You can then run the workflow or tweak settings.
+
+To regenerate the preset files (e.g. after changing prompts in `src/prompts`), run from the repo root:
+
+```bash
+python3 scripts/build_baseline_presets.py
+```
+
 ### Content Filtering
 
 | Variable | Purpose | Default |
