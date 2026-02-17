@@ -22,7 +22,6 @@ from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
 from src.web.routes import register_routes
 
-
 # Startup DB retry: wait for postgres to be ready (e.g. after compose up).
 STARTUP_DB_RETRIES = int(os.getenv("STARTUP_DB_RETRIES", "5"))
 STARTUP_DB_DELAY_SEC = float(os.getenv("STARTUP_DB_DELAY_SEC", "2.0"))

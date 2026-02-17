@@ -115,6 +115,24 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
     return False
 
 
+# OpenAI: dated suffix is -YYYY-MM-DD or -YYYY-MM-DD-preview; keep only chat + no date (latest).
+OPENAI_DATED = re.compile(r"-\d{4}-\d{2}-\d{2}(-preview)?$")
+
+
+def filter_openai_models_latest_only(model_ids: list[str]) -> list[str]:
+    """
+    Chat-only, latest only: exclude models with a -YYYY-MM-DD (or -preview) date suffix.
+    Keeps e.g. gpt-4o, gpt-4.1-mini, o1; drops gpt-4o-2024-05-13, gpt-4.1-2025-04-14.
+    """
+    return sorted(
+        m
+        for m in model_ids
+        if m
+        and is_valid_openai_chat_model(m.strip())
+        and not OPENAI_DATED.search(m.strip())
+    )
+
+
 # Anthropic: family = strip -YYYYMMDD or -latest; one representative per family.
 ANTHROPIC_DATED = re.compile(r"-\d{8}$")
 ANTHROPIC_LATEST = re.compile(r"-latest$", re.IGNORECASE)

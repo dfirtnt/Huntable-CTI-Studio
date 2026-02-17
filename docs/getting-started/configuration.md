@@ -207,6 +207,8 @@ The system uses specialized queues for workload isolation:
 | `sync_sigma_rules` | Weekly (Sunday 4:00 AM) | `maintenance` |
 | `update_provider_model_catalogs` | Daily at 4:00 AM | `maintenance` |
 
+The provider model catalog is also refreshed **at setup** (`./setup.sh`) and **at start** (`./start.sh`) so users see the current OpenAI/Anthropic/Gemini model list immediately; the daily run keeps it updated for long-running instances.
+
 ## Health Checks and Diagnostics
 
 ### Application Health

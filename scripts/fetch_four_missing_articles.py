@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fetch 4 article URLs (from screenshots) and add to process_lineage eval articles with localhost keys."""
+
 import asyncio
 import json
 import re
@@ -19,9 +20,17 @@ USER_AGENT = (
 # Screenshot URLs -> (localhost_url, expected_count) from eval_articles.yaml
 URLS_TO_FETCH = [
     ("https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up", "http://127.0.0.1:8001/articles/68", 1),
-    ("https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/", "http://127.0.0.1:8001/articles/762", 2),
+    (
+        "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
+        "http://127.0.0.1:8001/articles/762",
+        2,
+    ),
     ("https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/", "http://127.0.0.1:8001/articles/989", 0),
-    ("https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability", "http://127.0.0.1:8001/articles/1523", 2),
+    (
+        "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability",
+        "http://127.0.0.1:8001/articles/1523",
+        2,
+    ),
 ]
 
 

@@ -23,6 +23,7 @@ The `start.sh` script will:
 - Run `docker-compose up --build -d`
 - Health-check PostgreSQL, Redis, and the web application
 - Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
+- Seed eval articles from config and refresh the **LLM provider model catalog** (OpenAI/Anthropic/Gemini) so workflow model dropdowns show the current list without waiting for the daily Celery run
 - Optionally prompt: **Run MkDocs docs build/server?** If you answer **y**, it runs `./run_mkdocs.sh` in the background (logs in `logs/mkdocs.log`); the terminal stays free
 
 ## Access Points

@@ -173,6 +173,15 @@ else
     echo "⚠️ Eval articles seed failed (run manually: $DC run --rm cli python scripts/seed_eval_articles_to_db.py)"
 fi
 
+# Refresh LLM provider model catalog so dropdowns show current models (no 24h wait)
+echo ""
+echo "🔄 Refreshing LLM provider model catalog..."
+if $DC run --rm cli python3 scripts/maintenance/update_provider_model_catalogs.py --write 2>/dev/null; then
+    echo "✅ Provider model catalog updated"
+else
+    echo "⚠️ Provider model catalog refresh skipped (set OPENAI_API_KEY/ANTHROPIC_API_KEY in .env for API refresh)"
+fi
+
 echo ""
 echo "🎉 CTI Scraper is running!"
 echo ""

@@ -86,13 +86,15 @@ async def process_subagent(
         async with sem:
             try:
                 title, content = await fetch_article(url)
-                out.append({
-                    "url": url,
-                    "title": title,
-                    "content": content,
-                    "filtered_content": content,
-                    "expected_count": expected_count,
-                })
+                out.append(
+                    {
+                        "url": url,
+                        "title": title,
+                        "content": content,
+                        "filtered_content": content,
+                        "expected_count": expected_count,
+                    }
+                )
                 print(f"  OK: {url[:55]}... ({len(content)} chars)")
             except Exception as e:
                 print(f"  FAIL: {url[:55]}... {e}")

@@ -1083,18 +1083,21 @@ async def get_subagent_eval_results(
             eval_records = query.order_by(SubagentEvaluationTable.created_at.desc()).all()
 
             # Batch-fetch article titles for records with article_id
-            article_ids = [r.article_id for r in eval_records if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS]
+            article_ids = [
+                r.article_id
+                for r in eval_records
+                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
+            ]
             id_to_title: dict[int, str] = {}
             if article_ids:
                 rows = (
-                    db_session.query(ArticleTable.id, ArticleTable.title)
-                    .filter(ArticleTable.id.in_(article_ids))
-                    .all()
+                    db_session.query(ArticleTable.id, ArticleTable.title).filter(ArticleTable.id.in_(article_ids)).all()
                 )
                 id_to_title = {r[0]: (r[1] or "") for r in rows}
 
             # For static evals (article_id null), get title from static data
             url_to_static = _load_static_eval_articles(canonical_subagent)
+
             def _title_for_record(rec: SubagentEvaluationTable) -> str:
                 if rec.article_id is not None:
                     return (id_to_title.get(rec.article_id) or "").strip()

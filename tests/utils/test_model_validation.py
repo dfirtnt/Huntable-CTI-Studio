@@ -1,7 +1,13 @@
 """Tests for src.utils.model_validation."""
+
 import re
 
-from src.utils.model_validation import _anthropic_family, filter_anthropic_models_latest_only
+from src.utils.model_validation import (
+    OPENAI_DATED,
+    _anthropic_family,
+    filter_anthropic_models_latest_only,
+    filter_openai_models_latest_only,
+)
 
 
 class TestFilterAnthropicModelsLatestOnly:
@@ -62,3 +68,30 @@ class TestFilterAnthropicModelsLatestOnly:
         # Main preferred where present (no -YYYYMMDD)
         assert "claude-opus-4-6" in out
         assert "claude-sonnet-4-5" in out
+
+
+class TestFilterOpenaiModelsLatestOnly:
+    """filter_openai_models_latest_only: chat-only, latest only (no -YYYY-MM-DD)."""
+
+    def test_empty(self):
+        assert filter_openai_models_latest_only([]) == []
+
+    def test_dated_excluded(self):
+        ids = ["gpt-4o", "gpt-4o-2024-05-13", "gpt-4.1-mini", "gpt-4.1-mini-2025-04-14"]
+        out = filter_openai_models_latest_only(ids)
+        assert "gpt-4o" in out
+        assert "gpt-4.1-mini" in out
+        assert not any(OPENAI_DATED.search(m) for m in out)
+
+    def test_non_chat_excluded(self):
+        ids = ["gpt-4o", "gpt-4o-audio-preview", "gpt-5-codex", "o1"]
+        out = filter_openai_models_latest_only(ids)
+        assert "gpt-4o" in out
+        assert "o1" in out
+        assert "gpt-4o-audio-preview" not in out
+        assert "gpt-5-codex" not in out
+
+    def test_base_names_kept(self):
+        ids = ["gpt-4o", "gpt-4.1-mini", "o1", "o3-mini"]
+        out = filter_openai_models_latest_only(ids)
+        assert set(out) >= {"gpt-4o", "gpt-4.1-mini", "o1", "o3-mini"}

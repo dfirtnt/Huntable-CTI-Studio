@@ -16,7 +16,12 @@ from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.services.provider_model_catalog import load_catalog, update_provider_models
-from src.utils.model_validation import filter_anthropic_models_latest_only, is_valid_openai_chat_model, suggest_base_model
+from src.utils.model_validation import (
+    filter_anthropic_models_latest_only,
+    filter_openai_models_latest_only,
+    is_valid_openai_chat_model,
+    suggest_base_model,
+)
 from src.utils.prompt_loader import format_prompt
 from src.web.dependencies import logger
 
@@ -32,37 +37,8 @@ OPENAI_MODEL_PATTERN = re.compile(
 
 
 def _filter_openai_models(model_ids: list[str]) -> list[str]:
-    """
-    Filter OpenAI models to only include valid chat completion models.
-    Excludes specialized models (codex, audio, image, realtime, etc.) and
-    prefers base model names over dated versions.
-    """
-    valid_models = []
-    base_models_seen = set()
-
-    for model_id in model_ids:
-        if not is_valid_openai_chat_model(model_id):
-            continue
-
-        # Prefer base model names over dated versions
-        base_model = re.sub(r"-\d{4}-\d{2}-\d{2}(-preview)?$", "", model_id)
-        base_model = re.sub(r"-latest$", "", base_model)
-        base_model = re.sub(r"-preview$", "", base_model)
-
-        # If we've seen a base model, prefer it over dated versions
-        if base_model in base_models_seen:
-            # Check if current is base or dated
-            is_dated = bool(re.search(r"-\d{4}-\d{2}-\d{2}", model_id))
-            if is_dated:
-                continue  # Skip dated version if base exists
-
-        # Track base models
-        if not re.search(r"-\d{4}-\d{2}-\d{2}", model_id):
-            base_models_seen.add(base_model)
-
-        valid_models.append(model_id)
-
-    return sorted(set(valid_models))
+    """Chat-only, latest only (no -YYYY-MM-DD dated variants)."""
+    return filter_openai_models_latest_only(model_ids)
 
 
 def _filter_anthropic_models(model_ids: list[str]) -> list[str]:

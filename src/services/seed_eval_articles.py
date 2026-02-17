@@ -7,7 +7,7 @@ so eval articles are ingested and the regular workflow can process them.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.database.manager import DatabaseManager
@@ -105,9 +105,7 @@ def run(project_root: Path | None = None) -> tuple[int, int]:
     with db_manager.get_session() as session:
         existing_urls = {
             row[0]
-            for row in session.query(ArticleTable.canonical_url)
-            .filter(ArticleTable.source_id == source_id)
-            .all()
+            for row in session.query(ArticleTable.canonical_url).filter(ArticleTable.source_id == source_id).all()
         }
     to_create = [url for url in articles_by_url if url not in existing_urls]
     if not to_create:
@@ -119,7 +117,7 @@ def run(project_root: Path | None = None) -> tuple[int, int]:
         )
         return 0, 0
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     article_creates: list[ArticleCreate] = []
     for url in to_create:
         rec = articles_by_url[url]

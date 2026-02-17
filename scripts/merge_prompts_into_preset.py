@@ -4,6 +4,7 @@ Merge prompt file contents from src/prompts into a workflow preset JSON.
 Reads preset from path (e.g. ~/Downloads/anthropicnolmstudioprompt.json),
 fills agent_prompts from repo files, writes merged preset to output path.
 """
+
 import json
 import sys
 from pathlib import Path

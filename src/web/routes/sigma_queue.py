@@ -14,7 +14,14 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
-from src.database.models import AgenticWorkflowConfigTable, AppSettingsTable, ArticleTable, EnrichmentPresetTable, EnrichmentPromptVersionTable, SigmaRuleQueueTable
+from src.database.models import (
+    AgenticWorkflowConfigTable,
+    AppSettingsTable,
+    ArticleTable,
+    EnrichmentPresetTable,
+    EnrichmentPromptVersionTable,
+    SigmaRuleQueueTable,
+)
 from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
@@ -57,13 +64,27 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
 
     api_key = None
     if provider == "openai":
-        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]).first()
+        row = (
+            db_session.query(AppSettingsTable)
+            .filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"])
+            .first()
+        )
         api_key = (row.value if row else None) or os.getenv("WORKFLOW_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
     elif provider == "anthropic":
-        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]).first()
-        api_key = (row.value if row else None) or os.getenv("WORKFLOW_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        row = (
+            db_session.query(AppSettingsTable)
+            .filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"])
+            .first()
+        )
+        api_key = (
+            (row.value if row else None) or os.getenv("WORKFLOW_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        )
     elif provider == "gemini":
-        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]).first()
+        row = (
+            db_session.query(AppSettingsTable)
+            .filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"])
+            .first()
+        )
         api_key = (row.value if row else None) or os.getenv("WORKFLOW_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
     elif provider == "lmstudio":
         api_key = "not_required"
