@@ -425,7 +425,7 @@ python3 scripts/maintenance/reset_gold_eval_training_flag.py
 ```
 
 ### `maintenance/update_provider_model_catalogs.py`
-**Purpose**: Fetch latest OpenAI, Anthropic, and Gemini models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns.  
+**Purpose**: Fetch latest OpenAI, Anthropic, and Gemini models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns. The catalog is filtered: **OpenAI** — chat-only, latest only (no `-YYYY-MM-DD` dated variants); **Anthropic** — one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5).  
 **Usage**:
 ```bash
 # Preview only (no write)
@@ -436,8 +436,10 @@ python3 scripts/maintenance/update_provider_model_catalogs.py --write
 ```
 **Requirements**: `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` (and optionally `GEMINI_API_KEY`) in environment. Missing keys cause that provider to retain its existing catalog list.
 
-### Daily task: keep provider models up to date
-The provider model catalog is updated **daily at 4:00 AM** by the Celery beat schedule (task `update_provider_model_catalogs`, queue `maintenance`). Ensure the worker that consumes the `maintenance` queue has `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` set so providers can be refreshed.
+### When the catalog is refreshed
+- **At setup**: `./setup.sh` runs the refresh after services start so users see the current model list immediately.
+- **At start**: `./start.sh` runs the refresh so each start has an up-to-date catalog (no 24h wait).
+- **Daily**: The catalog is also updated **daily at 4:00 AM** by the Celery beat schedule (task `update_provider_model_catalogs`, queue `maintenance`). Ensure the worker that consumes the `maintenance` queue has `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` set so providers can be refreshed.
 
 For a one-off or host-based run: `./scripts/maintenance/daily_update_provider_models.sh` (from repo root).
 

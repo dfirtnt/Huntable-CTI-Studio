@@ -12,7 +12,7 @@ Run from repo root: python3 scripts/build_baseline_presets.py
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +23,7 @@ def _defaults() -> dict:
     """Shared default structure (thresholds, qa_enabled, etc.)."""
     return {
         "version": "1.0",
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
         "thresholds": {
             "junk_filter_threshold": 0.8,
             "ranking_threshold": 6.0,
@@ -197,6 +197,7 @@ def _agent_models_lmstudio_qwen8b() -> dict:
 
 def main() -> None:
     import sys
+
     sys.path.insert(0, str(REPO_ROOT))
     from src.utils.default_agent_prompts import get_default_agent_prompts
 

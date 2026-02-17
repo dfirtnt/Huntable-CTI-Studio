@@ -651,6 +651,14 @@ main() {
         print_warning "Skipping automated backup setup"
     fi
     
+    # Refresh LLM provider model catalog so users see current models immediately (no 24h wait)
+    print_status "Refreshing LLM provider model catalog..."
+    if $DOCKER_COMPOSE_CMD run --rm cli python3 scripts/maintenance/update_provider_model_catalogs.py --write 2>/dev/null; then
+        print_status "Provider model catalog updated"
+    else
+        print_warning "Provider model catalog refresh skipped (set OPENAI_API_KEY/ANTHROPIC_API_KEY in .env to refresh from APIs)"
+    fi
+
     # Verify installation
     local setup_success=false
     if verify_installation; then

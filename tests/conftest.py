@@ -6,6 +6,7 @@ import os
 import sys
 import warnings
 
+
 # Ensure transformers modules have names they use but do not import (LRScheduler, nn).
 # Resolve values at install time to avoid re-entrant imports during hook execution.
 def _install_transformers_compat_hooks():
@@ -59,9 +60,7 @@ def _install_transformers_compat_hooks():
                 if real_spec is None or real_spec.loader is None:
                     return None
                 wrapped = _LoaderWrapper(real_spec.loader)
-                return importlib.machinery.ModuleSpec(
-                    name, wrapped, origin=real_spec.origin, is_package=False
-                )
+                return importlib.machinery.ModuleSpec(name, wrapped, origin=real_spec.origin, is_package=False)
 
         return _Finder()
 
@@ -98,13 +97,13 @@ def _install_transformers_compat_hooks():
                     if real_spec is None or real_spec.loader is None:
                         return None
                     wrapped = _LoaderWrapper(real_spec.loader)
-                    return importlib.machinery.ModuleSpec(
-                        name, wrapped, origin=real_spec.origin, is_package=False
-                    )
+                    return importlib.machinery.ModuleSpec(name, wrapped, origin=real_spec.origin, is_package=False)
 
             return _Finder()
 
         sys.meta_path.insert(0, _make_integrations_hook())
+
+
 _install_transformers_compat_hooks()
 
 import pydantic.warnings
