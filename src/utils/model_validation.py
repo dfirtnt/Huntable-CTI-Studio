@@ -125,11 +125,7 @@ def filter_openai_models_latest_only(model_ids: list[str]) -> list[str]:
     Keeps e.g. gpt-4o, gpt-4.1-mini, o1; drops gpt-4o-2024-05-13, gpt-4.1-2025-04-14.
     """
     return sorted(
-        m
-        for m in model_ids
-        if m
-        and is_valid_openai_chat_model(m.strip())
-        and not OPENAI_DATED.search(m.strip())
+        m for m in model_ids if m and is_valid_openai_chat_model(m.strip()) and not OPENAI_DATED.search(m.strip())
     )
 
 
