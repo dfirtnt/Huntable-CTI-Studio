@@ -2784,7 +2784,8 @@ const AGENT_CONFIG = {
         prefix: 'osdetectionagent-fallback',
         providerKey: 'OSDetectionAgent_fallback_provider',
         modelKey: 'OSDetectionAgent_fallback',
-        temperatureKey: null,
+        temperatureKey: 'OSDetectionAgent_fallback_temperature',
+        topPKey: 'OSDetectionAgent_fallback_top_p',
         name: 'OSDetectionAgent_fallback',
         isSubAgent: false,
         isQA: false,
@@ -4676,6 +4677,7 @@ window.toggleFallbackModel = function() {
             autoSaveModelChange();
         }
     }
+    if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
 };
 
 function toggleCollapsible(panelId) {
@@ -4788,6 +4790,15 @@ async function loadConfig(skipPromptReload = false) {
         const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
         if (sigmaFallbackCheckbox && currentConfig.sigma_fallback_enabled !== undefined) {
             sigmaFallbackCheckbox.checked = currentConfig.sigma_fallback_enabled;
+        }
+        const osFallbackCheckbox = document.getElementById('osdetectionagent-fallback-enabled');
+        if (osFallbackCheckbox && currentConfig.osdetection_fallback_enabled !== undefined) {
+            osFallbackCheckbox.checked = currentConfig.osdetection_fallback_enabled;
+            const osFallbackContainer = document.getElementById('osdetectionagent-fallback-container');
+            if (osFallbackContainer) {
+                osFallbackContainer.classList.toggle('hidden', !currentConfig.osdetection_fallback_enabled);
+                osFallbackContainer.style.display = currentConfig.osdetection_fallback_enabled ? 'block' : 'none';
+            }
         }
         
         const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
@@ -5216,6 +5227,10 @@ function renderAgentModels(lmstudioModels) {
         
         // Only use currentFallbackModel for LMStudio dropdown if provider is lmstudio
         const lmstudioFallbackModel = currentFallbackProvider === 'lmstudio' ? currentFallbackModel : '';
+        const currentFallbackTemp = agentModels['OSDetectionAgent_fallback_temperature'] !== undefined && agentModels['OSDetectionAgent_fallback_temperature'] !== ''
+            ? parseFloat(agentModels['OSDetectionAgent_fallback_temperature']) : 0.0;
+        const currentFallbackTopP = agentModels['OSDetectionAgent_fallback_top_p'] !== undefined && agentModels['OSDetectionAgent_fallback_top_p'] !== ''
+            ? parseFloat(agentModels['OSDetectionAgent_fallback_top_p']) : 0.9;
         
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
@@ -5269,6 +5284,16 @@ function renderAgentModels(lmstudioModels) {
                         </div>
                         <div data-agent-prefix="osdetectionagent-fallback" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('osdetectionagent-fallback', 'anthropic', currentFallbackProvider, currentFallbackModel)}
+                        </div>
+                        <div class="mt-3 flex gap-3">
+                            <div class="flex-1">
+                                <label for="osdetectionagent-fallback-temperature" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Temperature</label>
+                                <input type="number" id="osdetectionagent-fallback-temperature" name="agent_models[OSDetectionAgent_fallback_temperature]" min="0" max="1" step="0.1" value="${currentFallbackTemp}" onchange="autoSaveModelChange()" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+                            </div>
+                            <div class="flex-1">
+                                <label for="osdetectionagent-fallback-top-p" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Top_P</label>
+                                <input type="number" id="osdetectionagent-fallback-top-p" name="agent_models[OSDetectionAgent_fallback_top_p]" min="0" max="1" step="0.01" value="${currentFallbackTopP}" onchange="autoSaveModelChange()" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6236,6 +6261,7 @@ async function performAutoSave() {
         
         // Collect other toggles
         const sigmaFallbackEnabled = document.getElementById('sigma-fallback-enabled')?.checked || false;
+        const osdetectionFallbackEnabled = document.getElementById('osdetectionagent-fallback-enabled')?.checked || false;
         const cmdlineAttentionPreprocessorEnabled = document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false;
         
         // Only save QA max retries if valid
@@ -6265,6 +6291,7 @@ async function performAutoSave() {
             agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
             qa_enabled: qaEnabled,
             sigma_fallback_enabled: sigmaFallbackEnabled,
+            osdetection_fallback_enabled: osdetectionFallbackEnabled,
             rank_agent_enabled: rankAgentEnabled,
             cmdline_attention_preprocessor_enabled: cmdlineAttentionPreprocessorEnabled,
             qa_max_retries: qaMaxRetries,
@@ -7370,6 +7397,10 @@ function getFullPresetState(scope = null) {
     const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
     const sigma_fallback_enabled = sigmaFallbackCheckbox ? sigmaFallbackCheckbox.checked : false;
     
+    // OS Detection fallback toggle (captured so preset restores it)
+    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+    const osdetection_fallback_enabled = osFallbackToggle ? osFallbackToggle.checked : false;
+    
     // Get rank agent enabled setting
     const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
     const rank_agent_enabled = rankAgentEnabledCheckbox ? rankAgentEnabledCheckbox.checked !== false : true;
@@ -7397,6 +7428,7 @@ function getFullPresetState(scope = null) {
         agent_models: formState.agent_models,
         qa_enabled: formState.qa_enabled,
         sigma_fallback_enabled: sigma_fallback_enabled,
+        osdetection_fallback_enabled: osdetection_fallback_enabled,
         rank_agent_enabled: rank_agent_enabled,
         cmdline_attention_preprocessor_enabled: document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false,
         qa_max_retries: qa_max_retries,
@@ -7919,6 +7951,18 @@ async function applyPreset(preset) {
             }
         }
         
+        // Apply OS Detection fallback toggle (so feature runs when preset has fallback model)
+        const osFallbackToggleEl = document.getElementById('osdetectionagent-fallback-enabled');
+        const osFallbackContainer = document.getElementById('osdetectionagent-fallback-container');
+        if (osFallbackToggleEl && osFallbackContainer) {
+            const enabled = preset.osdetection_fallback_enabled !== undefined
+                ? preset.osdetection_fallback_enabled
+                : !!(preset.agent_models && (preset.agent_models.OSDetectionAgent_fallback || preset.agent_models['OSDetectionAgent_fallback']));
+            osFallbackToggleEl.checked = enabled;
+            osFallbackContainer.classList.toggle('hidden', !enabled);
+            osFallbackContainer.style.display = enabled ? 'block' : 'none';
+        }
+        
         // Apply cmdline attention preprocessor
         if (preset.cmdline_attention_preprocessor_enabled !== undefined) {
             const cmdlineAttentionPreprocessorCheckbox = document.getElementById('cmdline-attention-preprocessor-enabled');
@@ -8239,6 +8283,9 @@ function resetOriginalConfigStateFromCurrent() {
         disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig),
         qa_max_retries: currentConfig.qa_max_retries || 5,
         sigma_fallback_enabled: currentConfig.sigma_fallback_enabled || false,
+        osdetection_fallback_enabled: currentConfig.osdetection_fallback_enabled !== undefined
+            ? currentConfig.osdetection_fallback_enabled
+            : !!(currentConfig.agent_models && (currentConfig.agent_models.OSDetectionAgent_fallback || currentConfig.agent_models['OSDetectionAgent_fallback'])),
         rank_agent_enabled: currentConfig.rank_agent_enabled !== undefined ? currentConfig.rank_agent_enabled : true,
         agent_prompts: promptsSource
     };
@@ -8754,6 +8801,7 @@ function getCurrentFormState() {
         disabled_extract_agents: disabled_agents,
         qa_max_retries: Math.min(Math.max(1, parseInt(document.getElementById('qaMaxRetries')?.value) || 5), 3),
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
+        osdetection_fallback_enabled: document.getElementById('osdetectionagent-fallback-enabled')?.checked || false,
         rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true,
         agent_prompts: promptsSource
     };
@@ -8819,6 +8867,9 @@ function checkForUnsavedChanges() {
     
     // Compare sigma_fallback_enabled
     if (currentState.sigma_fallback_enabled !== originalState.sigma_fallback_enabled) return true;
+    
+    // Compare OS Detection fallback toggle
+    if (currentState.osdetection_fallback_enabled !== originalState.osdetection_fallback_enabled) return true;
     
     // Compare rank_agent_enabled
     if (currentState.rank_agent_enabled !== originalState.rank_agent_enabled) return true;

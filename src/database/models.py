@@ -513,6 +513,10 @@ class AgenticWorkflowConfigTable(Base):
     # Default False (use extracted observables summary - SIGMA only generates from extraction_result.content)
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
 
+    # OS Detection fallback LLM: if True, use configured fallback model when embedding confidence is low
+    # Default False (fallback disabled until user enables and selects a model)
+    osdetection_fallback_enabled = Column(Boolean, nullable=False, default=False)
+
     # Rank Agent enabled: if False, skip ranking step and proceed directly to extraction
     # Default True (rank agent is enabled by default)
     rank_agent_enabled = Column(Boolean, nullable=False, default=True)
