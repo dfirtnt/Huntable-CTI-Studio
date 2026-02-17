@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Documentation Structure**: Reorganized navigation to match proposed structure with Advanced section
 - **File Organization**: Consolidated testing and historical documentation into appropriate subdirectories
+- **Documentation sync (mdu)** (2026-02-17): README and docs verified; broken archive links fixed; MkDocs build confirmed.
 
 ## [5.0.0 "Callisto"] - 2026-01-15
 
@@ -92,6 +93,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)
 - **Cursor rule: Agent config test confirmation** (2026-02-02): New rule `.cursor/rules/agent-config-test-confirmation.mdc` requiring explicit user approval before running or creating tests that mutate active agent configs
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
+- **Agent config preset: OS Detection fallback coverage** (2026-02-17): Presets now capture and restore all OS Detection fallback fields
+  - Toggle `osdetection_fallback_enabled` included in preset export/apply and persisted in workflow config (DB column, API request/response)
+  - Temperature and Top_P for OS Detection fallback LLM: `OSDetectionAgent_fallback_temperature`, `OSDetectionAgent_fallback_top_p` in AGENT_CONFIG and UI; collected/applied via presets
+  - Migration script `scripts/migrate_add_osdetection_fallback_enabled.py` adds the new column to existing databases (run via `docker-compose exec web python3 scripts/migrate_add_osdetection_fallback_enabled.py` or with reachable DATABASE_URL)
 
 ### Removed
 - **Root cleanup** (2026-02-04): Removed obsolete root files; moved dev scripts to `scripts/`
@@ -115,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - schemas.md: extraction_counts clarified with legacy note
   - WORKFLOW_DATA_FLOW.md: subresults example and diagram updated to active sub-agents only
   - architecture.md: EventID → Event ID (scoring keyword)
+- **Documentation sync (mdu)** (2026-02-17): README and docs verified; duplicate [Unreleased] in CHANGELOG merged; MkDocs build confirmed.
 - **Documentation true-up** (2026-02-02): Aligned docs with current architecture and removed features
   - README, index, quickstart: 7-step agentic workflow (OS Detection first), 6 services, no LangGraph server
   - Callisto.md: 6 services (postgres, redis, web, worker, workflow_worker, scheduler); removed langgraph-server, ollama; workflow runs in Celery
