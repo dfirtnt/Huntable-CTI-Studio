@@ -413,7 +413,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -432,7 +432,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -2142,15 +2142,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#integration-with-cti-scraper" class="md-nav__link">
+  <a href="#integration-with-huntable-cti-studio" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Integration with CTI Scraper
+        Integration with Huntable CTI Studio
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Integration with CTI Scraper">
+    <nav class="md-nav" aria-label="Integration with Huntable CTI Studio">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3049,7 +3049,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -3076,7 +3076,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -3127,7 +3127,7 @@
 <p>Load your preferred model</p>
 </li>
 <li>
-<p><strong>Run CTIScraper with LMStudio</strong>:
+<p><strong>Run Huntable CTI Studio with LMStudio</strong>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Start services (LMStudio config is already in docker-compose.yml)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker-compose<span class="w"> </span>up<span class="w"> </span>web
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -3206,7 +3206,7 @@
 - <strong>Prompt Size:</strong> ~6000-8000 input tokens (full rubric + article content)
 - <strong>Error if too small:</strong> "Trying to keep the first X tokens when context overflows. However, the model is loaded with context length of only Y tokens"</p>
 <p><strong>SIGMA Rule Generation:</strong>
-- CTIScraper automatically truncates content based on detected model size:
+- Huntable CTI Studio automatically truncates content based on detected model size:
   - 1B models: ~550 tokens of content (~2200 chars)
   - 3B models: ~2600 tokens of content (~10400 chars)<br />
   - 8B+ models: ~6700 tokens of content (~26800 chars)</p>
@@ -3215,7 +3215,7 @@
 - Typically requires 4096-8192 tokens for standard queries</p>
 <p>The application uses the OpenAI-compatible HTTP API (<code>/v1/chat/completions</code>), which does not support runtime context length configuration. If you need programmatic context length control, you would need to switch to the LMStudio Python SDK, which is not currently implemented.</p>
 <h2 id="lm-studio-040-optional-improvements">LM Studio 0.4.0+ (optional improvements)<a class="headerlink" href="#lm-studio-040-optional-improvements" title="Permanent link">&para;</a></h2>
-<p>The following features from <a href="https://lmstudio.ai/blog/0.4.0">LM Studio 0.4.0</a> are relevant to CTIScraper:</p>
+<p>The following features from <a href="https://lmstudio.ai/blog/0.4.0">LM Studio 0.4.0</a> are relevant to Huntable CTI Studio:</p>
 <table>
 <thead>
 <tr>
@@ -3526,7 +3526,7 @@
 <li><strong>llama.cpp</strong> with 7B model: 10-15 second responses</li>
 <li><strong>LM Studio</strong> with 7B model: 12-20 second responses</li>
 </ol>
-<h2 id="integration-with-cti-scraper">Integration with CTI Scraper<a class="headerlink" href="#integration-with-cti-scraper" title="Permanent link">&para;</a></h2>
+<h2 id="integration-with-huntable-cti-studio">Integration with Huntable CTI Studio<a class="headerlink" href="#integration-with-huntable-cti-studio" title="Permanent link">&para;</a></h2>
 <h3 id="rag-system-integration">RAG System Integration<a class="headerlink" href="#rag-system-integration" title="Permanent link">&para;</a></h3>
 <p>The local LLM providers integrate seamlessly with the RAG system:</p>
 <ol>

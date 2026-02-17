@@ -21,7 +21,7 @@
     
     
       
-        <title>Getting Started with CTIScraper Deployment - Huntable CTI Studio</title>
+        <title>Getting Started with Huntable CTI Studio Deployment - Huntable CTI Studio</title>
       
     
     
@@ -62,7 +62,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#getting-started-with-ctiscraper-deployment" class="md-skip">
+        <a href="#getting-started-with-huntable-cti-studio-deployment" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Getting Started with CTIScraper Deployment
+              Getting Started with Huntable CTI Studio Deployment
             
           </span>
         </div>
@@ -407,7 +407,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -426,7 +426,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -2469,7 +2469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2496,7 +2496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -2533,7 +2533,7 @@
 
 
 
-<h1 id="getting-started-with-ctiscraper-deployment">Getting Started with CTIScraper Deployment<a class="headerlink" href="#getting-started-with-ctiscraper-deployment" title="Permanent link">&para;</a></h1>
+<h1 id="getting-started-with-huntable-cti-studio-deployment">Getting Started with Huntable CTI Studio Deployment<a class="headerlink" href="#getting-started-with-huntable-cti-studio-deployment" title="Permanent link">&para;</a></h1>
 <p>Concise setup that matches the current Docker and CLI.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2542,11 +2542,12 @@
 <li>Python 3.11 only if you plan to run tooling locally (otherwise Docker only)</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>Huntable-CTI-Studio
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">              </span><span class="c1"># set POSTGRES_PASSWORD and API keys [optional for secure install. Default passwords work for demo purposes.]</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./start.sh<span class="w">                        </span><span class="c1"># builds + starts compose stack</span>
 </code></pre></div>
+<code>start.sh</code> may prompt to run the MkDocs docs server; if you choose <strong>y</strong>, it runs in the background (logs: <code>logs/mkdocs.log</code>).</p>
 <p>Access:
 - Web UI/API: http://localhost:8001
 - API docs: http://localhost:8001/docs</p>

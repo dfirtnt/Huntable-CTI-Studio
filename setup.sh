@@ -487,6 +487,25 @@ verify_installation() {
     fi
 }
 
+# Build MkDocs site and start dev server so docs are ready and running
+build_and_serve_mkdocs() {
+    if [ ! -f "mkdocs.yml" ]; then
+        return 0
+    fi
+    print_status "Building docs (MkDocs)..."
+    if [ ! -d ".venv" ]; then
+        python3 -m venv .venv
+    fi
+    local py=".venv/bin/python3"
+    "$py" -m pip install -q mkdocs mkdocs-material
+    if ! "$py" -m mkdocs build --strict 2>/dev/null; then
+        "$py" -m mkdocs build
+    fi
+    print_status "Starting MkDocs server in background..."
+    mkdir -p logs
+    nohup "$py" -m mkdocs serve >> logs/mkdocs.log 2>&1 </dev/null &
+}
+
 # Function to show post-installation information
 show_post_install_info() {
     local setup_success=$1
@@ -503,6 +522,7 @@ show_post_install_info() {
     echo ""
     echo "📋 Service Information:"
     echo "   • Web Interface: http://localhost:8001"
+    echo "   • Docs: http://localhost:8000 (MkDocs; logs: logs/mkdocs.log)"
     echo "   • Database: PostgreSQL on port 5432"
     echo "   • Redis: Redis on port 6379"
     
@@ -635,6 +655,7 @@ main() {
     local setup_success=false
     if verify_installation; then
         setup_success=true
+        build_and_serve_mkdocs
     else
         setup_success=false
     fi

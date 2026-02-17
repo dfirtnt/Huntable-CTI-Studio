@@ -205,6 +205,7 @@ The system uses specialized queues for workload isolation:
 | `generate_daily_report` | Daily at 6:00 AM | `reports` |
 | `embed_new_articles` | Daily at 3:00 PM | `default` |
 | `sync_sigma_rules` | Weekly (Sunday 4:00 AM) | `maintenance` |
+| `update_provider_model_catalogs` | Daily at 4:00 AM | `maintenance` |
 
 ## Health Checks and Diagnostics
 

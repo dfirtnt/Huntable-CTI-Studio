@@ -6,7 +6,9 @@ Handles source checking, article collection, and other async operations.
 
 import logging
 import os
+import subprocess
 import time
+from pathlib import Path
 
 from celery import Celery
 from celery.schedules import crontab
@@ -141,6 +143,13 @@ def setup_periodic_tasks(sender, **kwargs):
         crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
         sync_sigma_rules.s(),
         name="sync-sigma-rules-weekly",
+    )
+
+    # Refresh OpenAI/Anthropic/Gemini model catalog daily at 4 AM
+    sender.add_periodic_task(
+        crontab(hour=4, minute=0),  # Daily at 4 AM
+        update_provider_model_catalogs.s(),
+        name="update-provider-model-catalogs-daily",
     )
 
     # Generate annotation embeddings weekly on Sundays at 4 AM
@@ -1225,6 +1234,40 @@ def sync_sigma_rules(self, force_reindex=False):
         logger.error(f"Sigma sync task failed: {exc}")
         # Retry with exponential backoff (longer delay for this resource-intensive task)
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
+
+
+@celery_app.task(bind=True, max_retries=2)
+def update_provider_model_catalogs(self):
+    """Refresh OpenAI/Anthropic/Gemini model lists and write config/provider_model_catalog.json."""
+    repo_root = Path(__file__).resolve().parents[2]
+    script_path = repo_root / "scripts" / "maintenance" / "update_provider_model_catalogs.py"
+    if not script_path.exists():
+        logger.warning("Provider catalog script not found at %s; skipping", script_path)
+        return {"status": "skipped", "message": "Script not found"}
+    try:
+        result = subprocess.run(
+            [os.environ.get("PYTHON", "python3"), str(script_path), "--write"],
+            cwd=str(repo_root),
+            env=os.environ,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            logger.warning(
+                "update_provider_model_catalogs exited %s: %s",
+                result.returncode,
+                (result.stderr or result.stdout or "")[:500],
+            )
+            return {"status": "error", "returncode": result.returncode, "stderr": (result.stderr or "")[:500]}
+        logger.info("Provider model catalogs updated successfully")
+        return {"status": "success", "message": "Provider model catalogs updated"}
+    except subprocess.TimeoutExpired:
+        logger.warning("update_provider_model_catalogs timed out")
+        raise self.retry(countdown=60 * (2**self.request.retries))
+    except Exception as exc:
+        logger.exception("update_provider_model_catalogs failed")
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
 if __name__ == "__main__":

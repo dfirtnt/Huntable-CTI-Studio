@@ -407,7 +407,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -426,7 +426,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -2469,7 +2469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2496,7 +2496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -2552,7 +2552,8 @@
 What happens:
 - Creates <code>logs/</code> and <code>data/</code> directories
 - Runs <code>docker-compose up --build -d</code>
-- Health-checks Postgres, Redis, and the web app</p>
+- Health-checks Postgres, Redis, and the web app
+- Optionally prompts to run the MkDocs docs server; if <strong>y</strong>, runs <code>./run_mkdocs.sh</code> in the background (logs: <code>logs/mkdocs.log</code>)</p>
 <h2 id="service-endpoints">Service endpoints<a class="headerlink" href="#service-endpoints" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Web UI + API: http://localhost:8001</li>

@@ -413,7 +413,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -432,7 +432,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -846,6 +846,17 @@
     <span class="md-ellipsis">
       
         LM Studio Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workflow-baseline-presets-getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow baseline presets (getting started)
       
     </span>
   </a>
@@ -2859,7 +2870,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2886,7 +2897,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -3229,6 +3240,47 @@
 </tbody>
 </table>
 <p><strong>Note</strong>: LM Studio runs on your host machine. The <code>host.docker.internal</code> hostname allows Docker containers to access services on the host. Context length can differ by service: <code>docker-compose.yml</code> may set <code>LMSTUDIO_CONTEXT_LENGTH_&lt;model_slug&gt;</code> to 16384 for web and 4096 for workers; see <a href="../../llm/lmstudio/#context-length">LM Studio Integration</a> for details.</p>
+<h3 id="workflow-baseline-presets-getting-started">Workflow baseline presets (getting started)<a class="headerlink" href="#workflow-baseline-presets-getting-started" title="Permanent link">&para;</a></h3>
+<p>Pre-built workflow config presets with <strong>all agent prompts included</strong> are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent.</p>
+<table>
+<thead>
+<tr>
+<th>Preset file</th>
+<th>Provider</th>
+<th>Model</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config/presets/AgentConfigs/anthropic-sonnet-4.5.json</code></td>
+<td>Anthropic</td>
+<td>Claude Sonnet 4.5</td>
+<td>You have <code>ANTHROPIC_API_KEY</code> and want to use Claude for all agents.</td>
+</tr>
+<tr>
+<td><code>config/presets/AgentConfigs/chatgpt-4o-mini.json</code></td>
+<td>OpenAI</td>
+<td>gpt-4o-mini</td>
+<td>You have <code>OPENAI_API_KEY</code> or <code>CHATGPT_API_KEY</code> and want 4o-mini for all agents.</td>
+</tr>
+<tr>
+<td><code>config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json</code></td>
+<td>LM Studio</td>
+<td>Qwen 2.5 8B (local)</td>
+<td>You run LM Studio with a model such as Qwen2.5-8B-Instruct and want to use it for all agents.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How to load a preset</strong></p>
+<ol>
+<li>Open the <strong>Workflow</strong> page in the web UI.</li>
+<li>In the workflow config panel, use <strong>Import from file</strong> and choose one of the JSON files above (e.g. <code>config/presets/AgentConfigs/chatgpt-4o-mini.json</code>).</li>
+<li>Confirm the import; the active workflow config (thresholds, agent models, and <strong>agent prompts</strong>) will be replaced by the preset. You can then run the workflow or tweak settings.</li>
+</ol>
+<p>To regenerate the preset files (e.g. after changing prompts in <code>src/prompts</code>), run from the repo root:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>scripts/build_baseline_presets.py
+</code></pre></div>
 <h3 id="content-filtering">Content Filtering<a class="headerlink" href="#content-filtering" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3400,39 +3452,39 @@
 </table>
 <h2 id="health-checks-and-diagnostics">Health Checks and Diagnostics<a class="headerlink" href="#health-checks-and-diagnostics" title="Permanent link">&para;</a></h2>
 <h3 id="application-health">Application Health<a class="headerlink" href="#application-health" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>http://localhost:8001/health
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>http://localhost:8001/health
 </code></pre></div>
 <h3 id="api-documentation">API Documentation<a class="headerlink" href="#api-documentation" title="Permanent link">&para;</a></h3>
 <p>http://localhost:8001/docs</p>
 <h3 id="database-connection">Database Connection<a class="headerlink" href="#database-connection" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">PGPASSWORD</span><span class="o">=</span><span class="nv">$POSTGRES_PASSWORD</span><span class="w"> </span>psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-U<span class="w"> </span>cti_user<span class="w"> </span>-d<span class="w"> </span>cti_scraper<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;SELECT 1&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">PGPASSWORD</span><span class="o">=</span><span class="nv">$POSTGRES_PASSWORD</span><span class="w"> </span>psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-U<span class="w"> </span>cti_user<span class="w"> </span>-d<span class="w"> </span>cti_scraper<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;SELECT 1&quot;</span>
 </code></pre></div>
 <h3 id="redis-connection">Redis Connection<a class="headerlink" href="#redis-connection" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span><span class="w"> </span>ping
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>redis-cli<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-p<span class="w"> </span><span class="m">6379</span><span class="w"> </span>ping
 </code></pre></div>
 <h3 id="workflow-status">Workflow Status<a class="headerlink" href="#workflow-status" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>http://localhost:8001/api/workflow/executions
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl<span class="w"> </span>http://localhost:8001/api/workflow/executions
 </code></pre></div>
 <h3 id="ingestion-analytics">Ingestion Analytics<a class="headerlink" href="#ingestion-analytics" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl<span class="w"> </span>http://localhost:8001/api/health/ingestion
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl<span class="w"> </span>http://localhost:8001/api/health/ingestion
 </code></pre></div>
 <h2 id="applying-configuration-changes">Applying Configuration Changes<a class="headerlink" href="#applying-configuration-changes" title="Permanent link">&para;</a></h2>
 <p>After modifying configuration:</p>
 <ol>
 <li>
 <p><strong>Environment variables only</strong>: Restart affected services
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker-compose<span class="w"> </span>restart<span class="w"> </span>web<span class="w"> </span>worker
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>docker-compose<span class="w"> </span>restart<span class="w"> </span>web<span class="w"> </span>worker
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Port changes or docker-compose.yml</strong>: Rebuild and restart
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>docker-compose<span class="w"> </span>down
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>docker-compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>docker-compose<span class="w"> </span>down
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>docker-compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
 </code></pre></div></p>
 </li>
 <li>
 <p><strong>Source configuration</strong>: Sync sources
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>./run_cli.sh<span class="w"> </span>sync-sources<span class="w"> </span>--config<span class="w"> </span>config/sources.yaml
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./run_cli.sh<span class="w"> </span>sync-sources<span class="w"> </span>--config<span class="w"> </span>config/sources.yaml
 </code></pre></div></p>
 </li>
 </ol>

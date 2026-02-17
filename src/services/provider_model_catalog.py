@@ -3,6 +3,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+from src.utils.model_validation import filter_anthropic_models_latest_only
+
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
 DEFAULT_CATALOG = {
     "openai": [
@@ -40,6 +42,7 @@ DEFAULT_CATALOG = {
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
         "claude-3-haiku-20240307",
+        "claude-sonnet-4-6",
         "claude-2.1",
         "claude-2.0",
         "claude-instant-1.2",
@@ -62,11 +65,16 @@ DEFAULT_CATALOG = {
 
 def load_catalog() -> dict[str, list[str]]:
     if not CATALOG_PATH.exists():
-        return DEFAULT_CATALOG.copy()
-    try:
-        return json.loads(CATALOG_PATH.read_text())
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=500, detail=f"Invalid provider catalog: {exc}") from exc
+        catalog = DEFAULT_CATALOG.copy()
+    else:
+        try:
+            catalog = json.loads(CATALOG_PATH.read_text())
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=500, detail=f"Invalid provider catalog: {exc}") from exc
+    # Anthropic: show only latest per family (no datestamped variants)
+    if "anthropic" in catalog and catalog["anthropic"]:
+        catalog["anthropic"] = filter_anthropic_models_latest_only(catalog["anthropic"])
+    return catalog
 
 
 def save_catalog(catalog: dict[str, list[str]]) -> None:
