@@ -109,10 +109,7 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
 
     # Fallback: if it starts with gpt- or o and doesn't match exclusion patterns, allow it
     # but this should be rare
-    if model_id.lower().startswith(("gpt-", "o")):
-        return True
-
-    return False
+    return bool(model_id.lower().startswith(("gpt-", "o")))
 
 
 # OpenAI: dated suffix is -YYYY-MM-DD or -YYYY-MM-DD-preview; keep only chat + no date (latest).
