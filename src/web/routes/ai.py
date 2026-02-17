@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.services.provider_model_catalog import load_catalog, update_provider_models
-from src.utils.model_validation import is_valid_openai_chat_model, suggest_base_model
+from src.utils.model_validation import filter_anthropic_models_latest_only, is_valid_openai_chat_model, suggest_base_model
 from src.utils.prompt_loader import format_prompt
 from src.web.dependencies import logger
 
@@ -66,7 +66,7 @@ def _filter_openai_models(model_ids: list[str]) -> list[str]:
 
 
 def _filter_anthropic_models(model_ids: list[str]) -> list[str]:
-    return sorted({model_id for model_id in model_ids if model_id.lower().startswith("claude")})
+    return filter_anthropic_models_latest_only(model_ids)
 
 
 def _filter_gemini_models(model_ids: list[str]) -> list[str]:

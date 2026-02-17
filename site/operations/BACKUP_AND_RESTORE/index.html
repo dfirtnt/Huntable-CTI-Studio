@@ -407,7 +407,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -426,7 +426,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -2469,7 +2469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2496,7 +2496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -2534,7 +2534,7 @@
 
 
 <h1 id="backup-and-restore-system">Backup and Restore System<a class="headerlink" href="#backup-and-restore-system" title="Permanent link">&para;</a></h1>
-<p>Comprehensive guide for CTI Scraper backup and restore operations, including database-only backups, full system backups, and automated backup configuration.</p>
+<p>Comprehensive guide for Huntable CTI Studio backup and restore operations, including database-only backups, full system backups, and automated backup configuration.</p>
 <h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ol>
 <li><a href="#quick-start">Quick Start</a></li>
@@ -2842,11 +2842,11 @@
 <p>The automated backup system creates two cron jobs:</p>
 <p><strong>Daily Backup Job:</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Runs daily at 2:00 AM</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="m">0</span><span class="w"> </span><span class="m">2</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/path/to/CTIScraper<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./scripts/backup_restore.sh<span class="w"> </span>create<span class="w"> </span>--type<span class="w"> </span>full<span class="w"> </span>&gt;&gt;<span class="w"> </span>logs/backup.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="m">0</span><span class="w"> </span><span class="m">2</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/path/to/Huntable-CTI-Studio<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./scripts/backup_restore.sh<span class="w"> </span>create<span class="w"> </span>--type<span class="w"> </span>full<span class="w"> </span>&gt;&gt;<span class="w"> </span>logs/backup.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span>
 </code></pre></div></p>
 <p><strong>Weekly Cleanup Job:</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Runs weekly on Sundays at 3:00 AM</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="m">0</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/path/to/CTIScraper<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./scripts/backup_restore.sh<span class="w"> </span>prune<span class="w"> </span>--daily<span class="w"> </span><span class="m">7</span><span class="w"> </span>--weekly<span class="w"> </span><span class="m">4</span><span class="w"> </span>--monthly<span class="w"> </span><span class="m">3</span><span class="w"> </span>--max-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--force<span class="w"> </span>&gt;&gt;<span class="w"> </span>logs/backup.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="m">0</span><span class="w"> </span><span class="m">3</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/path/to/Huntable-CTI-Studio<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./scripts/backup_restore.sh<span class="w"> </span>prune<span class="w"> </span>--daily<span class="w"> </span><span class="m">7</span><span class="w"> </span>--weekly<span class="w"> </span><span class="m">4</span><span class="w"> </span>--monthly<span class="w"> </span><span class="m">3</span><span class="w"> </span>--max-size-gb<span class="w"> </span><span class="m">50</span><span class="w"> </span>--force<span class="w"> </span>&gt;&gt;<span class="w"> </span>logs/backup.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span>
 </code></pre></div></p>
 <h3 id="monitoring-logs">Monitoring Logs<a class="headerlink" href="#monitoring-logs" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># View recent backup logs</span>

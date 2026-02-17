@@ -413,7 +413,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -432,7 +432,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -2571,7 +2571,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2598,7 +2598,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -2638,7 +2638,7 @@
 <h1 id="qa-loops">QA Loops<a class="headerlink" href="#qa-loops" title="Permanent link">&para;</a></h1>
 <p>Quality controls are built into both extraction and Sigma generation to keep outputs actionable.</p>
 <h2 id="extraction-qa-hybrid-cmdline-pipeline">Extraction QA (Hybrid Cmdline pipeline)<a class="headerlink" href="#extraction-qa-hybrid-cmdline-pipeline" title="Permanent link">&para;</a></h2>
-<p>Based on the extraction pipeline spec (archived):
+<p>Based on the extraction pipeline spec (archived; see git history if needed):
 1. <strong>Regex candidate extractor</strong>: High-recall regexes capture command-line shapes (executables with args, powershell, System32 utilities).
 2. <strong>Encoder classifier</strong>: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or <code>all-mpnet-baseMiniLM-L6-v2</code>). Keeps only likely Windows commands.
 3. <strong>Optional LLM QA validator</strong>: Lightweight model (Qwen2.5-Coder-7B or Llama-3.1-8B) re-checks borderline strings and flags invalid items. Output never expands the list—only prunes.

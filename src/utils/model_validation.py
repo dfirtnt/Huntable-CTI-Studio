@@ -115,6 +115,40 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
     return False
 
 
+# Anthropic: family = strip -YYYYMMDD or -latest; one representative per family.
+ANTHROPIC_DATED = re.compile(r"-\d{8}$")
+ANTHROPIC_LATEST = re.compile(r"-latest$", re.IGNORECASE)
+
+
+def _anthropic_family(model_id: str) -> str:
+    """Family key: strip trailing -YYYYMMDD and -latest."""
+    key = ANTHROPIC_DATED.sub("", model_id)
+    return ANTHROPIC_LATEST.sub("", key)
+
+
+def filter_anthropic_models_latest_only(model_ids: list[str]) -> list[str]:
+    """
+    One main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5, one Opus 4.6).
+    Prefer: no date > -latest > most recent -YYYYMMDD.
+    """
+    claude = [m.strip() for m in model_ids if m and m.strip().lower().startswith("claude")]
+    if not claude:
+        return []
+
+    by_family: dict[str, list[str]] = {}
+    for m in claude:
+        by_family.setdefault(_anthropic_family(m), []).append(m)
+
+    def rank(m: str) -> tuple[int, int]:
+        if ANTHROPIC_DATED.search(m):
+            return (2, -int(m[-8:]))  # dated: prefer later date
+        if ANTHROPIC_LATEST.search(m):
+            return (1, 0)
+        return (0, 0)  # main (no suffix)
+
+    return sorted(min(fam, key=rank) for fam in by_family.values())
+
+
 def suggest_base_model(model_id: str) -> str | None:
     """Suggest a base model name for a dated model ID."""
     if not model_id or not isinstance(model_id, str):

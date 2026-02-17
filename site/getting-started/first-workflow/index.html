@@ -413,7 +413,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -432,7 +432,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../../CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -712,6 +712,17 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-load-a-baseline-preset-recommended-for-first-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0) Load a baseline preset (recommended for first run)
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#1-ingest-a-cti-article" class="md-nav__link">
@@ -2593,7 +2604,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2620,7 +2631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../../CHANGELOG/" class="md-nav__link">
         
   
   
@@ -2660,6 +2671,14 @@
 <h1 id="first-workflow">First Workflow<a class="headerlink" href="#first-workflow" title="Permanent link">&para;</a></h1>
 <p>Run the full agentic pipeline against a real CTI article: OS detection → content filtering → ranking → extraction → Sigma generation → similarity search.</p>
 <p><strong>Prerequisites</strong>: Stack running via <code>./start.sh</code> (see <a href="../installation/">Installation</a>).</p>
+<h2 id="0-load-a-baseline-preset-recommended-for-first-run">0) Load a baseline preset (recommended for first run)<a class="headerlink" href="#0-load-a-baseline-preset-recommended-for-first-run" title="Permanent link">&para;</a></h2>
+<p>If you haven’t configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the <strong>Workflow</strong> page, use <strong>Import from file</strong> and pick one of:</p>
+<ul>
+<li><strong>Anthropic</strong> — <code>config/presets/AgentConfigs/anthropic-sonnet-4.5.json</code> (requires <code>ANTHROPIC_API_KEY</code>)</li>
+<li><strong>OpenAI / ChatGPT</strong> — <code>config/presets/AgentConfigs/chatgpt-4o-mini.json</code> (requires <code>OPENAI_API_KEY</code> or <code>CHATGPT_API_KEY</code>)</li>
+<li><strong>LM Studio (local)</strong> — <code>config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json</code> (requires LM Studio running and model loaded)</li>
+</ul>
+<p>See <a href="../configuration/#workflow-baseline-presets-getting-started">Configuration → Workflow baseline presets</a> for details.</p>
 <h2 id="1-ingest-a-cti-article">1) Ingest a CTI Article<a class="headerlink" href="#1-ingest-a-cti-article" title="Permanent link">&para;</a></h2>
 <p>Use the manual scrape endpoint to pull a real article and capture its ID:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">ARTICLE_ID</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8001/api/scrape-url<span class="w"> </span><span class="se">\</span>

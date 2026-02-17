@@ -15,14 +15,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import requests
 
+# Allow importing src when run as script from any cwd
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from src.services.provider_model_catalog import load_catalog, save_catalog
+from src.utils.model_validation import filter_anthropic_models_latest_only, is_valid_openai_chat_model
 
 
 @dataclass
@@ -43,14 +49,13 @@ def default_headers(api_key: str) -> dict[str, str]:
 
 
 def openai_filter(model_ids: list[str]) -> list[str]:
-    pattern = re.compile(r"^(gpt|o\d|o[1-9]|o-|o[a-z]|omni|text-davinci|davinci|curie|babbage|ada)", re.IGNORECASE)
-    filtered = [mid for mid in model_ids if pattern.match(mid)]
+    """Keep only chat-completion models (same rules as workflow UI)."""
+    filtered = [mid for mid in model_ids if is_valid_openai_chat_model(mid)]
     return sorted(set(filtered))
 
 
 def anthropic_filter(model_ids: list[str]) -> list[str]:
-    filtered = [mid for mid in model_ids if mid.lower().startswith("claude")]
-    return sorted(set(filtered))
+    return filter_anthropic_models_latest_only(model_ids)
 
 
 def gemini_filter(model_ids: list[str]) -> list[str]:
@@ -163,7 +168,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--write",
         action="store_true",
-        help="Write changes back to workflow.html (default: preview only).",
+        help="Write updated catalog to config/provider_model_catalog.json (default: preview only).",
     )
     args = parser.parse_args()
     main(write=args.write)

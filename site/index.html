@@ -411,7 +411,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="contributing/" class="md-tabs__link">
+      <a href="CONTRIBUTING/" class="md-tabs__link">
         
   
   
@@ -430,7 +430,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="changelog/" class="md-tabs__link">
+      <a href="CHANGELOG/" class="md-tabs__link">
         
   
   
@@ -2647,7 +2647,7 @@
   
   
     <li class="md-nav__item">
-      <a href="contributing/" class="md-nav__link">
+      <a href="CONTRIBUTING/" class="md-nav__link">
         
   
   
@@ -2674,7 +2674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="changelog/" class="md-nav__link">
+      <a href="CHANGELOG/" class="md-nav__link">
         
   
   
@@ -2712,8 +2712,8 @@
 
 
 <h1 id="huntable-cti-studio">Huntable CTI Studio<a class="headerlink" href="#huntable-cti-studio" title="Permanent link">&para;</a></h1>
-<p><strong>Turn threat intelligence into Sigma detections—faster.</strong></p>
-<p>CTI reports bury actionable signals in prose; manual extraction is slow and error-prone. Huntable CTI Studio automates observable extraction and Sigma rule generation with transparent, tunable AI—so detection engineers can focus on hunting, not parsing.</p>
+<p><strong>Turn threat intelligence into Sigma detections; faster.</strong></p>
+<p>Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No AI magic or black box—everything operates through explicit pipelines, visible decisions, advanced tracing, evals, and tooling you can tune for your organization and debug when things go sideways.</p>
 <h2 id="who-is-this-for">Who is this for?<a class="headerlink" href="#who-is-this-for" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2746,12 +2746,13 @@
 <li><strong>Chat &amp; search</strong> — RAG-powered search across collected intelligence, observable-aware annotations</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>Huntable-CTI-Studio
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Edit .env and set POSTGRES_PASSWORD</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>./start.sh
 </code></pre></div>
+If prompted, you can run the MkDocs docs server in the background (<strong>y</strong>); logs go to <code>logs/mkdocs.log</code>.</p>
 <p><strong>Health check</strong>: <code>curl http://localhost:8001/health</code>
 <strong>Web UI</strong>: http://localhost:8001</p>
 <h2 id="where-to-go-next">Where to Go Next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
@@ -2759,11 +2760,11 @@
 <ul>
 <li><strong>Run it now</strong> → <a href="quickstart/">Quickstart</a> — ingest an article, run the workflow, see Sigma rules in 5 minutes</li>
 <li><strong>Understand the concepts</strong> → <a href="concepts/huntables/">Huntables</a> | <a href="concepts/agents/">Agents</a> | <a href="concepts/pipelines/">Pipelines</a> | <a href="concepts/observables/">Observables</a></li>
-<li><strong>Configure and operate</strong> → <a href="getting-started/installation/">Installation</a> | <a href="getting-started/configuration/">Configuration</a> | <a href="getting-started/first-workflow/">First Workflow</a></li>
+<li><strong>Configure and operate</strong> → <a href="getting-started/installation/">Installation</a> | <a href="getting-started/configuration/">Configuration</a> | <a href="getting-started/first-workflow/">First Workflow</a> — load a <a href="getting-started/configuration/#workflow-baseline-presets-getting-started">workflow baseline preset</a> to get started with prompts and models</li>
 <li><strong>Add feeds and extract data</strong> → <a href="guides/add-feed/">Add a Feed</a> | <a href="guides/extract-observables/">Extract Observables</a> | <a href="guides/generate-sigma/">Generate Sigma Rules</a></li>
 <li><strong>Understand the architecture</strong> → <a href="architecture/overview/">Architecture Overview</a> | <a href="architecture/workflow-data-flow/">Workflow Data Flow</a> | <a href="architecture/scoring/">Scoring</a></li>
 <li><strong>Extend or integrate</strong> → <a href="reference/api/">API Reference</a> | <a href="reference/cli/">CLI Reference</a> | <a href="reference/schemas/">Schemas</a></li>
-<li><strong>Develop and contribute</strong> → <a href="development/setup/">Development Setup</a> | <a href="development/testing/">Testing</a> | <a href="contributing/">Contributing</a></li>
+<li><strong>Develop and contribute</strong> → <a href="development/setup/">Development Setup</a> | <a href="development/testing/">Testing</a> | <a href="CONTRIBUTING/">Contributing</a></li>
 </ul>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <h3 id="sigma-detection-rules">Sigma Detection Rules<a class="headerlink" href="#sigma-detection-rules" title="Permanent link">&para;</a></h3>
@@ -2785,7 +2786,7 @@
 <ul>
 <li><strong>Documentation</strong>: You're reading it! Navigate using the sidebar</li>
 <li><strong>Issues</strong>: <a href="https://github.com/dfirtnt/Huntable-CTI-Studio/issues">GitHub Issues</a></li>
-<li><strong>Contributing</strong>: See <a href="contributing/">Contributing Guide</a></li>
+<li><strong>Contributing</strong>: See <a href="CONTRIBUTING/">Contributing Guide</a></li>
 </ul>
 <hr />
 <p><em>Automate observables extraction and Sigma rule generation with transparent, tunable AI.</em></p>

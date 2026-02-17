@@ -425,11 +425,21 @@ python3 scripts/maintenance/reset_gold_eval_training_flag.py
 ```
 
 ### `maintenance/update_provider_model_catalogs.py`
-**Purpose**: Update provider model catalogs  
+**Purpose**: Fetch latest OpenAI, Anthropic, and Gemini models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns.  
 **Usage**:
 ```bash
+# Preview only (no write)
 python3 scripts/maintenance/update_provider_model_catalogs.py
+
+# Write updated catalog to config/provider_model_catalog.json
+python3 scripts/maintenance/update_provider_model_catalogs.py --write
 ```
+**Requirements**: `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` (and optionally `GEMINI_API_KEY`) in environment. Missing keys cause that provider to retain its existing catalog list.
+
+### Daily task: keep provider models up to date
+The provider model catalog is updated **daily at 4:00 AM** by the Celery beat schedule (task `update_provider_model_catalogs`, queue `maintenance`). Ensure the worker that consumes the `maintenance` queue has `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` set so providers can be refreshed.
+
+For a one-off or host-based run: `./scripts/maintenance/daily_update_provider_models.sh` (from repo root).
 
 ### `maintenance/sync_sources_fix.py`
 **Purpose**: Fix source synchronization issues  
