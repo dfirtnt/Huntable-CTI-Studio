@@ -5,43 +5,6 @@ All notable changes to CTI Scraper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- **Documentation accuracy report** (`docs/ACCURACY_REPORT.md`): Audit of nav docs vs codebase; used to drive fixes below.
-- **Documentation Overhaul**: Complete reorganization and enhancement of MkDocs documentation
-  - Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation
-  - Enhanced quickstart.md with clear outcome statements
-  - Fixed architecture.md schema inaccuracies (removed tier column, corrected hunt_score reference)
-  - Moved 17 historical/spec files to docs/archive/
-  - Moved 6 testing docs to docs/development/
-  - Removed redundant docs/README.md and docs/DOCUMENTATION.md
-  - Fixed cross-references (WORKFLOW_DATA_FLOW.md link to DEBUGGING_TOOLS_GUIDE.md)
-- **MkDocs Enhancements**:
-  - Added copy button feature for all code blocks (`content.code.copy`)
-  - Integrated StackEdit for browser-based Markdown editing
-  - Added custom JavaScript and CSS for StackEdit integration with modal instructions
-
-### Changed
-- **Documentation Structure**: Reorganized navigation to match proposed structure with Advanced section
-- **File Organization**: Consolidated testing and historical documentation into appropriate subdirectories
-- **Docs vs code alignment (accuracy report fixes)**:
-  - Scoring doc: geometric formula and pattern counts (92/89/239/56); content-filtering and sigma-rules updated
-  - Git URL and clone path: quickstart now uses `dfirtnt/Huntable-CTI-Studio` and `cd Huntable-CTI-Studio`
-  - LM Studio default model: `deepseek/deepseek-r1-0528-qwen3-8b` in configuration and lmstudio docs
-  - Removed non-existent `priority_checks` queue from configuration and workflow-queue docs
-  - DATABASE_URL: doc now states it is built by Docker Compose from POSTGRES_PASSWORD
-  - Worker queue: installation doc clarifies `workflow_worker` consumes only `workflows` queue
-  - training_category: database-queries doc no longer claims deprecation; documents current usage
-  - Context length: lmstudio and configuration docs note web vs worker variance (compose)
-  - Line refs: workflow-data-flow.md updated to current agentic_workflow.py and models.py
-  - MkDocs: added `attr_list`; removed `navigation.expand` so nav sections toggle on click
-  - Orphans: moved root/development/reference orphans to docs/archive/; deleted features duplicates and case-dupe CHANGELOG/CONTRIBUTING (kept changelog.md/contributing.md)
-
-### Fixed
-- **Broken internal links**: 14+ links updated (concepts, architecture, features, guides, reference, sigma-rules malformed link, backup-and-restore, operations)
-- **MkDocs build**: Source/config links in debugging and archive docs converted to code refs (no more link warnings); sigma-rules stray code fence removed so Similarity Search / Technical Architecture / Usage & Examples headings render; explicit anchor for Usage & Examples; backup-and-restore and operations section anchors added
-
 ## [5.0.0 "Callisto"] - 2026-01-15
 
 ### Added
@@ -106,6 +69,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)
 - **Cursor rule: Agent config test confirmation** (2026-02-02): New rule `.cursor/rules/agent-config-test-confirmation.mdc` requiring explicit user approval before running or creating tests that mutate active agent configs
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
+- **Agent config preset: OS Detection fallback coverage** (2026-02-17): Presets now capture and restore all OS Detection fallback fields
+  - Toggle `osdetection_fallback_enabled` included in preset export/apply and persisted in workflow config (DB column, API request/response)
+  - Temperature and Top_P for OS Detection fallback LLM: `OSDetectionAgent_fallback_temperature`, `OSDetectionAgent_fallback_top_p` in AGENT_CONFIG and UI; collected/applied via presets
+  - Migration script `scripts/migrate_add_osdetection_fallback_enabled.py` adds the new column to existing databases (run via `docker-compose exec web python3 scripts/migrate_add_osdetection_fallback_enabled.py` or with reachable DATABASE_URL)
 
 ### Removed
 - **Root cleanup** (2026-02-04): Removed obsolete root files; moved dev scripts to `scripts/`
@@ -129,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - schemas.md: extraction_counts clarified with legacy note
   - WORKFLOW_DATA_FLOW.md: subresults example and diagram updated to active sub-agents only
   - architecture.md: EventID → Event ID (scoring keyword)
+- **Documentation sync (mdu)** (2026-02-17): README and docs verified; duplicate [Unreleased] in CHANGELOG merged; MkDocs build confirmed.
 - **Documentation true-up** (2026-02-02): Aligned docs with current architecture and removed features
   - README, index, quickstart: 7-step agentic workflow (OS Detection first), 6 services, no LangGraph server
   - Callisto.md: 6 services (postgres, redis, web, worker, workflow_worker, scheduler); removed langgraph-server, ollama; workflow runs in Celery

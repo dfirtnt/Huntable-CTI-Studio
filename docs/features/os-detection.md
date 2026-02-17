@@ -94,6 +94,12 @@ LMSTUDIO_MODEL=mistralai/mistral-7b-instruct-v0.3
 - `random_forest`: Better for complex patterns (default)
 - `logistic_regression`: Faster, simpler model
 
+### Workflow config UI
+
+On the workflow config page, OS Detection has:
+- **Embedding model**: CTI-BERT or SEC-BERT
+- **Fallback LLM** (optional): Toggle to enable; then choose provider (LMStudio, OpenAI, Anthropic) and model. Temperature and Top_P are configurable. These settings and the toggle are saved in workflow config and in presets (export/import and restore by version).
+
 ## Usage
 
 ### Manual Testing
