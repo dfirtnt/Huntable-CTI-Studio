@@ -3,7 +3,7 @@
 Quality controls are built into both extraction and Sigma generation to keep outputs actionable.
 
 ## Extraction QA (Hybrid Cmdline pipeline)
-Based on [EXTRACTION_PIPELINE_SPEC_FOR_AI](../archive/EXTRACTION_PIPELINE_SPEC_FOR_AI.md):
+Based on the extraction pipeline spec (archived):
 1. **Regex candidate extractor**: High-recall regexes capture command-line shapes (executables with args, powershell, System32 utilities).
 2. **Encoder classifier**: Filters candidates using embedding similarity against VALID/INVALID exemplars (e.g., Microsoft/CTI-BERT or `all-mpnet-baseMiniLM-L6-v2`). Keeps only likely Windows commands.
 3. **Optional LLM QA validator**: Lightweight model (Qwen2.5-Coder-7B or Llama-3.1-8B) re-checks borderline strings and flags invalid items. Output never expands the list—only prunes.
