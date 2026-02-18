@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from src.web.dependencies import logger
 
@@ -285,3 +286,68 @@ async def api_restore_backup(request: Request):
     except Exception as exc:  # noqa: BLE001
         logger.error("Restore error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Allowed backup file extensions for restore-from-file
+RESTORE_FILE_SUFFIXES = (".sql", ".sql.gz")
+
+
+@router.post("/restore-from-file")
+async def api_restore_from_file(file: UploadFile = File(..., description="Backup file (.sql or .sql.gz)")):
+    """Restore database from an uploaded backup file."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix == ".gz":
+        # e.g. backup.sql.gz
+        base = Path(file.filename or "").stem
+        suffix = Path(base).suffix.lower() + ".gz"
+    if suffix not in RESTORE_FILE_SUFFIXES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(RESTORE_FILE_SUFFIXES)}",
+        )
+
+    project_root = Path(__file__).parent.parent.parent.parent
+    script_path = project_root / "scripts" / "restore_database_v2.py"
+    if not script_path.exists():
+        raise HTTPException(status_code=500, detail="Restore script not found")
+
+    tmp_path: Path | None = None
+    try:
+        content = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, prefix="restore_") as f:
+            f.write(content)
+            tmp_path = Path(f.name)
+
+        cmd = [sys.executable, str(script_path), str(tmp_path), "--force"]
+        result = subprocess.run(
+            cmd,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            return {
+                "success": True,
+                "message": "Restore from file completed successfully",
+                "output": result.stdout,
+            }
+        raise HTTPException(
+            status_code=500,
+            detail=result.stderr.strip() or result.stdout.strip() or "Restore failed",
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(status_code=500, detail="Restore timed out") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Restore from file error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        if tmp_path and tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError as e:
+                logger.warning("Could not remove temp restore file %s: %s", tmp_path, e)

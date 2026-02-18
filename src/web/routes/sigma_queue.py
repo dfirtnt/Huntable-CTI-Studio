@@ -679,37 +679,21 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
                         # LMStudio API (OpenAI-compatible, local) with URL fallback
                         def _lmstudio_url_candidates():
-                            """Generate ordered LMStudio base URL candidates."""
-                            raw_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1").strip()
-                            if not raw_url:
-                                raw_url = "http://localhost:1234/v1"
+                            """Generate ordered LMStudio base URL candidates (all end with /v1)."""
+                            from src.utils.lmstudio_url import get_lmstudio_base_url, normalize_lmstudio_base_url
 
-                            normalized = raw_url.rstrip("/")
+                            normalized = get_lmstudio_base_url("http://localhost:1234/v1")
                             candidates = [normalized]
-
-                            if not normalized.lower().endswith("/v1"):
-                                candidates.append(f"{normalized}/v1")
-
-                            # If URL contains localhost, also try host.docker.internal (for Docker containers)
                             if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
-                                docker_url = normalized.replace("localhost", "host.docker.internal").replace(
-                                    "127.0.0.1", "host.docker.internal"
+                                docker_url = normalize_lmstudio_base_url(
+                                    normalized.replace("localhost", "host.docker.internal").replace(
+                                        "127.0.0.1", "host.docker.internal"
+                                    )
                                 )
                                 if docker_url not in candidates:
                                     candidates.append(docker_url)
-                                if not docker_url.lower().endswith("/v1"):
-                                    docker_url_v1 = f"{docker_url}/v1"
-                                    if docker_url_v1 not in candidates:
-                                        candidates.append(docker_url_v1)
-
-                            # Remove duplicates while preserving order
                             seen = set()
-                            unique_candidates = []
-                            for candidate in candidates:
-                                if candidate not in seen:
-                                    unique_candidates.append(candidate)
-                                    seen.add(candidate)
-                            return unique_candidates
+                            return [c for c in candidates if c not in seen and not seen.add(c)]
 
                         lmstudio_urls = _lmstudio_url_candidates()
                         logger.info(f"LMStudio URL candidates for rule {queue_id}: {lmstudio_urls}")
@@ -721,14 +705,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
                         for idx, lmstudio_url in enumerate(lmstudio_urls):
                             try:
-                                # Ensure URL ends with /v1 but not /v1/v1
                                 base_url = lmstudio_url.rstrip("/")
-                                if not base_url.endswith("/v1"):
-                                    if base_url.endswith("/v1/v1"):
-                                        base_url = base_url[:-3]  # Remove extra /v1
-                                    chat_url = f"{base_url}/v1/chat/completions"
-                                else:
-                                    chat_url = f"{base_url}/chat/completions"
+                                chat_url = f"{base_url}/chat/completions"
 
                                 logger.info(
                                     f"Attempting LMStudio at {chat_url} with model {model} (attempt {idx + 1}/{len(lmstudio_urls)})"
@@ -1539,8 +1517,10 @@ Current Rule YAML:
 ```
 
 **CRITICAL INSTRUCTIONS:**
-1. **Output ONLY YAML - NO NARRATIVE TEXT**: Your response must start immediately with `title:` - no explanations, no "Here's the rule:", no commentary of any kind.
-2. **Fix Any Validation Issues**: If the rule has syntax errors, structural issues, or missing required fields, fix them.
+1. **Output ONLY YAML - NO NARRATIVE TEXT**: Your response must start immediately with `title:` - no explanations,
+   no "Here's the rule:", no commentary of any kind.
+2. **Fix Any Validation Issues**: If the rule has syntax errors, structural issues, or missing required fields,
+   fix them.
 3. **Maintain Detection Logic**: Keep the original detection intent, but fix any syntax/structure issues.
 4. **Required Structure**: Ensure your output includes ALL required fields:
    - `title:` (required)
@@ -1565,7 +1545,10 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         errors_text = (
                             "\n".join([f"- {err}" for err in validation_errors])
                             if validation_errors
-                            else "No valid SIGMA YAML detected. Output strictly valid SIGMA YAML starting with 'title:' using 2-space indentation."
+                            else (
+                                "No valid SIGMA YAML detected. Output strictly valid SIGMA YAML "
+                                "starting with 'title:' using 2-space indentation."
+                            )
                         )
                         validation_prompt = await format_prompt_async(
                             "sigma_repair_single",
@@ -1720,30 +1703,21 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         elif provider == "lmstudio":
                             # LMStudio API (OpenAI-compatible, local)
                             def _lmstudio_url_candidates():
-                                raw_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1").strip()
-                                if not raw_url:
-                                    raw_url = "http://localhost:1234/v1"
-                                normalized = raw_url.rstrip("/")
+                                """Generate ordered LMStudio base URL candidates (all end with /v1)."""
+                                from src.utils.lmstudio_url import get_lmstudio_base_url, normalize_lmstudio_base_url
+
+                                normalized = get_lmstudio_base_url("http://localhost:1234/v1")
                                 candidates = [normalized]
-                                if not normalized.lower().endswith("/v1"):
-                                    candidates.append(f"{normalized}/v1")
                                 if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
-                                    docker_url = normalized.replace("localhost", "host.docker.internal").replace(
-                                        "127.0.0.1", "host.docker.internal"
+                                    docker_url = normalize_lmstudio_base_url(
+                                        normalized.replace("localhost", "host.docker.internal").replace(
+                                            "127.0.0.1", "host.docker.internal"
+                                        )
                                     )
                                     if docker_url not in candidates:
                                         candidates.append(docker_url)
-                                    if not docker_url.lower().endswith("/v1"):
-                                        docker_url_v1 = f"{docker_url}/v1"
-                                        if docker_url_v1 not in candidates:
-                                            candidates.append(docker_url_v1)
                                 seen = set()
-                                unique_candidates = []
-                                for candidate in candidates:
-                                    if candidate not in seen:
-                                        unique_candidates.append(candidate)
-                                        seen.add(candidate)
-                                return unique_candidates
+                                return [c for c in candidates if c not in seen and not seen.add(c)]
 
                             lmstudio_urls = _lmstudio_url_candidates()
                             connect_timeout = 10.0
@@ -1753,12 +1727,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                             for idx, lmstudio_url in enumerate(lmstudio_urls):
                                 try:
                                     base_url = lmstudio_url.rstrip("/")
-                                    if not base_url.endswith("/v1"):
-                                        if base_url.endswith("/v1/v1"):
-                                            base_url = base_url[:-3]
-                                        chat_url = f"{base_url}/v1/chat/completions"
-                                    else:
-                                        chat_url = f"{base_url}/chat/completions"
+                                    chat_url = f"{base_url}/chat/completions"
 
                                     response = await client.post(
                                         chat_url,
@@ -1796,9 +1765,10 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                             )
                                         break
                                     last_error = f"HTTP {response.status_code}"
-                                    if response.status_code == 404 or response.status_code == 503:
-                                        if idx < len(lmstudio_urls) - 1:
-                                            continue
+                                    if (response.status_code == 404 or response.status_code == 503) and idx < len(
+                                        lmstudio_urls
+                                    ) - 1:
+                                        continue
                                     if idx == len(lmstudio_urls) - 1:
                                         raise HTTPException(
                                             status_code=response.status_code, detail=f"LMStudio API error: {last_error}"
@@ -2078,7 +2048,10 @@ async def submit_pr_for_approved_rules(request: Request):
             # Get all approved rules that haven't been submitted
             approved_rules = (
                 db_session.query(SigmaRuleQueueTable)
-                .filter(SigmaRuleQueueTable.status == "approved", SigmaRuleQueueTable.pr_submitted == False)
+                .filter(
+                    SigmaRuleQueueTable.status == "approved",
+                    SigmaRuleQueueTable.pr_submitted.is_(False),
+                )
                 .all()
             )
 
@@ -2097,7 +2070,9 @@ async def submit_pr_for_approved_rules(request: Request):
             # Submit PR (create new instance to ensure fresh settings)
             pr_service = SigmaPRService()
             logger.info(
-                f"PR Service initialized with repo_path: {pr_service.repo_path}, exists: {pr_service.repo_path.exists()}"
+                "PR Service initialized with repo_path: %s, exists: %s",
+                pr_service.repo_path,
+                pr_service.repo_path.exists(),
             )
             result = pr_service.submit_pr(rules_data)
 

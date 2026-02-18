@@ -145,7 +145,9 @@ class LLMService:
                           Format: {"RankAgent": "model_name", "ExtractAgent": "...", "SigmaAgent": "..."}
                           If provided, these override environment variables.
         """
-        self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        from src.utils.lmstudio_url import get_lmstudio_base_url
+
+        self.lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
         self.assumed_lmstudio_context_tokens = int(os.getenv("WORKFLOW_LMSTUDIO_CONTEXT_TOKENS", "16384"))
         self.assumed_cloud_context_tokens = int(os.getenv("WORKFLOW_CLOUD_CONTEXT_TOKENS", "80000"))
 
@@ -524,11 +526,13 @@ class LLMService:
         }
 
     def _lmstudio_url_candidates(self) -> list:
-        """Get list of LMStudio URL candidates for fallback."""
+        """Get list of LMStudio URL candidates for fallback (all normalized to end with /v1)."""
+        from src.utils.lmstudio_url import normalize_lmstudio_base_url
+
         candidates = [
             self.lmstudio_url,
-            "http://localhost:1234/v1",
-            "http://127.0.0.1:1234/v1",
+            normalize_lmstudio_base_url("http://localhost:1234"),
+            normalize_lmstudio_base_url("http://127.0.0.1:1234"),
         ]
 
         # If URL contains localhost or 127.0.0.1, also try host.docker.internal (for Docker containers)
@@ -929,15 +933,17 @@ class LLMService:
         if not is_valid_openai_chat_model(model_name):
             import re
 
-            # Suggest base model if it's a dated version
             base_model = re.sub(r"-\d{4}-\d{2}-\d{2}(-preview)?$", "", model_name)
             base_model = re.sub(r"-latest$", "", base_model)
             base_model = re.sub(r"-preview$", "", base_model)
-            suggestion = f" Use base model '{base_model}' instead." if base_model != model_name else ""
+            suggestion = (
+                f" Use a supported chat model (e.g. dated snapshot or '{base_model}' if still available)."
+                if base_model != model_name
+                else ""
+            )
             raise RuntimeError(
                 f"Model '{model_name}' is not a valid OpenAI chat completion model.{suggestion} "
-                f"Specialized models (codex, audio, image, realtime, etc.) "
-                f"and invalid dated versions are not supported."
+                f"Specialized models (codex, audio, image, realtime, etc.) and unrecognized IDs are not supported."
             )
 
         # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)

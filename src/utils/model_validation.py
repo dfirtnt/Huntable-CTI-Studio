@@ -68,8 +68,8 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
     Validate if an OpenAI model ID is valid for chat completions.
 
     Returns True if the model is a valid chat completion model, False otherwise.
-    Excludes specialized models (codex, audio, image, realtime, etc.) and
-    deprecated/dated versions that may not work with chat completions.
+    Excludes specialized models (codex, audio, image, realtime, etc.).
+    Dated snapshots (e.g. gpt-4o-2024-11-20) are accepted; base names may be deprecated.
     """
     if not model_id or not isinstance(model_id, str):
         return False

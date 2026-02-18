@@ -34,7 +34,11 @@ class LMStudioEmbeddingClient:
         Also reads:
         - LMSTUDIO_EMBEDDING_URL: API endpoint URL
         """
-        self.url = os.getenv("LMSTUDIO_EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
+        from src.utils.lmstudio_url import normalize_lmstudio_embedding_url
+
+        self.url = normalize_lmstudio_embedding_url(
+            os.getenv("LMSTUDIO_EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
+        )
 
         # Get model from parameter, config, or environment
         if model:
