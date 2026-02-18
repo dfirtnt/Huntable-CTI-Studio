@@ -562,6 +562,14 @@ class ModernScraper:
                 for key, value in selector_data.items():
                     if not article_data.get(key):
                         article_data[key] = value
+            elif not article_data.get("published_at"):
+                # JSON-LD had title+content but no date: still try selectors (and meta) for published_at
+                selector_data = self._extract_with_selectors(soup, source, url)
+                for key, value in selector_data.items():
+                    if not article_data.get(key):
+                        article_data[key] = value
+                if not article_data.get("published_at"):
+                    article_data["published_at"] = self._extract_date_from_page_meta(soup, url)
 
             # Ensure we have required fields
             if not article_data.get("title") or not article_data.get("content"):
@@ -755,6 +763,29 @@ class ModernScraper:
                 data["summary"] = ContentCleaner.normalize_whitespace(summary)
 
         return data
+
+    def _extract_date_from_page_meta(self, soup: BeautifulSoup, url: str) -> datetime | None:
+        """Extract publication date from page meta tags and time elements when selectors had no date."""
+        date_selectors = [
+            ('meta[name="article:published_time"]', "content"),
+            ('meta[property="article:published_time"]', "content"),
+            ('meta[name="date"]', "content"),
+            ('meta[name="pubdate"]', "content"),
+            ('meta[name="published-date"]', "content"),
+            ('meta[name="publication_date"]', "content"),
+            ('meta[name="og:published_time"]', "content"),
+            ('meta[property="og:published_time"]', "content"),
+            ("time[datetime]", "datetime"),
+        ]
+        for selector, attr in date_selectors:
+            elem = soup.select_one(selector)
+            if elem:
+                date_str = elem.get(attr)
+                if date_str:
+                    parsed = DateExtractor.parse_date(date_str)
+                    if parsed and parsed.year > 1970:
+                        return parsed
+        return DateExtractor.extract_date_from_url(url)
 
     def _extract_with_selector_list(self, soup: BeautifulSoup, selectors: list[str]) -> str | None:
         """Extract text using list of selectors, trying each until one works."""
