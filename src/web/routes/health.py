@@ -163,7 +163,9 @@ async def api_services_health() -> dict[str, Any]:
 
         # Check LMStudio
         try:
-            lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+            from src.utils.lmstudio_url import get_lmstudio_base_url
+
+            lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
                 if response.status_code == 200:

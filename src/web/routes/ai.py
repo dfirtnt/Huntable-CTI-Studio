@@ -298,17 +298,12 @@ def _get_lmstudio_settings() -> dict[str, Any]:
 def _lmstudio_url_candidates() -> list[str]:
     """
     Generate ordered LMStudio base URL candidates.
-    Ensures compatibility whether LMSTUDIO_API_URL includes /v1 or not.
+    All candidates end with /v1 (required by LM Studio for /chat/completions).
     """
-    raw_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1").strip()
-    if not raw_url:
-        raw_url = "http://host.docker.internal:1234/v1"
+    from src.utils.lmstudio_url import get_lmstudio_base_url
 
-    normalized = raw_url.rstrip("/")
+    normalized = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
     candidates: list[str] = [normalized]
-
-    if not normalized.lower().endswith("/v1"):
-        candidates.append(f"{normalized}/v1")
 
     # If URL contains localhost, also try host.docker.internal (for Docker containers)
     if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
@@ -988,7 +983,7 @@ async def api_validate_model(request: Request):
                     "valid": False,
                     "error": (
                         f"Model '{model_id}' is not a valid OpenAI chat completion model. "
-                        f"Use base model names like 'gpt-5.2-pro' instead of dated versions."
+                        "Use a supported chat model (e.g. gpt-5.2-pro, gpt-4.1, or a dated snapshot)."
                     ),
                     "suggestion": suggestion,
                 }

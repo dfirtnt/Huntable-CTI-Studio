@@ -6,7 +6,6 @@ Falls back to Mistral-7B-Instruct-v0.3 via LMStudio for lightweight inference.
 """
 
 import logging
-import os
 import pickle
 import warnings
 from pathlib import Path
@@ -442,7 +441,9 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
                 )
             else:
                 # Fallback to direct LMStudio call (backward compatibility)
-                lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1")
+                from src.utils.lmstudio_url import get_lmstudio_base_url
+
+                lmstudio_url = get_lmstudio_base_url("http://localhost:1234/v1")
                 read_timeout = 600.0
                 async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0, read=read_timeout)) as client:
                     response = await client.post(

@@ -288,6 +288,33 @@
                     </div>
                 </div>
 
+                <!-- Restore from backup file -->
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📁 Restore from Backup File</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload a backup file (.sql or .sql.gz) to restore the database.</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <input type="file"
+                               id="restoreBackupFileInput"
+                               accept=".sql,.sql.gz"
+                               class="block w-full max-w-xs text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-500 file:text-white hover:file:bg-orange-600 file:cursor-pointer">
+                        <button id="restoreFromFileBtn"
+                                type="button"
+                                disabled
+                                class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Restore from File
+                        </button>
+                    </div>
+                    <div id="restoreFromFileProgress" class="hidden mt-2">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600 mr-2"></div>
+                            <span class="text-sm text-gray-300">Restoring from file...</span>
+                        </div>
+                    </div>
+                    <div id="restoreFromFileError" class="hidden mt-2 p-3 bg-red-900 border border-red-700 rounded-lg">
+                        <p class="text-sm text-red-200"></p>
+                    </div>
+                </div>
+
                  <!-- Backup Status Display -->
                  <div id="backupStatusDisplay" class="hidden">
                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Backup Status</h3>
@@ -1786,7 +1813,15 @@
         if (restoreBackupBtn) {
             restoreBackupBtn.addEventListener('click', openRestoreModal);
         }
-        
+        var restoreBackupFileInput = document.getElementById('restoreBackupFileInput');
+        var restoreFromFileBtn = document.getElementById('restoreFromFileBtn');
+        if (restoreBackupFileInput && restoreFromFileBtn) {
+            restoreBackupFileInput.addEventListener('change', function() {
+                restoreFromFileBtn.disabled = !restoreBackupFileInput.files || restoreBackupFileInput.files.length === 0;
+            });
+            restoreFromFileBtn.addEventListener('click', restoreFromBackupFile);
+        }
+
         // Restore modal handlers
         var closeRestoreModal = document.getElementById('closeRestoreModal');
         if (closeRestoreModal) {
@@ -2054,6 +2089,46 @@
         } finally {
             restoreProgress.classList.add('hidden');
             confirmRestoreBtn.disabled = false;
+        }
+    }
+
+    async function restoreFromBackupFile() {
+        var fileInput = document.getElementById('restoreBackupFileInput');
+        var btn = document.getElementById('restoreFromFileBtn');
+        var progressEl = document.getElementById('restoreFromFileProgress');
+        var errorEl = document.getElementById('restoreFromFileError');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showNotification('Please select a backup file', 'error');
+            return;
+        }
+        var confirmed = confirm('⚠️ WARNING: This will restore the database from the selected file. Current data may be overwritten.\n\nAre you sure you want to continue?');
+        if (!confirmed) return;
+
+        errorEl.classList.add('hidden');
+        progressEl.classList.remove('hidden');
+        btn.disabled = true;
+        try {
+            var formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            var response = await fetch('/api/backup/restore-from-file', {
+                method: 'POST',
+                body: formData
+            });
+            var data = response.ok ? await response.json() : await response.json().catch(function() { return { detail: 'Restore failed' }; });
+            if (response.ok) {
+                showNotification('Restore from file completed successfully', 'success');
+                fileInput.value = '';
+                btn.disabled = true;
+            } else {
+                errorEl.querySelector('p').textContent = data.detail || 'Restore failed';
+                errorEl.classList.remove('hidden');
+            }
+        } catch (error) {
+            errorEl.querySelector('p').textContent = 'Restore failed: ' + error.message;
+            errorEl.classList.remove('hidden');
+        } finally {
+            progressEl.classList.add('hidden');
+            btn.disabled = !fileInput.files || fileInput.files.length === 0;
         }
     }
 </script>

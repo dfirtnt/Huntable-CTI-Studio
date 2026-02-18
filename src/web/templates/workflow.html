@@ -2428,14 +2428,7 @@ function isValidOpenAIChatModel(modelId) {
     
     for (const pattern of VALID_CHAT_BASE_PATTERNS) {
         if (pattern.test(baseModel)) {
-            // If it has a date suffix, suggest using base model
-            if (trimmed !== baseModel && /-\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-                return {
-                    valid: false,
-                    error: `Dated model "${trimmed}" may not work with chat completions`,
-                    suggestion: `Use base model "${baseModel}" instead`
-                };
-            }
+            // Dated snapshots (e.g. gpt-4o-2024-11-20) are valid; base names may be deprecated
             return {valid: true};
         }
     }
@@ -2449,22 +2442,15 @@ function isValidOpenAIChatModel(modelId) {
     ];
     
     if (knownValidBases.includes(baseModel.toLowerCase())) {
-        if (trimmed !== baseModel && /-\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-            return {
-                valid: false,
-                error: `Dated model "${trimmed}" may not work with chat completions`,
-                suggestion: `Use base model "${baseModel}" instead`
-            };
-        }
         return {valid: true};
     }
     
-    // If it has a date suffix but doesn't match known patterns, warn
+    // Date suffix but base not in known list
     if (/-\d{4}-\d{2}-\d{2}/.test(trimmed)) {
         return {
             valid: false,
-            error: `Dated model "${trimmed}" is not validated for chat completions`,
-            suggestion: `Use base model "${baseModel}" instead`
+            error: `Unrecognized dated model "${trimmed}"`,
+            suggestion: 'Use a supported chat model (e.g. gpt-5.2-pro, gpt-4.1, or a dated snapshot)'
         };
     }
     

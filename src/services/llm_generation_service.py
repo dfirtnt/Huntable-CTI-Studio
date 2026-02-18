@@ -51,8 +51,10 @@ class LLMGenerationService:
         """Initialize the LLM generation service."""
         self._refresh_api_keys()
 
-        # LMStudio configuration
-        self.lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+        # LMStudio configuration (base URL must end with /v1 for /chat/completions)
+        from src.utils.lmstudio_url import get_lmstudio_base_url
+
+        self.lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
         self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "deepseek-r1-qwen3-8b")
         self.last_lmstudio_model: str | None = None
 

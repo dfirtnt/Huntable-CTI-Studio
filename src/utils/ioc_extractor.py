@@ -181,7 +181,9 @@ Output format (return ONLY this JSON structure):
             try:
                 if ai_model == "lmstudio":
                     # Use LMStudio API with recommended settings
-                    lmstudio_url = os.getenv("LMSTUDIO_API_URL", "http://host.docker.internal:1234/v1")
+                    from src.utils.lmstudio_url import get_lmstudio_base_url
+
+                    lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
                     lmstudio_model = os.getenv("LMSTUDIO_MODEL", "llama-3.2-1b-instruct")
 
                     # Get recommended settings (temperature 0.0 for deterministic scoring, top_p 0.9, seed 42)
