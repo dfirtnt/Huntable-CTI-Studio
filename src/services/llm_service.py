@@ -22,6 +22,7 @@ import httpx
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
+from src.utils.model_validation import clamp_temperature_for_provider
 
 logger = logging.getLogger(__name__)
 
@@ -850,6 +851,7 @@ class LLMService:
         provider = self._canonicalize_provider(provider)
         logger.debug(f"request_chat called with provider={provider}, model_name={model_name}")
         self._validate_provider(provider)
+        temperature = clamp_temperature_for_provider(provider, temperature)
 
         resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
 
