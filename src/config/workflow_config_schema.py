@@ -117,6 +117,15 @@ ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NA
 # Prompts section may only contain these keys (no ExtractAgentSettings; that lives under Execution).
 CANONICAL_PROMPT_AGENT_NAMES = frozenset(ALL_AGENT_NAMES)
 
+# LLM agent symmetry: base agents that require a QA agent (explicit mapping matches codebase naming).
+BASE_AGENT_TO_QA: dict[str, str] = {
+    "RankAgent": "RankAgentQA",
+    "CmdlineExtract": "CmdlineQA",
+    "ProcTreeExtract": "ProcTreeQA",
+    "HuntQueriesExtract": "HuntQueriesQA",
+}
+QA_AGENT_TO_BASE: dict[str, str] = {qa: base for base, qa in BASE_AGENT_TO_QA.items()}
+
 
 class WorkflowConfigV2(BaseModel):
     """
@@ -137,7 +146,7 @@ class WorkflowConfigV2(BaseModel):
     Execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
 
     @model_validator(mode="after")
-    def ensure_agent_fields(self) -> "WorkflowConfigV2":
+    def ensure_agent_fields(self) -> WorkflowConfigV2:
         """Ensure each agent has Provider, Model, Temperature, TopP, Enabled."""
         for name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
@@ -146,7 +155,7 @@ class WorkflowConfigV2(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def prompts_keys_canonical(self) -> "WorkflowConfigV2":
+    def prompts_keys_canonical(self) -> WorkflowConfigV2:
         """Reject stray prompt keys; only canonical agent/QA names allowed (no ExtractAgentSettings)."""
         for key in self.Prompts:
             if key not in CANONICAL_PROMPT_AGENT_NAMES:
@@ -156,13 +165,48 @@ class WorkflowConfigV2(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def qa_enabled_keys_in_agents(self) -> "WorkflowConfigV2":
+    def qa_enabled_keys_in_agents(self) -> WorkflowConfigV2:
         """Every QA.Enabled key must exist in Agents; no orphan QA keys."""
         for key in self.QA.Enabled:
             if key not in self.Agents:
                 raise ValueError(
                     f"QA.Enabled key '{key}' is not in Agents; QA.Enabled must align with Agents keys"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def llm_agent_symmetry(self) -> "WorkflowConfigV2":
+        """Enforce: (0) enabled agents must have Provider+Model; (1) required QA for enabled base agents; (2) no orphan QA agents; (3) prompt block per LLM agent."""
+        agents = self.Agents
+        prompts = self.Prompts
+        # Part 0: if Enabled == true, Provider and Model must be non-empty (no pseudo-enabled empty-model loophole)
+        for name, cfg in agents.items():
+            if cfg.Enabled and (not cfg.Provider or not cfg.Model):
+                raise ValueError(
+                    f"Agent '{name}' is Enabled but missing Provider or Model."
+                )
+        # Part 1: every enabled base agent (with Provider+Model) in mapping must have its QA agent
+        for name, cfg in agents.items():
+            if name.endswith("QA") or name == "OSDetectionFallback":
+                continue
+            if not (cfg.Enabled and cfg.Provider and cfg.Model):
+                continue
+            expected_qa = BASE_AGENT_TO_QA.get(name)
+            if expected_qa is not None and expected_qa not in agents:
+                raise ValueError(f"Missing QA agent for {name}: expected {expected_qa} in Agents")
+        # Part 2: every QA agent must have its base agent
+        for name in agents:
+            if not name.endswith("QA"):
+                continue
+            base = QA_AGENT_TO_BASE.get(name, name[:-2])
+            if base not in agents:
+                raise ValueError(f"Orphan QA agent {name}: base agent {base} must exist in Agents")
+        # Part 3: every agent with Provider+Model must have a prompt block (except OSDetectionFallback when disabled and no model)
+        for name, cfg in agents.items():
+            if name == "OSDetectionFallback" and not cfg.Enabled and not cfg.Model:
+                continue
+            if cfg.Provider and cfg.Model and name not in prompts:
+                raise ValueError(f"Missing prompt block for agent {name}")
         return self
 
     def flatten_for_llm_service(self) -> dict[str, Any]:
