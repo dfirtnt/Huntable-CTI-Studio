@@ -7,9 +7,10 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
+from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable, WorkflowConfigPresetTable
 from src.utils.default_agent_prompts import get_default_agent_prompts
@@ -124,49 +125,27 @@ async def get_workflow_config(request: Request):
                 db_session.commit()
                 db_session.refresh(config)
 
-            # Ensure agent_models, agent_prompts, and qa_enabled are properly serialized
-            # JSONB fields should already be dicts, but ensure they're not None
-            agent_models = config.agent_models if config.agent_models is not None else {}
-            agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             # Fallback: if DB has no prompts, use defaults from src/prompts so UI and workflow get working prompts
+            agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             if not agent_prompts:
                 agent_prompts = get_default_agent_prompts()
-            qa_enabled = config.qa_enabled if config.qa_enabled is not None else {}
+                if agent_prompts:
+                    config.agent_prompts = agent_prompts
 
-            # Get auto_trigger_hunt_score_threshold, handling both attribute access and potential None
-            auto_trigger_threshold = 60.0  # default
+            # Load via normalized schema (migrates v1 to v2, validates) and emit legacy response shape
             try:
-                if hasattr(config, "auto_trigger_hunt_score_threshold"):
-                    auto_trigger_threshold = (
-                        config.auto_trigger_hunt_score_threshold
-                        if config.auto_trigger_hunt_score_threshold is not None
-                        else 60.0
-                    )
-            except (AttributeError, TypeError):
-                pass
-
+                config_v2 = load_workflow_config(config)
+            except ValidationError as e:
+                logger.warning("Workflow config validation failed, using raw row: %s", e)
+                raise HTTPException(status_code=500, detail=f"Invalid workflow config: {e}") from e
             return WorkflowConfigResponse(
-                id=config.id,
-                min_hunt_score=config.min_hunt_score,
-                ranking_threshold=config.ranking_threshold,
-                similarity_threshold=config.similarity_threshold,
-                junk_filter_threshold=config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=auto_trigger_threshold,
-                version=config.version,
-                is_active=config.is_active,
-                description=config.description,
-                agent_prompts=agent_prompts,
-                agent_models=agent_models,
-                qa_enabled=qa_enabled,
-                sigma_fallback_enabled=config.sigma_fallback_enabled
-                if hasattr(config, "sigma_fallback_enabled")
-                else False,
-                osdetection_fallback_enabled=getattr(config, "osdetection_fallback_enabled", False),
-                qa_max_retries=config.qa_max_retries if hasattr(config, "qa_max_retries") else 5,
-                rank_agent_enabled=config.rank_agent_enabled if hasattr(config, "rank_agent_enabled") else True,
-                cmdline_attention_preprocessor_enabled=getattr(config, "cmdline_attention_preprocessor_enabled", True),
-                created_at=config.created_at.isoformat(),
-                updated_at=config.updated_at.isoformat(),
+                **config_v2.to_legacy_response_dict(
+                    id=config.id,
+                    version=config.version,
+                    is_active=config.is_active,
+                    created_at=config.created_at.isoformat(),
+                    updated_at=config.updated_at.isoformat(),
+                )
             )
         finally:
             db_session.close()
@@ -541,6 +520,19 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
     except Exception as e:
         logger.error(f"Error saving config preset: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/config/preset/export")
+async def export_config_as_v2(preset: dict[str, Any]):
+    """
+    Export preset as canonical WorkflowConfigV2 only (strict schema).
+    Populates metadata if empty, re-validates; returns Version 2.0 with no legacy keys.
+    """
+    try:
+        return export_preset_as_canonical_v2(preset)
+    except ValidationError as e:
+        logger.warning("Export config validation failed: %s", e)
+        raise HTTPException(status_code=400, detail=f"Invalid config: {e}") from e
 
 
 @router.get("/config/preset/list")
