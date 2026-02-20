@@ -7467,7 +7467,7 @@ function getFullPresetState(scope = null) {
     return preset;
 }
 
-function exportPresetToFile() {
+async function exportPresetToFile() {
     try {
         const preset = getFullPresetState();
         
@@ -7480,8 +7480,20 @@ function exportPresetToFile() {
         // Clean preset name for filename
         const filename = presetName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.json';
         
+        // Export as normalized v2 format via backend (accepts v1/v2, returns v2)
+        const response = await fetch('/api/workflow/config/preset/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(preset)
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(err.detail || response.statusText);
+        }
+        const v2Config = await response.json();
+        
         // Create blob and download
-        const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(v2Config, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -7492,10 +7504,10 @@ function exportPresetToFile() {
         URL.revokeObjectURL(url);
         
         // Show success message
-        showNotification('Preset saved as "' + filename + '"', 'success');
+        showNotification('Preset saved as "' + filename + '" (v2 format)', 'success');
     } catch (error) {
         console.error('Error saving preset:', error);
-        showNotification('Error saving preset: ' + error.message, 'error');
+        showNotification('Error saving preset: ' + (error instanceof Error ? error.message : String(error)), 'error');
     }
 }
 

@@ -3,12 +3,12 @@
 Build workflow config baseline presets with prompts from src/prompts.
 
 Writes three preset JSON files to config/presets/AgentConfigs/ for users to load
-via Workflow Config → Import from file:
-- anthropic-sonnet-4.5.json  (Anthropic Claude Sonnet 4.5)
-- chatgpt-4o-mini.json        (OpenAI ChatGPT 4o-mini)
-- lmstudio-qwen2.5-8b.json    (LM Studio, Qwen 2.5 8B)
+via Workflow Config → Import from file (v1 format for UI compatibility).
+Normalized v2 schema is supported by src.config.workflow_config_loader; see
+config/schema/workflow_config_v2_example.json and docs/architecture/agent-config-schema.md.
 
 Run from repo root: python3 scripts/build_baseline_presets.py
+Optional: python3 scripts/build_baseline_presets.py --v2  # also write one v2 example to config/schema/
 """
 
 import json
@@ -195,12 +195,24 @@ def _agent_models_lmstudio_qwen8b() -> dict:
     }
 
 
+def _build_v2_preset(description: str, agent_models_flat: dict, agent_prompts: dict | None = None) -> dict:
+    """Build a v2-format preset dict from flat agent_models (for --v2 output)."""
+    from src.config.workflow_config_migrate import migrate_v1_to_v2
+
+    raw = _defaults()
+    raw["description"] = description
+    raw["agent_models"] = agent_models_flat
+    raw["agent_prompts"] = agent_prompts or {}
+    return migrate_v1_to_v2(raw)
+
+
 def main() -> None:
     import sys
 
     sys.path.insert(0, str(REPO_ROOT))
     from src.utils.default_agent_prompts import get_default_agent_prompts
 
+    write_v2 = "--v2" in sys.argv
     prompts = get_default_agent_prompts()
     if not prompts:
         print("Warning: no prompts loaded from src/prompts; agent_prompts will be empty.", file=sys.stderr)
@@ -233,6 +245,16 @@ def main() -> None:
         path = PRESETS_DIR / filename
         path.write_text(json.dumps(preset, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"Wrote {path}")
+
+    if write_v2:
+        schema_dir = REPO_ROOT / "config" / "schema"
+        schema_dir.mkdir(parents=True, exist_ok=True)
+        v2_preset = _build_v2_preset(baselines[0][1], baselines[0][2], agent_prompts=prompts)
+        v2_preset["Metadata"] = v2_preset.get("Metadata") or {}
+        v2_preset["Metadata"]["Description"] = baselines[0][1]
+        v2_path = schema_dir / "workflow_config_v2_baseline_example.json"
+        v2_path.write_text(json.dumps(v2_preset, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"Wrote v2 example {v2_path}")
 
 
 if __name__ == "__main__":
