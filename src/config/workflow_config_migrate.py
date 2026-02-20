@@ -77,6 +77,10 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     if "OSDetectionFallback" in agents and os_fb is not None:
         agents["OSDetectionFallback"] = dict(agents["OSDetectionFallback"])
         agents["OSDetectionFallback"]["Enabled"] = _bool_val(os_fb, False)
+    # Enforce schema invariant: Enabled => non-empty Provider and Model
+    for cfg in agents.values():
+        if isinstance(cfg, dict) and cfg.get("Enabled") and (not cfg.get("Provider") or not cfg.get("Model")):
+            cfg["Enabled"] = False
     out["Agents"] = agents
 
     # QA.Enabled: OSDetectionAgent -> OSDetectionFallback
@@ -191,6 +195,11 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         Agents["RankAgent"]["Enabled"] = _bool_val(rank_en, True)
     if "OSDetectionFallback" in Agents:
         Agents["OSDetectionFallback"]["Enabled"] = _bool_val(os_fb, False)
+
+    # Enforce schema invariant: Enabled => non-empty Provider and Model (no pseudo-enabled empty-model)
+    for cfg in Agents.values():
+        if cfg.get("Enabled") and (not cfg.get("Provider") or not cfg.get("Model")):
+            cfg["Enabled"] = False
 
     # Features (no agent enablement; only sigma fallback and cmdline preprocessor)
     sigma_fb = raw.get("sigma_fallback_enabled")

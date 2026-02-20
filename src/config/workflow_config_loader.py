@@ -9,25 +9,37 @@ Export: export_preset_as_canonical_v2() returns strict v2 dict for file download
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
-from pydantic import ValidationError
 
 from src.config.workflow_config_migrate import migrate_v1_to_v2
 from src.config.workflow_config_schema import (
-    AgentConfig,
-    EmbeddingsConfig,
-    ExecutionConfig,
-    FeatureFlags,
-    MetadataConfig,
-    PromptConfig,
-    QAConfig,
-    ThresholdConfig,
     WorkflowConfigV2,
 )
 
 logger = logging.getLogger(__name__)
+
+# Canonical agent group order for export-only serialization (no schema change).
+CORE_AGENTS = ["RankAgent", "ExtractAgent", "SigmaAgent"]
+EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
+QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA"]
+UTILITY_AGENTS = ["OSDetectionFallback"]
+
+
+def order_agents_for_export(agents_dict: dict[str, Any]) -> dict[str, Any]:
+    """
+    Return a new dict with agents ordered in canonical group order.
+    Does NOT modify input. Unknown agents are appended last in sorted order.
+    """
+    ordered: dict[str, Any] = {}
+    for group in (CORE_AGENTS, EXTRACT_AGENTS, QA_AGENTS, UTILITY_AGENTS):
+        for name in group:
+            if name in agents_dict:
+                ordered[name] = agents_dict[name]
+    remaining = sorted(k for k in agents_dict if k not in ordered)
+    for name in remaining:
+        ordered[name] = agents_dict[name]
+    return ordered
 
 
 def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
@@ -116,10 +128,11 @@ def export_preset_as_canonical_v2(raw: dict[str, Any] | Any) -> dict[str, Any]:
     config = load_workflow_config(raw)
     # Populate metadata for export
     if not config.Metadata.CreatedAt:
-        config.Metadata.CreatedAt = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        config.Metadata.CreatedAt = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     if not config.Metadata.Description:
         config.Metadata.Description = "Exported preset"
     dumped = config.model_dump(mode="json")
+    dumped["Agents"] = order_agents_for_export(dumped["Agents"])
     # Integrity check: round-trip must validate
     WorkflowConfigV2.model_validate(dumped)
     return dumped
