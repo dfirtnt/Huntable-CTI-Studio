@@ -94,10 +94,25 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     # Prompts: drop non-canonical keys (e.g. ExtractAgentSettings)
     prompts = dict(out.get("Prompts") or {})
     prompts_clean = {
-        k: {"prompt": (v.get("prompt", "") if isinstance(v, dict) else ""), "instructions": (v.get("instructions", "") if isinstance(v, dict) else "")}
+        k: {
+            "prompt": (v.get("prompt", "") if isinstance(v, dict) else ""),
+            "instructions": (v.get("instructions", "") if isinstance(v, dict) else ""),
+        }
         for k, v in prompts.items()
         if k in CANONICAL_PROMPT_AGENT_NAMES
     }
+    # Ensure every agent with Provider+Model has a prompt block (schema Part 3)
+    for name, cfg in agents.items():
+        if isinstance(cfg, dict) and name == "OSDetectionFallback" and not cfg.get("Enabled") and not cfg.get("Model"):
+            continue
+        if (
+            isinstance(cfg, dict)
+            and cfg.get("Provider")
+            and cfg.get("Model")
+            and name not in prompts_clean
+            and name in CANONICAL_PROMPT_AGENT_NAMES
+        ):
+            prompts_clean[name] = {"prompt": "", "instructions": ""}
     out["Prompts"] = prompts_clean
 
     return out
@@ -127,11 +142,13 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     Thresholds = {
         "MinHuntScore": _float_val(min_hunt if min_hunt is not None else thresholds.get("min_hunt_score"), 97.0),
         "RankingThreshold": _float_val(thresholds.get("ranking_threshold") or raw.get("ranking_threshold"), 6.0),
-        "SimilarityThreshold": _float_val(thresholds.get("similarity_threshold") or raw.get("similarity_threshold"), 0.5),
-        "JunkFilterThreshold": _float_val(thresholds.get("junk_filter_threshold") or raw.get("junk_filter_threshold"), 0.8),
-        "AutoTriggerHuntScoreThreshold": _float_val(
-            raw.get("auto_trigger_hunt_score_threshold"), 60.0
+        "SimilarityThreshold": _float_val(
+            thresholds.get("similarity_threshold") or raw.get("similarity_threshold"), 0.5
         ),
+        "JunkFilterThreshold": _float_val(
+            thresholds.get("junk_filter_threshold") or raw.get("junk_filter_threshold"), 0.8
+        ),
+        "AutoTriggerHuntScoreThreshold": _float_val(raw.get("auto_trigger_hunt_score_threshold"), 60.0),
     }
     if raw.get("ranking_threshold") is not None:
         deprecated_used.append("ranking_threshold")
@@ -227,6 +244,12 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
             Prompts[name] = {"prompt": val.get("prompt", ""), "instructions": val.get("instructions", "")}
         else:
             Prompts[name] = {"prompt": "", "instructions": ""}
+    # Ensure every agent with Provider+Model has a prompt block (schema Part 3)
+    for name, cfg in Agents.items():
+        if name == "OSDetectionFallback" and not cfg.get("Enabled") and not cfg.get("Model"):
+            continue
+        if cfg.get("Provider") and cfg.get("Model") and name not in Prompts and name in CANONICAL_PROMPT_AGENT_NAMES:
+            Prompts[name] = {"prompt": "", "instructions": ""}
 
     # Execution
     extract_settings = raw.get("extract_agent_settings") or {}
@@ -244,8 +267,16 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
     # Metadata
-    created = raw.get("created_at") or raw.get("Metadata", {}).get("CreatedAt") if isinstance(raw.get("Metadata"), dict) else ""
-    desc = raw.get("description") or (raw.get("Metadata", {}) or {}).get("Description") if isinstance(raw.get("Metadata"), dict) else ""
+    created = (
+        raw.get("created_at") or raw.get("Metadata", {}).get("CreatedAt")
+        if isinstance(raw.get("Metadata"), dict)
+        else ""
+    )
+    desc = (
+        raw.get("description") or (raw.get("Metadata", {}) or {}).get("Description")
+        if isinstance(raw.get("Metadata"), dict)
+        else ""
+    )
     if isinstance(created, bytes):
         created = ""
     if isinstance(desc, bytes):

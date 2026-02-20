@@ -8433,17 +8433,20 @@ function getAllSelectedModelsWithProviders() {
         return { agent: agentName, model, provider };
     }
     
-    // Main agents - only show if enabled
-    // Rank Agent - check if enabled
+    // Main agents - show with actual enabled state so summary always shows Rank when model is set
     const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
-    if (rankAgentEnabled) {
-        const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
-        const rankModel = getActiveAgentModelValue('rankagent', rankProvider);
-        if (rankModel && !isEmbeddingModel(rankModel)) {
-            selectedModels.push({ agent: 'Rank', model: rankModel, provider: rankProvider, enabled: true });
-        }
+    const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
+    const rankModel = getActiveAgentModelValue('rankagent', rankProvider);
+    const rankAddedFromForm = rankModel && !isEmbeddingModel(rankModel);
+    if (rankAddedFromForm) {
+        selectedModels.push({ agent: 'Rank', model: rankModel, provider: rankProvider, enabled: rankAgentEnabled });
     }
-    
+    // Fallback: show Rank from loaded config when form select not yet synced (e.g. placeholder)
+    if (!rankAddedFromForm && currentConfig?.agent_models?.RankAgent && !isEmbeddingModel(currentConfig.agent_models.RankAgent)) {
+        const cfgProvider = (currentConfig.agent_models.RankAgent_provider || rankProvider || 'lmstudio').trim().toLowerCase();
+        selectedModels.push({ agent: 'Rank', model: String(currentConfig.agent_models.RankAgent).trim(), provider: cfgProvider, enabled: rankAgentEnabled });
+    }
+
     // Extract Agent - always enabled (no toggle)
     const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
     const extractModel = getActiveAgentModelValue('extractagent', extractProvider);

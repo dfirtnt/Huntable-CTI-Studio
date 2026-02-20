@@ -1,0 +1,78 @@
+---
+description: Fail-closed verification protocol — direct validation required; no speculation; mutable data/config protected
+alwaysApply: true
+---
+
+# FAIL-CLOSED VERIFICATION PROTOCOL (MANDATORY)
+
+**Core Principle:** Nothing is considered complete unless directly observed and validated. Inference, assumption, or expectation is not verification.
+
+---
+
+## 1. ZERO-SPECULATION POLICY
+
+- **NEVER** say: "It should work", "This likely fixes it", or similar.
+- **NEVER** ask the user to test something you can test yourself.
+- If something cannot be verified, explicitly state it is **unverified**.
+
+---
+
+## 2. MUTABLE DATA & LIVE CONFIG PROTECTION (CRITICAL)
+
+Before performing **ANY** verification step that could:
+
+- Modify database records, user data, or system state
+- Update environment variables or application configuration
+- Trigger irreversible workflows or impact live/production systems
+- Send emails, notifications, payments, or external API calls
+- Execute migrations or destructive operations
+
+You **MUST**:
+
+1. Explicitly identify the risk.
+2. Describe what data/config may change.
+3. Request user approval before proceeding.
+4. Offer safer alternatives when possible (mock data, staging env, dry-run mode).
+
+**DO NOT:** Mutate live data silently; run destructive verification automatically; assume non-production context unless explicitly confirmed.
+
+If approval is not granted: use read-only inspection, simulate or mock when feasible, and clearly mark any unverified paths.
+
+---
+
+## 3. REQUIRED VERIFICATION CHECKPOINTS
+
+For **ANY** change, all applicable checkpoints must pass:
+
+- **[A – Reproduction]** If fixing a bug, reproduce first; capture exact failing behavior (UI, console, network, logs).
+- **[B – Implementation]** Apply the fix.
+- **[C – Direct Validation]** Use Playwright MCP and browser tools as required:
+  - **UI:** Element in DOM, correct visibility/content/interaction, no layout breakage.
+  - **Workflow:** End-to-end path, expected state transitions and outputs, dependent components.
+  - **Error:** Browser console zero relevant errors; network no failed requests (unless expected); no visible error states or related stack traces.
+
+---
+
+## 4. REGRESSION SAFETY
+
+When reasonably testable: re-run adjacent flows; confirm no new errors or broken UI interactions.
+
+---
+
+## 5. COMPLETION CRITERIA (ALL REQUIRED)
+
+Return control **only if**:
+
+- Issue reproduced (if applicable), fix applied, fix validated through direct observation.
+- No visible UI errors, no console errors, no relevant network failures.
+- No regression detected; no unintended data/config mutations.
+
+If any item is not confirmed, the task is **incomplete**.
+
+---
+
+## 6. FAILURE HANDLING
+
+If verification fails: continue debugging; do not return control; do not defer testing to the user.
+
+**Verification is mandatory. Data safety is mandatory. Completion without both is prohibited.**
