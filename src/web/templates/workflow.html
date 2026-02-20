@@ -2206,6 +2206,9 @@ let agentModels = {};
 const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
+let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
+let lastValidationWarnAt = 0; // Throttle validation-failure console.warn (avoid spam)
+const VALIDATION_WARN_THROTTLE_MS = 10000; // Log same validation failure at most once per 10s
 let isSavingPrompt = false; // Block autoSave during prompt save to prevent overwriting
 let lastPromptSaveAt = 0; // Timestamp of last prompt save (prevents loadAgentPrompts race from overwriting)
 let lastSavedPromptAgent = null; // Agent name last saved
@@ -2973,12 +2976,9 @@ function collectAllAgentConfigs(models = null) {
         // Get model (respects provider)
         const model = getAgentModel(config.prefix, provider);
         // Always include model key, even if empty string (to clear fallback settings)
-        // Empty string means "use fallback", null/undefined means "not set" (skip it)
+        // null/undefined means element not in DOM (e.g. config panel not rendered) — skip without warning
         if (model !== null && model !== undefined) {
             collected[config.modelKey] = model;
-        } else {
-            // Log if model couldn't be read (for debugging)
-            console.warn(`collectAllAgentConfigs: Could not read model for ${config.prefix} (provider: ${provider})`);
         }
         
         // Get temperature if applicable
@@ -3266,19 +3266,12 @@ function getActiveAgentModelValue(agentPrefix, provider) {
     // Handle LMStudio select variants (-model-2 is the current ID, plain -model is legacy)
     if (provider === 'lmstudio') {
         const lmstudioSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
-        if (!lmstudioSelect) {
-            console.warn(`getActiveAgentModelValue: LMStudio select not found for ${agentPrefix}`);
-            return null;
-        }
+        if (!lmstudioSelect) return null;
         const value = lmstudioSelect.value?.trim() || '';
-        // Return empty string if no value (to allow clearing fallback), null only if element doesn't exist
         return value;
     }
     const input = document.getElementById(`${agentPrefix}-model-${provider}`);
-    if (!input) {
-        console.warn(`getActiveAgentModelValue: Input not found for ${agentPrefix} provider ${provider}`);
-        return null;
-    }
+    if (!input) return null;
     const value = input.value?.trim() || '';
     // Return empty string if no value, null only if element doesn't exist
     return value;
@@ -4576,15 +4569,40 @@ window.updateQABadge = function(agentPrefix) {
     if (checkbox.checked) {
         badge.textContent = 'QA: ON';
         badge.className = 'px-2 py-1 text-xs rounded-full bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300';
-        // Show QA prompt container
-        let qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
-        if (agentPrefix === 'rank-agent') {
-            qaPromptContainer = document.getElementById('rank-qa-agent-prompt-content');
-        }
+        // Show QA prompt container (rank-agent uses different container id)
+        let qaPromptContainer = agentPrefix === 'rank-agent'
+            ? document.getElementById('rank-agent-qa-prompt-container')
+            : document.getElementById(`${agentPrefix}-qa-prompt-container`);
         if (qaPromptContainer) {
-            // Remove hidden class first to ensure container is visible
+            // Expand parent collapsible panel(s) for extract sub-agents so prompt container is visible
+            const extractPanelIds = {
+                'cmdlineextract-agent': 'cmdlineextract-agent-panel',
+                'proctreeextract-agent': 'proctreeextract-agent-panel',
+                'huntqueriesextract-agent': 'huntqueriesextract-agent-panel'
+            };
+            const panelId = extractPanelIds[agentPrefix];
+            if (panelId) {
+                // Expand Extract Agents section first (parent of all sub-agent panels)
+                const extractParentContent = document.getElementById('extract-agent-panel-content');
+                const extractParentToggle = document.getElementById('extract-agent-panel-toggle');
+                if (extractParentContent && extractParentContent.classList.contains('hidden') && extractParentToggle) {
+                    extractParentContent.classList.remove('hidden');
+                    extractParentToggle.textContent = '▲';
+                    extractParentToggle.style.transform = 'rotate(0deg)';
+                }
+                // Expand this sub-agent panel
+                const panelContent = document.getElementById(`${panelId}-content`);
+                const panelToggle = document.getElementById(`${panelId}-toggle`);
+                if (panelContent && panelContent.classList.contains('hidden') && panelToggle) {
+                    panelContent.classList.remove('hidden');
+                    panelToggle.textContent = '▲';
+                    panelToggle.style.transform = 'rotate(0deg)';
+                }
+            }
+            // Remove hidden class from QA prompt container and ensure it is visible
             qaPromptContainer.classList.remove('hidden');
-            // Force a reflow to ensure the browser processes the visibility change
+            qaPromptContainer.style.display = '';
+            qaPromptContainer.style.visibility = '';
             void qaPromptContainer.offsetHeight;
             
             if (agentPrefix === 'rank-agent') {
@@ -4598,13 +4616,13 @@ window.updateQABadge = function(agentPrefix) {
             }
             
             // Force re-initialization after renderQAPrompt completes
-            // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     if (typeof initCollapsiblePanels === 'function') {
                         initCollapsiblePanels(qaPromptContainer);
                         initCollapsiblePanels();
                     }
+                    qaPromptContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 });
             });
         }
@@ -4614,11 +4632,10 @@ window.updateQABadge = function(agentPrefix) {
     } else {
         badge.textContent = 'QA: OFF';
         badge.className = 'px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-        // Hide QA prompt container
-        let qaPromptContainer = document.getElementById(`${agentPrefix}-qa-prompt-container`);
-        if (agentPrefix === 'rank-agent') {
-            qaPromptContainer = document.getElementById('rank-qa-agent-prompt-content');
-        }
+        // Hide QA prompt container (rank-agent uses different container id)
+        let qaPromptContainer = agentPrefix === 'rank-agent'
+            ? document.getElementById('rank-agent-qa-prompt-container')
+            : document.getElementById(`${agentPrefix}-qa-prompt-container`);
         if (qaPromptContainer) {
             qaPromptContainer.classList.add('hidden');
         }
@@ -5686,9 +5703,17 @@ function showTestModal(agentName, articleId) {
         });
     }
     
-    document.getElementById('test-modal-title').textContent = `Testing ${agentName} on Article ${articleId}`;
-    document.getElementById('test-modal-progress').classList.remove('hidden');
-    document.getElementById('test-modal-results').classList.add('hidden');
+    const titleEl = document.getElementById('test-modal-title');
+    if (!titleEl) {
+        testModal = null;
+        showTestModal(agentName, articleId);
+        return;
+    }
+    titleEl.textContent = `Testing ${agentName} on Article ${articleId}`;
+    const progressEl = document.getElementById('test-modal-progress');
+    const resultsEl = document.getElementById('test-modal-results');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (resultsEl) resultsEl.classList.add('hidden');
     
     // Open via ModalManager for proper stack management
     if (window.ModalManager) {
@@ -6105,9 +6130,13 @@ async function performAutoSave() {
             }
         });
         
-        // If validation errors exist, don't save
+        // If validation errors exist, don't save (throttle warn to avoid console spam)
         if (hasValidationErrors) {
-            console.warn('Auto-save skipped: Invalid provider/model combinations detected');
+            const now = Date.now();
+            if (!isInitializing && (now - lastValidationWarnAt) >= VALIDATION_WARN_THROTTLE_MS) {
+                lastValidationWarnAt = now;
+                console.warn('Auto-save skipped: Invalid provider/model combinations detected');
+            }
             return;
         }
         
@@ -6413,37 +6442,47 @@ function validateAgentModelOnChange(agentPrefix) {
 }
 
 /**
- * Validates and saves model changes
- * Wraps autoSaveConfig with validation
+ * Validates and saves model changes. Debounced to avoid repeated validation/warns on every input.
+ * Wraps autoSaveConfig with validation.
  */
 window.autoSaveModelChange = function() {
-    // Validate all agent models before saving
-    let hasErrors = false;
-    Object.values(AGENT_CONFIG).forEach(config => {
-        const provider = getAgentProvider(config.prefix) || 'lmstudio';
-        const model = getAgentModel(config.prefix, provider);
-        if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
-            hasErrors = true;
-        }
+    if (autoSaveModelChangeTimeout) clearTimeout(autoSaveModelChangeTimeout);
+    return new Promise((resolve) => {
+        autoSaveModelChangeTimeout = setTimeout(() => {
+            autoSaveModelChangeTimeout = null;
+            if (isInitializing) {
+                resolve();
+                return;
+            }
+            // Validate all agent models before saving
+            let hasErrors = false;
+            Object.values(AGENT_CONFIG).forEach(config => {
+                const provider = getAgentProvider(config.prefix) || 'lmstudio';
+                const model = getAgentModel(config.prefix, provider);
+                if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                    hasErrors = true;
+                }
+            });
+            const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
+            if (osFallbackToggle && osFallbackToggle.checked) {
+                const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+                const model = getAgentModel('osdetectionagent-fallback', provider);
+                if (model && !validateProviderModelCombination('osdetectionagent-fallback', provider, model)) {
+                    hasErrors = true;
+                }
+            }
+            if (!hasErrors) {
+                window.autoSaveConfig().then(resolve).catch(() => resolve());
+            } else {
+                const now = Date.now();
+                if ((now - lastValidationWarnAt) >= VALIDATION_WARN_THROTTLE_MS) {
+                    lastValidationWarnAt = now;
+                    console.warn('Model change validation failed - not saving');
+                }
+                resolve();
+            }
+        }, 400);
     });
-    
-    // Also validate OS Detection fallback if enabled
-    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-    if (osFallbackToggle && osFallbackToggle.checked) {
-        const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
-        const model = getAgentModel('osdetectionagent-fallback', provider);
-        if (model && !validateProviderModelCombination('osdetectionagent-fallback', provider, model)) {
-            hasErrors = true;
-        }
-    }
-    
-    // Only proceed with save if no validation errors
-    if (!hasErrors) {
-        return window.autoSaveConfig();
-    } else {
-        console.warn('Model change validation failed - not saving');
-        return Promise.resolve();
-    }
 };
 
 async function loadAgentPrompts() {
@@ -6588,10 +6627,10 @@ function renderAgentPrompts() {
         }
     });
     
-    // Render Sub-Agent QA Prompts
+    // Render Sub-Agent QA Prompts (prefix must be unique per panel to avoid ID collision with Extract prompt panel)
     const qaAgents = [
-        { name: 'ProcTreeQA', container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent' },
-        { name: 'HuntQueriesQA', container: 'huntqueriesextract-agent-qa-prompt-container', prefix: 'huntqueriesextract-agent' }
+        { name: 'ProcTreeQA', container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent-qa' },
+        { name: 'HuntQueriesQA', container: 'huntqueriesextract-agent-qa-prompt-container', prefix: 'huntqueriesextract-agent-qa' }
     ];
     
     qaAgents.forEach(qaAgent => {
