@@ -263,8 +263,56 @@ def _use_asgi_client() -> bool:
     return os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes")
 
 
+def _ensure_workflow_config_columns() -> None:
+    """Add missing agentic_workflow_config columns to test DB so workflow/config routes do not 500."""
+    db_url = os.getenv("TEST_DATABASE_URL")
+    if not db_url:
+        return
+    if "asyncpg" in db_url:
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    try:
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            for column_name, sql_type in (
+                ("osdetection_fallback_enabled", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("rank_agent_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
+                ("qa_max_retries", "INTEGER NOT NULL DEFAULT 5"),
+                ("cmdline_attention_preprocessor_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
+            ):
+                r = conn.execute(
+                    text(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_name = 'agentic_workflow_config' AND column_name = :name"
+                    ),
+                    {"name": column_name},
+                )
+                if r.fetchone():
+                    continue
+                conn.execute(
+                    text(
+                        "ALTER TABLE agentic_workflow_config ADD COLUMN "
+                        + column_name
+                        + " "
+                        + sql_type
+                    )
+                )
+                conn.commit()
+                logger.info("Added column agentic_workflow_config.%s", column_name)
+    except Exception as e:
+        logger.warning("Could not ensure workflow_config columns (test DB may be read-only): %s", e)
+
+
+@pytest.fixture(scope="session")
+def ensure_workflow_config_schema():
+    """Ensure test DB has agentic_workflow_config columns required by workflow/config routes."""
+    _ensure_workflow_config_columns()
+    return None
+
+
 @pytest_asyncio.fixture
-async def async_client(test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def async_client(ensure_workflow_config_schema, test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing. With USE_ASGI_CLIENT=1 uses in-process app (no live server)."""
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     if _use_asgi_client():

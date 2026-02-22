@@ -29,7 +29,7 @@ if _use_asgi_client():
         loop.close()
 
     @pytest_asyncio.fixture(scope="session")
-    async def async_client():
+    async def async_client(ensure_workflow_config_schema):
         """Session-scoped HTTP client when USE_ASGI_CLIENT=1."""
         from httpx import ASGITransport
 

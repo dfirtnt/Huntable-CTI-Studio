@@ -1944,18 +1944,10 @@ class LLMService:
         if not isinstance(prompt_config, dict):
             raise ValueError("ExtractAgent prompt_config must be a dictionary")
 
-        if "role" in prompt_config:
-            # Old format: use role field
-            system_content = prompt_config["role"]
-            if not system_content or not isinstance(system_content, str):
-                raise ValueError("ExtractAgent prompt_config 'role' field must be a non-empty string")
-        elif "task" in prompt_config:
-            # New format: use task field as system message
-            system_content = prompt_config["task"]
-            if not system_content or not isinstance(system_content, str):
-                raise ValueError("ExtractAgent prompt_config 'task' field must be a non-empty string")
-        else:
-            raise ValueError("ExtractAgent prompt_config must contain either 'role' or 'task' field")
+        # Prefer "system" (bulk instructions), fall back to "role" or "task"
+        system_content = prompt_config.get("system") or prompt_config.get("role") or prompt_config.get("task")
+        if not system_content or not isinstance(system_content, str):
+            raise ValueError("ExtractAgent prompt_config must contain 'system', 'role', or 'task' (non-empty string)")
 
         messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
 
@@ -2428,8 +2420,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
 
         # model_name already set above
 
-        # Build system message - use role if present, otherwise construct from task
-        system_content = prompt_config.get("role")
+        # Build system message: prefer "system", then "role", else construct from task
+        system_content = prompt_config.get("system") or prompt_config.get("role")
         if not system_content:
             task = prompt_config.get("task", "Extract observables from threat intelligence content.")
             system_content = f"You are a cybersecurity analyst. {task}"
@@ -3147,8 +3139,12 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:
                     user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
+                # Minimal user prefix when preset uses "user" (bulk in system, minimal in user)
+                user_prefix = (prompt_config.get("user") or "").strip()
+                if user_prefix:
+                    user_prompt = f"{user_prefix}\n\n{user_prompt}"
 
-                system_content = prompt_config.get("role", "You are a detection engineer.")
+                system_content = prompt_config.get("system") or prompt_config.get("role", "You are a detection engineer.")
 
                 messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
 
@@ -3593,8 +3589,12 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
 """
                     logger.debug(f"{agent_name} QA using legacy programmatic format (len={len(qa_prompt)} chars)")
 
+                qa_system = qa_prompt_config.get("system") or qa_prompt_config.get("role", "You are a QA agent.")
+                qa_user_content = (qa_prompt_config.get("user") or "").strip()
+                if qa_user_content:
+                    qa_prompt = f"{qa_user_content}\n\n{qa_prompt}"
                 qa_messages = [
-                    {"role": "system", "content": qa_prompt_config.get("role", "You are a QA agent.")},
+                    {"role": "system", "content": qa_system},
                     {"role": "user", "content": qa_prompt},
                 ]
 

@@ -425,11 +425,15 @@ class EvalRunner:
                     "model", normalized_agent_models.get("CmdLineQA", normalized_model)
                 )
                 qa_normalized_model = self._normalize_lmstudio_model_name(qa_raw_model)
+                qa_default_role = "You are a QA agent."
+                qa_system = cmdline_qa_prompt_config.get("system", cmdline_qa_prompt_config.get("role", qa_default_role))
                 qa_prompt_config = {
                     "prompt": cmdline_qa_prompt_config.get("prompt", ""),
                     "instructions": cmdline_qa_prompt_config.get("instructions", ""),
                     "model": qa_normalized_model,
-                    "role": cmdline_qa_prompt_config.get("role", "You are a QA agent."),
+                    "system": qa_system,
+                    "role": qa_system,
+                    "user": cmdline_qa_prompt_config.get("user", ""),
                     "objective": cmdline_qa_prompt_config.get("objective", "Verify extraction."),
                     "evaluation_criteria": cmdline_qa_prompt_config.get("evaluation_criteria", []),
                 }

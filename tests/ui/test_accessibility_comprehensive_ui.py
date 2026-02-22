@@ -179,8 +179,13 @@ class TestARIALabels:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
         page.wait_for_load_state("networkidle")
+        # Filters panel is collapsed by default; expand it so the search help button is visible
+        filters_toggle = page.locator("#filters-toggle").or_(page.locator("[data-collapsible-panel='filters']"))
+        if filters_toggle.count() > 0:
+            filters_toggle.first.click()
         help_btn = page.locator('button[aria-label="Search syntax help"]')
         if help_btn.count() > 0:
+            help_btn.first.wait_for(state="visible", timeout=5000)
             expect(help_btn.first).to_be_visible()
 
 
