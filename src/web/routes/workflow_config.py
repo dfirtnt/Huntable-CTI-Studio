@@ -535,6 +535,51 @@ async def export_config_as_v2(preset: dict[str, Any]):
         raise HTTPException(status_code=400, detail=f"Invalid config: {e}") from e
 
 
+def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
+    """Convert WorkflowConfigV2 to applyPreset()-ready legacy preset shape."""
+    qa_enabled = dict(config.QA.Enabled)
+    if "OSDetectionFallback" in qa_enabled and "OSDetectionAgent" not in qa_enabled:
+        qa_enabled["OSDetectionAgent"] = qa_enabled["OSDetectionFallback"]
+    return {
+        "version": "1.0",
+        "thresholds": {
+            "ranking_threshold": config.Thresholds.RankingThreshold,
+            "similarity_threshold": config.Thresholds.SimilarityThreshold,
+            "junk_filter_threshold": config.Thresholds.JunkFilterThreshold,
+        },
+        "agent_models": config.flatten_for_llm_service(),
+        "qa_enabled": qa_enabled,
+        "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
+        "osdetection_fallback_enabled": config.Agents.get("OSDetectionFallback").Enabled
+        if config.Agents.get("OSDetectionFallback")
+        else False,
+        "rank_agent_enabled": config.Agents.get("RankAgent").Enabled
+        if config.Agents.get("RankAgent")
+        else True,
+        "qa_max_retries": config.QA.MaxRetries,
+        "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
+        "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
+        "agent_prompts": {
+            name: {"prompt": p.get("prompt", "") if isinstance(p, dict) else p.prompt, "instructions": p.get("instructions", "") if isinstance(p, dict) else p.instructions}
+            for name, p in config.Prompts.items()
+        },
+    }
+
+
+@router.post("/config/preset/to-legacy")
+async def preset_to_legacy(preset: dict[str, Any]):
+    """
+    Accept a preset (v1 or v2), validate and normalize via load_workflow_config,
+    return legacy shape for applyPreset() (version, thresholds, agent_models, qa_enabled, etc.).
+    """
+    try:
+        config = load_workflow_config(preset)
+        return _v2_to_legacy_preset_dict(config)
+    except ValidationError as e:
+        logger.warning("Preset to-legacy validation failed: %s", e)
+        raise HTTPException(status_code=400, detail=f"Invalid config: {e}") from e
+
+
 @router.get("/config/preset/list")
 async def list_config_presets(request: Request, scope: str | None = None):
     """List workflow config presets (id, name, description, scope, created_at, updated_at; no config_json).

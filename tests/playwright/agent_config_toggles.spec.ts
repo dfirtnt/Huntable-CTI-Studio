@@ -160,11 +160,13 @@ test.describe('Agent Config Toggle Interactions', () => {
     const rankAgentToggle = page.locator('#rank-agent-enabled');
     await rankAgentToggle.waitFor({ state: 'attached', timeout: 10000 });
 
+    await normalizeVisibleProviderModelCombos(page);
+
     const initialChecked = await rankAgentToggle.isChecked();
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 15000 }
     );
 
     await page.evaluate(() => {
@@ -295,11 +297,13 @@ test.describe('Agent Config Toggle Interactions', () => {
     const sigmaToggle = page.locator('#sigma-fallback-enabled');
     await sigmaToggle.waitFor({ state: 'attached', timeout: 10000 });
 
+    await normalizeVisibleProviderModelCombos(page);
+
     const initialChecked = await sigmaToggle.isChecked();
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 5000 }
+      { timeout: 15000 }
     );
 
     await page.evaluate(() => {
@@ -328,6 +332,8 @@ test.describe('Agent Config Toggle Interactions', () => {
     
     const extractToggle = page.locator('#toggle-proctreeextract-enabled');
     await extractToggle.waitFor({ state: 'attached', timeout: 10000 });
+
+    await normalizeVisibleProviderModelCombos(page);
 
     const initialChecked = await extractToggle.isChecked();
 
@@ -373,4 +379,55 @@ async function expandPanelIfNeeded(page: any, panelId: string) {
       await page.waitForTimeout(300);
     }
   }
+}
+
+async function normalizeVisibleProviderModelCombos(page: any) {
+  await page.evaluate(() => {
+    const inferProviderForModel = (rawModel: string | null | undefined): 'lmstudio' | 'openai' | 'anthropic' | null => {
+      const model = (rawModel || '').trim();
+      if (!model) return null;
+      if (/^claude-/i.test(model)) return 'anthropic';
+      if (/^(gpt-|o\\d|o[13]-|text-|davinci|curie|babbage|ada|whisper|omni|turbo)/i.test(model)) return 'openai';
+      return 'lmstudio';
+    };
+
+    const providerPrefixes = [
+      'rankagent',
+      'extractagent',
+      'sigmaagent',
+      'osdetectionagent-fallback',
+      'cmdlineextract',
+      'proctreeextract',
+      'huntqueriesextract',
+      'rankqa',
+      'cmdlineqa',
+      'proctreeqa',
+      'huntqueriesqa'
+    ];
+
+    for (const prefix of providerPrefixes) {
+      const providerSelect = document.getElementById(`${prefix}-provider`) as HTMLSelectElement | null;
+      if (!providerSelect) continue;
+
+      const currentProvider = (providerSelect.value || 'lmstudio').trim().toLowerCase();
+      const getActiveModel = (window as any).getActiveAgentModelValue as ((agentPrefix: string, provider: string) => string | null) | undefined;
+      const currentModel = typeof getActiveModel === 'function'
+        ? (getActiveModel(prefix, currentProvider) || '').trim()
+        : '';
+      if (!currentModel) continue;
+
+      const inferredProvider = inferProviderForModel(currentModel);
+      if (!inferredProvider || inferredProvider === currentProvider) continue;
+
+      providerSelect.value = inferredProvider;
+      if (typeof (window as any).onAgentProviderChange === 'function') {
+        (window as any).onAgentProviderChange(prefix);
+      } else {
+        providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  });
+
+  // Let provider-specific blocks refresh and any debounced autosave settle before assertions.
+  await page.waitForTimeout(1200);
 }

@@ -322,7 +322,7 @@
     <!-- Configuration Tab -->
     <div id="tab-content-config" class="tab-content">
         <div class="agents-panel rounded-lg shadow-lg p-6 mb-8">
-            <form id="workflowConfigForm" class="space-y-6">
+            <form id="workflowConfigForm" class="space-y-6" novalidate>
                 <!-- Other Thresholds -->
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div data-collapsible-panel="other-thresholds-panel" class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer">
@@ -391,7 +391,6 @@
                                        min="1" 
                                        max="3" 
                                        step="1"
-                                       required
                                        oninput="validateThreshold(this, 1, 3); autoSaveConfig()"
                                        class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                 <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Maximum number of times QA Agent will give feedback to counterpart agent (1-3)</p>
@@ -445,6 +444,7 @@
                                         <input type="checkbox" 
                                                id="rank-agent-enabled" 
                                                name="rank_agent_enabled"
+                                               aria-label="Rank Agent Enabled"
                                                class="sr-only peer"
                                                onchange="updateRankEnabledBadge(); updateRankQAState(false); autoSaveConfig();">
                                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
@@ -661,7 +661,7 @@
                                                 <div class="flex items-center gap-2">
                                                     <span id="cmdlineextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
-                                                        <input type="checkbox" id="toggle-cmdlineextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('CmdlineExtract')">
+                                                        <input type="checkbox" id="toggle-cmdlineextract-enabled" name="extract_subagent_enabled[CmdlineExtract]" aria-label="Enable CmdlineExtract" class="sr-only peer" onchange="handleExtractAgentToggle('CmdlineExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                                     </label>
                                                 </div>
@@ -868,7 +868,7 @@
                                                 <div class="flex items-center gap-2">
                                                     <span id="proctreeextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
-                                                        <input type="checkbox" id="toggle-proctreeextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('ProcTreeExtract')">
+                                                        <input type="checkbox" id="toggle-proctreeextract-enabled" name="extract_subagent_enabled[ProcTreeExtract]" aria-label="Enable ProcTreeExtract" class="sr-only peer" onchange="handleExtractAgentToggle('ProcTreeExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                                     </label>
                                                 </div>
@@ -1063,7 +1063,7 @@
                                                 <div class="flex items-center gap-2">
                                                     <span id="huntqueriesextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                                                     <label class="relative inline-flex items-center cursor-pointer">
-                                                        <input type="checkbox" id="toggle-huntqueriesextract-enabled" class="sr-only peer" onchange="handleExtractAgentToggle('HuntQueriesExtract')">
+                                                        <input type="checkbox" id="toggle-huntqueriesextract-enabled" name="extract_subagent_enabled[HuntQueriesExtract]" aria-label="Enable HuntQueriesExtract" class="sr-only peer" onchange="handleExtractAgentToggle('HuntQueriesExtract')">
                                                         <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                                                     </label>
                                                 </div>
@@ -1311,6 +1311,7 @@
                                     <input type="checkbox" 
                                            id="sigma-fallback-enabled" 
                                            name="sigma_fallback_enabled"
+                                           aria-label="Use Full Article Content (Minus Junk)"
                                            class="sr-only peer"
                                            onchange="autoSaveConfig();">
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
@@ -2884,6 +2885,218 @@ function getAgentConfigs(filter = {}) {
     });
 }
 
+const AGENT_UI_DISPLAY_LABELS = {
+    rankagent: 'Rank Agent',
+    extractagent: 'Extract Agents',
+    sigmaagent: 'SIGMA Generator Agent',
+    'osdetectionagent-fallback': 'OS Detection Fallback LLM',
+    cmdlineextract: 'CmdlineExtract',
+    proctreeextract: 'ProcTreeExtract',
+    huntqueriesextract: 'HuntQueriesExtract',
+    rankqa: 'Rank QA',
+    cmdlineqa: 'CmdLine QA',
+    proctreeqa: 'ProcTree QA',
+    huntqueriesqa: 'HuntQueries QA'
+};
+
+function getAgentUIDisplayLabel(agentPrefix) {
+    if (AGENT_UI_DISPLAY_LABELS[agentPrefix]) {
+        return AGENT_UI_DISPLAY_LABELS[agentPrefix];
+    }
+    const config = getAgentConfig(agentPrefix);
+    if (config?.name) {
+        return config.name.replace(/([a-z])([A-Z])/g, '$1 $2');
+    }
+    return agentPrefix.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getWorkflowConfigLabelText(el) {
+    if (!el) return null;
+    if (el.id) {
+        const explicitLabel = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        if (explicitLabel) {
+            return (explicitLabel.textContent || '').replace(/\s+/g, ' ').trim();
+        }
+    }
+    const wrappingLabel = el.closest('label');
+    if (wrappingLabel) {
+        return (wrappingLabel.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+    const ariaLabel = el.getAttribute('aria-label');
+    return ariaLabel ? ariaLabel.trim() : null;
+}
+
+function normalizeWorkflowConfigControlBindings() {
+    const form = document.getElementById('workflowConfigForm');
+    if (!form) return;
+
+    const setAttr = (el, attr, value) => {
+        if (!el || value === undefined || value === null || value === '') return;
+        el.setAttribute(attr, value);
+    };
+
+    Object.values(AGENT_CONFIG).forEach(config => {
+        const labelBase = getAgentUIDisplayLabel(config.prefix);
+        const providerEl = document.getElementById(`${config.prefix}-provider`);
+        if (providerEl) {
+            setAttr(providerEl, 'name', `agent_models[${config.providerKey}]`);
+            setAttr(providerEl, 'data-config-key', config.providerKey);
+            setAttr(providerEl, 'data-config-control-type', 'provider');
+            setAttr(providerEl, 'aria-label', `${labelBase} Model Provider`);
+        }
+
+        [
+            document.getElementById(`${config.prefix}-model`),
+            document.getElementById(`${config.prefix}-model-2`),
+            document.getElementById(`${config.prefix}-model-openai`),
+            document.getElementById(`${config.prefix}-model-anthropic`)
+        ].filter(Boolean).forEach(el => {
+            setAttr(el, 'name', `agent_models[${config.modelKey}]`);
+            setAttr(el, 'data-config-key', config.modelKey);
+            setAttr(el, 'data-config-control-type', 'model');
+            setAttr(el, 'aria-label', `${labelBase} Model`);
+        });
+
+        if (config.temperatureKey) {
+            const tempEl = document.getElementById(`${config.prefix}-temperature`);
+            if (tempEl) {
+                setAttr(tempEl, 'data-config-key', config.temperatureKey);
+                setAttr(tempEl, 'data-config-control-type', 'temperature');
+                setAttr(tempEl, 'aria-label', `${labelBase} Temperature`);
+            }
+        }
+        if (config.topPKey) {
+            const topPEl = document.getElementById(`${config.prefix}-top-p`);
+            if (topPEl) {
+                setAttr(topPEl, 'data-config-key', config.topPKey);
+                setAttr(topPEl, 'data-config-control-type', 'top_p');
+                setAttr(topPEl, 'aria-label', `${labelBase} Top_P`);
+            }
+        }
+    });
+
+    const directBindings = {
+        junkFilterThreshold: { key: 'junk_filter_threshold', label: 'Junk Filter Threshold' },
+        qaMaxRetries: { key: 'qa_max_retries', label: 'QA Max Retries' },
+        rankingThreshold: { key: 'ranking_threshold', label: 'Ranking Threshold' },
+        similarityThreshold: { key: 'similarity_threshold', label: 'Similarity Threshold' },
+        'rank-agent-enabled': { key: 'rank_agent_enabled', label: 'Rank Agent Enabled' },
+        'sigma-fallback-enabled': { key: 'sigma_fallback_enabled', label: 'Use Full Article Content (Minus Junk)' },
+        'osdetectionagent-fallback-enabled': { key: 'osdetection_fallback_enabled', label: 'Enable OS Detection Fallback LLM', name: 'osdetection_fallback_enabled' },
+        'cmdline-attention-preprocessor-enabled': { key: 'cmdline_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
+        'qa-rankagent': { key: 'qa_enabled[RankAgent]', label: 'Rank QA Agent' },
+        'qa-cmdlineextract': { key: 'qa_enabled[CmdlineExtract]', label: 'CmdlineExtract QA Agent' },
+        'qa-proctreeextract': { key: 'qa_enabled[ProcTreeExtract]', label: 'ProcTreeExtract QA Agent' },
+        'qa-huntqueriesextract': { key: 'qa_enabled[HuntQueriesExtract]', label: 'HuntQueriesExtract QA Agent' },
+        'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'OS Detection Embedding Model' },
+        'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
+        'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
+        'osdetectionagent-os-macos': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: MacOS' },
+        'osdetectionagent-os-network': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Network' },
+        'osdetectionagent-os-other': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Other' },
+        'osdetectionagent-os-all': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: All' }
+    };
+    Object.entries(directBindings).forEach(([id, meta]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        setAttr(el, 'data-config-key', meta.key);
+        setAttr(el, 'aria-label', meta.label);
+        if (meta.name) setAttr(el, 'name', meta.name);
+    });
+
+    [
+        { id: 'toggle-cmdlineextract-enabled', agent: 'CmdlineExtract' },
+        { id: 'toggle-proctreeextract-enabled', agent: 'ProcTreeExtract' },
+        { id: 'toggle-huntqueriesextract-enabled', agent: 'HuntQueriesExtract' }
+    ].forEach(item => {
+        const el = document.getElementById(item.id);
+        if (!el) return;
+        setAttr(el, 'name', `extract_subagent_enabled[${item.agent}]`);
+        setAttr(el, 'data-derived-persist-key', 'agent_prompts.ExtractAgentSettings.disabled_agents');
+        setAttr(el, 'data-derived-binding-kind', 'inverse-disabled-list');
+        setAttr(el, 'data-derived-agent', item.agent);
+        setAttr(el, 'aria-label', `Enable ${item.agent}`);
+    });
+
+    form.querySelectorAll('textarea[id$="-prompt-system-2"], textarea[id$="-prompt-user-2"]').forEach(textarea => {
+        const id = textarea.id || '';
+        const isSystem = id.endsWith('-prompt-system-2');
+        const agentId = id.replace(/-prompt-(system|user)-2$/, '');
+        const promptAgentNameMap = {
+            rankagent: 'RankAgent',
+            extractagent: 'ExtractAgent',
+            sigmaagent: 'SigmaAgent',
+            osdetectionagent: 'OSDetectionAgent',
+            cmdlineextract: 'CmdlineExtract',
+            proctreeextract: 'ProcTreeExtract',
+            huntqueriesextract: 'HuntQueriesExtract',
+            qaagent: 'QAAgent',
+            cmdlineqa: 'CmdLineQA',
+            proctreeqa: 'ProcTreeQA',
+            huntqueriesqa: 'HuntQueriesQA'
+        };
+        const agentName = promptAgentNameMap[agentId] || agentId;
+        setAttr(textarea, 'data-derived-persist-key', `agent_prompts.${agentName}.prompt`);
+        setAttr(textarea, 'data-derived-binding-kind', isSystem ? 'prompt-system' : 'prompt-user');
+        setAttr(textarea, 'aria-label', `${agentName} ${isSystem ? 'System' : 'User'} Prompt`);
+    });
+}
+
+function getWorkflowConfigBindingAudit() {
+    const form = document.getElementById('workflowConfigForm');
+    if (!form) return { error: 'workflowConfigForm not found' };
+
+    normalizeWorkflowConfigControlBindings();
+
+    const controls = Array.from(form.querySelectorAll('input, select, textarea'))
+        .filter(el => el.id !== 'import-preset-input')
+        .map(el => {
+            const type = el.tagName.toLowerCase() === 'input'
+                ? ((el.getAttribute('type') || 'text').toLowerCase())
+                : el.tagName.toLowerCase();
+            const style = window.getComputedStyle(el);
+            const visible = style.display !== 'none' && style.visibility !== 'hidden' && !el.closest('.hidden');
+            const disabled = !!el.disabled;
+            const name = el.getAttribute('name');
+            const persistKey = el.getAttribute('data-config-key') || el.getAttribute('data-derived-persist-key') || name || null;
+            return {
+                id: el.id || null,
+                name: name || null,
+                type,
+                visible,
+                disabled,
+                label: getWorkflowConfigLabelText(el),
+                ariaLabel: el.getAttribute('aria-label') || null,
+                persistKey,
+                bindingKind: el.getAttribute('data-config-control-type') || el.getAttribute('data-derived-binding-kind') || null
+            };
+        });
+
+    const visibleMutableControls = controls.filter(c => c.visible && !c.disabled && c.type !== 'hidden');
+    const missingLabels = visibleMutableControls.filter(c => !(c.label || c.ariaLabel));
+    const missingBindings = visibleMutableControls.filter(c => !c.persistKey);
+    const promptPanelHeaders = Array.from(form.querySelectorAll('[data-collapsible-panel$="-prompt-panel"], [data-collapsible-panel$="-qa-prompt-panel"]'))
+        .map(el => (el.textContent || '').replace(/\s+/g, ' ').trim());
+
+    return {
+        controls,
+        counts: {
+            totalControls: controls.length,
+            visibleMutableControls: visibleMutableControls.length,
+            missingLabels: missingLabels.length,
+            missingBindings: missingBindings.length
+        },
+        missingLabels,
+        missingBindings,
+        promptPanelHeaders
+    };
+}
+
+if (typeof window !== 'undefined') {
+    window.normalizeWorkflowConfigControlBindings = normalizeWorkflowConfigControlBindings;
+    window.getWorkflowConfigBindingAudit = getWorkflowConfigBindingAudit;
+}
+
 /**
  * Unified function to get agent provider value from DOM
  */
@@ -3097,6 +3310,9 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     const lmstudioSelect = `
         <select id="${agentPrefix}-model${config.isSubAgent ? '' : '-2'}"
                 ${nameAttr}
+                data-config-key="${config.modelKey}"
+                data-config-control-type="model"
+                aria-label="${escapeHtml(getAgentUIDisplayLabel(agentPrefix))} Model"
                 onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
                 class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono ${sizeClass}">
             <option value="">${lmstudioPlaceholder}</option>
@@ -3188,12 +3404,16 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
     // Determine the name attribute for form submission using unified AGENT_CONFIG
     const config = getAgentConfig(agentPrefix);
     const nameAttr = config ? `name="agent_models[${config.modelKey}]"` : '';
+    const dataKeyAttr = config ? `data-config-key="${config.modelKey}" data-config-control-type="model"` : '';
+    const ariaLabel = `${escapeHtml(getAgentUIDisplayLabel(agentPrefix))} Model`;
 
     if (!catalog || catalog.length === 0) {
         return `
             <input type="text"
                    id="${elementId}"
                    ${nameAttr}
+                   ${dataKeyAttr}
+                   aria-label="${ariaLabel}"
                    class="${baseClass}"
                    value="${escapeHtml(eligibleCurrentModel || '')}"
                    placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
@@ -3223,6 +3443,8 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
     return `
         <select id="${elementId}"
                 ${nameAttr}
+                ${dataKeyAttr}
+                aria-label="${ariaLabel}"
                 onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
                 class="${baseClass}">
             <option value="" ${placeholderSelected}>${placeholder}</option>
@@ -3237,8 +3459,16 @@ function buildProviderSelect(agentId, currentProvider) {
         return `<option value="${escapeHtml(opt.value)}" ${selected}>${escapeHtml(opt.label)}</option>`;
     }).join('');
 
+    const config = getAgentConfig(agentId);
+    const nameAttr = config ? `name="agent_models[${config.providerKey}]"` : '';
+    const dataKeyAttr = config ? `data-config-key="${config.providerKey}" data-config-control-type="provider"` : '';
+    const ariaLabel = `${escapeHtml(getAgentUIDisplayLabel(agentId))} Model Provider`;
+
     return `
         <select id="${agentId}-provider"
+                ${nameAttr}
+                ${dataKeyAttr}
+                aria-label="${ariaLabel}"
                 onchange="onAgentProviderChange('${agentId}')"
                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
             ${options}
@@ -3929,6 +4159,9 @@ function onAgentProviderChange(agentPrefix) {
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
     }
+    if (typeof normalizeWorkflowConfigControlBindings === 'function') {
+        normalizeWorkflowConfigControlBindings();
+    }
     autoSaveModelChange();
 }
 // Keep a reference the stub can call even if overwritten order varies
@@ -3965,6 +4198,9 @@ function refreshAllProviderBlocks() {
             });
         }
     });
+    if (typeof normalizeWorkflowConfigControlBindings === 'function') {
+        normalizeWorkflowConfigControlBindings();
+    }
 }
 if (typeof window !== 'undefined') {
     window.refreshAllProviderBlocks = refreshAllProviderBlocks;
@@ -4663,20 +4899,10 @@ window.toggleFallbackModel = function() {
         container.classList.remove('hidden');
         container.style.display = 'block';
     } else {
-        // Hide and clear the fallback model selection
+        // Hide the fallback model selection (preserve form values so they restore when re-enabled)
         container.classList.add('hidden');
         container.style.display = 'none';
-        
-        // Clear all model inputs
-        const lmstudioSelect = document.getElementById('osdetectionagent-fallback-model-2');
-        const openaiInput = document.getElementById('osdetectionagent-fallback-model-openai');
-        const anthropicInput = document.getElementById('osdetectionagent-fallback-model-anthropic');
-        
-        if (lmstudioSelect) lmstudioSelect.value = '';
-        if (openaiInput) openaiInput.value = '';
-        if (anthropicInput) anthropicInput.value = '';
-        
-        // Trigger auto-save to persist the cleared value
+        // Auto-save so backend gets OSDetectionAgent_fallback: null while toggle is off
         if (typeof autoSaveModelChange === 'function') {
             autoSaveModelChange();
         }
@@ -4877,6 +5103,11 @@ async function loadConfig(skipPromptReload = false) {
         
         // Setup event listeners for QA toggles after content is loaded
         setupQAEventListeners();
+
+        // Normalize runtime-generated control attributes (names/aria/binding metadata)
+        if (typeof normalizeWorkflowConfigControlBindings === 'function') {
+            normalizeWorkflowConfigControlBindings();
+        }
         
         // Clear initialization flag after all config is loaded and applied
         // This allows autosave to work for user changes
@@ -5265,6 +5496,8 @@ function renderAgentModels(lmstudioModels) {
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" 
                                    id="osdetectionagent-fallback-enabled" 
+                                   name="osdetection_fallback_enabled"
+                                   aria-label="Enable OS Detection Fallback LLM"
                                    class="sr-only peer" 
                                    onchange="toggleFallbackModel()"
                                    ${currentFallbackModel ? 'checked' : ''}>
@@ -5649,6 +5882,9 @@ function renderAgentModels(lmstudioModels) {
             // Update visibility of provider sections
             updateAgentProviderVisibility(agent.prefix, provider);
         });
+        if (typeof normalizeWorkflowConfigControlBindings === 'function') {
+            normalizeWorkflowConfigControlBindings();
+        }
     }, 0);
 }
 
@@ -6554,16 +6790,26 @@ function renderAgentPrompts() {
     
     // Render OS Detection Prompt
     const osPromptContainer = document.getElementById('os-detection-prompt-container');
-    if (osPromptContainer && agentPrompts['OSDetectionAgent']) {
-        const promptData = agentPrompts['OSDetectionAgent'];
+    if (osPromptContainer) {
+        const promptData = getOrCreatePromptData('OSDetectionAgent');
         osPromptContainer.innerHTML = renderSinglePrompt('OSDetectionAgent', promptData, 'os-detection');
+        setTimeout(() => {
+            if (typeof initCollapsiblePanels === 'function') {
+                initCollapsiblePanels(osPromptContainer);
+            }
+        }, 0);
     }
     
     // Render Rank Agent Prompt
     const rankPromptContainer = document.getElementById('rank-agent-prompt-container');
-    if (rankPromptContainer && agentPrompts['RankAgent']) {
-        const promptData = agentPrompts['RankAgent'];
+    if (rankPromptContainer) {
+        const promptData = getOrCreatePromptData('RankAgent');
         rankPromptContainer.innerHTML = renderSinglePrompt('RankAgent', promptData, 'rank-agent');
+        setTimeout(() => {
+            if (typeof initCollapsiblePanels === 'function') {
+                initCollapsiblePanels(rankPromptContainer);
+            }
+        }, 0);
     }
 
     // Render Extract Agent Prompt
@@ -6664,6 +6910,9 @@ function renderAgentPrompts() {
     // Re-initialize collapsible panels for dynamically added prompt panels
     if (typeof initCollapsiblePanels === 'function') {
         initCollapsiblePanels();
+    }
+    if (typeof normalizeWorkflowConfigControlBindings === 'function') {
+        normalizeWorkflowConfigControlBindings();
     }
 }
 
@@ -6814,6 +7063,9 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                             ${isEditing ? `
                                     <textarea id="${agentId}-prompt-system-2" 
                                           rows="8"
+                                              aria-label="${escapeHtml(agentName)} System Prompt"
+                                              data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
+                                              data-derived-binding-kind="prompt-system"
                                               placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                                 ` : `
@@ -6831,6 +7083,9 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                 ${isEditing ? `
                                     <textarea id="${agentId}-prompt-user-2" 
                                               rows="8"
+                                              aria-label="${escapeHtml(agentName)} User Prompt"
+                                              data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
+                                              data-derived-binding-kind="prompt-user"
                                               placeholder="Enter user prompt (task, query, or user message)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                 ` : `
@@ -6924,6 +7179,9 @@ function renderQAPrompt(agentName, containerId) {
                         ${isEditing ? `
                                 <textarea id="${agentId}-prompt-system-2" 
                                       rows="8"
+                                          aria-label="${escapeHtml(agentName)} System Prompt"
+                                          data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
+                                          data-derived-binding-kind="prompt-system"
                                           placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                             ` : `
@@ -6941,6 +7199,9 @@ function renderQAPrompt(agentName, containerId) {
                             ${isEditing ? `
                                 <textarea id="${agentId}-prompt-user-2" 
                                           rows="8"
+                                          aria-label="${escapeHtml(agentName)} User Prompt"
+                                          data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
+                                          data-derived-binding-kind="prompt-user"
                                           placeholder="Enter user prompt (task, query, or user message)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                             ` : `
@@ -7554,9 +7815,20 @@ async function importPresetFromFile(event) {
     
     try {
         const text = await file.text();
-        const preset = JSON.parse(text);
+        let preset = JSON.parse(text);
         
-        if (!preset.version) throw new Error('Invalid preset format. Missing version.');
+        const isV2 = preset.Version === '2.0';
+        if (!preset.version && !isV2) throw new Error('Invalid preset format. Missing version.');
+        if (isV2) {
+            const response = await fetch('/api/workflow/config/preset/to-legacy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(preset)
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.detail || data.message || 'Failed to convert preset.');
+            preset = data;
+        }
         if (preset.scope && SUBAGENT_SCOPES.includes(preset.scope)) {
             if (!preset.agent_models && (!preset.agent_prompts || Object.keys(preset.agent_prompts).length === 0) && (!preset.qa_enabled || Object.keys(preset.qa_enabled).length === 0)) {
                 throw new Error('Sub-agent preset must have agent_models, agent_prompts, or qa_enabled.');
@@ -9086,9 +9358,30 @@ if (workflowConfigForm) {
         console.log('No changes to save');
         return;
     }
-    
-    // Validate and clamp all number inputs with min/max attributes before submission
-    // This prevents HTML5 validation errors from blocking form submission
+
+    // Validate all thresholds before submission (run before clamping so invalid values block save)
+    const junkFilterInput = document.getElementById('junkFilterThreshold');
+    const rankingInput = document.getElementById('rankingThreshold');
+    const similarityInput = document.getElementById('similarityThreshold');
+    const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
+    const junkFilterValid = junkFilterInput ? validateThreshold(junkFilterInput, 0, 1) : true;
+    const rankingValid = rankingInput ? validateThreshold(rankingInput, 0, 10) : true;
+    const similarityValid = similarityInput ? validateThreshold(similarityInput, 0, 1) : true;
+    const qaMaxRetriesValid = qaMaxRetriesInput ? validateThreshold(qaMaxRetriesInput, 1, 3) : true;
+
+    if (!junkFilterValid || !rankingValid || !similarityValid || !qaMaxRetriesValid) {
+        showNotification('Please fix the validation errors before saving.', 'error');
+        if (!qaMaxRetriesValid && qaMaxRetriesInput) {
+            const qaPanelContent = document.getElementById('qa-settings-panel-content');
+            if (qaPanelContent && qaPanelContent.classList.contains('hidden')) {
+                if (typeof toggleCollapsible === 'function') toggleCollapsible('qa-settings-panel');
+            }
+            qaMaxRetriesInput.focus();
+        }
+        return;
+    }
+
+    // Clamp any remaining out-of-range number inputs before building payload
     const numberInputs = workflowConfigForm.querySelectorAll('input[type="number"]');
     let hasInvalidInputs = false;
     numberInputs.forEach(input => {
@@ -9113,17 +9406,7 @@ if (workflowConfigForm) {
             }
         }
     });
-    
-    // Validate all thresholds before submission
-    const junkFilterValid = validateThreshold(document.getElementById('junkFilterThreshold'), 0, 1);
-    const rankingValid = validateThreshold(document.getElementById('rankingThreshold'), 0, 10);
-    const similarityValid = validateThreshold(document.getElementById('similarityThreshold'), 0, 1);
-    
-    if (!junkFilterValid || !rankingValid || !similarityValid) {
-        showNotification('Please fix the validation errors before saving.', 'error');
-        return;
-    }
-    
+
     if (hasInvalidInputs) {
         console.log('Some values were clamped to valid ranges. Saving with corrected values...');
     }

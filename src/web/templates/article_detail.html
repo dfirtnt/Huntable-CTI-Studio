@@ -1438,7 +1438,6 @@ Please provide a detailed analysis based on the article content and the user's s
     const OBSERVABLE_MODE = 'observables';
     const OBSERVABLE_TYPES = ['CMD', 'PROC_LINEAGE'];
     const OBSERVABLE_DATASET_USAGES = ['train', 'eval', 'gold'];
-    const DATASET_USAGE_WARNING_KEY = 'observableDatasetUsageWarningShown';
     const ANNOTATION_STYLE_MAP = {
         huntable: {
             label: 'Huntable',
@@ -1704,9 +1703,6 @@ Please provide a detailed analysis based on the article content and the user's s
             this.observableDatasetUsage = normalized;
             localStorage.setItem('observableDatasetUsage', normalized);
             updateDatasetUsageButtons();
-            if (normalized !== 'train') {
-                showDatasetUsageWarningOnce();
-            }
         }
         
         enableAnnotations() {
@@ -4026,12 +4022,6 @@ Please provide a detailed analysis based on the article content and the user's s
         });
     }
 
-    function showDatasetUsageWarningOnce() {
-        if (sessionStorage.getItem(DATASET_USAGE_WARNING_KEY)) return;
-        showNotification("Evaluation data is never used for training.", "info");
-        sessionStorage.setItem(DATASET_USAGE_WARNING_KEY, '1');
-    }
-    
     // iPhone Touch Support for Text Selection
     function addiPhoneTouchSupport() {
         // Use the active surface so observables use the plain container

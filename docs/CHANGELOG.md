@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Preset prompt merge**: Script and preset for filling workflow presets from repo prompts
   - `scripts/merge_prompts_into_preset.py` — merges `src/prompts` contents into a preset JSON's `agent_prompts`
   - `presets/AgentConfigs/anthropic-no-lmstudio-prompts.json` — Anthropic-focused preset with all agent prompts populated
+- **Workflow config binding audit test** (2026-02-22): Added Playwright coverage for `/workflow#config` to audit visible mutable controls for label/binding metadata and verify prompt panel consistency (including OS Detection / Rank / SIGMA prompt panels).
 - **Documentation Overhaul**: Complete reorganization and enhancement of MkDocs documentation
   - Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation
   - Enhanced quickstart.md with clear outcome statements
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation Structure**: Reorganized navigation to match proposed structure with Advanced section
 - **File Organization**: Consolidated testing and historical documentation into appropriate subdirectories
 - **Documentation sync (mdu)** (2026-02-17): README and docs verified; broken archive links fixed; MkDocs build confirmed.
+- **Workflow config UI binding normalization** (2026-02-22): `/workflow#config` now applies a consistent frontend binding/label normalization layer across static and dynamically rendered controls (provider/model selectors, toggles, prompt editors), adds a deterministic `window.getWorkflowConfigBindingAudit()` helper, and hardens autosave toggle Playwright tests against invalid local provider/model startup state.
 
 ## [5.0.0 "Callisto"] - 2026-01-15
 

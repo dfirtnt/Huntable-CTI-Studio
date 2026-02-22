@@ -269,6 +269,49 @@ test.describe('Agent Config Autosave', () => {
     expect(responseData.qa_max_retries).toBe(2);
   });
 
+  test('should block Save when QA max retries is invalid (e.g. 5) and expand panel without "not focusable" error', async ({ page }) => {
+    await expandPanelIfNeeded(page, 'qa-settings-panel');
+    const input = page.locator('#qaMaxRetries');
+    await input.waitFor({ state: 'visible', timeout: 10000 });
+    await input.fill('5');
+    await input.blur();
+    await page.waitForTimeout(300);
+
+    await expandPanelIfNeeded(page, 'other-thresholds-panel');
+    const rankInput = page.locator('#rankingThreshold');
+    await rankInput.waitFor({ state: 'visible', timeout: 5000 });
+    const rankVal = parseFloat(await rankInput.inputValue()) || 6;
+    await rankInput.fill(String(rankVal + 0.1));
+    await rankInput.blur();
+    await page.waitForTimeout(500);
+
+    const qaHeader = page.locator('[data-collapsible-panel="qa-settings-panel"]');
+    const qaContent = page.locator('#qa-settings-panel-content');
+    if (!(await qaContent.evaluate((el: HTMLElement) => el.classList.contains('hidden')).catch(() => false))) {
+      await qaHeader.click();
+      await page.waitForTimeout(300);
+    }
+
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    const saveButton = page.locator('#save-config-button');
+    await saveButton.waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForTimeout(500);
+    await saveButton.click();
+    await page.waitForTimeout(1500);
+
+    const notFocusable = consoleErrors.some(t => t.includes('not focusable'));
+    expect(notFocusable).toBe(false);
+
+    await expect(qaContent).toBeVisible();
+    await page.waitForTimeout(400);
+    const errorEl = page.locator('#qaMaxRetries-error');
+    await expect(errorEl).toContainText(/between 1 and 3/);
+  });
+
   test('should preserve other fields when autosaving one field', async ({ page }) => {
     // Get initial config
     const initialResponse = await page.request.get(`${BASE}/api/workflow/config`);
