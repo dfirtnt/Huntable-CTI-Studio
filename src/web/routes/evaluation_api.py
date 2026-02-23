@@ -1082,12 +1082,21 @@ async def get_subagent_eval_results(
 
             eval_records = query.order_by(SubagentEvaluationTable.created_at.desc()).all()
 
-            # Batch-fetch article titles for records with article_id
-            article_ids = [
-                r.article_id
-                for r in eval_records
-                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
-            ]
+            # Resolve article_id for records that have article_url but no article_id (e.g. static evals)
+            # so the frontend can group by article and avoid duplicate rows.
+            urls_without_id = [r.article_url for r in eval_records if r.article_url and r.article_id is None]
+            url_to_resolved_id: dict[str, int] = {}
+            if urls_without_id:
+                url_to_resolved_id = resolve_articles_by_urls(list(set(urls_without_id)))
+
+            # Batch-fetch article titles for records with article_id (including resolved from URL)
+            article_ids = []
+            for r in eval_records:
+                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS:
+                    article_ids.append(r.article_id)
+                elif r.article_url and url_to_resolved_id.get(r.article_url) is not None:
+                    article_ids.append(url_to_resolved_id[r.article_url])
+            article_ids = list(set(article_ids))
             id_to_title: dict[int, str] = {}
             if article_ids:
                 rows = (
@@ -1135,12 +1144,14 @@ async def get_subagent_eval_results(
                 if actual_count is not None:
                     score = actual_count - record.expected_count
 
+                resolved_article_id = record.article_id if record.article_id is not None else url_to_resolved_id.get(record.article_url or "")
+
                 results.append(
                     {
                         "id": record.id,
                         "url": record.article_url,
                         "title": _title_for_record(record) or None,
-                        "article_id": record.article_id,
+                        "article_id": resolved_article_id if resolved_article_id is not None else record.article_id,
                         "subagent_name": record.subagent_name,  # Include subagent_name for filtering
                         "expected_count": record.expected_count,
                         "actual_count": actual_count,

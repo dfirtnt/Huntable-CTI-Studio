@@ -1408,6 +1408,9 @@
                     <div id="configVersionList" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         <!-- Version items will be populated here -->
                     </div>
+                    <div id="configVersionListPagination" class="mt-3 flex items-center justify-between gap-4 flex-wrap">
+                        <!-- Pagination: summary and Prev/Next -->
+                    </div>
                     <div class="mt-4 flex justify-end">
                         <button type="button" onclick="closeConfigVersionListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
                     </div>
@@ -1516,6 +1519,16 @@
                 </select>
                 <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="px-3 py-2 w-28 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white placeholder-gray-500" onkeydown="if(event.key==='Enter')filterExecutions()">
                 <button onclick="filterExecutions()" class="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-gray-100 rounded-md text-sm">Apply</button>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <span class="select-none">Rows</span>
+                    <select id="executionsPerPage" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" title="Rows per page">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
+                </label>
             </div>
             <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hidden" aria-hidden="true">
@@ -3938,7 +3951,8 @@ function applyProviderSelections(models) {
     // This ensures dropdowns are populated even when provider is already set to LMStudio
     const subAgentMap = {
         'cmdlineextract': 'CmdlineExtract',
-        'proctreeextract': 'ProcTreeExtract'
+        'proctreeextract': 'ProcTreeExtract',
+        'huntqueriesextract': 'HuntQueriesExtract'
     };
     
     Object.entries(subAgentMap).forEach(([prefix, agentName]) => {
@@ -3985,8 +3999,6 @@ if (typeof window !== 'undefined') {
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
 
-        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
-
         ['openai', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
@@ -3996,22 +4008,6 @@ if (typeof window !== 'undefined') {
             const currentModelFromDOM = existingInput?.value || '';
             const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
             const currentModel = currentModelFromDOM || currentModelFromConfig;
-
-            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            if (catalog.length > 0) {
-                const options = catalog.map(modelId => {
-                    const selected = modelId === currentModel ? 'selected' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
-                }).join('');
-                container.innerHTML = `
-                    <select id="${agentPrefix}-model-${p}"
-                            name="agent_models[${mapEntry.modelKey}]"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        ${options}
-                    </select>
-                `;
-                return;
-            }
 
             if (typeof buildCommercialProviderInput === 'function') {
                 container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
@@ -4040,8 +4036,6 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
 
-        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
-
         ['openai', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
@@ -4051,23 +4045,6 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
             const currentModelFromDOM = existingInput?.value || '';
             const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
             const currentModel = currentModelFromDOM || currentModelFromConfig;
-
-            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            // __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
-            if (catalog.length > 0) {
-                const options = catalog.map(modelId => {
-                    const selected = modelId === currentModel ? 'selected' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
-                }).join('');
-                container.innerHTML = `
-                    <select id="${agentPrefix}-model-${p}"
-                            name="agent_models[${mapEntry.modelKey}]"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        ${options}
-                    </select>
-                `;
-                return;
-            }
 
             if (typeof buildCommercialProviderInput === 'function') {
                 container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
@@ -4124,7 +4101,8 @@ function onAgentProviderChange(agentPrefix) {
         // Repopulate LMStudio model dropdown for sub-agents
         const subAgentMap = {
             'cmdlineextract': 'CmdlineExtract',
-            'proctreeextract': 'ProcTreeExtract'
+            'proctreeextract': 'ProcTreeExtract',
+            'huntqueriesextract': 'HuntQueriesExtract'
         };
         const agentName = subAgentMap[agentPrefix];
         if (agentName && typeof repopulateSubAgentModelDropdown === 'function') {
@@ -7878,9 +7856,10 @@ function closeConfigVersionListModal() {
     popModal();
 }
 
-async function refreshConfigVersionList() {
+async function refreshConfigVersionList(offset = 0) {
+    const pageSize = 50;
     try {
-        const response = await fetch('/api/workflow/config/versions');
+        const response = await fetch(`/api/workflow/config/versions?limit=${pageSize}&offset=${offset}`);
         let data;
         try {
             data = await response.json();
@@ -7892,10 +7871,12 @@ async function refreshConfigVersionList() {
             throw new Error(errorMsg);
         }
         const listEl = document.getElementById('configVersionList');
+        const paginationEl = document.getElementById('configVersionListPagination');
         if (!listEl) return;
         listEl.innerHTML = '';
         if (!data.versions || data.versions.length === 0) {
             listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No config versions found.</p>';
+            if (paginationEl) paginationEl.innerHTML = '';
             return;
         }
         data.versions.forEach(v => {
@@ -7920,6 +7901,23 @@ async function refreshConfigVersionList() {
             `;
             listEl.appendChild(item);
         });
+        const total = data.total != null ? data.total : data.versions.length;
+        const from = offset + 1;
+        const to = offset + data.versions.length;
+        if (paginationEl) {
+            let html = `<span class="text-sm text-gray-500 dark:text-gray-400">Showing ${from}&ndash;${to} of ${total}</span>`;
+            html += '<div class="flex gap-2">';
+            if (offset > 0) {
+                const prevOffset = Math.max(0, offset - pageSize);
+                html += `<button type="button" onclick="refreshConfigVersionList(${prevOffset})" class="px-3 py-1 text-sm border border-gray-500 dark:border-gray-400 rounded hover:bg-gray-600">Previous</button>`;
+            }
+            if (offset + data.versions.length < total) {
+                const nextOffset = offset + pageSize;
+                html += `<button type="button" onclick="refreshConfigVersionList(${nextOffset})" class="px-3 py-1 text-sm border border-gray-500 dark:border-gray-400 rounded hover:bg-gray-600">Next</button>`;
+            }
+            html += '</div>';
+            paginationEl.innerHTML = html;
+        }
     } catch (error) {
         console.error('Error refreshing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -9879,13 +9877,18 @@ async function loadExecutions() {
         const statusFilterEl = document.getElementById('statusFilter');
         const stepFilterEl = document.getElementById('stepFilter');
         const articleIdEl = document.getElementById('articleIdFilter');
+        const perPageEl = document.getElementById('executionsPerPage');
+        const savedPerPage = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('workflow_executions_per_page');
+        if (perPageEl && savedPerPage && ['25','50','100','200','500'].includes(savedPerPage)) perPageEl.value = savedPerPage;
         const statusFilter = statusFilterEl ? statusFilterEl.value : '';
         const stepFilter = stepFilterEl ? stepFilterEl.value : '';
         const articleId = articleIdEl && articleIdEl.value.trim() ? parseInt(articleIdEl.value.trim(), 10) : null;
+        const limit = perPageEl ? parseInt(perPageEl.value, 10) : 50;
         const params = new URLSearchParams();
         if (statusFilter) params.set('status', statusFilter);
         if (stepFilter) params.set('step', stepFilter);
         if (articleId && !isNaN(articleId)) params.set('article_id', articleId);
+        params.set('limit', String(limit));
         params.set('sort_by', executionSortState.sortBy);
         params.set('sort_order', executionSortState.sortOrder);
         const url = `/api/workflow/executions?${params.toString()}`;
@@ -11251,6 +11254,8 @@ document.addEventListener('keydown', function(e) {
 });
 
 function filterExecutions() {
+    const perPageEl = document.getElementById('executionsPerPage');
+    if (perPageEl && typeof sessionStorage !== 'undefined') sessionStorage.setItem('workflow_executions_per_page', perPageEl.value);
     loadExecutions();
 }
 

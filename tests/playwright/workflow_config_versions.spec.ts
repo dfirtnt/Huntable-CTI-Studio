@@ -37,9 +37,13 @@ test.describe('Workflow config Restore by version', () => {
 
   test('Load version populates form and closes modal', async ({ page }) => {
     const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const responsePromise = page.waitForResponse(
+      (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
+      { timeout: 10000 }
+    );
     await restoreBtn.click();
     await page.waitForSelector('#configVersionListModal', { state: 'visible', timeout: 5000 });
-    await page.waitForResponse((r) => r.url().includes('/api/workflow/config/versions'), { timeout: 10000 });
+    await responsePromise;
 
     const loadBtn = page.locator('#configVersionList button:has-text("Load")').first();
     const loadVisible = await loadBtn.isVisible({ timeout: 3000 }).catch(() => false);

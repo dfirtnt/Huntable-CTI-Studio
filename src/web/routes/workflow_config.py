@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
@@ -708,15 +708,21 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
 
 
 @router.get("/config/versions")
-async def list_config_versions(request: Request):
-    """List workflow config versions (version, is_active, description, created_at, updated_at, id)."""
+async def list_config_versions(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200, description="Max versions per page"),
+    offset: int = Query(0, ge=0, description="Offset for paging"),
+):
+    """List workflow config versions (version, is_active, description, created_at, updated_at, id). Paginated."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            rows = (
-                db_session.query(AgenticWorkflowConfigTable).order_by(AgenticWorkflowConfigTable.version.desc()).all()
+            base = db_session.query(AgenticWorkflowConfigTable).order_by(
+                AgenticWorkflowConfigTable.version.desc()
             )
+            total = db_session.query(AgenticWorkflowConfigTable).count()
+            rows = base.offset(offset).limit(limit).all()
             return {
                 "success": True,
                 "versions": [
@@ -730,6 +736,9 @@ async def list_config_versions(request: Request):
                     }
                     for r in rows
                 ],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
             }
         finally:
             db_session.close()

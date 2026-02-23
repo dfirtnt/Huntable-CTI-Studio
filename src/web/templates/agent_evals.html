@@ -1792,13 +1792,38 @@ async function loadPreviousResults() {
             console.warn('Could not load preset expected counts:', e);
         }
         
-        // Group by canonical URL so the same article never appears twice (DB and static eval for same URL → one row)
+        // Canonical key per article (API now resolves article_id for URL-only records so we can key by id).
+        function normalizeUrl(u) {
+            const s = (u || '').trim();
+            try {
+                const url = new URL(s);
+                url.search = '';
+                url.hash = '';
+                return url.toString().replace(/\/*$/, '');
+            } catch (_) {
+                return s.replace(/\/*$/, '');
+            }
+        }
+        const urlToArticleId = {};
+        results.forEach(r => {
+            const id = r.article_id;
+            const u = (r.url || '').trim();
+            if (id != null && u) urlToArticleId[normalizeUrl(u)] = id;
+        });
+        function canonicalArticleKey(result) {
+            const articleId = result.article_id;
+            if (articleId != null && articleId !== undefined) return `id:${articleId}`;
+            const url = (result.url || '').trim();
+            const normalized = normalizeUrl(url);
+            const resolvedId = normalized ? urlToArticleId[normalized] : null;
+            if (resolvedId != null && resolvedId !== undefined) return `id:${resolvedId}`;
+            return normalized ? `url:${normalized}` : `id:${result.id}`;
+        }
         const byArticleKey = {};
         results.forEach(result => {
-            const url = (result.url || '').trim();
-            const articleId = result.article_id;
-            const key = url ? `url:${url}` : `id:${articleId != null ? articleId : result.id}`;
+            const key = canonicalArticleKey(result);
             if (!byArticleKey[key]) {
+                const articleId = result.article_id ?? (result.url ? urlToArticleId[normalizeUrl(result.url)] : null);
                 const presetExpected = articleId != null ? presetByArticleId[articleId] : presetByUrl[result.url];
                 byArticleKey[key] = {
                     url: result.url,
@@ -1813,7 +1838,7 @@ async function loadPreviousResults() {
             row.versions[version] = result;
             if ((result.title && result.title.trim()) && !(row.title && row.title.trim()))
                 row.title = result.title;
-            if (articleId != null && row.article_id == null) row.article_id = articleId;
+            if (result.article_id != null && row.article_id == null) row.article_id = result.article_id;
         });
         
         // Get all unique config versions and sort them (ascending - oldest first)

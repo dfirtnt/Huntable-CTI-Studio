@@ -33,4 +33,44 @@ test.describe('Agent Evals (read-only)', () => {
       (await resultsTable.isVisible()) || (await aggregateSection.isVisible()) || (await chartContainer.isVisible())
     ).toBeTruthy();
   });
+
+  test('Load Previous Results: no duplicate article rows in table', async ({ page }) => {
+    await page.goto(AGENT_EVALS_URL);
+    await page.waitForLoadState('networkidle');
+    await page.locator('#subagentSelect').selectOption('cmdline');
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/evaluations/subagent-eval-results') &&
+          r.request().method() === 'GET',
+        { timeout: 20000 }
+      ),
+      page.locator('#loadPreviousResultsBtn').click(),
+    ]);
+    await page.waitForTimeout(2000);
+
+    const rows = page.locator('#resultsTable table tbody tr');
+    const count = await rows.count();
+    if (count === 0) {
+      const msg = await page.locator('#resultsTable').textContent();
+      const s = typeof msg === 'string' ? msg : '';
+      if (s.includes('No previous results') || s.includes('No results available')) {
+        test.skip();
+      }
+      return;
+    }
+
+    const data = await response.json().catch(() => ({ results: [] }));
+    const results: { article_id?: number; url?: string }[] = data.results || [];
+    const uniqueArticleKeys = new Set<string>();
+    for (const r of results) {
+      if (r.article_id != null) uniqueArticleKeys.add(`id:${r.article_id}`);
+      else if (r.url) uniqueArticleKeys.add(`url:${r.url}`);
+      else uniqueArticleKeys.add(`rec:${(r as { id?: number }).id ?? ''}`);
+    }
+    expect(
+      count,
+      `Table should have one row per article (expected ${uniqueArticleKeys.size} rows, got ${count}). Duplicates indicate grouping bug.`
+    ).toBe(uniqueArticleKeys.size);
+  });
 });

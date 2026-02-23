@@ -142,7 +142,7 @@ async def list_workflow_executions(
     step: str | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    limit: int = 500,
+    limit: int = Query(50, ge=1, le=500, description="Max rows per page"),
 ):
     """List workflow executions with accurate counts."""
     try:
