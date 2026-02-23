@@ -7722,7 +7722,7 @@ function getFullPresetState(scope = null) {
         extract_agent_settings: {
             disabled_agents: disabled_agents
         },
-        agent_prompts: agentPrompts || {}
+        agent_prompts: formState.agent_prompts || {}
     };
     
     return preset;
@@ -8169,6 +8169,12 @@ async function applyPreset(preset) {
             applySubAgentPreset(preset);
             return;
         }
+        // Merge preset into currentConfig first so code that reads from currentConfig (e.g. updateQAStateForSubagent
+        // when extract toggles fire) sees preset values and does not overwrite checkboxes we are about to set.
+        if (preset.qa_enabled && typeof preset.qa_enabled === 'object') {
+            if (!currentConfig || typeof currentConfig !== 'object') currentConfig = {};
+            currentConfig.qa_enabled = { ...(currentConfig.qa_enabled || {}), ...preset.qa_enabled };
+        }
         // Apply thresholds
         if (preset.thresholds) {
             const junkFilterInput = document.getElementById('junkFilterThreshold');
@@ -8328,6 +8334,13 @@ async function applyPreset(preset) {
             agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
             renderAgentPrompts();
             console.log('✅ Agent prompts loaded from preset. Click Save to make this config active.');
+        }
+        
+        // Merge threshold fields that have no form inputs so they are sent on next Save
+        if (preset.min_hunt_score !== undefined || preset.auto_trigger_hunt_score_threshold !== undefined) {
+            if (!currentConfig || typeof currentConfig !== 'object') currentConfig = {};
+            if (preset.min_hunt_score !== undefined) currentConfig.min_hunt_score = preset.min_hunt_score;
+            if (preset.auto_trigger_hunt_score_threshold !== undefined) currentConfig.auto_trigger_hunt_score_threshold = preset.auto_trigger_hunt_score_threshold;
         }
         
         // Trigger auto-save handlers to update UI state
@@ -9064,7 +9077,16 @@ function getCurrentFormState() {
     // Special handling for OS Detection embedding (not in AGENT_CONFIG)
     const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
     if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
-    
+
+    // Target Operating Systems (not in AGENT_CONFIG) — include in preset for export/import
+    const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
+    const selectedOS = Array.from(osCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+    if (selectedOS.length > 0) {
+        agent_models.OSDetectionAgent_selected_os = selectedOS;
+    } else {
+        agent_models.OSDetectionAgent_selected_os = ['Windows'];
+    }
+
     // OS Detection fallback is already handled by collectAllAgentConfigs via AGENT_CONFIG
 
     const qaModelFields = [
