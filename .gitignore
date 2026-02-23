@@ -150,6 +150,9 @@ config/local.yaml
 config/production.yaml
 config/secrets.yaml
 
+# Private workflow presets (not committed)
+config/presets/private/*.json
+
 # AI/ML models
 *.joblib
 *.h5
@@ -163,7 +166,7 @@ datasets/
 *.csv
 *.json
 !workflows/presets/*.json
-!presets/**/*.json
+!config/presets/AgentConfigs/quickstart/*.json
 !config/eval_articles_data/**/articles.json
 *.parquet
 

@@ -3314,6 +3314,7 @@
 <li>In the workflow config panel, use <strong>Import from file</strong> and choose one of the JSON files above (e.g. <code>config/presets/AgentConfigs/chatgpt-4o-mini.json</code>).</li>
 <li>Confirm the import; the active workflow config (thresholds, agent models, and <strong>agent prompts</strong>) will be replaced by the preset. You can then run the workflow or tweak settings.</li>
 </ol>
+<p><strong>Private presets</strong>: To keep presets out of version control, put JSON files in <code>config/presets/private/</code>. That directory is gitignored (only <code>*.json</code> there); use <strong>Import from file</strong> to load from it.</p>
 <p>To regenerate the preset files (e.g. after changing prompts in <code>src/prompts</code>), run from the repo root:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>scripts/build_baseline_presets.py
 </code></pre></div>

@@ -8,9 +8,9 @@ Run the full agentic pipeline against a real CTI article: OS detection → conte
 
 If you haven’t configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import from file** and pick one of:
 
-- **Anthropic** — `config/presets/AgentConfigs/anthropic-sonnet-4.5.json` (requires `ANTHROPIC_API_KEY`)
-- **OpenAI / ChatGPT** — `config/presets/AgentConfigs/chatgpt-4o-mini.json` (requires `OPENAI_API_KEY` or `CHATGPT_API_KEY`)
-- **LM Studio (local)** — `config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json` (requires LM Studio running and model loaded)
+- **Anthropic** — `config/presets/AgentConfigs/anthropic-sonnet-4.5.json` or `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json`
+- **OpenAI / ChatGPT** — `config/presets/AgentConfigs/chatgpt-4o-mini.json` or `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
+- **LM Studio (local)** — `config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json` or `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`
 
 See [Configuration → Workflow baseline presets](configuration.md#workflow-baseline-presets-getting-started) for details.
 

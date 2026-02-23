@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Preset layout**: Workflow preset JSONs consolidated under `config/presets/AgentConfigs/`. Tracked quickstart presets moved from repo root `presets/` to `config/presets/AgentConfigs/quickstart/`. Private presets (gitignored) go in `config/presets/private/`. Root `presets/` folder removed. `build_baseline_presets.py` now normalizes JSON in `quickstart/` instead of `presets/`. Docs and README updated.
+
 ### Added
 - **LLM provider model catalog refresh at setup and start**: `./setup.sh` and `./start.sh` now run the provider model catalog refresh after services are up so users see the current OpenAI/Anthropic/Gemini model list immediately instead of waiting for the daily 4:00 AM Celery run. Documentation updated (SCRIPTS_AND_USAGE.md, installation.md, configuration.md).
 - **Claude Sonnet 4.6** in default and live provider model catalog.
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added custom JavaScript and CSS for StackEdit integration with modal instructions
 
 ### Changed
+- **Documentation sync (mdu)** (2026-02-23): Updated README, installation, and local-run docs to match current `start.sh` behavior (MkDocs build/server runs automatically when `mkdocs.yml` exists; no `run_mkdocs.sh` prompt flow), and fixed the duplicated `8888` port note in `docs/quickstart.md`.
 - **Anthropic model list**: Filtered to one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5) via regex-based family key; datestamped variants excluded when a main or `-latest` variant exists. Implemented in `src/utils/model_validation.py` (`filter_anthropic_models_latest_only`) and applied in catalog load, AI route, and maintenance script.
 - **OpenAI model list**: Filtered to chat-only, latest only (no `-YYYY-MM-DD` dated variants). New `filter_openai_models_latest_only` in `src/utils/model_validation.py`; applied in catalog load, AI route, and maintenance script.
 - **Provider model catalog docs**: SCRIPTS_AND_USAGE.md documents when the catalog is refreshed (setup, start, daily) and the per-provider filtering; installation.md and configuration.md note the refresh at setup/start.

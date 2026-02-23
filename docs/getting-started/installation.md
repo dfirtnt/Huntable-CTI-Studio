@@ -24,7 +24,7 @@ The `start.sh` script will:
 - Health-check PostgreSQL, Redis, and the web application
 - Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
 - Seed eval articles from config and refresh the **LLM provider model catalog** (OpenAI/Anthropic/Gemini) so workflow model dropdowns show the current list without waiting for the daily Celery run
-- Optionally prompt: **Run MkDocs docs build/server?** If you answer **y**, it runs `./run_mkdocs.sh` in the background (logs in `logs/mkdocs.log`); the terminal stays free
+- Build the MkDocs docs site and start the MkDocs server in the background (logs in `logs/mkdocs.log`) when `mkdocs.yml` is present
 
 ## Access Points
 
@@ -174,4 +174,4 @@ See `configuration.md` for detailed port configuration.
 
 ---
 
-_Last verified: February 2025_
+_Last verified: February 23, 2026_

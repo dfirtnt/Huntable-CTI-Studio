@@ -17,6 +17,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PRESETS_DIR = REPO_ROOT / "config" / "presets" / "AgentConfigs"
+QUICKSTART_DIR = PRESETS_DIR / "quickstart"
 
 
 # V1 root key order for export (UI top-to-bottom): thresholds first (with junk first), then flags, then agent_models/prompts.
@@ -299,12 +300,11 @@ def main() -> None:
         v2_path.write_text(json.dumps(v2_ordered, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"Wrote v2 example {v2_path}")
 
-    # Update presets/*.json with canonical order and missing keys (e.g. osdetection_fallback_enabled)
-    presets_root = REPO_ROOT / "presets"
-    if presets_root.is_dir():
+    # Update quickstart/*.json with canonical order and missing keys (e.g. osdetection_fallback_enabled)
+    if QUICKSTART_DIR.is_dir():
         from src.config.workflow_config_loader import export_preset_as_canonical_v2
 
-        for jpath in sorted(presets_root.glob("*.json")):
+        for jpath in sorted(QUICKSTART_DIR.glob("*.json")):
             try:
                 data = json.loads(jpath.read_text(encoding="utf-8"))
             except Exception as e:
