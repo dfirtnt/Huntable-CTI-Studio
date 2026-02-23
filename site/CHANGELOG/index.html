@@ -4048,6 +4048,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Preset prompt merge</strong>: Script and preset for filling workflow presets from repo prompts</li>
 <li><code>scripts/merge_prompts_into_preset.py</code> — merges <code>src/prompts</code> contents into a preset JSON's <code>agent_prompts</code></li>
 <li><code>presets/AgentConfigs/anthropic-no-lmstudio-prompts.json</code> — Anthropic-focused preset with all agent prompts populated</li>
+<li><strong>Workflow config binding audit test</strong> (2026-02-22): Added Playwright coverage for <code>/workflow#config</code> to audit visible mutable controls for label/binding metadata and verify prompt panel consistency (including OS Detection / Rank / SIGMA prompt panels).</li>
 <li><strong>Documentation Overhaul</strong>: Complete reorganization and enhancement of MkDocs documentation</li>
 <li>Rewrote index.md with marketing lead, problem/solution statement, and role-based navigation</li>
 <li>Enhanced quickstart.md with clear outcome statements</li>
@@ -4069,6 +4070,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Documentation Structure</strong>: Reorganized navigation to match proposed structure with Advanced section</li>
 <li><strong>File Organization</strong>: Consolidated testing and historical documentation into appropriate subdirectories</li>
 <li><strong>Documentation sync (mdu)</strong> (2026-02-17): README and docs verified; broken archive links fixed; MkDocs build confirmed.</li>
+<li><strong>Workflow config UI binding normalization</strong> (2026-02-22): <code>/workflow#config</code> now applies a consistent frontend binding/label normalization layer across static and dynamically rendered controls (provider/model selectors, toggles, prompt editors), adds a deterministic <code>window.getWorkflowConfigBindingAudit()</code> helper, and hardens autosave toggle Playwright tests against invalid local provider/model startup state.</li>
 </ul>
 <h2 id="500-callisto-2026-01-15">[5.0.0 "Callisto"] - 2026-01-15<a class="headerlink" href="#500-callisto-2026-01-15" title="Permanent link">&para;</a></h2>
 <h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>

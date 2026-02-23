@@ -135,9 +135,12 @@ async def get_workflow_config(request: Request):
             # Load via normalized schema (migrates v1 to v2, validates) and emit legacy response shape
             try:
                 config_v2 = load_workflow_config(config)
+            except ValueError as e:
+                logger.warning("Workflow config strict validation failed: %s", e)
+                raise HTTPException(status_code=400, detail=str(e)) from e
             except ValidationError as e:
-                logger.warning("Workflow config validation failed, using raw row: %s", e)
-                raise HTTPException(status_code=500, detail=f"Invalid workflow config: {e}") from e
+                logger.warning("Workflow config validation failed: %s", e)
+                raise HTTPException(status_code=400, detail=f"Invalid workflow config: {e}") from e
             return WorkflowConfigResponse(
                 **config_v2.to_legacy_response_dict(
                     id=config.id,
@@ -530,6 +533,9 @@ async def export_config_as_v2(preset: dict[str, Any]):
     """
     try:
         return export_preset_as_canonical_v2(preset)
+    except ValueError as e:
+        logger.warning("Export preset strict validation failed: %s", e)
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ValidationError as e:
         logger.warning("Export config validation failed: %s", e)
         raise HTTPException(status_code=400, detail=f"Invalid config: {e}") from e
@@ -542,6 +548,8 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
         qa_enabled["OSDetectionAgent"] = qa_enabled["OSDetectionFallback"]
     return {
         "version": "1.0",
+        "min_hunt_score": config.Thresholds.MinHuntScore,
+        "auto_trigger_hunt_score_threshold": config.Thresholds.AutoTriggerHuntScoreThreshold,
         "thresholds": {
             "ranking_threshold": config.Thresholds.RankingThreshold,
             "similarity_threshold": config.Thresholds.SimilarityThreshold,
@@ -553,14 +561,15 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
         "osdetection_fallback_enabled": config.Agents.get("OSDetectionFallback").Enabled
         if config.Agents.get("OSDetectionFallback")
         else False,
-        "rank_agent_enabled": config.Agents.get("RankAgent").Enabled
-        if config.Agents.get("RankAgent")
-        else True,
+        "rank_agent_enabled": config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True,
         "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
         "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
         "agent_prompts": {
-            name: {"prompt": p.get("prompt", "") if isinstance(p, dict) else p.prompt, "instructions": p.get("instructions", "") if isinstance(p, dict) else p.instructions}
+            name: {
+                "prompt": p.get("prompt", "") if isinstance(p, dict) else p.prompt,
+                "instructions": p.get("instructions", "") if isinstance(p, dict) else p.instructions,
+            }
             for name, p in config.Prompts.items()
         },
     }
@@ -575,6 +584,9 @@ async def preset_to_legacy(preset: dict[str, Any]):
     try:
         config = load_workflow_config(preset)
         return _v2_to_legacy_preset_dict(config)
+    except ValueError as e:
+        logger.warning("Preset to-legacy strict validation failed: %s", e)
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ValidationError as e:
         logger.warning("Preset to-legacy validation failed: %s", e)
         raise HTTPException(status_code=400, detail=f"Invalid config: {e}") from e
@@ -669,6 +681,11 @@ async def delete_config_preset(request: Request, preset_id: int):
 
 def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, Any]:
     """Build preset-shaped dict from agentic_workflow_config row for applyPreset()."""
+    agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
+    extract_settings = agent_prompts.get("ExtractAgentSettings") if isinstance(agent_prompts, dict) else {}
+    disabled_agents = extract_settings.get("disabled_agents", []) if isinstance(extract_settings, dict) else []
+    if not isinstance(disabled_agents, list):
+        disabled_agents = []
     return {
         "version": "1.0",
         "thresholds": {
@@ -685,8 +702,8 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         else True,
         "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
-        "extract_agent_settings": {"disabled_agents": []},
-        "agent_prompts": config.agent_prompts if config.agent_prompts is not None else {},
+        "extract_agent_settings": {"disabled_agents": disabled_agents},
+        "agent_prompts": agent_prompts,
     }
 
 
