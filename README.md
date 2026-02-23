@@ -61,7 +61,7 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Quickstart**: `docs/quickstart.md` (Docker-first run, ingest → workflow → Sigma → pytest)
 - **Docs site**: `mkdocs serve` to preview locally; navigation mirrors `/docs` (concepts, how-tos, reference, internals).
 - **UI**: http://localhost:8001 (OpenAPI at `/docs`; LangFuse traces for workflow debugging when configured)
-- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh` (optionally prompts to run MkDocs docs server in background).
+- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh` (it also builds docs and starts the MkDocs server in the background when `mkdocs.yml` is present).
 
 For full details, begin at `docs/index.md`.
 

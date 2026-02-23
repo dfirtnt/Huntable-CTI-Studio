@@ -2589,7 +2589,7 @@ What happens:
 - Creates <code>logs/</code> and <code>data/</code> directories
 - Runs <code>docker-compose up --build -d</code>
 - Health-checks Postgres, Redis, and the web app
-- Optionally prompts to run the MkDocs docs server; if <strong>y</strong>, runs <code>./run_mkdocs.sh</code> in the background (logs: <code>logs/mkdocs.log</code>)</p>
+- Automatically builds docs and starts the MkDocs server in the background when <code>mkdocs.yml</code> is present (logs: <code>logs/mkdocs.log</code>)</p>
 <h2 id="service-endpoints">Service endpoints<a class="headerlink" href="#service-endpoints" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Web UI + API: http://localhost:8001</li>
