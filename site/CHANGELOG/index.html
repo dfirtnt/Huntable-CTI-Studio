@@ -2608,6 +2608,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2961,7 +2972,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#security" class="md-nav__link">
+  <a href="#security_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Security
@@ -3264,7 +3275,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#security_1" class="md-nav__link">
+  <a href="#security_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Security
@@ -3496,7 +3507,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#security_2" class="md-nav__link">
+  <a href="#security_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Security
@@ -3590,7 +3601,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#security_3" class="md-nav__link">
+  <a href="#security_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Security
@@ -3673,7 +3684,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#security_4" class="md-nav__link">
+  <a href="#security_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Security
@@ -3712,7 +3723,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#security_5" class="md-nav__link">
+  <a href="#security_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Security
@@ -4052,6 +4063,10 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>NLTK CVE-2025-14009 (Zip Slip / RCE)</strong> (2026-02-24): Applied runtime patch in <code>src/utils/nltk_security_patch.py</code> that replaces <code>nltk.downloader._unzip_iter</code> with a secure implementation (path validation, no extractall). Patch is applied on import from FastAPI app, Celery worker, and CLI. No upstream fix available for nltk&lt;=3.9.2; nltk remains pinned in requirements-pinned.txt.</li>
+</ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Preset layout</strong>: Workflow preset JSONs consolidated under <code>config/presets/AgentConfigs/</code>. Tracked quickstart presets moved from repo root <code>presets/</code> to <code>config/presets/AgentConfigs/quickstart/</code>. Private presets (gitignored) go in <code>config/presets/private/</code>. Root <code>presets/</code> folder removed. <code>build_baseline_presets.py</code> now normalizes JSON in <code>quickstart/</code> instead of <code>presets/</code>. Docs and README updated.</li>
@@ -4603,7 +4618,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Chunk Debug Gaps</strong>: <code>ContentFilter.chunk_content</code> now advances the next chunk start based on the previous chunk end minus the configured overlap (and always moves forward when a chunk is shorter than the overlap), so sentence-boundary trimming cannot skip characters and the chunk debugger never shows gaps.</li>
 <li>Workflow debug modal normalizes Langfuse links to direct <code>/traces/{id}</code> targets, preventing <code>?search</code> regressions.</li>
 </ul>
-<h3 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
+<h3 id="security_1">Security<a class="headerlink" href="#security_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>API Key Exposure</strong>: Removed scripts containing hardcoded API keys from version control</li>
 <li><code>scripts/eval_observables_count_multiple_models.py</code> and <code>scripts/get_full_extract_results.py</code></li>
@@ -5148,7 +5163,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>ContentCleaner Logic</strong>: Fixed HTML cleaning, Unicode normalization, and text processing</li>
 <li><strong>HTTPClient Logic</strong>: Fixed rate limiting, async/await issues, and request configuration</li>
 </ul>
-<h3 id="security_1">Security<a class="headerlink" href="#security_1" title="Permanent link">&para;</a></h3>
+<h3 id="security_2">Security<a class="headerlink" href="#security_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>None (security hardening was completed in previous versions)</li>
 </ul>
@@ -5334,7 +5349,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><strong>Status Parsing</strong>: Fixed backup status parsing to extract correct backup names and sizes</li>
 <li><strong>Container Permissions</strong>: Resolved Docker socket permission issues for backup operations</li>
 </ul>
-<h3 id="security_2">Security<a class="headerlink" href="#security_2" title="Permanent link">&para;</a></h3>
+<h3 id="security_3">Security<a class="headerlink" href="#security_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Credential Removal</strong>: Removed hardcoded passwords from docker-compose.yml and backup scripts</li>
 <li><strong>Environment Variables</strong>: All sensitive configuration now uses environment variables</li>
@@ -5449,7 +5464,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Removed debug prints and sensitive TODOs</li>
 <li>Implemented proper environment variable handling</li>
 </ul>
-<h3 id="security_3">Security<a class="headerlink" href="#security_3" title="Permanent link">&para;</a></h3>
+<h3 id="security_4">Security<a class="headerlink" href="#security_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Enhanced input validation for SIGMA rule generation</li>
 <li>Improved query safety validation for database chatbot</li>
@@ -5497,7 +5512,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Connection timeout problems</li>
 <li>Rate limiting inconsistencies</li>
 </ul>
-<h3 id="security_4">Security<a class="headerlink" href="#security_4" title="Permanent link">&para;</a></h3>
+<h3 id="security_5">Security<a class="headerlink" href="#security_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Input validation for all endpoints</li>
 <li>SQL injection protection</li>
@@ -5514,7 +5529,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Connection timeout issues</li>
 <li>Rate limiting bypass</li>
 </ul>
-<h3 id="security_5">Security<a class="headerlink" href="#security_5" title="Permanent link">&para;</a></h3>
+<h3 id="security_6">Security<a class="headerlink" href="#security_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Updated dependencies with security patches</li>
 <li>Enhanced input validation</li>

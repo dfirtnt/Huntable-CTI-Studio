@@ -222,6 +222,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Prevent teardown "I/O operation on closed file" from httpcore/httpx when
+# huggingface_hub closes its session after pytest has closed streams.
+for _name in ("httpcore", "httpx"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
 
 @pytest.fixture(scope="session")
 def test_environment_config():
@@ -635,6 +640,16 @@ def isolation_manager():
     if ISOLATION_AVAILABLE and TestIsolationManager is not None:
         return TestIsolationManager()
     return _NoOpReporter()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Close third-party HTTP sessions before process teardown to avoid logging to closed streams."""
+    try:
+        from huggingface_hub.utils._http import close_session
+
+        close_session()
+    except Exception:
+        pass
 
 
 def pytest_configure(config):

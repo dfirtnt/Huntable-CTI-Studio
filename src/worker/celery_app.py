@@ -13,6 +13,8 @@ from pathlib import Path
 from celery import Celery
 from celery.schedules import crontab
 
+import src.utils.nltk_security_patch  # noqa: F401 - CVE-2025-14009 patch before any nltk use
+
 # Configure logging
 logger = logging.getLogger(__name__)
 

@@ -9,6 +9,8 @@ import click
 src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
+import src.utils.nltk_security_patch  # noqa: F401 - CVE-2025-14009 patch before any nltk use
+
 from .commands import archive, backup, collect, compare_sources, export, init, search, stats, sync_sources
 from .commands.embed import embed_group
 from .commands.rescore import rescore
