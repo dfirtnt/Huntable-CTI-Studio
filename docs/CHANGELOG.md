@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **NLTK CVE-2025-14009 (Zip Slip / RCE)** (2026-02-24): Applied runtime patch in `src/utils/nltk_security_patch.py` that replaces `nltk.downloader._unzip_iter` with a secure implementation (path validation, no extractall). Patch is applied on import from FastAPI app, Celery worker, and CLI. No upstream fix available for nltk<=3.9.2; nltk remains pinned in requirements-pinned.txt.
 
 ### Changed
+- **Restore by version search** (2026-02-25): Search in the "Restore configuration by version" modal now filters across all config versions in the database (server-side). Optional API query param `q` filters by version number or description; results remain paginated. Prev/Next keep the current search term.
 - **Preset layout**: Workflow preset JSONs consolidated under `config/presets/AgentConfigs/`. Tracked quickstart presets moved from repo root `presets/` to `config/presets/AgentConfigs/quickstart/`. Private presets (gitignored) go in `config/presets/private/`. Root `presets/` folder removed. `build_baseline_presets.py` now normalizes JSON in `quickstart/` instead of `presets/`. Docs and README updated.
 
 ### Added

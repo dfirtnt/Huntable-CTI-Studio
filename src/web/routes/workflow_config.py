@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func, text
+from sqlalchemy import String, cast, func, or_, text
 from sqlalchemy.orm import load_only
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
@@ -723,10 +723,15 @@ async def list_config_versions(
     limit: int = Query(50, ge=1, le=200, description="Max versions per page"),
     offset: int = Query(0, ge=0, description="Offset for paging"),
     total_estimate: bool = Query(False, description="Use pg_class estimate for total (fast, approximate)"),
+    q: str | None = Query(None, description="Search by version number or description (filters all versions)"),
 ):
-    """List workflow config versions (version, is_active, description, created_at, updated_at, id). Paginated."""
+    """List workflow config versions (version, is_active, description, created_at, updated_at, id). Paginated. Optional search."""
 
-    def fetch_list(db_mgr: DatabaseManager, lim: int, off: int) -> list[dict[str, Any]]:
+    def _like_escape(s: str) -> str:
+        """Escape % and _ for use in SQL LIKE."""
+        return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    def fetch_list(db_mgr: DatabaseManager, lim: int, off: int, search_q: str | None) -> list[dict[str, Any]]:
         session = db_mgr.get_session()
         try:
             list_columns = [
@@ -737,14 +742,20 @@ async def list_config_versions(
                 AgenticWorkflowConfigTable.created_at,
                 AgenticWorkflowConfigTable.updated_at,
             ]
-            rows = (
+            query = (
                 session.query(AgenticWorkflowConfigTable)
                 .options(load_only(*list_columns))
                 .order_by(AgenticWorkflowConfigTable.version.desc())
-                .offset(off)
-                .limit(lim)
-                .all()
             )
+            if search_q:
+                pattern = f"%{_like_escape(search_q)}%"
+                query = query.filter(
+                    or_(
+                        cast(AgenticWorkflowConfigTable.version, String).ilike(pattern),
+                        AgenticWorkflowConfigTable.description.ilike(pattern),
+                    )
+                )
+            rows = query.offset(off).limit(lim).all()
             return [
                 {
                     "id": r.id,
@@ -759,10 +770,19 @@ async def list_config_versions(
         finally:
             session.close()
 
-    def fetch_total_exact(db_mgr: DatabaseManager) -> int:
+    def fetch_total_exact(db_mgr: DatabaseManager, search_q: str | None) -> int:
         session = db_mgr.get_session()
         try:
-            return session.query(AgenticWorkflowConfigTable).count()
+            q = session.query(AgenticWorkflowConfigTable)
+            if search_q:
+                pattern = f"%{_like_escape(search_q)}%"
+                q = q.filter(
+                    or_(
+                        cast(AgenticWorkflowConfigTable.version, String).ilike(pattern),
+                        AgenticWorkflowConfigTable.description.ilike(pattern),
+                    )
+                )
+            return q.count()
         finally:
             session.close()
 
@@ -776,25 +796,28 @@ async def list_config_versions(
         finally:
             session.close()
 
+    search_q = q.strip() if q else None
+    use_estimate = total_estimate and not search_q  # exact count when searching
+
     try:
         db_manager = DatabaseManager()
-        if total_estimate:
+        if use_estimate:
             with ThreadPoolExecutor(max_workers=2) as executor:
-                future_list = executor.submit(fetch_list, db_manager, limit, offset)
+                future_list = executor.submit(fetch_list, db_manager, limit, offset, search_q)
                 future_total = executor.submit(fetch_total_estimate, db_manager)
                 versions = future_list.result()
                 total = future_total.result()
         else:
             with ThreadPoolExecutor(max_workers=2) as executor:
-                future_list = executor.submit(fetch_list, db_manager, limit, offset)
-                future_total = executor.submit(fetch_total_exact, db_manager)
+                future_list = executor.submit(fetch_list, db_manager, limit, offset, search_q)
+                future_total = executor.submit(fetch_total_exact, db_manager, search_q)
                 versions = future_list.result()
                 total = future_total.result()
         return {
             "success": True,
             "versions": versions,
             "total": total,
-            "total_is_estimate": total_estimate,
+            "total_is_estimate": use_estimate,
             "limit": limit,
             "offset": offset,
         }
