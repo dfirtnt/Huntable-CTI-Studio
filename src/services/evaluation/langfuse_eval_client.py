@@ -224,14 +224,11 @@ class LangfuseEvalClient:
             if infra_failed:
                 trace.score(name="infra_failed", value=1)
                 trace.score(name="execution_error", value=0)
-                trace.score(name="exact_match", value=0)
-                trace.score(
-                    name="count_diff",
-                    value=expected_count,
-                )
+                trace.score(name="score_skipped", value=1)
             elif execution_error:
                 # Log execution error
                 trace.score(name="execution_error", value=1)
+                trace.score(name="score_skipped", value=0)
                 trace.score(name="exact_match", value=0)
                 trace.score(
                     name="count_diff",
@@ -239,6 +236,7 @@ class LangfuseEvalClient:
                 )
             else:
                 # Log normal scores
+                trace.score(name="score_skipped", value=0)
                 trace.score(name="exact_match", value=1 if predicted_count == expected_count else 0)
                 trace.score(name="count_diff", value=abs(predicted_count - expected_count))
 

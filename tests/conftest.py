@@ -124,6 +124,7 @@ except ImportError:  # Allow running targeted tests without pytest-asyncio
         RuntimeWarning,
         stacklevel=2,
     )
+import contextlib
 import logging
 import shutil
 from collections.abc import AsyncGenerator
@@ -144,10 +145,8 @@ warnings.filterwarnings(
 )
 
 # Import AI test fixtures
-try:
-    from tests.conftest_ai import ai_test_config
-except ImportError:
-    pass  # AI fixtures not required for all tests
+with contextlib.suppress(ImportError):
+    from tests.conftest_ai import ai_test_config  # noqa: F401 — import for side effect / availability
 
 # Import test environment guard (required)
 try:
@@ -160,14 +159,11 @@ except ImportError as e:
 
 # Import test environment utilities (optional)
 try:
-    from tests.utils.async_debug_utils import AsyncDebugger, debug_async_test
-    from tests.utils.performance_profiler import PerformanceProfiler, profile_test
+    from tests.utils.async_debug_utils import AsyncDebugger
+    from tests.utils.performance_profiler import PerformanceProfiler
     from tests.utils.test_environment import (
         TestContext,
-        TestEnvironmentManager,
-        TestEnvironmentValidator,
         get_test_config,
-        setup_test_environment,
         validate_test_environment,
     )
 
@@ -290,14 +286,7 @@ def _ensure_workflow_config_columns() -> None:
                 )
                 if r.fetchone():
                     continue
-                conn.execute(
-                    text(
-                        "ALTER TABLE agentic_workflow_config ADD COLUMN "
-                        + column_name
-                        + " "
-                        + sql_type
-                    )
-                )
+                conn.execute(text("ALTER TABLE agentic_workflow_config ADD COLUMN " + column_name + " " + sql_type))
                 conn.commit()
                 logger.info("Added column agentic_workflow_config.%s", column_name)
     except Exception as e:
@@ -308,11 +297,13 @@ def _ensure_workflow_config_columns() -> None:
 def ensure_workflow_config_schema():
     """Ensure test DB has agentic_workflow_config columns required by workflow/config routes."""
     _ensure_workflow_config_columns()
-    return None
+    return
 
 
 @pytest_asyncio.fixture
-async def async_client(ensure_workflow_config_schema, test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def async_client(
+    ensure_workflow_config_schema, test_environment_config
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing. With USE_ASGI_CLIENT=1 uses in-process app (no live server)."""
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     if _use_asgi_client():
@@ -333,10 +324,8 @@ async def async_client(ensure_workflow_config_schema, test_environment_config) -
     try:
         yield client
     finally:
-        try:
+        with contextlib.suppress(RuntimeError):
             await client.aclose()
-        except RuntimeError:
-            pass
 
 
 @pytest.fixture
@@ -607,7 +596,8 @@ def _noop(*args, **kwargs):
 
 
 class _NoOpReporter:
-    __getattr__ = lambda self, _: _noop
+    def __getattr__(self, _):
+        return _noop
 
 
 # Enhanced debugging fixtures
@@ -703,13 +693,26 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_runtest_setup(item):
     """Set up test environment before each test."""
-    # Log test start
     logger.info(f"Starting test: {item.name}")
+    if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
+        try:
+            from tests.utils.performance_profiler import start_performance_monitoring
+
+            start_performance_monitoring()
+        except Exception as e:
+            logger.error(f"Failed to start performance monitoring: {e}")
 
 
 def pytest_runtest_teardown(item, nextitem):
     """Clean up after each test."""
-    # Log test completion
+    if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
+        try:
+            from tests.utils.performance_profiler import save_performance_report, stop_performance_monitoring
+
+            stop_performance_monitoring()
+            save_performance_report()
+        except Exception as e:
+            logger.error(f"Failed to stop performance monitoring: {e}")
     logger.info(f"Completed test: {item.name}")
 
 
@@ -735,31 +738,6 @@ def pytest_runtest_logreport(report):
         logger.info("Test passed: %s (%.3fs)", report.nodeid, report.duration)
     elif report.outcome == "skipped":
         logger.warning("Test skipped: %s", report.nodeid)
-
-
-def pytest_runtest_setup(item):
-    """Enhanced test setup with debugging."""
-    # Start performance profiling if enabled
-    if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
-        try:
-            from tests.utils.performance_profiler import start_performance_monitoring
-
-            start_performance_monitoring()
-        except Exception as e:
-            logger.error(f"Failed to start performance monitoring: {e}")
-
-
-def pytest_runtest_teardown(item):
-    """Enhanced test teardown with debugging."""
-    # Stop performance profiling if enabled
-    if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
-        try:
-            from tests.utils.performance_profiler import save_performance_report, stop_performance_monitoring
-
-            stop_performance_monitoring()
-            save_performance_report()
-        except Exception as e:
-            logger.error(f"Failed to stop performance monitoring: {e}")
 
 
 # Environment-specific test skipping utilities

@@ -57,6 +57,33 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
+def _is_unscorable_eval_agent_result(agent_result: dict | None) -> tuple[bool, str | None]:
+    """
+    Determine whether a direct eval extraction result should be treated as failed/unscorable.
+
+    This protects eval rows from being marked completed when the LLM call failed or returned
+    an infrastructure-classified result.
+    """
+    if not isinstance(agent_result, dict):
+        return True, "agent_result missing or invalid"
+
+    raw = agent_result.get("raw", {})
+    if not isinstance(raw, dict):
+        raw = {}
+
+    if bool(agent_result.get("infra_failed")) or bool(raw.get("infra_failed")):
+        return True, agent_result.get("error") or raw.get("infra_failed_reason") or "infra_failed"
+
+    if agent_result.get("connection_error"):
+        return True, agent_result.get("error") or "connection_error"
+
+    # run_extraction_agent uses a top-level error for parsing/LLM failures; do not score these as zero.
+    if agent_result.get("error"):
+        return True, str(agent_result.get("error"))
+
+    return False, None
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -975,6 +1002,28 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 or agent_models.get("ExtractAgent_provider"),
                                 attention_preprocessor_enabled=True,
                             )
+                            unscorable, unscorable_reason = _is_unscorable_eval_agent_result(agent_result or {})
+                            if unscorable:
+                                logger.warning(
+                                    "Static eval unscorable for %s (%s): %s",
+                                    url[:50],
+                                    canonical_subagent_name,
+                                    unscorable_reason,
+                                )
+                                eval_record = SubagentEvaluationTable(
+                                    subagent_name=canonical_subagent_name,
+                                    article_url=url,
+                                    article_id=None,
+                                    expected_count=expected_count,
+                                    workflow_config_id=active_config.id,
+                                    workflow_config_version=active_config.version,
+                                    workflow_execution_id=None,
+                                    status="failed",
+                                    completed_at=datetime.utcnow(),
+                                )
+                                db_session.add(eval_record)
+                                eval_records.append(eval_record)
+                                continue
                             actual_count = _actual_count_from_agent_result(canonical_subagent_name, agent_result or {})
                             if actual_count is None:
                                 actual_count = 0

@@ -109,6 +109,8 @@ class EvalRunner:
             exact_matches = 0
             count_diffs = []
             execution_errors = 0
+            infra_failed_items = 0
+            scored_items = 0
 
             # Process each dataset item
             if hasattr(dataset, "items") and dataset.items:
@@ -160,17 +162,21 @@ class EvalRunner:
                             logger.info(
                                 f"Extraction completed: predicted_count={predicted_count}, "
                                 f"expected_count={expected_count}, items={len(cmdline_items)}, "
-                                f"reported_count={reported_count}, full_result_keys={list(full_result.keys()) if full_result else 'None'}"
+                                f"reported_count={reported_count}, "
+                                f"full_result_keys={list(full_result.keys()) if full_result else 'None'}"
                             )
 
                             if predicted_count == 0 and len(cmdline_items) == 0:
                                 logger.warning(
-                                    f"Extraction returned 0 items! Full result structure: {list(full_result.keys()) if full_result else 'No full_result'}"
+                                    f"Extraction returned 0 items! Full result structure: "
+                                    f"{list(full_result.keys()) if full_result else 'No full_result'}"
                                 )
                                 if full_result:
                                     logger.warning(f"Full result count field: {full_result.get('count')}")
                                     logger.warning(
-                                        f"Full result cmdline_items: {type(full_result.get('cmdline_items'))}, length: {len(full_result.get('cmdline_items', []))}"
+                                        f"Full result cmdline_items: "
+                                        f"{type(full_result.get('cmdline_items'))}, "
+                                        f"length: {len(full_result.get('cmdline_items', []))}"
                                     )
 
                             # Update trace input to show what was actually sent (if not already set)
@@ -205,6 +211,7 @@ class EvalRunner:
                                     "infra_failed": True,
                                     "infra_debug_artifacts": getattr(e, "debug_artifacts", {}),
                                 }
+                                infra_failed_items += 1
                             else:
                                 logger.error(
                                     f"Extraction failed for item {getattr(item, 'id', 'unknown')}: {e}",
@@ -218,7 +225,7 @@ class EvalRunner:
                                     "full_result": None,
                                     "error": str(e),
                                 }
-                            execution_errors += 1
+                                execution_errors += 1
 
                         # Log scores and update trace output (this sets the output visible in Langfuse)
                         self.langfuse_client.log_trace_scores(
@@ -246,11 +253,12 @@ class EvalRunner:
 
                         # Update metrics
                         if not execution_error and not infra_failed:
+                            scored_items += 1
                             if predicted_count == expected_count:
                                 exact_matches += 1
                             count_diffs.append(abs(predicted_count - expected_count))
-                        else:
-                            # For errors or infra failures, treat as worst-case difference
+                        elif execution_error:
+                            # Treat model/inference errors as worst-case difference for metrics
                             count_diffs.append(expected_count)
 
                         # Increment completed_items
@@ -266,9 +274,9 @@ class EvalRunner:
 
             # Compute aggregate metrics
             total_items = eval_run.total_items
-            accuracy = exact_matches / total_items if total_items > 0 else 0.0
+            accuracy = exact_matches / scored_items if scored_items > 0 else 0.0
             mean_count_diff = sum(count_diffs) / len(count_diffs) if count_diffs else 0.0
-            passed = accuracy == 1.0
+            passed = scored_items > 0 and accuracy == 1.0 and execution_errors == 0 and infra_failed_items == 0
 
             aggregate_metrics = {"accuracy": accuracy, "mean_count_diff": mean_count_diff, "passed": passed}
 
@@ -284,7 +292,8 @@ class EvalRunner:
             self.db.commit()
 
             logger.info(
-                f"Evaluation run {eval_run_id} completed: accuracy={accuracy:.3f}, mean_count_diff={mean_count_diff:.2f}"
+                f"Evaluation run {eval_run_id} completed: accuracy={accuracy:.3f}, "
+                f"mean_count_diff={mean_count_diff:.2f}"
             )
 
             return {
@@ -294,6 +303,8 @@ class EvalRunner:
                 "mean_count_diff": mean_count_diff,
                 "passed": passed,
                 "total_items": total_items,
+                "scored_items": scored_items,
+                "infra_failed_items": infra_failed_items,
                 "execution_errors": execution_errors,
             }
 
@@ -345,12 +356,14 @@ class EvalRunner:
             article_url = ""
 
         logger.info(
-            f"Extracting from article: title='{article_title[:50] if article_title else 'N/A'}...', text_length={len(article_text)}"
+            f"Extracting from article: title='{article_title[:50] if article_title else 'N/A'}...', "
+            f"text_length={len(article_text)}"
         )
 
         if not article_text:
             logger.error(
-                f"Article text is empty! Dataset item structure: input={type(item.input)}, has_input={hasattr(item, 'input')}"
+                f"Article text is empty! Dataset item structure: input={type(item.input)}, "
+                f"has_input={hasattr(item, 'input')}"
             )
             if hasattr(item, "input"):
                 logger.error(
@@ -399,7 +412,8 @@ class EvalRunner:
         if not cmdline_provider or (isinstance(cmdline_provider, str) and not cmdline_provider.strip()):
             cmdline_provider = agent_models.get("ExtractAgent_provider")
         logger.info(
-            f"Eval runner using provider for CmdlineExtract: {cmdline_provider} (from agent_models keys: {list(agent_models.keys())})"
+            f"Eval runner using provider for CmdlineExtract: {cmdline_provider} "
+            f"(from agent_models keys: {list(agent_models.keys())})"
         )
 
         # Normalize model name for LMStudio (remove prefixes/suffixes that LMStudio doesn't recognize)
@@ -426,7 +440,9 @@ class EvalRunner:
                 )
                 qa_normalized_model = self._normalize_lmstudio_model_name(qa_raw_model)
                 qa_default_role = "You are a QA agent."
-                qa_system = cmdline_qa_prompt_config.get("system", cmdline_qa_prompt_config.get("role", qa_default_role))
+                qa_system = cmdline_qa_prompt_config.get(
+                    "system", cmdline_qa_prompt_config.get("role", qa_default_role)
+                )
                 qa_prompt_config = {
                     "prompt": cmdline_qa_prompt_config.get("prompt", ""),
                     "instructions": cmdline_qa_prompt_config.get("instructions", ""),
@@ -460,7 +476,7 @@ class EvalRunner:
         # Run async code - handle event loop gracefully
         # This method is called from sync context (EvalRunner is sync), so we need to handle both cases
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Event loop is running, use thread executor (shouldn't happen in normal flow)
             logger.warning("EvalRunner._run_extraction called from running event loop - using thread executor")
             extractor_result = _run_async_in_thread(coro)
@@ -554,14 +570,11 @@ class EvalRunner:
             return model_name
 
         # Remove common prefixes (e.g., "qwen/", "mistralai/")
-        # Split by "/" and take the last part
-        if "/" in model_name:
-            model_name = model_name.split("/")[-1]
-
-        # Remove date suffixes (e.g., "-2507", "-2024", "-20231219")
-        # Pattern: dash followed by 4-8 digits at the end
+        # Split by "/" and take the last part. Remove date suffixes (e.g. "-2507").
         import re
 
-        model_name = re.sub(r"-\d{4,8}$", "", model_name)
-
-        return model_name
+        return re.sub(
+            r"-\d{4,8}$",
+            "",
+            model_name.split("/")[-1] if "/" in model_name else model_name,
+        )

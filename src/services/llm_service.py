@@ -1854,7 +1854,8 @@ class LLMService:
             conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
             actual_context_length = int(conservative_cap * 0.75)
             logger.warning(
-                f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
+                f"Using conservative context {actual_context_length} for {model_name} "
+                f"(detected: {detected_length}, method: {detection_method})"
             )
 
         logger.info(
@@ -1999,7 +2000,8 @@ class LLMService:
                 finish_reason = result["choices"][0].get("finish_reason", "")
                 if finish_reason == "length":
                     logger.error(
-                        f"Token limit hit! Used {result.get('usage', {}).get('completion_tokens', 0)} completion tokens. "
+                        f"Token limit hit! Used "
+                        f"{result.get('usage', {}).get('completion_tokens', 0)} completion tokens. "
                         f"Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars. "
                         f"max_tokens={max_output_tokens} may be too low for reasoning model."
                     )
@@ -2025,10 +2027,12 @@ class LLMService:
                     response_text = content_text or reasoning_text
                     if finish_reason == "length":
                         logger.error(
-                            f"Token limit hit and no JSON found. Check max_tokens setting (current: {max_output_tokens})"
+                            f"Token limit hit and no JSON found. "
+                            f"Check max_tokens setting (current: {max_output_tokens})"
                         )
                     logger.warning(
-                        f"Neither field looks like JSON. Using content ({len(content_text)} chars) or reasoning ({len(reasoning_text)} chars)"
+                        f"Neither field looks like JSON. Using content ({len(content_text)} chars) "
+                        f"or reasoning ({len(reasoning_text)} chars)"
                     )
 
                 # Log response for debugging
@@ -2169,7 +2173,8 @@ class LLMService:
                         discrete_huntables_count = summary.get("count", len(observables))
                         if not isinstance(discrete_huntables_count, (int, float)):
                             logger.warning(
-                                f"summary.count is not a number: {discrete_huntables_count}, defaulting to {len(observables)}"
+                                f"summary.count is not a number: {discrete_huntables_count}, "
+                                f"defaulting to {len(observables)}"
                             )
                             discrete_huntables_count = len(observables)
 
@@ -2186,7 +2191,8 @@ class LLMService:
                         extracted["url"] = summary.get("source_url", url)
 
                         logger.info(
-                            f"Parsed extraction result (new format): {len(observables)} observables, {discrete_huntables_count} huntables"
+                            f"Parsed extraction result (new format): {len(observables)} observables, "
+                            f"{discrete_huntables_count} huntables"
                         )
                     elif "behavioral_observables" in extracted and "observable_list" in extracted:
                         # Updated format: behavioral_observables + observable_list (from updated prompt)
@@ -2198,7 +2204,7 @@ class LLMService:
                         if isinstance(behavioral_obs, dict):
                             # Convert dict to list of all values
                             behavioral_obs_list = []
-                            for key, values in behavioral_obs.items():
+                            for _key, values in behavioral_obs.items():
                                 if isinstance(values, list):
                                     behavioral_obs_list.extend(values)
                                 elif isinstance(values, (str, dict)):
@@ -2217,17 +2223,21 @@ class LLMService:
                         extracted["content"] = extracted.get("content", "")
 
                         logger.info(
-                            f"Parsed extraction result (behavioral_observables format): {len(observable_list)} observables, {discrete_count} huntables"
+                            f"Parsed extraction result (behavioral_observables format): "
+                            f"{len(observable_list)} observables, {discrete_count} huntables"
                         )
                     else:
                         # Missing required fields - check what we have
                         available_keys = list(extracted.keys())
                         raise ValueError(
-                            f"Extraction result missing required fields. Expected 'observables'+'summary' OR 'behavioral_observables'+'observable_list'. Found keys: {available_keys}"
+                            f"Extraction result missing required fields. "
+                            f"Expected 'observables'+'summary' OR 'behavioral_observables'+'observable_list'. "
+                            f"Found keys: {available_keys}"
                         )
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.warning(
-                        f"Could not parse JSON from extraction response: {e}. Using fallback. Response preview: {response_text[:200]}"
+                        f"Could not parse JSON from extraction response: {e}. Using fallback. "
+                        f"Response preview: {response_text[:200]}"
                     )
                     extracted = {
                         "observables": [],
@@ -2337,7 +2347,8 @@ class LLMService:
             conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
             actual_context_length = int(conservative_cap * 0.75)
             logger.warning(
-                f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
+                f"Using conservative context {actual_context_length} for {model_name} "
+                f"(detected: {detected_length}, method: {detection_method})"
             )
 
         logger.info(
@@ -2412,7 +2423,10 @@ Content:
 
 {json.dumps(prompt_config, indent=2)}
 
-CRITICAL: {instructions} If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must follow the output_format structure exactly. If no observables are found, still output the complete JSON structure with empty arrays."""
+CRITICAL: {instructions} If you are a reasoning model, you may include reasoning text,
+but you MUST end your response with a valid JSON object.
+The JSON object must follow the output_format structure exactly.
+If no observables are found, still output the complete JSON structure with empty arrays."""
 
         # Prepend QA feedback if provided
         if qa_feedback:
@@ -2491,7 +2505,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     else (content_text or reasoning_text)
                 )
                 logger.info(
-                    f"Combining or using available fields. Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars"
+                    f"Combining or using available fields. Content: {len(content_text)} chars, "
+                    f"Reasoning: {len(reasoning_text)} chars"
                 )
 
             if not response_text or len(response_text.strip()) == 0:
@@ -2507,7 +2522,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     f"Used {result.get('usage', {}).get('completion_tokens', 0)} tokens."
                 )
                 logger.warning(
-                    "Observable extraction response was truncated (finish_reason=length). Attempting to parse partial JSON."
+                    "Observable extraction response was truncated (finish_reason=length). "
+                    "Attempting to parse partial JSON."
                 )
 
             logger.info(
@@ -2553,7 +2569,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                             try:
                                 candidate_data = json.loads(candidate_json)
                                 # Check if it has expected root-level keys (not a nested object)
-                                # Support both old format (atomic_iocs, behavioral_observables, metadata) and new format (observables, summary)
+                                # Support old format (atomic_iocs, behavioral_observables, metadata)
+                                # and new format (observables, summary)
                                 expected_keys = [
                                     "atomic_iocs",
                                     "behavioral_observables",
@@ -2586,7 +2603,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                             _, _, _, root_data = root_candidates[0]
                             json_text = json.dumps(root_data)
                             logger.info(
-                                f"Extracted root JSON object from position {root_candidates[0][0]} (near end of response)"
+                                f"Extracted root JSON object from position {root_candidates[0][0]} "
+                                f"(near end of response)"
                             )
                         else:
                             # Fallback to largest candidate, preferring later in response
@@ -2697,7 +2715,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                                                 }
                                                 json_text = json.dumps(repaired_data)
                                                 logger.info(
-                                                    "Successfully extracted observables from truncated JSON using alternative strategy"
+                                                    "Successfully extracted observables from truncated "
+                                                    "JSON using alternative strategy"
                                                 )
                                             else:
                                                 raise ValueError("Could not extract observables")
@@ -2758,7 +2777,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                                                     }
                                                 json_text = json.dumps(repaired_data)
                                                 logger.info(
-                                                    "Successfully extracted observables from truncated JSON using alternative strategy"
+                                                    "Successfully extracted observables from truncated "
+                                                    "JSON using alternative strategy"
                                                 )
                                             else:
                                                 raise ValueError("Could not extract atomic_iocs")
@@ -2829,7 +2849,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 if warnings:
                     extracted["warnings"] = warnings
 
-                # Handle new format (observables array + summary) or old format (atomic_iocs + behavioral_observables + metadata)
+                # Handle new format (observables + summary) or old format
+                # (atomic_iocs + behavioral_observables + metadata)
                 if "observables" in extracted and "summary" in extracted:
                     # New format: observables array with type/value/platform/source_context
                     observables_list = extracted.get("observables", [])
@@ -2879,20 +2900,22 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
 
                     if atomic_count == 0 and behavioral_count == 0:
                         logger.warning(
-                            f"No observables extracted from article. Raw response length: {len(response_text)} chars. First 500 chars: {response_text[:500]}"
+                            f"No observables extracted from article. Raw response length: "
+                            f"{len(response_text)} chars. First 500 chars: {response_text[:500]}"
                         )
                         logger.warning(f"Extracted JSON keys: {list(extracted.keys())}")
                         if "atomic_iocs" in extracted:
-                            logger.warning(
-                                f"atomic_iocs structure: {list(extracted['atomic_iocs'].keys()) if isinstance(extracted['atomic_iocs'], dict) else 'not a dict'}"
-                            )
+                            _keys = extracted["atomic_iocs"]
+                            keys_repr = list(_keys.keys()) if isinstance(_keys, dict) else "not a dict"
+                            logger.warning(f"atomic_iocs structure: {keys_repr}")
                         if "behavioral_observables" in extracted:
-                            logger.warning(
-                                f"behavioral_observables structure: {list(extracted['behavioral_observables'].keys()) if isinstance(extracted['behavioral_observables'], dict) else 'not a dict'}"
-                            )
+                            _bo = extracted["behavioral_observables"]
+                            bo_repr = list(_bo.keys()) if isinstance(_bo, dict) else "not a dict"
+                            logger.warning(f"behavioral_observables structure: {bo_repr}")
                     else:
                         logger.info(
-                            f"Parsed observable extraction result: {atomic_count} atomic IOCs, {behavioral_count} behavioral observables"
+                            f"Parsed observable extraction result: {atomic_count} atomic IOCs, "
+                            f"{behavioral_count} behavioral observables"
                         )
 
             except (json.JSONDecodeError, ValueError) as e:
@@ -2947,7 +2970,8 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             Dict with extraction results
         """
         logger.info(
-            f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)}, provider={provider}, model_name={model_name})"
+            f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)}, "
+            f"provider={provider}, model_name={model_name})"
         )
 
         # Validate content is not empty
@@ -3144,7 +3168,9 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                 if user_prefix:
                     user_prompt = f"{user_prefix}\n\n{user_prompt}"
 
-                system_content = prompt_config.get("system") or prompt_config.get("role", "You are a detection engineer.")
+                system_content = prompt_config.get("system") or prompt_config.get(
+                    "role", "You are a detection engineer."
+                )
 
                 messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
 
@@ -3214,6 +3240,19 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                     # Handle Deepseek reasoning
                     if not response_text:
                         response_text = response["choices"][0]["message"].get("reasoning_content", "")
+
+                    # Infra guard: empty model text is not a valid extraction completion.
+                    if not str(response_text or "").strip():
+                        raise PreprocessInvariantError(
+                            f"{agent_name}: empty LLM response text",
+                            debug_artifacts={
+                                "agent_name": agent_name,
+                                "provider": effective_provider,
+                                "model_name": model_name,
+                                "attempt": current_try,
+                                "execution_id": execution_id,
+                            },
+                        )
 
                     # Log the actual response for debugging
                     logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
@@ -3355,10 +3394,10 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                                     if json_end != -1:
                                         candidate = response_text[open_pos:json_end]
                                         parsed, success = try_parse_json(candidate)
-                                        if success and parsed:
-                                            # Prefer structures with expected keys
-                                            # (support all extract agent result formats)
-                                            if any(
+                                        if (
+                                            success
+                                            and parsed
+                                            and any(
                                                 key in parsed
                                                 for key in [
                                                     "cmdline_items",
@@ -3369,8 +3408,9 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                                                     "registry_keys",
                                                     "count",
                                                 ]
-                                            ):
-                                                json_candidates.append((len(candidate), parsed))
+                                            )
+                                        ):
+                                            json_candidates.append((len(candidate), parsed))
 
                                     search_pos = open_pos + 1
 

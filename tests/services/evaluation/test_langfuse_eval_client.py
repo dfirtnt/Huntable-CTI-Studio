@@ -12,8 +12,8 @@ pytestmark = pytest.mark.unit
 class TestLangfuseEvalClientLogTraceScores:
     """Tests for log_trace_scores behavior."""
 
-    def test_infra_failed_sets_infra_score_and_clears_execution_error(self):
-        """When infra_failed=True, trace.score('infra_failed', 1) and trace.score('execution_error', 0) are called."""
+    def test_infra_failed_marks_score_skipped_and_omits_count_scores(self):
+        """When infra_failed=True, mark infra_failed and skip count/exact scoring."""
         client = LangfuseEvalClient()
         trace = MagicMock()
 
@@ -27,8 +27,10 @@ class TestLangfuseEvalClientLogTraceScores:
 
         trace.score.assert_any_call(name="infra_failed", value=1)
         trace.score.assert_any_call(name="execution_error", value=0)
-        trace.score.assert_any_call(name="exact_match", value=0)
-        trace.score.assert_any_call(name="count_diff", value=2)
+        trace.score.assert_any_call(name="score_skipped", value=1)
+        score_names = [c.kwargs.get("name") for c in trace.score.call_args_list]
+        assert "exact_match" not in score_names
+        assert "count_diff" not in score_names
 
     def test_execution_error_sets_execution_score(self):
         """When execution_error=True (and infra_failed=False), trace.score('execution_error', 1) is called."""
@@ -43,6 +45,7 @@ class TestLangfuseEvalClientLogTraceScores:
         )
 
         trace.score.assert_any_call(name="execution_error", value=1)
+        trace.score.assert_any_call(name="score_skipped", value=0)
         # infra_failed path should not be taken
         infra_calls = [c for c in trace.score.call_args_list if c[1].get("name") == "infra_failed"]
         assert len(infra_calls) == 0
