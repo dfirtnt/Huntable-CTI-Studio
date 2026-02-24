@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
     
     
       
@@ -4094,6 +4094,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Documentation sync (mdu)</strong> (2026-02-24): Changelog, README, and docs verified for consistency; MkDocs build confirmed. Corrected GETTING_STARTED.md and index.md: <code>start.sh</code> no longer prompts for MkDocs—it runs the docs server automatically when <code>mkdocs.yml</code> is present.</li>
 <li><strong>Documentation sync (mdu)</strong> (2026-02-23): Updated README, installation, and local-run docs to match current <code>start.sh</code> behavior (MkDocs build/server runs automatically when <code>mkdocs.yml</code> exists; no <code>run_mkdocs.sh</code> prompt flow), and fixed the duplicated <code>8888</code> port note in <code>docs/quickstart.md</code>.</li>
 <li><strong>Anthropic model list</strong>: Filtered to one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5) via regex-based family key; datestamped variants excluded when a main or <code>-latest</code> variant exists. Implemented in <code>src/utils/model_validation.py</code> (<code>filter_anthropic_models_latest_only</code>) and applied in catalog load, AI route, and maintenance script.</li>
 <li><strong>OpenAI model list</strong>: Filtered to chat-only, latest only (no <code>-YYYY-MM-DD</code> dated variants). New <code>filter_openai_models_latest_only</code> in <code>src/utils/model_validation.py</code>; applied in catalog load, AI route, and maintenance script.</li>

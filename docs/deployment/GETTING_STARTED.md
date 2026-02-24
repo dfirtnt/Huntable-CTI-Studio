@@ -14,7 +14,7 @@ cd Huntable-CTI-Studio
 cp .env.example .env              # set POSTGRES_PASSWORD and API keys [optional for secure install. Default passwords work for demo purposes.]
 ./start.sh                        # builds + starts compose stack
 ```
-`start.sh` may prompt to run the MkDocs docs server; if you choose **y**, it runs in the background (logs: `logs/mkdocs.log`).
+`start.sh` builds and starts the MkDocs docs server in the background when `mkdocs.yml` is present (logs: `logs/mkdocs.log`).
 
 Access:
 - Web UI/API: http://localhost:8001

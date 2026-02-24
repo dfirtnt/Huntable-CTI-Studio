@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added custom JavaScript and CSS for StackEdit integration with modal instructions
 
 ### Changed
+- **Documentation sync (mdu)** (2026-02-24): Changelog, README, and docs verified for consistency; MkDocs build confirmed. Corrected GETTING_STARTED.md and index.md: `start.sh` no longer prompts for MkDocs—it runs the docs server automatically when `mkdocs.yml` is present.
 - **Documentation sync (mdu)** (2026-02-23): Updated README, installation, and local-run docs to match current `start.sh` behavior (MkDocs build/server runs automatically when `mkdocs.yml` exists; no `run_mkdocs.sh` prompt flow), and fixed the duplicated `8888` port note in `docs/quickstart.md`.
 - **Anthropic model list**: Filtered to one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5) via regex-based family key; datestamped variants excluded when a main or `-latest` variant exists. Implemented in `src/utils/model_validation.py` (`filter_anthropic_models_latest_only`) and applied in catalog load, AI route, and maintenance script.
 - **OpenAI model list**: Filtered to chat-only, latest only (no `-YYYY-MM-DD` dated variants). New `filter_openai_models_latest_only` in `src/utils/model_validation.py`; applied in catalog load, AI route, and maintenance script.

@@ -29,7 +29,7 @@ cp .env.example .env
 # Edit .env and set POSTGRES_PASSWORD
 ./start.sh
 ```
-If prompted, you can run the MkDocs docs server in the background (**y**); logs go to `logs/mkdocs.log`.
+When `mkdocs.yml` is present, `start.sh` automatically builds and starts the MkDocs server in the background; logs go to `logs/mkdocs.log`.
 
 **Health check**: `curl http://localhost:8001/health`
 **Web UI**: http://localhost:8001
