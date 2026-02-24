@@ -66,6 +66,7 @@ def mock_execution(mock_config):
         "skip_rank_agent": True,
         "eval_run": True,
         "skip_os_detection": True,
+        "subagent_eval": "cmdline",  # Required for infra failure to set result["success"]=False
         "agent_prompts": mock_config.agent_prompts,
         "agent_models": mock_config.agent_models,
         "qa_enabled": {},

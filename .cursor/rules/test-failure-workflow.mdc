@@ -1,0 +1,23 @@
+---
+description: When helping with test failures, read failure reports first instead of re-running tests
+alwaysApply: true
+---
+
+# Test Failure Help — Read Reports First
+
+When the user asks for help with test failures, **do not begin by re-running the test.**
+
+Start by **reading the existing failure artifacts** (from the most recent run), in this order:
+
+1. **Failure log** — `test-results/failures_*.log` (latest by timestamp)
+2. **HTML report** — `test-results/report_*.html` (latest)
+3. **JUnit XML** — `test-results/junit_*.xml` (latest)
+
+Example paths from a typical run:
+
+- Failure details: `test-results/failures_YYYYMMDD_HHMMSS.log`
+- HTML report: `test-results/report_YYYYMMDD_HHMMSS.html`
+- JUnit XML: `test-results/junit_YYYYMMDD_HHMMSS.xml`
+- Allure: `allure serve allure-results` (if Allure is used)
+
+Use the most recent timestamped files. Only re-run tests after reviewing these artifacts when you need to confirm a fix or reproduce after changes.
