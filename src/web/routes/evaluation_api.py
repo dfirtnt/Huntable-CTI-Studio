@@ -680,8 +680,7 @@ def _normalize_eval_url(url: str | None) -> str:
     try:
         parsed = urlparse(url.strip())
         path = parsed.path.rstrip("/") or "/"
-        normalized = urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
-        return normalized
+        return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
     except Exception:
         return url.strip().rstrip("/")
 
@@ -1192,7 +1191,11 @@ async def get_subagent_eval_results(
                 if actual_count is not None:
                     score = actual_count - record.expected_count
 
-                resolved_article_id = record.article_id if record.article_id is not None else url_to_resolved_id.get(record.article_url or "")
+                resolved_article_id = (
+                    record.article_id
+                    if record.article_id is not None
+                    else url_to_resolved_id.get(record.article_url or "")
+                )
 
                 results.append(
                     {
@@ -1335,8 +1338,14 @@ async def get_subagent_eval_results(
                     if pkey in by_key:
                         ordered.append(by_key[pkey])
                         continue
-                    merged = {"url": orig_url, "title": None, "expected_count": preset_expected.get(orig_url, 0), "article_id": None, "versions": {}}
-                    for k, ex in by_key.items():
+                    merged = {
+                        "url": orig_url,
+                        "title": None,
+                        "expected_count": preset_expected.get(orig_url, 0),
+                        "article_id": None,
+                        "versions": {},
+                    }
+                    for _k, ex in by_key.items():
                         u = ex.get("url")
                         aid = ex.get("article_id")
                         n = _normalize_eval_url(u or "")
@@ -1353,6 +1362,7 @@ async def get_subagent_eval_results(
                     ordered.append(merged)
                 articles = ordered
             if preset_urls and articles:
+
                 def _sort_key(row):
                     url = row.get("url") or ""
                     norm = _normalize_eval_url(url)
@@ -1360,6 +1370,7 @@ async def get_subagent_eval_results(
                         if pn == norm:
                             return (0, i)
                     return (1, url)
+
                 articles.sort(key=_sort_key)
 
             return {
