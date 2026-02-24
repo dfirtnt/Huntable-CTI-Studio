@@ -194,7 +194,7 @@ pyflakes==3.4.0
 Pygments==2.19.2
 pymdown-extensions==10.20.1
 pyparsing==3.2.5
-pypdf==6.6.2
+pypdf==6.7.1
 pyRdfa3==3.6.4
 pySigma==0.11.23
 pytest==8.4.2
