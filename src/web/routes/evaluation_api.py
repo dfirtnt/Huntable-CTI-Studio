@@ -2005,7 +2005,7 @@ async def export_bundles_by_config_version(
                     SubagentEvaluationTable.subagent_name.in_(lookup_values),
                     SubagentEvaluationTable.workflow_config_version == config_version,
                     SubagentEvaluationTable.workflow_execution_id.isnot(None),
-                    SubagentEvaluationTable.status == "completed",
+                    SubagentEvaluationTable.status.in_(["completed", "failed"]),
                 )
                 .order_by(SubagentEvaluationTable.article_id.asc())
                 .all()
@@ -2014,7 +2014,7 @@ async def export_bundles_by_config_version(
             if not records:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No completed eval records for config version {config_version} and subagent {subagent}",
+                    detail=f"No eval records with executions for config version {config_version} and subagent {subagent}",
                 )
 
             bundle_service = EvalBundleService(db_session)

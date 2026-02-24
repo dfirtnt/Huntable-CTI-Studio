@@ -11,6 +11,7 @@ This workflow processes articles through 7 steps:
 6. Promote to Queue
 """
 
+import contextlib
 import json
 import logging
 from datetime import datetime
@@ -56,6 +57,57 @@ def _bool_from_value(val: Any) -> bool:
     if isinstance(val, str):
         return val.lower() == "true"
     return bool(val)
+
+
+def _subagent_result_key_for_eval(subagent_name: str | None) -> str | None:
+    """Map SubagentEvaluation subagent names to extraction_result.subresults keys."""
+    if not subagent_name:
+        return None
+    normalized = str(subagent_name).strip().lower()
+    if normalized in {"hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"}:
+        return "hunt_queries"
+    return normalized
+
+
+def _extract_subagent_infra_failure(
+    extraction_result: dict[str, Any] | None,
+    subagent_name: str | None,
+) -> dict[str, Any] | None:
+    """
+    Return infra failure metadata for a specific subagent result, if present.
+
+    Detects workflow-subresult flags like:
+    - subresults[<key>]["infra_failed"] == True
+    - subresults[<key>]["raw"]["infra_failed"] == True
+    """
+    if not extraction_result or not isinstance(extraction_result, dict):
+        return None
+
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict):
+        return None
+
+    result_key = _subagent_result_key_for_eval(subagent_name)
+    if not result_key:
+        return None
+
+    subagent_result = subresults.get(result_key, {})
+    if not isinstance(subagent_result, dict):
+        return None
+
+    raw = subagent_result.get("raw", {})
+    if not isinstance(raw, dict):
+        raw = {}
+
+    infra_failed = bool(subagent_result.get("infra_failed")) or bool(raw.get("infra_failed"))
+    if not infra_failed:
+        return None
+
+    return {
+        "result_key": result_key,
+        "reason": subagent_result.get("error") or raw.get("infra_failed_reason") or "subagent infra failure",
+        "debug_artifacts": raw.get("infra_debug_artifacts") or {},
+    }
 
 
 class WorkflowState(TypedDict):
@@ -212,10 +264,7 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
     actual_count = subagent_result.get("count")
     if actual_count is None:
         items = subagent_result.get("items", [])
-        if isinstance(items, list):
-            actual_count = len(items)
-        else:
-            actual_count = 0
+        actual_count = len(items) if isinstance(items, list) else 0
 
     return actual_count
 
@@ -236,6 +285,20 @@ def _update_single_eval_record(
             logger.warning(f"No extraction_result for execution {execution.id}")
             eval_record.status = "failed"
             db_session.commit()
+            return
+
+        infra_failure = _extract_subagent_infra_failure(extraction_result, eval_record.subagent_name)
+        if infra_failure:
+            eval_record.actual_count = None
+            eval_record.score = None
+            eval_record.status = "failed"
+            eval_record.completed_at = datetime.now()
+            db_session.commit()
+            logger.error(
+                f"Infra failure for SubagentEvaluation {eval_record.id}: "
+                f"subagent={eval_record.subagent_name}, execution={execution.id}, "
+                f"reason={infra_failure.get('reason')}"
+            )
             return
 
         subresults = extraction_result.get("subresults", {})
@@ -302,7 +365,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     # Initialize services
     content_filter = ContentFilter()
     # LLMService will be initialized per-node with config models
-    rag_service = RAGService()
+    RAGService()
     trigger_service = WorkflowTriggerService(db_session)
 
     # Define workflow nodes
@@ -407,7 +470,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         # Determine bypass reason
         config_snapshot = execution.config_snapshot if execution else {}
         eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
-        skip_rank_flag = _bool_from_value(config_snapshot.get("skip_rank_agent", False))
+        _bool_from_value(config_snapshot.get("skip_rank_agent", False))
         state_eval_run = _bool_from_value(state.get("eval_run", False))
         is_eval_run = state_eval_run or eval_run_flag
         bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
@@ -1125,7 +1188,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
             # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract
-            valid_subagents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"}
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
 
             logger.info(
@@ -1722,9 +1784,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         subresults[result_key] = {
                             "items": [],
                             "count": 0,
+                            "infra_failed": True,
                             "raw": {"infra_failed": True, "infra_debug_artifacts": getattr(e, "debug_artifacts", {})},
                             "error": str(e),
                         }
+                        conversation_log.append(
+                            {
+                                "agent": agent_name,
+                                "items_count": 0,
+                                "result": {"infra_failed": True, "error": str(e)},
+                                "infra_debug_artifacts": getattr(e, "debug_artifacts", {}),
+                            }
+                        )
                     else:
                         logger.error(f"[Workflow {state['execution_id']}] {agent_name} failed: {e}")
                         subresults[result_key] = {"items": [], "count": 0, "raw": {}, "error": str(e)}
@@ -1771,6 +1842,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             total_count = len(all_observables)
 
+            infra_failed_agents = []
+            for subagent_key, subagent_data in subresults.items():
+                if not isinstance(subagent_data, dict):
+                    continue
+                raw = subagent_data.get("raw", {})
+                if not isinstance(raw, dict):
+                    raw = {}
+                if bool(subagent_data.get("infra_failed")) or bool(raw.get("infra_failed")):
+                    infra_failed_agents.append(
+                        {
+                            "subagent": subagent_key,
+                            "reason": subagent_data.get("error") or raw.get("infra_failed_reason"),
+                            "debug_artifacts": raw.get("infra_debug_artifacts") or {},
+                        }
+                    )
+
             # Construct final result matching existing schema
             extraction_result = {
                 "observables": all_observables,
@@ -1784,6 +1871,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "content": "\n".join(content_summary) if content_summary else "",  # Synthesized content for Sigma Agent
                 "raw_response": json.dumps(subresults, indent=2),  # Store subresults as raw_response for compatibility
             }
+            if infra_failed_agents:
+                extraction_result["infra_failed"] = True
+                extraction_result["infra_failed_agents"] = infra_failed_agents
 
             # Store conversation log in execution.error_log (merge, don't overwrite)
             # Use the execution object we already have (don't refresh to avoid transaction isolation issues)
@@ -1836,12 +1926,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 flag_modified(execution, "error_log")
                 db_session.commit()
 
+            eval_infra_error = None
+            if infra_failed_agents and subagent_eval:
+                first_failure = infra_failed_agents[0]
+                eval_infra_error = (
+                    f"Eval infra failure ({first_failure.get('subagent')}): "
+                    f"{first_failure.get('reason') or 'subagent infra failure'}"
+                )
+
             return {
                 **state,
                 "extraction_result": extraction_result,
                 "discrete_huntables_count": discrete_count,
+                "error": eval_infra_error or state.get("error"),
                 "current_step": "extract_agent",
-                "status": state.get("status", "running"),
+                "status": "failed" if eval_infra_error else state.get("status", "running"),
                 "termination_reason": state.get("termination_reason"),
                 "termination_details": state.get("termination_details"),
             }
@@ -1909,10 +2008,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             # Check if QA is enabled for Sigma Agent
-            qa_enabled = qa_flags.get("SigmaAgent", False)
+            qa_flags.get("SigmaAgent", False)
 
             # Get QA max retries from config
-            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
+            config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
             qa_feedback = None
             generation_result = None
 
@@ -1922,12 +2021,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get agent prompt from database for SIGMA generation
             sigma_prompt_template = None
             sigma_system_prompt = None
-            agent_prompt = "Generate SIGMA detection rules from the article content following SIGMA rule format and validation requirements."
             if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
                 sigma_prompt_data = config_obj.agent_prompts["SigmaAgent"]
                 if isinstance(sigma_prompt_data.get("prompt"), str):
                     sigma_prompt_template = sigma_prompt_data["prompt"]  # Use full prompt for generation
-                    agent_prompt = sigma_prompt_template[:5000]  # Truncate for QA context
+                    sigma_prompt_template[:5000]  # Truncate for QA context
                     logger.info(
                         f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (len={len(sigma_prompt_template)} chars)"
                     )
@@ -2538,15 +2636,31 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             if skip_sigma:
                 logger.info(f"[Workflow {state['execution_id']}] Skipping SIGMA generation (eval run)")
-                # Mark execution as completed after extraction
-                execution.status = "completed"
-                execution.current_step = "extract_agent"
-                execution.completed_at = datetime.now()
-                db_session.commit()
                 # Use state's extraction_result — execution may not have it loaded yet in this path
                 extraction_from_state = (
                     state.get("extraction_result") if isinstance(state.get("extraction_result"), dict) else None
                 )
+                eval_subagent = normalize_subagent_name(config_snapshot.get("subagent_eval"))
+                infra_failure = _extract_subagent_infra_failure(
+                    extraction_from_state or execution.extraction_result, eval_subagent
+                )
+
+                execution.current_step = "extract_agent"
+                execution.completed_at = datetime.now()
+                if infra_failure:
+                    execution.status = "failed"
+                    execution.error_message = (
+                        f"Eval infra failure ({infra_failure.get('result_key')}): {infra_failure.get('reason')}"
+                    )
+                    logger.error(
+                        f"[Workflow {state['execution_id']}] Marking eval execution as failed due to infra failure: "
+                        f"{infra_failure.get('reason')}"
+                    )
+                else:
+                    # Mark execution as completed after extraction
+                    execution.status = "completed"
+                db_session.commit()
+
                 _update_subagent_eval_on_completion(
                     execution, db_session, extraction_result_override=extraction_from_state
                 )
@@ -2868,10 +2982,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                         f"Could not persist Langfuse trace_id for execution {execution.id}: {trace_persist_error}"
                     )
                     # Rollback any failed transaction from trace persistence
-                    try:
+                    with contextlib.suppress(Exception):
                         db_session.rollback()
-                    except Exception:
-                        pass
 
                 workflow_graph = create_agentic_workflow(db_session)
                 final_state = await workflow_graph.ainvoke(initial_state)
@@ -2949,10 +3061,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         except Exception as refresh_error:
             logger.warning(f"Error refreshing execution: {refresh_error}")
             # Rollback and get fresh copy
-            try:
+            with contextlib.suppress(Exception):
                 db_session.rollback()
-            except Exception:
-                pass
 
         execution = (
             db_session.query(AgenticWorkflowExecutionTable)
@@ -2979,10 +3089,24 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                         execution.current_step = final_state.get("current_step", "generate_sigma")
                         db_session.commit()
             elif execution.status == "running":
-                # No error - mark as completed (even if stopped by thresholds)
-                execution.status = "completed"
+                execution_config_snapshot = execution.config_snapshot or {}
+                eval_subagent = normalize_subagent_name(execution_config_snapshot.get("subagent_eval"))
+                infra_failure = _extract_subagent_infra_failure(execution.extraction_result, eval_subagent)
+
                 execution.completed_at = datetime.now()
                 execution.current_step = final_state.get("current_step", "rank_article")
+                if infra_failure:
+                    execution.status = "failed"
+                    execution.error_message = (
+                        f"Eval infra failure ({infra_failure.get('result_key')}): {infra_failure.get('reason')}"
+                    )
+                    logger.error(
+                        f"[Workflow {execution.id}] Marked as 'failed' due to eval infra failure: "
+                        f"{infra_failure.get('reason')}"
+                    )
+                else:
+                    # No error - mark as completed (even if stopped by thresholds)
+                    execution.status = "completed"
 
                 db_session.commit()
 
@@ -2992,7 +3116,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 db_session.refresh(execution)
                 _update_subagent_eval_on_completion(execution, db_session)
 
-                logger.info(f"[Workflow {execution.id}] Marked as 'completed' - workflow finished normally")
+                if execution.status == "completed":
+                    logger.info(f"[Workflow {execution.id}] Marked as 'completed' - workflow finished normally")
             elif execution.status == "completed":
                 # Execution already marked as completed - still update eval if needed
                 # This handles cases where execution was completed elsewhere

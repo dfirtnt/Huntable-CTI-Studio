@@ -1022,8 +1022,8 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                     ? (displayDelta === 0 ? 'status-exact' : scoreClass)
                     : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
                 
-                // Make cell clickable if completed and has execution_id
-                const isClickable = result.status === 'completed' && result.execution_id;
+                // Make cell clickable if execution exists (completed or failed) so bundle export is available
+                const isClickable = !!result.execution_id && (result.status === 'completed' || result.status === 'failed');
                 const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
                 const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
                 
@@ -1146,8 +1146,8 @@ function renderSubagentResults(results) {
             ? (result.score === 0 ? 'status-exact' : scoreClass)
             : (result.status === 'failed' ? 'status-mismatch' : 'status-pending');
         
-        // Make result cell clickable if completed and has execution_id
-        const isClickable = result.status === 'completed' && result.execution_id;
+        // Make result cell clickable if execution exists (completed or failed) so bundle export is available
+        const isClickable = !!result.execution_id && (result.status === 'completed' || result.status === 'failed');
         const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
         const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
         
@@ -2347,4 +2347,3 @@ if (document.readyState === 'loading') {
 }
 </script>
 {% endblock %}
-
