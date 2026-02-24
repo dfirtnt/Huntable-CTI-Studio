@@ -1769,9 +1769,7 @@ async function loadPreviousResults() {
         const data = await response.json();
         let results = data.results || [];
         
-        // No filtering needed - hunt_queries is now a single type
-        
-        if (results.length === 0) {
+        if (results.length === 0 && !(data.articles && data.articles.length > 0)) {
             resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No previous results found for this subagent.</p>';
             return;
         }
@@ -1792,7 +1790,21 @@ async function loadPreviousResults() {
             console.warn('Could not load preset expected counts:', e);
         }
         
-        // Canonical key per article (API now resolves article_id for URL-only records so we can key by id).
+        let articleRows;
+        let allVersions;
+        if (data.articles && data.articles.length > 0) {
+            articleRows = data.articles.map(a => ({
+                url: a.url,
+                title: a.title || null,
+                expected_count: presetByArticleId[a.article_id] !== undefined ? presetByArticleId[a.article_id] : (presetByUrl[a.url] !== undefined ? presetByUrl[a.url] : (a.expected_count ?? 0)),
+                article_id: a.article_id,
+                versions: a.versions || {}
+            }));
+            const versionSet = new Set();
+            articleRows.forEach(row => Object.keys(row.versions || {}).forEach(v => versionSet.add(v)));
+            allVersions = [...versionSet].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
+        } else {
+        // Canonical key per article (fallback when API does not return articles)
         function normalizeUrl(u) {
             const s = (u || '').trim();
             try {
@@ -1842,8 +1854,17 @@ async function loadPreviousResults() {
         });
         
         // Get all unique config versions and sort them (ascending - oldest first)
-        // Filter out excluded versions
-        const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
+        allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
+        
+        articleRows = Object.values(byArticleKey).sort((a, b) => {
+            const aidA = a.article_id;
+            const aidB = b.article_id;
+            if (aidA != null && aidB != null) return aidA - aidB;
+            if (aidA != null) return -1;
+            if (aidB != null) return 1;
+            return (a.url || '').localeCompare(b.url || '');
+        });
+        }
         
         // Fetch model info for all config versions
         let modelsByVersion = {};
@@ -1860,15 +1881,17 @@ async function loadPreviousResults() {
             }
         }
         
-        // Sort: numeric article_id first (asc), then rows with null article_id (by url)
-        const articleRows = Object.values(byArticleKey).sort((a, b) => {
-            const aidA = a.article_id;
-            const aidB = b.article_id;
-            if (aidA != null && aidB != null) return aidA - aidB;
-            if (aidA != null) return -1;
-            if (aidB != null) return 1;
-            return (a.url || '').localeCompare(b.url || '');
-        });
+        // Sort article rows when from API (from fallback they are already sorted)
+        if (data.articles && data.articles.length > 0) {
+            articleRows = articleRows.sort((a, b) => {
+                const aidA = a.article_id;
+                const aidB = b.article_id;
+                if (aidA != null && aidB != null) return aidA - aidB;
+                if (aidA != null) return -1;
+                if (aidB != null) return 1;
+                return (a.url || '').localeCompare(b.url || '');
+            });
+        }
         
         renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
         

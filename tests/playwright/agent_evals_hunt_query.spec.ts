@@ -60,17 +60,13 @@ test.describe('Agent Evals (read-only)', () => {
       return;
     }
 
-    const data = await response.json().catch(() => ({ results: [] }));
+    const data = await response.json().catch(() => ({ results: [], articles: [] }));
     const results: { article_id?: number; url?: string }[] = data.results || [];
-    const uniqueArticleKeys = new Set<string>();
-    for (const r of results) {
-      if (r.article_id != null) uniqueArticleKeys.add(`id:${r.article_id}`);
-      else if (r.url) uniqueArticleKeys.add(`url:${r.url}`);
-      else uniqueArticleKeys.add(`rec:${(r as { id?: number }).id ?? ''}`);
-    }
+    const articles = data.articles || [];
+    const expectedRows = articles.length > 0 ? articles.length : new Set(results.map((r) => (r.article_id != null ? `id:${r.article_id}` : `url:${r.url}`))).size;
     expect(
       count,
-      `Table should have one row per article (expected ${uniqueArticleKeys.size} rows, got ${count}). Duplicates indicate grouping bug.`
-    ).toBe(uniqueArticleKeys.size);
+      `Table should have one row per article (expected ${expectedRows} rows, got ${count}). Duplicates indicate grouping bug.`
+    ).toBe(expectedRows);
   });
 });

@@ -1408,7 +1408,7 @@
                     <div id="configVersionList" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         <!-- Version items will be populated here -->
                     </div>
-                    <div id="configVersionListPagination" class="mt-3 flex items-center justify-between gap-4 flex-wrap">
+                    <div id="configVersionListPagination" class="mt-3 pt-3 border-t border-gray-600 flex items-center justify-between gap-4 flex-wrap min-h-[2.5rem]">
                         <!-- Pagination: summary and Prev/Next -->
                     </div>
                     <div class="mt-4 flex justify-end">
@@ -7904,19 +7904,21 @@ async function refreshConfigVersionList(offset = 0) {
         const total = data.total != null ? data.total : data.versions.length;
         const from = offset + 1;
         const to = offset + data.versions.length;
+        const showNext = offset + data.versions.length < total || data.versions.length === pageSize;
         if (paginationEl) {
             let html = `<span class="text-sm text-gray-500 dark:text-gray-400">Showing ${from}&ndash;${to} of ${total}</span>`;
             html += '<div class="flex gap-2">';
             if (offset > 0) {
                 const prevOffset = Math.max(0, offset - pageSize);
-                html += `<button type="button" onclick="refreshConfigVersionList(${prevOffset})" class="px-3 py-1 text-sm border border-gray-500 dark:border-gray-400 rounded hover:bg-gray-600">Previous</button>`;
+                html += `<button type="button" onclick="refreshConfigVersionList(${prevOffset})" class="px-3 py-1.5 text-sm font-medium text-gray-200 bg-gray-600 hover:bg-gray-500 border border-gray-500 rounded">Previous</button>`;
             }
-            if (offset + data.versions.length < total) {
+            if (showNext) {
                 const nextOffset = offset + pageSize;
-                html += `<button type="button" onclick="refreshConfigVersionList(${nextOffset})" class="px-3 py-1 text-sm border border-gray-500 dark:border-gray-400 rounded hover:bg-gray-600">Next</button>`;
+                html += `<button type="button" onclick="refreshConfigVersionList(${nextOffset})" class="px-3 py-1.5 text-sm font-medium text-gray-200 bg-gray-600 hover:bg-gray-500 border border-gray-500 rounded">Next</button>`;
             }
             html += '</div>';
             paginationEl.innerHTML = html;
+            paginationEl.classList.remove('hidden');
         }
     } catch (error) {
         console.error('Error refreshing config version list:', error);
