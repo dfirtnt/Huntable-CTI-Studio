@@ -4,11 +4,13 @@ API routes for agentic workflow configuration management.
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func
+from sqlalchemy import func, text
+from sqlalchemy.orm import load_only
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
 from src.database.manager import DatabaseManager
@@ -98,7 +100,7 @@ async def get_workflow_config(request: Request):
         try:
             config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .first()
             )
@@ -170,7 +172,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .with_for_update()
                 .first()
@@ -226,7 +228,10 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             if not (0.0 <= auto_trigger_hunt_score_threshold <= 100.0):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Auto trigger hunt score threshold must be between 0.0 and 100.0, got {auto_trigger_hunt_score_threshold}",
+                    detail=(
+                        f"Auto trigger hunt score threshold must be between 0.0 and 100.0, "
+                        f"got {auto_trigger_hunt_score_threshold}"
+                    ),
                 )
 
             # Create new config version
@@ -281,7 +286,9 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     if key in merged_agent_models:
                         del merged_agent_models[key]
                 logger.info(
-                    f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})"
+                    f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, "
+                    f"current: {current_config.agent_models if current_config else None}, "
+                    f"removed: {list(keys_to_remove)})"
                 )
             elif current_config:
                 merged_agent_models = current_config.agent_models
@@ -343,7 +350,10 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                             except json.JSONDecodeError as e:
                                 raise HTTPException(
                                     status_code=400,
-                                    detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
+                                    detail=(
+                                        f"Invalid JSON format for {agent_name} prompt in workflow config. "
+                                        f"Please fix the prompt in the UI. Error: {e}"
+                                    ),
                                 ) from e
 
             # Check if the new config would be identical to the current one
@@ -712,36 +722,82 @@ async def list_config_versions(
     request: Request,
     limit: int = Query(50, ge=1, le=200, description="Max versions per page"),
     offset: int = Query(0, ge=0, description="Offset for paging"),
+    total_estimate: bool = Query(False, description="Use pg_class estimate for total (fast, approximate)"),
 ):
     """List workflow config versions (version, is_active, description, created_at, updated_at, id). Paginated."""
+
+    def fetch_list(db_mgr: DatabaseManager, lim: int, off: int) -> list[dict[str, Any]]:
+        session = db_mgr.get_session()
+        try:
+            list_columns = [
+                AgenticWorkflowConfigTable.id,
+                AgenticWorkflowConfigTable.version,
+                AgenticWorkflowConfigTable.is_active,
+                AgenticWorkflowConfigTable.description,
+                AgenticWorkflowConfigTable.created_at,
+                AgenticWorkflowConfigTable.updated_at,
+            ]
+            rows = (
+                session.query(AgenticWorkflowConfigTable)
+                .options(load_only(*list_columns))
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .offset(off)
+                .limit(lim)
+                .all()
+            )
+            return [
+                {
+                    "id": r.id,
+                    "version": r.version,
+                    "is_active": r.is_active,
+                    "description": r.description or "",
+                    "created_at": r.created_at.isoformat(),
+                    "updated_at": r.updated_at.isoformat(),
+                }
+                for r in rows
+            ]
+        finally:
+            session.close()
+
+    def fetch_total_exact(db_mgr: DatabaseManager) -> int:
+        session = db_mgr.get_session()
+        try:
+            return session.query(AgenticWorkflowConfigTable).count()
+        finally:
+            session.close()
+
+    def fetch_total_estimate(db_mgr: DatabaseManager) -> int:
+        session = db_mgr.get_session()
+        try:
+            r = session.execute(
+                text("SELECT reltuples::bigint FROM pg_class WHERE relname = 'agentic_workflow_config'")
+            ).scalar()
+            return max(0, int(r)) if r is not None else 0
+        finally:
+            session.close()
+
     try:
         db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-        try:
-            base = db_session.query(AgenticWorkflowConfigTable).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            )
-            total = db_session.query(AgenticWorkflowConfigTable).count()
-            rows = base.offset(offset).limit(limit).all()
-            return {
-                "success": True,
-                "versions": [
-                    {
-                        "id": r.id,
-                        "version": r.version,
-                        "is_active": r.is_active,
-                        "description": r.description or "",
-                        "created_at": r.created_at.isoformat(),
-                        "updated_at": r.updated_at.isoformat(),
-                    }
-                    for r in rows
-                ],
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-            }
-        finally:
-            db_session.close()
+        if total_estimate:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                future_list = executor.submit(fetch_list, db_manager, limit, offset)
+                future_total = executor.submit(fetch_total_estimate, db_manager)
+                versions = future_list.result()
+                total = future_total.result()
+        else:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                future_list = executor.submit(fetch_list, db_manager, limit, offset)
+                future_total = executor.submit(fetch_total_exact, db_manager)
+                versions = future_list.result()
+                total = future_total.result()
+        return {
+            "success": True,
+            "versions": versions,
+            "total": total,
+            "total_is_estimate": total_estimate,
+            "limit": limit,
+            "offset": offset,
+        }
     except Exception as e:
         logger.error(f"Error listing config versions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -784,7 +840,7 @@ async def get_agent_prompts(request: Request):
             # skip_locked=True allows the query to proceed even if another transaction has a lock
             config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .with_for_update(skip_locked=True)
                 .first()
@@ -875,7 +931,7 @@ async def get_agent_prompt(request: Request, agent_name: str):
         try:
             config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .first()
             )
@@ -935,7 +991,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             # between when we query and when we update
             current_config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .with_for_update()
                 .first()
@@ -976,7 +1032,10 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                     except json.JSONDecodeError as e:
                         raise HTTPException(
                             status_code=400,
-                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
+                            detail=(
+                                f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. "
+                                f"Please fix the prompt in the UI. Error: {e}"
+                            ),
                         ) from e
                 agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
             if prompt_update.instructions is not None:
@@ -1042,7 +1101,8 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             db_session.commit()
 
             logger.debug(
-                f"Saved prompt version history for {prompt_update.agent_name}: version={max_version + 1}, workflow_config_version={new_version}"
+                f"Saved prompt version history for {prompt_update.agent_name}: "
+                f"version={max_version + 1}, workflow_config_version={new_version}"
             )
             db_session.refresh(new_config)
 
@@ -1212,7 +1272,7 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .with_for_update()
                 .first()
@@ -1348,7 +1408,9 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             "success": True,
             "task_id": task.id,
             "status": "pending",
-            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status.",
+            "message": (
+                "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+            ),
         }
 
     except HTTPException:
@@ -1432,7 +1494,10 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
             else:
                 # Fallback: extract the key part
                 if "greater than the context length" in error_detail:
-                    error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
+                    error_detail = (
+                        "The prompt is too long for the model's context window. "
+                        "Please increase the context length in LMStudio or use a shorter prompt."
+                    )
 
         raise HTTPException(status_code=500, detail=error_detail) from e
 
@@ -1448,7 +1513,7 @@ async def bootstrap_prompts_from_files(request: Request):
             # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = (
                 db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .filter(AgenticWorkflowConfigTable.is_active)
                 .order_by(AgenticWorkflowConfigTable.version.desc())
                 .with_for_update()
                 .first()
@@ -1469,11 +1534,9 @@ async def bootstrap_prompts_from_files(request: Request):
             sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
 
             agent_models = current_config.agent_models if current_config.agent_models is not None else {}
-            rank_model = (
-                agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
-            )
-            extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
-            sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
+            (agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]")
+            agent_models.get("ExtractAgent") or extract_model_env or default_model
+            agent_models.get("SigmaAgent") or sigma_model_env or default_model
 
             loaded_prompts = {}
 
@@ -1615,7 +1678,9 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
             "success": True,
             "task_id": task.id,
             "status": "pending",
-            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status.",
+            "message": (
+                "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+            ),
         }
 
     except HTTPException:
@@ -1663,7 +1728,9 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             "success": True,
             "task_id": task.id,
             "status": "pending",
-            "message": "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status.",
+            "message": (
+                "Test task dispatched to worker. Use /api/workflow/config/test-status/{task_id} to check status."
+            ),
         }
 
     except HTTPException:
@@ -1747,6 +1814,9 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
             else:
                 # Fallback: extract the key part
                 if "greater than the context length" in error_detail:
-                    error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
+                    error_detail = (
+                        "The prompt is too long for the model's context window. "
+                        "Please increase the context length in LMStudio or use a shorter prompt."
+                    )
 
         raise HTTPException(status_code=500, detail=error_detail) from e

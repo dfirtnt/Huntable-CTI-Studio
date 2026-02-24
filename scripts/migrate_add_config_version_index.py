@@ -10,9 +10,27 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import logging
+# Load .env from project root so DATABASE_URL is set when present
+_project_root = Path(__file__).resolve().parent.parent
+_env_file = _project_root / ".env"
+if _env_file.is_file():
+    try:
+        with open(_env_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip("'\"").strip()
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError:
+        pass
 
-from sqlalchemy import create_engine, text
+import logging  # noqa: E402
+
+from sqlalchemy import create_engine, text  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

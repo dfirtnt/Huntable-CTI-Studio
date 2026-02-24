@@ -1405,6 +1405,11 @@
                         <button type="button" onclick="closeConfigVersionListModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
                     </div>
                     <p class="text-sm text-gray-400 mb-3">Load a full config (thresholds, models, QA, prompts) from a prior version into the form. Save to make it active.</p>
+                    <form class="mb-3 flex gap-2" onsubmit="applyConfigVersionSearch(); return false;" autocomplete="off">
+                        <input type="text" id="configVersionSearchInput" placeholder="Version number or description..." class="flex-1 px-3 py-2 rounded border border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" />
+                        <button type="submit" class="px-4 py-2 rounded border border-gray-500 bg-gray-600 hover:bg-gray-500 text-gray-200 font-medium">Search</button>
+                    </form>
+                    <p id="configVersionSearchHint" class="text-xs text-gray-500 mb-2 hidden"></p>
                     <div id="configVersionList" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         <!-- Version items will be populated here -->
                     </div>
@@ -7856,10 +7861,71 @@ function closeConfigVersionListModal() {
     popModal();
 }
 
+function _configVersionListRenderItems(versions, listEl) {
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    versions.forEach(v => {
+        const item = document.createElement('div');
+        item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+        const updatedStr = new Date(v.updated_at).toLocaleString();
+        const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
+        item.innerHTML = `
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
+                        ${activeBadge}
+                    </div>
+                    ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
+                </div>
+                <div class="flex space-x-2 ml-4">
+                    <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
+                </div>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+}
+
+function applyConfigVersionSearch() {
+    const listEl = document.getElementById('configVersionList');
+    const hintEl = document.getElementById('configVersionSearchHint');
+    const searchInput = document.getElementById('configVersionSearchInput');
+    const q = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
+    const pageData = window._configVersionPageData;
+    if (!listEl || !pageData || !pageData.versions) return;
+    let versions = pageData.versions;
+    if (q) {
+        const qLower = q.toLowerCase();
+        versions = versions.filter(v => {
+            const verMatch = String(v.version).includes(q);
+            const descMatch = (v.description && v.description.toLowerCase().includes(qLower));
+            return verMatch || descMatch;
+        });
+    }
+    _configVersionListRenderItems(versions, listEl);
+    if (hintEl) {
+        if (q && versions.length === 0) {
+            hintEl.textContent = 'No versions on this page match your search.';
+            hintEl.classList.remove('hidden');
+        } else if (q && versions.length < pageData.versions.length) {
+            hintEl.textContent = `${versions.length} of ${pageData.versions.length} on this page match.`;
+            hintEl.classList.remove('hidden');
+        } else {
+            hintEl.classList.add('hidden');
+        }
+    }
+}
+
 async function refreshConfigVersionList(offset = 0) {
     const pageSize = 50;
+    const searchInput = document.getElementById('configVersionSearchInput');
+    if (searchInput) searchInput.value = '';
+    const hintEl = document.getElementById('configVersionSearchHint');
+    if (hintEl) hintEl.classList.add('hidden');
     try {
-        const response = await fetch(`/api/workflow/config/versions?limit=${pageSize}&offset=${offset}`);
+        const response = await fetch(`/api/workflow/config/versions?limit=${pageSize}&offset=${offset}&total_estimate=1`);
         let data;
         try {
             data = await response.json();
@@ -7877,36 +7943,25 @@ async function refreshConfigVersionList(offset = 0) {
         if (!data.versions || data.versions.length === 0) {
             listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No config versions found.</p>';
             if (paginationEl) paginationEl.innerHTML = '';
+            window._configVersionPageData = null;
             return;
         }
-        data.versions.forEach(v => {
-            const item = document.createElement('div');
-            item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
-            const updatedStr = new Date(v.updated_at).toLocaleString();
-            const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
-            item.innerHTML = `
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
-                            ${activeBadge}
-                        </div>
-                        ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
-                    </div>
-                    <div class="flex space-x-2 ml-4">
-                        <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
-                    </div>
-                </div>
-            `;
-            listEl.appendChild(item);
-        });
-        const total = data.total != null ? data.total : data.versions.length;
+        window._configVersionPageData = {
+            versions: data.versions,
+            offset,
+            total: data.total != null ? data.total : data.versions.length,
+            totalLabel: data.total_is_estimate ? `~${data.total != null ? data.total : data.versions.length}` : (data.total != null ? data.total : data.versions.length),
+            totalIsEstimate: !!data.total_is_estimate,
+            pageSize,
+        };
+        _configVersionListRenderItems(data.versions, listEl);
+        const total = window._configVersionPageData.total;
         const from = offset + 1;
         const to = offset + data.versions.length;
         const showNext = offset + data.versions.length < total || data.versions.length === pageSize;
         if (paginationEl) {
-            let html = `<span class="text-sm text-gray-500 dark:text-gray-400">Showing ${from}&ndash;${to} of ${total}</span>`;
+            const totalLabel = window._configVersionPageData.totalIsEstimate ? `~${total}` : total;
+            let html = `<span class="text-sm text-gray-500 dark:text-gray-400">Showing ${from}&ndash;${to} of ${totalLabel}</span>`;
             html += '<div class="flex gap-2">';
             if (offset > 0) {
                 const prevOffset = Math.max(0, offset - pageSize);
@@ -7920,6 +7975,7 @@ async function refreshConfigVersionList(offset = 0) {
             paginationEl.innerHTML = html;
             paginationEl.classList.remove('hidden');
         }
+        // Search is applied only when user clicks Search button (no oninput)
     } catch (error) {
         console.error('Error refreshing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
