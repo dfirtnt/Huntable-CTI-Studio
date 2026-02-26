@@ -456,7 +456,10 @@ class ArticleSigmaMatchTable(Base):
     sigma_rule = relationship("SigmaRuleTable", back_populates="article_matches")
 
     def __repr__(self):
-        return f"<ArticleSigmaMatch(id={self.id}, article_id={self.article_id}, sigma_rule_id={self.sigma_rule_id}, coverage='{self.coverage_status}')>"
+        return (
+            f"<ArticleSigmaMatch(id={self.id}, article_id={self.article_id}, "
+            f"sigma_rule_id={self.sigma_rule_id}, coverage='{self.coverage_status}')>"
+        )
 
 
 class AppSettingsTable(Base):
@@ -494,7 +497,7 @@ class AgenticWorkflowConfigTable(Base):
     )  # RegexHuntScore threshold for auto-triggering workflows
 
     # Versioning and audit
-    version = Column(Integer, nullable=False, default=1)
+    version = Column(Integer, nullable=False, default=1, index=True)
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     description = Column(Text, nullable=True)
 
@@ -509,8 +512,8 @@ class AgenticWorkflowConfigTable(Base):
     # e.g., {"OSDetectionAgent": true, "RankAgent": false, "ExtractAgent": true, "SigmaAgent": true}
     qa_enabled = Column(JSONB, nullable=True)
 
-    # SIGMA Agent content source: if True, use filtered_content (full article minus junk) instead of extracted observables
-    # Default False (use extracted observables summary - SIGMA only generates from extraction_result.content)
+    # SIGMA Agent content source: if True, use filtered_content (full article minus junk)
+    # instead of extracted observables. Default False (use extraction_result.content).
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
 
     # OS Detection fallback LLM: if True, use configured fallback model when embedding confidence is low
@@ -575,7 +578,10 @@ class AgenticWorkflowExecutionTable(Base):
     article = relationship("ArticleTable", backref="workflow_executions")
 
     def __repr__(self):
-        return f"<AgenticWorkflowExecution(id={self.id}, article_id={self.article_id}, status='{self.status}', step='{self.current_step}')>"
+        return (
+            f"<AgenticWorkflowExecution(id={self.id}, article_id={self.article_id}, "
+            f"status='{self.status}', step='{self.current_step}')>"
+        )
 
 
 class SigmaRuleQueueTable(Base):
@@ -699,7 +705,11 @@ class ObservableModelMetricsTable(Base):
     __table_args__ = ()
 
     def __repr__(self):
-        return f"<ObservableModelMetrics(id={self.id}, model='{self.model_name}', version='{self.model_version}', type='{self.observable_type}', usage='{self.dataset_usage}', metric='{self.metric_name}')>"
+        return (
+            f"<ObservableModelMetrics(id={self.id}, model='{self.model_name}', "
+            f"version='{self.model_version}', type='{self.observable_type}', "
+            f"usage='{self.dataset_usage}', metric='{self.metric_name}')>"
+        )
 
 
 class ObservableEvaluationFailureTable(Base):
@@ -731,7 +741,11 @@ class ObservableEvaluationFailureTable(Base):
     article = relationship("ArticleTable", backref="observable_evaluation_failures")
 
     def __repr__(self):
-        return f"<ObservableEvaluationFailure(id={self.id}, model='{self.model_name}', version='{self.model_version}', article_id={self.article_id}, failure_type='{self.failure_type}')>"
+        return (
+            f"<ObservableEvaluationFailure(id={self.id}, model='{self.model_name}', "
+            f"version='{self.model_version}', article_id={self.article_id}, "
+            f"failure_type='{self.failure_type}')>"
+        )
 
 
 class SubagentEvaluationTable(Base):
@@ -769,7 +783,11 @@ class SubagentEvaluationTable(Base):
     workflow_config = relationship("AgenticWorkflowConfigTable", backref="subagent_evaluations")
 
     def __repr__(self):
-        return f"<SubagentEvaluation(id={self.id}, subagent='{self.subagent_name}', url='{self.article_url[:50]}...', score={self.score})>"
+        url_preview = self.article_url[:50] + "..." if len(self.article_url) > 50 else self.article_url
+        return (
+            f"<SubagentEvaluation(id={self.id}, subagent='{self.subagent_name}', "
+            f"url='{url_preview}', score={self.score})>"
+        )
 
 
 class EvalPresetSnapshotTable(Base):
@@ -794,7 +812,10 @@ class EvalPresetSnapshotTable(Base):
     description = Column(Text, nullable=True)
 
     def __repr__(self):
-        return f"<EvalPresetSnapshot(id={self.id}, original_preset_id={self.original_preset_id}, version={self.original_preset_version})>"
+        return (
+            f"<EvalPresetSnapshot(id={self.id}, original_preset_id={self.original_preset_id}, "
+            f"version={self.original_preset_version})>"
+        )
 
 
 class EvalRunTable(Base):
@@ -832,7 +853,10 @@ class EvalRunTable(Base):
     preset_snapshot = relationship("EvalPresetSnapshotTable", backref="eval_runs")
 
     def __repr__(self):
-        return f"<EvalRun(id={self.id}, status='{self.status}', completed_items={self.completed_items}/{self.total_items})>"
+        return (
+            f"<EvalRun(id={self.id}, status='{self.status}', "
+            f"completed_items={self.completed_items}/{self.total_items})>"
+        )
 
 
 class EnrichmentPromptVersionTable(Base):

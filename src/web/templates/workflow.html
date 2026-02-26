@@ -1405,8 +1405,16 @@
                         <button type="button" onclick="closeConfigVersionListModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
                     </div>
                     <p class="text-sm text-gray-400 mb-3">Load a full config (thresholds, models, QA, prompts) from a prior version into the form. Save to make it active.</p>
+                    <form class="mb-3 flex gap-2" onsubmit="applyConfigVersionSearch(); return false;" autocomplete="off">
+                        <input type="text" id="configVersionSearchInput" placeholder="Version number or description..." class="flex-1 px-3 py-2 rounded border border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" />
+                        <button type="submit" class="px-4 py-2 rounded border border-gray-500 bg-gray-600 hover:bg-gray-500 text-gray-200 font-medium">Search</button>
+                    </form>
+                    <p id="configVersionSearchHint" class="text-xs text-gray-500 mb-2 hidden"></p>
                     <div id="configVersionList" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         <!-- Version items will be populated here -->
+                    </div>
+                    <div id="configVersionListPagination" class="mt-3 pt-3 border-t border-gray-600 flex items-center justify-between gap-4 flex-wrap min-h-[2.5rem]">
+                        <!-- Pagination: summary and Prev/Next -->
                     </div>
                     <div class="mt-4 flex justify-end">
                         <button type="button" onclick="closeConfigVersionListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
@@ -1516,6 +1524,16 @@
                 </select>
                 <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="px-3 py-2 w-28 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white placeholder-gray-500" onkeydown="if(event.key==='Enter')filterExecutions()">
                 <button onclick="filterExecutions()" class="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-gray-100 rounded-md text-sm">Apply</button>
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <span class="select-none">Rows</span>
+                    <select id="executionsPerPage" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" title="Rows per page">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
+                </label>
             </div>
             <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hidden" aria-hidden="true">
@@ -3938,7 +3956,8 @@ function applyProviderSelections(models) {
     // This ensures dropdowns are populated even when provider is already set to LMStudio
     const subAgentMap = {
         'cmdlineextract': 'CmdlineExtract',
-        'proctreeextract': 'ProcTreeExtract'
+        'proctreeextract': 'ProcTreeExtract',
+        'huntqueriesextract': 'HuntQueriesExtract'
     };
     
     Object.entries(subAgentMap).forEach(([prefix, agentName]) => {
@@ -3985,8 +4004,6 @@ if (typeof window !== 'undefined') {
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
 
-        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
-
         ['openai', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
@@ -3996,22 +4013,6 @@ if (typeof window !== 'undefined') {
             const currentModelFromDOM = existingInput?.value || '';
             const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
             const currentModel = currentModelFromDOM || currentModelFromConfig;
-
-            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            if (catalog.length > 0) {
-                const options = catalog.map(modelId => {
-                    const selected = modelId === currentModel ? 'selected' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
-                }).join('');
-                container.innerHTML = `
-                    <select id="${agentPrefix}-model-${p}"
-                            name="agent_models[${mapEntry.modelKey}]"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        ${options}
-                    </select>
-                `;
-                return;
-            }
 
             if (typeof buildCommercialProviderInput === 'function') {
                 container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
@@ -4040,8 +4041,6 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
 
-        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
-
         ['openai', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
@@ -4051,23 +4050,6 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
             const currentModelFromDOM = existingInput?.value || '';
             const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
             const currentModel = currentModelFromDOM || currentModelFromConfig;
-
-            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            // __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
-            if (catalog.length > 0) {
-                const options = catalog.map(modelId => {
-                    const selected = modelId === currentModel ? 'selected' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
-                }).join('');
-                container.innerHTML = `
-                    <select id="${agentPrefix}-model-${p}"
-                            name="agent_models[${mapEntry.modelKey}]"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        ${options}
-                    </select>
-                `;
-                return;
-            }
 
             if (typeof buildCommercialProviderInput === 'function') {
                 container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
@@ -4124,7 +4106,8 @@ function onAgentProviderChange(agentPrefix) {
         // Repopulate LMStudio model dropdown for sub-agents
         const subAgentMap = {
             'cmdlineextract': 'CmdlineExtract',
-            'proctreeextract': 'ProcTreeExtract'
+            'proctreeextract': 'ProcTreeExtract',
+            'huntqueriesextract': 'HuntQueriesExtract'
         };
         const agentName = subAgentMap[agentPrefix];
         if (agentName && typeof repopulateSubAgentModelDropdown === 'function') {
@@ -7722,7 +7705,7 @@ function getFullPresetState(scope = null) {
         extract_agent_settings: {
             disabled_agents: disabled_agents
         },
-        agent_prompts: agentPrompts || {}
+        agent_prompts: formState.agent_prompts || {}
     };
     
     return preset;
@@ -7878,9 +7861,49 @@ function closeConfigVersionListModal() {
     popModal();
 }
 
-async function refreshConfigVersionList() {
+function _configVersionListRenderItems(versions, listEl) {
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    versions.forEach(v => {
+        const item = document.createElement('div');
+        item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+        const updatedStr = new Date(v.updated_at).toLocaleString();
+        const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
+        item.innerHTML = `
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
+                        ${activeBadge}
+                    </div>
+                    ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
+                </div>
+                <div class="flex space-x-2 ml-4">
+                    <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
+                </div>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+}
+
+function applyConfigVersionSearch() {
+    // Fetch first page of search results from API (search spans all versions)
+    refreshConfigVersionList(0);
+}
+
+async function refreshConfigVersionList(offset = 0) {
+    const pageSize = 50;
+    const searchInput = document.getElementById('configVersionSearchInput');
+    const searchQ = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
+    // Only clear search input when opening modal (offset 0 and no search); do not clear when paging
+    const hintEl = document.getElementById('configVersionSearchHint');
+    if (hintEl) hintEl.classList.add('hidden');
     try {
-        const response = await fetch('/api/workflow/config/versions');
+        let url = `/api/workflow/config/versions?limit=${pageSize}&offset=${offset}&total_estimate=1`;
+        if (searchQ) url += '&q=' + encodeURIComponent(searchQ);
+        const response = await fetch(url);
         let data;
         try {
             data = await response.json();
@@ -7892,34 +7915,46 @@ async function refreshConfigVersionList() {
             throw new Error(errorMsg);
         }
         const listEl = document.getElementById('configVersionList');
+        const paginationEl = document.getElementById('configVersionListPagination');
         if (!listEl) return;
         listEl.innerHTML = '';
         if (!data.versions || data.versions.length === 0) {
-            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No config versions found.</p>';
+            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">' + (searchQ ? 'No config versions match your search.' : 'No config versions found.') + '</p>';
+            if (paginationEl) paginationEl.innerHTML = '';
+            window._configVersionPageData = null;
             return;
         }
-        data.versions.forEach(v => {
-            const item = document.createElement('div');
-            item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
-            const updatedStr = new Date(v.updated_at).toLocaleString();
-            const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
-            item.innerHTML = `
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
-                            ${activeBadge}
-                        </div>
-                        ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
-                    </div>
-                    <div class="flex space-x-2 ml-4">
-                        <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
-                    </div>
-                </div>
-            `;
-            listEl.appendChild(item);
-        });
+        window._configVersionPageData = {
+            versions: data.versions,
+            offset,
+            total: data.total != null ? data.total : data.versions.length,
+            totalLabel: data.total_is_estimate ? `~${data.total != null ? data.total : data.versions.length}` : (data.total != null ? data.total : data.versions.length),
+            totalIsEstimate: !!data.total_is_estimate,
+            pageSize,
+            searchQ: searchQ || null,
+        };
+        _configVersionListRenderItems(data.versions, listEl);
+        const total = window._configVersionPageData.total;
+        const from = offset + 1;
+        const to = offset + data.versions.length;
+        const showNext = offset + data.versions.length < total || data.versions.length === pageSize;
+        if (paginationEl) {
+            const totalLabel = window._configVersionPageData.totalIsEstimate ? `~${total}` : total;
+            let html = `<span class="text-sm text-gray-500 dark:text-gray-400">Showing ${from}&ndash;${to} of ${totalLabel}</span>`;
+            html += '<div class="flex gap-2">';
+            if (offset > 0) {
+                const prevOffset = Math.max(0, offset - pageSize);
+                html += `<button type="button" onclick="refreshConfigVersionList(${prevOffset})" class="px-3 py-1.5 text-sm font-medium text-gray-200 bg-gray-600 hover:bg-gray-500 border border-gray-500 rounded">Previous</button>`;
+            }
+            if (showNext) {
+                const nextOffset = offset + pageSize;
+                html += `<button type="button" onclick="refreshConfigVersionList(${nextOffset})" class="px-3 py-1.5 text-sm font-medium text-gray-200 bg-gray-600 hover:bg-gray-500 border border-gray-500 rounded">Next</button>`;
+            }
+            html += '</div>';
+            paginationEl.innerHTML = html;
+            paginationEl.classList.remove('hidden');
+        }
+        // Search is applied only when user clicks Search button (no oninput)
     } catch (error) {
         console.error('Error refreshing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -7929,8 +7964,10 @@ async function refreshConfigVersionList() {
 
 async function showConfigVersionList() {
     try {
+        const searchInput = document.getElementById('configVersionSearchInput');
+        if (searchInput) searchInput.value = '';
         pushModal('configVersionListModal', true);
-        await refreshConfigVersionList();
+        await refreshConfigVersionList(0);
     } catch (error) {
         console.error('Error showing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -8169,6 +8206,12 @@ async function applyPreset(preset) {
             applySubAgentPreset(preset);
             return;
         }
+        // Merge preset into currentConfig first so code that reads from currentConfig (e.g. updateQAStateForSubagent
+        // when extract toggles fire) sees preset values and does not overwrite checkboxes we are about to set.
+        if (preset.qa_enabled && typeof preset.qa_enabled === 'object') {
+            if (!currentConfig || typeof currentConfig !== 'object') currentConfig = {};
+            currentConfig.qa_enabled = { ...(currentConfig.qa_enabled || {}), ...preset.qa_enabled };
+        }
         // Apply thresholds
         if (preset.thresholds) {
             const junkFilterInput = document.getElementById('junkFilterThreshold');
@@ -8328,6 +8371,13 @@ async function applyPreset(preset) {
             agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
             renderAgentPrompts();
             console.log('✅ Agent prompts loaded from preset. Click Save to make this config active.');
+        }
+        
+        // Merge threshold fields that have no form inputs so they are sent on next Save
+        if (preset.min_hunt_score !== undefined || preset.auto_trigger_hunt_score_threshold !== undefined) {
+            if (!currentConfig || typeof currentConfig !== 'object') currentConfig = {};
+            if (preset.min_hunt_score !== undefined) currentConfig.min_hunt_score = preset.min_hunt_score;
+            if (preset.auto_trigger_hunt_score_threshold !== undefined) currentConfig.auto_trigger_hunt_score_threshold = preset.auto_trigger_hunt_score_threshold;
         }
         
         // Trigger auto-save handlers to update UI state
@@ -9064,7 +9114,16 @@ function getCurrentFormState() {
     // Special handling for OS Detection embedding (not in AGENT_CONFIG)
     const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
     if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
-    
+
+    // Target Operating Systems (not in AGENT_CONFIG) — include in preset for export/import
+    const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
+    const selectedOS = Array.from(osCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+    if (selectedOS.length > 0) {
+        agent_models.OSDetectionAgent_selected_os = selectedOS;
+    } else {
+        agent_models.OSDetectionAgent_selected_os = ['Windows'];
+    }
+
     // OS Detection fallback is already handled by collectAllAgentConfigs via AGENT_CONFIG
 
     const qaModelFields = [
@@ -9857,13 +9916,18 @@ async function loadExecutions() {
         const statusFilterEl = document.getElementById('statusFilter');
         const stepFilterEl = document.getElementById('stepFilter');
         const articleIdEl = document.getElementById('articleIdFilter');
+        const perPageEl = document.getElementById('executionsPerPage');
+        const savedPerPage = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('workflow_executions_per_page');
+        if (perPageEl && savedPerPage && ['25','50','100','200','500'].includes(savedPerPage)) perPageEl.value = savedPerPage;
         const statusFilter = statusFilterEl ? statusFilterEl.value : '';
         const stepFilter = stepFilterEl ? stepFilterEl.value : '';
         const articleId = articleIdEl && articleIdEl.value.trim() ? parseInt(articleIdEl.value.trim(), 10) : null;
+        const limit = perPageEl ? parseInt(perPageEl.value, 10) : 50;
         const params = new URLSearchParams();
         if (statusFilter) params.set('status', statusFilter);
         if (stepFilter) params.set('step', stepFilter);
         if (articleId && !isNaN(articleId)) params.set('article_id', articleId);
+        params.set('limit', String(limit));
         params.set('sort_by', executionSortState.sortBy);
         params.set('sort_order', executionSortState.sortOrder);
         const url = `/api/workflow/executions?${params.toString()}`;
@@ -11229,6 +11293,8 @@ document.addEventListener('keydown', function(e) {
 });
 
 function filterExecutions() {
+    const perPageEl = document.getElementById('executionsPerPage');
+    if (perPageEl && typeof sessionStorage !== 'undefined') sessionStorage.setItem('workflow_executions_per_page', perPageEl.value);
     loadExecutions();
 }
 

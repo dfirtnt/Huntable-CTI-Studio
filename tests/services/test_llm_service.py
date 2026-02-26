@@ -174,11 +174,14 @@ class TestLLMService:
     async def test_request_chat_error_handling(self, service):
         """Test error handling in chat request."""
         with patch("httpx.AsyncClient") as mock_client_class:
+            # Code uses client = AsyncClient() then await client.post(...) (no context manager).
+            # So the instance used is return_value; post must be an AsyncMock so await works.
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=Exception("API error"))
-            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.post = AsyncMock(side_effect=RuntimeError("API error"))
+            mock_client.aclose = AsyncMock()  # finally block awaits client.aclose()
+            mock_client_class.return_value = mock_client
 
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError, match="API error"):
                 await service.request_chat(
                     provider="lmstudio",
                     model_name="test-model",
@@ -468,3 +471,36 @@ class TestNewlineInvariantGuard:
                     attention_preprocessor_enabled=True,
                 )
                 assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_empty_llm_response_raises_preprocess_invariant_error(self, llm_service):
+        """Empty/whitespace model text must be classified as infra failure."""
+        content = "line1\nline2\nline3\n" + "x" * (MIN_USER_CONTENT_CHARS - 20)
+        with patch("src.services.cmdline_attention_preprocessor.process") as mock_process:
+            mock_process.return_value = {
+                "high_likelihood_snippets": [],
+                "full_article": content,
+            }
+            with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {
+                    "choices": [{"message": {"content": "   "}}],
+                    "usage": {},
+                }
+                with pytest.raises(PreprocessInvariantError, match="empty LLM response text"):
+                    await llm_service.run_extraction_agent(
+                        agent_name="CmdlineExtract",
+                        content=content,
+                        title="Test",
+                        url="https://example.com",
+                        prompt_config={
+                            "role": "You are an extractor.",
+                            "user_template": (
+                                "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\n"
+                                "JSON: {json_example}\nInstructions: {instructions}"
+                            ),
+                            "task": "Extract",
+                            "instructions": "Output JSON",
+                            "json_example": "{}",
+                        },
+                        attention_preprocessor_enabled=True,
+                    )

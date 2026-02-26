@@ -23,6 +23,9 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
+"tests/conftest.py" = ["E402"]
+"src/cli/main.py" = ["E402"]
+"src/worker/celery_app.py" = ["E402", "E501", "RET504", "SIM105", "B905", "B904", "F841"]
 
 [tool.ruff.format]
 # Use ruff as the formatter (enabled by default when ruff is installed)

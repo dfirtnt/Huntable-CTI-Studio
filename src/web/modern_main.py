@@ -17,6 +17,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import src.utils.nltk_security_patch  # noqa: F401 - CVE-2025-14009 patch before any nltk use
 from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates

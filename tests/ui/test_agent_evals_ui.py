@@ -54,7 +54,8 @@ def test_load_dataset_articles(page: Page):
     article_list = page.locator("#articleList")
     expect(article_list).to_be_visible()
 
-    # Check for either articles or "No articles" message (loadEvalArticles: "No eval articles found..."; legacy: "No articles found in dataset")
+    # Check for either articles or "No articles" message
+    # (loadEvalArticles: "No eval articles found..."; legacy: "No articles found in dataset")
     has_articles = page.locator("#articleList input[type='checkbox']").count() > 0
     has_no_articles_msg = (
         page.get_by_text("No eval articles found", exact=False).is_visible()
@@ -131,8 +132,9 @@ def _click_load_previous_results_and_wait(page: Page) -> None:
     page.click("#loadPreviousResultsBtn")
     with contextlib.suppress(Exception):
         page.wait_for_response(
-            lambda r: "/api/evaluations/subagent-eval-results" in r.url
-            or "/api/evaluations/subagent-eval-aggregate" in r.url,
+            lambda r: (
+                "/api/evaluations/subagent-eval-results" in r.url or "/api/evaluations/subagent-eval-aggregate" in r.url
+            ),
             timeout=15000,
         )
     page.wait_for_timeout(1500)

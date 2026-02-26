@@ -5,6 +5,7 @@ Generates evaluation-ready JSON bundles for LLM generation attempts.
 Source of truth: Postgres DB + internal tracing (Langfuse).
 """
 
+import contextlib
 import hashlib
 import json
 import logging
@@ -263,6 +264,12 @@ class EvalBundleService:
             execution_context["infra_failed_reason"] = "messages empty but execution marked completed"
             bundle["execution_context"] = execution_context
             bundle["infra_failed"] = True  # Top-level for scoring consumers
+            if isinstance(workflow_meta, dict):
+                if "evaluation_score" in workflow_meta:
+                    workflow_meta.pop("evaluation_score", None)
+                    warnings.append("EVAL_SCORE_SUPPRESSED_DUE_TO_INFRA_FAILURE")
+                if workflow_meta.get("evaluation_status") == "completed":
+                    workflow_meta["evaluation_status"] = "failed"
 
         # Add config snapshot
         if config_snapshot:
@@ -317,10 +324,7 @@ class EvalBundleService:
 
         if not agent_log or not isinstance(agent_log, dict):
             # Provide helpful error message
-            if isinstance(error_log, dict):
-                available_keys = list(error_log.keys())
-            else:
-                available_keys = []
+            available_keys = list(error_log.keys()) if isinstance(error_log, dict) else []
             error_msg = f"AGENT_LOG_MISSING: {log_key}. Available keys in error_log: {available_keys}"
             warnings.append(error_msg)
             logger.warning(f"Execution {execution.id}: {error_msg}")
@@ -724,7 +728,6 @@ class EvalBundleService:
             try:
                 # Try querying by session_id first (preferred method)
                 generations = None
-                query_method = None
 
                 try:
                     generations = client.api.generations.list(
@@ -732,7 +735,6 @@ class EvalBundleService:
                         limit=100,  # Get enough to find our agent
                         order_by="timestamp.desc",
                     )
-                    query_method = "session_id"
                     logger.debug(f"Langfuse API call by session_id completed, response type: {type(generations)}")
                 except Exception as session_query_error:
                     logger.warning(f"Failed to query Langfuse by session_id {session_id}: {session_query_error}")
@@ -743,7 +745,6 @@ class EvalBundleService:
                             generations = client.api.generations.list(
                                 trace_id=trace_id, limit=100, order_by="timestamp.desc"
                             )
-                            query_method = "trace_id"
                             logger.debug("Langfuse API call by trace_id completed")
                         except Exception as trace_query_error:
                             logger.warning(f"Failed to query Langfuse by trace_id {trace_id}: {trace_query_error}")
@@ -774,7 +775,6 @@ class EvalBundleService:
                                         self.data = data
 
                                 generations = MockResponse(filtered)
-                                query_method = "manual_filter"
                                 logger.debug(
                                     f"Manually filtered to {len(filtered)} generations matching session_id or trace_id"
                                 )
@@ -800,10 +800,7 @@ class EvalBundleService:
                     if not isinstance(gen_metadata, dict):
                         # metadata might be a string or other type
                         try:
-                            if isinstance(gen_metadata, str):
-                                gen_metadata = json.loads(gen_metadata)
-                            else:
-                                gen_metadata = {}
+                            gen_metadata = json.loads(gen_metadata) if isinstance(gen_metadata, str) else {}
                         except (json.JSONDecodeError, TypeError):
                             gen_metadata = {}
 
@@ -966,8 +963,8 @@ class EvalBundleService:
             config_snapshot = {}
 
         # Get prompt versions from config
-        agent_prompts = config_snapshot.get("agent_prompts", {}) if isinstance(config_snapshot, dict) else {}
-        workflow_config_version = config_snapshot.get("config_version") if isinstance(config_snapshot, dict) else None
+        config_snapshot.get("agent_prompts", {}) if isinstance(config_snapshot, dict) else {}
+        config_snapshot.get("config_version") if isinstance(config_snapshot, dict) else None
 
         return {
             "execution_id": str(execution.id),
@@ -1314,10 +1311,8 @@ class EvalBundleService:
                     if isinstance(extract_config, dict):
                         agent_model_config = extract_config
                     elif isinstance(extract_config, str):
-                        try:
+                        with contextlib.suppress(json.JSONDecodeError, TypeError):
                             agent_model_config = json.loads(extract_config)
-                        except (json.JSONDecodeError, TypeError):
-                            pass
 
                 if agent_model_config:
                     filtered_config["agent_models"] = {agent_name: agent_model_config}
@@ -1336,16 +1331,15 @@ class EvalBundleService:
 
         # Include only the relevant agent's prompt config
         agent_prompts = config_snapshot.get("agent_prompts", {})
-        if isinstance(agent_prompts, dict):
-            if config_key in agent_prompts:
-                prompt_config = agent_prompts[config_key]
-                if isinstance(prompt_config, dict):
-                    filtered_config["agent_prompts"] = {config_key: prompt_config}
-                elif isinstance(prompt_config, str):
-                    try:
-                        parsed_prompt = json.loads(prompt_config)
-                        filtered_config["agent_prompts"] = {config_key: parsed_prompt}
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+        if isinstance(agent_prompts, dict) and config_key in agent_prompts:
+            prompt_config = agent_prompts[config_key]
+            if isinstance(prompt_config, dict):
+                filtered_config["agent_prompts"] = {config_key: prompt_config}
+            elif isinstance(prompt_config, str):
+                try:
+                    parsed_prompt = json.loads(prompt_config)
+                    filtered_config["agent_prompts"] = {config_key: parsed_prompt}
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
         return filtered_config if filtered_config else None

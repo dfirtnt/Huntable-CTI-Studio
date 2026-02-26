@@ -184,7 +184,7 @@ class TestEvalRunner:
                         return_value={"id": "exp-1", "name": "test-exp"},
                     ),
                 ):
-                    runner.run_evaluation(
+                    result = runner.run_evaluation(
                         eval_run_id=sample_eval_run.id,
                         snapshot_id=sample_snapshot.id,
                         dataset_name="test-dataset",
@@ -196,3 +196,7 @@ class TestEvalRunner:
                 assert call_kwargs.get("execution_error") is False
                 assert "infra_debug_artifacts" in call_kwargs
                 assert call_kwargs["infra_debug_artifacts"] == debug_artifacts
+                assert result["infra_failed_items"] == 1
+                assert result["scored_items"] == 0
+                assert result["execution_errors"] == 0
+                assert result["mean_count_diff"] == 0.0

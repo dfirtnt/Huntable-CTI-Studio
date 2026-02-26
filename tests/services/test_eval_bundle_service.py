@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.database.models import AgenticWorkflowExecutionTable, ArticleTable
+from src.database.models import AgenticWorkflowExecutionTable, ArticleTable, SubagentEvaluationTable
 from src.services.eval_bundle_service import EvalBundleService
 
 pytestmark = pytest.mark.unit
@@ -41,6 +41,12 @@ class TestEvalBundleIllegalState:
         execution.error_message = None
         execution.extraction_result = {}
 
+        subagent_eval = Mock()
+        subagent_eval.expected_count = 4
+        subagent_eval.actual_count = 0
+        subagent_eval.score = -4
+        subagent_eval.status = "completed"
+
         # Mock article
         article = Mock()
         article.content = "Test article content"
@@ -60,6 +66,8 @@ class TestEvalBundleIllegalState:
                 f.first.return_value = execution
             elif model == ArticleTable:
                 f.first.return_value = article
+            elif model == SubagentEvaluationTable:
+                f.first.return_value = subagent_eval
             else:
                 f.first.return_value = None
             q.filter.return_value = f
@@ -75,6 +83,9 @@ class TestEvalBundleIllegalState:
         assert bundle.get("infra_failed") is True
         assert bundle["execution_context"]["infra_failed"] is True
         assert bundle["execution_context"]["infra_failed_reason"] == "messages empty but execution marked completed"
+        assert "EVAL_SCORE_SUPPRESSED_DUE_TO_INFRA_FAILURE" in bundle["integrity"]["warnings"]
+        assert "evaluation_score" not in bundle["workflow"]
+        assert bundle["workflow"].get("evaluation_status") == "failed"
 
     def test_valid_messages_completed_status_does_not_set_infra_failed(self):
         """Bundle with valid messages and status=completed must NOT have infra_failed (negative case)."""

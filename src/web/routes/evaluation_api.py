@@ -57,6 +57,33 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
+def _is_unscorable_eval_agent_result(agent_result: dict | None) -> tuple[bool, str | None]:
+    """
+    Determine whether a direct eval extraction result should be treated as failed/unscorable.
+
+    This protects eval rows from being marked completed when the LLM call failed or returned
+    an infrastructure-classified result.
+    """
+    if not isinstance(agent_result, dict):
+        return True, "agent_result missing or invalid"
+
+    raw = agent_result.get("raw", {})
+    if not isinstance(raw, dict):
+        raw = {}
+
+    if bool(agent_result.get("infra_failed")) or bool(raw.get("infra_failed")):
+        return True, agent_result.get("error") or raw.get("infra_failed_reason") or "infra_failed"
+
+    if agent_result.get("connection_error"):
+        return True, agent_result.get("error") or "connection_error"
+
+    # run_extraction_agent uses a top-level error for parsing/LLM failures; do not score these as zero.
+    if agent_result.get("error"):
+        return True, str(agent_result.get("error"))
+
+    return False, None
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -128,6 +155,27 @@ def _load_preset_expected_by_url(subagent: str) -> dict[str, int]:
         url = a.get("url")
         if url is not None:
             out[url] = a.get("expected_count", 0) if a.get("expected_count") is not None else 0
+    return out
+
+
+def _get_preset_urls_ordered(subagent: str) -> list[tuple[str, str]]:
+    """Return list of (normalized_url, original_url) for preset eval articles, in order (one per preset entry)."""
+    config_path = _ROOT / "config" / "eval_articles.yaml"
+    if not config_path.exists():
+        return []
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+    subagents = config.get("subagents", {})
+    canonical, _ = _resolve_subagent_query(subagent)
+    key = canonical if canonical in subagents else subagent
+    articles = subagents.get(key, [])
+    if not isinstance(articles, list):
+        return []
+    out = []
+    for a in articles:
+        url = a.get("url")
+        if url:
+            out.append((_normalize_eval_url(url), url))
     return out
 
 
@@ -650,6 +698,20 @@ def resolve_article_by_url(url: str) -> int | None:
     return mapping.get(url)
 
 
+def _normalize_eval_url(url: str | None) -> str:
+    """Normalize URL for grouping: strip query/fragment and trailing slash."""
+    if not url or not url.strip():
+        return ""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url.strip())
+        path = parsed.path.rstrip("/") or "/"
+        return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+    except Exception:
+        return url.strip().rstrip("/")
+
+
 def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
     """
     Resolve multiple article URLs to article IDs in one session with batch queries.
@@ -708,13 +770,25 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
             for url in missing:
                 parsed = urlparse(url)
                 normalized = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
-                if normalized == url:
-                    continue
-                article = (
-                    db_session.query(ArticleTable).filter(ArticleTable.canonical_url.like(f"{normalized}%")).first()
-                )
-                if article:
-                    result[url] = article.id
+                path_rstrip = parsed.path.rstrip("/") or "/"
+                normalized_no_trailing = urlunparse((parsed.scheme, parsed.netloc, path_rstrip, "", "", ""))
+                for candidate in (normalized, normalized_no_trailing):
+                    if not candidate or candidate in result:
+                        continue
+                    article = (
+                        db_session.query(ArticleTable).filter(ArticleTable.canonical_url.like(f"{candidate}%")).first()
+                    )
+                    if article:
+                        result[url] = article.id
+                        break
+                if url not in result and (normalized_no_trailing + "/") != normalized:
+                    article = (
+                        db_session.query(ArticleTable)
+                        .filter(ArticleTable.canonical_url.like(f"{normalized_no_trailing}/%"))
+                        .first()
+                    )
+                    if article:
+                        result[url] = article.id
 
             return result
         finally:
@@ -928,6 +1002,28 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 or agent_models.get("ExtractAgent_provider"),
                                 attention_preprocessor_enabled=True,
                             )
+                            unscorable, unscorable_reason = _is_unscorable_eval_agent_result(agent_result or {})
+                            if unscorable:
+                                logger.warning(
+                                    "Static eval unscorable for %s (%s): %s",
+                                    url[:50],
+                                    canonical_subagent_name,
+                                    unscorable_reason,
+                                )
+                                eval_record = SubagentEvaluationTable(
+                                    subagent_name=canonical_subagent_name,
+                                    article_url=url,
+                                    article_id=None,
+                                    expected_count=expected_count,
+                                    workflow_config_id=active_config.id,
+                                    workflow_config_version=active_config.version,
+                                    workflow_execution_id=None,
+                                    status="failed",
+                                    completed_at=datetime.utcnow(),
+                                )
+                                db_session.add(eval_record)
+                                eval_records.append(eval_record)
+                                continue
                             actual_count = _actual_count_from_agent_result(canonical_subagent_name, agent_result or {})
                             if actual_count is None:
                                 actual_count = 0
@@ -1082,12 +1178,21 @@ async def get_subagent_eval_results(
 
             eval_records = query.order_by(SubagentEvaluationTable.created_at.desc()).all()
 
-            # Batch-fetch article titles for records with article_id
-            article_ids = [
-                r.article_id
-                for r in eval_records
-                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
-            ]
+            # Resolve article_id for records that have article_url but no article_id (e.g. static evals)
+            # so the frontend can group by article and avoid duplicate rows.
+            urls_without_id = [r.article_url for r in eval_records if r.article_url and r.article_id is None]
+            url_to_resolved_id: dict[str, int] = {}
+            if urls_without_id:
+                url_to_resolved_id = resolve_articles_by_urls(list(set(urls_without_id)))
+
+            # Batch-fetch article titles for records with article_id (including resolved from URL)
+            article_ids = []
+            for r in eval_records:
+                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS:
+                    article_ids.append(r.article_id)
+                elif r.article_url and url_to_resolved_id.get(r.article_url) is not None:
+                    article_ids.append(url_to_resolved_id[r.article_url])
+            article_ids = list(set(article_ids))
             id_to_title: dict[int, str] = {}
             if article_ids:
                 rows = (
@@ -1135,12 +1240,18 @@ async def get_subagent_eval_results(
                 if actual_count is not None:
                     score = actual_count - record.expected_count
 
+                resolved_article_id = (
+                    record.article_id
+                    if record.article_id is not None
+                    else url_to_resolved_id.get(record.article_url or "")
+                )
+
                 results.append(
                     {
                         "id": record.id,
                         "url": record.article_url,
                         "title": _title_for_record(record) or None,
-                        "article_id": record.article_id,
+                        "article_id": resolved_article_id if resolved_article_id is not None else record.article_id,
                         "subagent_name": record.subagent_name,  # Include subagent_name for filtering
                         "expected_count": record.expected_count,
                         "actual_count": actual_count,
@@ -1155,7 +1266,168 @@ async def get_subagent_eval_results(
                     }
                 )
 
-            return {"subagent": canonical_subagent, "results": results, "total": len(results)}
+            # Group by article so UI shows one row per article (no duplicates).
+            # When preset URLs exist, key by preset index so we get exactly one row per preset article.
+            preset_urls = _get_preset_urls_ordered(canonical_subagent)
+            preset_norm_to_index: dict[str, int] = {}
+            for idx, (norm_u, _) in enumerate(preset_urls):
+                if norm_u and norm_u not in preset_norm_to_index:
+                    preset_norm_to_index[norm_u] = idx
+
+            url_to_aid: dict[str, int] = {}
+            for r in results:
+                aid = r.get("article_id")
+                u = r.get("url")
+                if aid is not None and u:
+                    url_to_aid[_normalize_eval_url(u)] = aid
+
+            article_id_to_canonical: dict[int, str] = {}
+            aids = list({r.get("article_id") for r in results if r.get("article_id") is not None})
+            if aids and db_session:
+                rows = (
+                    db_session.query(ArticleTable.id, ArticleTable.canonical_url)
+                    .filter(ArticleTable.id.in_(aids))
+                    .all()
+                )
+                article_id_to_canonical = {r[0]: (r[1] or "") for r in rows if r[1]}
+
+            by_key: dict[str, dict] = {}
+            for r in results:
+                aid = r.get("article_id")
+                url = r.get("url") or ""
+                norm_url = _normalize_eval_url(url)
+                resolved_id = aid if aid is not None else url_to_aid.get(norm_url)
+                preset_idx = preset_norm_to_index.get(norm_url)
+                if preset_idx is None and resolved_id is not None:
+                    canon = article_id_to_canonical.get(resolved_id, "")
+                    if canon:
+                        preset_idx = preset_norm_to_index.get(_normalize_eval_url(canon))
+                if preset_idx is not None:
+                    key = f"preset:{preset_idx}"
+                elif resolved_id is not None:
+                    key = f"id:{resolved_id}"
+                else:
+                    key = f"url:{norm_url}" if norm_url else f"rec:{r.get('id')}"
+                if key not in by_key:
+                    by_key[key] = {
+                        "url": r.get("url"),
+                        "title": r.get("title"),
+                        "expected_count": r.get("expected_count", 0),
+                        "article_id": resolved_id,
+                        "versions": {},
+                    }
+                ver = r.get("config_version") or "unknown"
+                by_key[key]["versions"][str(ver)] = r
+                if r.get("title") and not (by_key[key].get("title") or "").strip():
+                    by_key[key]["title"] = r["title"]
+                if resolved_id is not None and by_key[key].get("article_id") is None:
+                    by_key[key]["article_id"] = resolved_id
+
+            # Merge id: and url: into preset: when they match a preset URL (one row per preset article).
+            norm_to_preset: dict[str, str] = {}
+            for k, row in list(by_key.items()):
+                if k.startswith("preset:"):
+                    u = row.get("url")
+                    if u:
+                        n = _normalize_eval_url(u)
+                        if n:
+                            norm_to_preset[n] = k
+                elif k.startswith("id:") and row.get("url"):
+                    n = _normalize_eval_url(row.get("url") or "")
+                    if n and preset_norm_to_index.get(n) is not None:
+                        idx = preset_norm_to_index[n]
+                        norm_to_preset[n] = f"preset:{idx}"
+            for k in list(by_key.keys()):
+                if k.startswith("url:"):
+                    norm_url = k[4:]
+                    pkey = norm_to_preset.get(norm_url)
+                    if pkey and pkey in by_key and pkey != k:
+                        by_key[pkey]["versions"].update(by_key[k]["versions"])
+                        if (by_key[k].get("title") or "").strip() and not (by_key[pkey].get("title") or "").strip():
+                            by_key[pkey]["title"] = by_key[k].get("title")
+                        del by_key[k]
+                elif k.startswith("id:"):
+                    row = by_key[k]
+                    u = row.get("url")
+                    n = _normalize_eval_url(u or "")
+                    if not n and row.get("article_id") is not None:
+                        n = _normalize_eval_url(article_id_to_canonical.get(row["article_id"], ""))
+                    pkey = norm_to_preset.get(n) if n else None
+                    if pkey and pkey in by_key and pkey != k:
+                        by_key[pkey]["versions"].update(by_key[k]["versions"])
+                        if (row.get("title") or "").strip() and not (by_key[pkey].get("title") or "").strip():
+                            by_key[pkey]["title"] = row.get("title")
+                        del by_key[k]
+
+            if preset_urls:
+                article_id_to_canonical: dict[int, str] = {}
+                aids = [r.get("article_id") for r in results if r.get("article_id") is not None]
+                aids = list(set(aids))
+                if aids and db_session:
+                    rows = (
+                        db_session.query(ArticleTable.id, ArticleTable.canonical_url)
+                        .filter(ArticleTable.id.in_(aids))
+                        .all()
+                    )
+                    article_id_to_canonical = {r[0]: (r[1] or "") for r in rows if r[1]}
+                for k, row in list(by_key.items()):
+                    if not k.startswith("preset:"):
+                        continue
+                    idx = int(k.split(":", 1)[1])
+                    orig_url = preset_urls[idx][1] if idx < len(preset_urls) else row.get("url")
+                    if orig_url and not row.get("url"):
+                        row["url"] = orig_url
+
+            articles = list(by_key.values())
+            if preset_urls:
+                preset_expected = _load_preset_expected_by_url(canonical_subagent)
+                ordered = []
+                for idx, (norm_u, orig_url) in enumerate(preset_urls):
+                    pkey = f"preset:{idx}"
+                    if pkey in by_key:
+                        ordered.append(by_key[pkey])
+                        continue
+                    merged = {
+                        "url": orig_url,
+                        "title": None,
+                        "expected_count": preset_expected.get(orig_url, 0),
+                        "article_id": None,
+                        "versions": {},
+                    }
+                    for _k, ex in by_key.items():
+                        u = ex.get("url")
+                        aid = ex.get("article_id")
+                        n = _normalize_eval_url(u or "")
+                        if not n and aid is not None:
+                            n = _normalize_eval_url(article_id_to_canonical.get(aid, ""))
+                        if n == norm_u:
+                            merged["url"] = merged["url"] or ex.get("url")
+                            if (ex.get("title") or "").strip():
+                                merged["title"] = merged["title"] or ex.get("title")
+                            merged["article_id"] = merged["article_id"] or ex.get("article_id")
+                            merged["expected_count"] = ex.get("expected_count", merged["expected_count"])
+                            for ver, res in (ex.get("versions") or {}).items():
+                                merged["versions"][ver] = res
+                    ordered.append(merged)
+                articles = ordered
+            if preset_urls and articles:
+
+                def _sort_key(row):
+                    url = row.get("url") or ""
+                    norm = _normalize_eval_url(url)
+                    for i, (pn, _) in enumerate(preset_urls):
+                        if pn == norm:
+                            return (0, i)
+                    return (1, url)
+
+                articles.sort(key=_sort_key)
+
+            return {
+                "subagent": canonical_subagent,
+                "results": results,
+                "total": len(results),
+                "articles": articles,
+            }
         finally:
             db_session.close()
     except Exception as e:
@@ -1733,7 +2005,7 @@ async def export_bundles_by_config_version(
                     SubagentEvaluationTable.subagent_name.in_(lookup_values),
                     SubagentEvaluationTable.workflow_config_version == config_version,
                     SubagentEvaluationTable.workflow_execution_id.isnot(None),
-                    SubagentEvaluationTable.status == "completed",
+                    SubagentEvaluationTable.status.in_(["completed", "failed"]),
                 )
                 .order_by(SubagentEvaluationTable.article_id.asc())
                 .all()
@@ -1742,7 +2014,7 @@ async def export_bundles_by_config_version(
             if not records:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No completed eval records for config version {config_version} and subagent {subagent}",
+                    detail=f"No eval records with executions for config version {config_version} and subagent {subagent}",
                 )
 
             bundle_service = EvalBundleService(db_session)

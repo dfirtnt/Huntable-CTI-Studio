@@ -98,6 +98,28 @@ test.describe('Workflow Config Binding Audit', () => {
     expect(promptHeaders.some(h => h.includes('OSDetectionAgent Prompt'))).toBe(true);
     expect(promptHeaders.some(h => h.includes('RankAgent Prompt'))).toBe(true);
     expect(promptHeaders.some(h => h.includes('SigmaAgent Prompt'))).toBe(true);
+
+    const commercialParity = await page.evaluate(() => {
+      const readOptions = (id: string) => {
+        const el = document.getElementById(id) as HTMLSelectElement | null;
+        if (!el || el.tagName !== 'SELECT') return null;
+        return Array.from(el.options).map(o => o.value);
+      };
+      return {
+        procTreeExtractOpenAI: readOptions('proctreeextract-model-openai'),
+        huntQueriesExtractOpenAI: readOptions('huntqueriesextract-model-openai'),
+        procTreeQAOpenAI: readOptions('proctreeqa-model-openai'),
+        huntQueriesQAOpenAI: readOptions('huntqueriesqa-model-openai'),
+        procTreeExtractAnthropic: readOptions('proctreeextract-model-anthropic'),
+        huntQueriesExtractAnthropic: readOptions('huntqueriesextract-model-anthropic'),
+        procTreeQAAnthropic: readOptions('proctreeqa-model-anthropic'),
+        huntQueriesQAAnthropic: readOptions('huntqueriesqa-model-anthropic')
+      };
+    });
+
+    expect(commercialParity.procTreeExtractOpenAI).toEqual(commercialParity.huntQueriesExtractOpenAI);
+    expect(commercialParity.procTreeQAOpenAI).toEqual(commercialParity.huntQueriesQAOpenAI);
+    expect(commercialParity.procTreeExtractAnthropic).toEqual(commercialParity.huntQueriesExtractAnthropic);
+    expect(commercialParity.procTreeQAAnthropic).toEqual(commercialParity.huntQueriesQAAnthropic);
   });
 });
-

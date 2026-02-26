@@ -17,6 +17,46 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PRESETS_DIR = REPO_ROOT / "config" / "presets" / "AgentConfigs"
+QUICKSTART_DIR = PRESETS_DIR / "quickstart"
+
+
+# V1 root key order for export (UI top-to-bottom): thresholds first (with junk first), then flags, then agent_models/prompts.
+V1_THRESHOLDS_ORDER = ["junk_filter_threshold", "ranking_threshold", "similarity_threshold"]
+V1_ROOT_ORDER = [
+    "version",
+    "created_at",
+    "description",
+    "thresholds",
+    "sigma_fallback_enabled",
+    "osdetection_fallback_enabled",
+    "rank_agent_enabled",
+    "cmdline_attention_preprocessor_enabled",
+    "qa_max_retries",
+    "extract_agent_settings",
+    "qa_enabled",
+    "agent_models",
+    "agent_prompts",
+    "scope",
+]
+
+
+def _order_v1_preset(preset: dict) -> dict:
+    """Return a new dict with v1 preset keys in canonical UI order for JSON serialization."""
+    ordered: dict = {}
+    thresholds = preset.get("thresholds") or {}
+    ordered_thresholds = {k: thresholds[k] for k in V1_THRESHOLDS_ORDER if k in thresholds}
+    for k, v in thresholds.items():
+        if k not in ordered_thresholds:
+            ordered_thresholds[k] = v
+    for key in V1_ROOT_ORDER:
+        if key == "thresholds":
+            ordered["thresholds"] = ordered_thresholds
+        elif key in preset:
+            ordered[key] = preset[key]
+    for key, value in preset.items():
+        if key not in ordered:
+            ordered[key] = value
+    return ordered
 
 
 def _defaults() -> dict:
@@ -30,6 +70,7 @@ def _defaults() -> dict:
             "similarity_threshold": 0.5,
         },
         "sigma_fallback_enabled": False,
+        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
         "qa_max_retries": 3,
@@ -243,18 +284,39 @@ def main() -> None:
         preset["agent_prompts"] = prompts
         preset["scope"] = "full"
         path = PRESETS_DIR / filename
-        path.write_text(json.dumps(preset, indent=2, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps(_order_v1_preset(preset), indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"Wrote {path}")
 
     if write_v2:
+        from src.config.workflow_config_loader import export_preset_as_canonical_v2
+
         schema_dir = REPO_ROOT / "config" / "schema"
         schema_dir.mkdir(parents=True, exist_ok=True)
         v2_preset = _build_v2_preset(baselines[0][1], baselines[0][2], agent_prompts=prompts)
         v2_preset["Metadata"] = v2_preset.get("Metadata") or {}
         v2_preset["Metadata"]["Description"] = baselines[0][1]
+        v2_ordered = export_preset_as_canonical_v2(v2_preset)
         v2_path = schema_dir / "workflow_config_v2_baseline_example.json"
-        v2_path.write_text(json.dumps(v2_preset, indent=2, ensure_ascii=False), encoding="utf-8")
+        v2_path.write_text(json.dumps(v2_ordered, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"Wrote v2 example {v2_path}")
+
+    # Update quickstart/*.json with canonical order and missing keys (e.g. osdetection_fallback_enabled)
+    if QUICKSTART_DIR.is_dir():
+        from src.config.workflow_config_loader import export_preset_as_canonical_v2
+
+        for jpath in sorted(QUICKSTART_DIR.glob("*.json")):
+            try:
+                data = json.loads(jpath.read_text(encoding="utf-8"))
+            except Exception as e:
+                print(f"Warning: skip {jpath}: {e}", file=sys.stderr)
+                continue
+            if data.get("Version") == "2.0" or data.get("version") == "1.0" or "thresholds" in data:
+                try:
+                    ordered = export_preset_as_canonical_v2(data)
+                    jpath.write_text(json.dumps(ordered, indent=2, ensure_ascii=False), encoding="utf-8")
+                    print(f"Updated (UI-ordered) {jpath.name}")
+                except Exception as e:
+                    print(f"Warning: skip {jpath.name}: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

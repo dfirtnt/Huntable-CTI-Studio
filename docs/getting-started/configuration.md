@@ -133,11 +133,15 @@ Pre-built workflow config presets with **all agent prompts included** are in the
 | `config/presets/AgentConfigs/chatgpt-4o-mini.json` | OpenAI | gpt-4o-mini | You have `OPENAI_API_KEY` or `CHATGPT_API_KEY` and want 4o-mini for all agents. |
 | `config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json` | LM Studio | Qwen 2.5 8B (local) | You run LM Studio with a model such as Qwen2.5-8B-Instruct and want to use it for all agents. |
 
+Tracked quickstart presets (v2 format) live in `config/presets/AgentConfigs/quickstart/` (e.g. `Quickstart-anthropic-sonnet-4-6.json`, `Quickstart-openai-gpt-4.1-mini.json`, `Quickstart-LMStudio-Qwen3.json`). Load them the same way via **Import from file**.
+
 **How to load a preset**
 
 1. Open the **Workflow** page in the web UI.
 2. In the workflow config panel, use **Import from file** and choose one of the JSON files above (e.g. `config/presets/AgentConfigs/chatgpt-4o-mini.json`).
 3. Confirm the import; the active workflow config (thresholds, agent models, and **agent prompts**) will be replaced by the preset. You can then run the workflow or tweak settings.
+
+**Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import from file** to load from it.
 
 To regenerate the preset files (e.g. after changing prompts in `src/prompts`), run from the repo root:
 

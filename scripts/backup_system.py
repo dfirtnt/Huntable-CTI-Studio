@@ -299,7 +299,12 @@ def backup_database(backup_dir: Path, compress: bool = True) -> dict[str, Any]:
 
 
 def backup_directory(
-    source_dir: Path, backup_dir: Path, component_name: str, ignore_patterns: list[str], respect_gitignore: bool = True
+    source_dir: Path,
+    backup_dir: Path,
+    component_name: str,
+    ignore_patterns: list[str],
+    respect_gitignore: bool = True,
+    always_include_paths: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Backup a directory with optional .gitignore respect."""
     print(f"📁 Backing up {component_name}...")
@@ -320,6 +325,16 @@ def backup_directory(
     files_copied = 0
     total_size = 0
     errors = []
+    always_include_paths = always_include_paths or []
+
+    def is_always_included(path: Path) -> bool:
+        for include_root in always_include_paths:
+            try:
+                path.relative_to(include_root)
+                return True
+            except ValueError:
+                continue
+        return False
 
     try:
         # Walk through source directory
@@ -328,13 +343,21 @@ def backup_directory(
 
             # Filter out ignored directories (if respecting .gitignore)
             if respect_gitignore:
-                dirs[:] = [d for d in dirs if not should_ignore_path(root_path / d, ignore_patterns)]
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if is_always_included(root_path / d) or not should_ignore_path(root_path / d, ignore_patterns)
+                ]
 
             for file in files:
                 file_path = root_path / file
 
                 # Skip ignored files (if respecting .gitignore)
-                if respect_gitignore and should_ignore_path(file_path, ignore_patterns):
+                if (
+                    respect_gitignore
+                    and not is_always_included(file_path)
+                    and should_ignore_path(file_path, ignore_patterns)
+                ):
                     continue
 
                 # Calculate relative path for backup
@@ -408,7 +431,7 @@ def backup_docker_volume(volume_name: str, backup_dir: Path) -> dict[str, Any]:
             ".",
         ]
 
-        result = subprocess.run(backup_cmd, capture_output=True, text=True, check=True)
+        subprocess.run(backup_cmd, capture_output=True, text=True, check=True)
 
         if not backup_filepath.exists():
             raise RuntimeError("Volume backup file was not created")
@@ -512,6 +535,10 @@ def create_system_backup(
             for component_name, source_dir in backup_components:
                 # Models should be backed up even if in .gitignore
                 respect_gitignore = component_name != "models"
+                # Private workflow presets are intentionally gitignored but should be included in backups.
+                always_include_paths = []
+                if component_name == "config":
+                    always_include_paths.append(source_dir / "presets" / "private")
                 future = executor.submit(
                     backup_directory,
                     source_dir,
@@ -519,6 +546,7 @@ def create_system_backup(
                     component_name,
                     ignore_patterns,
                     respect_gitignore,
+                    always_include_paths,
                 )
                 dir_futures[component_name] = future
 

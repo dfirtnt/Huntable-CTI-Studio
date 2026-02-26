@@ -18,11 +18,11 @@ from typing import Any
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.database.manager import DatabaseManager
-from src.database.models import ArticleTable
-from src.services.os_detection_service import OSDetectionService
-from src.services.workflow_trigger_service import WorkflowTriggerService
-from src.utils.content_filter import ContentFilter
+from src.database.manager import DatabaseManager  # noqa: E402
+from src.database.models import ArticleTable  # noqa: E402
+from src.services.os_detection_service import OSDetectionService  # noqa: E402
+from src.services.workflow_trigger_service import WorkflowTriggerService  # noqa: E402
+from src.utils.content_filter import ContentFilter  # noqa: E402
 
 # Manual test data from user
 MANUAL_TEST_DATA = [
@@ -260,14 +260,16 @@ def calculate_accuracy(predictions: list[str], ground_truth: list[str]) -> float
     """Calculate accuracy between predictions and ground truth."""
     if len(predictions) != len(ground_truth):
         return 0.0
-    correct = sum(1 for p, g in zip(predictions, ground_truth) if normalize_os_label(p) == normalize_os_label(g))
+    correct = sum(
+        1 for p, g in zip(predictions, ground_truth, strict=True) if normalize_os_label(p) == normalize_os_label(g)
+    )
     return correct / len(predictions) if predictions else 0.0
 
 
 def calculate_confusion_matrix(predictions: list[str], ground_truth: list[str]) -> dict[str, dict[str, int]]:
     """Calculate confusion matrix."""
     matrix = defaultdict(lambda: defaultdict(int))
-    for pred, truth in zip(predictions, ground_truth):
+    for pred, truth in zip(predictions, ground_truth, strict=True):
         pred_norm = normalize_os_label(pred)
         truth_norm = normalize_os_label(truth)
         matrix[truth_norm][pred_norm] += 1
@@ -445,11 +447,7 @@ async def main():
 
     metrics = {}
     for model in model_names:
-        if model == "sec_bert":
-            # Use actual SEC-BERT results
-            predictions = all_predictions[model]
-        else:
-            predictions = all_predictions[model]
+        predictions = all_predictions[model]
 
         accuracy = calculate_accuracy(predictions, all_predictions["human"])
         confusion = calculate_confusion_matrix(predictions, all_predictions["human"])
@@ -500,7 +498,8 @@ async def main():
     print()
 
     print(
-        f"{'Article ID':<10} {'Human':<12} {'SEC-BERT':<12} {'Gemini':<12} {'Sonnet 4.5':<12} {'Haiku 4.5':<12} {'GPT-4o':<12} {'GPT-5.1':<12} {'Match':<8}"
+        f"{'Article ID':<10} {'Human':<12} {'SEC-BERT':<12} {'Gemini':<12} {'Sonnet 4.5':<12} "
+        f"{'Haiku 4.5':<12} {'GPT-4o':<12} {'GPT-5.1':<12} {'Match':<8}"
     )
     print("-" * 100)
 
@@ -522,7 +521,8 @@ async def main():
         match_str = f"{matches}/6"
 
         print(
-            f"{article_id:<10} {human:<12} {secbert:<12} {gemini:<12} {sonnet:<12} {haiku:<12} {gpt4o:<12} {gpt51:<12} {match_str:<8}"
+            f"{article_id:<10} {human:<12} {secbert:<12} {gemini:<12} {sonnet:<12} {haiku:<12} "
+            f"{gpt4o:<12} {gpt51:<12} {match_str:<8}"
         )
 
     # Save results
@@ -548,7 +548,8 @@ async def main():
     print("\n📊 Summary:")
     print(f"   Total articles: {len(evaluation_data)}")
     print(
-        f"   Best model: {max(metrics.items(), key=lambda x: x[1]['accuracy'])[0]} ({max(m['accuracy'] for m in metrics.values()):.1%})"
+        f"   Best model: {max(metrics.items(), key=lambda x: x[1]['accuracy'])[0]} ({
+            max(m['accuracy'] for m in metrics.values()):.1%})"
     )
     print(f"   SEC-BERT accuracy: {metrics['sec_bert']['accuracy']:.1%}")
 

@@ -1,0 +1,146 @@
+{
+  "Version": "2.0",
+  "Metadata": {
+    "CreatedAt": "2026-02-20T20:37:28Z",
+    "Description": "Production Preset (8B Deterministic Extractors + 14B QA)"
+  },
+  "JunkFilter": {
+    "JunkFilterThreshold": 0.8
+  },
+  "QASettings": {
+    "MaxRetries": 3
+  },
+  "Thresholds": {
+    "MinHuntScore": 97.0,
+    "AutoTriggerHuntScoreThreshold": 60.0
+  },
+  "OSDetection": {
+    "Embedding": "ibm-research/CTI-BERT",
+    "FallbackEnabled": false,
+    "Fallback": {
+      "Provider": "lmstudio",
+      "Model": "",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "SelectedOs": [
+      "Windows"
+    ],
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "RankAgent": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "qwen/qwen3-8b",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "RankingThreshold": 6.0,
+    "Prompt": {
+      "prompt": "You are a strict cyber threat–intelligence analyst. Score the article from 1–10 for SIGMA detection rule potential. Huntability equals repeatable behavioral detection patterns only. Ignore single IPs, domains, hashes, or single URLs. Score 7–10 for clear, rule-ready behaviors; 4–6 for limited behavioral detail; 1–3 for strategic or IOC-only content. Output must begin with: SIGMA HUNTABILITY SCORE: <integer>. Provide 3–6 sentence justification.",
+      "instructions": ""
+    },
+    "QAEnabled": true,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "qwen/qwen3-14b",
+      "Temperature": 0.3,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "{\"system\": \"You are a strict QA auditor for huntability scoring. Validate that the assigned score follows rubric rules and ignores atomic IOCs. Verify behavioral evidence supports the score band. Output JSON only with status, validated_score, issues, and summary.\", \"objective\": \"Validate huntability score.\", \"evaluation_criteria\": [], \"instructions\": \"\", \"user_template\": \"Task: {objective}\\n\\nSource text:\\n{article_content}\\n\\nExtracted data:\\n{extracted_commands}\\n\\nTotal count: {total_count}\\n\\nEvaluation criteria:\\n{evaluation_criteria}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    }
+  },
+  "ExtractAgent": {
+    "Provider": "lmstudio",
+    "Model": "qwen/qwen3-8b",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "You are a supervisor detection engineering agent. Merge structured outputs from subagents. Use ONLY subagent JSON inputs. Do not invent observables. Deduplicate exact matches. Preserve literals exactly. Windows telemetry only. Output JSON only.",
+      "instructions": ""
+    }
+  },
+  "CmdlineExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "qwen/qwen3-8b",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "{\"system\": \"You are a strict Windows command-line extraction engine. Extract ONLY literal command lines that appear verbatim in the text. Must contain a Windows executable or built-in utility and at least one argument or switch. No inference. Deduplicate exact matches. Output JSON only with cmdline_items array and count integer.\", \"task\": \"You are a strict Windows command-line extraction engine. Extract ONLY literal co...\", \"instructions\": \"\", \"user_template\": \"Title: {title}\\nURL: {url}\\n\\nContent:\\n{content}\\n\\nTask: {task}\\n\\nJSON example (if applicable):\\n{json_example}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    },
+    "QAEnabled": true,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "qwen/qwen3-14b",
+      "Temperature": 0.3,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "{\"system\": \"You are a strict QA auditor for command-line extraction. Verify each command appears verbatim in source text and contains a Windows executable plus arguments. No reconstruction. Output JSON only with status, valid_count, issues, removed_items, summary.\", \"objective\": \"Validate command-line extraction.\", \"evaluation_criteria\": [], \"instructions\": \"\", \"user_template\": \"Task: {objective}\\n\\nSource text:\\n{article_content}\\n\\nExtracted data:\\n{extracted_commands}\\n\\nTotal count: {total_count}\\n\\nEvaluation criteria:\\n{evaluation_criteria}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    },
+    "AttentionPreprocessor": true
+  },
+  "ProcTreeExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "qwen/qwen3-8b",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "{\"system\": \"You are a deterministic Windows process-lineage extraction engine. Extract only explicit parent -> child process creation relationships stated in narrative prose. Both must be executables. No inference. Fail closed when uncertain. Output JSON with process_lineage array and count.\", \"task\": \"You are a deterministic Windows process-lineage extraction engine. Extract only ...\", \"instructions\": \"\", \"user_template\": \"Title: {title}\\nURL: {url}\\n\\nContent:\\n{content}\\n\\nTask: {task}\\n\\nJSON example (if applicable):\\n{json_example}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    },
+    "QAEnabled": true,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "qwen/qwen3-14b",
+      "Temperature": 0.3,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "{\"system\": \"You are a strict QA auditor for process lineage extraction. Confirm each parent-child pair is explicitly supported in source text. No inference. Output JSON only with status, valid_count, issues, removed_items, summary.\", \"objective\": \"Validate process lineage extraction.\", \"evaluation_criteria\": [], \"instructions\": \"\", \"user_template\": \"Task: {objective}\\n\\nSource text:\\n{article_content}\\n\\nExtracted data:\\n{extracted_commands}\\n\\nTotal count: {total_count}\\n\\nEvaluation criteria:\\n{evaluation_criteria}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    }
+  },
+  "HuntQueriesExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "qwen/qwen3-8b",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "{\"system\": \"Extract only literal SIEM/EDR queries or Sigma YAML that appear verbatim in the article text. Do not reconstruct. Queries must contain schema-level indicators (e.g., DeviceProcessEvents, ProcessRollup2, logs-endpoint.events.process). Sigma must contain both logsource: and detection:. Output JSON only with query_count, queries, sigma_count, sigma_rules.\", \"task\": \"Extract only literal SIEM/EDR queries or Sigma YAML that appear verbatim in the ...\", \"instructions\": \"\", \"user_template\": \"Title: {title}\\nURL: {url}\\n\\nContent:\\n{content}\\n\\nTask: {task}\\n\\nJSON example (if applicable):\\n{json_example}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    },
+    "QAEnabled": true,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "qwen/qwen3-14b",
+      "Temperature": 0.3,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "{\"system\": \"You are a strict detection artifact QA auditor. Verify each query appears verbatim and contains required schema-level indicators. Verify Sigma YAML contains both logsource: and detection: keys. No reconstruction or fragment merging. Output JSON only with status, query_validation, sigma_validation, issues, and summary.\", \"objective\": \"Validate queries and Sigma rules.\", \"evaluation_criteria\": [], \"instructions\": \"\", \"user_template\": \"Task: {objective}\\n\\nSource text:\\n{article_content}\\n\\nExtracted data:\\n{extracted_commands}\\n\\nTotal count: {total_count}\\n\\nEvaluation criteria:\\n{evaluation_criteria}\\n\\nInstructions: {instructions}\"}",
+      "instructions": ""
+    }
+  },
+  "SigmaAgent": {
+    "Provider": "lmstudio",
+    "Model": "qwen/qwen3-8b",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "SimilarityThreshold": 0.5,
+    "UseFullArticleContent": false,
+    "Prompt": {
+      "prompt": "Generate Sigma detection rules strictly from provided structured observables. Focus on behaviors, not atomic IOCs. One rule per distinct behavior when possible. Use correct YAML with required keys: title, id, description, logsource, detection, level, tags, references. Output YAML only. No prose.",
+      "instructions": ""
+    }
+  }
+}

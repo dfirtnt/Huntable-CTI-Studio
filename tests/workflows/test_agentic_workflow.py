@@ -66,6 +66,7 @@ def mock_execution(mock_config):
         "skip_rank_agent": True,
         "eval_run": True,
         "skip_os_detection": True,
+        "subagent_eval": "cmdline",  # Required for infra failure to set result["success"]=False
         "agent_prompts": mock_config.agent_prompts,
         "agent_models": mock_config.agent_models,
         "qa_enabled": {},
@@ -151,6 +152,7 @@ async def test_preprocess_invariant_error_stores_infra_failed_in_subresults(
             result = await run_workflow(article_id=1, db_session=mock_db_session, execution_id=100)
 
     assert result is not None
+    assert result["success"] is False
     # extraction_result is stored on execution, not in return dict
     extraction_result = mock_execution.extraction_result
     assert extraction_result is not None
@@ -161,3 +163,6 @@ async def test_preprocess_invariant_error_stores_infra_failed_in_subresults(
     assert raw.get("infra_failed") is True
     assert "infra_debug_artifacts" in raw
     assert raw["infra_debug_artifacts"].get("agent_name") == "CmdlineExtract"
+    assert extraction_result.get("infra_failed") is True
+    assert mock_execution.status == "failed"
+    assert "Eval infra failure" in (mock_execution.error_message or "")
