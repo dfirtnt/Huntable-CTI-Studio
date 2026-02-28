@@ -31,6 +31,8 @@ class SettingsBulkUpdate(BaseModel):
 
 # Env keys merged into GET /api/settings so start.sh "proceed without LMStudio" is visible to UI
 _SETTINGS_ENV_OVERRIDE_KEYS = ("WORKFLOW_LMSTUDIO_ENABLED", "PROCEED_WITHOUT_LMSTUDIO")
+# LM Studio URL keys: merged from env so UI can show/save them (Settings can override .env)
+_LMSTUDIO_URL_KEYS = ("LMSTUDIO_API_URL", "LMSTUDIO_EMBEDDING_URL")
 
 
 @router.get("")
@@ -47,6 +49,11 @@ async def get_all_settings():
                 val = os.environ.get(key)
                 if val is not None:
                     out[key] = val
+            for key in _LMSTUDIO_URL_KEYS:
+                if key not in out:
+                    val = os.environ.get(key)
+                    if val is not None:
+                        out[key] = val
             return {"success": True, "settings": out}
 
     except Exception as e:
@@ -111,6 +118,11 @@ async def update_setting(update: SettingUpdate):
 
             await session.commit()
 
+            if update.key in _LMSTUDIO_URL_KEYS and update.value:
+                os.environ[update.key] = update.value
+            elif update.key in _LMSTUDIO_URL_KEYS and not update.value:
+                os.environ.pop(update.key, None)
+
             return {
                 "success": True,
                 "key": update.key,
@@ -157,6 +169,13 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
                     errors.append(f"{key}: {str(e)}")
 
             await session.commit()
+
+            for key in _LMSTUDIO_URL_KEYS:
+                val = update.settings.get(key)
+                if val:
+                    os.environ[key] = val
+                elif key in update.settings:
+                    os.environ.pop(key, None)
 
             logger.info(f"Bulk update completed: {len(updated_keys)} settings updated")
 

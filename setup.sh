@@ -146,6 +146,12 @@ configure_llm() {
     elif prompt_yes_no "Do you want to use LM Studio for local LLM?" "no"; then
         USE_LMSTUDIO=true
         print_status "LM Studio will be enabled (ensure it's running on port 1234)"
+        if [[ "$NON_INTERACTIVE" != "true" ]]; then
+            echo -e "${CYAN}LM Studio server URL can change (e.g. different IP). You can set it now or leave blank.${NC}"
+            prompt_input "LM Studio server URL (e.g. http://192.168.1.65:1234 or leave blank for default host.docker.internal:1234): " "" "LMSTUDIO_SERVER_URL" "false"
+        else
+            LMSTUDIO_SERVER_URL=""
+        fi
     else
         USE_LMSTUDIO=false
         print_warning "LM Studio will be disabled"
@@ -238,12 +244,22 @@ create_env_file() {
         sed -i "s|your_anthropic_api_key_here|$ANTHROPIC_API_KEY|g" .env
     fi
     
-    # Update LLM_API_URL based on LLM choice
+    # Update LM Studio URLs based on LLM choice (and optional server URL)
     if [[ "$USE_LMSTUDIO" == "true" ]]; then
-        if [[ "$(uname)" == "Darwin" ]]; then
-            sed -i '' 's|LLM_API_URL=.*|LLM_API_URL=http://host.docker.internal:1234/v1|g' .env
+        local base_url
+        if [[ -n "${LMSTUDIO_SERVER_URL:-}" ]]; then
+            base_url="${LMSTUDIO_SERVER_URL%/}"
+            [[ "$base_url" != *"/v1" ]] && base_url="${base_url}/v1"
         else
-            sed -i 's|LLM_API_URL=.*|LLM_API_URL=http://host.docker.internal:1234/v1|g' .env
+            base_url="http://host.docker.internal:1234/v1"
+        fi
+        local embed_url="${base_url%/v1}/v1/embeddings"
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=${base_url}|g" .env
+            sed -i '' "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=${embed_url}|g" .env
+        else
+            sed -i "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=${base_url}|g" .env
+            sed -i "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=${embed_url}|g" .env
         fi
     fi
     

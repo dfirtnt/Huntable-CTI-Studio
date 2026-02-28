@@ -3275,7 +3275,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Note</strong>: LM Studio runs on your host machine. The <code>host.docker.internal</code> hostname allows Docker containers to access services on the host. Context length can differ by service: <code>docker-compose.yml</code> may set <code>LMSTUDIO_CONTEXT_LENGTH_&lt;model_slug&gt;</code> to 16384 for web and 4096 for workers; see <a href="../../llm/lmstudio/#context-length">LM Studio Integration</a> for details.</p>
+<p><strong>Note</strong>: LM Studio runs on your host machine. The <code>host.docker.internal</code> hostname allows Docker containers to access services on the host. You can also set <code>LMSTUDIO_API_URL</code> and <code>LMSTUDIO_EMBEDDING_URL</code> in <strong>Settings → Agentic Workflow Configuration</strong> (LM Studio section); those values override <code>.env</code>. Context length can differ by service: <code>docker-compose.yml</code> may set <code>LMSTUDIO_CONTEXT_LENGTH_&lt;model_slug&gt;</code> to 16384 for web and 4096 for workers; see <a href="../../llm/lmstudio/#context-length">LM Studio Integration</a> for details.</p>
 <h3 id="workflow-baseline-presets-getting-started">Workflow baseline presets (getting started)<a class="headerlink" href="#workflow-baseline-presets-getting-started" title="Permanent link">&para;</a></h3>
 <p>Pre-built workflow config presets with <strong>all agent prompts included</strong> are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent.</p>
 <table>
@@ -3308,6 +3308,7 @@
 </tr>
 </tbody>
 </table>
+<p>Tracked quickstart presets (v2 format) live in <code>config/presets/AgentConfigs/quickstart/</code> (e.g. <code>Quickstart-anthropic-sonnet-4-6.json</code>, <code>Quickstart-openai-gpt-4.1-mini.json</code>, <code>Quickstart-LMStudio-Qwen3.json</code>). Load them the same way via <strong>Import from file</strong>.</p>
 <p><strong>How to load a preset</strong></p>
 <ol>
 <li>Open the <strong>Workflow</strong> page in the web UI.</li>

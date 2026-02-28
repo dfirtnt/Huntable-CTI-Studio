@@ -121,7 +121,7 @@ To resolve conflicts, either:
 | `LMSTUDIO_SEED` | Random seed for reproducibility | — |
 | `LMSTUDIO_MAX_CONTEXT` | Max context window size | — |
 
-**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to access services on the host. Context length can differ by service: `docker-compose.yml` may set `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` to 16384 for web and 4096 for workers; see [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
+**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to access services on the host. You can also set `LMSTUDIO_API_URL` and `LMSTUDIO_EMBEDDING_URL` in **Settings → Agentic Workflow Configuration** (LM Studio section); those values override `.env`. Context length can differ by service: `docker-compose.yml` may set `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` to 16384 for web and 4096 for workers; see [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
 ### Workflow baseline presets (getting started)
 

@@ -296,6 +296,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cti_cli
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
       - REDIS_URL=redis://redis:6379/0
@@ -304,6 +306,8 @@ services:
       - SOURCES_CONFIG=/app/config/sources.yaml
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     volumes:
       - ./src:/app/src
       - ./config:/app/config

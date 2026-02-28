@@ -43,11 +43,22 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
   - **For article scoring**: Use 16384-32768 tokens minimum
   - Model must be reloaded after changing context length
 
+## Configuring the LM Studio URL
+
+The LM Studio server URL can change (e.g. different machine or IP). You can set it in two places:
+
+1. **Setup**: When you run `./setup.sh` and choose to use LM Studio, you can optionally enter the server URL (e.g. `http://192.168.1.65:1234`). Leave blank for the default `host.docker.internal:1234`.
+2. **Settings UI**: In **Settings → Agentic Workflow Configuration**, enable "Use LM Studio" and use the **LM Studio server URL (base)** and **LM Studio embedding URL** fields. These override `.env` and take effect after save (and on next app startup).
+
+If the configured URL is unreachable, the app tries fallback hosts (e.g. localhost, host.docker.internal) automatically for embedding requests.
+
 ## Environment Variables
 
 ### Required
-- `LMSTUDIO_API_URL`: LMStudio API endpoint (default: `http://host.docker.internal:1234/v1`)
+- `LMSTUDIO_API_URL`: LMStudio API endpoint (default: `http://host.docker.internal:1234/v1`). Can also be set in Settings UI.
 - `LMSTUDIO_MODEL`: Model name in LMStudio (default: `deepseek/deepseek-r1-0528-qwen3-8b`)
+
+- `LMSTUDIO_EMBEDDING_URL`: Embedding API endpoint (default: `http://host.docker.internal:1234/v1/embeddings`). Used for Sigma rule embeddings (e.g. `sigma index`). Can also be set in Settings UI. The app tries fallback URLs if the primary is unreachable.
 
 ### Per-Agent Model Overrides
 - `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: `qwen/qwen3-4b-2507`)

@@ -272,6 +272,35 @@ class TestBackupConfiguration:
         expect(backup_status_content).to_be_visible()
 
 
+class TestLMStudioURLSettings:
+    """Test LM Studio URL fields in Settings (visible when LM Studio provider is enabled)."""
+
+    @pytest.mark.ui
+    @pytest.mark.settings
+    def test_lm_studio_url_fields_visible_when_lm_studio_enabled(self, page: Page):
+        """With LM Studio enabled, LM Studio server URL and embedding URL inputs are visible and load/save."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/settings")
+        page.wait_for_load_state("networkidle")
+
+        # Enable LM Studio so the URL section is shown
+        lmstudio_checkbox = page.locator("#workflowLmstudioEnabled")
+        expect(lmstudio_checkbox).to_be_visible()
+        if not lmstudio_checkbox.is_checked():
+            lmstudio_checkbox.check()
+            page.wait_for_timeout(300)
+
+        api_url = page.locator("#lmstudioApiUrl")
+        embedding_url = page.locator("#lmstudioEmbeddingUrl")
+        expect(api_url).to_be_visible()
+        expect(embedding_url).to_be_visible()
+        expect(api_url).to_have_attribute("type", "text")
+        expect(embedding_url).to_have_attribute("type", "text")
+        # Labels indicate purpose
+        expect(page.locator("label[for='lmstudioApiUrl']")).to_contain_text("LM Studio server URL")
+        expect(page.locator("label[for='lmstudioEmbeddingUrl']")).to_contain_text("embedding URL")
+
+
 class TestAIMLConfiguration:
     """DEPRECATED: Test AI/ML Assistant configuration - removed."""
 

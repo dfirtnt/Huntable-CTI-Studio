@@ -23,7 +23,7 @@ class LMStudioEmbeddingClient:
 
         Args:
             model: Optional model name to use. If not provided, reads from workflow config or environment variable.
-            config_models: Optional dict of agent models from workflow config (e.g., {"SigmaEmbeddingModel": "model_name"})
+            config_models: Optional dict of agent models from workflow config (SigmaEmbeddingModel key).
 
         Reads configuration in order:
         1. model parameter (if provided)
@@ -34,11 +34,11 @@ class LMStudioEmbeddingClient:
         Also reads:
         - LMSTUDIO_EMBEDDING_URL: API endpoint URL
         """
-        from src.utils.lmstudio_url import normalize_lmstudio_embedding_url
+        from src.utils.lmstudio_url import get_lmstudio_embedding_url_candidates, normalize_lmstudio_embedding_url
 
-        self.url = normalize_lmstudio_embedding_url(
-            os.getenv("LMSTUDIO_EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
-        )
+        default_url = os.getenv("LMSTUDIO_EMBEDDING_URL", "http://localhost:1234/v1/embeddings")
+        self.url = normalize_lmstudio_embedding_url(default_url)
+        self._url_candidates = get_lmstudio_embedding_url_candidates()
 
         # Get model from parameter, config, or environment
         if model:
@@ -121,12 +121,8 @@ class LMStudioEmbeddingClient:
                         if "embedding" in item:
                             embeddings.append(item["embedding"])
                 else:
-                    # Alternative format: {"embeddings": [[...], [...]]}
-                    if "embeddings" in data:
-                        embeddings = data["embeddings"]
-                    else:
-                        # Fallback: assume first-level list
-                        embeddings = data
+                    # Alternative format: {"embeddings": [[...], [...]]} or first-level list
+                    embeddings = data.get("embeddings", data)
 
                 if not embeddings:
                     raise ValueError("No embeddings returned from LM Studio API")
@@ -190,7 +186,4 @@ class LMStudioEmbeddingClient:
             logger.warning(f"Embedding dimension mismatch: expected 768, got {len(embedding)}")
             return False
 
-        if not all(isinstance(x, (int, float)) for x in embedding):
-            return False
-
-        return True
+        return all(isinstance(x, (int, float)) for x in embedding)

@@ -305,7 +305,9 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma stats
 ```
 
-**See also:** [Generate Sigma](../guides/generate-sigma.md), [Sigma Detection Rules](../features/sigma-rules.md), [Sigma Detection Rules](../features/sigma-rules.md).
+**Note:** `sigma index` needs the LM Studio embedding API (for rule embeddings). The `cli` service in `docker-compose.yml` is configured with `LMSTUDIO_EMBEDDING_URL` (default `http://host.docker.internal:1234/v1/embeddings`) and `extra_hosts` so it can reach LM Studio on the host. Ensure the embedding model (e.g. text-embedding-e5-base-v2) is loaded in LM Studio.
+
+**See also:** [Generate Sigma](../guides/generate-sigma.md), [Sigma Detection Rules](../features/sigma-rules.md).
 
 ---
 

@@ -3148,69 +3148,81 @@ The system first retrieves a shortlist of candidate rules using pgvector nearest
 <li>Check content filtering settings</li>
 </ul>
 <h4 id="no-similarity-results">No Similarity Results<a class="headerlink" href="#no-similarity-results" title="Permanent link">&para;</a></h4>
+<p>When Similarity Search finds no matches, the UI shows a <strong>diagnostic</strong> and setup hint.</p>
 <ol>
-<li>Verify SigmaHQ rules indexed with embeddings:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
-</code></pre></div></li>
-<li>Check embedding service working:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from src.services.embedding_service import EmbeddingService; e = EmbeddingService(); print(len(e.generate_embedding(&#39;test&#39;)))&quot;</span>
-</code></pre></div></li>
-<li>Lower similarity threshold temporarily to test</li>
+<li>
+<p><strong>Ensure Sigma rules are synced and indexed</strong> (required for behavioral novelty comparison):
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index
+</code></pre></div>
+   Or without Docker: <code>python3 -m src.cli.main sigma sync</code> then <code>sigma index</code>. The CLI container needs <code>LMSTUDIO_EMBEDDING_URL</code> (e.g. <code>http://host.docker.internal:1234/v1/embeddings</code>) and the embedding model loaded in LM Studio for indexing.</p>
+</li>
+<li>
+<p><strong>If rules were synced before <code>logsource_key</code> existed</strong>, backfill so similarity can filter by logsource:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>python3<span class="w"> </span>scripts/migrate_sigma_to_canonical.py
+</code></pre></div></p>
+</li>
+<li>
+<p>Verify index and embedding service:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+</code></pre></div>
+   Check that LM Studio is reachable and the embedding model (e.g. text-embedding-e5-base-v2) is loaded. You can set <code>LMSTUDIO_EMBEDDING_URL</code> in Settings or <code>.env</code> if the host/IP changes.</p>
+</li>
 </ol>
 <h4 id="slow-performance">Slow Performance<a class="headerlink" href="#slow-performance" title="Permanent link">&para;</a></h4>
 <ol>
 <li>Rebuild vector index:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">REINDEX</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">idx_sigma_rules_embedding</span><span class="p">;</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">REINDEX</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">idx_sigma_rules_embedding</span><span class="p">;</span>
 </code></pre></div></li>
 <li>Adjust IVFFlat lists parameter</li>
 <li>Increase database resources</li>
 </ol>
 <h4 id="import-errors">Import Errors<a class="headerlink" href="#import-errors" title="Permanent link">&para;</a></h4>
 <p>All operations should run inside Docker containers:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>src.cli.main<span class="w"> </span>sigma<span class="w"> </span><span class="o">[</span>command<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>src.cli.main<span class="w"> </span>sigma<span class="w"> </span><span class="o">[</span>command<span class="o">]</span>
 </code></pre></div></p>
 <h3 id="debug-commands">Debug Commands<a class="headerlink" href="#debug-commands" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Enable debug logging</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Check generation logs</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>docker-compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>web<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;SIGMA&quot;</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Check service status</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>docker-compose<span class="w"> </span>ps
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="c1"># Test embedding service</span>
-<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from src.services.embedding_service import EmbeddingService; print(&#39;OK&#39;)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Enable debug logging</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># Check generation logs</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>docker-compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>web<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;SIGMA&quot;</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="c1"># Check service status</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>docker-compose<span class="w"> </span>ps
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="c1"># Test embedding service</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>docker-compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>web<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from src.services.embedding_service import EmbeddingService; print(&#39;OK&#39;)&quot;</span>
 </code></pre></div>
 <h3 id="monitoring">Monitoring<a class="headerlink" href="#monitoring" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1">-- Average similarity scores</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">AVG</span><span class="p">(</span><span class="n">similarity</span><span class="p">)</span><span class="w"> </span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="k">FROM</span><span class="w"> </span><span class="n">article_sigma_matches</span><span class="w"> </span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">match_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;article&#39;</span><span class="p">;</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="c1">-- Distribution of similarity scores</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="k">SELECT</span><span class="w"> </span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="k">CASE</span><span class="w"> </span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">9</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;Very High (0.9+)&#39;</span>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">8</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;High (0.8-0.9)&#39;</span>
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">7</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;Medium (0.7-0.8)&#39;</span>
-<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">        </span><span class="k">ELSE</span><span class="w"> </span><span class="s1">&#39;Low (&lt;0.7)&#39;</span>
-<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">similarity_range</span><span class="p">,</span>
-<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="k">count</span>
-<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="k">FROM</span><span class="w"> </span><span class="n">article_sigma_matches</span>
-<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">similarity_range</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1">-- Average similarity scores</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">AVG</span><span class="p">(</span><span class="n">similarity</span><span class="p">)</span><span class="w"> </span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="k">FROM</span><span class="w"> </span><span class="n">article_sigma_matches</span><span class="w"> </span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">match_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;article&#39;</span><span class="p">;</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="c1">-- Distribution of similarity scores</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="k">SELECT</span><span class="w"> </span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">    </span><span class="k">CASE</span><span class="w"> </span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">9</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;Very High (0.9+)&#39;</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">8</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;High (0.8-0.9)&#39;</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="w">        </span><span class="k">WHEN</span><span class="w"> </span><span class="n">similarity</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">7</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="s1">&#39;Medium (0.7-0.8)&#39;</span>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="w">        </span><span class="k">ELSE</span><span class="w"> </span><span class="s1">&#39;Low (&lt;0.7)&#39;</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="w">    </span><span class="k">END</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">similarity_range</span><span class="p">,</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a><span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="k">count</span>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="k">FROM</span><span class="w"> </span><span class="n">article_sigma_matches</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">similarity_range</span><span class="p">;</span>
 </code></pre></div>
 <hr />
 <h2 id="maintenance">Maintenance<a class="headerlink" href="#maintenance" title="Permanent link">&para;</a></h2>
 <h3 id="regular-updates">Regular Updates<a class="headerlink" href="#regular-updates" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Update SigmaHQ repository</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># Re-index rules</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index<span class="w"> </span>--force
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="c1"># Check statistics</span>
-<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Update SigmaHQ repository</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Re-index rules</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index<span class="w"> </span>--force
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="c1"># Check statistics</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
 </code></pre></div>
 <h3 id="metrics-tracked">Metrics Tracked<a class="headerlink" href="#metrics-tracked" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3351,33 +3363,33 @@ The system first retrieves a shortlist of candidate rules using pgvector nearest
 <h2 id="sigma-rule-generation-guidelines-based-on-official-sigmahq-standards">SIGMA Rule Generation Guidelines (Based on Official SigmaHQ Standards)<a class="headerlink" href="#sigma-rule-generation-guidelines-based-on-official-sigmahq-standards" title="Permanent link">&para;</a></h2>
 <h3 id="1-rule-structure-requirements">1. Rule Structure Requirements<a class="headerlink" href="#1-rule-structure-requirements" title="Permanent link">&para;</a></h3>
 <p>Each SIGMA rule must include all required fields according to the official specification:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Short capitalized title with less than 50 characters</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">UUID format</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">experimental</span>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Starts with &quot;Detects...&quot; - clear description of what the rule detects and why it&#39;s important</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="nt">references</span><span class="p">:</span>
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">List of relevant references</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">links to blog posts</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">advisories</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">etc.</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="nt">tags</span><span class="p">:</span>
-<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">attack.tactic_id</span>
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">attack.technique_id</span>
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">car.2014-04-003</span><span class="w">  </span><span class="c1"># CAR framework tags when applicable</span>
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Author name(s) separated by commas</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="nt">date</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">YYYY/MM/DD format</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="nt">logsource</span><span class="p">:</span>
-<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="w">  </span><span class="nt">category</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">process_creation/network_connection/file_event/registry_event/etc</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a><span class="w">  </span><span class="nt">product</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">windows/linux/macos</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="w">  </span><span class="nt">service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">specific service if applicable</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a><span class="nt">detection</span><span class="p">:</span>
-<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a><span class="w">  </span><span class="nt">selection</span><span class="p">:</span>
-<a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">specific detection criteria using lowercase field names</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a><span class="w">  </span><span class="nt">filter</span><span class="p">:</span>
-<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">optional filters to reduce false positives</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a><span class="w">  </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selection and not filter</span>
-<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a><span class="nt">fields</span><span class="p">:</span>
-<a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">list of important fields for investigation</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a><span class="nt">falsepositives</span><span class="p">:</span>
-<a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">specific false positive scenarios to help analysts</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">informational/low/medium/high/critical</span><span class="p p-Indicator">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Short capitalized title with less than 50 characters</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">UUID format</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">experimental</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Starts with &quot;Detects...&quot; - clear description of what the rule detects and why it&#39;s important</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="nt">references</span><span class="p">:</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">List of relevant references</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">links to blog posts</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">advisories</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">etc.</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="nt">tags</span><span class="p">:</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">attack.tactic_id</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">attack.technique_id</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">car.2014-04-003</span><span class="w">  </span><span class="c1"># CAR framework tags when applicable</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Author name(s) separated by commas</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="nt">date</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">YYYY/MM/DD format</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="nt">logsource</span><span class="p">:</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="w">  </span><span class="nt">category</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">process_creation/network_connection/file_event/registry_event/etc</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="w">  </span><span class="nt">product</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">windows/linux/macos</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a><span class="w">  </span><span class="nt">service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">specific service if applicable</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a><span class="nt">detection</span><span class="p">:</span>
+<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a><span class="w">  </span><span class="nt">selection</span><span class="p">:</span>
+<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">specific detection criteria using lowercase field names</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a><span class="w">  </span><span class="nt">filter</span><span class="p">:</span>
+<a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">optional filters to reduce false positives</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a><span class="w">  </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selection and not filter</span>
+<a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">list of important fields for investigation</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a><span class="nt">falsepositives</span><span class="p">:</span>
+<a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">specific false positive scenarios to help analysts</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-23-27" name="__codelineno-23-27" href="#__codelineno-23-27"></a><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">informational/low/medium/high/critical</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <h3 id="2-title-best-practices">2. Title Best Practices<a class="headerlink" href="#2-title-best-practices" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3505,38 +3517,38 @@ The system first retrieves a shortlist of candidate rules using pgvector nearest
 </ul>
 <h2 id="output-format">Output Format<a class="headerlink" href="#output-format" title="Permanent link">&para;</a></h2>
 <p>Generate your response in the following format:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="gh"># SIGMA Detection Rules for [Threat Name/Technique]</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="gu">## Overview</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>Brief description of the threat and detection approach based on the article content.
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="gu">## Rule 1: [Rule Title]</span>
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>```yaml
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>title: [Short, specific title &lt; 50 chars]
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>id: [UUID]
-<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>status: experimental
-<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>description: Detects [specific behavior and its significance]
-<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>references:
-<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[relevant reference link]
-<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>tags:
-<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>attack.tactic_id
-<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>attack.technique_id
-<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>author: [Your name]
-<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>date: [YYYY/MM/DD]
-<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>logsource:
-<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a>  category: [category]
-<a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a>  product: [product]
-<a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a>detection:
-<a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a>  selection:
-<a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a>    [detection logic]
-<a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a>  filter:
-<a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a>    [optional filters]
-<a id="__codelineno-23-27" name="__codelineno-23-27" href="#__codelineno-23-27"></a>  condition: selection and not filter
-<a id="__codelineno-23-28" name="__codelineno-23-28" href="#__codelineno-23-28"></a>fields:
-<a id="__codelineno-23-29" name="__codelineno-23-29" href="#__codelineno-23-29"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[important investigation fields]
-<a id="__codelineno-23-30" name="__codelineno-23-30" href="#__codelineno-23-30"></a>falsepositives:
-<a id="__codelineno-23-31" name="__codelineno-23-31" href="#__codelineno-23-31"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[specific false positive scenarios]
-<a id="__codelineno-23-32" name="__codelineno-23-32" href="#__codelineno-23-32"></a>level: [high/medium/low]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="gh"># SIGMA Detection Rules for [Threat Name/Technique]</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="gu">## Overview</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>Brief description of the threat and detection approach based on the article content.
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="gu">## Rule 1: [Rule Title]</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>```yaml
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>title: [Short, specific title &lt; 50 chars]
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>id: [UUID]
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>status: experimental
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>description: Detects [specific behavior and its significance]
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>references:
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[relevant reference link]
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>tags:
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>attack.tactic_id
+<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>attack.technique_id
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>author: [Your name]
+<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>date: [YYYY/MM/DD]
+<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>logsource:
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a>  category: [category]
+<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>  product: [product]
+<a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a>detection:
+<a id="__codelineno-24-23" name="__codelineno-24-23" href="#__codelineno-24-23"></a>  selection:
+<a id="__codelineno-24-24" name="__codelineno-24-24" href="#__codelineno-24-24"></a>    [detection logic]
+<a id="__codelineno-24-25" name="__codelineno-24-25" href="#__codelineno-24-25"></a>  filter:
+<a id="__codelineno-24-26" name="__codelineno-24-26" href="#__codelineno-24-26"></a>    [optional filters]
+<a id="__codelineno-24-27" name="__codelineno-24-27" href="#__codelineno-24-27"></a>  condition: selection and not filter
+<a id="__codelineno-24-28" name="__codelineno-24-28" href="#__codelineno-24-28"></a>fields:
+<a id="__codelineno-24-29" name="__codelineno-24-29" href="#__codelineno-24-29"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[important investigation fields]
+<a id="__codelineno-24-30" name="__codelineno-24-30" href="#__codelineno-24-30"></a>falsepositives:
+<a id="__codelineno-24-31" name="__codelineno-24-31" href="#__codelineno-24-31"></a><span class="w">  </span><span class="k">-</span><span class="w"> </span>[specific false positive scenarios]
+<a id="__codelineno-24-32" name="__codelineno-24-32" href="#__codelineno-24-32"></a>level: [high/medium/low]
 </code></pre></div>
 <h2 id="rule-2-rule-title">Rule 2: [Rule Title]<a class="headerlink" href="#rule-2-rule-title" title="Permanent link">&para;</a></h2>
 <p>[Continue with additional rules...]</p>
@@ -3546,54 +3558,54 @@ The system first retrieves a shortlist of candidate rules using pgvector nearest
 <li>Performance considerations</li>
 <li>Tuning recommendations</li>
 <li>Additional context for security teams
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>## Additional Requirements
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>1. **Generate 3-5 rules** based on the threat intelligence
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>2. **Focus on high-confidence detections** that can be implemented immediately
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>3. **Include both simple and complex detection logic** where appropriate
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>4. **Provide implementation guidance** for security teams
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>5. **Consider different environments** (enterprise, SMB, etc.)
-<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>6. **Include relevant threat context** from the article
-<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>7. **Follow SigmaHQ standards** for all rule components
-<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>
-<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>## Example Rule Structure
-<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>```yaml
-<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>title: Suspicious PowerShell Execution - Malware Download
-<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>id: 12345678-1234-1234-1234-123456789012
-<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a>status: experimental
-<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>description: Detects suspicious PowerShell execution patterns commonly used by malware for downloading and executing payloads. Attackers often use PowerShell with WebClient to download and execute malicious code from remote sources.
-<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>references:
-<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>  - https://attack.mitre.org/techniques/T1059/001/
-<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>tags:
-<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a>  - attack.execution
-<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>  - attack.t1059.001
-<a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a>  - attack.command_and_control
-<a id="__codelineno-24-23" name="__codelineno-24-23" href="#__codelineno-24-23"></a>author: Detection Engineer
-<a id="__codelineno-24-24" name="__codelineno-24-24" href="#__codelineno-24-24"></a>date: 2024/01/15
-<a id="__codelineno-24-25" name="__codelineno-24-25" href="#__codelineno-24-25"></a>logsource:
-<a id="__codelineno-24-26" name="__codelineno-24-26" href="#__codelineno-24-26"></a>  category: process_creation
-<a id="__codelineno-24-27" name="__codelineno-24-27" href="#__codelineno-24-27"></a>  product: windows
-<a id="__codelineno-24-28" name="__codelineno-24-28" href="#__codelineno-24-28"></a>detection:
-<a id="__codelineno-24-29" name="__codelineno-24-29" href="#__codelineno-24-29"></a>  selection:
-<a id="__codelineno-24-30" name="__codelineno-24-30" href="#__codelineno-24-30"></a>    process.name: powershell.exe
-<a id="__codelineno-24-31" name="__codelineno-24-31" href="#__codelineno-24-31"></a>    command_line:
-<a id="__codelineno-24-32" name="__codelineno-24-32" href="#__codelineno-24-32"></a>      - &#39;*Invoke-Expression*&#39;
-<a id="__codelineno-24-33" name="__codelineno-24-33" href="#__codelineno-24-33"></a>      - &#39;*IEX*&#39;
-<a id="__codelineno-24-34" name="__codelineno-24-34" href="#__codelineno-24-34"></a>      - &#39;*DownloadString*&#39;
-<a id="__codelineno-24-35" name="__codelineno-24-35" href="#__codelineno-24-35"></a>      - &#39;*WebClient*&#39;
-<a id="__codelineno-24-36" name="__codelineno-24-36" href="#__codelineno-24-36"></a>  filter:
-<a id="__codelineno-24-37" name="__codelineno-24-37" href="#__codelineno-24-37"></a>    command_line:
-<a id="__codelineno-24-38" name="__codelineno-24-38" href="#__codelineno-24-38"></a>      - &#39;*Get-Help*&#39;
-<a id="__codelineno-24-39" name="__codelineno-24-39" href="#__codelineno-24-39"></a>      - &#39;*Get-Command*&#39;
-<a id="__codelineno-24-40" name="__codelineno-24-40" href="#__codelineno-24-40"></a>  condition: selection and not filter
-<a id="__codelineno-24-41" name="__codelineno-24-41" href="#__codelineno-24-41"></a>fields:
-<a id="__codelineno-24-42" name="__codelineno-24-42" href="#__codelineno-24-42"></a>  - process.name
-<a id="__codelineno-24-43" name="__codelineno-24-43" href="#__codelineno-24-43"></a>  - process.command_line
-<a id="__codelineno-24-44" name="__codelineno-24-44" href="#__codelineno-24-44"></a>  - process.parent.name
-<a id="__codelineno-24-45" name="__codelineno-24-45" href="#__codelineno-24-45"></a>falsepositives:
-<a id="__codelineno-24-46" name="__codelineno-24-46" href="#__codelineno-24-46"></a>  - Legitimate PowerShell scripts using WebClient for automation
-<a id="__codelineno-24-47" name="__codelineno-24-47" href="#__codelineno-24-47"></a>  - System administration scripts downloading configuration files
-<a id="__codelineno-24-48" name="__codelineno-24-48" href="#__codelineno-24-48"></a>level: medium
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>## Additional Requirements
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>1. **Generate 3-5 rules** based on the threat intelligence
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>2. **Focus on high-confidence detections** that can be implemented immediately
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>3. **Include both simple and complex detection logic** where appropriate
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>4. **Provide implementation guidance** for security teams
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>5. **Consider different environments** (enterprise, SMB, etc.)
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>6. **Include relevant threat context** from the article
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>7. **Follow SigmaHQ standards** for all rule components
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>## Example Rule Structure
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>```yaml
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a>title: Suspicious PowerShell Execution - Malware Download
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>id: 12345678-1234-1234-1234-123456789012
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a>status: experimental
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a>description: Detects suspicious PowerShell execution patterns commonly used by malware for downloading and executing payloads. Attackers often use PowerShell with WebClient to download and execute malicious code from remote sources.
+<a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a>references:
+<a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a>  - https://attack.mitre.org/techniques/T1059/001/
+<a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a>tags:
+<a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a>  - attack.execution
+<a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a>  - attack.t1059.001
+<a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a>  - attack.command_and_control
+<a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a>author: Detection Engineer
+<a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a>date: 2024/01/15
+<a id="__codelineno-25-25" name="__codelineno-25-25" href="#__codelineno-25-25"></a>logsource:
+<a id="__codelineno-25-26" name="__codelineno-25-26" href="#__codelineno-25-26"></a>  category: process_creation
+<a id="__codelineno-25-27" name="__codelineno-25-27" href="#__codelineno-25-27"></a>  product: windows
+<a id="__codelineno-25-28" name="__codelineno-25-28" href="#__codelineno-25-28"></a>detection:
+<a id="__codelineno-25-29" name="__codelineno-25-29" href="#__codelineno-25-29"></a>  selection:
+<a id="__codelineno-25-30" name="__codelineno-25-30" href="#__codelineno-25-30"></a>    process.name: powershell.exe
+<a id="__codelineno-25-31" name="__codelineno-25-31" href="#__codelineno-25-31"></a>    command_line:
+<a id="__codelineno-25-32" name="__codelineno-25-32" href="#__codelineno-25-32"></a>      - &#39;*Invoke-Expression*&#39;
+<a id="__codelineno-25-33" name="__codelineno-25-33" href="#__codelineno-25-33"></a>      - &#39;*IEX*&#39;
+<a id="__codelineno-25-34" name="__codelineno-25-34" href="#__codelineno-25-34"></a>      - &#39;*DownloadString*&#39;
+<a id="__codelineno-25-35" name="__codelineno-25-35" href="#__codelineno-25-35"></a>      - &#39;*WebClient*&#39;
+<a id="__codelineno-25-36" name="__codelineno-25-36" href="#__codelineno-25-36"></a>  filter:
+<a id="__codelineno-25-37" name="__codelineno-25-37" href="#__codelineno-25-37"></a>    command_line:
+<a id="__codelineno-25-38" name="__codelineno-25-38" href="#__codelineno-25-38"></a>      - &#39;*Get-Help*&#39;
+<a id="__codelineno-25-39" name="__codelineno-25-39" href="#__codelineno-25-39"></a>      - &#39;*Get-Command*&#39;
+<a id="__codelineno-25-40" name="__codelineno-25-40" href="#__codelineno-25-40"></a>  condition: selection and not filter
+<a id="__codelineno-25-41" name="__codelineno-25-41" href="#__codelineno-25-41"></a>fields:
+<a id="__codelineno-25-42" name="__codelineno-25-42" href="#__codelineno-25-42"></a>  - process.name
+<a id="__codelineno-25-43" name="__codelineno-25-43" href="#__codelineno-25-43"></a>  - process.command_line
+<a id="__codelineno-25-44" name="__codelineno-25-44" href="#__codelineno-25-44"></a>  - process.parent.name
+<a id="__codelineno-25-45" name="__codelineno-25-45" href="#__codelineno-25-45"></a>falsepositives:
+<a id="__codelineno-25-46" name="__codelineno-25-46" href="#__codelineno-25-46"></a>  - Legitimate PowerShell scripts using WebClient for automation
+<a id="__codelineno-25-47" name="__codelineno-25-47" href="#__codelineno-25-47"></a>  - System administration scripts downloading configuration files
+<a id="__codelineno-25-48" name="__codelineno-25-48" href="#__codelineno-25-48"></a>level: medium
 </code></pre></div></li>
 </ul>
 <p>Generate comprehensive, actionable SIGMA rules based on the threat intelligence provided, following all SigmaHQ best practices.</p>
