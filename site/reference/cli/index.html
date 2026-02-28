@@ -3292,7 +3292,8 @@
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match-all<span class="w"> </span>--min-hunt-score<span class="w"> </span><span class="m">50</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">100</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
 </code></pre></div>
-<p><strong>See also:</strong> <a href="../../guides/generate-sigma/">Generate Sigma</a>, <a href="../../features/sigma-rules/">Sigma Detection Rules</a>, <a href="../../features/sigma-rules/">Sigma Detection Rules</a>.</p>
+<p><strong>Note:</strong> <code>sigma index</code> needs the LM Studio embedding API (for rule embeddings). The <code>cli</code> service in <code>docker-compose.yml</code> is configured with <code>LMSTUDIO_EMBEDDING_URL</code> (default <code>http://host.docker.internal:1234/v1/embeddings</code>) and <code>extra_hosts</code> so it can reach LM Studio on the host. Ensure the embedding model (e.g. text-embedding-e5-base-v2) is loaded in LM Studio.</p>
+<p><strong>See also:</strong> <a href="../../guides/generate-sigma/">Generate Sigma</a>, <a href="../../features/sigma-rules/">Sigma Detection Rules</a>.</p>
 <hr />
 <h3 id="export">export<a class="headerlink" href="#export" title="Permanent link">&para;</a></h3>
 <p><strong>When:</strong> Dump articles to JSON or CSV for analysis, reporting, or migration. Uses last N days and optional source filter.</p>

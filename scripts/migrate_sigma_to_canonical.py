@@ -85,7 +85,7 @@ def migrate_rules(force: bool = False, limit: int = None, resume_from: int = 0):
                 canonical_json = asdict(canonical_rule)
                 exact_hash = novelty_service.generate_exact_hash(canonical_rule)
                 canonical_text = novelty_service.generate_canonical_text(canonical_rule)
-                logsource_key = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
+                logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
 
                 # Update rule
                 rule.canonical_json = canonical_json

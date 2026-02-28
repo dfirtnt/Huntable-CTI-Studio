@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **LM Studio URL configuration in Settings and setup**: LM Studio server and embedding URLs can be set in both `./setup.sh` (optional prompt) and Settings UI (Workflow Provider Configuration → LM Studio). Values are stored in DB and synced to `os.environ` so chat, sigma index, and embeddings use them. App startup loads these from DB into env when present.
+- **LM Studio embedding URL fallbacks**: Embedding client and URL helpers try multiple candidates (primary from env, then localhost, host.docker.internal, or when primary is a specific IP) so sigma index and similarity work when the host/IP changes (e.g. Docker vs host, different network).
+- **Similarity search diagnostic when no rules found**: When Similarity Search returns no matches, the modal shows a setup hint: suggest running `./run_cli.sh sigma sync` then `./run_cli.sh sigma index` (or `python3 -m src.cli.main sigma sync` / `sigma index`), or `python3 scripts/migrate_sigma_to_canonical.py` if logsource_key is missing. API returns `diagnostic` (total_sigma_rules, rules_with_logsource, logsource_key) when matches are empty.
+- **Sigma compare endpoint**: Compare endpoint now cleans both rule inputs with `clean_sigma_rule()` before parsing so markdown-wrapped or prose-prefixed LLM output parses; clearer 400 message when YAML remains invalid.
+- **CLI service (Docker)**: `cli` service in docker-compose now has `extra_hosts` and `LMSTUDIO_EMBEDDING_URL` / `LMSTUDIO_EMBEDDING_MODEL` so `./run_cli.sh sigma index` can reach LM Studio on the host.
+- **migrate_sigma_to_canonical.py**: Fixed storing `logsource_key` as string (unpack tuple from `normalize_logsource`) so DB has `product|category` format.
+
 ### Changed
 - **Preset layout**: Workflow preset JSONs consolidated under `config/presets/AgentConfigs/`. Tracked quickstart presets moved from repo root `presets/` to `config/presets/AgentConfigs/quickstart/`. Private presets (gitignored) go in `config/presets/private/`. Root `presets/` folder removed. `build_baseline_presets.py` now normalizes JSON in `quickstart/` instead of `presets/`. Docs and README updated.
 

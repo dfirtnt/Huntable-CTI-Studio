@@ -647,15 +647,25 @@ LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
 - Check content filtering settings
 
 #### No Similarity Results
-1. Verify SigmaHQ rules indexed with embeddings:
+When Similarity Search finds no matches, the UI shows a **diagnostic** and setup hint.
+
+1. **Ensure Sigma rules are synced and indexed** (required for behavioral novelty comparison):
+   ```bash
+   ./run_cli.sh sigma sync
+   ./run_cli.sh sigma index
+   ```
+   Or without Docker: `python3 -m src.cli.main sigma sync` then `sigma index`. The CLI container needs `LMSTUDIO_EMBEDDING_URL` (e.g. `http://host.docker.internal:1234/v1/embeddings`) and the embedding model loaded in LM Studio for indexing.
+
+2. **If rules were synced before `logsource_key` existed**, backfill so similarity can filter by logsource:
+   ```bash
+   python3 scripts/migrate_sigma_to_canonical.py
+   ```
+
+3. Verify index and embedding service:
    ```bash
    ./run_cli.sh sigma stats
    ```
-2. Check embedding service working:
-   ```bash
-   docker-compose exec web python -c "from src.services.embedding_service import EmbeddingService; e = EmbeddingService(); print(len(e.generate_embedding('test')))"
-   ```
-3. Lower similarity threshold temporarily to test
+   Check that LM Studio is reachable and the embedding model (e.g. text-embedding-e5-base-v2) is loaded. You can set `LMSTUDIO_EMBEDDING_URL` in Settings or `.env` if the host/IP changes.
 
 #### Slow Performance
 1. Rebuild vector index:

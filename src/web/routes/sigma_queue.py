@@ -2,6 +2,7 @@
 API routes for SIGMA rule queue management.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -21,6 +22,7 @@ from src.database.models import (
     EnrichmentPresetTable,
     EnrichmentPromptVersionTable,
     SigmaRuleQueueTable,
+    SigmaRuleTable,
 )
 from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS
 from src.services.sigma_matching_service import SigmaMatchingService
@@ -39,14 +41,14 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
     Returns (provider, model, api_key). api_key is None for lmstudio."""
     config = (
         db_session.query(AgenticWorkflowConfigTable)
-        .filter(AgenticWorkflowConfigTable.is_active == True)
+        .filter(AgenticWorkflowConfigTable.is_active)
         .order_by(AgenticWorkflowConfigTable.version.desc())
         .first()
     )
     if not config or not config.agent_models:
         raise HTTPException(
             status_code=400,
-            detail="No active workflow configuration or Sigma agent model. Configure Agents (Sigma Agent) in Workflow first.",
+            detail="No active workflow config or Sigma agent model. Configure Agents (Sigma Agent) in Workflow.",
         )
     agent_models = config.agent_models or {}
     provider = (agent_models.get("SigmaAgent_provider") or "lmstudio").lower().strip()
@@ -526,13 +528,16 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             if provider != "lmstudio" and (not api_key or not api_key.strip()):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"API key is required. Please provide X-{provider.capitalize()}-API-Key header. Provider: {provider}, Model: {model}",
+                    detail=(
+                        f"API key required. Provide X-{provider.capitalize()}-API-Key. "
+                        f"Provider: {provider}, Model: {model}"
+                    ),
                 )
 
             # Build enrichment prompt
             instruction_text = (
                 enrich_request.instruction
-                or "Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata."
+                or "Improve and enrich this SIGMA rule with better detection logic and metadata."
             )
 
             # Use provided current rule YAML for iterative enrichment, or fall back to stored rule
@@ -573,13 +578,16 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             enrichment_prompt = format_prompt("sigma_enrichment", **prompt_params)
 
             # Use provided system prompt or fall back to default
-            system_message = (
-                enrich_request.system_prompt
-                or "You are a SIGMA rule validation and enrichment agent. Follow the OUTPUT CONTRACT: Return a JSON object with status 'pass'|'needs_revision'|'fail'. If status='pass', include 'updated_sigma_yaml' as YAML string. If status='needs_revision' or 'fail', 'updated_sigma_yaml' may be empty but 'issues' must explain. Output ONLY the JSON object, no markdown, no code blocks."
+            system_message = enrich_request.system_prompt or (
+                "You are a SIGMA rule validation and enrichment agent. OUTPUT CONTRACT: "
+                "Return a JSON object with status 'pass'|'needs_revision'|'fail'. "
+                "If status='pass', include 'updated_sigma_yaml'. Otherwise 'issues' must explain. "
+                "Output ONLY the JSON object, no markdown."
             )
 
             logger.info(
-                f"Enriching rule {queue_id} with provider={provider}, model={model}, has_system_prompt={bool(enrich_request.system_prompt)}"
+                f"Enriching rule {queue_id} provider={provider} model={model} "
+                f"has_system_prompt={bool(enrich_request.system_prompt)}"
             )
 
             # Call provider API
@@ -709,7 +717,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 chat_url = f"{base_url}/chat/completions"
 
                                 logger.info(
-                                    f"Attempting LMStudio at {chat_url} with model {model} (attempt {idx + 1}/{len(lmstudio_urls)})"
+                                    f"Attempting LMStudio at {chat_url} model={model} "
+                                    f"(attempt {idx + 1}/{len(lmstudio_urls)})"
                                 )
 
                                 # Use shorter timeout to fail fast if LMStudio isn't responding
@@ -746,17 +755,15 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                         message = response_data["choices"][0].get("message", {})
                                         content = message.get("content", "")
                                         raw_response = content.strip() if content else ""
-                                        logger.info(
-                                            f"LMStudio request succeeded using {chat_url}, response length: {len(raw_response)}"
-                                        )
+                                        logger.info(f"LMStudio request succeeded {chat_url}, len={len(raw_response)}")
                                         logger.debug(
-                                            f"LMStudio response structure: choices={len(response_data.get('choices', []))}, message keys={list(message.keys())}"
+                                            f"LMStudio response: choices={len(response_data.get('choices', []))}, "
+                                            f"message keys={list(message.keys())}"
                                         )
                                         if not raw_response:
                                             last_error = "LMStudio returned empty response content"
-                                            logger.warning(
-                                                f"LMStudio returned empty content. Full response structure: {json.dumps(response_data, indent=2)[:2000]}"
-                                            )
+                                            resp_preview = json.dumps(response_data, indent=2)[:2000]
+                                            logger.warning(f"LMStudio returned empty content. Response: {resp_preview}")
                                             # Check if there's a finish_reason that might explain the empty response
                                             finish_reason = response_data["choices"][0].get("finish_reason", "unknown")
                                             if finish_reason != "stop":
@@ -765,7 +772,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                                 )
                                             if idx < len(lmstudio_urls) - 1:
                                                 continue
-                                            error_detail = f"LMStudio returned empty response (finish_reason: {finish_reason}). The model may not be loaded or may have encountered an error. Please check LMStudio is running and the model is loaded."
+                                            error_detail = (
+                                                f"LMStudio empty response (finish_reason: {finish_reason}). "
+                                                "Check LMStudio is running and model is loaded."
+                                            )
                                             raise HTTPException(status_code=503, detail=error_detail)
                                         break
                                     except (KeyError, IndexError, json.JSONDecodeError) as e:
@@ -785,7 +795,9 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                     error_text = response.text[:500] if hasattr(response, "text") else str(response)
 
                                     if response.status_code == 404:
-                                        error_detail = f"LMStudio model '{model}' not found. Please ensure the model is loaded in LMStudio."
+                                        error_detail = (
+                                            f"LMStudio model '{model}' not found. Load the model in LMStudio."
+                                        )
                                         if idx < len(lmstudio_urls) - 1:
                                             logger.warning(f"LMStudio 404 at {chat_url}, trying next URL...")
                                             continue
@@ -798,20 +810,23 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                             continue
 
                                     logger.error(
-                                        f"LMStudio API error at {chat_url}: HTTP {response.status_code}, Response: {error_text}"
+                                        f"LMStudio API error {chat_url}: HTTP {response.status_code}, "
+                                        f"Response: {error_text}"
                                     )
                                     if idx < len(lmstudio_urls) - 1:
                                         logger.warning("Trying next LMStudio URL...")
                                         continue
-                                    raise HTTPException(status_code=response.status_code, detail=error_detail) from e
+                                    raise HTTPException(status_code=response.status_code, detail=error_detail)
 
                             except httpx.TimeoutException as e:
                                 last_error = f"Timeout connecting to {lmstudio_url}"
                                 if idx == len(lmstudio_urls) - 1:
+                                    urls_tried = ", ".join(lmstudio_urls)
                                     raise HTTPException(
                                         status_code=504,
-                                        detail="LMStudio request timeout - the model may be slow or overloaded. Tried URLs: "
-                                        + ", ".join(lmstudio_urls),
+                                        detail=(
+                                            f"LMStudio request timeout (model slow or overloaded). Tried: {urls_tried}"
+                                        ),
                                     ) from e
                                 logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
                                 continue
@@ -820,7 +835,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 last_error = f"Cannot connect to {lmstudio_url}: {str(e)}"
                                 logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
                                 if idx == len(lmstudio_urls) - 1:
-                                    error_detail = f"Cannot connect to LMStudio service. Please ensure LMStudio is running and accessible. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}"
+                                    urls_tried = ", ".join(lmstudio_urls)
+                                    error_detail = (
+                                        f"Cannot connect to LMStudio. Tried: {urls_tried}. Last error: {str(e)}"
+                                    )
                                     error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
                                     raise HTTPException(status_code=503, detail=error_detail) from e
                                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
@@ -829,13 +847,19 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 last_error = f"Unexpected error with {lmstudio_url}: {str(e)}"
                                 logger.error(f"LMStudio unexpected error at {lmstudio_url}: {e}", exc_info=True)
                                 if idx == len(lmstudio_urls) - 1:
-                                    error_detail = f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}. Last error: {str(e)}"
+                                    error_detail = (
+                                        f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}. "
+                                        f"Last error: {str(e)}"
+                                    )
                                     error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
                                     raise HTTPException(status_code=500, detail=error_detail) from e
                                 continue
 
                         if not raw_response:
-                            error_detail = f"Failed to connect to LMStudio after trying all URLs: {', '.join(lmstudio_urls)}. Last error: {last_error}"
+                            urls_tried = ", ".join(lmstudio_urls)
+                            error_detail = (
+                                f"Failed to connect to LMStudio. Tried: {urls_tried}. Last error: {last_error}"
+                            )
                             error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
                             raise HTTPException(status_code=503, detail=error_detail)
 
@@ -847,7 +871,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         logger.error(f"Empty response from {provider} API for rule {queue_id}")
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Received empty response from {provider} API. Please try again or use a different model.",
+                            detail=f"Empty response from {provider} API. Try again or use a different model.",
                         )
 
                     # Try to parse as JSON first (new prompt format), fall back to YAML (legacy format)
@@ -875,9 +899,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             raise ValueError("Empty JSON text after cleaning")
 
                         enrichment_result = json.loads(json_text)
-                        logger.debug(
-                            f"Parsed JSON response, keys: {list(enrichment_result.keys()) if isinstance(enrichment_result, dict) else 'not a dict'}"
+                        keys_preview = (
+                            list(enrichment_result.keys()) if isinstance(enrichment_result, dict) else "not a dict"
                         )
+                        logger.debug(f"Parsed JSON response, keys: {keys_preview}")
 
                         # Check if it's the new JSON format
                         if isinstance(enrichment_result, dict) and "status" in enrichment_result:
@@ -918,7 +943,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         error_msg = _sanitize_error_detail(str(e))
                         # Log with repr to see exact content
                         logger.warning(
-                            f"Response is not valid JSON, treating as YAML. Error: {error_msg}, Response length: {len(raw_response)}, Response preview (first 500 chars): {repr(raw_response[:500])}"
+                            f"Response not valid JSON, treating as YAML. Error: {error_msg}, "
+                            f"len={len(raw_response)}, preview: {repr(raw_response[:500])}"
                         )
                         enriched_yaml = raw_response
                         enrichment_result = None  # Ensure it's cleared on parse failure
@@ -933,7 +959,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         # Unexpected error during JSON parsing, log and fall back to YAML
                         error_msg = _sanitize_error_detail(str(e))
                         logger.error(
-                            f"Unexpected error parsing enrichment response: {error_msg}, Type: {type(e)}, Response preview: {raw_response[:200]}",
+                            f"Unexpected error parsing enrichment: {error_msg}, type={type(e)}, "
+                            f"preview: {raw_response[:200]}",
                             exc_info=True,
                         )
                         enriched_yaml = raw_response
@@ -961,12 +988,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             raise HTTPException(status_code=400, detail=error_detail)
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Received empty response from {provider} API. Please try again or use a different model.",
+                            detail=f"Empty response from {provider} API. Try again or use a different model.",
                         )
 
-                    logger.info(
-                        f"Successfully enriched rule {queue_id} using {provider}/{model}, response length: {len(enriched_yaml)}"
-                    )
+                    logger.info(f"Successfully enriched rule {queue_id} {provider}/{model}, len={len(enriched_yaml)}")
 
                     response_data = {
                         "success": True,
@@ -1443,10 +1468,8 @@ async def validate_rule(request: Request, queue_id: int):
 
             # Parse request body (no body param to avoid double-consumption)
             body = {}
-            try:
+            with contextlib.suppress(Exception):
                 body = await request.json() or {}
-            except Exception:
-                pass
 
             # Use workflow Sigma agent LLM when requested (same as agent workflow)
             use_workflow_sigma_agent = body.get("use_workflow_sigma_agent") is True
@@ -1502,14 +1525,15 @@ async def validate_rule(request: Request, queue_id: int):
 
             for attempt in range(1, max_attempts + 1):
                 logger.info(
-                    f"Validation attempt {attempt}/{max_attempts} for rule {queue_id} with provider={provider}, model={model}"
+                    f"Validation attempt {attempt}/{max_attempts} rule {queue_id} provider={provider} model={model}"
                 )
 
                 # Build validation prompt (first attempt) or feedback prompt (subsequent attempts)
                 try:
                     if attempt == 1:
                         # First attempt: Ask to validate and fix the existing rule
-                        validation_prompt = f"""Validate and fix the following SIGMA rule. Ensure it is syntactically valid YAML and structurally valid according to SIGMA specifications.
+                        validation_prompt = f"""Validate and fix the following SIGMA rule. Ensure it is
+syntactically valid YAML and structurally valid per SIGMA specs.
 
 Current Rule YAML:
 ```yaml
@@ -2007,6 +2031,25 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                 max([m.get("similarity", 0.0) for m in similar_matches], default=0.0) if similar_matches else 0.0
             )
 
+            # When no matches, attach diagnostic so UI can explain (e.g. repo not synced or no rules for this logsource)
+            diagnostic = None
+            if not similar_matches:
+                from src.services.sigma_novelty_service import SigmaNoveltyService
+
+                novelty = SigmaNoveltyService(db_session=db_session)
+                logsource_key, _ = novelty.normalize_logsource(normalized_rule.get("logsource", {}))
+                total_rules = db_session.query(SigmaRuleTable).count()
+                rules_with_logsource = (
+                    db_session.query(SigmaRuleTable).filter(SigmaRuleTable.logsource_key == logsource_key).count()
+                    if logsource_key and logsource_key != "|"
+                    else 0
+                )
+                diagnostic = {
+                    "total_sigma_rules": total_rules,
+                    "rules_with_logsource": rules_with_logsource,
+                    "logsource_key": logsource_key or "",
+                }
+
             # Update the queued rule's max_similarity if it's None or different
             if rule.max_similarity is None or abs(rule.max_similarity - max_similarity) > 0.001:
                 rule.max_similarity = max_similarity
@@ -2014,7 +2057,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                 db_session.commit()
 
             # Prepare response
-            return {
+            response = {
                 "success": True,
                 "matches": similar_matches[:20],  # Return top 20
                 "max_similarity": max_similarity,
@@ -2026,6 +2069,9 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                 },
                 "assessment_method": "behavioral_novelty",
             }
+            if diagnostic is not None:
+                response["diagnostic"] = diagnostic
+            return response
 
         finally:
             db_session.close()

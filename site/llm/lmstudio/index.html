@@ -1761,6 +1761,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#configuring-the-lm-studio-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuring the LM Studio URL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3192,11 +3203,23 @@
 <li><strong>For article scoring</strong>: Use 16384-32768 tokens minimum</li>
 <li>Model must be reloaded after changing context length</li>
 </ul>
+<h2 id="configuring-the-lm-studio-url">Configuring the LM Studio URL<a class="headerlink" href="#configuring-the-lm-studio-url" title="Permanent link">&para;</a></h2>
+<p>The LM Studio server URL can change (e.g. different machine or IP). You can set it in two places:</p>
+<ol>
+<li><strong>Setup</strong>: When you run <code>./setup.sh</code> and choose to use LM Studio, you can optionally enter the server URL (e.g. <code>http://192.168.1.65:1234</code>). Leave blank for the default <code>host.docker.internal:1234</code>.</li>
+<li><strong>Settings UI</strong>: In <strong>Settings → Agentic Workflow Configuration</strong>, enable "Use LM Studio" and use the <strong>LM Studio server URL (base)</strong> and <strong>LM Studio embedding URL</strong> fields. These override <code>.env</code> and take effect after save (and on next app startup).</li>
+</ol>
+<p>If the configured URL is unreachable, the app tries fallback hosts (e.g. localhost, host.docker.internal) automatically for embedding requests.</p>
 <h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <h3 id="required">Required<a class="headerlink" href="#required" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>LMSTUDIO_API_URL</code>: LMStudio API endpoint (default: <code>http://host.docker.internal:1234/v1</code>)</li>
-<li><code>LMSTUDIO_MODEL</code>: Model name in LMStudio (default: <code>deepseek/deepseek-r1-0528-qwen3-8b</code>)</li>
+<li><code>LMSTUDIO_API_URL</code>: LMStudio API endpoint (default: <code>http://host.docker.internal:1234/v1</code>). Can also be set in Settings UI.</li>
+<li>
+<p><code>LMSTUDIO_MODEL</code>: Model name in LMStudio (default: <code>deepseek/deepseek-r1-0528-qwen3-8b</code>)</p>
+</li>
+<li>
+<p><code>LMSTUDIO_EMBEDDING_URL</code>: Embedding API endpoint (default: <code>http://host.docker.internal:1234/v1/embeddings</code>). Used for Sigma rule embeddings (e.g. <code>sigma index</code>). Can also be set in Settings UI. The app tries fallback URLs if the primary is unreachable.</p>
+</li>
 </ul>
 <h3 id="per-agent-model-overrides">Per-Agent Model Overrides<a class="headerlink" href="#per-agent-model-overrides" title="Permanent link">&para;</a></h3>
 <ul>

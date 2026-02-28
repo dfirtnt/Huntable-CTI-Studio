@@ -499,11 +499,27 @@
                  <!-- LMStudio API Key Section -->
                  <div id="workflowLmstudioApiKeySection" style="display: none;">
                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                         LMStudio Configuration
+                         LM Studio Configuration
                      </label>
-                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">LMStudio runs locally and doesn't require API keys. Ensure LMStudio is running on the default port.</p>
+                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">LM Studio runs locally and doesn't require API keys. Set the server URL if it's not on the default host/port (e.g. different IP).</p>
+                     <div class="mb-4">
+                         <label for="lmstudioApiUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio server URL (base)</label>
+                         <input type="text"
+                                id="lmstudioApiUrl"
+                                placeholder="http://localhost:1234/v1 or http://192.168.1.65:1234/v1"
+                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
+                     </div>
+                     <div class="mb-4">
+                         <label for="lmstudioEmbeddingUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio embedding URL</label>
+                         <input type="text"
+                                id="lmstudioEmbeddingUrl"
+                                placeholder="http://localhost:1234/v1/embeddings or http://192.168.1.65:1234/v1/embeddings"
+                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for Sigma rule embeddings (e.g. sigma index). Leave blank for default.</p>
+                     </div>
                      <div class="flex items-center justify-between">
-                         <p class="text-sm text-gray-500 dark:text-gray-400">Test connection to local LMStudio server</p>
+                         <p class="text-sm text-gray-500 dark:text-gray-400">Test connection to local LM Studio server</p>
                          <button id="testWorkflowLmstudioApiKey"
                                  class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                              Get Models
@@ -891,6 +907,21 @@
         );
         document.getElementById('workflowGeminiApiKey').value = workflowGeminiApiKey;
 
+        const lmstudioApiUrl = parseWorkflowStringSetting(
+            workflowAppSettings,
+            'LMSTUDIO_API_URL',
+            settings.lmstudioApiUrl || ''
+        );
+        const lmstudioEmbeddingUrl = parseWorkflowStringSetting(
+            workflowAppSettings,
+            'LMSTUDIO_EMBEDDING_URL',
+            settings.lmstudioEmbeddingUrl || ''
+        );
+        const lmstudioApiUrlEl = document.getElementById('lmstudioApiUrl');
+        const lmstudioEmbeddingUrlEl = document.getElementById('lmstudioEmbeddingUrl');
+        if (lmstudioApiUrlEl) lmstudioApiUrlEl.value = lmstudioApiUrl;
+        if (lmstudioEmbeddingUrlEl) lmstudioEmbeddingUrlEl.value = lmstudioEmbeddingUrl;
+
         // Update workflow API key visibility
         updateWorkflowApiKeyVisibility();
     }
@@ -1062,6 +1093,8 @@
             workflowOpenaiApiKey: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
             workflowAnthropicApiKey: document.getElementById('workflowAnthropicApiKey').value.trim() || '',
             workflowGeminiApiKey: document.getElementById('workflowGeminiApiKey').value.trim() || '',
+            lmstudioApiUrl: document.getElementById('lmstudioApiUrl')?.value.trim() || '',
+            lmstudioEmbeddingUrl: document.getElementById('lmstudioEmbeddingUrl')?.value.trim() || '',
             backupSettings: {
                 backupTime: document.getElementById('backupTime').value,
                 cleanupTime: document.getElementById('cleanupTime').value,
@@ -1092,7 +1125,9 @@
             [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: settings.workflowOpenaiApiKey,
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: settings.workflowAnthropicApiKey,
-            [WORKFLOW_PROVIDER_SETTING_KEYS.geminiApiKey]: settings.workflowGeminiApiKey
+            [WORKFLOW_PROVIDER_SETTING_KEYS.geminiApiKey]: settings.workflowGeminiApiKey,
+            'LMSTUDIO_API_URL': settings.lmstudioApiUrl || '',
+            'LMSTUDIO_EMBEDDING_URL': settings.lmstudioEmbeddingUrl || ''
         };
         await persistWorkflowAppSettings(workflowSettingsPayload);
 

@@ -28,8 +28,7 @@ class TestSigmaNoveltyService:
             "logsource": {"category": "process_creation", "product": "windows"},
             "detection": {
                 "selection": {
-                    "CommandLine|contains": "schtasks",
-                    "CommandLine|contains": "/create",
+                    "CommandLine|contains": ["schtasks", "/create"],
                     "ParentImage|endswith": "\\powershell.exe",
                 },
                 "condition": "selection",
@@ -77,13 +76,23 @@ class TestSigmaNoveltyService:
         assert len(hash1) == 64  # SHA256 hex length
 
     def test_normalize_logsource(self, service):
-        """Test logsource normalization."""
+        """Test logsource normalization returns (logsource_key, service) tuple; callers must unpack."""
         logsource = {"category": "process_creation", "product": "windows"}
 
-        key, service_name = service.normalize_logsource(logsource)
+        logsource_key, service_name = service.normalize_logsource(logsource)
 
-        assert isinstance(key, str)
-        assert len(key) > 0
+        assert isinstance(logsource_key, str)
+        assert logsource_key == "windows|process_creation"
+        assert service_name is None  # no "service" in logsource
+
+    def test_normalize_logsource_with_service(self, service):
+        """Test logsource with service returns correct key and service."""
+        logsource = {"category": "process_creation", "product": "windows", "service": "sysmon"}
+
+        logsource_key, service_name = service.normalize_logsource(logsource)
+
+        assert logsource_key == "windows|process_creation"
+        assert service_name == "sysmon"
 
     def test_compute_similarity_metrics(self, service, sample_rule):
         """Test similarity metrics computation."""

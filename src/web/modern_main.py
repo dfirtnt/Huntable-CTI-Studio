@@ -99,6 +99,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             stats["total_articles"],
         )
 
+        # Load LM Studio URL overrides from DB into os.environ so getenv() sees them
+        try:
+            from sqlalchemy import select
+
+            from src.database.models import AppSettingsTable
+
+            async with async_db_manager.get_session() as session:
+                for key in ("LMSTUDIO_API_URL", "LMSTUDIO_EMBEDDING_URL"):
+                    result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
+                    row = result.scalar_one_or_none()
+                    if row and row.value:
+                        os.environ[key] = row.value
+                        logger.debug("Loaded %s from settings", key)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not load LM Studio URL settings from DB: %s", exc)
+
         # Seed eval articles from static files so evals and Articles list work after rehydration
         try:
             from src.services.seed_eval_articles import run as seed_eval_articles

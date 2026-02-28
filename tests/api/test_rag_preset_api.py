@@ -10,6 +10,7 @@ import pytest
 class TestRAGPresetAPI:
     """Test RAG preset API endpoints."""
 
+    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_preset_list_returns_structure(self, async_client):
         """GET /api/chat/preset/list returns success and presets array."""
@@ -63,12 +64,14 @@ class TestRAGPresetAPI:
             assert "id" in result
             assert "message" in result
 
+    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_preset_get_404_for_missing(self, async_client):
         """GET /api/chat/preset/{id} returns 404 for non-existent preset."""
         response = await async_client.get("/api/chat/preset/999999")
         assert response.status_code == 404
 
+    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_preset_delete_404_for_missing(self, async_client):
         """DELETE /api/chat/preset/{id} returns 404 for non-existent preset."""
