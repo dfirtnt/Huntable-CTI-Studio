@@ -1,15 +1,25 @@
 // Background script for API communication
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'scrapeUrl') {
+        let responded = false;
+        const safeSend = (payload) => {
+            if (responded) return;
+            responded = true;
+            try {
+                sendResponse(payload);
+            } catch (_) {
+                // Channel already closed (e.g. popup/tab closed)
+            }
+        };
         scrapeUrlToCTIScraper(request.data)
-            .then(result => sendResponse({ success: true, data: result }))
-            .catch(error => sendResponse({ success: false, error: error.message }));
+            .then(result => safeSend({ success: true, data: result }))
+            .catch(error => safeSend({ success: false, error: error.message }));
         return true; // Keep message channel open for async response
     }
-    
+
     if (request.action === 'articleDataExtracted') {
         // Store article data for popup to access
-        chrome.storage.local.set({ 
+        chrome.storage.local.set({
             currentArticleData: request.data,
             timestamp: Date.now()
         });

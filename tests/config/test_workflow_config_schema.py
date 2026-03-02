@@ -17,7 +17,13 @@ def test_valid_v2_load():
     raw = {
         "Version": "2.0",
         "Metadata": {"CreatedAt": "", "Description": ""},
-        "Thresholds": {"MinHuntScore": 97.0, "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -39,7 +45,16 @@ def test_valid_v2_load():
 
 def test_missing_version_fails():
     """Missing Version raises ValidationError."""
-    raw = {"Metadata": {}, "Thresholds": {}, "Agents": {}, "Embeddings": {}, "QA": {}, "Features": {}, "Prompts": {}, "Execution": {}}
+    raw = {
+        "Metadata": {},
+        "Thresholds": {},
+        "Agents": {},
+        "Embeddings": {},
+        "QA": {},
+        "Features": {},
+        "Prompts": {},
+        "Execution": {},
+    }
     with pytest.raises(ValidationError):
         WorkflowConfigV2.model_validate(raw)
 
@@ -66,7 +81,13 @@ def test_invalid_value_types_fail():
     raw = {
         "Version": "2.0",
         "Metadata": {},
-        "Thresholds": {"MinHuntScore": "not-a-float", "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
+        "Thresholds": {
+            "MinHuntScore": "not-a-float",
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
         "Agents": {},
         "Embeddings": {},
         "QA": {},
@@ -86,16 +107,72 @@ def test_agent_config_required_fields():
     assert agent.Enabled is True
 
 
+def test_to_legacy_response_dict_includes_extract_agent_settings():
+    """Legacy response includes agent_prompts.ExtractAgentSettings.disabled_agents for UI persistence."""
+    raw = {
+        "Version": "2.0",
+        "Metadata": {"CreatedAt": "x", "Description": "x"},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
+        "Agents": {
+            "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "CmdlineExtract": {
+                "Provider": "openai",
+                "Model": "gpt-4",
+                "Temperature": 0.0,
+                "TopP": 0.9,
+                "Enabled": True,
+            },
+            "CmdlineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+        },
+        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "QA": {"Enabled": {}, "MaxRetries": 5},
+        "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
+        "Prompts": {
+            "RankAgent": {"prompt": "", "instructions": ""},
+            "RankAgentQA": {"prompt": "", "instructions": ""},
+            "CmdlineExtract": {"prompt": "", "instructions": ""},
+            "CmdlineQA": {"prompt": "", "instructions": ""},
+        },
+        "Execution": {
+            "ExtractAgentSettings": {"DisabledAgents": ["CmdlineExtract", "ProcTreeExtract"]},
+            "OsDetectionSelectedOs": ["Windows"],
+        },
+    }
+    config = WorkflowConfigV2.model_validate(raw)
+    legacy = config.to_legacy_response_dict(id=1, version=2, is_active=True, created_at="", updated_at="")
+    assert "ExtractAgentSettings" in legacy["agent_prompts"]
+    assert legacy["agent_prompts"]["ExtractAgentSettings"]["disabled_agents"] == ["CmdlineExtract", "ProcTreeExtract"]
+
+
 def test_flatten_for_llm_service_keys():
     """flatten_for_llm_service produces expected flat keys."""
     raw = {
         "Version": "2.0",
         "Metadata": {"CreatedAt": "x", "Description": "x"},
-        "Thresholds": {"MinHuntScore": 97.0, "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "CmdlineExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "CmdlineExtract": {
+                "Provider": "openai",
+                "Model": "gpt-4",
+                "Temperature": 0.0,
+                "TopP": 0.9,
+                "Enabled": True,
+            },
             "CmdlineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
@@ -135,8 +212,16 @@ def test_qa_enabled_orphan_fails():
     raw = {
         "Version": "2.0",
         "Metadata": {"CreatedAt": "x", "Description": "x"},
-        "Thresholds": {"MinHuntScore": 97.0, "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
-        "Agents": {"RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
+        "Agents": {
+            "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
+        },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {"UnknownAgent": True}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
@@ -152,8 +237,16 @@ def test_stray_prompt_key_fails():
     raw = {
         "Version": "2.0",
         "Metadata": {"CreatedAt": "x", "Description": "x"},
-        "Thresholds": {"MinHuntScore": 97.0, "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
-        "Agents": {"RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
+        "Agents": {
+            "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
+        },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
@@ -169,7 +262,13 @@ def _minimal_v2(agents: dict, prompts: dict | None = None) -> dict:
     return {
         "Version": "2.0",
         "Metadata": {"CreatedAt": "x", "Description": "x"},
-        "Thresholds": {"MinHuntScore": 97.0, "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
         "Agents": agents,
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -309,7 +408,11 @@ def test_os_detection_fallback_enabled_requires_model():
         "RankAgentQA": agent_cfg,
         "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}, "OSDetectionFallback": {"prompt": "", "instructions": ""}}
+    prompts = {
+        "RankAgent": {"prompt": "", "instructions": ""},
+        "RankAgentQA": {"prompt": "", "instructions": ""},
+        "OSDetectionFallback": {"prompt": "", "instructions": ""},
+    }
     raw = _minimal_v2(agents, prompts)
     with pytest.raises(ValidationError, match="Agent 'OSDetectionFallback' is Enabled but missing Provider or Model"):
         WorkflowConfigV2.model_validate(raw)

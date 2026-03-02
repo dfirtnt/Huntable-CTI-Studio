@@ -537,8 +537,22 @@ def _build_v2_export_ordered(dumped: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _extract_agent_settings_from_row(row: Any) -> dict[str, Any]:
+    """Derive extract_agent_settings from row; disabled list lives in agent_prompts.ExtractAgentSettings."""
+    explicit = getattr(row, "extract_agent_settings", None)
+    if explicit and isinstance(explicit, dict) and "disabled_agents" in explicit:
+        return explicit
+    agent_prompts = getattr(row, "agent_prompts", None) or {}
+    ex_settings = agent_prompts.get("ExtractAgentSettings") or agent_prompts.get("ExtractAgent") or {}
+    if isinstance(ex_settings, dict):
+        disabled = ex_settings.get("disabled_agents") or ex_settings.get("disabled_sub_agents")
+        if isinstance(disabled, list):
+            return {"disabled_agents": disabled}
+    return {"disabled_agents": []}
+
+
 def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
-    """Build a v1-style dict from AgenticWorkflowConfigTable row. Includes all keys required by validate_legacy_preset_strict."""
+    """Build v1-style dict from row; includes keys required by validate_legacy_preset_strict."""
     if row is None:
         return _empty_v1()
     raw: dict[str, Any] = {
@@ -557,7 +571,7 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "osdetection_fallback_enabled": getattr(row, "osdetection_fallback_enabled", False),
         "rank_agent_enabled": getattr(row, "rank_agent_enabled", True),
         "cmdline_attention_preprocessor_enabled": getattr(row, "cmdline_attention_preprocessor_enabled", True),
-        "extract_agent_settings": getattr(row, "extract_agent_settings", None) or {"disabled_agents": []},
+        "extract_agent_settings": _extract_agent_settings_from_row(row),
         "description": getattr(row, "description", None) or "",
         "created_at": str(getattr(row, "created_at", "")) if getattr(row, "created_at", None) else "",
     }
