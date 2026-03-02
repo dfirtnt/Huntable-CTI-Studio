@@ -97,6 +97,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             } else {
                                 // Fallback: try to send message to content script
                                 chrome.tabs.sendMessage(tabs[0].id, { action: 'extractArticleData' }, (response) => {
+                                    if (chrome.runtime.lastError) {
+                                        console.warn('Content script message failed:', chrome.runtime.lastError.message);
+                                        showError('Unable to extract article data from this page');
+                                        return;
+                                    }
                                     if (response) {
                                         currentArticleData = response;
                                         updateUI(response);
@@ -354,6 +359,17 @@ document.addEventListener('DOMContentLoaded', function() {
             action: 'scrapeUrl',
             data: requestData
         }, (response) => {
+            if (chrome.runtime.lastError) {
+                showError(`Failed to send to CTIScraper: ${chrome.runtime.lastError.message}`);
+                scrapeBtn.disabled = false;
+                scrapeBtn.innerHTML = `
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Send to CTIScraper
+                `;
+                return;
+            }
             scrapeBtn.disabled = false;
             scrapeBtn.innerHTML = `
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">

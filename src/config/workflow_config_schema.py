@@ -169,22 +169,18 @@ class WorkflowConfigV2(BaseModel):
         """Every QA.Enabled key must exist in Agents; no orphan QA keys."""
         for key in self.QA.Enabled:
             if key not in self.Agents:
-                raise ValueError(
-                    f"QA.Enabled key '{key}' is not in Agents; QA.Enabled must align with Agents keys"
-                )
+                raise ValueError(f"QA.Enabled key '{key}' is not in Agents; QA.Enabled must align with Agents keys")
         return self
 
     @model_validator(mode="after")
-    def llm_agent_symmetry(self) -> "WorkflowConfigV2":
+    def llm_agent_symmetry(self) -> WorkflowConfigV2:
         """Enforce: (0) enabled agents must have Provider+Model; (1) required QA for enabled base agents; (2) no orphan QA agents; (3) prompt block per LLM agent."""
         agents = self.Agents
         prompts = self.Prompts
         # Part 0: if Enabled == true, Provider and Model must be non-empty (no pseudo-enabled empty-model loophole)
         for name, cfg in agents.items():
             if cfg.Enabled and (not cfg.Provider or not cfg.Model):
-                raise ValueError(
-                    f"Agent '{name}' is Enabled but missing Provider or Model."
-                )
+                raise ValueError(f"Agent '{name}' is Enabled but missing Provider or Model.")
         # Part 1: every enabled base agent (with Provider+Model) in mapping must have its QA agent
         for name, cfg in agents.items():
             if name.endswith("QA") or name == "OSDetectionFallback":
@@ -263,6 +259,10 @@ class WorkflowConfigV2(BaseModel):
                 agent_prompts_out[name] = {"prompt": val.prompt, "instructions": val.instructions}
             elif isinstance(val, dict):
                 agent_prompts_out[name] = {"prompt": val.get("prompt", ""), "instructions": val.get("instructions", "")}
+        # UI expects agent_prompts.ExtractAgentSettings.disabled_agents on GET so extract toggles persist after refresh
+        agent_prompts_out["ExtractAgentSettings"] = {
+            "disabled_agents": list(self.Execution.ExtractAgentSettings.DisabledAgents),
+        }
         rank_agent = self.Agents.get("RankAgent")
         os_fallback = self.Agents.get("OSDetectionFallback")
         return {

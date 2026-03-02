@@ -345,3 +345,31 @@ def test_config_row_to_preset_dict_includes_disabled_agents_from_agent_prompts()
     )
     out = _config_row_to_preset_dict(row)
     assert out.get("extract_agent_settings") == {"disabled_agents": ["CmdlineExtract"]}
+
+
+def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompts():
+    """load_workflow_config(row) derives disabled_agents from row.agent_prompts when column missing."""
+    row = SimpleNamespace(
+        min_hunt_score=97.0,
+        ranking_threshold=6.0,
+        similarity_threshold=0.5,
+        junk_filter_threshold=0.8,
+        auto_trigger_hunt_score_threshold=60.0,
+        agent_models=dict(_MINIMAL_AGENT_MODELS),
+        agent_prompts={
+            **_MINIMAL_AGENT_PROMPTS,
+            "ExtractAgentSettings": {"disabled_agents": ["CmdlineExtract", "ProcTreeExtract"]},
+        },
+        qa_enabled={},
+        qa_max_retries=5,
+        sigma_fallback_enabled=False,
+        osdetection_fallback_enabled=False,
+        rank_agent_enabled=True,
+        cmdline_attention_preprocessor_enabled=True,
+        description="",
+        created_at="",
+    )
+    config = load_workflow_config(row)
+    assert list(config.Execution.ExtractAgentSettings.DisabledAgents) == ["CmdlineExtract", "ProcTreeExtract"]
+    legacy = config.to_legacy_response_dict()
+    assert legacy["agent_prompts"]["ExtractAgentSettings"]["disabled_agents"] == ["CmdlineExtract", "ProcTreeExtract"]
