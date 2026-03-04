@@ -3136,6 +3136,17 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
 If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
 
+                # Append traceability requirements for observable traceability feature
+                _traceability_block = """
+
+TRACEABILITY (REQUIRED when possible): For each extracted item include:
+- source_evidence: The full paragraph from the article containing this observable (verbatim).
+- extraction_justification: Which prompt rule or rubric triggered this extraction.
+- confidence_score: A number between 0.0 and 1.0 for extraction confidence.
+If your output uses an array of items (e.g. cmdline_items, process_lineage, queries), each item may be a string (value only) or an object with "value" plus source_evidence, extraction_justification, and confidence_score."""
+                if user_prompt and agent_name in ("CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"):
+                    user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
+
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:
                     user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
@@ -3448,6 +3459,30 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                     # Ensure we have a result
                     if not last_result:
                         last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
+
+                    # Normalize and validate traceability on items (observable traceability feature)
+                    def _normalize_traceability_item(item: Any, agent_name: str) -> Any:
+                        if not isinstance(item, dict):
+                            return item
+                        out = dict(item)
+                        if "value" not in out and ("source_evidence" in out or "extraction_justification" in out):
+                            out["value"] = out.get("command_line") or out.get("cmdline") or str(item)
+                        conf = out.get("confidence_score")
+                        if conf is not None:
+                            try:
+                                f = float(conf)
+                                if not (0.0 <= f <= 1.0):
+                                    out["confidence_score"] = None
+                            except (TypeError, ValueError):
+                                out["confidence_score"] = None
+                        return out
+
+                    for key in ("cmdline_items", "items"):
+                        if key not in last_result or not isinstance(last_result[key], list):
+                            continue
+                        last_result[key] = [
+                            _normalize_traceability_item(it, agent_name) for it in last_result[key]
+                        ]
 
                     # Log completion to Langfuse with parsed result (inside with block so generation is still active)
                     if generation:

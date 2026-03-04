@@ -1733,6 +1733,35 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Merge all items into a single 'observables' list for backward compatibility
             all_observables = []
             content_summary = []  # Accumulate text summary for content field
+            extraction_timestamp = datetime.now().isoformat()
+            config = state.get("config") or {}
+            agent_models = config.get("agent_models") or {}
+            cat_to_agent = {
+                "cmdline": "CmdlineExtract",
+                "process_lineage": "ProcTreeExtract",
+                "hunt_queries": "HuntQueriesExtract",
+            }
+            cat_to_subagent_name = {
+                "cmdline": "Command-line Extractor",
+                "process_lineage": "Process Tree Extractor",
+                "hunt_queries": "Hunt Queries Extractor",
+            }
+
+            # Enrich subresults items with traceability system fields (observable traceability feature)
+            for cat, data in subresults.items():
+                items = data.get("items", [])
+                if not isinstance(items, list):
+                    continue
+                agent_name = cat_to_agent.get(cat)
+                model_version = None
+                if agent_name:
+                    model_version = agent_models.get(f"{agent_name}_model") or agent_models.get("ExtractAgent")
+                subagent_name = cat_to_subagent_name.get(cat, cat)
+                for item in items:
+                    if isinstance(item, dict):
+                        item["subagent_name"] = subagent_name
+                        item["model_version"] = model_version
+                        item["extraction_timestamp"] = extraction_timestamp
 
             # Tag and merge
             for cat, data in subresults.items():
@@ -1753,14 +1782,27 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         else:
                             val = item
 
-                        all_observables.append(
-                            {
-                                "type": cat,
-                                "value": val,
-                                "original_data": item if isinstance(item, dict) else None,
-                                "source": "supervisor_aggregation",
-                            }
-                        )
+                        obs_entry = {
+                            "type": cat,
+                            "value": val,
+                            "original_data": item if isinstance(item, dict) else None,
+                            "source": "supervisor_aggregation",
+                        }
+                        # Observable traceability: surface traceability fields at top level for API
+                        if isinstance(item, dict):
+                            if item.get("source_evidence") is not None:
+                                obs_entry["source_evidence"] = item.get("source_evidence")
+                            if item.get("extraction_justification") is not None:
+                                obs_entry["extraction_justification"] = item.get("extraction_justification")
+                            if item.get("confidence_score") is not None:
+                                obs_entry["confidence_score"] = item.get("confidence_score")
+                            if item.get("subagent_name") is not None:
+                                obs_entry["subagent_name"] = item.get("subagent_name")
+                            if item.get("model_version") is not None:
+                                obs_entry["model_version"] = item.get("model_version")
+                            if item.get("extraction_timestamp") is not None:
+                                obs_entry["extraction_timestamp"] = item.get("extraction_timestamp")
+                        all_observables.append(obs_entry)
 
                         # Add to text summary
                         item_str = str(item)

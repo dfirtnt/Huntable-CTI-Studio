@@ -113,6 +113,26 @@ class ExecutionDetailResponse(ExecutionResponse):
     article_content_preview: str | None = None  # Preview (first 500 chars)
 
 
+class ObservableTraceabilityItem(BaseModel):
+    """Single observable with traceability metadata."""
+
+    observable_value: Any
+    observable_type: str
+    source_evidence: str | None = None
+    extraction_justification: str | None = None
+    confidence_score: float | None = None
+    subagent_name: str | None = None
+    model_version: str | None = None
+    extraction_timestamp: str | None = None
+
+
+class ObservablesResponse(BaseModel):
+    """Observables grouped by type for an execution (observable traceability)."""
+
+    execution_id: int
+    observables: dict[str, list[ObservableTraceabilityItem]] = Field(default_factory=dict)
+
+
 class ExecutionListResponse(BaseModel):
     """Response model for execution list with counts."""
 
@@ -335,6 +355,74 @@ async def get_workflow_execution(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting workflow execution: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+def _build_observables_response(
+    execution_id: int,
+    extraction_result: dict[str, Any] | None,
+    type_filter: str | None = None,
+) -> ObservablesResponse:
+    """Build observables response grouped by type from extraction_result."""
+    OBS_TYPES = ("cmdline", "process_lineage", "hunt_queries")
+    grouped: dict[str, list[ObservableTraceabilityItem]] = {t: [] for t in OBS_TYPES}
+    if not extraction_result or not isinstance(extraction_result, dict):
+        return ObservablesResponse(execution_id=execution_id, observables=grouped)
+    observables_list = extraction_result.get("observables") or []
+    if not isinstance(observables_list, list):
+        return ObservablesResponse(execution_id=execution_id, observables=grouped)
+    for obs in observables_list:
+        if not isinstance(obs, dict):
+            continue
+        obs_type = obs.get("type")
+        if obs_type not in OBS_TYPES or (type_filter is not None and obs_type != type_filter):
+            continue
+        val = obs.get("value")
+        item = ObservableTraceabilityItem(
+            observable_value=val,
+            observable_type=obs_type,
+            source_evidence=obs.get("source_evidence"),
+            extraction_justification=obs.get("extraction_justification"),
+            confidence_score=obs.get("confidence_score"),
+            subagent_name=obs.get("subagent_name"),
+            model_version=obs.get("model_version"),
+            extraction_timestamp=obs.get("extraction_timestamp"),
+        )
+        grouped[obs_type].append(item)
+    return ObservablesResponse(execution_id=execution_id, observables=grouped)
+
+
+@router.get("/executions/{execution_id}/observables", response_model=ObservablesResponse)
+async def get_execution_observables(
+    request: Request,
+    execution_id: int,
+    type: str | None = Query(None, description="Filter by observable type: cmdline, process_lineage, hunt_queries"),
+):
+    """Get all observables with traceability for a workflow execution, grouped by type."""
+    try:
+        db_manager = get_db_manager()
+        db_session = db_manager.get_session()
+        try:
+            execution = (
+                db_session.query(AgenticWorkflowExecutionTable)
+                .filter(AgenticWorkflowExecutionTable.id == execution_id)
+                .first()
+            )
+            if not execution:
+                raise HTTPException(status_code=404, detail="Workflow execution not found")
+            db_session.expire(execution)
+            db_session.refresh(execution)
+            return _build_observables_response(
+                execution_id=execution.id,
+                extraction_result=execution.extraction_result,
+                type_filter=type.strip() or None if type else None,
+            )
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting execution observables: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
