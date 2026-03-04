@@ -37,8 +37,8 @@ The main engine is a LangGraph-based agentic workflow (#4-6 in diagram above) ex
 
 ### Key Features
 - **Content Collection**: RSS parsing, web scraping, SimHash near-duplicate detection
-- **AI Analysis**: LLM threat scoring, IOC extraction, automated SIGMA generation
-- **RAG Chat**: Semantic search with pgvector across article database
+- **AI Analysis**: LLM threat scoring, obserbavles extraction (with confidence score), automated Sigma generation, interactive Sigma rule enrichment.
+- **RAG Chat**: Chat with your CTI articles - semantic search with pgvector across article database
 - **Agentic Workflow Engine**: LangGraph-based pipeline with checkpointing and retry logic. Native and LangFuse trace support.
 
 ## Quick Start
