@@ -303,13 +303,13 @@
     <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav class="-mb-px flex items-center justify-between">
             <div class="flex space-x-8">
-                <button onclick="switchTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
+                <button type="button" data-tab="config" onclick="typeof window.switchTab === 'function' && window.switchTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                     ⚙️ Configuration
                 </button>
-                <button onclick="switchTab('executions')" id="tab-executions" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
+                <button type="button" data-tab="executions" onclick="typeof window.switchTab === 'function' && window.switchTab('executions')" id="tab-executions" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                     🔄 Executions
                 </button>
-                <button onclick="switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
+                <button type="button" data-tab="queue" onclick="typeof window.switchTab === 'function' && window.switchTab('queue')" id="tab-queue" class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                     📥 SIGMA Queue
                 </button>
             </div>
@@ -2143,9 +2143,12 @@ let queue = [];
 
 function switchTab(tab) {
     currentTab = tab;
-    
-    // Update URL hash
-    window.location.hash = tab;
+
+    // Update URL hash (replaceState to avoid double hashchange when already correct)
+    const wantHash = '#' + tab;
+    if (window.location.hash !== wantHash) {
+        window.location.hash = tab;
+    }
     
     // Hide all tab contents
     document.querySelectorAll('.tab-content').forEach(content => {
@@ -2198,6 +2201,7 @@ function switchTab(tab) {
         console.error(`Error loading tab ${tab}:`, error);
     }
 }
+window.switchTab = switchTab;
 
 // Configuration Functions
 let currentConfig = null;
@@ -10278,9 +10282,9 @@ async function viewExecution(executionId) {
                 
                 // Show filtered content that was sent to extraction agent
                 const extractInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
-                const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full">
+                const extractInputDetails = exec.article_content && exec.article_content.length > 0 ? `<details class="mt-2 w-full" id="executionArticleDetails">
                     <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Filtered Content Sent to Extract Agents (${extractInputContentLength} chars)</summary>
-                    <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+                    <div id="executionArticleContent" class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${String(exec.article_content).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
                 </details>` : '';
@@ -10905,23 +10909,63 @@ async function viewExecution(executionId) {
                 details: queueDetails
             });
             
+            let observablesData = { execution_id: exec.id, observables: { cmdline: [], process_lineage: [], hunt_queries: [] } };
+            try {
+                const obsRes = await fetch(`/api/workflow/executions/${exec.id}/observables`);
+                if (obsRes.ok) observablesData = await obsRes.json();
+            } catch (e) { console.warn('Observables fetch failed', e); }
+            window.__lastExecutionObservables = observablesData;
+            const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
+            const totalObs = (observablesData.observables.cmdline?.length || 0) + (observablesData.observables.process_lineage?.length || 0) + (observablesData.observables.hunt_queries?.length || 0);
+            function confidenceBadge(score) {
+                if (score == null) return '<span class="text-gray-500 dark:text-gray-400 text-xs">N/A</span>';
+                const pct = Math.round(Number(score) * 100);
+                const cls = pct >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : pct >= 50 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+                return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}" title="Confidence">${pct}%</span>`;
+            }
+            function traceabilitySection() {
+                if (totalObs === 0) return `<div class="border-t pt-2 border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-3 text-gray-900 dark:text-gray-300">Observable Traceability</h4><p class="text-gray-600 dark:text-gray-400 text-sm">Traceability unavailable (legacy execution or no observables).</p></div>`;
+                let html = `<div class="border-t pt-2 border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-3 text-gray-900 dark:text-gray-300">Observable Traceability</h4><div class="space-y-2">`;
+                for (const [typeKey, label] of Object.entries(typeLabels)) {
+                    const list = observablesData.observables[typeKey] || [];
+                    if (list.length === 0) continue;
+                    const idPrefix = `obs-${exec.id}-${typeKey}`;
+                    html += `<details class="border rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50"><summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">${label} (${list.length})</summary><div class="px-3 pb-3 space-y-2">`;
+                    list.forEach((obs, idx) => {
+                        const obsId = `${idPrefix}-${idx}`;
+                        const val = typeof obs.observable_value === 'object' ? JSON.stringify(obs.observable_value) : String(obs.observable_value ?? '');
+                        const hasTrace = obs.source_evidence != null || obs.extraction_justification != null;
+                        const expandContent = !hasTrace ? `<p class="text-gray-500 dark:text-gray-400 text-sm">Traceability unavailable</p>` : `
+${ obs.source_evidence != null ? `<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-3 py-1 my-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded">${escapeHtml(obs.source_evidence)}</blockquote>` : ''}
+${ obs.extraction_justification != null ? `<p class="text-sm text-gray-700 dark:text-gray-300"><strong>Reasoning:</strong> ${escapeHtml(obs.extraction_justification)}</p>` : ''}
+                            <p class="text-xs text-gray-600 dark:text-gray-400">${obs.subagent_name || ''} ${obs.model_version ? ' · ' + obs.model_version : ''} ${obs.extraction_timestamp ? ' · ' + obs.extraction_timestamp : ''}</p>
+${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded jump-to-article-btn" data-type="${typeKey}" data-index="${idx}" title="Scroll to source paragraph in article">Jump to Article</button>` : ''}
+                        `;
+                        html += `<div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-white dark:bg-gray-900"><details class="obs-item"><summary class="cursor-pointer flex items-center gap-2 flex-wrap"><code class="text-xs break-all">${escapeHtml(val)}</code> ${confidenceBadge(obs.confidence_score)}</summary><div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">${expandContent}</div></details></div>`;
+                    });
+                    html += `</div></details>`;
+                }
+                html += `</div></div>`;
+                return html;
+            }
+
             const content = `
                 <div class="space-y-4">
                     <div class="border-b pb-2 border-gray-200 dark:border-gray-700">
                         <div class="text-gray-900 dark:text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
                         <div class="text-gray-900 dark:text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">${exec.article_title}</a></div>
                         <div class="text-gray-900 dark:text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
-                        ${exec.termination_reason ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
+${ exec.termination_reason ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
                         <div class="text-gray-900 dark:text-gray-300"><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
                         <div class="text-gray-900 dark:text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
-                        ${exec.completed_at ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
-                        ${exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded mt-2"><strong class="text-gray-900 dark:text-gray-300">Error:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.error_message}</span></div>` : ''}
+${ exec.completed_at ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+${ exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded mt-2"><strong class="text-gray-900 dark:text-gray-300">Error:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.error_message}</span></div>` : ''}
                     </div>
                     
                     <div class="border-t pt-2 border-gray-200 dark:border-gray-700">
                         <h4 class="font-bold mb-3 text-gray-900 dark:text-gray-300">Step-by-Step Inputs & Outputs</h4>
                         <div class="space-y-3">
-                            ${steps.map((step, idx) => `
+${ steps.map((step, idx) => `
                                 <div class="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
                                     <div class="font-semibold text-sm mb-2 text-gray-900 dark:text-gray-300">${step.name}</div>
                                     <div class="grid grid-cols-2 gap-4 text-sm">
@@ -10934,17 +10978,46 @@ async function viewExecution(executionId) {
                                             <div class="text-gray-700 dark:text-gray-300">${step.output}</div>
                                         </div>
                                     </div>
-                                    ${step.inputDetails ? `<div class="mt-3">${step.inputDetails}</div>` : ''}
-                                    ${step.details ? `<div class="mt-3">${step.details}</div>` : ''}
+${ step.inputDetails ? `<div class="mt-3">${step.inputDetails}</div>` : ''}
+${ step.details ? `<div class="mt-3">${step.details}</div>` : ''}
                                 </div>
                             `).join('')}
                         </div>
                     </div>
+${ traceabilitySection()}
                 </div>
             `;
             
             document.getElementById('executionDetailContent').innerHTML = content;
             document.getElementById('executionModal').classList.remove('hidden');
+            document.querySelectorAll('#executionDetailContent .jump-to-article-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const typeKey = this.getAttribute('data-type');
+                    const index = parseInt(this.getAttribute('data-index'), 10);
+                    const obs = window.__lastExecutionObservables?.observables?.[typeKey]?.[index];
+                    const evidence = obs?.source_evidence;
+                    const el = document.getElementById('executionArticleContent');
+                    const detailsEl = document.getElementById('executionArticleDetails');
+                    if (!el || !evidence) { if (typeof showNotification === 'function') showNotification('Could not locate exact paragraph in article', 'warning'); return; }
+                    if (detailsEl && !detailsEl.open) detailsEl.open = true;
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const text = el.textContent || '';
+                    const idx = text.indexOf(evidence.trim().slice(0, 200));
+                    if (idx === -1) { if (typeof showNotification === 'function') showNotification('Could not locate exact paragraph in article', 'warning'); return; }
+                    const before = text.slice(0, idx);
+                    const matchLen = Math.min(evidence.length, text.length - idx);
+                    const highlight = text.slice(idx, idx + matchLen);
+                    const after = text.slice(idx + matchLen);
+                    const span = document.createElement('span');
+                    span.className = 'bg-yellow-300 dark:bg-yellow-600/50 rounded px-0.5';
+                    span.textContent = highlight;
+                    el.textContent = '';
+                    el.appendChild(document.createTextNode(before));
+                    el.appendChild(span);
+                    el.appendChild(document.createTextNode(after));
+                    setTimeout(() => { el.textContent = before + highlight + after; }, 3000);
+                });
+            });
         }
     } catch (error) {
         console.error('Error loading execution details:', error);
@@ -11481,7 +11554,7 @@ function updateQueueStats() {
     if (submittedEl) submittedEl.textContent = stats.submitted;
 }
 
-function previewRule(ruleId) {
+async function previewRule(ruleId) {
     const rule = queue.find(r => r.id === ruleId);
     if (!rule) return;
     
@@ -11494,8 +11567,15 @@ function previewRule(ruleId) {
     // Update URL with previewId parameter
     updateURLParameter('previewId', ruleId);
     
-    renderRulePreview(rule);
     pushModal('ruleModal', false); // Don't hide previous, rule modal is base level
+    let observablesData = null;
+    if (rule.workflow_execution_id) {
+        try {
+            const obsRes = await fetch(`/api/workflow/executions/${rule.workflow_execution_id}/observables`);
+            if (obsRes.ok) observablesData = await obsRes.json();
+        } catch (e) { console.warn('Observables fetch failed', e); }
+    }
+    renderRulePreview(rule, observablesData);
 }
 
 async function seedValidateDropdownsFromWorkflowConfig() {
@@ -11609,7 +11689,55 @@ function initializeValidateDropdowns() {
     }
 }
 
-function renderRulePreview(rule) {
+function observablesUsedSection(rule, observablesData) {
+    if (!observablesData || !observablesData.observables) return '';
+    const obs = observablesData.observables;
+    const total = (obs.cmdline?.length || 0) + (obs.process_lineage?.length || 0) + (obs.hunt_queries?.length || 0);
+    if (total === 0) return '<div class="mt-4"><details open class="border border-gray-600 rounded-lg"><summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Observables Used</summary><p class="px-3 pb-3 text-gray-400 text-sm">No observables for this execution.</p></details></div>';
+    const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
+    function confidenceBadge(score) {
+        if (score == null) return '<span class="text-gray-500 text-xs">N/A</span>';
+        const pct = Math.round(Number(score) * 100);
+        const cls = pct >= 80 ? 'bg-green-900/40 text-green-300' : pct >= 50 ? 'bg-yellow-900/40 text-yellow-300' : 'bg-red-900/40 text-red-300';
+        return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${pct}%</span>`;
+    }
+    let html = '<div class="mt-4"><details open class="border border-gray-600 rounded-lg"><summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Observables Used (' + total + ')</summary><div class="px-3 pb-3 space-y-2">';
+    for (const [typeKey, label] of Object.entries(typeLabels)) {
+        const list = obs[typeKey] || [];
+        if (list.length === 0) continue;
+        html += `<details open class="border border-gray-600 rounded p-2 bg-gray-900/50"><summary class="cursor-pointer text-sm font-medium text-gray-200">${label} (${list.length})</summary><div class="mt-2 space-y-2">`;
+        list.forEach((ob, idx) => {
+            const val = typeof ob.observable_value === 'object' ? JSON.stringify(ob.observable_value) : String(ob.observable_value ?? '');
+            const safeVal = val.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const hasTrace = ob.source_evidence != null || ob.extraction_justification != null;
+            const infoId = 'obs-info-' + rule.id + '-' + typeKey + '-' + idx;
+            html += `<div class="flex items-center gap-2 flex-wrap border-b border-gray-700 pb-2"><code class="text-xs break-all text-gray-300">${safeVal}</code> ${confidenceBadge(ob.confidence_score)}`;
+            if (hasTrace) html += ` <button type="button" class="text-xs text-blue-400 hover:text-blue-300 cursor-pointer" onclick="showObservableInfoModal('${infoId}')" title="Show justification and source">ⓘ</button>`;
+            html += '</div>';
+            if (hasTrace) {
+                const modalContent = `<div class="space-y-2 text-left text-sm"><div><strong class="text-gray-300">Value:</strong><pre class="mt-1 p-2 bg-gray-900 rounded text-xs text-gray-300 break-all">${safeVal}</pre></div>${ob.extraction_justification != null ? `<div><strong class="text-gray-300">Reasoning:</strong><p class="mt-1 text-gray-400">${String(ob.extraction_justification).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div>` : ''}${ob.source_evidence != null ? `<div><strong class="text-gray-300">Source evidence:</strong><blockquote class="mt-1 p-2 border-l-4 border-gray-600 bg-gray-900 rounded text-gray-400 text-xs">${String(ob.source_evidence).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</blockquote></div>` : ''}</div>`;
+                html += `<div id="${infoId}" class="hidden obs-info-content">${modalContent}</div>`;
+            }
+        });
+        html += '</div></details>';
+    }
+    html += '</div></details></div>';
+    return html;
+}
+function showObservableInfoModal(contentId) {
+    const el = document.getElementById(contentId);
+    if (!el) return;
+    const inner = el.innerHTML;
+    const modal = document.createElement('div');
+    modal.id = 'observableInfoModal';
+    modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[60]';
+    modal.innerHTML = '<div class="bg-gray-800 border border-gray-600 rounded-lg p-4 max-w-lg max-h-[80vh] overflow-y-auto shadow-xl"><div class="flex justify-end mb-2"><button type="button" class="text-gray-400 hover:text-white" onclick="document.getElementById(\'observableInfoModal\').remove()">✕</button></div><div class="observable-info-body"></div></div>';
+    modal.querySelector('.observable-info-body').innerHTML = inner;
+    modal.querySelector('button').onclick = () => modal.remove();
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+function renderRulePreview(rule, observablesData) {
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
     
@@ -11661,6 +11789,7 @@ function renderRulePreview(rule) {
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
             <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
+            ${observablesUsedSection(rule, observablesData)}
             ${yamlSection}
         </div>
     `;
@@ -15470,39 +15599,48 @@ function initializeTabs() {
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.add('hidden');
     });
-    
+
     // Function to handle hash and switch tab
     function handleHashAndSwitch() {
         let hash = window.location.hash.substring(1);
         // Normalize hash: 'execution' -> 'executions'
         if (hash === 'execution') {
             hash = 'executions';
-            // Update hash - this will trigger hashchange, which will call handleHashAndSwitch again
             window.location.hash = 'executions';
             return;
         }
         if (hash && ['config', 'executions', 'queue'].includes(hash)) {
             switchTab(hash);
         } else {
-            // Default to config tab
             switchTab('config');
         }
     }
-    
-    // Listen for hash changes FIRST (before initial load)
+
+    // Delegated click: any .tab-button click switches tab (works even if inline onclick fails)
+    document.addEventListener('click', function tabClickDelegated(e) {
+        const btn = e.target.closest('.tab-button[data-tab]');
+        if (!btn || !btn.getAttribute('data-tab')) return;
+        const tab = btn.getAttribute('data-tab');
+        if (['config', 'executions', 'queue'].includes(tab)) {
+            e.preventDefault();
+            switchTab(tab);
+        }
+    });
+
     window.addEventListener('hashchange', handleHashAndSwitch);
-    
-    // Initial load - check hash immediately
-    let hash = window.location.hash.substring(1);
-    if (hash === 'execution') {
-        // Normalize to 'executions' and switch directly
-        hash = 'executions';
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) handleHashAndSwitch();
+    });
+
+    // Initial load - sync tab to current hash
+    var initialHash = window.location.hash.substring(1);
+    if (initialHash === 'execution') {
+        initialHash = 'executions';
         window.location.hash = 'executions';
-        switchTab('executions');
-    } else if (hash && ['config', 'executions', 'queue'].includes(hash)) {
-        switchTab(hash);
+    }
+    if (initialHash && ['config', 'executions', 'queue'].includes(initialHash)) {
+        switchTab(initialHash);
     } else {
-        // Default to config tab
         switchTab('config');
     }
 }

@@ -248,9 +248,43 @@ async function viewExecution(executionId) {
         const response = await fetch(`/api/workflow/executions/${executionId}`);
         if (response.ok) {
             const exec = await response.json();
-            
             const config = exec.config_snapshot || {};
-            
+            let observablesData = { execution_id: exec.id, observables: { cmdline: [], process_lineage: [], hunt_queries: [] } };
+            try {
+                const obsRes = await fetch(`/api/workflow/executions/${exec.id}/observables`);
+                if (obsRes.ok) observablesData = await obsRes.json();
+            } catch (e) { console.warn('Observables fetch failed', e); }
+            const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
+            const totalObs = (observablesData.observables.cmdline?.length || 0) + (observablesData.observables.process_lineage?.length || 0) + (observablesData.observables.hunt_queries?.length || 0);
+            function confidenceBadge(score) {
+                if (score == null) return '<span class="text-gray-500 dark:text-gray-400 text-xs">N/A</span>';
+                const pct = Math.round(Number(score) * 100);
+                const cls = pct >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : pct >= 50 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+                return \`<span class="px-2 py-0.5 rounded text-xs font-medium \${cls}">\${pct}%</span>\`;
+            }
+            function traceabilitySection() {
+                if (totalObs === 0) return '<div class="border-t pt-2 border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-3 text-gray-900 dark:text-white">Observable Traceability</h4><p class="text-gray-600 dark:text-gray-400 text-sm">Traceability unavailable (legacy execution or no observables).</p></div>';
+                let html = '<div class="border-t pt-2 border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-3 text-gray-900 dark:text-white">Observable Traceability</h4><div class="space-y-2">';
+                for (const [typeKey, label] of Object.entries(typeLabels)) {
+                    const list = observablesData.observables[typeKey] || [];
+                    if (list.length === 0) continue;
+                    html += \`<details class="border rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50"><summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800">\${label} (\${list.length})</summary><div class="px-3 pb-3 space-y-2">\`;
+                    list.forEach((obs, idx) => {
+                        const val = typeof obs.observable_value === 'object' ? JSON.stringify(obs.observable_value) : String(obs.observable_value ?? '');
+                        const hasTrace = obs.source_evidence != null || obs.extraction_justification != null;
+                        const expandContent = !hasTrace ? '<p class="text-gray-500 dark:text-gray-400 text-sm">Traceability unavailable</p>' : \`
+                            \${obs.source_evidence != null ? \`<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-3 py-1 my-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded">\${String(obs.source_evidence).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</blockquote>\` : ''}
+                            \${obs.extraction_justification != null ? \`<p class="text-sm text-gray-700 dark:text-gray-300"><strong>Reasoning:</strong> \${String(obs.extraction_justification).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>\` : ''}
+                            <p class="text-xs text-gray-600 dark:text-gray-400">\${obs.subagent_name || ''} \${obs.model_version ? ' · ' + obs.model_version : ''} \${obs.extraction_timestamp ? ' · ' + obs.extraction_timestamp : ''}</p>
+                        \`;
+                        html += \`<div class="border border-gray-200 dark:border-gray-700 rounded p-2 bg-white dark:bg-gray-900"><details class="obs-item"><summary class="cursor-pointer flex items-center gap-2 flex-wrap"><code class="text-xs break-all">\${val.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code> \${confidenceBadge(obs.confidence_score)}</summary><div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">\${expandContent}</div></details></div>\`;
+                    });
+                    html += '</div></details>';
+                }
+                html += '</div></div>';
+                return html;
+            }
+
             const content = `
                 <div class="space-y-4 text-gray-900 dark:text-white">
                     <!-- Header Info -->
@@ -1011,6 +1045,8 @@ async function viewExecution(executionId) {
                         </div>
                     </details>
                     ` : ''}
+
+                    ${traceabilitySection()}
 
                     <!-- Configuration -->
                     <details class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

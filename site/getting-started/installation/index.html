@@ -904,6 +904,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agent-evals-setup-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent evals setup (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2994,6 +3005,16 @@ See <code>configuration.md</code> for detailed port configuration.</p>
 <li>Check disk space: <code>df -h</code></li>
 <li>Verify Docker daemon is running</li>
 <li>Try rebuilding: <code>docker-compose up --build -d</code></li>
+</ul>
+<h2 id="agent-evals-setup-optional">Agent evals setup (optional)<a class="headerlink" href="#agent-evals-setup-optional" title="Permanent link">&para;</a></h2>
+<p>To use <strong>MLOps → Agent evals</strong> (Load Eval Articles, run subagent evals), article content must be available. The app seeds from static files at startup; if those files are missing, "Load Eval Articles" will show no articles.</p>
+<p><strong>One-time setup:</strong> From the project root (or inside the <code>web</code> container), run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>scripts/fetch_eval_articles_static.py
+</code></pre></div>
+<p>This reads <code>config/eval_articles.yaml</code>, fetches each external URL, and writes <code>config/eval_articles_data/{subagent}/articles.json</code>. After that, restart the app so the startup seed can load them into the DB, or run evals directly (the API can use the static files without the DB).</p>
+<ul>
+<li><strong>Docker:</strong> <code>docker-compose exec web python3 scripts/fetch_eval_articles_static.py</code> (then restart <code>web</code> if you want them in the DB).</li>
+<li><strong>Details:</strong> See <a href="../../config/eval_articles_data/README.md">Static Eval Articles Data</a> for fetch vs dump and seeding.</li>
 </ul>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
