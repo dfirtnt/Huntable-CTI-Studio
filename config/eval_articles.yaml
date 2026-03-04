@@ -34,30 +34,24 @@ subagents:
   # Placeholder for other subagents (to be populated later)
   event_ids: []
   process_lineage:
-    - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
-      expected_count: 2
-    - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
-      expected_count: 3
     - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
-      expected_count: 7
+      expected_count: 2
     - url: "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/"
-      expected_count: 3
+      expected_count: 0
     - url: "https://thedfirreport.com/2021/05/12/conti-ransomware/"
-      expected_count: 1
+      expected_count: 0
     - url: "https://thedfirreport.com/2021/05/02/trickbot-brief-creds-and-beacons/"
-      expected_count: 1
+      expected_count: 0
     - url: "https://thedfirreport.com/2021/03/29/sodinokibi-aka-revil-ransomware/"
       expected_count: 0
     - url: "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/"
-      expected_count: 3
-    - url: "http://127.0.0.1:8001/articles/68"
-      expected_count: 1
-    - url: "http://127.0.0.1:8001/articles/762"
-      expected_count: 2
-    - url: "http://127.0.0.1:8001/articles/989"
       expected_count: 0
-    - url: "http://127.0.0.1:8001/articles/1523"
+    - url: "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability"
       expected_count: 2
+    - url: "https://thedfirreport.com/2024/12/02/the-curious-case-of-an-egg-cellent-resume/"
+      expected_count: 1
+    - url: "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/"
+      expected_count: 1
   registry_keys: []
   hunt_queries:
     - url: "https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/"

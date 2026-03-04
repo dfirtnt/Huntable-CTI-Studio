@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent evals setup documentation**: Installation guide now includes an "Agent evals setup (optional)" section: one-time run of `scripts/fetch_eval_articles_static.py` so "Load Eval Articles" and subagent evals have article content. `config/eval_articles_data/README.md` has a "New installs" callout with a link to the docs. Agent Evals UI shows a setup hint when no eval articles are found (command + doc reference).
 - **LM Studio URL configuration in Settings and setup**: LM Studio server and embedding URLs can be set in both `./setup.sh` (optional prompt) and Settings UI (Workflow Provider Configuration → LM Studio). Values are stored in DB and synced to `os.environ` so chat, sigma index, and embeddings use them. App startup loads these from DB into env when present.
 - **LM Studio embedding URL fallbacks**: Embedding client and URL helpers try multiple candidates (primary from env, then localhost, host.docker.internal, or when primary is a specific IP) so sigma index and similarity work when the host/IP changes (e.g. Docker vs host, different network).
 - **Similarity search diagnostic when no rules found**: When Similarity Search returns no matches, the modal shows a setup hint: suggest running `./run_cli.sh sigma sync` then `./run_cli.sh sigma index` (or `python3 -m src.cli.main sigma sync` / `sigma index`), or `python3 scripts/migrate_sigma_to_canonical.py` if logsource_key is missing. API returns `diagnostic` (total_sigma_rules, rules_with_logsource, logsource_key) when matches are empty.
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **migrate_sigma_to_canonical.py**: Fixed storing `logsource_key` as string (unpack tuple from `normalize_logsource`) so DB has `product|category` format.
 
 ### Changed
+- **ProcTree eval articles**: `config/eval_articles.yaml` process_lineage list reduced to the nine documented URLs (thedfirreport + picussecurity); removed huntress, blurring-the-lines, and localhost entries. Expected counts set from documented ground truth (2, 0, 0, 0, 0, 0, 2, 1, 1).
 - **Preset layout**: Workflow preset JSONs consolidated under `config/presets/AgentConfigs/`. Tracked quickstart presets moved from repo root `presets/` to `config/presets/AgentConfigs/quickstart/`. Private presets (gitignored) go in `config/presets/private/`. Root `presets/` folder removed. `build_baseline_presets.py` now normalizes JSON in `quickstart/` instead of `presets/`. Docs and README updated.
 
 ### Added

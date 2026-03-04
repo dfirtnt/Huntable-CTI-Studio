@@ -2,6 +2,8 @@
 
 Eval inputs and expected outputs for extractor subagent evals, stored as committed snapshots so evals work after DB rehydration (fresh DB or new environment).
 
+**New installs:** To use Agent evals (MLOps → Agent evals, "Load Eval Articles"), run **once**: `python3 scripts/fetch_eval_articles_static.py`. This fetches article content from the URLs in `config/eval_articles.yaml` and writes `config/eval_articles_data/{subagent}/articles.json`. The app seeds from these files at startup; if they are missing, the eval article list will be empty. See [Installation → Agent evals setup](../../docs/getting-started/installation.md#agent-evals-setup-optional) in the docs.
+
 ## Layout
 
 - `{subagent}/articles.json` — JSON array of article snapshots for that subagent (e.g. `cmdline/articles.json`, `process_lineage/articles.json`, `hunt_queries/articles.json`).
