@@ -11,6 +11,7 @@ This workflow processes articles through 7 steps:
 6. Promote to Queue
 """
 
+import contextlib
 import json
 import logging
 from datetime import datetime
@@ -212,10 +213,7 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
     actual_count = subagent_result.get("count")
     if actual_count is None:
         items = subagent_result.get("items", [])
-        if isinstance(items, list):
-            actual_count = len(items)
-        else:
-            actual_count = 0
+        actual_count = len(items) if isinstance(items, list) else 0
 
     return actual_count
 
@@ -302,7 +300,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     # Initialize services
     content_filter = ContentFilter()
     # LLMService will be initialized per-node with config models
-    rag_service = RAGService()
+    RAGService()
     trigger_service = WorkflowTriggerService(db_session)
 
     # Define workflow nodes
@@ -397,7 +395,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
 
     def rank_agent_bypass_node(state: WorkflowState) -> WorkflowState:
-        """Bypass node when rank agent is disabled or skipped for evals - sets should_continue=True and skips ranking."""
+        """Bypass node when rank agent disabled/skipped for evals; sets should_continue=True."""
         execution = (
             db_session.query(AgenticWorkflowExecutionTable)
             .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
@@ -407,7 +405,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         # Determine bypass reason
         config_snapshot = execution.config_snapshot if execution else {}
         eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
-        skip_rank_flag = _bool_from_value(config_snapshot.get("skip_rank_agent", False))
+        _bool_from_value(config_snapshot.get("skip_rank_agent", False))
         state_eval_run = _bool_from_value(state.get("eval_run", False))
         is_eval_run = state_eval_run or eval_run_flag
         bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
@@ -445,9 +443,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             state_eval_run = _bool_from_value(state.get("eval_run", False))
             state_skip_rank = _bool_from_value(state.get("skip_rank_agent", False))
             if state_eval_run or state_skip_rank:
-                logger.warning(
-                    f"[Workflow {state['execution_id']}] BLOCKED: Rank agent node called for eval run - redirecting to bypass"
-                )
+                logger.warning(f"[Workflow {state['execution_id']}] BLOCKED: Rank agent node for eval run - bypass")
                 if execution:
                     execution.current_step = "rank_article_bypassed"
                     execution.ranking_score = None
@@ -470,9 +466,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
 
                 if skip_rank_agent:
-                    logger.warning(
-                        f"[Workflow {state['execution_id']}] BLOCKED: Rank agent node called for eval run - redirecting to bypass"
-                    )
+                    logger.warning(f"[Workflow {state['execution_id']}] BLOCKED: Rank agent node for eval run - bypass")
                     # Redirect to bypass node behavior
                     if execution:
                         execution.current_step = "rank_article_bypassed"
@@ -1125,7 +1119,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
             # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract
-            valid_subagents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"}
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
 
             logger.info(
@@ -1776,11 +1769,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     for item in items:
                         # Normalize to observable structure
                         # Ensure item is serializable
-                        if isinstance(item, dict):
-                            # For structured items (lineage, registry), keep as dict but maybe stringify for 'value' field if needed
-                            val = item.get("value") if "value" in item else item
-                        else:
-                            val = item
+                        # For structured items (lineage, registry), keep as dict; use 'value' if present
+                        val = (item.get("value") if "value" in item else item) if isinstance(item, dict) else item
 
                         obs_entry = {
                             "type": cat,
@@ -1951,10 +1941,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             # Check if QA is enabled for Sigma Agent
-            qa_enabled = qa_flags.get("SigmaAgent", False)
+            qa_flags.get("SigmaAgent", False)
 
             # Get QA max retries from config
-            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
+            config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
             qa_feedback = None
             generation_result = None
 
@@ -1964,12 +1954,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get agent prompt from database for SIGMA generation
             sigma_prompt_template = None
             sigma_system_prompt = None
-            agent_prompt = "Generate SIGMA detection rules from the article content following SIGMA rule format and validation requirements."
             if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
                 sigma_prompt_data = config_obj.agent_prompts["SigmaAgent"]
                 if isinstance(sigma_prompt_data.get("prompt"), str):
                     sigma_prompt_template = sigma_prompt_data["prompt"]  # Use full prompt for generation
-                    agent_prompt = sigma_prompt_template[:5000]  # Truncate for QA context
+                    sigma_prompt_template[:5000]  # Truncate for QA context
                     logger.info(
                         f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (len={len(sigma_prompt_template)} chars)"
                     )
@@ -2910,10 +2899,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                         f"Could not persist Langfuse trace_id for execution {execution.id}: {trace_persist_error}"
                     )
                     # Rollback any failed transaction from trace persistence
-                    try:
+                    with contextlib.suppress(Exception):
                         db_session.rollback()
-                    except Exception:
-                        pass
 
                 workflow_graph = create_agentic_workflow(db_session)
                 final_state = await workflow_graph.ainvoke(initial_state)
@@ -2991,10 +2978,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         except Exception as refresh_error:
             logger.warning(f"Error refreshing execution: {refresh_error}")
             # Rollback and get fresh copy
-            try:
+            with contextlib.suppress(Exception):
                 db_session.rollback()
-            except Exception:
-                pass
 
         execution = (
             db_session.query(AgenticWorkflowExecutionTable)
@@ -3043,13 +3028,14 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 _update_subagent_eval_on_completion(execution, db_session)
             elif execution.status == "failed":
                 # Already marked as failed - ensure current_step is correct
-                if not execution.current_step or execution.current_step == "promote_to_queue":
-                    if final_state:
-                        execution.current_step = final_state.get("current_step", "generate_sigma")
-                        db_session.commit()
-                        logger.info(
-                            f"[Workflow {execution.id}] Updated current_step to {execution.current_step} for failed execution"
-                        )
+                step_ok = not execution.current_step or execution.current_step == "promote_to_queue"
+                if step_ok and final_state:
+                    execution.current_step = final_state.get("current_step", "generate_sigma")
+                    db_session.commit()
+                    logger.info(
+                        f"[Workflow {execution.id}] Updated current_step to "
+                        f"{execution.current_step} for failed execution"
+                    )
 
         # Build minimal return dict with ONLY JSON-safe primitives
         # NEVER return ArticleTable or any ORM objects - Celery JSON serializer cannot handle SQLAlchemy models
