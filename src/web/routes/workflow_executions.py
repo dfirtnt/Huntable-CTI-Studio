@@ -3,6 +3,7 @@ API routes for agentic workflow execution monitoring.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 from datetime import datetime, timedelta
@@ -1232,10 +1233,8 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
 
         try:
             # Ensure we have a clean transaction state
-            try:
+            with contextlib.suppress(Exception):
                 db_session.rollback()
-            except Exception:
-                pass
 
             trigger_service = WorkflowTriggerService(db_session)
 
@@ -1312,10 +1311,8 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
         raise
     except Exception as e:
         # Rollback any failed transaction
-        try:
+        with contextlib.suppress(Exception):
             db_session.rollback()
-        except Exception:
-            pass
         logger.error(f"Error triggering workflow for article {article_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -1402,10 +1399,7 @@ async def get_eval_bundle_metadata(
             if not agent_name:
                 error_log = execution.error_log or {}
                 available_agents = list(error_log.keys())
-                if available_agents:
-                    agent_name = available_agents[0]
-                else:
-                    agent_name = "extract_agent"  # Default
+                agent_name = available_agents[0] if available_agents else "extract_agent"
 
             bundle_service = EvalBundleService(db_session)
             bundle = bundle_service.generate_bundle(

@@ -23,6 +23,10 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
+"src/workflows/agentic_workflow.py" = ["E501"]
+"src/services/evaluation/eval_runner.py" = ["E501"]
+"src/services/llm_service.py" = ["E501"]
+"src/web/routes/workflow_executions.py" = ["E501"]
 
 [tool.ruff.format]
 # Use ruff as the formatter (enabled by default when ruff is installed)

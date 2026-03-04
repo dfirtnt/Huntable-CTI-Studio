@@ -2198,7 +2198,7 @@ class LLMService:
                         if isinstance(behavioral_obs, dict):
                             # Convert dict to list of all values
                             behavioral_obs_list = []
-                            for key, values in behavioral_obs.items():
+                            for _key, values in behavioral_obs.items():
                                 if isinstance(values, list):
                                     behavioral_obs_list.extend(values)
                                 elif isinstance(values, (str, dict)):
@@ -3155,7 +3155,9 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                 if user_prefix:
                     user_prompt = f"{user_prefix}\n\n{user_prompt}"
 
-                system_content = prompt_config.get("system") or prompt_config.get("role", "You are a detection engineer.")
+                system_content = prompt_config.get("system") or prompt_config.get(
+                    "role", "You are a detection engineer."
+                )
 
                 messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
 
@@ -3366,22 +3368,17 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                                     if json_end != -1:
                                         candidate = response_text[open_pos:json_end]
                                         parsed, success = try_parse_json(candidate)
-                                        if success and parsed:
-                                            # Prefer structures with expected keys
-                                            # (support all extract agent result formats)
-                                            if any(
-                                                key in parsed
-                                                for key in [
-                                                    "cmdline_items",
-                                                    "items",
-                                                    "process_lineage",
-                                                    "sigma_queries",
-                                                    "event_ids",
-                                                    "registry_keys",
-                                                    "count",
-                                                ]
-                                            ):
-                                                json_candidates.append((len(candidate), parsed))
+                                        expected_keys = [
+                                            "cmdline_items",
+                                            "items",
+                                            "process_lineage",
+                                            "sigma_queries",
+                                            "event_ids",
+                                            "registry_keys",
+                                            "count",
+                                        ]
+                                        if success and parsed and any(k in parsed for k in expected_keys):
+                                            json_candidates.append((len(candidate), parsed))
 
                                     search_pos = open_pos + 1
 
@@ -3480,9 +3477,7 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                     for key in ("cmdline_items", "items"):
                         if key not in last_result or not isinstance(last_result[key], list):
                             continue
-                        last_result[key] = [
-                            _normalize_traceability_item(it, agent_name) for it in last_result[key]
-                        ]
+                        last_result[key] = [_normalize_traceability_item(it, agent_name) for it in last_result[key]]
 
                     # Log completion to Langfuse with parsed result (inside with block so generation is still active)
                     if generation:

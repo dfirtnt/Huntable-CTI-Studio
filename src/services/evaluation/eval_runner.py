@@ -426,7 +426,9 @@ class EvalRunner:
                 )
                 qa_normalized_model = self._normalize_lmstudio_model_name(qa_raw_model)
                 qa_default_role = "You are a QA agent."
-                qa_system = cmdline_qa_prompt_config.get("system", cmdline_qa_prompt_config.get("role", qa_default_role))
+                qa_system = cmdline_qa_prompt_config.get(
+                    "system", cmdline_qa_prompt_config.get("role", qa_default_role)
+                )
                 qa_prompt_config = {
                     "prompt": cmdline_qa_prompt_config.get("prompt", ""),
                     "instructions": cmdline_qa_prompt_config.get("instructions", ""),
@@ -460,7 +462,7 @@ class EvalRunner:
         # Run async code - handle event loop gracefully
         # This method is called from sync context (EvalRunner is sync), so we need to handle both cases
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Event loop is running, use thread executor (shouldn't happen in normal flow)
             logger.warning("EvalRunner._run_extraction called from running event loop - using thread executor")
             extractor_result = _run_async_in_thread(coro)
@@ -562,6 +564,4 @@ class EvalRunner:
         # Pattern: dash followed by 4-8 digits at the end
         import re
 
-        model_name = re.sub(r"-\d{4,8}$", "", model_name)
-
-        return model_name
+        return re.sub(r"-\d{4,8}$", "", model_name)
