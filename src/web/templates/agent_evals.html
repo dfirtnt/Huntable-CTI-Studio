@@ -322,7 +322,8 @@ async function loadEvalArticles() {
         selectedArticleUrls.clear();
         
         if (evalArticles.length === 0) {
-            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No eval articles found for this subagent.</p>';
+            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No eval articles found for this subagent.</p>' +
+                '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">First time? Run <code class="bg-gray-700 px-1 rounded">python3 scripts/fetch_eval_articles_static.py</code> once, then restart the app. See <strong>Getting Started → Installation → Agent evals setup</strong> in the docs.</p>';
             loadBtn.disabled = false;
             loadBtn.textContent = 'Load Eval Articles';
             return;

@@ -166,6 +166,21 @@ See `configuration.md` for detailed port configuration.
 - Verify Docker daemon is running
 - Try rebuilding: `docker-compose up --build -d`
 
+## Agent evals setup (optional)
+
+To use **MLOps → Agent evals** (Load Eval Articles, run subagent evals), article content must be available. The app seeds from static files at startup; if those files are missing, "Load Eval Articles" will show no articles.
+
+**One-time setup:** From the project root (or inside the `web` container), run:
+
+```bash
+python3 scripts/fetch_eval_articles_static.py
+```
+
+This reads `config/eval_articles.yaml`, fetches each external URL, and writes `config/eval_articles_data/{subagent}/articles.json`. After that, restart the app so the startup seed can load them into the DB, or run evals directly (the API can use the static files without the DB).
+
+- **Docker:** `docker-compose exec web python3 scripts/fetch_eval_articles_static.py` (then restart `web` if you want them in the DB).
+- **Details:** See [Static Eval Articles Data](../../config/eval_articles_data/README.md) for fetch vs dump and seeding.
+
 ## Next Steps
 
 - Configure your sources in [`configuration.md`](configuration.md)
