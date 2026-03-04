@@ -46,7 +46,9 @@ The main engine is a LangGraph-based agentic workflow (#4-6 in diagram above) ex
 **Requirements:** Docker + Docker Compose
 
 ```bash
-cp .env.example .env
+git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
+cd Huntable-CTI-Studio
+cp .env.example .env   # start.sh creates .env from .env.example if missing
 # Edit .env and set POSTGRES_PASSWORD=your_secure_password
 ./start.sh
 ```
@@ -54,13 +56,15 @@ cp .env.example .env
 **Access:**
 - Web UI: http://localhost:8001
 - API Docs: http://localhost:8001/docs
+- Docs site: http://localhost:8000 (MkDocs; started by start.sh)
 - Health: `curl http://localhost:8001/health`
+- CLI: `./run_cli.sh <command>` (e.g. `./run_cli.sh init`, `./run_cli.sh sigma sync`)
 
 
 The documentation is organized under `/docs` and is published with MkDocs Material.
 
 - **Quickstart**: `docs/quickstart.md` (Docker-first run, ingest → workflow → Sigma → pytest)
-- **Docs site**: `mkdocs serve` to preview locally; navigation mirrors `/docs` (concepts, how-tos, reference, internals).
+- **Docs site**: http://localhost:8000 (`mkdocs serve`; started by start.sh); navigation mirrors `/docs` (concepts, how-tos, reference, internals).
 - **UI**: http://localhost:8001 (OpenAPI at `/docs`; LangFuse traces for workflow debugging when configured)
 - **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery + LangGraph; start with `./start.sh` (it also builds docs and starts the MkDocs server in the background when `mkdocs.yml` is present).
 
