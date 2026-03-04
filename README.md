@@ -17,6 +17,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 
 ### Architecture
 - **6 services**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers (default + workflow), scheduler
+- **LangGraph**: Orchestrates the 7-step agentic workflow (state machine, conditional branching, checkpointing)
 - **28 database tables**: Articles with embeddings, Sigma rules, workflow executions, chat logs, eval presets, model versions, and more
 - **Multi-model AI**: OpenAI GPT-4, Anthropic Claude, LMStudio (local models)
 
@@ -61,7 +62,7 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Quickstart**: `docs/quickstart.md` (Docker-first run, ingest → workflow → Sigma → pytest)
 - **Docs site**: `mkdocs serve` to preview locally; navigation mirrors `/docs` (concepts, how-tos, reference, internals).
 - **UI**: http://localhost:8001 (OpenAPI at `/docs`; LangFuse traces for workflow debugging when configured)
-- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery (default + workflow workers); start with `./start.sh` (it also builds docs and starts the MkDocs server in the background when `mkdocs.yml` is present).
+- **Stack**: FastAPI + PostgreSQL/pgvector + Redis + Celery + LangGraph; start with `./start.sh` (it also builds docs and starts the MkDocs server in the background when `mkdocs.yml` is present).
 
 For full details, begin at `docs/index.md`.
 
