@@ -161,3 +161,75 @@ async def test_preprocess_invariant_error_stores_infra_failed_in_subresults(
     assert raw.get("infra_failed") is True
     assert "infra_debug_artifacts" in raw
     assert raw["infra_debug_artifacts"].get("agent_name") == "CmdlineExtract"
+    assert cmdline_result.get("error_type") == "PreprocessInvariantError"
+    assert "error_details" in cmdline_result
+    assert cmdline_result["error_details"].get("exception_type") == "PreprocessInvariantError"
+    assert cmdline_result["error_details"].get("agent_name") == "CmdlineExtract"
+
+
+@pytest.mark.asyncio
+async def test_extraction_result_subresult_promotes_error_to_top_level(
+    mock_db_session, mock_article, mock_execution, mock_config
+):
+    """When run_extraction_agent returns result with error/error_details/error_type, subresult has them at top level."""
+    agent_result_with_error = {
+        "items": [],
+        "count": 0,
+        "cmdline_items": [],
+        "error": "API error: temperature not supported",
+        "error_type": "HTTPStatusError",
+        "error_details": {
+            "message": "API error: temperature not supported",
+            "exception_type": "HTTPStatusError",
+            "attempt": 1,
+            "agent_name": "CmdlineExtract",
+        },
+    }
+
+    async def return_error_for_cmdline(*args, **kwargs):
+        if kwargs.get("agent_name") == "CmdlineExtract":
+            return agent_result_with_error
+        return {"items": [], "count": 0, "cmdline_items": []}
+
+    filter_result = Mock()
+    filter_result.filtered_content = mock_article.content
+    filter_result.removed_chunks = []
+    filter_result.is_huntable = True
+    filter_result.confidence = 0.9
+
+    with (
+        patch("src.workflows.agentic_workflow.ContentFilter") as mock_cf_cls,
+        patch("src.workflows.agentic_workflow.WorkflowTriggerService") as mock_trigger_cls,
+        patch("sqlalchemy.orm.attributes.flag_modified"),
+    ):
+        mock_cf_cls.return_value.filter_content.return_value = filter_result
+        mock_trigger = Mock()
+        mock_trigger.get_active_config.return_value = mock_config
+        mock_trigger_cls.return_value = mock_trigger
+
+        with patch("src.workflows.agentic_workflow.auto_load_workflow_models") as mock_load:
+            mock_load.return_value = {"models_loaded": [], "models_failed": [], "lmstudio_cli_available": False}
+
+        with patch("src.workflows.agentic_workflow.trace_workflow_execution") as mock_trace:
+            mock_trace.return_value.__enter__ = Mock(return_value=None)
+            mock_trace.return_value.__exit__ = Mock(return_value=False)
+
+        with patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls:
+            mock_llm = Mock()
+            mock_llm.run_extraction_agent = AsyncMock(side_effect=return_error_for_cmdline)
+            mock_llm.check_model_context_length = AsyncMock(
+                return_value={"context_length": 8000, "is_sufficient": True, "threshold": 4096}
+            )
+            mock_llm_cls.return_value = mock_llm
+
+            await run_workflow(article_id=1, db_session=mock_db_session, execution_id=100)
+
+    extraction_result = mock_execution.extraction_result
+    assert extraction_result is not None
+    subresults = extraction_result.get("subresults", {})
+    cmdline_result = subresults.get("cmdline")
+    assert cmdline_result is not None
+    assert cmdline_result.get("error") == "API error: temperature not supported"
+    assert cmdline_result.get("error_type") == "HTTPStatusError"
+    assert cmdline_result.get("error_details") == agent_result_with_error["error_details"]
+    assert cmdline_result.get("raw") == agent_result_with_error

@@ -175,10 +175,10 @@ class TestLLMService:
         """Test error handling in chat request."""
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.post = AsyncMock(side_effect=Exception("API error"))
+            mock_client.post = AsyncMock(side_effect=RuntimeError("API error"))
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError, match="API error"):
                 await service.request_chat(
                     provider="lmstudio",
                     model_name="test-model",
@@ -468,3 +468,76 @@ class TestNewlineInvariantGuard:
                     attention_preprocessor_enabled=True,
                 )
                 assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_run_extraction_agent_stores_all_api_errors_in_last_result(self, llm_service):
+        """On last attempt when request_chat raises, result has error, error_type, error_details."""
+        api_error = RuntimeError("Temperature not supported for this model")
+        prompt_cfg = {
+            "role": "You are an extractor.",
+            "user_template": "Title: {title}\nContent:\n{content}\nTask: {task}\n"
+            "JSON: {json_example}\nInstructions: {instructions}",
+            "task": "Extract",
+            "instructions": "Output JSON",
+            "json_example": "{}",
+        }
+        with patch("src.services.llm_service.trace_llm_call") as mock_trace:
+            mock_gen = Mock()
+            mock_trace.return_value.__enter__ = Mock(return_value=mock_gen)
+            mock_trace.return_value.__exit__ = Mock(return_value=False)
+            with patch.object(llm_service, "request_chat", new_callable=AsyncMock, side_effect=api_error):
+                result = await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content="x" * MIN_USER_CONTENT_CHARS,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config=prompt_cfg,
+                    max_retries=1,
+                )
+        assert result.get("error") == "Temperature not supported for this model"
+        assert result.get("error_type") == "RuntimeError"
+        assert result.get("error_details") == {
+            "message": "Temperature not supported for this model",
+            "exception_type": "RuntimeError",
+            "attempt": 1,
+            "agent_name": "CmdlineExtract",
+        }
+        assert result.get("connection_error") is False
+        assert result.get("items") == []
+        assert result.get("count") == 0
+
+    @pytest.mark.asyncio
+    async def test_run_extraction_agent_calls_log_llm_error_when_request_chat_raises(self, llm_service):
+        """When request_chat raises inside trace_llm_call, log_llm_error is called with exception and metadata."""
+        api_error = ValueError("API key invalid")
+        mock_gen = Mock()
+        prompt_cfg = {
+            "role": "You are an extractor.",
+            "user_template": "Title: {title}\nContent:\n{content}\nTask: {task}\n"
+            "JSON: {json_example}\nInstructions: {instructions}",
+            "task": "Extract",
+            "instructions": "Output JSON",
+            "json_example": "{}",
+        }
+        with (
+            patch("src.services.llm_service.log_llm_error") as mock_log_error,
+            patch("src.services.llm_service.trace_llm_call") as mock_trace,
+        ):
+            mock_trace.return_value.__enter__ = Mock(return_value=mock_gen)
+            mock_trace.return_value.__exit__ = Mock(return_value=False)
+            with patch.object(llm_service, "request_chat", new_callable=AsyncMock, side_effect=api_error):
+                await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content="x" * MIN_USER_CONTENT_CHARS,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config=prompt_cfg,
+                    max_retries=1,
+                )
+        mock_log_error.assert_called_once()
+        call_args = mock_log_error.call_args
+        assert call_args[0][0] is mock_gen
+        assert call_args[0][1] is api_error
+        assert call_args[1]["metadata"]["agent_name"] == "CmdlineExtract"
+        assert call_args[1]["metadata"]["attempt"] == 1
+        assert "model" in call_args[1]["metadata"]
