@@ -10094,7 +10094,8 @@ async function viewExecution(executionId) {
                                      activeConfig?.agent_models?.['OSDetectionAgent_fallback'] || 
                                      'mistralai/mistral-7b-instruct-v0.3';
                 
-                const osInputContentLength = exec.junk_filter_result?.filtered_length || exec.article_content?.length || 0;
+                // OS detection runs first and receives original article content (not junk-filtered)
+                const osInputContentLength = exec.article_content?.length || exec.junk_filter_result?.original_length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
                     <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">

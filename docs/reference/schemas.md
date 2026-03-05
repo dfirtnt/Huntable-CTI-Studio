@@ -39,7 +39,10 @@ Indexed from SigmaHQ via `./run_cli.sh sigma sync` + `./run_cli.sh sigma index`:
 Each workflow execution stores the Extract Agent output in JSONB:
 - `discrete_huntables_count` (int)
 - `observables` (list of `{type, value, source}`)
-- `subresults`: per-agent objects with `items`, `count`, and optional `raw` payloads
+- `subresults`: per-agent objects with `items`, `count`, and optional `raw` payloads. When an LLM API call fails, the subresult may also include:
+  - `error` (string): exception or API error message
+  - `error_type` (string): exception type name (e.g. `HTTPStatusError`, `TimeoutError`)
+  - `error_details` (object): structured debug info (`message`, `exception_type`, `attempt`, `agent_name`)
 - `summary`: includes `source_url`, `platforms_detected`, and other agent hints
 - `content`: newline-joined observables used by the Sigma agent when huntables exist
 
