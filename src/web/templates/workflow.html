@@ -11690,9 +11690,34 @@ function initializeValidateDropdowns() {
     }
 }
 
+function filterObservablesForRule(rule, observablesData) {
+    if (!observablesData?.observables) return observablesData;
+    const ruleText = (editedYaml || rule.rule_yaml || '').toLowerCase();
+    const filtered = {};
+    for (const [typeKey, list] of Object.entries(observablesData.observables)) {
+        if (!list || !Array.isArray(list)) continue;
+        filtered[typeKey] = list.filter(function(ob) {
+            const parts = [];
+            if (typeof ob.observable_value === 'string') parts.push(ob.observable_value);
+            else if (ob.observable_value && typeof ob.observable_value === 'object') {
+                const v = ob.observable_value;
+                if (v.child) parts.push(v.child);
+                if (v.parent) parts.push(v.parent);
+                if (v.arguments) parts.push(v.arguments);
+                if (v.value) parts.push(String(v.value));
+            }
+            const searchStr = parts.join(' ').toLowerCase();
+            if (!searchStr.trim()) return true;
+            return parts.some(function(p) { return p && ruleText.indexOf(String(p).toLowerCase()) !== -1; });
+        });
+    }
+    return { observables: filtered };
+}
+
 function observablesUsedSection(rule, observablesData) {
-    if (!observablesData || !observablesData.observables) return '';
-    const obs = observablesData.observables;
+    const filtered = filterObservablesForRule(rule, observablesData);
+    if (!filtered || !filtered.observables) return '';
+    const obs = filtered.observables;
     const total = (obs.cmdline?.length || 0) + (obs.process_lineage?.length || 0) + (obs.hunt_queries?.length || 0);
     if (total === 0) return '<div class="mt-4"><details open class="border border-gray-600 rounded-lg"><summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Observables Used</summary><p class="px-3 pb-3 text-gray-400 text-sm">No observables for this execution.</p></details></div>';
     const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
