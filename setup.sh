@@ -322,7 +322,6 @@ setup_environment() {
     
     # Set permissions
     chmod +x scripts/*.sh 2>/dev/null || true
-    chmod +x scripts/*.py 2>/dev/null || true
     
     print_status "Environment setup complete!"
 }
