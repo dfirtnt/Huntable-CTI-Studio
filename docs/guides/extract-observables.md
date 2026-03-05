@@ -1,10 +1,14 @@
 # Extract Observables
 
-Run the Extract Agent on any article to produce huntable observables that downstream Sigma generation consumes.
+Trigger the LangGraph-managed Extract Observables workflow for any article to produce huntable observables that downstream Sigma generation consumes.
+
+This workflow orchestrates the Extract Agent (and any supporting sub-agents) through LangGraph rather than exposing a per-agent execution endpoint.
 
 ## Prerequisites
 - Stack is running (`./start.sh` and web reachable on `http://localhost:8001`)
 - Article exists (from RSS collection, UI upload, or `POST /api/scrape-url`)
+
+The workflow definition lives in `langgraph.json`, and the API trigger below tells LangGraph to execute the agents in the proper order; there is no public endpoint to start a single agent on its own.
 
 ## 1) Get or create an article
 Manual scrape example:
