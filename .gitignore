@@ -121,6 +121,7 @@ dump.rdb
 
 # Test artifacts
 test-results/
+tests/playwright-report/trace/
 coverage/
 .coverage
 .pytest_cache/
