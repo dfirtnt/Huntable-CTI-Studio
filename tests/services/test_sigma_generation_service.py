@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import yaml
 
-from src.services.sigma_generation_service import SigmaGenerationService
+from src.services.sigma_generation_service import (
+    SigmaGenerationService,
+    _build_observables_section,
+)
 from src.services.sigma_validator import ValidationResult
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
@@ -867,3 +870,88 @@ level: high
                                 assert "generation_phase" in log_entry
                                 assert "final_status" in log_entry
                                 assert "repair_attempts" in log_entry
+
+    def test_build_observables_section_formats_extraction_result(self):
+        """_build_observables_section formats extraction_result.observables with 0-based indices."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "powershell -enc"},
+                {"type": "process_lineage", "value": {"parent": "p1", "child": "c1", "arguments": ""}},
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "Extracted Observables (0-based indices" in section
+        assert "observables_used: [indices]" in section
+        assert "[0] cmdline:" in section
+        assert "[1] process_lineage:" in section
+        assert "powershell -enc" in section
+        assert "parent=p1, child=c1" in section
+
+    def test_build_observables_section_returns_empty_for_no_observables(self):
+        """_build_observables_section returns empty string when observables missing or empty."""
+        assert _build_observables_section(None) == ""
+        assert _build_observables_section({}) == ""
+        assert _build_observables_section({"observables": []}) == ""
+        assert _build_observables_section({"observables": None}) == ""
+
+    @pytest.mark.asyncio
+    async def test_parse_observables_used_strips_before_validation_and_includes_in_rule_metadata(
+        self, service, sample_article_data
+    ):
+        """LLM output with observables_used is stripped before validation; rule_metadata includes it."""
+        rule_with_observables = """
+title: Test Rule
+id: test-123
+description: Test
+observables_used: [0, 1]
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains: 'test'
+    condition: selection
+level: low
+"""
+
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate rule"
+
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    mock_call.return_value = rule_with_observables
+
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                        validated_yaml = []
+
+                        def capture_validate(rule_str):
+                            validated_yaml.append(rule_str)
+                            parsed = yaml.safe_load(rule_str)
+                            return ValidationResult(
+                                is_valid=True,
+                                errors=[],
+                                warnings=[],
+                                metadata={"rule": parsed},
+                                content_preview=rule_str,
+                            )
+
+                        mock_validate.side_effect = capture_validate
+
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                        )
+
+                        assert len(result["rules"]) == 1
+                        assert result["rules"][0].get("observables_used") == [0, 1]
+                        assert len(validated_yaml) == 1
+                        parsed_validated = yaml.safe_load(validated_yaml[0])
+                        assert "observables_used" not in parsed_validated

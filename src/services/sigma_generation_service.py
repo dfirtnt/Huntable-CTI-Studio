@@ -19,6 +19,33 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 
+def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
+    """Build observables list for prompt injection when extraction_result is available."""
+    if not extraction_result or not isinstance(extraction_result, dict):
+        return ""
+    observables_list = extraction_result.get("observables") or []
+    if not isinstance(observables_list, list) or not observables_list:
+        return ""
+    lines = []
+    for i, obs in enumerate(observables_list):
+        if not isinstance(obs, dict):
+            continue
+        obs_type = obs.get("type", "unknown")
+        val = obs.get("value")
+        if isinstance(val, dict):
+            val_str = (
+                f"parent={val.get('parent', '')}, child={val.get('child', '')}, arguments={val.get('arguments', '')}"
+            )
+        else:
+            val_str = str(val)[:120] + ("..." if len(str(val)) > 120 else "")
+        lines.append(f"[{i}] {obs_type}: {val_str}")
+    if not lines:
+        return ""
+    return "\n\nExtracted Observables (0-based indices; add observables_used: [indices] to each rule):\n" + "\n".join(
+        lines
+    )
+
+
 @dataclass
 class RuleValidationResult:
     """Result of validating a single rule."""
@@ -30,6 +57,7 @@ class RuleValidationResult:
     generation_phase: str = "generation"
     repair_attempts: list[dict[str, Any]] = None
     final_status: str = "pending"
+    observables_used: list[int] | None = None
 
     def __post_init__(self):
         if self.repair_attempts is None:
@@ -108,6 +136,9 @@ class SigmaGenerationService:
                 content_to_analyze = article_content
                 logger.warning("Content optimization failed, using original content")
 
+            # Build observables section when extraction_result is available
+            observables_section = _build_observables_section(extraction_result)
+
             # Load SIGMA generation prompt (async to avoid blocking)
             # Use provided template from database if available, otherwise load from file
             sigma_prompt = None
@@ -115,7 +146,11 @@ class SigmaGenerationService:
                 # Format the database prompt template with article data
                 try:
                     sigma_prompt = sigma_prompt_template.format(
-                        title=article_title, source=source_name, url=url or "N/A", content=content_to_analyze
+                        title=article_title,
+                        source=source_name,
+                        url=url or "N/A",
+                        content=content_to_analyze,
+                        observables_section=observables_section,
                     )
                     logger.info(f"Using database prompt template for SIGMA generation (len={len(sigma_prompt)} chars)")
                 except (KeyError, AttributeError, ValueError) as e:
@@ -133,6 +168,7 @@ class SigmaGenerationService:
                         source=source_name,
                         url=url or "N/A",
                         content=content_to_analyze,
+                        observables_section=observables_section,
                     )
                     if sigma_prompt and isinstance(sigma_prompt, str):
                         logger.info(
@@ -147,6 +183,7 @@ class SigmaGenerationService:
                         source=source_name,
                         url=url or "N/A",
                         content=content_to_analyze,
+                        observables_section=observables_section,
                     )
                     if sigma_prompt and isinstance(sigma_prompt, str):
                         logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
@@ -154,6 +191,10 @@ class SigmaGenerationService:
             # Ensure we have a valid prompt
             if not sigma_prompt or not isinstance(sigma_prompt, str):
                 raise ValueError("Failed to load SIGMA generation prompt from both database and file")
+
+            # Always append observables section when available (DB template may lack {observables_section})
+            if observables_section and observables_section.strip():
+                sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
 
             # Handle context window limits for LMStudio
             if ai_model == "lmstudio":
@@ -280,6 +321,8 @@ class SigmaGenerationService:
                                     "logsource": parsed_yaml.get("logsource", {}),
                                     "detection": detection,
                                 }
+                                if rule_result.observables_used is not None:
+                                    rule_metadata["observables_used"] = rule_result.observables_used
                                 final_rules.append(rule_metadata)
                     except Exception as e:
                         logger.warning(f"Failed to parse rule {rule_result.rule_id}: {e}")
@@ -451,17 +494,33 @@ class SigmaGenerationService:
                 logger.warning(f"Block {i + 1} rejected: doesn't look like YAML")
                 continue
 
-            # Validate rule
-            validation_result = validate_sigma_rule(cleaned_block)
+            # Extract observables_used (LLM-provided) and strip before validation
+            observables_used: list[int] | None = None
+            block_for_validation = cleaned_block
+            try:
+                parsed = yaml.safe_load(cleaned_block)
+                if isinstance(parsed, dict) and "observables_used" in parsed:
+                    raw = parsed.pop("observables_used")
+                    if isinstance(raw, list) and all(isinstance(x, int) for x in raw):
+                        observables_used = raw
+                    elif isinstance(raw, list):
+                        observables_used = [int(x) for x in raw if isinstance(x, (int, float))]
+                    block_for_validation = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
+            except Exception as e:
+                logger.debug(f"Could not parse observables_used from block {i + 1}: {e}")
+
+            # Validate rule (without observables_used for pySIGMA compatibility)
+            validation_result = validate_sigma_rule(block_for_validation)
             rule_id = str(uuid.uuid4())
 
             rule_result = RuleValidationResult(
                 rule_id=rule_id,
-                rule_yaml=cleaned_block,
+                rule_yaml=block_for_validation,
                 validation_result=validation_result,
                 rule_index=i + 1,
                 generation_phase="generation",
                 final_status="valid" if validation_result.is_valid else "invalid",
+                observables_used=observables_used,
             )
 
             all_rules.append(rule_result)

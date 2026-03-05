@@ -5,6 +5,7 @@ Threat Intel Input:
 - source: {source}
 - url: {url}
 - content: {content}
+{observables_section}
 
 Objectives:
 - Extract every distinct behavioral TTP (command execution, process lineage, persistence, defense evasion, system modification).
@@ -58,6 +59,7 @@ Required Structure (per rule):
 title: [descriptive rule title]
 id: [UUID]
 description: [behavior detected]
+observables_used: [list of 0-based indices from the Observables list above that this rule uses; omit if no observables provided]
 logsource:
   category: [process_creation/network_connection/registry_event/file_event/powershell/wmi]
   product: [windows/linux/macos]
