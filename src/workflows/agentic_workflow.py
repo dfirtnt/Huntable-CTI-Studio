@@ -2425,21 +2425,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         rule_max_sim = rule_similarity.get("max_similarity", 0.0)
 
                         if rule_max_sim < similarity_threshold:
-                            # Convert rule dict to YAML
-                            rule_yaml = yaml.dump(rule, default_flow_style=False, sort_keys=False)
+                            # Strip observables_used from rule before YAML (not valid SIGMA)
+                            rule_for_yaml = {k: v for k, v in rule.items() if k != "observables_used"}
+                            rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
+
+                            rule_meta = {
+                                "title": rule.get("title"),
+                                "description": rule.get("description"),
+                                "tags": rule.get("tags", []),
+                                "level": rule.get("level"),
+                                "status": rule.get("status", "experimental"),
+                            }
+                            if rule.get("observables_used") is not None:
+                                rule_meta["observables_used"] = rule["observables_used"]
 
                             # Create queue entry
                             queue_entry = SigmaRuleQueueTable(
                                 article_id=article.id if article else state["article_id"],
                                 workflow_execution_id=state["execution_id"],
                                 rule_yaml=rule_yaml,
-                                rule_metadata={
-                                    "title": rule.get("title"),
-                                    "description": rule.get("description"),
-                                    "tags": rule.get("tags", []),
-                                    "level": rule.get("level"),
-                                    "status": rule.get("status", "experimental"),
-                                },
+                                rule_metadata=rule_meta,
                                 similarity_scores=rule_similarity.get("similar_rules", []),
                                 max_similarity=rule_max_sim,
                                 status="pending",
