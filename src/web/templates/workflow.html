@@ -11555,6 +11555,8 @@ function updateQueueStats() {
     if (submittedEl) submittedEl.textContent = stats.submitted;
 }
 
+var cachedObservablesForRulePreview = null;
+
 async function previewRule(ruleId) {
     const rule = queue.find(r => r.id === ruleId);
     if (!rule) return;
@@ -11569,14 +11571,14 @@ async function previewRule(ruleId) {
     updateURLParameter('previewId', ruleId);
     
     pushModal('ruleModal', false); // Don't hide previous, rule modal is base level
-    let observablesData = null;
+    cachedObservablesForRulePreview = null;
     if (rule.workflow_execution_id) {
         try {
             const obsRes = await fetch(`/api/workflow/executions/${rule.workflow_execution_id}/observables`);
-            if (obsRes.ok) observablesData = await obsRes.json();
+            if (obsRes.ok) cachedObservablesForRulePreview = await obsRes.json();
         } catch (e) { console.warn('Observables fetch failed', e); }
     }
-    renderRulePreview(rule, observablesData);
+    renderRulePreview(rule, cachedObservablesForRulePreview);
 }
 
 async function seedValidateDropdownsFromWorkflowConfig() {
@@ -11692,26 +11694,24 @@ function initializeValidateDropdowns() {
 
 function filterObservablesForRule(rule, observablesData) {
     if (!observablesData?.observables) return observablesData;
-    const ruleText = (editedYaml || rule.rule_yaml || '').toLowerCase();
-    const filtered = {};
-    for (const [typeKey, list] of Object.entries(observablesData.observables)) {
-        if (!list || !Array.isArray(list)) continue;
-        filtered[typeKey] = list.filter(function(ob) {
-            const parts = [];
-            if (typeof ob.observable_value === 'string') parts.push(ob.observable_value);
-            else if (ob.observable_value && typeof ob.observable_value === 'object') {
-                const v = ob.observable_value;
-                if (v.child) parts.push(v.child);
-                if (v.parent) parts.push(v.parent);
-                if (v.arguments) parts.push(v.arguments);
-                if (v.value) parts.push(String(v.value));
-            }
-            const searchStr = parts.join(' ').toLowerCase();
-            if (!searchStr.trim()) return true;
-            return parts.some(function(p) { return p && ruleText.indexOf(String(p).toLowerCase()) !== -1; });
-        });
-    }
-    return { observables: filtered };
+    var indices = (rule.rule_metadata && rule.rule_metadata.observables_used) || null;
+    if (!indices || !Array.isArray(indices) || indices.length === 0) return { observables: { cmdline: [], process_lineage: [], hunt_queries: [] } };
+    var flat = [].concat(
+        observablesData.observables.cmdline || [],
+        observablesData.observables.process_lineage || [],
+        observablesData.observables.hunt_queries || []
+    );
+    var keep = {};
+    indices.forEach(function(i) { if (i >= 0 && i < flat.length) keep[i] = true; });
+    var cmdLen = (observablesData.observables.cmdline || []).length;
+    var procLen = (observablesData.observables.process_lineage || []).length;
+    return {
+        observables: {
+            cmdline: (observablesData.observables.cmdline || []).filter(function(_, idx) { return keep[idx]; }),
+            process_lineage: (observablesData.observables.process_lineage || []).filter(function(_, idx) { return keep[cmdLen + idx]; }),
+            hunt_queries: (observablesData.observables.hunt_queries || []).filter(function(_, idx) { return keep[cmdLen + procLen + idx]; })
+        }
+    };
 }
 
 function observablesUsedSection(rule, observablesData) {
@@ -11764,6 +11764,7 @@ function showObservableInfoModal(contentId) {
     document.body.appendChild(modal);
 }
 function renderRulePreview(rule, observablesData) {
+    observablesData = observablesData ?? cachedObservablesForRulePreview;
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
     

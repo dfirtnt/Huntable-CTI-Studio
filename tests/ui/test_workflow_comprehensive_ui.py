@@ -2135,3 +2135,74 @@ class TestWorkflowQueueAPI:
         expect(rule_modal).to_contain_text("Max Similarity:")
         expect(rule_modal).to_contain_text("0.0%")
         expect(rule_modal).not_to_contain_text("N/A")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_rule_preview_filters_observables_by_observables_used(self, page: Page):
+        """Rule with rule_metadata.observables_used shows only those observables in Observables section."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        exec_id = 88801
+
+        mock_queue = [
+            {
+                "id": 99902,
+                "article_id": 1,
+                "article_title": "Test Article",
+                "workflow_execution_id": exec_id,
+                "rule_yaml": (
+                    "title: Test Rule\nlogsource:\n  category: process_creation\n"
+                    "detection:\n  selection:\n    CommandLine|contains: net.exe\n  condition: selection\n"
+                ),
+                "rule_metadata": {"title": "Test Rule", "description": "Test", "observables_used": [0, 1]},
+                "similarity_scores": [],
+                "max_similarity": 0.0,
+                "status": "pending",
+                "reviewed_by": None,
+                "review_notes": None,
+                "pr_submitted": False,
+                "pr_url": None,
+                "created_at": "2025-02-02T12:00:00",
+                "reviewed_at": None,
+            }
+        ]
+
+        mock_observables = {
+            "execution_id": exec_id,
+            "observables": {
+                "cmdline": [
+                    {"observable_value": "cmd0", "confidence_score": 0.9},
+                    {"observable_value": "cmd1", "confidence_score": 0.85},
+                    {"observable_value": "cmd2", "confidence_score": 0.8},
+                ],
+                "process_lineage": [],
+                "hunt_queries": [],
+            },
+        }
+
+        def handle_route(route):
+            if "/api/sigma-queue/list" in route.request.url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_queue))
+            elif f"/api/workflow/executions/{exec_id}/observables" in route.request.url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_observables))
+            else:
+                route.continue_()
+
+        page.route("**/api/sigma-queue/list*", handle_route)
+        page.route(f"**/api/workflow/executions/{exec_id}/observables*", handle_route)
+
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+        page.locator("#tab-queue").click()
+        page.wait_for_timeout(2000)
+
+        page.locator('button:has-text("Preview")').first.click()
+        page.wait_for_timeout(1000)
+
+        rule_modal = page.locator("#ruleModal")
+        expect(rule_modal).to_be_visible(timeout=3000)
+        # observables_used [0, 1] filters to indices 0 and 1 from flat list (both cmdline)
+        # Should show "Observables Used (2)" not (3)
+        expect(rule_modal).to_contain_text("Observables Used (2)")
+        expect(rule_modal).to_contain_text("cmd0")
+        expect(rule_modal).to_contain_text("cmd1")
+        expect(rule_modal).not_to_contain_text("cmd2")

@@ -2802,7 +2802,10 @@
 <p>Each workflow execution stores the Extract Agent output in JSONB:
 - <code>discrete_huntables_count</code> (int)
 - <code>observables</code> (list of <code>{type, value, source}</code>)
-- <code>subresults</code>: per-agent objects with <code>items</code>, <code>count</code>, and optional <code>raw</code> payloads
+- <code>subresults</code>: per-agent objects with <code>items</code>, <code>count</code>, and optional <code>raw</code> payloads. When an LLM API call fails, the subresult may also include:
+  - <code>error</code> (string): exception or API error message
+  - <code>error_type</code> (string): exception type name (e.g. <code>HTTPStatusError</code>, <code>TimeoutError</code>)
+  - <code>error_details</code> (object): structured debug info (<code>message</code>, <code>exception_type</code>, <code>attempt</code>, <code>agent_name</code>)
 - <code>summary</code>: includes <code>source_url</code>, <code>platforms_detected</code>, and other agent hints
 - <code>content</code>: newline-joined observables used by the Sigma agent when huntables exist</p>
 <h2 id="chunk-analysis-json">Chunk analysis (JSON)<a class="headerlink" href="#chunk-analysis-json" title="Permanent link">&para;</a></h2>
