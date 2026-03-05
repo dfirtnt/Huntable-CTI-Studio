@@ -932,9 +932,10 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 280px; min-width: 280px; max-width: 360px;">Article</th>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 280px; width: 90px; min-width: 90px;">Expected</th>';
     
-    // Add one column per config version with tooltip and export button
+    // Add one column per config version/run (v40a, v40b, ...) with tooltip and export button
     configVersions.forEach(version => {
-        const modelInfo = modelsByVersion[version];
+        const baseVersion = String(version).replace(/[a-z]$/i, '');
+        const modelInfo = modelsByVersion[baseVersion] || modelsByVersion[version];
         let tooltipText = 'Model info not available';
         
         if (modelInfo && modelInfo.display_text) {
@@ -943,11 +944,12 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         
         // Escape HTML in tooltip text
         const escapedTooltip = tooltipText.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const baseVersionNum = parseInt(baseVersion, 10) || 0;
         html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap" style="min-width: 96px;" title="${escapedTooltip}">`;
         html += `<div class="flex flex-col items-center gap-0.5">`;
         html += `<div class="flex items-center gap-1">`;
         html += `<span class="cursor-help">v${version}</span>`;
-        html += `<button type="button" onclick="exportBundlesForConfigVersion(${version})" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export bundles for all articles (v${version})">📦</button>`;
+        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum})" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export bundles for all articles (v${baseVersion})">📦</button>`;
         html += `</div></div></th>`;
     });
     
@@ -1794,6 +1796,7 @@ async function loadPreviousResults() {
         }
         
         // Group by canonical URL so the same article never appears twice (DB and static eval for same URL → one row)
+        // Support multiple runs per (article, config_version): store arrays, then assign run letters (v40a, v40b, ...)
         const byArticleKey = {};
         results.forEach(result => {
             const url = (result.url || '').trim();
@@ -1806,26 +1809,66 @@ async function loadPreviousResults() {
                     title: result.title || null,
                     expected_count: presetExpected !== undefined ? presetExpected : (result.expected_count ?? 0),
                     article_id: articleId,
-                    versions: {}
+                    versions: {}  // will hold runKey -> result, e.g. "40a" -> result
                 };
             }
             const row = byArticleKey[key];
             const version = result.config_version || 'unknown';
-            row.versions[version] = result;
+            if (!row._runsByVersion) row._runsByVersion = {};
+            if (!row._runsByVersion[version]) row._runsByVersion[version] = [];
+            row._runsByVersion[version].push(result);
             if ((result.title && result.title.trim()) && !(row.title && row.title.trim()))
                 row.title = result.title;
             if (articleId != null && row.article_id == null) row.article_id = articleId;
         });
+
+        // Assign run letters per (article, config_version): sort by created_at asc, then 40a, 40b, ...
+        const runLetters = 'abcdefghijklmnopqrstuvwxyz';
+        Object.values(byArticleKey).forEach(row => {
+            if (!row._runsByVersion) return;
+            Object.keys(row._runsByVersion).forEach(version => {
+                const runs = row._runsByVersion[version];
+                runs.sort((a, b) => {
+                    const ta = a.created_at || '';
+                    const tb = b.created_at || '';
+                    return ta.localeCompare(tb);
+                });
+                runs.forEach((r, idx) => {
+                    const letter = runLetters[idx] || String.fromCharCode(97 + idx);
+                    const runKey = `${version}${letter}`;
+                    row.versions[runKey] = r;
+                });
+            });
+            delete row._runsByVersion;
+        });
+
+        // Build column keys: one per run per config version (v40a, v40b, ...)
+        const baseVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
+        const maxRunsByVersion = {};
+        Object.values(byArticleKey).forEach(row => {
+            baseVersions.forEach(v => {
+                const runKeys = Object.keys(row.versions || {}).filter(k => {
+                    const s = String(k);
+                    return s.startsWith(String(v)) && s.length > String(v).length && /[a-z]$/.test(s);
+                });
+                if (runKeys.length > 0) {
+                    maxRunsByVersion[v] = Math.max(maxRunsByVersion[v] || 0, runKeys.length);
+                }
+            });
+        });
+        const allVersions = [];
+        baseVersions.forEach(v => {
+            const n = maxRunsByVersion[v] || 1;
+            for (let i = 0; i < n; i++) {
+                allVersions.push(`${v}${runLetters[i] || String.fromCharCode(97 + i)}`);
+            }
+        });
         
-        // Get all unique config versions and sort them (ascending - oldest first)
-        // Filter out excluded versions
-        const allVersions = [...new Set(results.map(r => r.config_version))].filter(v => v !== null && v !== 'unknown' && !excludedVersions.includes(parseInt(v))).sort((a, b) => parseInt(a) - parseInt(b));
-        
-        // Fetch model info for all config versions
+        // Fetch model info for all base config versions (API expects numeric versions)
         let modelsByVersion = {};
-        if (allVersions.length > 0) {
+        if (baseVersions.length > 0) {
             try {
-                const versionsStr = allVersions.join(',');
+                const versionsStr = baseVersions.join(',');
                 const modelResponse = await fetch(`/api/evaluations/config-versions-models?config_versions=${versionsStr}`);
                 if (modelResponse.ok) {
                     const modelData = await modelResponse.json();

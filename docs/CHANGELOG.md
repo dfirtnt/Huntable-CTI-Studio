@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Agent evals historical results table** (2026-03-04): When evals ran multiple times against the same config version, a first-run failure hid subsequent successful runs. The table now shows each run as a separate column (v40a, v40b, v40c, …) so all runs are visible.
+
 ### Added
 - **Agent evals setup documentation**: Installation guide now includes an "Agent evals setup (optional)" section: one-time run of `scripts/fetch_eval_articles_static.py` so "Load Eval Articles" and subagent evals have article content. `config/eval_articles_data/README.md` has a "New installs" callout with a link to the docs. Agent Evals UI shows a setup hint when no eval articles are found (command + doc reference).
 - **LM Studio URL configuration in Settings and setup**: LM Studio server and embedding URLs can be set in both `./setup.sh` (optional prompt) and Settings UI (Workflow Provider Configuration → LM Studio). Values are stored in DB and synced to `os.environ` so chat, sigma index, and embeddings use them. App startup loads these from DB into env when present.
