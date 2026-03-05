@@ -1628,13 +1628,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         # Use normalized versions
                         items = normalized_edr_queries
 
-                        subresults[result_key] = {
+                        subresult_entry = {
                             "items": items,
                             "count": len(items),
                             "query_count": query_count,
                             "queries": items,
                             "raw": agent_result,
                         }
+                        if agent_result.get("error"):
+                            subresult_entry["error"] = agent_result["error"]
+                            if agent_result.get("error_details"):
+                                subresult_entry["error_details"] = agent_result["error_details"]
+                            if agent_result.get("error_type"):
+                                subresult_entry["error_type"] = agent_result["error_type"]
+                        subresults[result_key] = subresult_entry
                         logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} EDR queries")
                     else:
                         # Standard extraction agents
@@ -1653,7 +1660,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                     items = v
                                     break
 
-                        subresults[result_key] = {"items": items, "count": len(items), "raw": agent_result}
+                        subresult_entry = {"items": items, "count": len(items), "raw": agent_result}
+                        if agent_result.get("error"):
+                            subresult_entry["error"] = agent_result["error"]
+                            if agent_result.get("error_details"):
+                                subresult_entry["error_details"] = agent_result["error_details"]
+                            if agent_result.get("error_type"):
+                                subresult_entry["error_type"] = agent_result["error_type"]
+                        subresults[result_key] = subresult_entry
                         logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
 
                     # Make cmdline items available on state for downstream consumers (e.g., SIGMA)
@@ -1717,10 +1731,27 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             "count": 0,
                             "raw": {"infra_failed": True, "infra_debug_artifacts": getattr(e, "debug_artifacts", {})},
                             "error": str(e),
+                            "error_type": type(e).__name__,
+                            "error_details": {
+                                "message": str(e),
+                                "exception_type": type(e).__name__,
+                                "agent_name": agent_name,
+                            },
                         }
                     else:
                         logger.error(f"[Workflow {state['execution_id']}] {agent_name} failed: {e}")
-                        subresults[result_key] = {"items": [], "count": 0, "raw": {}, "error": str(e)}
+                        subresults[result_key] = {
+                            "items": [],
+                            "count": 0,
+                            "raw": {},
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                            "error_details": {
+                                "message": str(e),
+                                "exception_type": type(e).__name__,
+                                "agent_name": agent_name,
+                            },
+                        }
 
             # --- Supervisor Aggregation ---
             # Merge all items into a single 'observables' list for backward compatibility

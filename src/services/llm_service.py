@@ -3210,17 +3210,29 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                         f"using provider={effective_provider}, model={model_name}, "
                         f"temperature={temperature}, top_p={effective_top_p}"
                     )
-                    response = await self.request_chat(
-                        provider=effective_provider,
-                        model_name=model_name,
-                        messages=converted_messages,
-                        max_tokens=2000,
-                        temperature=temperature,
-                        top_p=effective_top_p,
-                        timeout=extraction_timeout,
-                        failure_context=f"{agent_name} extraction attempt {current_try}",
-                        seed=self.seed,
-                    )
+                    try:
+                        response = await self.request_chat(
+                            provider=effective_provider,
+                            model_name=model_name,
+                            messages=converted_messages,
+                            max_tokens=2000,
+                            temperature=temperature,
+                            top_p=effective_top_p,
+                            timeout=extraction_timeout,
+                            failure_context=f"{agent_name} extraction attempt {current_try}",
+                            seed=self.seed,
+                        )
+                    except Exception as e:
+                        log_llm_error(
+                            generation,
+                            e,
+                            metadata={
+                                "agent_name": agent_name,
+                                "attempt": current_try,
+                                "model": model_name,
+                            },
+                        )
+                        raise
 
                     # Parse response (moved inside with block so generation is still active)
                     response_text = response["choices"][0]["message"].get("content", "")
@@ -3983,13 +3995,20 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 raise  # Fail-fast: do not retry infra invariants
             except Exception as e:
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
-                # If it's a connection error and we're on the last attempt, include error in result
-                if current_try >= max_retries and ("Cannot connect" in str(e) or "connection" in str(e).lower()):
+                # On last attempt, store all API errors in result (not just connection errors)
+                if current_try >= max_retries:
                     last_result = {
                         "items": [],
                         "count": 0,
-                        "error": f"LMStudio connection failed: {str(e)}",
-                        "connection_error": True,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "error_details": {
+                            "message": str(e),
+                            "exception_type": type(e).__name__,
+                            "attempt": current_try,
+                            "agent_name": agent_name,
+                        },
+                        "connection_error": "connection" in str(e).lower() or "cannot connect" in str(e).lower(),
                     }
                 feedback = f"Previous attempt failed with error: {str(e)}"
                 # Continue loop

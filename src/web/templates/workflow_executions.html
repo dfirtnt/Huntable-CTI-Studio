@@ -300,10 +300,71 @@ async function viewExecution(executionId) {
                         ${exec.error_message ? `<div class="mt-2 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800"><strong>Error:</strong> ${exec.error_message}</div>` : ''}
                     </div>
 
-                    <!-- Step 0: Junk Filter -->
+                    <!-- Step 0: OS Detection (gate - runs first, Windows only continues) -->
+                    ${(() => {
+                        const osDetectionResult = exec.error_log?.os_detection_result;
+                        const osDetectionData = osDetectionResult || exec.termination_details || {};
+                        const osDetectionError = exec.error_log?.os_detection;
+                        const detectedOS = osDetectionData.detected_os ?? (osDetectionError ? null : undefined);
+                        const showOS = osDetectionResult || detectedOS !== undefined || osDetectionError || exec.status !== 'pending';
+                        if (!showOS) return '';
+                        const osMethod = (osDetectionData.detection_method && typeof osDetectionData.detection_method === 'string') ? osDetectionData.detection_method : 'Unknown';
+                        const osConfidence = (osDetectionData.confidence !== undefined) ? String(osDetectionData.confidence) : 'Unknown';
+                        const workflowContinued = exec.extraction_result != null || (exec.junk_filter_result != null && exec.status !== 'pending');
+                        const isWindows = detectedOS === 'Windows' || (workflowContinued && detectedOS !== 'Linux' && detectedOS !== 'MacOS');
+                        // OS detection runs first and receives original article content (not junk-filtered)
+                        const contentLen = exec.article_content?.length || exec.junk_filter_result?.original_length || 0;
+                        let osOutput = '';
+                        if (osDetectionError) {
+                            osOutput = \`<div class="text-red-600 dark:text-red-400"><strong>Error:</strong> \${osDetectionError}</div>\`;
+                        } else if (detectedOS !== undefined && detectedOS !== null) {
+                            osOutput = \`<div class="mt-1 text-sm">
+                                <div>• Detected OS: <strong>\${detectedOS}</strong></div>
+                                <div>• Method: \${osMethod}</div>
+                                <div>• Confidence: \${osConfidence}</div>
+                                <div>• Decision: \${isWindows ? '✅ Continue (Windows)' : '❌ Stop (Non-Windows)'}</div>
+                                \${!isWindows ? '<div class="mt-2 text-amber-600 dark:text-amber-400">⚠️ Workflow ended: non-Windows OS detected.</div>' : ''}
+                            </div>\`;
+                        } else {
+                            osOutput = \`<div class="mt-1 text-sm">
+                                <div>• Detected OS: \${workflowContinued ? 'Windows (inferred)' : 'Unknown'}</div>
+                                <div>• Decision: \${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
+                                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">OS detection data not stored (legacy execution).</div>
+                            </div>\`;
+                        }
+                        const similarities = osDetectionData.similarities && typeof osDetectionData.similarities === 'object' ? osDetectionData.similarities : {};
+                        const simHtml = Object.keys(similarities).length > 0
+                            ? \`<details class="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                <summary class="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">View OS Similarity Scores</summary>
+                                <div class="p-3 bg-gray-800 border border-gray-700"><div class="space-y-1 text-xs">\${Object.entries(similarities).map(([os, sim]) => \`<div>• \${os}: \${(sim * 100).toFixed(1)}%</div>\`).join('')}</div></div>
+                            </details>\`
+                            : '';
+                        return \`
+                    <details class="border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden" \${exec.current_step === 'os_detection' || exec.termination_reason === 'non_windows_os_detected' ? 'open' : ''}>
+                        <summary class="bg-amber-100 dark:bg-amber-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-amber-200 dark:hover:bg-amber-900/60">
+                            Step 0: 🖥️ OS Detection (gate)
+                        </summary>
+                        <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Inputs:</strong>
+                                <div class="mt-1 text-sm">
+                                    <div>• Original article content: \${contentLen} chars</div>
+                                    <div>• Runs first; non-Windows terminates workflow</div>
+                                </div>
+                            </div>
+                            <div>
+                                <strong class="text-gray-900 dark:text-white">Outputs:</strong>
+                                \${osOutput}
+                                \${simHtml}
+                            </div>
+                        </div>
+                    </details>\`;
+                    })()}
+
+                    <!-- Step 1: Junk Filter -->
                     <details class="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden" open>
                         <summary class="bg-blue-100 dark:bg-blue-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-blue-200 dark:hover:bg-blue-900/60">
-                            Step 0: 🔍 Junk Filter
+                            Step 1: 🔍 Junk Filter
                         </summary>
                         <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
@@ -329,10 +390,10 @@ async function viewExecution(executionId) {
                         </div>
                     </details>
 
-                    <!-- Step 1: Rank Article -->
+                    <!-- Step 2: Rank Article -->
                     <details class="border border-emerald-500/30 rounded-lg overflow-hidden" ${exec.ranking_score ? 'open' : ''}>
                         <summary class="bg-green-100 dark:bg-green-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-green-200 dark:hover:bg-green-900/60">
-                            Step 1: 📊 LLM Ranking ${exec.ranking_score ? `(${exec.ranking_score.toFixed(1)}/10)` : ''}
+                            Step 2: 📊 LLM Ranking ${exec.ranking_score ? `(${exec.ranking_score.toFixed(1)}/10)` : ''}
                         </summary>
                         <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
@@ -366,10 +427,10 @@ async function viewExecution(executionId) {
                         </div>
                     </details>
 
-                    <!-- Step 2: Extract Agent -->
+                    <!-- Step 3: Extract Agent -->
                     <details class="border border-yellow-200 dark:border-yellow-800 rounded-lg overflow-hidden" ${exec.extraction_result ? 'open' : ''}>
                         <summary class="bg-yellow-100 dark:bg-yellow-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-yellow-200 dark:hover:bg-yellow-900/60">
-                            Step 2: 🔬 Extract Agent ${exec.extraction_result ? `(${exec.extraction_result.discrete_huntables_count || 0} huntables)` : ''}
+                            Step 3: 🔬 Extract Agent ${exec.extraction_result ? `(${exec.extraction_result.discrete_huntables_count || 0} huntables)` : ''}
                         </summary>
                         <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
@@ -615,10 +676,10 @@ async function viewExecution(executionId) {
                     </details>
                     ` : ''}
 
-                    <!-- Step 3: Generate SIGMA -->
+                    <!-- Step 4: Generate SIGMA -->
                     <details class="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden" ${exec.sigma_rules && exec.sigma_rules.length > 0 ? 'open' : ''}>
                         <summary class="bg-red-100 dark:bg-red-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-red-200 dark:hover:bg-red-900/60">
-                            Step 3: ⚡ Generate SIGMA ${exec.sigma_rules ? `(${exec.sigma_rules.length} rules)` : '(0 rules)'}
+                            Step 4: ⚡ Generate SIGMA ${exec.sigma_rules ? `(${exec.sigma_rules.length} rules)` : '(0 rules)'}
                         </summary>
                         <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
@@ -840,10 +901,10 @@ async function viewExecution(executionId) {
                         </div>
                     </details>
 
-                    <!-- Step 4: Similarity Search -->
+                    <!-- Step 5: Similarity Search -->
                     <details class="border border-pink-200 dark:border-pink-800 rounded-lg overflow-hidden" ${exec.similarity_results !== null && exec.similarity_results !== undefined ? 'open' : ''}>
                         <summary class="bg-pink-100 dark:bg-pink-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-pink-200 dark:hover:bg-pink-900/60">
-                            Step 4: 🔎 Similarity Search
+                            Step 5: 🔎 Similarity Search
                         </summary>
                         <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
@@ -934,10 +995,10 @@ async function viewExecution(executionId) {
                         </div>
                     </details>
 
-                    <!-- Step 5: Queue Promotion -->
+                    <!-- Step 6: Queue Promotion -->
                     <details class="border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
                         <summary class="bg-purple-100 dark:bg-purple-900/40 px-4 py-3 cursor-pointer font-semibold text-gray-900 dark:text-white hover:bg-purple-200 dark:hover:bg-purple-900/60">
-                            Step 5: 📥 Queue Promotion
+                            Step 6: 📥 Queue Promotion
                         </summary>
                         <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
                             <div>
