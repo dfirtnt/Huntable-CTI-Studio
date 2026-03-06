@@ -10128,6 +10128,10 @@ async function viewExecution(executionId) {
                 }
                 
                 steps.push({
+                    id: 'os_detection',
+                    shortName: 'OS Detection',
+                    status: osDetectionError ? 'error' : isWindows ? 'pass' : 'stopped',
+                    metric: detectedOS || (osDetectionError ? 'Error' : 'Unknown'),
                     name: 'Step 0: OS Detection',
                     input: `<div class="space-y-1">
                         <div>• Original article content (${osInputContentLength} chars)</div>
@@ -10151,6 +10155,10 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 steps.push({
+                    id: 'junk_filter',
+                    shortName: 'Junk Filter',
+                    status: exec.junk_filter_result.is_huntable ? 'pass' : 'stopped',
+                    metric: (exec.junk_filter_result.confidence * 100).toFixed(0) + '%',
                     name: 'Step 1: Junk Filter',
                     input: `<div class="space-y-1">
                         <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
@@ -10189,8 +10197,13 @@ async function viewExecution(executionId) {
                 
                 // Get model used for ranking
                 const rankModel = getModel('RankAgent');
-                
+                const rankThreshold = exec.config_snapshot?.ranking_threshold ?? 6.0;
+
                 steps.push({
+                    id: 'ranking',
+                    shortName: 'Ranking',
+                    status: exec.ranking_score >= rankThreshold ? 'pass' : 'stopped',
+                    metric: exec.ranking_score.toFixed(1) + ' / ' + rankThreshold.toFixed(1),
                     name: 'Step 2: LLM Ranking',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${filteredContentLength} chars)</div>
@@ -10203,8 +10216,8 @@ async function viewExecution(executionId) {
                     inputDetails: filteredContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
-                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
-                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                        <div><strong>Threshold:</strong> ${rankThreshold.toFixed(1)}/10</div>
+                        <div><strong>Decision:</strong> ${exec.ranking_score >= rankThreshold ? '✅ Continue' : '❌ Stop'}</div>
                     </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-amber-400 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
                     details: rankingDetails
                 });
@@ -10294,6 +10307,11 @@ async function viewExecution(executionId) {
                 const extractModel = getModel('ExtractAgent');
                 
                 steps.push({
+                    id: 'extraction',
+                    shortName: 'Extraction',
+                    status: discreteHuntablesCount > 0 ? 'pass' : 'warn',
+                    metric: discreteHuntablesCount + ' obs',
+                    subSteps: null,
                     name: 'Step 3: Extract Agents',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${extractInputContentLength} chars)</div>
@@ -10419,17 +10437,22 @@ async function viewExecution(executionId) {
                         </details>`;
                     }).join('');
                     
-                    steps.push({
-                        name: '<span class="text-gray-600 dark:text-gray-300">🔬 Sub-Agents (Individual Extraction)</span>',
-                        input: `<div class="space-y-1 text-xs">
-                            <div>• ${Object.keys(subresults).length} sub-agents executed</div>
-                        </div>`,
-                        inputDetails: '',
-                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
-                            <div>• Total sub-agents: ${subAgents.length}</div>
-                        </div>`,
-                        details: `<div class="space-y-4">${subAgentDetails}</div>`
-                    });
+                    // Attach sub-agent results as nested subSteps on the extraction step
+                    const extractionStep = steps.find(s => s.id === 'extraction');
+                    if (extractionStep) {
+                        extractionStep.subSteps = extractionStep.subSteps || [];
+                        extractionStep.subSteps.push({
+                            id: 'sub_agents',
+                            shortName: 'Sub-Agents',
+                            name: '🔬 Sub-Agents',
+                            status: Object.values(subresults).some(r => (r?.count || r?.items?.length || 0) > 0) ? 'pass' : 'warn',
+                            metric: Object.values(subresults).reduce((sum, r) => sum + (r?.count || r?.items?.length || 0), 0) + ' items',
+                            output: `<div class="space-y-4">${subAgentDetails}</div>`,
+                            input: `<div class="space-y-1 text-xs"><div>• ${Object.keys(subresults).length} sub-agents executed</div></div>`,
+                            inputDetails: '',
+                            details: ''
+                        });
+                    }
                     
                     // ExtractionSupervisorAgent: Aggregation
                     const supervisorDetails = `<div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
@@ -10460,17 +10483,20 @@ async function viewExecution(executionId) {
                         </div>
                     </div>`;
                     
-                    steps.push({
-                        name: '<span class="text-gray-600 dark:text-gray-300">🎯 ExtractionSupervisorAgent (Aggregation)</span>',
-                        input: `<div class="space-y-1 text-xs">
-                            <div>• Sub-agent results from ${Object.keys(subresults).length} sub-agents</div>
-                        </div>`,
-                        inputDetails: '',
-                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
-                            <div>• Total Observables: <strong>${discreteHuntablesCount}</strong></div>
-                        </div>`,
-                        details: supervisorDetails
-                    });
+                    if (extractionStep) {
+                        extractionStep.subSteps = extractionStep.subSteps || [];
+                        extractionStep.subSteps.push({
+                            id: 'supervisor',
+                            shortName: 'Supervisor',
+                            name: '🎯 Supervisor',
+                            status: discreteHuntablesCount > 0 ? 'pass' : 'warn',
+                            metric: discreteHuntablesCount + ' total',
+                            output: supervisorDetails,
+                            input: `<div class="space-y-1 text-xs"><div>• Aggregating results from ${Object.keys(subresults).length} sub-agents</div></div>`,
+                            inputDetails: '',
+                            details: ''
+                        });
+                    }
                 }
             }
             
@@ -10747,6 +10773,10 @@ async function viewExecution(executionId) {
                 const sigmaModel = getModel('SigmaAgent');
                 
                 steps.push({
+                    id: 'sigma',
+                    shortName: 'SIGMA',
+                    status: sigmaRulesCount > 0 ? 'pass' : (sigmaErrors ? 'error' : 'warn'),
+                    metric: sigmaRulesCount + (sigmaRulesCount === 1 ? ' rule' : ' rules'),
                     name: 'Step 4: Generate SIGMA',
                     input: `<div class="space-y-1" style="color: var(--text-emphasis) !important;">
                         <div style="color: var(--text-emphasis) !important;">• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
@@ -10821,6 +10851,12 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 steps.push({
+                    id: 'similarity',
+                    shortName: 'Similarity',
+                    status: exec.similarity_results.length > 0
+                        ? (maxSim < (exec.config_snapshot?.similarity_threshold ?? 0.5) ? 'pass' : 'warn')
+                        : 'warn',
+                    metric: exec.similarity_results.length > 0 ? (maxSim * 100).toFixed(0) + '% max sim' : 'No matches',
                     name: 'Step 5: Similarity Search',
                     input: `<div class="space-y-1">
                         <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
@@ -10838,6 +10874,10 @@ async function viewExecution(executionId) {
                 });
             } else if (exec.sigma_rules && exec.sigma_rules.length === 0) {
                 steps.push({
+                    id: 'similarity',
+                    shortName: 'Similarity',
+                    status: 'skipped',
+                    metric: 'No rules',
                     name: 'Step 5: Similarity Search',
                     input: '0 generated SIGMA rules',
                     output: '<div class="text-orange-600 dark:text-orange-400">⚠️ Skipped (no rules to search)</div>'
@@ -10895,6 +10935,10 @@ async function viewExecution(executionId) {
             }
             
             steps.push({
+                id: 'queue',
+                shortName: 'Queue',
+                status: queuedCount > 0 ? 'pass' : 'warn',
+                metric: queuedCount > 0 ? queuedCount + ' queued' : '0 queued',
                 name: 'Step 6: Promote to Queue',
                 input: `<div class="space-y-1">
                     <div>• Generated rules: ${exec.sigma_rules?.length || 0}</div>
@@ -10950,47 +10994,32 @@ ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 te
                 return html;
             }
 
-            const content = `
-                <div class="space-y-4">
-                    <div class="border-b pb-2 border-gray-200 dark:border-gray-700">
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">${exec.article_title}</a></div>
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
-${ exec.termination_reason ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
-${ exec.completed_at ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
-${ exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded mt-2"><strong class="text-gray-900 dark:text-gray-300">Error:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.error_message}</span></div>` : ''}
-                    </div>
-                    
-                    <div class="border-t pt-2 border-gray-200 dark:border-gray-700">
-                        <h4 class="font-bold mb-3 text-gray-900 dark:text-gray-300">Step-by-Step Inputs & Outputs</h4>
-                        <div class="space-y-3">
-${ steps.map((step, idx) => `
-                                <div class="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-                                    <div class="font-semibold text-sm mb-2 text-gray-900 dark:text-gray-300">${step.name}</div>
-                                    <div class="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">INPUT:</div>
-                                            <div class="text-gray-700 dark:text-gray-300">${step.input}</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">OUTPUT:</div>
-                                            <div class="text-gray-700 dark:text-gray-300">${step.output}</div>
-                                        </div>
-                                    </div>
-${ step.inputDetails ? `<div class="mt-3">${step.inputDetails}</div>` : ''}
-${ step.details ? `<div class="mt-3">${step.details}</div>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-${ traceabilitySection()}
+            // Build execution header (article info, status, error — always shown above tabs)
+            const headerHtml = `
+                <div class="border-b pb-3 mb-4 border-gray-700">
+                    <div class="text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
+                    <div class="text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-400 hover:text-purple-300">${escapeHtml(exec.article_title || '')}</a></div>
+                    <div class="text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
+                    ${exec.termination_reason ? `<div class="text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
+                    <div class="text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                    ${exec.completed_at ? `<div class="text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                    ${exec.error_message ? `<div class="bg-red-900/20 p-3 rounded mt-2 border border-red-700"><strong class="text-red-300">Error:</strong> <span class="text-gray-300">${escapeHtml(exec.error_message)}</span></div>` : ''}
                 </div>
             `;
-            
-            document.getElementById('executionDetailContent').innerHTML = content;
+
+            const tabbedHtml = steps.length > 0
+                ? renderExecutionTabbed(steps, exec)
+                : '<div class="text-gray-400 py-4">No step data available for this execution.</div>';
+
+            const content = headerHtml + tabbedHtml;
+
+            document.getElementById('executionDetailContent').innerHTML = content + (typeof traceabilitySection === 'function' ? traceabilitySection() : '');
             document.getElementById('executionModal').classList.remove('hidden');
+            // Auto-fullscreen on open
+            const modalContent = document.getElementById('executionModalContent');
+            if (modalContent && !modalContent.classList.contains('modal-fullscreen')) {
+                toggleModalFullscreen();
+            }
             document.querySelectorAll('#executionDetailContent .jump-to-article-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const typeKey = this.getAttribute('data-type');
@@ -11162,6 +11191,154 @@ function toggleModalFullscreen() {
         window.fullscreenStack = window.fullscreenStack || [];
         window.fullscreenStack.push('modal');
     }
+}
+
+function switchExecTab(index) {
+    // Update tab buttons
+    document.querySelectorAll('#exec-tab-strip button.exec-tab').forEach((btn, i) => {
+        const isActive = i === index;
+        btn.setAttribute('data-active', isActive ? 'true' : 'false');
+        if (isActive) {
+            const statusColors = {
+                pass: 'bg-green-600 text-white border-transparent',
+                stopped: 'bg-red-600 text-white border-transparent',
+                warn: 'bg-amber-500 text-white border-transparent',
+                error: 'bg-red-600 text-white border-transparent',
+                skipped: 'bg-gray-600 text-white border-transparent'
+            };
+            const status = btn.dataset.status || 'skipped';
+            btn.className = `exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${statusColors[status] || statusColors.skipped}`;
+        } else {
+            btn.className = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-gray-100';
+        }
+    });
+    // Update panels
+    document.querySelectorAll('#executionDetailContent .exec-panel').forEach((panel, i) => {
+        panel.classList.toggle('hidden', i !== index);
+    });
+}
+
+function renderSubTabs(subSteps) {
+    if (!subSteps || subSteps.length === 0) return '';
+    const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
+    const tabButtons = subSteps.map((sub, i) => `
+        <button class="exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${i === 0 ? (statusColors[sub.status] || 'bg-gray-700') + ' text-white' : 'border border-gray-600 text-gray-400 hover:text-gray-200'}"
+                data-subtab="${i}" data-status="${sub.status}"
+                onclick="switchExecSubTab(this.closest('.exec-subtab-container'), ${i})">
+            ${sub.shortName}${sub.metric ? `<span class="opacity-75 font-mono ml-1">${escapeHtml(String(sub.metric))}</span>` : ''}
+        </button>
+    `).join('');
+
+    const panels = subSteps.map((sub, i) => `
+        <div class="exec-subpanel ${i === 0 ? '' : 'hidden'}" data-subpanel="${i}">
+            <div class="text-sm space-y-3 pt-3">
+                <div class="text-xs text-gray-400 mb-1">OUTPUT</div>
+                ${sub.output || ''}
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="exec-subtab-container mt-4 border-t border-gray-700 pt-4">
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${tabButtons}</div>
+            ${panels}
+        </div>
+    `;
+}
+
+function switchExecSubTab(container, index) {
+    if (!container) return;
+    const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
+    container.querySelectorAll('button.exec-subtab').forEach((btn, i) => {
+        const isActive = i === index;
+        const status = btn.dataset.status || 'skipped';
+        btn.className = isActive
+            ? `exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${statusColors[status] || 'bg-gray-700'} text-white`
+            : 'exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors border border-gray-600 text-gray-400 hover:text-gray-200';
+        btn.setAttribute('data-active', isActive ? 'true' : 'false');
+    });
+    container.querySelectorAll('.exec-subpanel').forEach((panel, i) => {
+        panel.classList.toggle('hidden', i !== index);
+    });
+}
+
+function renderStepPanel(step) {
+    const statusLabels = { pass: 'CONTINUED', stopped: 'TERMINATED', warn: 'WARNING', error: 'FAILED', skipped: 'SKIPPED' };
+    const statusBadgeColors = {
+        pass: 'bg-green-900/40 text-green-300 border-green-700',
+        stopped: 'bg-red-900/40 text-red-300 border-red-700',
+        warn: 'bg-amber-900/40 text-amber-300 border-amber-700',
+        error: 'bg-red-900/40 text-red-300 border-red-700',
+        skipped: 'bg-gray-900/40 text-gray-400 border-gray-600'
+    };
+    const badgeClass = statusBadgeColors[step.status] || statusBadgeColors.skipped;
+    const label = statusLabels[step.status] || (step.status || '').toUpperCase();
+
+    return `
+        <div class="space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <h4 class="text-base font-bold text-gray-100">${step.name}</h4>
+                <span class="px-2.5 py-1 rounded border text-xs font-semibold ${badgeClass}">${label}</span>
+            </div>
+            ${step.metric ? `<div class="text-xl font-mono text-gray-200">${step.metric}</div>` : ''}
+            <details class="exec-inputs border border-gray-700 rounded-lg overflow-hidden">
+                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 select-none">
+                    Inputs
+                </summary>
+                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-300">
+                    ${step.input || ''}
+                    ${step.inputDetails || ''}
+                </div>
+            </details>
+            <details open class="exec-output border border-gray-700 rounded-lg overflow-hidden">
+                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-gray-200 hover:bg-gray-700/30 select-none">
+                    Output
+                </summary>
+                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-300 space-y-3">
+                    ${step.output || ''}
+                    ${step.details || ''}
+                </div>
+            </details>
+            ${step.subSteps ? renderSubTabs(step.subSteps) : ''}
+        </div>
+    `;
+}
+
+function renderExecutionTabbed(steps, exec) {
+    // exec is reserved for future use (e.g. rendering execution-level metadata alongside tabs)
+    const statusColors = { pass: 'bg-green-600', stopped: 'bg-red-600', warn: 'bg-amber-500', error: 'bg-red-600', skipped: 'bg-gray-600' };
+
+    const tabButtons = steps.map((step, i) => {
+        const color = statusColors[step.status] || statusColors.skipped;
+        const isFirst = i === 0;
+        const baseClass = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors';
+        const activeClass = `${baseClass} ${color} text-white`;
+        const inactiveClass = `${baseClass} border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-gray-100`;
+        return `<button class="${isFirst ? activeClass : inactiveClass}"
+                        data-tab="${i}" data-status="${step.status || 'skipped'}" data-active="${isFirst ? 'true' : 'false'}"
+                        onclick="switchExecTab(${i})">
+                    <span class="opacity-60 font-mono">${i + 1}</span>
+                    <span>${step.shortName || step.name}</span>
+                    ${step.metric ? `<span class="font-mono opacity-80 ml-1">${escapeHtml(String(step.metric))}</span>` : ''}
+                </button>`;
+    }).join('');
+
+    const panels = steps.map((step, i) => `
+        <div class="exec-panel ${i === 0 ? '' : 'hidden'}" data-panel="${i}">
+            ${renderStepPanel(step)}
+        </div>
+    `).join('');
+
+    return `
+        <div id="exec-tab-strip" class="sticky top-0 bg-gray-800 border-b border-gray-700 -mx-5 px-5 py-2 mb-4 z-10">
+            <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">
+                ${tabButtons}
+            </div>
+        </div>
+        <div id="exec-panels">
+            ${panels}
+        </div>
+    `;
 }
 
 // COMMENTED OUT: Toggle collapsible content (for long prompts/responses)

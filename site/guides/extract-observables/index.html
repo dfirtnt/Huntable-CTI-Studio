@@ -2705,12 +2705,14 @@
 
 
 <h1 id="extract-observables">Extract Observables<a class="headerlink" href="#extract-observables" title="Permanent link">&para;</a></h1>
-<p>Run the Extract Agent on any article to produce huntable observables that downstream Sigma generation consumes.</p>
+<p>Trigger the LangGraph-managed Extract Observables workflow for any article to produce huntable observables that downstream Sigma generation consumes.</p>
+<p>This workflow orchestrates the Extract Agent (and any supporting sub-agents) through LangGraph rather than exposing a per-agent execution endpoint.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Stack is running (<code>./start.sh</code> and web reachable on <code>http://localhost:8001</code>)</li>
 <li>Article exists (from RSS collection, UI upload, or <code>POST /api/scrape-url</code>)</li>
 </ul>
+<p>The workflow definition lives in <code>langgraph.json</code>, and the API trigger below tells LangGraph to execute the agents in the proper order; there is no public endpoint to start a single agent on its own.</p>
 <h2 id="1-get-or-create-an-article">1) Get or create an article<a class="headerlink" href="#1-get-or-create-an-article" title="Permanent link">&para;</a></h2>
 <p>Manual scrape example:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">ARTICLE_ID</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8001/api/scrape-url<span class="w"> </span><span class="se">\</span>

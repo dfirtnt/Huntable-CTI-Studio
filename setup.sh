@@ -565,6 +565,32 @@ verify_installation() {
     fi
 }
 
+# Function to handle Sigma sync and index
+handle_sigma_sync_and_index() {
+    print_status "Sigma: syncing SigmaHQ repo..."
+    if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
+        if [ -n "$SKIP_SIGMA_INDEX" ]; then
+            print_warning "Skipping Sigma index (embeddings/LM Studio not assumed). Run ./run_cli.sh sigma index when LM Studio is available."
+        elif $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index 2>/dev/null; then
+            print_status "✅ Sigma rules synced and indexed"
+        else
+            print_warning "Sigma index failed (run manually: ./run_cli.sh sigma index)"
+        fi
+    else
+        print_warning "Sigma sync failed (run manually: ./run_cli.sh sigma sync)"
+    fi
+}
+
+# Function to seed eval articles from static files into DB
+seed_eval_articles() {
+    print_status "Eval articles: seeding from config/eval_articles_data..."
+    if $DOCKER_COMPOSE_CMD run --rm cli python scripts/seed_eval_articles_to_db.py 2>/dev/null; then
+        print_status "✅ Eval articles seeded (or already present)"
+    else
+        print_warning "Eval articles seed failed (run manually: $DOCKER_COMPOSE_CMD run --rm cli python scripts/seed_eval_articles_to_db.py)"
+    fi
+}
+
 # Build MkDocs site and start dev server so docs are ready and running
 build_and_serve_mkdocs() {
     if [ ! -f "mkdocs.yml" ]; then
@@ -646,11 +672,14 @@ main() {
     local backup_time="2:00"
     local help=false
     NON_INTERACTIVE=false
-    
+
     # Initialize LLM configuration defaults
     USE_LMSTUDIO=false
     OPENAI_API_KEY=""
     ANTHROPIC_API_KEY=""
+
+    # Initialize Sigma index skip flag (set based on environment compatibility)
+    SKIP_SIGMA_INDEX=""
     
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -741,6 +770,17 @@ main() {
     local setup_success=false
     if verify_installation; then
         setup_success=true
+
+        # Handle Sigma sync and index
+        echo ""
+        handle_sigma_sync_and_index
+
+        # Seed eval articles
+        echo ""
+        seed_eval_articles
+
+        # Build and serve MkDocs
+        echo ""
         build_and_serve_mkdocs
     else
         setup_success=false
