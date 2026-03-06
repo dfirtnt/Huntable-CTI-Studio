@@ -247,4 +247,4 @@ scripts/get_full_extract_results.py
 *.pstats
 
 # Workshop (ML training lab - optional feature)
-Workshop/
+Workshop/.worktrees/
