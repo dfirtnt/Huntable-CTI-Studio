@@ -10845,8 +10845,9 @@ async function viewExecution(executionId) {
                 steps.push({
                     id: 'similarity',
                     shortName: 'Similarity',
-                    status: exec.similarity_results.length > 0 ? 'pass' : 'warn',
-                    metric: exec.similarity_results.length > 0 ? (maxSim * 100).toFixed(0) + '% max sim' : 'No matches',
+                    status: exec.similarity_results.length > 0
+                        ? (maxSim < (exec.config_snapshot?.similarity_threshold ?? 0.5) ? 'pass' : 'warn')
+                        : 'warn',
                     name: 'Step 5: Similarity Search',
                     input: `<div class="space-y-1">
                         <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
@@ -10928,7 +10929,7 @@ async function viewExecution(executionId) {
                 id: 'queue',
                 shortName: 'Queue',
                 status: queuedCount > 0 ? 'pass' : 'warn',
-                metric: queuedCount > 0 ? 'Promoted' : 'Not promoted',
+                metric: queuedCount > 0 ? queuedCount + ' queued' : '0 queued',
                 name: 'Step 6: Promote to Queue',
                 input: `<div class="space-y-1">
                     <div>• Generated rules: ${exec.sigma_rules?.length || 0}</div>
