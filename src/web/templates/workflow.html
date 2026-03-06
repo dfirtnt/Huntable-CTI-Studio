@@ -10128,6 +10128,10 @@ async function viewExecution(executionId) {
                 }
                 
                 steps.push({
+                    id: 'os_detection',
+                    shortName: 'OS Detection',
+                    status: osDetectionError ? 'error' : isWindows ? 'pass' : 'stopped',
+                    metric: detectedOS || (osDetectionError ? 'Error' : 'Unknown'),
                     name: 'Step 0: OS Detection',
                     input: `<div class="space-y-1">
                         <div>• Original article content (${osInputContentLength} chars)</div>
@@ -10151,6 +10155,10 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 steps.push({
+                    id: 'junk_filter',
+                    shortName: 'Junk Filter',
+                    status: exec.junk_filter_result.is_huntable ? 'pass' : 'stopped',
+                    metric: (exec.junk_filter_result.confidence * 100).toFixed(0) + '%',
                     name: 'Step 1: Junk Filter',
                     input: `<div class="space-y-1">
                         <div>• Article content: ${exec.junk_filter_result.original_length || 0} chars</div>
@@ -10189,8 +10197,13 @@ async function viewExecution(executionId) {
                 
                 // Get model used for ranking
                 const rankModel = getModel('RankAgent');
-                
+                const rankThreshold = exec.config_snapshot?.ranking_threshold ?? 6.0;
+
                 steps.push({
+                    id: 'ranking',
+                    shortName: 'Ranking',
+                    status: exec.ranking_score >= rankThreshold ? 'pass' : 'stopped',
+                    metric: exec.ranking_score.toFixed(1) + ' / ' + rankThreshold.toFixed(1),
                     name: 'Step 2: LLM Ranking',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${filteredContentLength} chars)</div>
@@ -10203,8 +10216,8 @@ async function viewExecution(executionId) {
                     inputDetails: filteredContentDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Ranking Score:</strong> ${exec.ranking_score.toFixed(1)}/10</div>
-                        <div><strong>Threshold:</strong> ${(exec.config_snapshot?.ranking_threshold ?? 6.0).toFixed(1)}/10</div>
-                        <div><strong>Decision:</strong> ${exec.ranking_score >= (exec.config_snapshot?.ranking_threshold ?? 6.0) ? '✅ Continue' : '❌ Stop'}</div>
+                        <div><strong>Threshold:</strong> ${rankThreshold.toFixed(1)}/10</div>
+                        <div><strong>Decision:</strong> ${exec.ranking_score >= rankThreshold ? '✅ Continue' : '❌ Stop'}</div>
                     </div>${exec.termination_reason === 'rank_below_threshold' ? '<div class="mt-2 text-amber-400 dark:text-yellow-400">⚠️ Workflow ended after ranking because the huntability score was below the threshold.</div>' : ''}`,
                     details: rankingDetails
                 });
@@ -10294,6 +10307,11 @@ async function viewExecution(executionId) {
                 const extractModel = getModel('ExtractAgent');
                 
                 steps.push({
+                    id: 'extraction',
+                    shortName: 'Extraction',
+                    status: discreteHuntablesCount > 0 ? 'pass' : 'warn',
+                    metric: discreteHuntablesCount + ' obs',
+                    subSteps: null,
                     name: 'Step 3: Extract Agents',
                     input: `<div class="space-y-1">
                         <div>• Filtered article content (${extractInputContentLength} chars)</div>
@@ -10747,6 +10765,10 @@ async function viewExecution(executionId) {
                 const sigmaModel = getModel('SigmaAgent');
                 
                 steps.push({
+                    id: 'sigma',
+                    shortName: 'SIGMA',
+                    status: sigmaRulesCount > 0 ? 'pass' : (sigmaErrors ? 'error' : 'warn'),
+                    metric: sigmaRulesCount + (sigmaRulesCount === 1 ? ' rule' : ' rules'),
                     name: 'Step 4: Generate SIGMA',
                     input: `<div class="space-y-1" style="color: var(--text-emphasis) !important;">
                         <div style="color: var(--text-emphasis) !important;">• Extracted huntables: ${exec.extraction_result ? (exec.extraction_result.discrete_huntables_count || 0) : 0}</div>
@@ -10821,6 +10843,10 @@ async function viewExecution(executionId) {
                 </details>` : '';
                 
                 steps.push({
+                    id: 'similarity',
+                    shortName: 'Similarity',
+                    status: exec.similarity_results.length > 0 ? 'pass' : 'warn',
+                    metric: exec.similarity_results.length > 0 ? (maxSim * 100).toFixed(0) + '% max sim' : 'No matches',
                     name: 'Step 5: Similarity Search',
                     input: `<div class="space-y-1">
                         <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
@@ -10838,6 +10864,10 @@ async function viewExecution(executionId) {
                 });
             } else if (exec.sigma_rules && exec.sigma_rules.length === 0) {
                 steps.push({
+                    id: 'similarity',
+                    shortName: 'Similarity',
+                    status: 'skipped',
+                    metric: 'No rules',
                     name: 'Step 5: Similarity Search',
                     input: '0 generated SIGMA rules',
                     output: '<div class="text-orange-600 dark:text-orange-400">⚠️ Skipped (no rules to search)</div>'
@@ -10895,6 +10925,10 @@ async function viewExecution(executionId) {
             }
             
             steps.push({
+                id: 'queue',
+                shortName: 'Queue',
+                status: queuedCount > 0 ? 'pass' : 'warn',
+                metric: queuedCount > 0 ? 'Promoted' : 'Not promoted',
                 name: 'Step 6: Promote to Queue',
                 input: `<div class="space-y-1">
                     <div>• Generated rules: ${exec.sigma_rules?.length || 0}</div>
