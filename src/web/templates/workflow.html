@@ -10848,6 +10848,7 @@ async function viewExecution(executionId) {
                     status: exec.similarity_results.length > 0
                         ? (maxSim < (exec.config_snapshot?.similarity_threshold ?? 0.5) ? 'pass' : 'warn')
                         : 'warn',
+                    metric: exec.similarity_results.length > 0 ? (maxSim * 100).toFixed(0) + '% max sim' : 'No matches',
                     name: 'Step 5: Similarity Search',
                     input: `<div class="space-y-1">
                         <div>• Generated SIGMA rules: ${exec.sigma_rules?.length || 0}</div>
