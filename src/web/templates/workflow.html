@@ -11208,6 +11208,152 @@ function toggleModalFullscreen() {
     }
 }
 
+function switchExecTab(index) {
+    // Update tab buttons
+    document.querySelectorAll('#exec-tab-strip button.exec-tab').forEach((btn, i) => {
+        const isActive = i === index;
+        btn.setAttribute('data-active', isActive ? 'true' : 'false');
+        if (isActive) {
+            const statusColors = {
+                pass: 'bg-green-600 text-white border-transparent',
+                stopped: 'bg-red-600 text-white border-transparent',
+                warn: 'bg-amber-500 text-white border-transparent',
+                error: 'bg-red-600 text-white border-transparent',
+                skipped: 'bg-gray-600 text-white border-transparent'
+            };
+            const status = btn.dataset.status || 'skipped';
+            btn.className = `exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${statusColors[status] || statusColors.skipped}`;
+        } else {
+            btn.className = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-gray-100';
+        }
+    });
+    // Update panels
+    document.querySelectorAll('#executionDetailContent .exec-panel').forEach((panel, i) => {
+        panel.classList.toggle('hidden', i !== index);
+    });
+}
+
+function renderSubTabs(subSteps) {
+    if (!subSteps || subSteps.length === 0) return '';
+    const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
+    const tabButtons = subSteps.map((sub, i) => `
+        <button class="exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${i === 0 ? (statusColors[sub.status] || 'bg-gray-700') + ' text-white' : 'border border-gray-600 text-gray-400 hover:text-gray-200'}"
+                data-subtab="${i}" data-status="${sub.status}"
+                onclick="switchExecSubTab(this.closest('.exec-subtab-container'), ${i})">
+            ${sub.shortName}${sub.metric ? `<span class="opacity-75 font-mono ml-1">${sub.metric}</span>` : ''}
+        </button>
+    `).join('');
+
+    const panels = subSteps.map((sub, i) => `
+        <div class="exec-subpanel ${i === 0 ? '' : 'hidden'}" data-subpanel="${i}">
+            <div class="text-sm space-y-3 pt-3">
+                <div class="text-xs text-gray-400 mb-1">OUTPUT</div>
+                ${sub.output || ''}
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="exec-subtab-container mt-4 border-t border-gray-700 pt-4">
+            <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${tabButtons}</div>
+            ${panels}
+        </div>
+    `;
+}
+
+function switchExecSubTab(container, index) {
+    const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
+    container.querySelectorAll('button.exec-subtab').forEach((btn, i) => {
+        const isActive = i === index;
+        const status = btn.dataset.status || 'skipped';
+        btn.className = isActive
+            ? `exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${statusColors[status] || 'bg-gray-700'} text-white`
+            : 'exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors border border-gray-600 text-gray-400 hover:text-gray-200';
+        btn.setAttribute('data-active', isActive ? 'true' : 'false');
+    });
+    container.querySelectorAll('.exec-subpanel').forEach((panel, i) => {
+        panel.classList.toggle('hidden', i !== index);
+    });
+}
+
+function renderStepPanel(step) {
+    const statusLabels = { pass: 'CONTINUED', stopped: 'TERMINATED', warn: 'WARNING', error: 'FAILED', skipped: 'SKIPPED' };
+    const statusBadgeColors = {
+        pass: 'bg-green-900/40 text-green-300 border-green-700',
+        stopped: 'bg-red-900/40 text-red-300 border-red-700',
+        warn: 'bg-amber-900/40 text-amber-300 border-amber-700',
+        error: 'bg-red-900/40 text-red-300 border-red-700',
+        skipped: 'bg-gray-900/40 text-gray-400 border-gray-600'
+    };
+    const badgeClass = statusBadgeColors[step.status] || statusBadgeColors.skipped;
+    const label = statusLabels[step.status] || (step.status || '').toUpperCase();
+
+    return `
+        <div class="space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <h4 class="text-base font-bold text-gray-100">${step.name}</h4>
+                <span class="px-2.5 py-1 rounded border text-xs font-semibold ${badgeClass}">${label}</span>
+            </div>
+            ${step.metric ? `<div class="text-xl font-mono text-gray-200">${step.metric}</div>` : ''}
+            <details class="exec-inputs border border-gray-700 rounded-lg overflow-hidden">
+                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 select-none">
+                    Inputs
+                </summary>
+                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-300">
+                    ${step.input || ''}
+                    ${step.inputDetails || ''}
+                </div>
+            </details>
+            <details open class="exec-output border border-gray-700 rounded-lg overflow-hidden">
+                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-gray-200 hover:bg-gray-700/30 select-none">
+                    Output
+                </summary>
+                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-300 space-y-3">
+                    ${step.output || ''}
+                    ${step.details || ''}
+                </div>
+            </details>
+            ${step.subSteps ? renderSubTabs(step.subSteps) : ''}
+        </div>
+    `;
+}
+
+function renderExecutionTabbed(steps, exec) {
+    const statusColors = { pass: 'bg-green-600', stopped: 'bg-red-600', warn: 'bg-amber-500', error: 'bg-red-600', skipped: 'bg-gray-600' };
+
+    const tabButtons = steps.map((step, i) => {
+        const color = statusColors[step.status] || statusColors.skipped;
+        const isFirst = i === 0;
+        const baseClass = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors';
+        const activeClass = `${baseClass} ${color} text-white`;
+        const inactiveClass = `${baseClass} border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-gray-100`;
+        return `<button class="${isFirst ? activeClass : inactiveClass}"
+                        data-tab="${i}" data-status="${step.status || 'skipped'}" data-active="${isFirst ? 'true' : 'false'}"
+                        onclick="switchExecTab(${i})">
+                    <span class="opacity-60 font-mono">${i}</span>
+                    <span>${step.shortName || step.name}</span>
+                    ${step.metric ? `<span class="font-mono opacity-80 ml-1">${step.metric}</span>` : ''}
+                </button>`;
+    }).join('');
+
+    const panels = steps.map((step, i) => `
+        <div class="exec-panel ${i === 0 ? '' : 'hidden'}" data-panel="${i}">
+            ${renderStepPanel(step)}
+        </div>
+    `).join('');
+
+    return `
+        <div id="exec-tab-strip" class="sticky top-0 bg-gray-800 border-b border-gray-700 -mx-5 px-5 py-2 mb-4 z-10">
+            <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">
+                ${tabButtons}
+            </div>
+        </div>
+        <div id="exec-panels">
+            ${panels}
+        </div>
+    `;
+}
+
 // COMMENTED OUT: Toggle collapsible content (for long prompts/responses)
 // function toggleCollapse(elementId) {
 //     const preview = document.getElementById(elementId + '-preview');
