@@ -81,7 +81,6 @@ test.describe('Execution Detail - Tabbed UI', () => {
     await expect(tabStrip).toBeVisible();
     // Expect at least 3 tabs (OS Detection, Junk Filter, Ranking)
     const tabs = tabStrip.locator('button.exec-tab');
-    await expect(tabs).toHaveCount(await tabs.count());
     expect(await tabs.count()).toBeGreaterThanOrEqual(3);
   });
 
@@ -92,8 +91,7 @@ test.describe('Execution Detail - Tabbed UI', () => {
 
   test('clicking a tab shows only that panel', async ({ page }) => {
     const tabs = page.locator('button.exec-tab');
-    const count = await tabs.count();
-    if (count < 2) test.skip();
+    expect(await tabs.count()).toBeGreaterThanOrEqual(2);
 
     await tabs.nth(1).click();
     await expect(tabs.nth(1)).toHaveAttribute('data-active', 'true');
