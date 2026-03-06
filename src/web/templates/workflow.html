@@ -10437,17 +10437,22 @@ async function viewExecution(executionId) {
                         </details>`;
                     }).join('');
                     
-                    steps.push({
-                        name: '<span class="text-gray-600 dark:text-gray-300">🔬 Sub-Agents (Individual Extraction)</span>',
-                        input: `<div class="space-y-1 text-xs">
-                            <div>• ${Object.keys(subresults).length} sub-agents executed</div>
-                        </div>`,
-                        inputDetails: '',
-                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
-                            <div>• Total sub-agents: ${subAgents.length}</div>
-                        </div>`,
-                        details: `<div class="space-y-4">${subAgentDetails}</div>`
-                    });
+                    // Attach sub-agent results as nested subSteps on the extraction step
+                    const extractionStep = steps.find(s => s.id === 'extraction');
+                    if (extractionStep) {
+                        extractionStep.subSteps = extractionStep.subSteps || [];
+                        extractionStep.subSteps.push({
+                            id: 'sub_agents',
+                            shortName: 'Sub-Agents',
+                            name: '🔬 Sub-Agents',
+                            status: Object.values(subresults).some(r => (r?.count || r?.items?.length || 0) > 0) ? 'pass' : 'warn',
+                            metric: Object.values(subresults).reduce((sum, r) => sum + (r?.count || r?.items?.length || 0), 0) + ' items',
+                            output: `<div class="space-y-4">${subAgentDetails}</div>`,
+                            input: `<div class="space-y-1 text-xs"><div>• ${Object.keys(subresults).length} sub-agents executed</div></div>`,
+                            inputDetails: '',
+                            details: ''
+                        });
+                    }
                     
                     // ExtractionSupervisorAgent: Aggregation
                     const supervisorDetails = `<div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
@@ -10478,17 +10483,20 @@ async function viewExecution(executionId) {
                         </div>
                     </div>`;
                     
-                    steps.push({
-                        name: '<span class="text-gray-600 dark:text-gray-300">🎯 ExtractionSupervisorAgent (Aggregation)</span>',
-                        input: `<div class="space-y-1 text-xs">
-                            <div>• Sub-agent results from ${Object.keys(subresults).length} sub-agents</div>
-                        </div>`,
-                        inputDetails: '',
-                        output: `<div class="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
-                            <div>• Total Observables: <strong>${discreteHuntablesCount}</strong></div>
-                        </div>`,
-                        details: supervisorDetails
-                    });
+                    if (extractionStep) {
+                        extractionStep.subSteps = extractionStep.subSteps || [];
+                        extractionStep.subSteps.push({
+                            id: 'supervisor',
+                            shortName: 'Supervisor',
+                            name: '🎯 Supervisor',
+                            status: discreteHuntablesCount > 0 ? 'pass' : 'warn',
+                            metric: discreteHuntablesCount + ' total',
+                            output: supervisorDetails,
+                            input: `<div class="space-y-1 text-xs"><div>• Aggregating results from ${Object.keys(subresults).length} sub-agents</div></div>`,
+                            inputDetails: '',
+                            details: ''
+                        });
+                    }
                 }
             }
             
