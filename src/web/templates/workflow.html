@@ -10994,47 +10994,32 @@ ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 te
                 return html;
             }
 
-            const content = `
-                <div class="space-y-4">
-                    <div class="border-b pb-2 border-gray-200 dark:border-gray-700">
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">${exec.article_title}</a></div>
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
-${ exec.termination_reason ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
-                        <div class="text-gray-900 dark:text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
-${ exec.completed_at ? `<div class="text-gray-900 dark:text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
-${ exec.error_message ? `<div class="bg-red-50 dark:bg-red-900/20 p-3 rounded mt-2"><strong class="text-gray-900 dark:text-gray-300">Error:</strong> <span class="text-gray-700 dark:text-gray-300">${exec.error_message}</span></div>` : ''}
-                    </div>
-                    
-                    <div class="border-t pt-2 border-gray-200 dark:border-gray-700">
-                        <h4 class="font-bold mb-3 text-gray-900 dark:text-gray-300">Step-by-Step Inputs & Outputs</h4>
-                        <div class="space-y-3">
-${ steps.map((step, idx) => `
-                                <div class="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-                                    <div class="font-semibold text-sm mb-2 text-gray-900 dark:text-gray-300">${step.name}</div>
-                                    <div class="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">INPUT:</div>
-                                            <div class="text-gray-700 dark:text-gray-300">${step.input}</div>
-                                        </div>
-                                        <div>
-                                            <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">OUTPUT:</div>
-                                            <div class="text-gray-700 dark:text-gray-300">${step.output}</div>
-                                        </div>
-                                    </div>
-${ step.inputDetails ? `<div class="mt-3">${step.inputDetails}</div>` : ''}
-${ step.details ? `<div class="mt-3">${step.details}</div>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-${ traceabilitySection()}
+            // Build execution header (article info, status, error — always shown above tabs)
+            const headerHtml = `
+                <div class="border-b pb-3 mb-4 border-gray-700">
+                    <div class="text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
+                    <div class="text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-400 hover:text-purple-300">${escapeHtml(exec.article_title || '')}</a></div>
+                    <div class="text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
+                    ${exec.termination_reason ? `<div class="text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
+                    <div class="text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                    ${exec.completed_at ? `<div class="text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                    ${exec.error_message ? `<div class="bg-red-900/20 p-3 rounded mt-2 border border-red-700"><strong class="text-red-300">Error:</strong> <span class="text-gray-300">${escapeHtml(exec.error_message)}</span></div>` : ''}
                 </div>
             `;
-            
-            document.getElementById('executionDetailContent').innerHTML = content;
+
+            const tabbedHtml = steps.length > 0
+                ? renderExecutionTabbed(steps, exec)
+                : '<div class="text-gray-400 py-4">No step data available for this execution.</div>';
+
+            const content = headerHtml + tabbedHtml;
+
+            document.getElementById('executionDetailContent').innerHTML = content + (typeof traceabilitySection === 'function' ? traceabilitySection() : '');
             document.getElementById('executionModal').classList.remove('hidden');
+            // Auto-fullscreen on open
+            const modalContent = document.getElementById('executionModalContent');
+            if (modalContent && !modalContent.classList.contains('modal-fullscreen')) {
+                toggleModalFullscreen();
+            }
             document.querySelectorAll('#executionDetailContent .jump-to-article-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const typeKey = this.getAttribute('data-type');
