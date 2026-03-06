@@ -11240,7 +11240,7 @@ function renderSubTabs(subSteps) {
         <button class="exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${i === 0 ? (statusColors[sub.status] || 'bg-gray-700') + ' text-white' : 'border border-gray-600 text-gray-400 hover:text-gray-200'}"
                 data-subtab="${i}" data-status="${sub.status}"
                 onclick="switchExecSubTab(this.closest('.exec-subtab-container'), ${i})">
-            ${sub.shortName}${sub.metric ? `<span class="opacity-75 font-mono ml-1">${sub.metric}</span>` : ''}
+            ${sub.shortName}${sub.metric ? `<span class="opacity-75 font-mono ml-1">${escapeHtml(String(sub.metric))}</span>` : ''}
         </button>
     `).join('');
 
@@ -11262,6 +11262,7 @@ function renderSubTabs(subSteps) {
 }
 
 function switchExecSubTab(container, index) {
+    if (!container) return;
     const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
     container.querySelectorAll('button.exec-subtab').forEach((btn, i) => {
         const isActive = i === index;
@@ -11319,6 +11320,7 @@ function renderStepPanel(step) {
 }
 
 function renderExecutionTabbed(steps, exec) {
+    // exec is reserved for future use (e.g. rendering execution-level metadata alongside tabs)
     const statusColors = { pass: 'bg-green-600', stopped: 'bg-red-600', warn: 'bg-amber-500', error: 'bg-red-600', skipped: 'bg-gray-600' };
 
     const tabButtons = steps.map((step, i) => {
@@ -11330,9 +11332,9 @@ function renderExecutionTabbed(steps, exec) {
         return `<button class="${isFirst ? activeClass : inactiveClass}"
                         data-tab="${i}" data-status="${step.status || 'skipped'}" data-active="${isFirst ? 'true' : 'false'}"
                         onclick="switchExecTab(${i})">
-                    <span class="opacity-60 font-mono">${i}</span>
+                    <span class="opacity-60 font-mono">${i + 1}</span>
                     <span>${step.shortName || step.name}</span>
-                    ${step.metric ? `<span class="font-mono opacity-80 ml-1">${step.metric}</span>` : ''}
+                    ${step.metric ? `<span class="font-mono opacity-80 ml-1">${escapeHtml(String(step.metric))}</span>` : ''}
                 </button>`;
     }).join('');
 
