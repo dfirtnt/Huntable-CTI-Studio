@@ -423,6 +423,48 @@ setup_automated_backups() {
     print_status "Automated backups configured successfully!"
 }
 
+# Recover from DB password mismatch between .env and existing Docker volume.
+# This commonly happens after fresh clone/setup when old volumes still exist.
+recover_from_postgres_password_mismatch() {
+    print_warning "Detected PostgreSQL credential mismatch with existing Docker volume."
+
+    local should_reset=false
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        should_reset=true
+    else
+        if prompt_yes_no "Reset Docker volumes to reinitialize DB with current .env credentials?" "yes"; then
+            should_reset=true
+        fi
+    fi
+
+    if [[ "$should_reset" != "true" ]]; then
+        print_error "Skipping volume reset; setup cannot make web service healthy with mismatched DB credentials."
+        return 1
+    fi
+
+    print_warning "Resetting Docker volumes (this removes existing local DB/Redis data)..."
+    $DOCKER_COMPOSE_CMD down -v
+
+    print_status "Recreating services with fresh volumes..."
+    $DOCKER_COMPOSE_CMD up -d
+
+    print_status "Waiting for PostgreSQL to be ready after reset..."
+    sleep 10
+    for i in {1..60}; do
+        if $DOCKER_CMD exec cti_postgres pg_isready -U cti_user -d cti_scraper >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+
+    print_status "Enabling pgvector extension after reset..."
+    $DOCKER_CMD exec cti_postgres psql -U cti_user -d cti_scraper -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>&1 | grep -v "already exists" || true
+
+    print_status "Restarting application containers after reset..."
+    $DOCKER_COMPOSE_CMD restart web worker scheduler
+    sleep 15
+}
+
 # Function to verify installation
 verify_installation() {
     print_header "Verifying Installation"
@@ -464,7 +506,28 @@ verify_installation() {
     else
         print_error "❌ Web service is not ready"
         print_status "Check logs with: $DOCKER_CMD logs cti_web"
-        verification_failed=true
+
+        # Auto-recover common first-run failure: DB auth mismatch from stale volumes
+        if $DOCKER_CMD logs cti_web 2>&1 | grep -Eiq "InvalidPasswordError|password authentication failed for user"; then
+            print_warning "Web startup failed due to PostgreSQL authentication mismatch."
+            if recover_from_postgres_password_mismatch; then
+                print_status "Re-checking web service after DB volume reset..."
+                web_ready=false
+                for i in {1..30}; do
+                    if curl -s http://localhost:8001/health &> /dev/null; then
+                        web_ready=true
+                        break
+                    fi
+                    sleep 2
+                done
+            fi
+        fi
+
+        if [ "$web_ready" = true ]; then
+            print_status "✅ Web service is healthy"
+        else
+            verification_failed=true
+        fi
     fi
     
     # Check worker containers for crash/restart loops
