@@ -10969,8 +10969,8 @@ async function viewExecution(executionId) {
                 return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}" title="Confidence">${pct}%</span>`;
             }
             function traceabilitySection() {
-                if (totalObs === 0) return `<div class="border-t pt-2 border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-3 text-gray-900 dark:text-gray-100">Observable Traceability</h4><p class="text-gray-600 dark:text-gray-300 text-sm">Traceability unavailable (legacy execution or no observables).</p></div>`;
-                let html = `<div class="border-t pt-2 border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-3 text-gray-900 dark:text-gray-100">Observable Traceability</h4><div class="space-y-2">`;
+                if (totalObs === 0) return `<div class="border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><p class="text-gray-300 text-sm">Traceability unavailable (legacy execution or no observables).</p></div>`;
+                let html = `<div class="border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><div class="space-y-2">`;
                 for (const [typeKey, label] of Object.entries(typeLabels)) {
                     const list = observablesData.observables[typeKey] || [];
                     if (list.length === 0) continue;
@@ -11013,7 +11013,14 @@ ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 te
 
             const content = headerHtml + tabbedHtml;
 
-            document.getElementById('executionDetailContent').innerHTML = content + (typeof traceabilitySection === 'function' ? traceabilitySection() : '');
+            document.getElementById('executionDetailContent').innerHTML = content;
+            if (typeof traceabilitySection === 'function') {
+                const extractIdx = steps.findIndex(s => (s.name || s.shortName || '').toLowerCase().includes('extract'));
+                if (extractIdx >= 0) {
+                    const extractPanel = document.querySelector('#exec-panels [data-panel="' + extractIdx + '"]');
+                    if (extractPanel) extractPanel.insertAdjacentHTML('beforeend', traceabilitySection());
+                }
+            }
             document.getElementById('executionModal').classList.remove('hidden');
             // Auto-fullscreen on open
             const modalContent = document.getElementById('executionModalContent');
