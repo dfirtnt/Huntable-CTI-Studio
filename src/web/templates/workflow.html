@@ -10980,7 +10980,7 @@ async function viewExecution(executionId) {
                         const obsId = `${idPrefix}-${idx}`;
                         const val = typeof obs.observable_value === 'object' ? JSON.stringify(obs.observable_value) : String(obs.observable_value ?? '');
                         const hasTrace = obs.source_evidence != null || obs.extraction_justification != null;
-                        const expandContent = !hasTrace ? `<p class="text-gray-500 dark:text-gray-400 text-sm">Traceability unavailable</p>` : `
+                        const expandContent = !hasTrace ? `<p class="text-gray-500 dark:text-gray-300 text-sm">Traceability unavailable</p>` : `
 ${ obs.source_evidence != null ? `<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-3 py-1 my-2 text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded">${escapeHtml(obs.source_evidence)}</blockquote>` : ''}
 ${ obs.extraction_justification != null ? `<p class="text-sm text-gray-700 dark:text-gray-200"><strong>Reasoning:</strong> ${escapeHtml(obs.extraction_justification)}</p>` : ''}
                             <p class="text-xs text-gray-600 dark:text-gray-300">${obs.subagent_name || ''} ${obs.model_version ? ' · ' + obs.model_version : ''} ${obs.extraction_timestamp ? ' · ' + obs.extraction_timestamp : ''}</p>
