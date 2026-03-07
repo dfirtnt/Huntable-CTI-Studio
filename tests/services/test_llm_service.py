@@ -176,7 +176,8 @@ class TestLLMService:
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(side_effect=RuntimeError("API error"))
-            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.aclose = AsyncMock()
+            mock_client_class.return_value = mock_client
 
             with pytest.raises(RuntimeError, match="API error"):
                 await service.request_chat(
