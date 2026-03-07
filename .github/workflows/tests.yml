@@ -16,6 +16,34 @@ jobs:
     name: Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_DB: cti_scraper_test
+          POSTGRES_USER: cti_user
+          POSTGRES_PASSWORD: cti_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cti_user -d cti_scraper_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      TEST_GROUP: smoke
+      TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
+      REDIS_URL: redis://localhost:6379/0
 
     steps:
       - name: Checkout
@@ -35,11 +63,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-test.txt
 
+      - name: Start web app
+        run: |
+          nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
+              echo "Web app is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Web app did not become healthy in time"
+          tail -n 200 web.log || true
+          exit 1
+
       - name: Run smoke tests
-        env:
-          APP_ENV: test
-          TEST_GROUP: smoke
-          TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
         run: python run_tests.py smoke
 
       - name: Upload smoke test artifacts
@@ -50,12 +88,42 @@ jobs:
           path: |
             test-results/
             allure-results/
+            web.log
           if-no-files-found: ignore
 
   api:
     name: API Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_DB: cti_scraper_test
+          POSTGRES_USER: cti_user
+          POSTGRES_PASSWORD: cti_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cti_user -d cti_scraper_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      TEST_GROUP: api
+      TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
+      REDIS_URL: redis://localhost:6379/0
+      USE_ASGI_CLIENT: "1"
 
     steps:
       - name: Checkout
@@ -76,10 +144,6 @@ jobs:
           pip install -r requirements.txt -r requirements-test.txt
 
       - name: Run API tests
-        env:
-          APP_ENV: test
-          TEST_GROUP: api
-          TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
         run: python run_tests.py api
 
       - name: Upload API test artifacts
