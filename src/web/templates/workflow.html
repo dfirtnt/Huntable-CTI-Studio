@@ -10997,19 +10997,19 @@ ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 te
             // Build execution header (article info, status, error — always shown above tabs)
             const headerHtml = `
                 <div class="border-b pb-3 mb-4 border-gray-700">
-                    <div class="text-gray-300"><strong>Execution ID:</strong> ${exec.id}</div>
-                    <div class="text-gray-300"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-400 hover:text-purple-300">${escapeHtml(exec.article_title || '')}</a></div>
-                    <div class="text-gray-300"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
-                    ${exec.termination_reason ? `<div class="text-gray-300"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
-                    <div class="text-gray-300"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
-                    ${exec.completed_at ? `<div class="text-gray-300"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
-                    ${exec.error_message ? `<div class="bg-red-900/20 p-3 rounded mt-2 border border-red-700"><strong class="text-red-300">Error:</strong> <span class="text-gray-300">${escapeHtml(exec.error_message)}</span></div>` : ''}
+                    <div class="text-gray-200"><strong>Execution ID:</strong> ${exec.id}</div>
+                    <div class="text-gray-200"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-400 hover:text-purple-300">${escapeHtml(exec.article_title || '')}</a></div>
+                    <div class="text-gray-200"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
+                    ${exec.termination_reason ? `<div class="text-gray-200"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
+                    <div class="text-gray-200"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                    ${exec.completed_at ? `<div class="text-gray-200"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                    ${exec.error_message ? `<div class="bg-red-900/20 p-3 rounded mt-2 border border-red-700"><strong class="text-red-300">Error:</strong> <span class="text-gray-100">${escapeHtml(exec.error_message)}</span></div>` : ''}
                 </div>
             `;
 
             const tabbedHtml = steps.length > 0
                 ? renderExecutionTabbed(steps, exec)
-                : '<div class="text-gray-400 py-4">No step data available for this execution.</div>';
+                : '<div class="text-gray-300 py-4">No step data available for this execution.</div>';
 
             const content = headerHtml + tabbedHtml;
 
@@ -11277,24 +11277,24 @@ function renderStepPanel(step) {
     return `
         <div class="space-y-3">
             <div class="flex items-center justify-between flex-wrap gap-2">
-                <h4 class="text-base font-bold text-gray-100">${step.name}</h4>
+                <h4 class="text-base font-bold text-white">${step.name}</h4>
                 <span class="px-2.5 py-1 rounded border text-xs font-semibold ${badgeClass}">${label}</span>
             </div>
-            ${step.metric ? `<div class="text-xl font-mono text-gray-200">${step.metric}</div>` : ''}
+            ${step.metric ? `<div class="text-xl font-mono text-gray-100">${step.metric}</div>` : ''}
             <details class="exec-inputs border border-gray-700 rounded-lg overflow-hidden">
-                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 select-none">
+                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-gray-300 hover:text-white hover:bg-gray-700/30 select-none">
                     Inputs
                 </summary>
-                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-300">
+                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-100">
                     ${step.input || ''}
                     ${step.inputDetails || ''}
                 </div>
             </details>
             <details open class="exec-output border border-gray-700 rounded-lg overflow-hidden">
-                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-gray-200 hover:bg-gray-700/30 select-none">
+                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-gray-100 hover:bg-gray-700/30 select-none">
                     Output
                 </summary>
-                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-300 space-y-3">
+                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-100 space-y-3">
                     ${step.output || ''}
                     ${step.details || ''}
                 </div>
@@ -11313,11 +11313,11 @@ function renderExecutionTabbed(steps, exec) {
         const isFirst = i === 0;
         const baseClass = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors';
         const activeClass = `${baseClass} ${color} text-white`;
-        const inactiveClass = `${baseClass} border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-gray-100`;
+        const inactiveClass = `${baseClass} border border-gray-600 text-gray-200 hover:border-gray-300 hover:text-white`;
         return `<button class="${isFirst ? activeClass : inactiveClass}"
                         data-tab="${i}" data-status="${step.status || 'skipped'}" data-active="${isFirst ? 'true' : 'false'}"
                         onclick="switchExecTab(${i})">
-                    <span class="opacity-60 font-mono">${i + 1}</span>
+                    <span class="opacity-75 font-mono">${i + 1}</span>
                     <span>${step.shortName || step.name}</span>
                     ${step.metric ? `<span class="font-mono opacity-80 ml-1">${escapeHtml(String(step.metric))}</span>` : ''}
                 </button>`;
