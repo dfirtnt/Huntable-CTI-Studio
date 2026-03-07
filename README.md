@@ -53,18 +53,6 @@ cp .env.example .env   # start.sh creates .env from .env.example if missing
 ./start.sh
 ```
 
-### Local development setup (optional)
-
-For contributors who want to run the FastAPI stack directly on macOS/Linux without Docker, use the helper script to create a virtual environment and install all required packages before launching `uvicorn` or other Python entry points. This avoids runtime errors where modules like Celery are missing.
-
-```bash
-./scripts/bootstrap-local-env.sh
-source .venv/bin/activate  # use .venv\Scripts\activate on Windows
-uvicorn src.web.modern_main:app --reload --host 0.0.0.0 --port 8001
-```
-
-The script installs the pinned `requirements.txt` stack, so you only need to rerun it when dependencies change (e.g., after pulling updates that touch requirements). This gives a consistent environment so new users can start the server without manual troubleshooting.
-
 **Access:**
 - Web UI: http://localhost:8001
 - API Docs: http://localhost:8001/docs
