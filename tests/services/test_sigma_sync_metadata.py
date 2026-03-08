@@ -59,7 +59,7 @@ class TestIndexMetadata:
         assert result["metadata_indexed"] >= 1
         assert "errors" in result
         # Verify db_session.add was called (rule was persisted)
-        assert mock_db_session.add.called or mock_db_session.commit.called
+        assert mock_db_session.add.called
 
     def test_metadata_result_has_expected_keys(self, sync_service, mock_db_session):
         result = sync_service.index_metadata(mock_db_session)
@@ -77,7 +77,8 @@ class TestIndexMetadata:
 
         assert len(added_objects) >= 1
         rule = added_objects[0]
-        assert rule.canonical_json is not None or rule.exact_hash is not None
+        assert rule.canonical_json is not None
+        assert rule.exact_hash is not None
         assert rule.embedding is None
 
     def test_metadata_skips_existing_rules(self, sync_service, mock_db_session):
