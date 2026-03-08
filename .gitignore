@@ -248,3 +248,6 @@ scripts/get_full_extract_results.py
 
 # Workshop (ML training lab - optional feature)
 Workshop/.worktrees/
+
+# Git worktrees
+.worktrees/
