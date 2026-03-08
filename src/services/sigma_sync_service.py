@@ -429,6 +429,139 @@ class SigmaSyncService:
             logger.error(f"Error getting existing rule IDs: {e}")
             return set()
 
+    def index_metadata(self, db_session, force_reindex: bool = False) -> dict[str, int]:
+        """
+        Index metadata and canonical fields for all rules — no embeddings.
+
+        Parses YAML files, stores rule metadata columns, and computes canonical
+        novelty fields (canonical_json, exact_hash, canonical_text, logsource_key).
+        Embedding columns are left as None.
+
+        Args:
+            db_session: SQLAlchemy session
+            force_reindex: If True, reindex all rules even if they exist
+
+        Returns:
+            Dictionary with metadata_indexed, skipped, and errors counts
+        """
+        from src.database.models import SigmaRuleTable
+
+        logger.info("Starting Sigma rule metadata indexing...")
+
+        # Get existing rule IDs if not forcing reindex
+        existing_rule_ids = set()
+        if not force_reindex:
+            existing_rule_ids = self.get_existing_rule_ids(db_session)
+            logger.info(f"Found {len(existing_rule_ids)} existing rules")
+
+        # Find all rule files
+        rule_files = self.find_rule_files()
+
+        # Get commit SHA
+        commit_sha = self.get_repo_commit_sha()
+
+        # Parse and index rules
+        indexed_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for file_path in rule_files:
+            try:
+                # Parse rule
+                rule_data = self.parse_rule_file(file_path)
+
+                if not rule_data:
+                    skipped_count += 1
+                    continue
+
+                rule_id = rule_data["rule_id"]
+
+                # Skip if already indexed (unless force reindex)
+                if not force_reindex and rule_id in existing_rule_ids:
+                    skipped_count += 1
+                    continue
+
+                # Compute canonical fields for behavioral novelty assessment
+                try:
+                    from src.services.sigma_novelty_service import SigmaNoveltyService
+
+                    novelty_service = SigmaNoveltyService(db_session=db_session)
+                    canonical_rule = novelty_service.build_canonical_rule(rule_data)
+
+                    from dataclasses import asdict
+
+                    canonical_json = asdict(canonical_rule)
+                    exact_hash = novelty_service.generate_exact_hash(canonical_rule)
+                    canonical_text = novelty_service.generate_canonical_text(canonical_rule)
+                    logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
+                except Exception as e:
+                    logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
+                    canonical_json = None
+                    exact_hash = None
+                    canonical_text = None
+                    logsource_key = None
+
+                # Create or update rule record (with no autoflush to prevent premature commits)
+                with db_session.no_autoflush:
+                    existing_rule = db_session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
+
+                    if existing_rule:
+                        # Update existing rule metadata
+                        for key, value in rule_data.items():
+                            if key != "rule_id":
+                                setattr(existing_rule, key, value)
+                        existing_rule.repo_commit_sha = commit_sha
+                        # Update canonical fields
+                        existing_rule.canonical_json = canonical_json
+                        existing_rule.exact_hash = exact_hash
+                        existing_rule.canonical_text = canonical_text
+                        existing_rule.logsource_key = logsource_key
+                    else:
+                        # Create new rule (embedding columns left as None)
+                        new_rule = SigmaRuleTable(
+                            rule_id=rule_id,
+                            title=rule_data["title"],
+                            description=rule_data["description"],
+                            logsource=rule_data["logsource"],
+                            detection=rule_data["detection"],
+                            tags=rule_data["tags"],
+                            level=rule_data["level"],
+                            status=rule_data["status"],
+                            author=rule_data["author"],
+                            date=rule_data["date"],
+                            rule_references=rule_data["rule_references"],
+                            false_positives=rule_data["false_positives"],
+                            fields=rule_data["fields"],
+                            file_path=rule_data["file_path"],
+                            repo_commit_sha=commit_sha,
+                            # Canonical fields
+                            canonical_json=canonical_json,
+                            exact_hash=exact_hash,
+                            canonical_text=canonical_text,
+                            logsource_key=logsource_key,
+                        )
+                        db_session.add(new_rule)
+
+                indexed_count += 1
+
+                if indexed_count % 100 == 0:
+                    logger.info(f"Metadata-indexed {indexed_count} rules...")
+                    db_session.commit()
+
+            except Exception as e:
+                logger.error(f"Error indexing rule metadata for {file_path}: {e}")
+                error_count += 1
+                continue
+
+        # Final commit
+        db_session.commit()
+
+        logger.info(
+            f"Metadata indexing complete: {indexed_count} indexed, {skipped_count} skipped, {error_count} errors"
+        )
+
+        return {"metadata_indexed": indexed_count, "skipped": skipped_count, "errors": error_count}
+
     def index_rules(self, db_session, force_reindex: bool = False) -> int:
         """
         Index all rules from the repository into the database.
