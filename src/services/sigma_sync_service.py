@@ -460,6 +460,36 @@ class SigmaSyncService:
         # Get commit SHA
         commit_sha = self.get_repo_commit_sha()
 
+        # Allowlist of SigmaRuleTable columns that may be updated from rule_data
+        _UPDATABLE_COLUMNS = frozenset(
+            {
+                "title",
+                "description",
+                "logsource",
+                "detection",
+                "tags",
+                "level",
+                "status",
+                "author",
+                "date",
+                "rule_references",
+                "false_positives",
+                "fields",
+                "file_path",
+            }
+        )
+
+        # Initialize novelty service once (outside the loop)
+        from dataclasses import asdict
+
+        novelty_service = None
+        try:
+            from src.services.sigma_novelty_service import SigmaNoveltyService
+
+            novelty_service = SigmaNoveltyService(db_session=db_session)
+        except Exception as e:
+            logger.warning(f"Failed to initialize SigmaNoveltyService; canonical fields will be skipped: {e}")
+
         # Parse and index rules
         indexed_count = 0
         skipped_count = 0
@@ -482,33 +512,28 @@ class SigmaSyncService:
                     continue
 
                 # Compute canonical fields for behavioral novelty assessment
-                try:
-                    from src.services.sigma_novelty_service import SigmaNoveltyService
-
-                    novelty_service = SigmaNoveltyService(db_session=db_session)
-                    canonical_rule = novelty_service.build_canonical_rule(rule_data)
-
-                    from dataclasses import asdict
-
-                    canonical_json = asdict(canonical_rule)
-                    exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                    canonical_text = novelty_service.generate_canonical_text(canonical_rule)
-                    logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
-                except Exception as e:
-                    logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
-                    canonical_json = None
-                    exact_hash = None
-                    canonical_text = None
-                    logsource_key = None
+                canonical_json = None
+                exact_hash = None
+                canonical_text = None
+                logsource_key = None
+                if novelty_service is not None:
+                    try:
+                        canonical_rule = novelty_service.build_canonical_rule(rule_data)
+                        canonical_json = asdict(canonical_rule)
+                        exact_hash = novelty_service.generate_exact_hash(canonical_rule)
+                        canonical_text = novelty_service.generate_canonical_text(canonical_rule)
+                        logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
+                    except Exception as e:
+                        logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
 
                 # Create or update rule record (with no autoflush to prevent premature commits)
                 with db_session.no_autoflush:
                     existing_rule = db_session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
 
                     if existing_rule:
-                        # Update existing rule metadata
+                        # Update existing rule metadata (allowlisted columns only)
                         for key, value in rule_data.items():
-                            if key != "rule_id":
+                            if key in _UPDATABLE_COLUMNS:
                                 setattr(existing_rule, key, value)
                         existing_rule.repo_commit_sha = commit_sha
                         # Update canonical fields
@@ -550,6 +575,7 @@ class SigmaSyncService:
 
             except Exception as e:
                 logger.error(f"Error indexing rule metadata for {file_path}: {e}")
+                db_session.rollback()
                 error_count += 1
                 continue
 
