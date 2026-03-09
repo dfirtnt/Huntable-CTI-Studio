@@ -233,9 +233,22 @@ async def api_rag_chat(request: Request):
     Chat with the database using RAG (Retrieval-Augmented Generation).
     """
     try:
+        from src.services.capability_service import CapabilityService
         from src.services.rag_service import get_rag_service
 
         start_time = datetime.now()
+
+        # Compute capabilities for response metadata
+        try:
+            capability_service = CapabilityService()
+            capabilities = capability_service.compute_capabilities()
+            rag_capabilities = {
+                "article_retrieval": capabilities.get("article_retrieval", {}),
+                "sigma_retrieval": capabilities.get("sigma_retrieval", {}),
+                "llm_generation": capabilities.get("llm_generation", {}),
+            }
+        except Exception:
+            rag_capabilities = {}
         body = await request.json()
         message = body.get("message", "")
         conversation_history = body.get("conversation_history", [])
@@ -641,6 +654,7 @@ async def api_rag_chat(request: Request):
             "use_llm_generation": use_llm_generation if "use_llm_generation" in locals() else False,
             "include_sigma_rules": include_sigma_rules,
             "llm_error": llm_error,
+            "capabilities": rag_capabilities,
         }
 
     except HTTPException:
