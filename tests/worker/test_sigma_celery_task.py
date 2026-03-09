@@ -46,13 +46,8 @@ class TestSyncSigmaRulesTask:
 
         mod = _import_celery_app()
 
-        # sync_sigma_rules is defined with bind=True, so the raw function
-        # expects `self` (the Celery task instance) as the first argument.
-        # Since we mock the @celery_app.task decorator as a passthrough,
-        # we need to supply a mock task instance.
-        mock_task = MagicMock()
-        mock_task.request.retries = 0
-
+        # sync_sigma_rules uses bind=True; Celery passes the task instance as self.
+        # Call with kwargs only — do not pass a mock as first arg (causes "multiple values for force_reindex").
         with patch.dict(
             sys.modules,
             {
@@ -60,7 +55,7 @@ class TestSyncSigmaRulesTask:
                 "src.services.sigma_sync_service": MagicMock(SigmaSyncService=mock_svc_cls),
             },
         ):
-            result = mod.sync_sigma_rules(mock_task, force_reindex=False)
+            result = mod.sync_sigma_rules(force_reindex=False)
 
         assert result["status"] == "success"
         assert result["rules_indexed"] == 100
