@@ -999,6 +999,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2939,8 +2967,8 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>/path/to/Huntable-CTI-Studio-dev2
 </code></pre></div>
 <h3 id="2-copy-environment-configuration">2. Copy Environment Configuration<a class="headerlink" href="#2-copy-environment-configuration" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># Edit .env with your API keys and passwords</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./setup.sh<span class="w"> </span>--no-backups
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># Edit .env as needed for this instance-specific compose file</span>
 </code></pre></div>
 <h3 id="3-start-dev2-instance">3. Start Dev2 Instance<a class="headerlink" href="#3-start-dev2-instance" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker-compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.dev2.yml<span class="w"> </span>up<span class="w"> </span>-d

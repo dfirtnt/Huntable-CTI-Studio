@@ -1283,6 +1283,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2870,12 +2898,15 @@
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>Huntable-CTI-Studio
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Edit .env and set POSTGRES_PASSWORD and optional API keys</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>./start.sh
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./setup.sh<span class="w"> </span>--no-backups
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># or non-interactive:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># ./setup.sh --non-interactive --no-backups</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>./start.sh
 </code></pre></div>
+<p><code>setup.sh</code> provisions <code>.env</code> and first-run security settings.</p>
 <p>The <code>start.sh</code> script will:
-- Create necessary <code>logs/</code> and <code>data/</code> directories
+- Reuse the pre-provisioned <code>.env</code> from setup (it will fail fast if missing or still templated)
+- Create necessary runtime directories (<code>logs/</code>, <code>backups/</code>, <code>models/</code>, <code>outputs/</code>, <code>data/</code>)
 - Run <code>docker-compose up --build -d</code>
 - Health-check PostgreSQL, Redis, and the web application
 - Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
@@ -2893,7 +2924,7 @@
 - Redis: 6379
 - Jupyter (optional): 8888</p>
 <h2 id="environment-configuration">Environment Configuration<a class="headerlink" href="#environment-configuration" title="Permanent link">&para;</a></h2>
-<p>Before running <code>./start.sh</code>, configure these variables in <code>.env</code>:</p>
+<p>Before running <code>./start.sh</code>, run <code>./setup.sh</code> (which creates and configures <code>.env</code>). If you edit <code>.env</code> manually afterward, keep these variables valid:</p>
 <h3 id="required">Required<a class="headerlink" href="#required" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>POSTGRES_PASSWORD=&lt;strong password&gt;</code> - Database authentication</li>
@@ -2913,10 +2944,18 @@
 <li><code>LMSTUDIO_MODEL_SIGMA</code> - SIGMA rule generation model</li>
 </ul>
 <h3 id="langfuse-tracing-optional">Langfuse Tracing (Optional)<a class="headerlink" href="#langfuse-tracing-optional" title="Permanent link">&para;</a></h3>
-<p>Configure via the Settings UI or environment variables:
-- <code>LANGFUSE_PUBLIC_KEY</code>
-- <code>LANGFUSE_SECRET_KEY</code>
-- Additional Langfuse settings in <code>.env.example</code></p>
+<p>Langfuse is an optional tracing integration for workflow and LLM observability.</p>
+<div class="admonition warning">
+<p class="admonition-title">Cloud-only support and security boundary</p>
+<p>Huntable CTI Studio supports <strong>Langfuse Cloud only</strong>. Local or self-hosted Langfuse deployments are not supported by this project.</p>
+<p>Enabling Langfuse sends operational telemetry to a third-party cloud service. Depending on the workflow, traces may contain prompts, article excerpts, extracted observables, model outputs, workflow metadata, and debug context. Enable it only if your organization permits sending that data to Langfuse Cloud.</p>
+</div>
+<p>Configure Langfuse through the Settings UI or environment variables:
+- <code>LANGFUSE_PUBLIC_KEY</code> required
+- <code>LANGFUSE_SECRET_KEY</code> required
+- <code>LANGFUSE_HOST</code> optional, defaults to <code>https://cloud.langfuse.com</code>
+- <code>LANGFUSE_PROJECT_ID</code> optional, but recommended for stronger workflow debug links</p>
+<p>For the full setup flow, region host selection, verification steps, and troubleshooting, see <a href="../../guides/langfuse-setup/">Langfuse Setup</a>.</p>
 <p><strong>Notes</strong>:
 - <code>.env.example</code> template includes required PostgreSQL configuration
 - Docker uses <code>DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper</code>

@@ -1123,6 +1123,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2715,14 +2743,13 @@
 <li>Docker and the Docker Compose plugin available on your PATH</li>
 <li><code>python3</code> for running tests, <code>jq</code> for parsing JSON responses</li>
 <li>Ports <code>8001</code> (web UI/API) and <code>8888</code> (auxiliary debug port) free on the host</li>
-<li><code>.env</code> configured (copy from <code>.env.example</code> and set <code>POSTGRES_PASSWORD</code>; add LLM keys if you want AI features)</li>
+<li><code>.env</code> configured via <code>./setup.sh</code> (add LLM keys if you want AI features)</li>
 </ul>
 <h2 id="2-start-the-stack">2) Start the stack<a class="headerlink" href="#2-start-the-stack" title="Permanent link">&para;</a></h2>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>Huntable-CTI-Studio
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;POSTGRES_PASSWORD=change_me&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env<span class="w">   </span><span class="c1"># replace with a strong password</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>./start.sh<span class="w">                                    </span><span class="c1"># builds + launches docker-compose</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./setup.sh<span class="w"> </span>--no-backups
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./start.sh<span class="w">                                    </span><span class="c1"># builds + launches docker-compose</span>
 </code></pre></div>
 Check that services are healthy:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker-compose<span class="w"> </span>ps

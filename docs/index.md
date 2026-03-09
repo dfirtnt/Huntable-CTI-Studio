@@ -25,8 +25,7 @@ Huntable CTI Studio is an AI-assisted workbench for detection engineers and thre
 ```bash
 git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
-cp .env.example .env
-# Edit .env and set POSTGRES_PASSWORD
+./setup.sh --no-backups
 ./start.sh
 ```
 If prompted, you can run the MkDocs docs server in the background (**y**); logs go to `logs/mkdocs.log`.

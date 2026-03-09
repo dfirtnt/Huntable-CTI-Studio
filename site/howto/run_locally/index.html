@@ -993,6 +993,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2575,18 +2603,19 @@
 <ul>
 <li>Docker Desktop with Compose plugin</li>
 <li><code>python3</code> available if you plan to run tests</li>
-<li>Copy <code>.env.example</code> to <code>.env</code> and set:</li>
+<li>Run <code>./setup.sh</code> first to provision <code>.env</code> and secure local credentials</li>
+<li>If editing <code>.env</code> manually after setup, set:</li>
 <li><code>POSTGRES_PASSWORD=&lt;strong password&gt;</code></li>
 <li>Optional LLM keys: <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>CHATGPT_API_KEY</code></li>
 <li>LM Studio defaults: <code>LMSTUDIO_API_URL=http://host.docker.internal:1234/v1</code> plus model names already set in compose</li>
 </ul>
 <h2 id="start-the-stack">Start the stack<a class="headerlink" href="#start-the-stack" title="Permanent link">&para;</a></h2>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># edit .env and set POSTGRES_PASSWORD + any API keys</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./start.sh
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./setup.sh<span class="w"> </span>--no-backups
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./start.sh
 </code></pre></div>
 What happens:
-- Creates <code>logs/</code> and <code>data/</code> directories
+- Reuses the existing <code>.env</code> from setup (fails fast if missing or templated)
+- Creates runtime directories (<code>logs/</code>, <code>backups/</code>, <code>models/</code>, <code>outputs/</code>, <code>data/</code>)
 - Runs <code>docker-compose up --build -d</code>
 - Health-checks Postgres, Redis, and the web app
 - Automatically builds docs and starts the MkDocs server in the background when <code>mkdocs.yml</code> is present (logs: <code>logs/mkdocs.log</code>)</p>

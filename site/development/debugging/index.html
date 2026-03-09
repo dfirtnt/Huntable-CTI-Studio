@@ -999,6 +999,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2619,14 +2647,20 @@
 </ul>
 <h2 id="langfuse-workflow-debugging">LangFuse Workflow Debugging<a class="headerlink" href="#langfuse-workflow-debugging" title="Permanent link">&para;</a></h2>
 <h3 id="overview_1">Overview<a class="headerlink" href="#overview_1" title="Permanent link">&para;</a></h3>
-<p>The agentic workflow integrates with LangFuse to provide comprehensive tracing and debugging capabilities. Each workflow execution creates a session in LangFuse that groups all traces, spans, and events for that execution.</p>
+<p>The agentic workflow integrates with LangFuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.</p>
+<div class="admonition warning">
+<p class="admonition-title">Cloud-only support and sensitive trace data</p>
+<p>Huntable CTI Studio supports <strong>Langfuse Cloud only</strong>. Local or self-hosted Langfuse deployments are not supported by this project.</p>
+<p>Trace inspection can expose sensitive prompts, article excerpts, extracted observables, outputs, and workflow metadata. Limit Langfuse access to authorized users and enable tracing only if your organization permits sending that telemetry to Langfuse Cloud.</p>
+</div>
 <h3 id="accessing-debug-links">Accessing Debug Links<a class="headerlink" href="#accessing-debug-links" title="Permanent link">&para;</a></h3>
-<p>From the Workflow Executions page, each execution has a <strong>Debug</strong> button that takes you directly to the LangFuse session:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_{execution_id}
+<p>From the Workflow Executions page, each execution has a <strong>Debug</strong> button that prefers a direct Langfuse trace URL and falls back to a trace search for the workflow <code>session_id</code> when full trace metadata is unavailable.</p>
+<p>Direct trace URL:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}
 </code></pre></div>
-<p><strong>Example</strong>: For execution #86, the session URL is:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86
-</code></pre></div></p>
+<p>Search fallback:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
+</code></pre></div>
 <h3 id="session-structure">Session Structure<a class="headerlink" href="#session-structure" title="Permanent link">&para;</a></h3>
 <p>Each workflow execution creates:</p>
 <ol>
@@ -2676,17 +2710,17 @@
 </li>
 </ol>
 <h3 id="viewing-workflow-traces">Viewing Workflow Traces<a class="headerlink" href="#viewing-workflow-traces" title="Permanent link">&para;</a></h3>
-<h4 id="session-view-recommended">Session View (Recommended)<a class="headerlink" href="#session-view-recommended" title="Permanent link">&para;</a></h4>
-<p>The session view shows all traces for a workflow execution grouped together:</p>
+<h4 id="trace-view-recommended">Trace View (Recommended)<a class="headerlink" href="#trace-view-recommended" title="Permanent link">&para;</a></h4>
+<p>The workflow UI prefers a direct trace view when it has both trace and project metadata:</p>
 <ol>
 <li>Click <strong>Debug</strong> button on workflow execution</li>
-<li>View all workflow steps in chronological order</li>
+<li>Open the workflow trace directly in Langfuse</li>
 <li>See inputs, outputs, and metadata for each step</li>
 <li>Track token usage and latency per agent</li>
 </ol>
-<h4 id="trace-view-individual-steps">Trace View (Individual Steps)<a class="headerlink" href="#trace-view-individual-steps" title="Permanent link">&para;</a></h4>
-<p>To view an individual trace:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>https://us.cloud.langfuse.com/project/{project_id}/traces/{trace_id}
+<h4 id="search-view-fallback">Search View (Fallback)<a class="headerlink" href="#search-view-fallback" title="Permanent link">&para;</a></h4>
+<p>If the execution does not have a resolved trace ID or project ID, the UI falls back to Langfuse trace search using the workflow session identifier:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 </code></pre></div>
 <h3 id="debugging-workflow-issues">Debugging Workflow Issues<a class="headerlink" href="#debugging-workflow-issues" title="Permanent link">&para;</a></h3>
 <p>When debugging workflow failures:</p>
@@ -2698,12 +2732,26 @@
 <li><strong>Monitor Token Usage</strong>: Track token consumption across agents</li>
 </ol>
 <h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
-<p>LangFuse configuration is set via environment variables:</p>
+<p>LangFuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">LANGFUSE_PUBLIC_KEY</span><span class="o">=</span>pk-lf-...
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">LANGFUSE_SECRET_KEY</span><span class="o">=</span>sk-lf-...
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://us.cloud.langfuse.com
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://cloud.langfuse.com
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">LANGFUSE_PROJECT_ID</span><span class="o">=</span>your-project-id
 </code></pre></div>
+<ul>
+<li><code>LANGFUSE_PUBLIC_KEY</code> and <code>LANGFUSE_SECRET_KEY</code> are required to emit traces.</li>
+<li><code>LANGFUSE_HOST</code> is optional and defaults to <code>https://cloud.langfuse.com</code> in the runtime client.</li>
+<li><code>LANGFUSE_PROJECT_ID</code> is optional but recommended because it improves workflow debug deep links.</li>
+<li>Use the Langfuse Cloud host for your account region. This project does not support local or self-hosted Langfuse deployments.</li>
+</ul>
+<p>For setup, host selection, security guidance, and troubleshooting, see <a href="../../guides/langfuse-setup/">Langfuse Setup</a>.</p>
+<h3 id="common-setup-failures">Common Setup Failures<a class="headerlink" href="#common-setup-failures" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Missing <code>LANGFUSE_PUBLIC_KEY</code> or <code>LANGFUSE_SECRET_KEY</code>: tracing is disabled and workflows run without emitting Langfuse traces.</li>
+<li>Wrong <code>LANGFUSE_HOST</code>: the connection test can fail even with valid keys if the host does not match the Langfuse Cloud region for that project.</li>
+<li>Missing <code>LANGFUSE_PROJECT_ID</code>: traces can still be emitted, but workflow debug links may fall back to broader search URLs instead of project-scoped direct links.</li>
+<li>No trace for an execution: traces only exist for runs that actually executed while Langfuse was enabled.</li>
+</ul>
 <h3 id="code-references">Code References<a class="headerlink" href="#code-references" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Trace creation</strong>: <code>src/utils/langfuse_client.py</code> (lines 155-189)</li>
@@ -3157,14 +3205,20 @@
 </ul>
 <h2 id="langfuse-workflow-debugging_1">LangFuse Workflow Debugging<a class="headerlink" href="#langfuse-workflow-debugging_1" title="Permanent link">&para;</a></h2>
 <h3 id="overview_3">Overview<a class="headerlink" href="#overview_3" title="Permanent link">&para;</a></h3>
-<p>The agentic workflow integrates with LangFuse to provide comprehensive tracing and debugging capabilities. Each workflow execution creates a session in LangFuse that groups all traces, spans, and events for that execution.</p>
+<p>The agentic workflow integrates with LangFuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.</p>
+<div class="admonition warning">
+<p class="admonition-title">Cloud-only support and sensitive trace data</p>
+<p>Huntable CTI Studio supports <strong>Langfuse Cloud only</strong>. Local or self-hosted Langfuse deployments are not supported by this project.</p>
+<p>Trace inspection can expose sensitive prompts, article excerpts, extracted observables, outputs, and workflow metadata. Limit Langfuse access to authorized users and enable tracing only if your organization permits sending that telemetry to Langfuse Cloud.</p>
+</div>
 <h3 id="accessing-debug-links_1">Accessing Debug Links<a class="headerlink" href="#accessing-debug-links_1" title="Permanent link">&para;</a></h3>
-<p>From the Workflow Executions page, each execution has a <strong>Debug</strong> button that takes you directly to the LangFuse session:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_{execution_id}
+<p>From the Workflow Executions page, each execution has a <strong>Debug</strong> button that prefers a direct Langfuse trace URL and falls back to a trace search for the workflow <code>session_id</code> when full trace metadata is unavailable.</p>
+<p>Direct trace URL:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}
 </code></pre></div>
-<p><strong>Example</strong>: For execution #86, the session URL is:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86
-</code></pre></div></p>
+<p>Search fallback:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
+</code></pre></div>
 <h3 id="session-structure_1">Session Structure<a class="headerlink" href="#session-structure_1" title="Permanent link">&para;</a></h3>
 <p>Each workflow execution creates:</p>
 <ol>
@@ -3214,17 +3268,17 @@
 </li>
 </ol>
 <h3 id="viewing-workflow-traces_1">Viewing Workflow Traces<a class="headerlink" href="#viewing-workflow-traces_1" title="Permanent link">&para;</a></h3>
-<h4 id="session-view-recommended_1">Session View (Recommended)<a class="headerlink" href="#session-view-recommended_1" title="Permanent link">&para;</a></h4>
-<p>The session view shows all traces for a workflow execution grouped together:</p>
+<h4 id="trace-view-recommended_1">Trace View (Recommended)<a class="headerlink" href="#trace-view-recommended_1" title="Permanent link">&para;</a></h4>
+<p>The workflow UI prefers a direct trace view when it has both trace and project metadata:</p>
 <ol>
 <li>Click <strong>Debug</strong> button on workflow execution</li>
-<li>View all workflow steps in chronological order</li>
+<li>Open the workflow trace directly in Langfuse</li>
 <li>See inputs, outputs, and metadata for each step</li>
 <li>Track token usage and latency per agent</li>
 </ol>
-<h4 id="trace-view-individual-steps_1">Trace View (Individual Steps)<a class="headerlink" href="#trace-view-individual-steps_1" title="Permanent link">&para;</a></h4>
-<p>To view an individual trace:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>https://us.cloud.langfuse.com/project/{project_id}/traces/{trace_id}
+<h4 id="search-view-fallback_1">Search View (Fallback)<a class="headerlink" href="#search-view-fallback_1" title="Permanent link">&para;</a></h4>
+<p>If the execution does not have a resolved trace ID or project ID, the UI falls back to Langfuse trace search using the workflow session identifier:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 </code></pre></div>
 <h3 id="debugging-workflow-issues_1">Debugging Workflow Issues<a class="headerlink" href="#debugging-workflow-issues_1" title="Permanent link">&para;</a></h3>
 <p>When debugging workflow failures:</p>
@@ -3236,12 +3290,26 @@
 <li><strong>Monitor Token Usage</strong>: Track token consumption across agents</li>
 </ol>
 <h3 id="configuration_1">Configuration<a class="headerlink" href="#configuration_1" title="Permanent link">&para;</a></h3>
-<p>LangFuse configuration is set via environment variables:</p>
+<p>LangFuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="nv">LANGFUSE_PUBLIC_KEY</span><span class="o">=</span>pk-lf-...
 <a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="nv">LANGFUSE_SECRET_KEY</span><span class="o">=</span>sk-lf-...
-<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://us.cloud.langfuse.com
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://cloud.langfuse.com
 <a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="nv">LANGFUSE_PROJECT_ID</span><span class="o">=</span>your-project-id
 </code></pre></div>
+<ul>
+<li><code>LANGFUSE_PUBLIC_KEY</code> and <code>LANGFUSE_SECRET_KEY</code> are required to emit traces.</li>
+<li><code>LANGFUSE_HOST</code> is optional and defaults to <code>https://cloud.langfuse.com</code> in the runtime client.</li>
+<li><code>LANGFUSE_PROJECT_ID</code> is optional but recommended because it improves workflow debug deep links.</li>
+<li>Use the Langfuse Cloud host for your account region. This project does not support local or self-hosted Langfuse deployments.</li>
+</ul>
+<p>For setup, host selection, security guidance, and troubleshooting, see <a href="../../guides/langfuse-setup/">Langfuse Setup</a>.</p>
+<h3 id="common-setup-failures_1">Common Setup Failures<a class="headerlink" href="#common-setup-failures_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Missing <code>LANGFUSE_PUBLIC_KEY</code> or <code>LANGFUSE_SECRET_KEY</code>: tracing is disabled and workflows run without emitting Langfuse traces.</li>
+<li>Wrong <code>LANGFUSE_HOST</code>: the connection test can fail even with valid keys if the host does not match the Langfuse Cloud region for that project.</li>
+<li>Missing <code>LANGFUSE_PROJECT_ID</code>: traces can still be emitted, but workflow debug links may fall back to broader search URLs instead of project-scoped direct links.</li>
+<li>No trace for an execution: traces only exist for runs that actually executed while Langfuse was enabled.</li>
+</ul>
 <h3 id="code-references_1">Code References<a class="headerlink" href="#code-references_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Trace creation</strong>: <code>src/utils/langfuse_client.py</code> (lines 155-189)</li>

@@ -1394,6 +1394,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2974,8 +3002,8 @@
 <p>Huntable CTI Studio configuration is managed through environment variables (<code>.env</code>), Docker Compose (<code>docker-compose.yml</code>), and YAML files in <code>config/</code>.</p>
 <h2 id="configuration-files">Configuration Files<a class="headerlink" href="#configuration-files" title="Permanent link">&para;</a></h2>
 <h3 id="environment-variables-env">Environment Variables (.env)<a class="headerlink" href="#environment-variables-env" title="Permanent link">&para;</a></h3>
-<p>Primary configuration file for sensitive values and service settings. Copy from template:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<p>Primary configuration file for sensitive values and service settings. Provision it with setup:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./setup.sh<span class="w"> </span>--no-backups
 </code></pre></div></p>
 <h3 id="docker-compose-docker-composeyml">Docker Compose (docker-compose.yml)<a class="headerlink" href="#docker-compose-docker-composeyml" title="Permanent link">&para;</a></h3>
 <p>Defines service configuration, port mappings, and inter-service networking.</p>
@@ -3357,24 +3385,37 @@
 <tr>
 <th>Variable</th>
 <th>Purpose</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>LANGFUSE_PUBLIC_KEY</code></td>
 <td>LangFuse public key</td>
+<td>Required to enable tracing</td>
 </tr>
 <tr>
 <td><code>LANGFUSE_SECRET_KEY</code></td>
 <td>LangFuse secret key</td>
+<td>Required to enable tracing</td>
 </tr>
 <tr>
 <td><code>LANGFUSE_HOST</code></td>
-<td>LangFuse server URL</td>
+<td>LangFuse Cloud host URL</td>
+<td>Optional; runtime default is <code>https://cloud.langfuse.com</code></td>
+</tr>
+<tr>
+<td><code>LANGFUSE_PROJECT_ID</code></td>
+<td>LangFuse project ID</td>
+<td>Optional; improves workflow trace deep links in the UI</td>
 </tr>
 </tbody>
 </table>
-<p>Configure LangFuse either through environment variables or via the Settings UI.</p>
+<p>Configure Langfuse through environment variables or the Settings UI. Settings stored in the web UI take precedence over the same values in the environment.</p>
+<p>Huntable CTI Studio supports <strong>Langfuse Cloud only</strong>. Local or self-hosted Langfuse deployments may be technically possible in Langfuse itself, but they are outside this project's supported and tested configurations.</p>
+<p>Use <code>LANGFUSE_HOST</code> for the correct Langfuse Cloud region for your account. If you do not set it, the runtime defaults to <code>https://cloud.langfuse.com</code>. Common cloud hosts include <code>https://cloud.langfuse.com</code>, <code>https://us.cloud.langfuse.com</code>, and <code>https://hipaa.cloud.langfuse.com</code>.</p>
+<p>Security note: Langfuse receives workflow and LLM telemetry. Depending on the workflow path, traces may contain prompts, article content, extracted observables, outputs, and metadata. Enable Langfuse only where external cloud tracing is acceptable for your data.</p>
+<p>See <a href="../../guides/langfuse-setup/">Langfuse Setup</a> for the full setup and verification workflow.</p>
 <h3 id="sigma-github-integration">SIGMA / GitHub Integration<a class="headerlink" href="#sigma-github-integration" title="Permanent link">&para;</a></h3>
 <p>The app submits approved SIGMA rules via GitHub PRs. <strong>Setup is automated during <code>./setup.sh</code>.</strong></p>
 <p><strong>During setup.sh (interactive):</strong></p>

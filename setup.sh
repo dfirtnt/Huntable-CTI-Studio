@@ -23,6 +23,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/startup_common.sh
+source "$SCRIPT_DIR/scripts/startup_common.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -254,32 +258,11 @@ create_env_file() {
             base_url="http://host.docker.internal:1234/v1"
         fi
         local embed_url="${base_url%/v1}/v1/embeddings"
-        if [[ "$(uname)" == "Darwin" ]]; then
-            sed -i '' "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=${base_url}|g" .env
-            sed -i '' "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=${embed_url}|g" .env
-        else
-            sed -i "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=${base_url}|g" .env
-            sed -i "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=${embed_url}|g" .env
-        fi
+        startup_set_env_key ".env" "LMSTUDIO_API_URL" "${base_url}"
+        startup_set_env_key ".env" "LMSTUDIO_EMBEDDING_URL" "${embed_url}"
     else
         # User chose not to use LMStudio: persist so Settings hides LMStudio UI
-        if [[ "$(uname)" == "Darwin" ]]; then
-            sed -i '' "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=|g" .env
-            sed -i '' "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=|g" .env
-        else
-            sed -i "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=|g" .env
-            sed -i "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=|g" .env
-        fi
-        if grep -q '^WORKFLOW_LMSTUDIO_ENABLED=' .env 2>/dev/null; then
-            [[ "$(uname)" == "Darwin" ]] && sed -i '' 's/^WORKFLOW_LMSTUDIO_ENABLED=.*/WORKFLOW_LMSTUDIO_ENABLED=false/' .env || sed -i 's/^WORKFLOW_LMSTUDIO_ENABLED=.*/WORKFLOW_LMSTUDIO_ENABLED=false/' .env
-        else
-            echo 'WORKFLOW_LMSTUDIO_ENABLED=false' >> .env
-        fi
-        if grep -q '^PROCEED_WITHOUT_LMSTUDIO=' .env 2>/dev/null; then
-            [[ "$(uname)" == "Darwin" ]] && sed -i '' 's/^PROCEED_WITHOUT_LMSTUDIO=.*/PROCEED_WITHOUT_LMSTUDIO=1/' .env || sed -i 's/^PROCEED_WITHOUT_LMSTUDIO=.*/PROCEED_WITHOUT_LMSTUDIO=1/' .env
-        else
-            echo 'PROCEED_WITHOUT_LMSTUDIO=1' >> .env
-        fi
+        startup_disable_lmstudio ".env"
     fi
     
     print_status ".env file created with your configuration"
@@ -287,140 +270,41 @@ create_env_file() {
 
 # Function to check if we're in the right directory
 check_directory() {
-    if [ ! -f "docker-compose.yml" ]; then
-        print_error "Please run this script from the CTI Scraper root directory"
-        exit 1
-    fi
+    startup_check_directory
 }
 
 # Function to check prerequisites
 check_prerequisites() {
     print_header "Checking Prerequisites"
-    
-    # Check Docker - try PATH first, then common macOS Docker Desktop locations
-    DOCKER_CMD=""
-    if command -v docker &> /dev/null; then
-        DOCKER_CMD="docker"
-    elif [ -f "/Applications/Docker.app/Contents/Resources/bin/docker" ]; then
-        DOCKER_CMD="/Applications/Docker.app/Contents/Resources/bin/docker"
-        export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
-        print_status "Found Docker at /Applications/Docker.app/Contents/Resources/bin/docker"
-    else
-        print_error "Docker executable not found in PATH."
-        print_error "Please ensure Docker Desktop is installed and the Docker executable is in your PATH."
-        print_error "Verify Docker is accessible by running: docker --version"
-        exit 1
-    fi
-    
-    # Check Docker Compose (support both v1 and v2)
-    if command -v docker-compose &> /dev/null; then
-        DOCKER_COMPOSE_CMD="docker-compose"
-    elif $DOCKER_CMD compose version &> /dev/null; then
-        DOCKER_COMPOSE_CMD="$DOCKER_CMD compose"
-    else
-        print_error "Docker Compose is not installed. Please install Docker Compose first."
-        exit 1
-    fi
-    
-    # Check if Docker is running
-    if ! $DOCKER_CMD info &> /dev/null; then
-        print_error "Docker is not running. Please start Docker Desktop first."
-        exit 1
-    fi
-    
+
+    startup_check_prerequisites
     print_status "All prerequisites satisfied!"
 }
 
 # Function to setup environment
 setup_environment() {
     print_header "Setting Up Environment"
-    
-    # Create necessary directories
-    print_status "Creating necessary directories"
-    mkdir -p logs backups models outputs
-    
+
+    startup_ensure_runtime_directories
+
     # Set permissions
     chmod +x scripts/*.sh 2>/dev/null || true
-    
+
     print_status "Environment setup complete!"
 }
 
 # Function to start services
 start_services() {
     print_header "Starting Services"
-    
-    # Load environment variables from .env file
-    if [ -f ".env" ]; then
-        print_status "Loading environment variables from .env file..."
-        # Export variables line by line, skipping comments and problematic lines
-        while IFS= read -r line || [ -n "$line" ]; do
-            # Skip comments and empty lines
-            [[ "$line" =~ ^#.*$ ]] && continue
-            [[ -z "$line" ]] && continue
-            
-            # Skip lines with complex data structures
-            [[ "$line" =~ CORS_ORIGINS= ]] && continue
-            [[ "$line" =~ TRUSTED_HOSTS= ]] && continue
-            [[ "$line" =~ BACKUP_SCHEDULE= ]] && continue
-            [[ "$line" =~ DATABASE_URL= ]] && continue
-            [[ "$line" =~ REDIS_URL= ]] && continue
-            
-            # Export the variable
-            export "$line"
-        done < .env
-    fi
-    
-    # Build and start Docker services
-    print_status "Building Docker images..."
-    $DOCKER_COMPOSE_CMD build
-    
-    # Start services
-    print_status "Starting services..."
-    $DOCKER_COMPOSE_CMD up -d
-    
-    # Wait for postgres to be healthy
-    print_status "Waiting for PostgreSQL to be ready..."
-    sleep 10
-    for i in {1..30}; do
-        if $DOCKER_CMD exec cti_postgres pg_isready -U cti_user -d cti_scraper >/dev/null 2>&1; then
-            break
-        fi
-        sleep 1
-    done
-    
-    # Enable pgvector extension in postgres
+
+    startup_apply_platform_compatibility ".env" "$NON_INTERACTIVE"
+    startup_start_services
+
+    # Enable pgvector extension in postgres for compatibility with existing setup flow.
     print_status "Enabling pgvector extension..."
     $DOCKER_CMD exec cti_postgres psql -U cti_user -d cti_scraper -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>&1 | grep -v "already exists" || true
-    
-    # Restart app containers to ensure they connect properly
-    print_status "Restarting application containers..."
-    $DOCKER_COMPOSE_CMD restart web worker scheduler
-    
-    # Wait for services to be fully healthy
-    print_status "Waiting for services to be healthy..."
-    sleep 15
-    
-    # Check service status
-    print_status "Service status:"
-    $DOCKER_COMPOSE_CMD ps
-    
+
     print_status "Services started successfully!"
-    
-    # Show LLM-specific instructions
-    if [[ "$USE_LMSTUDIO" == "true" ]]; then
-        echo ""
-        echo -e "${YELLOW}⚠️  LM Studio Setup:${NC}"
-        echo "   1. Start LM Studio application"
-        echo "   2. Ensure API Server is running on port 1234"
-        echo "   3. Load your preferred model in LM Studio"
-    fi
-    
-    if [[ "$USE_LMSTUDIO" == "false" ]]; then
-        echo ""
-        echo -e "${YELLOW}⚠️  No LLM Configured:${NC}"
-        echo "   Services will start without LLM support."
-        echo "   Configure LM Studio or API keys in .env to enable LLM features."
-    fi
 }
 
 # Function to setup automated backups
@@ -487,63 +371,21 @@ recover_from_postgres_password_mismatch() {
 # Function to verify installation
 verify_installation() {
     print_header "Verifying Installation"
-    
-    local verification_failed=false
-    
-    # Check if services are running
-    print_status "Checking service health..."
-    
-    # Check PostgreSQL
-    if $DOCKER_CMD exec cti_postgres pg_isready -U cti_user -d cti_scraper &> /dev/null; then
-        print_status "✅ PostgreSQL is healthy"
-    else
-        print_error "❌ PostgreSQL is not ready"
-        verification_failed=true
-    fi
-    
-    # Check Redis
-    if $DOCKER_CMD exec cti_redis redis-cli ping &> /dev/null; then
-        print_status "✅ Redis is healthy"
-    else
-        print_error "❌ Redis is not ready"
-        verification_failed=true
-    fi
-    
-    # Check Web service with retries
-    print_status "Waiting for web service to be ready..."
-    local web_ready=false
-    for i in {1..30}; do
-        if curl -s http://localhost:8001/health &> /dev/null; then
-            web_ready=true
-            break
-        fi
-        sleep 2
-    done
-    
-    if [ "$web_ready" = true ]; then
-        print_status "✅ Web service is healthy"
-    else
-        print_error "❌ Web service is not ready"
-        print_status "Check logs with: $DOCKER_CMD logs cti_web"
 
+    local verification_failed=false
+
+    if ! startup_verify_core_services; then
         # Auto-recover common first-run failure: DB auth mismatch from stale volumes
         if $DOCKER_CMD logs cti_web 2>&1 | grep -Eiq "InvalidPasswordError|password authentication failed for user"; then
             print_warning "Web startup failed due to PostgreSQL authentication mismatch."
             if recover_from_postgres_password_mismatch; then
-                print_status "Re-checking web service after DB volume reset..."
-                web_ready=false
-                for i in {1..30}; do
-                    if curl -s http://localhost:8001/health &> /dev/null; then
-                        web_ready=true
-                        break
-                    fi
-                    sleep 2
-                done
+                print_status "Re-checking service health after DB volume reset..."
+                if ! startup_verify_core_services; then
+                    verification_failed=true
+                fi
+            else
+                verification_failed=true
             fi
-        fi
-
-        if [ "$web_ready" = true ]; then
-            print_status "✅ Web service is healthy"
         else
             verification_failed=true
         fi
@@ -670,78 +512,17 @@ handle_sigma_repo_setup() {
 
 # Function to handle Sigma sync and index
 handle_sigma_sync_and_index() {
-    print_status "Sigma: syncing SigmaHQ repo..."
-    if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
-        # Always index metadata (no embedding dependency)
-        if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-metadata 2>/dev/null; then
-            print_status "✅ Sigma rule metadata indexed"
-        else
-            print_warning "Sigma metadata index failed (run manually: ./run_cli.sh sigma index-metadata)"
-        fi
-        # Attempt embedding generation (optional)
-        if [ -z "$SKIP_SIGMA_INDEX" ]; then
-            if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
-                print_status "✅ Sigma rule embeddings generated"
-            else
-                print_warning "Sigma embeddings skipped (run manually: ./run_cli.sh sigma index-embeddings)"
-            fi
-        else
-            print_warning "Skipping Sigma embeddings (limited-env mode). Run ./run_cli.sh sigma index-embeddings when ready."
-        fi
-    else
-        print_warning "Sigma sync failed (run manually: ./run_cli.sh sigma sync)"
-    fi
+    startup_sigma_sync_and_index
 }
 
 # Function to seed eval articles from static files into DB
 seed_eval_articles() {
-    print_status "Eval articles: seeding from config/eval_articles_data..."
-    if $DOCKER_COMPOSE_CMD run --rm cli python scripts/seed_eval_articles_to_db.py 2>/dev/null; then
-        print_status "✅ Eval articles seeded (or already present)"
-    else
-        print_warning "Eval articles seed failed (run manually: $DOCKER_COMPOSE_CMD run --rm cli python scripts/seed_eval_articles_to_db.py)"
-    fi
+    startup_seed_eval_articles
 }
 
 # Build MkDocs site and start dev server so docs are ready and running
 build_and_serve_mkdocs() {
-    if [ ! -f "mkdocs.yml" ]; then
-        return 0
-    fi
-    print_status "Building docs (MkDocs)..."
-    if [ ! -d ".venv" ]; then
-        python3 -m venv .venv
-    fi
-    local py=".venv/bin/python3"
-    "$py" -m pip install -q mkdocs mkdocs-material
-    if ! "$py" -m mkdocs build --strict 2>/dev/null; then
-        "$py" -m mkdocs build
-    fi
-    local existing_pids
-    existing_pids="$(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true)"
-    if [[ -n "$existing_pids" ]]; then
-        local mkdocs_pids=""
-        local pid
-        for pid in $existing_pids; do
-            local cmd
-            cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-            if [[ "$cmd" == *"mkdocs serve"* ]]; then
-                mkdocs_pids="$mkdocs_pids $pid"
-            fi
-        done
-        if [[ -n "${mkdocs_pids// }" ]]; then
-            print_status "Stopping existing MkDocs server on :8000..."
-            # shellcheck disable=SC2086
-            kill $mkdocs_pids
-            sleep 1
-        else
-            print_warning "Port 8000 is already used by a non-MkDocs process; skipping MkDocs auto-start."
-            return 0
-        fi
-    fi
-    print_status "Starting MkDocs server in background..."
-    mkdir -p logs
-    nohup "$py" -m mkdocs serve -a 127.0.0.1:8000 >> logs/mkdocs.log 2>&1 </dev/null &
+    startup_build_and_serve_mkdocs
 }
 
 # Function to show post-installation information
@@ -900,21 +681,22 @@ main() {
     fi
     
     # Refresh LLM provider model catalog so users see current models immediately (no 24h wait)
-    print_status "Refreshing LLM provider model catalog..."
-    if $DOCKER_COMPOSE_CMD run --rm cli python3 scripts/maintenance/update_provider_model_catalogs.py --write 2>/dev/null; then
-        print_status "Provider model catalog updated"
-    else
-        print_warning "Provider model catalog refresh skipped (set OPENAI_API_KEY/ANTHROPIC_API_KEY in .env to refresh from APIs)"
-    fi
+    startup_refresh_provider_model_catalog
 
     # Verify installation
     local setup_success=false
     if verify_installation; then
         setup_success=true
 
+        # Align with start.sh startup path: validate pgvector index shape first.
+        startup_migrate_pgvector_indexes
+
         # Handle Sigma sync and index
         echo ""
         handle_sigma_sync_and_index
+
+        # Capability-driven warnings
+        startup_show_capability_warnings
 
         # Seed eval articles
         echo ""
