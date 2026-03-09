@@ -22,7 +22,7 @@ class AgentConfig(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    Provider: str = "lmstudio"
+    Provider: str = ""
     Model: str = ""
     Temperature: float = 0.0
     TopP: float = 0.9
@@ -148,7 +148,7 @@ class WorkflowConfigV2(BaseModel):
     @model_validator(mode="after")
     def ensure_agent_fields(self) -> WorkflowConfigV2:
         """Ensure each agent has Provider, Model, Temperature, TopP, Enabled."""
-        for name, agent in self.Agents.items():
+        for _name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
                 continue
             # Pydantic already validates AgentConfig; no-op here
@@ -159,9 +159,8 @@ class WorkflowConfigV2(BaseModel):
         """Reject stray prompt keys; only canonical agent/QA names allowed (no ExtractAgentSettings)."""
         for key in self.Prompts:
             if key not in CANONICAL_PROMPT_AGENT_NAMES:
-                raise ValueError(
-                    f"Prompts key '{key}' is not a canonical agent name; allowed: {sorted(CANONICAL_PROMPT_AGENT_NAMES)}"
-                )
+                allowed = sorted(CANONICAL_PROMPT_AGENT_NAMES)
+                raise ValueError(f"Prompts key '{key}' is not a canonical agent name; allowed: {allowed}")
         return self
 
     @model_validator(mode="after")
@@ -174,7 +173,8 @@ class WorkflowConfigV2(BaseModel):
 
     @model_validator(mode="after")
     def llm_agent_symmetry(self) -> WorkflowConfigV2:
-        """Enforce: (0) enabled agents must have Provider+Model; (1) required QA for enabled base agents; (2) no orphan QA agents; (3) prompt block per LLM agent."""
+        """Enforce symmetry: (0) enabled agents must have Provider+Model; (1) required QA for enabled
+        base agents; (2) no orphan QA agents; (3) prompt block per LLM agent."""
         agents = self.Agents
         prompts = self.Prompts
         # Part 0: if Enabled == true, Provider and Model must be non-empty (no pseudo-enabled empty-model loophole)
@@ -197,7 +197,8 @@ class WorkflowConfigV2(BaseModel):
             base = QA_AGENT_TO_BASE.get(name, name[:-2])
             if base not in agents:
                 raise ValueError(f"Orphan QA agent {name}: base agent {base} must exist in Agents")
-        # Part 3: every agent with Provider+Model must have a prompt block (except OSDetectionFallback when disabled and no model)
+        # Part 3: every agent with Provider+Model must have a prompt block
+        # (except OSDetectionFallback when disabled and no model)
         for name, cfg in agents.items():
             if name == "OSDetectionFallback" and not cfg.Enabled and not cfg.Model:
                 continue

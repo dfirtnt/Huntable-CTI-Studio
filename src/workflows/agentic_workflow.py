@@ -2815,9 +2815,14 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         state_eval_run_flag = _bool_from_value(config.get("eval_run", False))
         state_skip_rank_flag = _bool_from_value(config.get("skip_rank_agent", False))
 
-        # Auto-load LMStudio models before starting workflow
+        # Auto-load LMStudio models before starting workflow (only when lmstudio is actually used)
         agent_models_for_loading = config.get("agent_models", {})
-        if agent_models_for_loading:
+        _lmstudio_providers = {
+            agent_models_for_loading.get("RankAgent_provider", ""),
+            agent_models_for_loading.get("ExtractAgent_provider", ""),
+            agent_models_for_loading.get("SigmaAgent_provider", ""),
+        }
+        if agent_models_for_loading and "lmstudio" in _lmstudio_providers:
             logger.info(f"[Workflow {execution.id}] Auto-loading LMStudio models...")
             load_result = auto_load_workflow_models(agent_models_for_loading)
             if load_result["models_loaded"]:
