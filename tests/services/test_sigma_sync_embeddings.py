@@ -44,7 +44,7 @@ class TestIndexEmbeddings:
         result = sync_service.index_embeddings(mock_db_session)
 
         assert result["embeddings_indexed"] >= 1
-        assert mock_emb_instance.generate_embedding.called
+        assert mock_emb_instance.generate_embeddings_batch.called
 
     @patch("src.services.embedding_service.EmbeddingService")
     def test_result_has_expected_keys(self, mock_emb_cls, sync_service, mock_db_session):
