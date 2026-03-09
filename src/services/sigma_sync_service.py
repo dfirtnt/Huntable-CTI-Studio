@@ -685,13 +685,12 @@ class SigmaSyncService:
                     progress_callback(embeddings_indexed + error_count, len(rules))
                 if embeddings_indexed % 100 == 0:
                     logger.info(f"Embedded {embeddings_indexed} rules...")
-                    db_session.commit()
+                    db_session.flush()
 
             except Exception as e:
                 error_count += 1
                 if progress_callback:
                     progress_callback(embeddings_indexed + error_count, len(rules))
-                db_session.expunge(rule)
                 logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
                 continue
 
