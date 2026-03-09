@@ -50,6 +50,34 @@
     color: var(--text-gray-300) !important;
 }
 
+/* Inputs/Output summaries: nearly white (rgba(222, 226, 232)) */
+#executionDetailContent details.exec-inputs > summary,
+#executionDetailContent details.exec-output > summary {
+    color: rgb(222, 226, 232) !important;
+}
+
+.dark #executionDetailContent details.exec-inputs > summary,
+.dark #executionDetailContent details.exec-output > summary {
+    color: rgb(222, 226, 232) !important;
+}
+
+/* Observable Traceability section: nearly white */
+#executionDetailContent .observable-traceability details summary,
+#executionDetailContent .observable-traceability details summary code,
+#executionDetailContent .observable-traceability p,
+#executionDetailContent .observable-traceability blockquote,
+#executionDetailContent .observable-traceability code {
+    color: rgb(222, 226, 232) !important;
+}
+
+.dark #executionDetailContent .observable-traceability details summary,
+.dark #executionDetailContent .observable-traceability details summary code,
+.dark #executionDetailContent .observable-traceability p,
+.dark #executionDetailContent .observable-traceability blockquote,
+.dark #executionDetailContent .observable-traceability code {
+    color: rgb(222, 226, 232) !important;
+}
+
 /* Override: View summaries with inline styles should be white */
 .dark #executionDetailContent details summary[style*="color"] {
     color: var(--text-emphasis) !important;
@@ -9960,7 +9988,7 @@ function renderExecutions() {
                 ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">View</button>
+                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mr-2">View</button>
                 ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
                 <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
                 ${exec.status === 'failed' ? `
@@ -10963,30 +10991,30 @@ async function viewExecution(executionId) {
             const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
             const totalObs = (observablesData.observables.cmdline?.length || 0) + (observablesData.observables.process_lineage?.length || 0) + (observablesData.observables.hunt_queries?.length || 0);
             function confidenceBadge(score) {
-                if (score == null) return '<span class="text-gray-500 dark:text-gray-400 text-xs">N/A</span>';
+                if (score == null) return '<span class="text-[#dee2e8] text-xs">N/A</span>';
                 const pct = Math.round(Number(score) * 100);
                 const cls = pct >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : pct >= 50 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
                 return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}" title="Confidence">${pct}%</span>`;
             }
             function traceabilitySection() {
-                if (totalObs === 0) return `<div class="border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><p class="text-gray-300 text-sm">Traceability unavailable (legacy execution or no observables).</p></div>`;
-                let html = `<div class="border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><div class="space-y-2">`;
+                if (totalObs === 0) return `<div class="observable-traceability border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><p class="text-[#dee2e8] text-sm">Traceability unavailable (legacy execution or no observables).</p></div>`;
+                let html = `<div class="observable-traceability border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><div class="space-y-2">`;
                 for (const [typeKey, label] of Object.entries(typeLabels)) {
                     const list = observablesData.observables[typeKey] || [];
                     if (list.length === 0) continue;
                     const idPrefix = `obs-${exec.id}-${typeKey}`;
-                    html += `<details class="border rounded-lg border-gray-700 bg-gray-900/50"><summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-100 hover:bg-gray-800">${label} (${list.length})</summary><div class="px-3 pb-3 space-y-2">`;
+                    html += `<details class="border rounded-lg border-gray-700 bg-gray-900/50"><summary class="cursor-pointer px-3 py-2 text-sm font-medium text-[#dee2e8] hover:bg-gray-800">${label} (${list.length})</summary><div class="px-3 pb-3 space-y-2">`;
                     list.forEach((obs, idx) => {
                         const obsId = `${idPrefix}-${idx}`;
                         const val = typeof obs.observable_value === 'object' ? JSON.stringify(obs.observable_value) : String(obs.observable_value ?? '');
                         const hasTrace = obs.source_evidence != null || obs.extraction_justification != null;
-                        const expandContent = !hasTrace ? `<p class="text-gray-300 text-sm">Traceability unavailable</p>` : `
-${ obs.source_evidence != null ? `<blockquote class="border-l-4 border-gray-600 pl-3 py-1 my-2 text-sm text-gray-100 bg-gray-800 rounded">${escapeHtml(obs.source_evidence)}</blockquote>` : ''}
-${ obs.extraction_justification != null ? `<p class="text-sm text-gray-100"><strong>Reasoning:</strong> ${escapeHtml(obs.extraction_justification)}</p>` : ''}
-                            <p class="text-xs text-gray-300">${obs.subagent_name || ''} ${obs.model_version ? ' · ' + obs.model_version : ''} ${obs.extraction_timestamp ? ' · ' + obs.extraction_timestamp : ''}</p>
+                        const expandContent = !hasTrace ? `<p class="text-[#dee2e8] text-sm">Traceability unavailable</p>` : `
+${ obs.source_evidence != null ? `<blockquote class="border-l-4 border-gray-600 pl-3 py-1 my-2 text-sm text-[#dee2e8] bg-gray-800 rounded">${escapeHtml(obs.source_evidence)}</blockquote>` : ''}
+${ obs.extraction_justification != null ? `<p class="text-sm text-[#dee2e8]"><strong>Reasoning:</strong> ${escapeHtml(obs.extraction_justification)}</p>` : ''}
+                            <p class="text-xs text-[#dee2e8]">${obs.subagent_name || ''} ${obs.model_version ? ' · ' + obs.model_version : ''} ${obs.extraction_timestamp ? ' · ' + obs.extraction_timestamp : ''}</p>
 ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded jump-to-article-btn" data-type="${typeKey}" data-index="${idx}" title="Scroll to source paragraph in article">Jump to Article</button>` : ''}
                         `;
-                        html += `<div class="border border-gray-700 rounded p-2 bg-gray-900"><details class="obs-item"><summary class="cursor-pointer flex items-center gap-2 flex-wrap"><code class="text-xs break-all">${escapeHtml(val)}</code> ${confidenceBadge(obs.confidence_score)}</summary><div class="mt-2 pt-2 border-t border-gray-700">${expandContent}</div></details></div>`;
+                        html += `<div class="border border-gray-700 rounded p-2 bg-gray-900"><details class="obs-item"><summary class="cursor-pointer flex items-center gap-2 flex-wrap"><code class="text-xs break-all text-[#dee2e8]">${escapeHtml(val)}</code> ${confidenceBadge(obs.confidence_score)}</summary><div class="mt-2 pt-2 border-t border-gray-700">${expandContent}</div></details></div>`;
                     });
                     html += `</div></details>`;
                 }
@@ -11289,7 +11317,7 @@ function renderStepPanel(step) {
             </div>
             ${step.metric ? `<div class="text-xl font-mono text-gray-100">${step.metric}</div>` : ''}
             <details class="exec-inputs border border-gray-700 rounded-lg overflow-hidden">
-                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-gray-300 hover:text-white hover:bg-gray-700/30 select-none">
+                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-[#dee2e8] hover:text-white hover:bg-gray-700/30 select-none">
                     Inputs
                 </summary>
                 <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-100">
@@ -11298,7 +11326,7 @@ function renderStepPanel(step) {
                 </div>
             </details>
             <details open class="exec-output border border-gray-700 rounded-lg overflow-hidden">
-                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-gray-100 hover:bg-gray-700/30 select-none">
+                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-[#dee2e8] hover:bg-gray-700/30 select-none">
                     Output
                 </summary>
                 <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-100 space-y-3">
