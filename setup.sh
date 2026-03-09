@@ -456,15 +456,16 @@ handle_sigma_repo_setup() {
     echo "Docker mounts ../Huntable-SIGMA-Rules at /app/sigma-repo."
     echo ""
     echo "If you don't have a repo yet: create one at https://github.com/new (e.g. Huntable-SIGMA-Rules)."
-    echo "Enter your GitHub username in place of 'your-username' below."
     echo ""
     if ! prompt_yes_no "Set up Sigma rules repo now?" "yes"; then
         print_warning "Skipping. Create $sigma_repo_dir and clone your repo manually. Configure Settings → GitHub."
         return 0
     fi
 
+    echo ""
+    echo "Enter your GitHub repo as owner/repo (e.g. dfirtnt/Huntable-SIGMA-Rules):"
     local repo_input=""
-    prompt_input "GitHub repo (owner/repo, e.g. myuser/Huntable-SIGMA-Rules) [$default_repo]: " "$default_repo" "repo_input"
+    prompt_input "GitHub repo [$default_repo]: " "$default_repo" "repo_input"
     repo_input="${repo_input:-$default_repo}"
     repo_input="${repo_input#https://github.com/}"
     repo_input="${repo_input%.git}"
