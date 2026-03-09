@@ -569,12 +569,21 @@ verify_installation() {
 handle_sigma_sync_and_index() {
     print_status "Sigma: syncing SigmaHQ repo..."
     if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
-        if [ -n "$SKIP_SIGMA_INDEX" ]; then
-            print_warning "Skipping Sigma index (embeddings/LM Studio not assumed). Run ./run_cli.sh sigma index when LM Studio is available."
-        elif $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index 2>/dev/null; then
-            print_status "✅ Sigma rules synced and indexed"
+        # Always index metadata (no embedding dependency)
+        if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-metadata 2>/dev/null; then
+            print_status "✅ Sigma rule metadata indexed"
         else
-            print_warning "Sigma index failed (run manually: ./run_cli.sh sigma index)"
+            print_warning "Sigma metadata index failed (run manually: ./run_cli.sh sigma index-metadata)"
+        fi
+        # Attempt embedding generation (optional)
+        if [ -z "$SKIP_SIGMA_INDEX" ]; then
+            if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
+                print_status "✅ Sigma rule embeddings generated"
+            else
+                print_warning "Sigma embeddings skipped (run manually: ./run_cli.sh sigma index-embeddings)"
+            fi
+        else
+            print_warning "Skipping Sigma embeddings (limited-env mode). Run ./run_cli.sh sigma index-embeddings when ready."
         fi
     else
         print_warning "Sigma sync failed (run manually: ./run_cli.sh sigma sync)"
