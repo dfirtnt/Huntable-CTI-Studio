@@ -11,7 +11,6 @@ class TestDashboardEndpoints:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_dashboard_home(self, async_client: httpx.AsyncClient):
         """Test the main dashboard page."""
@@ -21,7 +20,6 @@ class TestDashboardEndpoints:
         assert "Huntable" in response.text
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_dashboard_stats(self, async_client: httpx.AsyncClient):
         """Test dashboard statistics display."""
@@ -199,7 +197,6 @@ class TestWorkflowConfig:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_config_defaults(self, async_client: httpx.AsyncClient):
         """Active workflow config exposes core fields."""
@@ -223,7 +220,6 @@ class TestWorkflowConfig:
         assert 0.0 <= data["junk_filter_threshold"] <= 1.0
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_config_versions_list(self, async_client: httpx.AsyncClient):
         """GET /api/workflow/config/versions returns version list."""
@@ -240,7 +236,6 @@ class TestWorkflowConfig:
             assert "updated_at" in v
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_config_by_version(self, async_client: httpx.AsyncClient):
         """GET /api/workflow/config/version/{version} returns preset-shaped config."""
@@ -259,7 +254,6 @@ class TestWorkflowConfig:
         assert data["thresholds"].get("similarity_threshold") is not None
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_config_version_404(self, async_client: httpx.AsyncClient):
         """GET /api/workflow/config/version/999999 returns 404."""
@@ -315,7 +309,6 @@ class TestHealthEndpoints:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_health_endpoints(self, async_client: httpx.AsyncClient):
         """Ensure critical health endpoints are healthy."""
@@ -338,7 +331,6 @@ class TestHealthEndpoints:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_database_connectivity_detailed(self, async_client: httpx.AsyncClient):
         """Test database connectivity with detailed statistics."""
@@ -360,7 +352,6 @@ class TestExportEndpoints:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_export_annotations_csv(self, async_client: httpx.AsyncClient):
         """Ensure annotations export endpoint returns CSV."""
@@ -404,7 +395,6 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_trigger_endpoint_exists(self, async_client: httpx.AsyncClient):
         """Workflow trigger endpoint reachable (404 if article missing is ok; endpoint must exist)."""
@@ -620,7 +610,6 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_evaluations_config_versions_models_smoke(self, async_client: httpx.AsyncClient):
         """Smoke: evaluations config-versions-models endpoint is accessible (read-only)."""
@@ -635,7 +624,6 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_evaluations_export_bundles_by_config_version_smoke(self, async_client: httpx.AsyncClient):
         """Smoke: export-bundles-by-config-version endpoint is reachable. Expects 404 when no data."""
@@ -663,7 +651,6 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_executions_list_smoke(self, async_client: httpx.AsyncClient):
         """Smoke: workflow executions list endpoint is accessible (read-only)."""
@@ -791,7 +778,6 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.smoke
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_config_versions_smoke(self, async_client: httpx.AsyncClient):
         """Smoke: workflow config versions endpoint is accessible (read-only)."""
