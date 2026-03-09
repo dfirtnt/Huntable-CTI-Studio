@@ -588,7 +588,7 @@ class SigmaSyncService:
 
         return {"metadata_indexed": indexed_count, "skipped": skipped_count, "errors": error_count}
 
-    def index_embeddings(self, db_session, force_reindex: bool = False) -> dict:
+    def index_embeddings(self, db_session, force_reindex: bool = False, progress_callback=None) -> dict:
         """
         Generate embeddings for Sigma rules that lack them.
 
@@ -597,6 +597,7 @@ class SigmaSyncService:
         Args:
             db_session: SQLAlchemy session
             force_reindex: If True, regenerate embeddings for all rules
+            progress_callback: Optional callable(current, total) called after each rule
 
         Returns:
             Dict with embeddings_indexed, skipped, errors counts
@@ -680,14 +681,18 @@ class SigmaSyncService:
                 rule.detection_fields_embedding = signature_emb
 
                 embeddings_indexed += 1
+                if progress_callback:
+                    progress_callback(embeddings_indexed + error_count, len(rules))
                 if embeddings_indexed % 100 == 0:
                     logger.info(f"Embedded {embeddings_indexed} rules...")
                     db_session.commit()
 
             except Exception as e:
+                error_count += 1
+                if progress_callback:
+                    progress_callback(embeddings_indexed + error_count, len(rules))
                 db_session.expunge(rule)
                 logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
-                error_count += 1
                 continue
 
         db_session.commit()
