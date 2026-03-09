@@ -131,6 +131,8 @@ def index_metadata_cmd(force: bool):
 @click.option("--force", is_flag=True, help="Force regenerate all embeddings")
 def index_embeddings_cmd(force: bool):
     """Generate embeddings for Sigma rules (uses local sentence-transformers)."""
+    from rich.progress import BarColumn, MofNCompleteColumn, TimeElapsedColumn, TimeRemainingColumn
+
     console.print("[bold blue]Generating Sigma rule embeddings...[/bold blue]")
 
     try:
@@ -140,10 +142,22 @@ def index_embeddings_cmd(force: bool):
         sync_service = SigmaSyncService()
 
         with Progress(
-            SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
         ) as progress:
-            task = progress.add_task("Generating embeddings...", total=None)
-            result = sync_service.index_embeddings(session, force_reindex=force)
+            task = progress.add_task("Embedding rules...", total=None)
+
+            def on_progress(current, total):
+                if progress.tasks[task].total is None:
+                    progress.update(task, total=total)
+                progress.update(task, completed=current)
+
+            result = sync_service.index_embeddings(session, force_reindex=force, progress_callback=on_progress)
             progress.update(task, description="Complete")
 
         console.print(
