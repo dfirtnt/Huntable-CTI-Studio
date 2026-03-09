@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Sigma GitHub repo setup in setup.sh** (2026-03-09): `./setup.sh` now prompts to clone or create the Sigma rules repo (`../Huntable-SIGMA-Rules`) for PR submission. Creates repo at github.com/new first, then enters `owner/repo`; clones or creates local rules structure on failure. Default prompt `your-username/Huntable-SIGMA-Rules`. Post-install reminds user to add GitHub PAT in Settings. Non-interactive: set `SIGMA_GITHUB_REPO=owner/repo`. Docs updated (configuration, generate-sigma, sigma-rules, DOCKER_ARCHITECTURE).
+- **Sigma path standardization** (2026-03-09): `SIGMA_REPO_PATH` standardized on `sigma-repo` (single path for Docker and local). Removed Docker vs Local branching in `SigmaPRService`. Settings UI placeholder and helper text simplified.
+
 ### Changed
 - **LMStudio made optional** (2026-03-09): LMStudio is no longer the implicit default LLM provider. New workflow configs default to an empty provider (`""`); existing DB configs are unaffected. `workflow_lmstudio_enabled` now defaults to `False` (opt-in). Provider fallback removed from `LLMService` — a missing provider raises a clear `RuntimeError` instead of silently routing to LMStudio. `SigmaMatchingService` now uses `EmbeddingService(model_name="intfloat/e5-base-v2")` for query embeddings (same model as `sigma index-embeddings`) instead of `LMStudioEmbeddingClient`. The LMStudio model auto-loader in the agentic workflow is skipped unless at least one agent is configured to use lmstudio.
 
