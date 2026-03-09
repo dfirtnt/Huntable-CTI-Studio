@@ -564,14 +564,29 @@ Matches for Article 123
 ### Environment Variables
 
 ```bash
-# SIGMA repository and matching
-SIGMA_REPO_PATH=./data/sigma-repo
+# SIGMA rule indexing (SigmaHQ sync - for similarity search)
+# Uses ./data/sigma-repo by default (sigma sync/index)
+
+# SIGMA PR submission (your rules repo)
+SIGMA_REPO_PATH=sigma-repo
+GITHUB_REPO=owner/repo
+GITHUB_TOKEN=ghp_xxx   # Add in Settings → GitHub (repo scope)
+
+# Similarity matching
 SIGMA_MATCH_THRESHOLD=0.7
 
 # LM Studio embedding configuration (required for SIGMA embeddings)
 LMSTUDIO_EMBEDDING_URL=http://localhost:1234/v1/embeddings
 LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
 ```
+
+### GitHub PR Setup
+
+Submit approved rules from the Sigma Queue to your GitHub repo:
+
+1. **During `./setup.sh`**: Create repo at [github.com/new](https://github.com/new), enter `owner/repo` when prompted. The script clones to `../Huntable-SIGMA-Rules` and creates the `rules/` structure.
+2. **After setup**: Add your GitHub Personal Access Token in **Settings → GitHub** (repo scope). Create at [github.com/settings/tokens](https://github.com/settings/tokens).
+3. **Settings → GitHub**: SIGMA Repository Path (`sigma-repo`), GitHub Repository (`owner/repo`), and Git user name/email for commits.
 
 ### AI Model Configuration
 

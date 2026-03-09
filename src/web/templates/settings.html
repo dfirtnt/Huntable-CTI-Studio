@@ -660,12 +660,10 @@
                     </label>
                     <input type="text"
                            id="sigmaRepoPath"
-                           placeholder="huntable-sigma-repo"
+                           placeholder="sigma-repo"
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Path to the SIGMA rules repository inside the container.
-                        <br><strong>Docker:</strong> Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code> (mounted at <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">/app/sigma-repo</code>)
-                        <br><strong>Local:</strong> Use <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">../Huntable-SIGMA-Rules</code> or absolute path
+                        Path to your SIGMA rules repo (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">../Huntable-SIGMA-Rules</code> there.
                     </p>
                 </div>
 
@@ -1332,11 +1330,11 @@
                 document.getElementById('sigmaRepoPath').value = data.value;
             } else {
                 // Fallback to localStorage or default
-                document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'huntable-sigma-repo';
+                document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
             }
         } catch (error) {
             console.log('Could not fetch SIGMA_REPO_PATH from database:', error);
-            document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'huntable-sigma-repo';
+            document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
         }
         
         // GitHub Repo - check database first

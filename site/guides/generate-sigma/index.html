@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -1112,6 +1112,17 @@
     <span class="md-ellipsis">
       
         4) Match existing rules from CLI (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-submit-approved-rules-as-pr-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5) Submit approved rules as PR (optional)
       
     </span>
   </a>
@@ -2724,6 +2735,27 @@ Each entry includes validation details, attempt logs, and similarity matches aga
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match<span class="w"> </span><span class="si">${</span><span class="nv">ARTICLE_ID</span><span class="si">}</span><span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.7<span class="w"> </span>--save
 </code></pre></div>
 This compares the article (and its chunks) to indexed Sigma rules and stores results in the database.</p>
+<h2 id="5-submit-approved-rules-as-pr-optional">5) Submit approved rules as PR (optional)<a class="headerlink" href="#5-submit-approved-rules-as-pr-optional" title="Permanent link">&para;</a></h2>
+<p>To submit approved rules from the Sigma Queue to your GitHub repo:</p>
+<p><strong>One-time setup (run during <code>./setup.sh</code> or manually):</strong></p>
+<ol>
+<li>Create a repo at <a href="https://github.com/new">github.com/new</a> (e.g. <code>Huntable-SIGMA-Rules</code>)</li>
+<li>Clone to <code>../Huntable-SIGMA-Rules</code> (or let setup.sh do it when prompted)</li>
+<li>Add your <strong>GitHub Personal Access Token</strong> in <strong>Settings → GitHub</strong> (repo scope)</li>
+<li>Create token at <a href="https://github.com/settings/tokens">github.com/settings/tokens</a></li>
+</ol>
+<p><strong>Manual setup if you skipped setup.sh:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/YOUR_USER/Huntable-SIGMA-Rules.git<span class="w"> </span>../Huntable-SIGMA-Rules
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>../Huntable-SIGMA-Rules
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>rules/<span class="o">{</span>windows,linux,macos,network,cloud<span class="o">}</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Add .gitkeep or initial rules, then commit and push</span>
+</code></pre></div>
+<p>Configure in <strong>Settings → GitHub</strong>:</p>
+<ul>
+<li>SIGMA Repository Path: <code>sigma-repo</code> (default)</li>
+<li>GitHub Repository: <code>owner/repo</code></li>
+<li>GitHub Personal Access Token: required</li>
+</ul>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
 <ul>
 <li>If validation fails, the Sigma agent retries up to three times with pySigma error feedback.</li>

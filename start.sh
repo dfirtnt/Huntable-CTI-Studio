@@ -283,8 +283,31 @@ if [ -f "mkdocs.yml" ]; then
     if ! "$py" -m mkdocs build --strict 2>/dev/null; then
         "$py" -m mkdocs build
     fi
-    echo "✅ Starting MkDocs server in background..."
-    nohup "$py" -m mkdocs serve >> logs/mkdocs.log 2>&1 </dev/null &
-    disown -h
+    start_mkdocs=true
+    existing_pids="$(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true)"
+    if [ -n "$existing_pids" ]; then
+        mkdocs_pids=""
+        for pid in $existing_pids; do
+            cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+            if [[ "$cmd" == *"mkdocs serve"* ]]; then
+                mkdocs_pids="$mkdocs_pids $pid"
+            fi
+        done
+        if [ -n "${mkdocs_pids// }" ]; then
+            echo "♻️  Restarting existing MkDocs server on :8000..."
+            # shellcheck disable=SC2086
+            kill $mkdocs_pids
+            sleep 1
+        else
+            echo "⚠️  Port 8000 is in use by a non-MkDocs process; skipping docs auto-start."
+            echo ""
+            start_mkdocs=false
+        fi
+    fi
+    if [ "$start_mkdocs" = true ]; then
+        echo "✅ Starting MkDocs server in background..."
+        nohup "$py" -m mkdocs serve -a 127.0.0.1:8000 >> logs/mkdocs.log 2>&1 </dev/null &
+        disown -h
+    fi
 fi
 echo ""

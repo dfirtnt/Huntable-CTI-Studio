@@ -17,7 +17,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -2629,7 +2629,7 @@
 <ul>
 <li><strong>Named volumes:</strong> <code>postgres_data</code>, <code>redis_data</code>, <code>langflow_data</code> (defined; LangFlow service is commented out).</li>
 <li><strong>Postgres init:</strong> With override, <code>./init-scripts</code> is mounted at <code>/docker-entrypoint-initdb.d</code> (all scripts there run on first init).</li>
-<li><strong>App bind mounts (web / workers):</strong> <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./models</code>, <code>./outputs</code>, <code>./scripts</code>, <code>./allure-results</code>, <code>./test-results</code>, <code>../Huntable-SIGMA-Rules</code> → <code>/app/sigma-repo</code>. Web only: <code>./backups</code>, Docker socket <code>/var/run/docker.sock</code>, and host timezone at <code>/etc/localtime</code>.</li>
+<li><strong>App bind mounts (web / workers):</strong> <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./models</code>, <code>./outputs</code>, <code>./scripts</code>, <code>./allure-results</code>, <code>./test-results</code>, <code>../Huntable-SIGMA-Rules</code> → <code>/app/sigma-repo</code>. Web only: <code>./backups</code>, Docker socket <code>/var/run/docker.sock</code>, and host timezone at <code>/etc/localtime</code>. The Sigma repo is set up during <code>./setup.sh</code> (clone or create with rules structure); see <a href="../../getting-started/configuration/">Configuration</a> (SIGMA / GitHub Integration).</li>
 <li><strong>CLI:</strong> <code>./src</code>, <code>./config</code>, <code>./logs</code>, <code>./tests</code>, <code>./data</code>, <code>./backups</code>.</li>
 </ul>
 <h2 id="resource-limits-env-overridable">Resource limits (env-overridable)<a class="headerlink" href="#resource-limits-env-overridable" title="Permanent link">&para;</a></h2>

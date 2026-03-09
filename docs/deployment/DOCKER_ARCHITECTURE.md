@@ -25,7 +25,7 @@ This reflects the current `docker-compose.yml` and `docker-compose.override.yml`
 
 - **Named volumes:** `postgres_data`, `redis_data`, `langflow_data` (defined; LangFlow service is commented out).
 - **Postgres init:** With override, `./init-scripts` is mounted at `/docker-entrypoint-initdb.d` (all scripts there run on first init).
-- **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./allure-results`, `./test-results`, `../Huntable-SIGMA-Rules` → `/app/sigma-repo`. Web only: `./backups`, Docker socket `/var/run/docker.sock`, and host timezone at `/etc/localtime`.
+- **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./allure-results`, `./test-results`, `../Huntable-SIGMA-Rules` → `/app/sigma-repo`. Web only: `./backups`, Docker socket `/var/run/docker.sock`, and host timezone at `/etc/localtime`. The Sigma repo is set up during `./setup.sh` (clone or create with rules structure); see [Configuration](../getting-started/configuration.md) (SIGMA / GitHub Integration).
 - **CLI:** `./src`, `./config`, `./logs`, `./tests`, `./data`, `./backups`.
 
 ## Resource limits (env-overridable)
