@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from src.services.embedding_service import EmbeddingService
+
 logger = logging.getLogger(__name__)
 
 
@@ -587,6 +589,116 @@ class SigmaSyncService:
         )
 
         return {"metadata_indexed": indexed_count, "skipped": skipped_count, "errors": error_count}
+
+    def index_embeddings(self, db_session, force_reindex: bool = False) -> dict:
+        """
+        Generate embeddings for Sigma rules that lack them.
+
+        Uses local sentence-transformers (intfloat/e5-base-v2), no LMStudio dependency.
+
+        Args:
+            db_session: SQLAlchemy session
+            force_reindex: If True, regenerate embeddings for all rules
+
+        Returns:
+            Dict with embeddings_indexed, skipped, errors counts
+        """
+        from src.database.models import SigmaRuleTable
+
+        logger.info("Starting Sigma rule embedding generation...")
+
+        # Initialize local embedding service
+        try:
+            embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
+        except Exception as e:
+            logger.error(f"Failed to initialize embedding service: {e}")
+            return {"embeddings_indexed": 0, "skipped": 0, "errors": 1, "error": str(e)}
+
+        # Get rules that need embeddings
+        if force_reindex:
+            rules = db_session.query(SigmaRuleTable).all()
+        else:
+            rules = db_session.query(SigmaRuleTable).filter(SigmaRuleTable.embedding.is_(None)).all()
+
+        logger.info(f"Found {len(rules)} rules needing embeddings")
+
+        embeddings_indexed = 0
+        error_count = 0
+        embedding_model_name = "intfloat/e5-base-v2"
+
+        for rule in rules:
+            try:
+                # Build rule_data dict from DB row for embedding text generation
+                rule_data = {
+                    "title": rule.title,
+                    "description": rule.description,
+                    "tags": rule.tags or [],
+                    "logsource": rule.logsource or {},
+                    "detection": rule.detection or {},
+                }
+
+                # Generate main embedding
+                embedding_text = self.create_rule_embedding_text(rule_data)
+                embedding = embedding_service.generate_embedding(embedding_text)
+
+                # Generate section embeddings
+                section_texts = self.create_section_embeddings_text(rule_data)
+                section_texts_list = [
+                    section_texts["title"],
+                    section_texts["description"],
+                    section_texts["tags"],
+                    section_texts["signature"],
+                ]
+                section_embeddings = embedding_service.generate_embeddings_batch(section_texts_list)
+
+                while len(section_embeddings) < 4:
+                    section_embeddings.append([0.0] * 768)
+
+                title_emb = (
+                    section_embeddings[0] if section_embeddings[0] and len(section_embeddings[0]) == 768 else None
+                )
+                description_emb = (
+                    section_embeddings[1] if section_embeddings[1] and len(section_embeddings[1]) == 768 else None
+                )
+                tags_emb = (
+                    section_embeddings[2] if section_embeddings[2] and len(section_embeddings[2]) == 768 else None
+                )
+                signature_emb = (
+                    section_embeddings[3] if section_embeddings[3] and len(section_embeddings[3]) == 768 else None
+                )
+
+                # Update rule with embeddings
+                rule.embedding = embedding
+                rule.embedding_model = embedding_model_name
+                rule.embedded_at = datetime.now()
+                rule.title_embedding = title_emb
+                rule.description_embedding = description_emb
+                rule.tags_embedding = tags_emb
+                rule.logsource_embedding = signature_emb
+                rule.detection_structure_embedding = signature_emb
+                rule.detection_fields_embedding = signature_emb
+
+                embeddings_indexed += 1
+                if embeddings_indexed % 100 == 0:
+                    logger.info(f"Embedded {embeddings_indexed} rules...")
+                    db_session.commit()
+
+            except Exception as e:
+                logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
+                error_count += 1
+                db_session.rollback()
+                continue
+
+        db_session.commit()
+        skipped = len(rules) - embeddings_indexed - error_count
+        logger.info(
+            f"Embedding generation complete: {embeddings_indexed} indexed, {skipped} skipped, {error_count} errors"
+        )
+        return {
+            "embeddings_indexed": embeddings_indexed,
+            "skipped": max(0, skipped),
+            "errors": error_count,
+        }
 
     def index_rules(self, db_session, force_reindex: bool = False) -> int:
         """
