@@ -68,7 +68,6 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
-      - LLM_MODEL=tinyllama
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
       - CHATGPT_CONTENT_LIMIT=1000000
