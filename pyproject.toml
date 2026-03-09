@@ -27,6 +27,7 @@ select = [
 "src/services/evaluation/eval_runner.py" = ["E501"]
 "src/services/llm_service.py" = ["E501"]
 "src/web/routes/workflow_executions.py" = ["E501"]
+"src/worker/celery_app.py" = ["E402", "E501", "SIM105", "RET504", "B904", "B905", "F841"]
 
 [tool.ruff.format]
 # Use ruff as the formatter (enabled by default when ruff is installed)
