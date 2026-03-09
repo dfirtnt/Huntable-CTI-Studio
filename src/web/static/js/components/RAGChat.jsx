@@ -10,6 +10,7 @@ const RAGChat = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [capabilities, setCapabilities] = useState(null);
   const [settings, setSettings] = useState({
     maxResults: 10,  // Default to 10 chunks for better precision
     similarityThreshold: 0.3,  // Lower threshold for broader coverage
@@ -52,6 +53,14 @@ const RAGChat = () => {
         console.error('Failed to parse settings:', e);
       }
     }
+  }, []);
+
+  // Fetch capabilities on mount
+  useEffect(() => {
+    fetch('/api/capabilities')
+      .then(res => res.json())
+      .then(data => setCapabilities(data))
+      .catch(err => console.error('Failed to fetch capabilities:', err));
   }, []);
 
   const handleSendMessage = async () => {
@@ -101,6 +110,11 @@ const RAGChat = () => {
         llmModelName: data.llm_model_name || data.llmModelName
       };
 
+      // Update capabilities from response if present
+      if (data.capabilities) {
+        setCapabilities(prev => ({ ...prev, ...data.capabilities }));
+      }
+
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -125,6 +139,36 @@ const RAGChat = () => {
 
   const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString();
+  };
+
+  const renderCapabilityBanners = () => {
+    if (!capabilities) return null;
+
+    const banners = [];
+
+    if (capabilities.sigma_retrieval && !capabilities.sigma_retrieval.enabled) {
+      banners.push(
+        <div key="sigma" className="bg-yellow-900/30 border border-yellow-700 text-yellow-200 px-4 py-2 rounded mb-2 text-sm">
+          <strong>Sigma rule search unavailable:</strong> {capabilities.sigma_retrieval.reason}.
+          {capabilities.sigma_retrieval.action && (
+            <span className="ml-1 text-yellow-400">{capabilities.sigma_retrieval.action}</span>
+          )}
+        </div>
+      );
+    }
+
+    if (capabilities.llm_generation && !capabilities.llm_generation.enabled) {
+      banners.push(
+        <div key="llm" className="bg-yellow-900/30 border border-yellow-700 text-yellow-200 px-4 py-2 rounded mb-2 text-sm">
+          <strong>LLM generation unavailable:</strong> {capabilities.llm_generation.reason}.
+          {capabilities.llm_generation.action && (
+            <span className="ml-1 text-yellow-400">{capabilities.llm_generation.action}</span>
+          )}
+        </div>
+      );
+    }
+
+    return banners.length > 0 ? <div className="mb-3">{banners}</div> : null;
   };
 
   const renderMessage = (message, index) => {
@@ -256,6 +300,7 @@ const RAGChat = () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900">
+        {renderCapabilityBanners()}
         {messages.map((message, index) => renderMessage(message, index))}
         
         {isLoading && (
