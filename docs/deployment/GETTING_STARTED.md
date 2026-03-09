@@ -11,10 +11,10 @@ Concise setup that matches the current Docker and CLI.
 ```bash
 git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
-cp .env.example .env              # set POSTGRES_PASSWORD and API keys [optional for secure install. Default passwords work for demo purposes.]
-./start.sh                        # builds + starts compose stack
+./setup.sh --no-backups           # provisions .env and secure defaults
+./start.sh                        # daily startup (builds + starts compose stack)
 ```
-`start.sh` may prompt to run the MkDocs docs server; if you choose **y**, it runs in the background (logs: `logs/mkdocs.log`).
+`start.sh` now requires an existing `.env` from setup and fails fast if `.env` is missing or still uses template placeholders.
 
 Access:
 - Web UI/API: http://localhost:8001
@@ -30,12 +30,12 @@ Access:
 - cli (profile `tools`): `python -m src.cli.main`
 
 ## Required environment
-Set these in `.env` before running `./start.sh`:
+Run `./setup.sh` before `./start.sh` so `.env` is created and initialized. If you edit `.env` manually after setup, keep these values valid:
 - `POSTGRES_PASSWORD=<strong password>`
 - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `CHATGPT_API_KEY` (optional AI features)
 - `LMSTUDIO_API_URL` (default: `http://host.docker.internal:1234/v1`)
 - `LMSTUDIO_MODEL`, `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, `LMSTUDIO_MODEL_SIGMA` (defaults set in compose)
-- Langfuse tracing: configure via Settings UI (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, etc.) or env vars
+- Langfuse tracing: configure via Settings UI or env vars. This project supports Langfuse Cloud only, and tracing can export sensitive prompts, outputs, and workflow metadata off-box. See [Langfuse Setup](../guides/langfuse-setup.md).
 
 Notes:
 - `.env.example` template includes required PostgreSQL configuration; Docker uses PostgreSQL via `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper` defined in compose.

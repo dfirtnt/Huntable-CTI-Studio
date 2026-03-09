@@ -5,9 +5,9 @@ Huntable CTI Studio configuration is managed through environment variables (`.en
 ## Configuration Files
 
 ### Environment Variables (.env)
-Primary configuration file for sensitive values and service settings. Copy from template:
+Primary configuration file for sensitive values and service settings. Provision it with setup:
 ```bash
-cp .env.example .env
+./setup.sh --no-backups
 ```
 
 ### Docker Compose (docker-compose.yml)
@@ -160,13 +160,22 @@ python3 scripts/build_baseline_presets.py
 
 ### LangFuse Observability
 
-| Variable | Purpose |
-|----------|---------|
-| `LANGFUSE_PUBLIC_KEY` | LangFuse public key |
-| `LANGFUSE_SECRET_KEY` | LangFuse secret key |
-| `LANGFUSE_HOST` | LangFuse server URL |
+| Variable | Purpose | Notes |
+|----------|---------|-------|
+| `LANGFUSE_PUBLIC_KEY` | LangFuse public key | Required to enable tracing |
+| `LANGFUSE_SECRET_KEY` | LangFuse secret key | Required to enable tracing |
+| `LANGFUSE_HOST` | LangFuse Cloud host URL | Optional; runtime default is `https://cloud.langfuse.com` |
+| `LANGFUSE_PROJECT_ID` | LangFuse project ID | Optional; improves workflow trace deep links in the UI |
 
-Configure LangFuse either through environment variables or via the Settings UI.
+Configure Langfuse through environment variables or the Settings UI. Settings stored in the web UI take precedence over the same values in the environment.
+
+Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments may be technically possible in Langfuse itself, but they are outside this project's supported and tested configurations.
+
+Use `LANGFUSE_HOST` for the correct Langfuse Cloud region for your account. If you do not set it, the runtime defaults to `https://cloud.langfuse.com`. Common cloud hosts include `https://cloud.langfuse.com`, `https://us.cloud.langfuse.com`, and `https://hipaa.cloud.langfuse.com`.
+
+Security note: Langfuse receives workflow and LLM telemetry. Depending on the workflow path, traces may contain prompts, article content, extracted observables, outputs, and metadata. Enable Langfuse only where external cloud tracing is acceptable for your data.
+
+See [Langfuse Setup](../guides/langfuse-setup.md) for the full setup and verification workflow.
 
 ### SIGMA / GitHub Integration
 

@@ -13,13 +13,17 @@ This guide covers installing and running Huntable CTI Studio using Docker Compos
 ```bash
 git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
-cp .env.example .env
-# Edit .env and set POSTGRES_PASSWORD and optional API keys
+./setup.sh --no-backups
+# or non-interactive:
+# ./setup.sh --non-interactive --no-backups
 ./start.sh
 ```
 
+`setup.sh` provisions `.env` and first-run security settings.
+
 The `start.sh` script will:
-- Create necessary `logs/` and `data/` directories
+- Reuse the pre-provisioned `.env` from setup (it will fail fast if missing or still templated)
+- Create necessary runtime directories (`logs/`, `backups/`, `models/`, `outputs/`, `data/`)
 - Run `docker-compose up --build -d`
 - Health-check PostgreSQL, Redis, and the web application
 - Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
@@ -41,7 +45,7 @@ Additional exposed ports:
 
 ## Environment Configuration
 
-Before running `./start.sh`, configure these variables in `.env`:
+Before running `./start.sh`, run `./setup.sh` (which creates and configures `.env`). If you edit `.env` manually afterward, keep these variables valid:
 
 ### Required
 - `POSTGRES_PASSWORD=<strong password>` - Database authentication
@@ -59,10 +63,20 @@ Before running `./start.sh`, configure these variables in `.env`:
 - `LMSTUDIO_MODEL_SIGMA` - SIGMA rule generation model
 
 ### Langfuse Tracing (Optional)
-Configure via the Settings UI or environment variables:
-- `LANGFUSE_PUBLIC_KEY`
-- `LANGFUSE_SECRET_KEY`
-- Additional Langfuse settings in `.env.example`
+Langfuse is an optional tracing integration for workflow and LLM observability.
+
+!!! warning "Cloud-only support and security boundary"
+    Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are not supported by this project.
+
+    Enabling Langfuse sends operational telemetry to a third-party cloud service. Depending on the workflow, traces may contain prompts, article excerpts, extracted observables, model outputs, workflow metadata, and debug context. Enable it only if your organization permits sending that data to Langfuse Cloud.
+
+Configure Langfuse through the Settings UI or environment variables:
+- `LANGFUSE_PUBLIC_KEY` required
+- `LANGFUSE_SECRET_KEY` required
+- `LANGFUSE_HOST` optional, defaults to `https://cloud.langfuse.com`
+- `LANGFUSE_PROJECT_ID` optional, but recommended for stronger workflow debug links
+
+For the full setup flow, region host selection, verification steps, and troubleshooting, see [Langfuse Setup](../guides/langfuse-setup.md).
 
 **Notes**:
 - `.env.example` template includes required PostgreSQL configuration

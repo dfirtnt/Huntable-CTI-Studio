@@ -33,19 +33,27 @@ The Huntable CTI Studio debugging tools provide:
 
 ### Overview
 
-The agentic workflow integrates with LangFuse to provide comprehensive tracing and debugging capabilities. Each workflow execution creates a session in LangFuse that groups all traces, spans, and events for that execution.
+The agentic workflow integrates with LangFuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
+
+!!! warning "Cloud-only support and sensitive trace data"
+    Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are not supported by this project.
+
+    Trace inspection can expose sensitive prompts, article excerpts, extracted observables, outputs, and workflow metadata. Limit Langfuse access to authorized users and enable tracing only if your organization permits sending that telemetry to Langfuse Cloud.
 
 ### Accessing Debug Links
 
-From the Workflow Executions page, each execution has a **Debug** button that takes you directly to the LangFuse session:
+From the Workflow Executions page, each execution has a **Debug** button that prefers a direct Langfuse trace URL and falls back to a trace search for the workflow `session_id` when full trace metadata is unavailable.
+
+Direct trace URL:
 
 ```
-https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_{execution_id}
+https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}
 ```
 
-**Example**: For execution #86, the session URL is:
+Search fallback:
+
 ```
-https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86
+https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
 ### Session Structure
@@ -97,21 +105,21 @@ trace_id = span.trace_id
 
 ### Viewing Workflow Traces
 
-#### Session View (Recommended)
+#### Trace View (Recommended)
 
-The session view shows all traces for a workflow execution grouped together:
+The workflow UI prefers a direct trace view when it has both trace and project metadata:
 
 1. Click **Debug** button on workflow execution
-2. View all workflow steps in chronological order
+2. Open the workflow trace directly in Langfuse
 3. See inputs, outputs, and metadata for each step
 4. Track token usage and latency per agent
 
-#### Trace View (Individual Steps)
+#### Search View (Fallback)
 
-To view an individual trace:
+If the execution does not have a resolved trace ID or project ID, the UI falls back to Langfuse trace search using the workflow session identifier:
 
 ```
-https://us.cloud.langfuse.com/project/{project_id}/traces/{trace_id}
+https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
 ### Debugging Workflow Issues
@@ -126,14 +134,28 @@ When debugging workflow failures:
 
 ### Configuration
 
-LangFuse configuration is set via environment variables:
+LangFuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_HOST=https://us.cloud.langfuse.com
+LANGFUSE_HOST=https://cloud.langfuse.com
 LANGFUSE_PROJECT_ID=your-project-id
 ```
+
+- `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are required to emit traces.
+- `LANGFUSE_HOST` is optional and defaults to `https://cloud.langfuse.com` in the runtime client.
+- `LANGFUSE_PROJECT_ID` is optional but recommended because it improves workflow debug deep links.
+- Use the Langfuse Cloud host for your account region. This project does not support local or self-hosted Langfuse deployments.
+
+For setup, host selection, security guidance, and troubleshooting, see [Langfuse Setup](../guides/langfuse-setup.md).
+
+### Common Setup Failures
+
+- Missing `LANGFUSE_PUBLIC_KEY` or `LANGFUSE_SECRET_KEY`: tracing is disabled and workflows run without emitting Langfuse traces.
+- Wrong `LANGFUSE_HOST`: the connection test can fail even with valid keys if the host does not match the Langfuse Cloud region for that project.
+- Missing `LANGFUSE_PROJECT_ID`: traces can still be emitted, but workflow debug links may fall back to broader search URLs instead of project-scoped direct links.
+- No trace for an execution: traces only exist for runs that actually executed while Langfuse was enabled.
 
 ### Code References
 
@@ -703,19 +725,27 @@ The Huntable CTI Studio debugging tools provide:
 
 ### Overview
 
-The agentic workflow integrates with LangFuse to provide comprehensive tracing and debugging capabilities. Each workflow execution creates a session in LangFuse that groups all traces, spans, and events for that execution.
+The agentic workflow integrates with LangFuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
+
+!!! warning "Cloud-only support and sensitive trace data"
+    Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are not supported by this project.
+
+    Trace inspection can expose sensitive prompts, article excerpts, extracted observables, outputs, and workflow metadata. Limit Langfuse access to authorized users and enable tracing only if your organization permits sending that telemetry to Langfuse Cloud.
 
 ### Accessing Debug Links
 
-From the Workflow Executions page, each execution has a **Debug** button that takes you directly to the LangFuse session:
+From the Workflow Executions page, each execution has a **Debug** button that prefers a direct Langfuse trace URL and falls back to a trace search for the workflow `session_id` when full trace metadata is unavailable.
+
+Direct trace URL:
 
 ```
-https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_{execution_id}
+https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}
 ```
 
-**Example**: For execution #86, the session URL is:
+Search fallback:
+
 ```
-https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86
+https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
 ### Session Structure
@@ -767,21 +797,21 @@ trace_id = span.trace_id
 
 ### Viewing Workflow Traces
 
-#### Session View (Recommended)
+#### Trace View (Recommended)
 
-The session view shows all traces for a workflow execution grouped together:
+The workflow UI prefers a direct trace view when it has both trace and project metadata:
 
 1. Click **Debug** button on workflow execution
-2. View all workflow steps in chronological order
+2. Open the workflow trace directly in Langfuse
 3. See inputs, outputs, and metadata for each step
 4. Track token usage and latency per agent
 
-#### Trace View (Individual Steps)
+#### Search View (Fallback)
 
-To view an individual trace:
+If the execution does not have a resolved trace ID or project ID, the UI falls back to Langfuse trace search using the workflow session identifier:
 
 ```
-https://us.cloud.langfuse.com/project/{project_id}/traces/{trace_id}
+https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
 ### Debugging Workflow Issues
@@ -796,14 +826,28 @@ When debugging workflow failures:
 
 ### Configuration
 
-LangFuse configuration is set via environment variables:
+LangFuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_HOST=https://us.cloud.langfuse.com
+LANGFUSE_HOST=https://cloud.langfuse.com
 LANGFUSE_PROJECT_ID=your-project-id
 ```
+
+- `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are required to emit traces.
+- `LANGFUSE_HOST` is optional and defaults to `https://cloud.langfuse.com` in the runtime client.
+- `LANGFUSE_PROJECT_ID` is optional but recommended because it improves workflow debug deep links.
+- Use the Langfuse Cloud host for your account region. This project does not support local or self-hosted Langfuse deployments.
+
+For setup, host selection, security guidance, and troubleshooting, see [Langfuse Setup](../guides/langfuse-setup.md).
+
+### Common Setup Failures
+
+- Missing `LANGFUSE_PUBLIC_KEY` or `LANGFUSE_SECRET_KEY`: tracing is disabled and workflows run without emitting Langfuse traces.
+- Wrong `LANGFUSE_HOST`: the connection test can fail even with valid keys if the host does not match the Langfuse Cloud region for that project.
+- Missing `LANGFUSE_PROJECT_ID`: traces can still be emitted, but workflow debug links may fall back to broader search URLs instead of project-scoped direct links.
+- No trace for an execution: traces only exist for runs that actually executed while Langfuse was enabled.
 
 ### Code References
 
