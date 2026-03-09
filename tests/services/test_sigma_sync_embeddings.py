@@ -18,11 +18,12 @@ def mock_db_session():
     session.no_autoflush = MagicMock()
     session.no_autoflush.__enter__ = MagicMock(return_value=None)
     session.no_autoflush.__exit__ = MagicMock(return_value=False)
+    session.begin_nested.return_value = MagicMock()
     return session
 
 
 class TestIndexEmbeddings:
-    @patch("src.services.sigma_sync_service.EmbeddingService")
+    @patch("src.services.embedding_service.EmbeddingService")
     def test_generates_embeddings_for_rules_without_them(self, mock_emb_cls, sync_service, mock_db_session):
         """Should generate embeddings for rules where embedding IS NULL."""
         mock_rule = MagicMock()
@@ -46,7 +47,7 @@ class TestIndexEmbeddings:
         assert result["embeddings_indexed"] >= 1
         assert mock_emb_instance.generate_embedding.called
 
-    @patch("src.services.sigma_sync_service.EmbeddingService")
+    @patch("src.services.embedding_service.EmbeddingService")
     def test_result_has_expected_keys(self, mock_emb_cls, sync_service, mock_db_session):
         mock_db_session.query.return_value.filter.return_value.all.return_value = []
         mock_emb_cls.return_value = MagicMock()
@@ -57,7 +58,7 @@ class TestIndexEmbeddings:
         assert "skipped" in result
         assert "errors" in result
 
-    @patch("src.services.sigma_sync_service.EmbeddingService")
+    @patch("src.services.embedding_service.EmbeddingService")
     def test_skips_rules_with_existing_embeddings(self, mock_emb_cls, sync_service, mock_db_session):
         """When force_reindex=False, rules with embeddings should be skipped."""
         mock_db_session.query.return_value.filter.return_value.all.return_value = []
@@ -69,7 +70,7 @@ class TestIndexEmbeddings:
     def test_handles_embedding_service_failure_gracefully(self, sync_service, mock_db_session):
         """If EmbeddingService cannot load, return error result instead of raising."""
         with patch(
-            "src.services.sigma_sync_service.EmbeddingService",
+            "src.services.embedding_service.EmbeddingService",
             side_effect=RuntimeError("Model not available"),
         ):
             result = sync_service.index_embeddings(mock_db_session)

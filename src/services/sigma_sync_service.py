@@ -15,8 +15,6 @@ from typing import Any
 
 import yaml
 
-from src.services.embedding_service import EmbeddingService
-
 logger = logging.getLogger(__name__)
 
 
@@ -607,8 +605,11 @@ class SigmaSyncService:
 
         logger.info("Starting Sigma rule embedding generation...")
 
-        # Initialize local embedding service
+        # Initialize local embedding service (lazy import to avoid breaking
+        # metadata-only paths when sentence-transformers is unavailable)
         try:
+            from src.services.embedding_service import EmbeddingService
+
             embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
         except Exception as e:
             logger.error(f"Failed to initialize embedding service: {e}")
@@ -627,6 +628,7 @@ class SigmaSyncService:
         embedding_model_name = "intfloat/e5-base-v2"
 
         for rule in rules:
+            savepoint = db_session.begin_nested()
             try:
                 # Build rule_data dict from DB row for embedding text generation
                 rule_data = {
@@ -678,15 +680,16 @@ class SigmaSyncService:
                 rule.detection_structure_embedding = signature_emb
                 rule.detection_fields_embedding = signature_emb
 
+                savepoint.commit()
                 embeddings_indexed += 1
                 if embeddings_indexed % 100 == 0:
                     logger.info(f"Embedded {embeddings_indexed} rules...")
                     db_session.commit()
 
             except Exception as e:
+                savepoint.rollback()
                 logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
                 error_count += 1
-                db_session.rollback()
                 continue
 
         db_session.commit()
