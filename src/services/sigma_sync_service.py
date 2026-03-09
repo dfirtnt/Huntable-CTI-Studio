@@ -627,71 +627,66 @@ class SigmaSyncService:
         embeddings_indexed = 0
         error_count = 0
         embedding_model_name = "intfloat/e5-base-v2"
+        now = datetime.now()
 
-        for rule in rules:
+        # Phase 1: collect all texts upfront (CPU-only, fast)
+        rule_data_list = [
+            {
+                "title": rule.title,
+                "description": rule.description,
+                "tags": rule.tags or [],
+                "logsource": rule.logsource or {},
+                "detection": rule.detection or {},
+            }
+            for rule in rules
+        ]
+        main_texts = [self.create_rule_embedding_text(rd) for rd in rule_data_list]
+        section_texts_list = [self.create_section_embeddings_text(rd) for rd in rule_data_list]
+        title_texts = [s["title"] for s in section_texts_list]
+        description_texts = [s["description"] for s in section_texts_list]
+        tags_texts = [s["tags"] for s in section_texts_list]
+        signature_texts = [s["signature"] for s in section_texts_list]
+
+        # Phase 2: batch generate all embeddings (5 calls total regardless of rule count)
+        logger.info("Batch generating main embeddings...")
+        main_embeddings = embedding_service.generate_embeddings_batch(main_texts)
+        logger.info("Batch generating section embeddings...")
+        title_embeddings = embedding_service.generate_embeddings_batch(title_texts)
+        description_embeddings = embedding_service.generate_embeddings_batch(description_texts)
+        tags_embeddings = embedding_service.generate_embeddings_batch(tags_texts)
+        signature_embeddings = embedding_service.generate_embeddings_batch(signature_texts)
+
+        def _valid(emb):
+            return emb if emb and len(emb) == 768 else None
+
+        # Phase 3: assign embeddings to DB rows and flush in batches
+        for i, rule in enumerate(rules):
             try:
-                # Build rule_data dict from DB row for embedding text generation
-                rule_data = {
-                    "title": rule.title,
-                    "description": rule.description,
-                    "tags": rule.tags or [],
-                    "logsource": rule.logsource or {},
-                    "detection": rule.detection or {},
-                }
-
-                # Generate main embedding
-                embedding_text = self.create_rule_embedding_text(rule_data)
-                embedding = embedding_service.generate_embedding(embedding_text)
-
-                # Generate section embeddings
-                section_texts = self.create_section_embeddings_text(rule_data)
-                section_texts_list = [
-                    section_texts["title"],
-                    section_texts["description"],
-                    section_texts["tags"],
-                    section_texts["signature"],
-                ]
-                section_embeddings = embedding_service.generate_embeddings_batch(section_texts_list)
-
-                while len(section_embeddings) < 4:
-                    section_embeddings.append([0.0] * 768)
-
-                title_emb = (
-                    section_embeddings[0] if section_embeddings[0] and len(section_embeddings[0]) == 768 else None
-                )
-                description_emb = (
-                    section_embeddings[1] if section_embeddings[1] and len(section_embeddings[1]) == 768 else None
-                )
-                tags_emb = (
-                    section_embeddings[2] if section_embeddings[2] and len(section_embeddings[2]) == 768 else None
-                )
-                signature_emb = (
-                    section_embeddings[3] if section_embeddings[3] and len(section_embeddings[3]) == 768 else None
-                )
-
-                # Update rule with embeddings
-                rule.embedding = embedding
+                rule.embedding = main_embeddings[i]
                 rule.embedding_model = embedding_model_name
-                rule.embedded_at = datetime.now()
-                rule.title_embedding = title_emb
-                rule.description_embedding = description_emb
-                rule.tags_embedding = tags_emb
-                rule.logsource_embedding = signature_emb
-                rule.detection_structure_embedding = signature_emb
-                rule.detection_fields_embedding = signature_emb
+                rule.embedded_at = now
+                rule.title_embedding = _valid(title_embeddings[i] if i < len(title_embeddings) else None)
+                rule.description_embedding = _valid(
+                    description_embeddings[i] if i < len(description_embeddings) else None
+                )
+                rule.tags_embedding = _valid(tags_embeddings[i] if i < len(tags_embeddings) else None)
+                sig_emb = _valid(signature_embeddings[i] if i < len(signature_embeddings) else None)
+                rule.logsource_embedding = sig_emb
+                rule.detection_structure_embedding = sig_emb
+                rule.detection_fields_embedding = sig_emb
 
                 embeddings_indexed += 1
                 if progress_callback:
                     progress_callback(embeddings_indexed + error_count, len(rules))
                 if embeddings_indexed % 100 == 0:
-                    logger.info(f"Embedded {embeddings_indexed} rules...")
+                    logger.info(f"Assigned {embeddings_indexed} embeddings...")
                     db_session.flush()
 
             except Exception as e:
                 error_count += 1
                 if progress_callback:
                     progress_callback(embeddings_indexed + error_count, len(rules))
-                logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
+                logger.error(f"Error assigning embeddings for rule {rule.rule_id}: {e}")
                 continue
 
         db_session.commit()
