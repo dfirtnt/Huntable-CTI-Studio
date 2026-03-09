@@ -628,7 +628,6 @@ class SigmaSyncService:
         embedding_model_name = "intfloat/e5-base-v2"
 
         for rule in rules:
-            savepoint = db_session.begin_nested()
             try:
                 # Build rule_data dict from DB row for embedding text generation
                 rule_data = {
@@ -680,14 +679,13 @@ class SigmaSyncService:
                 rule.detection_structure_embedding = signature_emb
                 rule.detection_fields_embedding = signature_emb
 
-                savepoint.commit()
                 embeddings_indexed += 1
                 if embeddings_indexed % 100 == 0:
                     logger.info(f"Embedded {embeddings_indexed} rules...")
                     db_session.commit()
 
             except Exception as e:
-                savepoint.rollback()
+                db_session.expunge(rule)
                 logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
                 error_count += 1
                 continue
