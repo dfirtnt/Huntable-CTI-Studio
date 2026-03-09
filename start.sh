@@ -149,6 +149,15 @@ else
     exit 1
 fi
 
+# Fix pgvector indexes (drop invalid B-tree, create HNSW) — required before embedding writes
+echo ""
+echo "🔧 Checking pgvector indexes..."
+if $DC run --rm cli python scripts/migrate_pgvector_indexes.py 2>/dev/null; then
+    echo "✅ pgvector indexes OK"
+else
+    echo "⚠️ pgvector migration failed (embedding writes may fail)"
+fi
+
 # Sigma: sync SigmaHQ repo; always index metadata, optionally index embeddings
 echo ""
 echo "📋 Sigma: syncing SigmaHQ repo..."

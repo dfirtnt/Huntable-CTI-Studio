@@ -312,6 +312,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./config:/app/config
+      - ./scripts:/app/scripts
       - ./logs:/app/logs
       - ./tests:/app/tests
       - ./data:/app/data
