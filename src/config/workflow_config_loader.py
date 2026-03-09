@@ -26,7 +26,8 @@ QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA"]
 UTILITY_AGENTS = ["OSDetectionFallback"]
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
-# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract + QA → ProcTree + QA → HuntQueries + QA → Sigma.
+# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract + QA
+# → ProcTree + QA → HuntQueries + QA → Sigma.
 AGENTS_ORDER_UI = [
     "OSDetectionFallback",
     "RankAgent",
@@ -154,7 +155,7 @@ def _agent_cfg(agents: dict, name: str) -> dict[str, Any]:
     if not isinstance(a, dict):
         a = {}
     return {
-        "Provider": a.get("Provider", "lmstudio"),
+        "Provider": a.get("Provider", ""),
         "Model": a.get("Model", ""),
         "Temperature": float(a.get("Temperature", 0.0)),
         "TopP": float(a.get("TopP", 0.9)),
@@ -172,7 +173,8 @@ def _prompt_cfg(prompts: dict, name: str) -> dict[str, Any]:
 def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     """
     Convert v2 dict to UI-ordered export: one block per UI section so JSON order
-    matches the workflow config page (Junk → QA Settings → OS Detection → Rank → Extract → Cmdline → ProcTree → HuntQueries → Sigma).
+    matches the workflow config page (Junk → QA Settings → OS Detection → Rank → Extract →
+    Cmdline → ProcTree → HuntQueries → Sigma).
     Each block contains that section's settings, prompt, and QA where applicable.
     """
     th = v2.get("Thresholds") or {}
@@ -300,9 +302,7 @@ def is_ui_ordered_preset(preset: dict[str, Any]) -> bool:
         r = preset["RankAgent"]
         if "RankingThreshold" in r and "Prompt" in r and ("Provider" in r or "Model" in r):
             return True
-    if "JunkFilter" in preset and "QASettings" in preset and "OSDetection" in preset:
-        return True
-    return False
+    return "JunkFilter" in preset and "QASettings" in preset and "OSDetection" in preset
 
 
 def _is_legacy_v1_shape(raw: dict[str, Any]) -> bool:
@@ -360,7 +360,7 @@ def validate_ui_ordered_preset_strict(ui: dict[str, Any]) -> None:
         raise ValueError("Preset import requires every setting to be set; missing or null: " + ", ".join(missing))
 
 
-def _default_agent(provider: str = "lmstudio", model: str = "", enabled: bool = False) -> dict[str, Any]:
+def _default_agent(provider: str = "", model: str = "", enabled: bool = False) -> dict[str, Any]:
     return {"Provider": provider, "Model": model, "Temperature": 0.0, "TopP": 0.9, "Enabled": enabled}
 
 
@@ -388,7 +388,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         qa_prompt: dict | None = None,
     ):
         agents[name] = {
-            "Provider": cfg.get("Provider", "lmstudio"),
+            "Provider": cfg.get("Provider", ""),
             "Model": cfg.get("Model", ""),
             "Temperature": float(cfg.get("Temperature", 0.0)),
             "TopP": float(cfg.get("TopP", 0.9)),
@@ -398,7 +398,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
             prompts[name] = prompt
         if qa_name and qa_cfg is not None:
             agents[qa_name] = {
-                "Provider": qa_cfg.get("Provider", "lmstudio"),
+                "Provider": qa_cfg.get("Provider", ""),
                 "Model": qa_cfg.get("Model", ""),
                 "Temperature": float(qa_cfg.get("Temperature", 0.0)),
                 "TopP": float(qa_cfg.get("TopP", 0.9)),
@@ -409,7 +409,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
 
     fallback = osd.get("Fallback") or {}
     agents["OSDetectionFallback"] = {
-        "Provider": fallback.get("Provider", "lmstudio"),
+        "Provider": fallback.get("Provider", ""),
         "Model": fallback.get("Model", ""),
         "Temperature": float(fallback.get("Temperature", 0.0)),
         "TopP": float(fallback.get("TopP", 0.9)),

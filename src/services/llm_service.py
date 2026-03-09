@@ -205,7 +205,7 @@ class LLMService:
         self.workflow_lmstudio_enabled = _enabled(
             WORKFLOW_PROVIDER_APPSETTING_KEYS["lmstudio_enabled"],
             "WORKFLOW_LMSTUDIO_ENABLED",
-            True,
+            False,
         )
 
         self.provider_defaults = {
@@ -215,9 +215,9 @@ class LLMService:
             "gemini": os.getenv("WORKFLOW_GEMINI_MODEL", default_model),
         }
 
-        self.provider_rank = self._canonicalize_provider(config_models.get("RankAgent_provider") or "lmstudio")
-        self.provider_extract = self._canonicalize_provider(config_models.get("ExtractAgent_provider") or "lmstudio")
-        self.provider_sigma = self._canonicalize_provider(config_models.get("SigmaAgent_provider") or "lmstudio")
+        self.provider_rank = self._canonicalize_provider(config_models.get("RankAgent_provider") or "")
+        self.provider_extract = self._canonicalize_provider(config_models.get("ExtractAgent_provider") or "")
+        self.provider_sigma = self._canonicalize_provider(config_models.get("SigmaAgent_provider") or "")
 
         rank_override = (config_models.get("RankAgent") or "").strip()
         rank_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
@@ -806,6 +806,11 @@ class LLMService:
         return result
 
     def _validate_provider(self, provider: str) -> None:
+        if not provider:
+            raise RuntimeError(
+                "No LLM provider configured for this agent. "
+                "Set Provider to 'anthropic', 'openai', or 'lmstudio' in workflow settings."
+            )
         if provider == "openai":
             if not self.workflow_openai_enabled:
                 raise RuntimeError(

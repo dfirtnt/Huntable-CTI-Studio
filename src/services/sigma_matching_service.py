@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from src.database.models import ArticleSigmaMatchTable, ArticleTable, ChunkAnalysisResultTable, SigmaRuleTable
 from src.services.embedding_service import EmbeddingService
-from src.services.lmstudio_embedding_client import LMStudioEmbeddingClient
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +37,12 @@ class SigmaMatchingService:
 
         Args:
             db_session: SQLAlchemy database session
-            config_models: Optional dict of agent models from workflow config (e.g., {"SigmaEmbeddingModel": "model_name"})
+            config_models: Optional dict of agent models from workflow config (unused, kept for API compatibility)
         """
         self.db = db_session
         self.embedding_service = EmbeddingService()  # For article embeddings
-        try:
-            self.sigma_embedding_client = LMStudioEmbeddingClient(
-                config_models=config_models
-            )  # For SIGMA rule embeddings
-        except Exception as e:
-            logger.warning(f"LM Studio client unavailable for SIGMA embeddings: {e}")
-            self.sigma_embedding_client = None
+        # sigma_embedding_client uses same model as index_embeddings() for consistency
+        self.sigma_embedding_client = EmbeddingService(model_name="intfloat/e5-base-v2")
 
     def match_article_to_rules(self, article_id: int, threshold: float = 0.0, limit: int = 10) -> list[dict[str, Any]]:
         """
@@ -524,8 +518,10 @@ Consider SIGMA quirks:
 
 Return ONLY a JSON array with one object per candidate rule, in this exact format:
 [
-  {"rule_index": 0, "similarity": 0.85, "explanation": "Both detect PowerShell version downgrade attacks using similar encoded command patterns, despite different log sources"},
-  {"rule_index": 1, "similarity": 0.15, "explanation": "Different attack types - one detects GoAnywhere exploitation, the other detects PowerShell downgrade"}
+  {"rule_index": 0, "similarity": 0.85, "explanation": "Both detect PowerShell version downgrade attacks "
+   "using similar encoded command patterns, despite different log sources"},
+  {"rule_index": 1, "similarity": 0.15, "explanation": "Different attack types - one detects GoAnywhere "
+   "exploitation, the other detects PowerShell downgrade"}
 ]
 
 Similarity scoring guide:
@@ -554,7 +550,8 @@ Similarity scoring guide:
 
 ### Task
 
-Rate the similarity of each candidate rule (0 = unrelated, 1 = nearly identical) based on what activity they detect and how.
+Rate the similarity of each candidate rule (0 = unrelated, 1 = nearly identical) based on what activity
+they detect and how.
 
 Return JSON array only, no markdown formatting."""
 
@@ -714,13 +711,16 @@ Return JSON array only, no markdown formatting."""
                         proposed_logsource_key = novelty_result.get("logsource_key", "")
                         rule_logsource_key = getattr(rule, "logsource_key", None)
 
-                        if rule_logsource_key and proposed_logsource_key:
-                            if rule_logsource_key != proposed_logsource_key:
-                                logger.warning(
-                                    f"Skipping rule {rule.rule_id}: logsource_key mismatch "
-                                    f"({rule_logsource_key} != {proposed_logsource_key})"
-                                )
-                                continue
+                        if (
+                            rule_logsource_key
+                            and proposed_logsource_key
+                            and rule_logsource_key != proposed_logsource_key
+                        ):
+                            logger.warning(
+                                f"Skipping rule {rule.rule_id}: logsource_key mismatch "
+                                f"({rule_logsource_key} != {proposed_logsource_key})"
+                            )
+                            continue
 
                         # Convert enum to string if needed
                         novelty_label_value = novelty_result.get("novelty_label", "NOVEL")
