@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../add-feed/">
+        <link rel="prev" href="../extract-observables/">
       
       
-        <link rel="next" href="../langfuse-setup/">
+        <link rel="next" href="../generate-sigma/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Extract Observables - Huntable CTI Studio</title>
+        <title>Langfuse Setup - Huntable CTI Studio</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#extract-observables" class="md-skip">
+        <a href="#langfuse-setup" class="md-skip">
           Skip to content
         </a>
       
@@ -110,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Extract Observables
+              Langfuse Setup
             
           </span>
         </div>
@@ -973,6 +973,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../extract-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract Observables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -992,7 +1020,7 @@
   <span class="md-ellipsis">
     
   
-    Extract Observables
+    Langfuse Setup
   
 
     
@@ -1010,7 +1038,7 @@
   <span class="md-ellipsis">
     
   
-    Extract Observables
+    Langfuse Setup
   
 
     
@@ -1036,10 +1064,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#what-the-app-uses-langfuse-for" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        What the app uses Langfuse for
       
     </span>
   </a>
@@ -1047,10 +1075,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-get-or-create-an-article" class="md-nav__link">
+  <a href="#before-you-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1) Get or create an article
+        Before you start
       
     </span>
   </a>
@@ -1058,10 +1086,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-trigger-the-workflow" class="md-nav__link">
+  <a href="#configuration-values" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2) Trigger the workflow
+        Configuration values
       
     </span>
   </a>
@@ -1069,10 +1097,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-monitor-extraction" class="md-nav__link">
+  <a href="#configure-huntable-cti-studio" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3) Monitor extraction
+        Configure Huntable CTI Studio
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Huntable CTI Studio">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-configure-in-the-settings-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 1: Configure in the Settings UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-configure-via-environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 2: Configure via environment variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-the-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify the integration
       
     </span>
   </a>
@@ -1080,32 +1147,71 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-where-results-show-up" class="md-nav__link">
+  <a href="#troubleshooting" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4) Where results show up
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connection-test-fails-because-keys-are-missing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection test fails because keys are missing
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#re-running-extraction" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#connection-test-fails-with-authorization-or-api-errors" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Re-running extraction
+        Connection test fails with authorization or API errors
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#cmdline-attention-preprocessor" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#workflows-run-but-debug-links-are-weaker-than-expected" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cmdline Attention Preprocessor
+        Workflows run, but debug links are weaker than expected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-workflow-has-no-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A workflow has no trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
       
     </span>
   </a>
@@ -1116,34 +1222,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../langfuse-setup/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Langfuse Setup
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2732,43 +2810,123 @@
 
 
 
-<h1 id="extract-observables">Extract Observables<a class="headerlink" href="#extract-observables" title="Permanent link">&para;</a></h1>
-<p>Trigger the LangGraph-managed Extract Observables workflow for any article to produce huntable observables that downstream Sigma generation consumes.</p>
-<p>This workflow orchestrates the Extract Agent (and any supporting sub-agents) through LangGraph rather than exposing a per-agent execution endpoint.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<h1 id="langfuse-setup">Langfuse Setup<a class="headerlink" href="#langfuse-setup" title="Permanent link">&para;</a></h1>
+<p>Use this guide to connect Huntable CTI Studio to Langfuse for workflow and LLM tracing.</p>
+<div class="admonition warning">
+<p class="admonition-title">Cloud-only support and security boundary</p>
+<p>Huntable CTI Studio supports <strong>Langfuse Cloud only</strong>. Local or self-hosted Langfuse deployments are <strong>not supported</strong> by this project.</p>
+<p>This is also a security boundary. Langfuse tracing exports operational telemetry off-box to a third-party cloud service. Depending on the workflow, traces may include prompts, article excerpts, extracted observables, model outputs, workflow metadata, and debugging context. Enable Langfuse only if your organization permits sending that telemetry to Langfuse Cloud and the traced data meets your policy requirements.</p>
+</div>
+<h2 id="what-the-app-uses-langfuse-for">What the app uses Langfuse for<a class="headerlink" href="#what-the-app-uses-langfuse-for" title="Permanent link">&para;</a></h2>
+<p>Huntable CTI Studio emits traces from the LangGraph/Celery workflow runtime and from individual LLM calls. Users do not run or connect to standalone "Langfuse agents."</p>
+<p>The application enables tracing only when both of these values are configured:</p>
 <ul>
-<li>Stack is running (<code>./start.sh</code> and web reachable on <code>http://localhost:8001</code>)</li>
-<li>Article exists (from RSS collection, UI upload, or <code>POST /api/scrape-url</code>)</li>
+<li><code>LANGFUSE_PUBLIC_KEY</code></li>
+<li><code>LANGFUSE_SECRET_KEY</code></li>
 </ul>
-<p>The workflow definition lives in <code>langgraph.json</code>, and the API trigger below tells LangGraph to execute the agents in the proper order; there is no public endpoint to start a single agent on its own.</p>
-<h2 id="1-get-or-create-an-article">1) Get or create an article<a class="headerlink" href="#1-get-or-create-an-article" title="Permanent link">&para;</a></h2>
-<p>Manual scrape example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">ARTICLE_ID</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8001/api/scrape-url<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;url&quot;:&quot;https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-214a&quot;,&quot;force_scrape&quot;:true}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.article_id&#39;</span><span class="k">)</span>
-</code></pre></div></p>
-<h2 id="2-trigger-the-workflow">2) Trigger the workflow<a class="headerlink" href="#2-trigger-the-workflow" title="Permanent link">&para;</a></h2>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">EXECUTION_ID</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;http://localhost:8001/api/workflow/articles/</span><span class="si">${</span><span class="nv">ARTICLE_ID</span><span class="si">}</span><span class="s2">/trigger&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.execution_id&#39;</span><span class="k">)</span>
-</code></pre></div>
-If an execution is already running, the endpoint returns a 400 with the existing execution ID; wait for it to finish or clear the stuck run.</p>
-<h2 id="3-monitor-extraction">3) Monitor extraction<a class="headerlink" href="#3-monitor-extraction" title="Permanent link">&para;</a></h2>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;http://localhost:8001/api/workflow/executions?article_id=</span><span class="si">${</span><span class="nv">ARTICLE_ID</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.executions[0] | {id,status,extraction_counts}&#39;</span>
-</code></pre></div>
-When <code>status</code> is <code>completed</code>, pull the full extraction payload:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;http://localhost:8001/api/workflow/executions/</span><span class="si">${</span><span class="nv">EXECUTION_ID</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;{discrete_huntables:.extraction_result.discrete_huntables_count, observables:.extraction_result.observables, subresults:.extraction_result.subresults}&#39;</span>
-</code></pre></div></p>
-<h2 id="4-where-results-show-up">4) Where results show up<a class="headerlink" href="#4-where-results-show-up" title="Permanent link">&para;</a></h2>
+<p><code>LANGFUSE_HOST</code> defaults to <code>https://cloud.langfuse.com</code> in the runtime client. <code>LANGFUSE_PROJECT_ID</code> is optional, but recommended because it gives the workflow UI enough metadata to build stronger deep links into Langfuse.</p>
+<h2 id="before-you-start">Before you start<a class="headerlink" href="#before-you-start" title="Permanent link">&para;</a></h2>
+<p>Create a Langfuse Cloud account and project first. In Langfuse Cloud, generate the project API keys you want Huntable CTI Studio to use.</p>
+<p>Use the cloud host that matches your Langfuse account region. Common Langfuse Cloud hosts include:</p>
 <ul>
-<li><strong>API</strong>: <code>GET /api/workflow/executions/{execution_id}</code> exposes merged observables, per-agent <code>subresults</code>, and synthesized <code>content</code>.</li>
-<li><strong>Article page</strong>: <code>http://localhost:8001/articles/${ARTICLE_ID}</code> renders extraction results after completion.</li>
-<li><strong>Workflow page</strong>: lists executions with observable counts per agent.</li>
+<li><code>https://cloud.langfuse.com</code></li>
+<li><code>https://us.cloud.langfuse.com</code></li>
+<li><code>https://hipaa.cloud.langfuse.com</code></li>
 </ul>
-<h2 id="re-running-extraction">Re-running extraction<a class="headerlink" href="#re-running-extraction" title="Permanent link">&para;</a></h2>
-<p>Re-trigger the workflow to apply new prompts or models. The latest execution retains its own <code>extraction_result</code>; prior executions remain in the history table for auditing.</p>
-<h2 id="cmdline-attention-preprocessor">Cmdline Attention Preprocessor<a class="headerlink" href="#cmdline-attention-preprocessor" title="Permanent link">&para;</a></h2>
-<p>For command-line extraction, the <strong>CmdlineExtract</strong> sub-agent can use an optional attention preprocessor that surfaces LOLBAS-aligned snippets earlier in the LLM prompt. Enable or disable it in Workflow Config → Cmdline Extract agent. See <a href="../../features/cmdline-preprocessor/">Cmdline Attention Preprocessor</a>.</p>
+<p>If your account uses a different cloud region, set <code>LANGFUSE_HOST</code> to the hostname shown by Langfuse for that project.</p>
+<h2 id="configuration-values">Configuration values<a class="headerlink" href="#configuration-values" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Required</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LANGFUSE_PUBLIC_KEY</code></td>
+<td>Yes</td>
+<td>Enables tracing and authenticates requests to Langfuse Cloud</td>
+</tr>
+<tr>
+<td><code>LANGFUSE_SECRET_KEY</code></td>
+<td>Yes</td>
+<td>Secret credential paired with the public key</td>
+</tr>
+<tr>
+<td><code>LANGFUSE_HOST</code></td>
+<td>No</td>
+<td>Langfuse Cloud host; defaults to <code>https://cloud.langfuse.com</code></td>
+</tr>
+<tr>
+<td><code>LANGFUSE_PROJECT_ID</code></td>
+<td>No</td>
+<td>Improves workflow debug links and trace deep-linking in the UI</td>
+</tr>
+</tbody>
+</table>
+<h2 id="configure-huntable-cti-studio">Configure Huntable CTI Studio<a class="headerlink" href="#configure-huntable-cti-studio" title="Permanent link">&para;</a></h2>
+<p>Huntable CTI Studio reads Langfuse settings in this order:</p>
+<ol>
+<li>Settings saved in the web UI</li>
+<li>Environment variables</li>
+<li>Built-in default for <code>LANGFUSE_HOST</code></li>
+</ol>
+<p>That means a value saved in the Settings UI overrides the same variable in <code>.env</code>.</p>
+<h3 id="option-1-configure-in-the-settings-ui">Option 1: Configure in the Settings UI<a class="headerlink" href="#option-1-configure-in-the-settings-ui" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Start the stack and open <code>http://localhost:8001/settings</code>.</li>
+<li>In the workflow configuration area, enter:</li>
+<li>Langfuse Public Key</li>
+<li>Langfuse Secret Key</li>
+<li>Langfuse Host</li>
+<li>Langfuse Project ID (recommended)</li>
+<li>Save settings.</li>
+<li>Click <strong>Test Langfuse Connection</strong>.</li>
+</ol>
+<h3 id="option-2-configure-via-environment-variables">Option 2: Configure via environment variables<a class="headerlink" href="#option-2-configure-via-environment-variables" title="Permanent link">&para;</a></h3>
+<p>Set these in <code>.env</code> before starting the stack:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">LANGFUSE_PUBLIC_KEY</span><span class="o">=</span>pk-lf-...
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">LANGFUSE_SECRET_KEY</span><span class="o">=</span>sk-lf-...
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://cloud.langfuse.com
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">LANGFUSE_PROJECT_ID</span><span class="o">=</span>your-project-id
+</code></pre></div>
+<p>Then start or restart the stack:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./start.sh
+</code></pre></div>
+<h2 id="verify-the-integration">Verify the integration<a class="headerlink" href="#verify-the-integration" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Use <strong>Test Langfuse Connection</strong> in the Settings page.</li>
+<li>Trigger a workflow from the UI or API.</li>
+<li>Open the workflow execution details and use the trace/debug link.</li>
+</ol>
+<p>When Langfuse is configured correctly:</p>
+<ul>
+<li>the connection test succeeds;</li>
+<li>the health endpoint reports Langfuse as configured;</li>
+<li>workflow executions can open a Langfuse trace directly, or fall back to searching by <code>session_id</code>.</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="connection-test-fails-because-keys-are-missing">Connection test fails because keys are missing<a class="headerlink" href="#connection-test-fails-because-keys-are-missing" title="Permanent link">&para;</a></h3>
+<p>Tracing is disabled unless both <code>LANGFUSE_PUBLIC_KEY</code> and <code>LANGFUSE_SECRET_KEY</code> are present.</p>
+<h3 id="connection-test-fails-with-authorization-or-api-errors">Connection test fails with authorization or API errors<a class="headerlink" href="#connection-test-fails-with-authorization-or-api-errors" title="Permanent link">&para;</a></h3>
+<p>Verify that:</p>
+<ul>
+<li>the keys belong to the intended Langfuse Cloud project;</li>
+<li>the secret key and public key were not mixed up;</li>
+<li><code>LANGFUSE_HOST</code> points at the correct Langfuse Cloud region for that project.</li>
+</ul>
+<h3 id="workflows-run-but-debug-links-are-weaker-than-expected">Workflows run, but debug links are weaker than expected<a class="headerlink" href="#workflows-run-but-debug-links-are-weaker-than-expected" title="Permanent link">&para;</a></h3>
+<p>Tracing can still work without <code>LANGFUSE_PROJECT_ID</code>, but the UI may have to fall back to broader trace search URLs instead of project-scoped deep links.</p>
+<h3 id="a-workflow-has-no-trace">A workflow has no trace<a class="headerlink" href="#a-workflow-has-no-trace" title="Permanent link">&para;</a></h3>
+<p>Traces only exist for executions that ran while Langfuse tracing was enabled. If keys were missing at run time, the workflow still executes but no Langfuse trace is emitted.</p>
+<h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../getting-started/installation/">Installation</a></li>
+<li><a href="../../getting-started/configuration/">Configuration</a></li>
+<li><a href="../../development/debugging/">Debugging</a></li>
+</ul>
 
 
 

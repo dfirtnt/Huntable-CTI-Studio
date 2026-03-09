@@ -21,8 +21,8 @@ cd /path/to/Huntable-CTI-Studio-dev2
 
 ### 2. Copy Environment Configuration
 ```bash
-cp .env.example .env
-# Edit .env with your API keys and passwords
+./setup.sh --no-backups
+# Edit .env as needed for this instance-specific compose file
 ```
 
 ### 3. Start Dev2 Instance
@@ -112,4 +112,3 @@ lsof -i :11435
 
 ### Container Name Conflicts
 All Dev2 containers use `_dev2` suffix to avoid naming conflicts with the original instance.
-

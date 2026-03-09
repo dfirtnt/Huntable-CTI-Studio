@@ -46,9 +46,8 @@ This project and everyone participating in it is governed by our Code of Conduct
 ### 1. Environment Setup
 
 ```bash
-# Copy environment template
-cp .env.example .env
-# Edit .env with your local settings
+# Provision environment and secure local secrets
+./setup.sh --no-backups
 
 # Start Docker services
 ./start.sh

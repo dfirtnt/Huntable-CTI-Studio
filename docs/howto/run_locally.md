@@ -5,19 +5,20 @@ Use Docker Compose as the supported way to run Huntable CTI Studio. These steps 
 ## Prerequisites
 - Docker Desktop with Compose plugin
 - `python3` available if you plan to run tests
-- Copy `.env.example` to `.env` and set:
+- Run `./setup.sh` first to provision `.env` and secure local credentials
+- If editing `.env` manually after setup, set:
   - `POSTGRES_PASSWORD=<strong password>`
   - Optional LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`
   - LM Studio defaults: `LMSTUDIO_API_URL=http://host.docker.internal:1234/v1` plus model names already set in compose
 
 ## Start the stack
 ```bash
-cp .env.example .env
-# edit .env and set POSTGRES_PASSWORD + any API keys
+./setup.sh --no-backups
 ./start.sh
 ```
 What happens:
-- Creates `logs/` and `data/` directories
+- Reuses the existing `.env` from setup (fails fast if missing or templated)
+- Creates runtime directories (`logs/`, `backups/`, `models/`, `outputs/`, `data/`)
 - Runs `docker-compose up --build -d`
 - Health-checks Postgres, Redis, and the web app
 - Automatically builds docs and starts the MkDocs server in the background when `mkdocs.yml` is present (logs: `logs/mkdocs.log`)

@@ -999,6 +999,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -3297,18 +3325,19 @@
 </code></pre></div>
 <p><strong>Important</strong>: Store the <code>trace_id</code> (32 characters), not the span <code>id</code> (16 characters). The span ID is insufficient for LangFuse trace lookups.</p>
 <h3 id="debug-links">Debug Links<a class="headerlink" href="#debug-links" title="Permanent link">&para;</a></h3>
-<p>Debug buttons in the UI generate LangFuse session URLs:</p>
+<p>Debug buttons in the UI prefer direct LangFuse trace URLs and fall back to trace search by <code>session_id</code> when trace metadata is incomplete:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># In workflow_executions.py</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">session_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;workflow_exec_</span><span class="si">{</span><span class="n">execution</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">agent_chat_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">langfuse_host</span><span class="si">}</span><span class="s2">/project/</span><span class="si">{</span><span class="n">project_id</span><span class="si">}</span><span class="s2">/sessions/</span><span class="si">{</span><span class="n">session_id</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">agent_chat_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">langfuse_host</span><span class="si">}</span><span class="s2">/project/</span><span class="si">{</span><span class="n">project_id</span><span class="si">}</span><span class="s2">/traces/</span><span class="si">{</span><span class="n">trace_id</span><span class="si">}</span><span class="s2">&quot;</span>
 </code></pre></div>
-<p><strong>Example URL</strong>: <code>https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86</code></p>
+<p><strong>Direct trace example</strong>: <code>https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}</code></p>
+<p><strong>Search fallback example</strong>: <code>https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_86</code></p>
 <h3 id="viewing-traces">Viewing Traces<a class="headerlink" href="#viewing-traces" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Session View</strong> (recommended): Shows all traces for an execution grouped together</li>
 <li><strong>Trace View</strong>: Shows individual trace details with spans, inputs, outputs, and token usage</li>
 </ul>
-<p>See <a href="../../development/debugging/">Debugging</a> and Langfuse for workflow trace details.</p>
+<p>See <a href="../../development/debugging/">Debugging</a> and <a href="../../guides/langfuse-setup/">Langfuse Setup</a> for workflow trace details and supported configuration.</p>
 <h2 id="execution-methods-celery-langgraph-state-machine-vs-direct-testing">Execution Methods: Celery (LangGraph state machine) vs Direct Testing<a class="headerlink" href="#execution-methods-celery-langgraph-state-machine-vs-direct-testing" title="Permanent link">&para;</a></h2>
 <p>All workflow executions run the same LangGraph state machine (<code>src/workflows/agentic_workflow.py</code>); Celery and the direct API simply differ in how they trigger that graph.</p>
 <h3 id="1-celery-background-langgraph-state-machine">1. Celery (Background + LangGraph state machine)<a class="headerlink" href="#1-celery-background-langgraph-state-machine" title="Permanent link">&para;</a></h3>

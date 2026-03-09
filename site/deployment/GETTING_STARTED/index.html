@@ -993,6 +993,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/langfuse-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Langfuse Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/generate-sigma/" class="md-nav__link">
         
   
@@ -2580,10 +2608,10 @@
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/dfirtnt/Huntable-CTI-Studio.git
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>Huntable-CTI-Studio
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">              </span><span class="c1"># set POSTGRES_PASSWORD and API keys [optional for secure install. Default passwords work for demo purposes.]</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./start.sh<span class="w">                        </span><span class="c1"># builds + starts compose stack</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./setup.sh<span class="w"> </span>--no-backups<span class="w">           </span><span class="c1"># provisions .env and secure defaults</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./start.sh<span class="w">                        </span><span class="c1"># daily startup (builds + starts compose stack)</span>
 </code></pre></div>
-<code>start.sh</code> may prompt to run the MkDocs docs server; if you choose <strong>y</strong>, it runs in the background (logs: <code>logs/mkdocs.log</code>).</p>
+<code>start.sh</code> now requires an existing <code>.env</code> from setup and fails fast if <code>.env</code> is missing or still uses template placeholders.</p>
 <p>Access:
 - Web UI/API: http://localhost:8001
 - API docs: http://localhost:8001/docs</p>
@@ -2598,12 +2626,12 @@
 <li>cli (profile <code>tools</code>): <code>python -m src.cli.main</code></li>
 </ul>
 <h2 id="required-environment">Required environment<a class="headerlink" href="#required-environment" title="Permanent link">&para;</a></h2>
-<p>Set these in <code>.env</code> before running <code>./start.sh</code>:
+<p>Run <code>./setup.sh</code> before <code>./start.sh</code> so <code>.env</code> is created and initialized. If you edit <code>.env</code> manually after setup, keep these values valid:
 - <code>POSTGRES_PASSWORD=&lt;strong password&gt;</code>
 - <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code> / <code>CHATGPT_API_KEY</code> (optional AI features)
 - <code>LMSTUDIO_API_URL</code> (default: <code>http://host.docker.internal:1234/v1</code>)
 - <code>LMSTUDIO_MODEL</code>, <code>LMSTUDIO_MODEL_RANK</code>, <code>LMSTUDIO_MODEL_EXTRACT</code>, <code>LMSTUDIO_MODEL_SIGMA</code> (defaults set in compose)
-- Langfuse tracing: configure via Settings UI (<code>LANGFUSE_PUBLIC_KEY</code>, <code>LANGFUSE_SECRET_KEY</code>, etc.) or env vars</p>
+- Langfuse tracing: configure via Settings UI or env vars. This project supports Langfuse Cloud only, and tracing can export sensitive prompts, outputs, and workflow metadata off-box. See <a href="../../guides/langfuse-setup/">Langfuse Setup</a>.</p>
 <p>Notes:
 - <code>.env.example</code> template includes required PostgreSQL configuration; Docker uses PostgreSQL via <code>DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper</code> defined in compose.
 - Test template: <code>env.test.template</code> for pytest/Playwright values.</p>

@@ -17,14 +17,13 @@ End-to-end run using Docker Compose and the built-in workflow. Commands use `pyt
 - Docker and the Docker Compose plugin available on your PATH
 - `python3` for running tests, `jq` for parsing JSON responses
 - Ports `8001` (web UI/API) and `8888` (auxiliary debug port) free on the host
-- `.env` configured (copy from `.env.example` and set `POSTGRES_PASSWORD`; add LLM keys if you want AI features)
+- `.env` configured via `./setup.sh` (add LLM keys if you want AI features)
 
 ## 2) Start the stack
 ```bash
 git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
-cp .env.example .env
-echo "POSTGRES_PASSWORD=change_me" >> .env   # replace with a strong password
+./setup.sh --no-backups
 ./start.sh                                    # builds + launches docker-compose
 ```
 Check that services are healthy:
