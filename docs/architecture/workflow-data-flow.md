@@ -403,22 +403,24 @@ db_session.commit()
 
 ### Debug Links
 
-Debug buttons in the UI generate LangFuse session URLs:
+Debug buttons in the UI prefer direct LangFuse trace URLs and fall back to trace search by `session_id` when trace metadata is incomplete:
 
 ```python
 # In workflow_executions.py
 session_id = f"workflow_exec_{execution.id}"
-agent_chat_url = f"{langfuse_host}/project/{project_id}/sessions/{session_id}"
+agent_chat_url = f"{langfuse_host}/project/{project_id}/traces/{trace_id}"
 ```
 
-**Example URL**: `https://us.cloud.langfuse.com/project/{project_id}/sessions/workflow_exec_86`
+**Direct trace example**: `https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}`
+
+**Search fallback example**: `https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_86`
 
 ### Viewing Traces
 
 - **Session View** (recommended): Shows all traces for an execution grouped together
 - **Trace View**: Shows individual trace details with spans, inputs, outputs, and token usage
 
-See [Debugging](../development/debugging.md) and Langfuse for workflow trace details.
+See [Debugging](../development/debugging.md) and [Langfuse Setup](../guides/langfuse-setup.md) for workflow trace details and supported configuration.
 
 ## Execution Methods: Celery (LangGraph state machine) vs Direct Testing
 
