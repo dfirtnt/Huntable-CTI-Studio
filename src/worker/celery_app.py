@@ -1183,12 +1183,12 @@ def collect_from_source(self, source_id: int):
 
 @celery_app.task(bind=True, max_retries=2)
 def sync_sigma_rules(self, force_reindex=False):
-    """Sync SigmaHQ repository and update embeddings for all rules."""
+    """Sync SigmaHQ repository and index rules (metadata always, embeddings optional)."""
     try:
         from src.database.manager import DatabaseManager
         from src.services.sigma_sync_service import SigmaSyncService
 
-        logger.info("Starting SigmaHQ repository sync and embedding update...")
+        logger.info("Starting SigmaHQ repository sync...")
 
         db_manager = DatabaseManager()
         session = db_manager.get_session()
@@ -1196,7 +1196,6 @@ def sync_sigma_rules(self, force_reindex=False):
         try:
             sync_service = SigmaSyncService()
 
-            # Sync repository (clone or pull)
             sync_result = sync_service.clone_or_pull_repository()
 
             if not sync_result.get("success"):
@@ -1209,16 +1208,26 @@ def sync_sigma_rules(self, force_reindex=False):
 
             logger.info(f"Repository {sync_result.get('action', 'synced')} successfully")
 
-            # Index rules (this also generates embeddings)
-            indexed_count = sync_service.index_rules(session, force_reindex=force_reindex)
+            index_result = sync_service.index_rules(session, force_reindex=force_reindex)
 
-            logger.info(f"Sigma sync complete: {indexed_count} rules indexed with embeddings")
+            rules_indexed = index_result.get("metadata_indexed", 0)
+            embeddings_indexed = index_result.get("embeddings_indexed", 0)
+
+            if index_result.get("embedding_error"):
+                logger.warning(
+                    f"Sigma sync partial success: {rules_indexed} metadata indexed, "
+                    f"embedding phase failed: {index_result['embedding_error']}"
+                )
+
+            logger.info(f"Sigma sync complete: {rules_indexed} metadata, {embeddings_indexed} embeddings")
 
             return {
                 "status": "success",
                 "action": sync_result.get("action"),
-                "rules_indexed": indexed_count,
-                "message": f"Successfully synced and indexed {indexed_count} Sigma rules with embeddings",
+                "rules_indexed": rules_indexed,
+                "embeddings_indexed": embeddings_indexed,
+                "embedding_error": index_result.get("embedding_error"),
+                "message": (f"Synced: {rules_indexed} metadata, {embeddings_indexed} embeddings"),
             }
 
         except Exception as e:
@@ -1232,7 +1241,6 @@ def sync_sigma_rules(self, force_reindex=False):
 
     except Exception as exc:
         logger.error(f"Sigma sync task failed: {exc}")
-        # Retry with exponential backoff (longer delay for this resource-intensive task)
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 

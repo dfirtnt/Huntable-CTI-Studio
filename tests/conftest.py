@@ -2,9 +2,24 @@
 Test configuration and fixtures for CTI Scraper tests.
 """
 
+import logging
 import os
 import sys
 import warnings
+
+# Suppress "Logging error" / "I/O operation on closed file" from huggingface_hub/httpx
+# teardown (atexit) when logging streams are already closed.
+_original_handleError = logging.Handler.handleError
+
+
+def _handleError_suppress_closed_stream(self, record):
+    exc_type, exc_val, exc_tb = sys.exc_info()
+    if exc_type is ValueError and exc_val and "I/O operation on closed file" in str(exc_val):
+        return
+    _original_handleError(self, record)
+
+
+logging.Handler.handleError = _handleError_suppress_closed_stream
 
 
 # Ensure transformers modules have names they use but do not import (LRScheduler, nn).
@@ -124,7 +139,6 @@ except ImportError:  # Allow running targeted tests without pytest-asyncio
         RuntimeWarning,
         stacklevel=2,
     )
-import logging
 import shutil
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -290,14 +304,7 @@ def _ensure_workflow_config_columns() -> None:
                 )
                 if r.fetchone():
                     continue
-                conn.execute(
-                    text(
-                        "ALTER TABLE agentic_workflow_config ADD COLUMN "
-                        + column_name
-                        + " "
-                        + sql_type
-                    )
-                )
+                conn.execute(text("ALTER TABLE agentic_workflow_config ADD COLUMN " + column_name + " " + sql_type))
                 conn.commit()
                 logger.info("Added column agentic_workflow_config.%s", column_name)
     except Exception as e:
@@ -308,11 +315,13 @@ def _ensure_workflow_config_columns() -> None:
 def ensure_workflow_config_schema():
     """Ensure test DB has agentic_workflow_config columns required by workflow/config routes."""
     _ensure_workflow_config_columns()
-    return None
+    return
 
 
 @pytest_asyncio.fixture
-async def async_client(ensure_workflow_config_schema, test_environment_config) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def async_client(
+    ensure_workflow_config_schema, test_environment_config
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client for API testing. With USE_ASGI_CLIENT=1 uses in-process app (no live server)."""
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     if _use_asgi_client():
@@ -649,6 +658,10 @@ def isolation_manager():
 
 def pytest_configure(config):
     """Register custom markers and validate test environment."""
+    # Suppress httpcore debug logging during teardown to avoid "I/O operation on closed file"
+    # when huggingface_hub/httpx close their sessions after pytest closes logging streams.
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
     # Invoke test environment guard at pytest bootstrap
     if TEST_ENV_GUARD_AVAILABLE:
         try:
@@ -677,6 +690,16 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "priority_low: Low priority E2E tests")
     config.addinivalue_line("markers", "quarantine: Quarantined tests that need fixes (tracked in SKIPPED_TESTS.md)")
     config.addinivalue_line("markers", "ui_smoke: UI smoke tests (reclassified Playwright tests)")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Close huggingface_hub HTTP session before teardown to avoid 'I/O operation on closed file' logging errors."""
+    try:
+        from huggingface_hub.utils import _http
+
+        _http.close_session()
+    except Exception:
+        pass
 
 
 def pytest_collection_modifyitems(config, items):

@@ -110,6 +110,7 @@ services:
       - ../Huntable-SIGMA-Rules:/app/sigma-repo
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       postgres:
         condition: service_healthy
@@ -311,10 +312,12 @@ services:
     volumes:
       - ./src:/app/src
       - ./config:/app/config
+      - ./scripts:/app/scripts
       - ./logs:/app/logs
       - ./tests:/app/tests
       - ./data:/app/data
       - ./backups:/app/backups
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       postgres:
         condition: service_healthy
@@ -374,6 +377,8 @@ volumes:
   redis_data:
     driver: local
   langflow_data:
+    driver: local
+  hf_cache:
     driver: local
 
 networks:

@@ -149,19 +149,72 @@ else
     exit 1
 fi
 
-# Sigma: sync SigmaHQ repo; index rules (embeddings) only when not in limited-env mode
+# Fix pgvector indexes (drop invalid B-tree, create HNSW) — required before embedding writes
+echo ""
+echo "🔧 Checking pgvector indexes..."
+if $DC run --rm cli python scripts/migrate_pgvector_indexes.py 2>/dev/null; then
+    echo "✅ pgvector indexes OK"
+else
+    echo "⚠️ pgvector migration failed (embedding writes may fail)"
+fi
+
+# Sigma: sync SigmaHQ repo; always index metadata, optionally index embeddings
 echo ""
 echo "📋 Sigma: syncing SigmaHQ repo..."
 if $DC run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
-    if [ -n "$SKIP_SIGMA_INDEX" ]; then
-        echo "⏭️  Skipping Sigma index (embeddings/LM Studio not assumed). Run ./run_cli.sh sigma index when LM Studio is available."
-    elif $DC run --rm cli python -m src.cli.main sigma index 2>/dev/null; then
-        echo "✅ Sigma rules synced and indexed"
+    # Always index metadata (no embedding dependency)
+    if $DC run --rm cli python -m src.cli.main sigma index-metadata 2>/dev/null; then
+        echo "✅ Sigma rule metadata indexed"
     else
-        echo "⚠️ Sigma index failed (run manually: ./run_cli.sh sigma index)"
+        echo "⚠️ Sigma metadata index failed (run manually: ./run_cli.sh sigma index-metadata)"
+    fi
+    # Attempt embedding generation (optional, uses local sentence-transformers)
+    if [ -z "$SKIP_SIGMA_INDEX" ]; then
+        if $DC run --rm cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
+            echo "✅ Sigma rule embeddings generated"
+        else
+            echo "⚠️ Sigma embeddings skipped (run manually: ./run_cli.sh sigma index-embeddings)"
+        fi
+    else
+        echo "⏭️  Skipping Sigma embeddings (limited-env mode). Run ./run_cli.sh sigma index-embeddings when ready."
     fi
 else
     echo "⚠️ Sigma sync failed (run manually: ./run_cli.sh sigma sync)"
+fi
+
+# --- Capability-driven warnings ---
+echo ""
+echo "🔍 Checking feature capabilities..."
+CAP_JSON=$($DC run --rm cli python -m src.cli.main capabilities check --json-output 2>/dev/null || echo '{}')
+
+if command -v python3 >/dev/null 2>&1 && [ "$CAP_JSON" != "{}" ]; then
+    _cap_val() {
+        python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get(sys.argv[2],{}).get(sys.argv[3],''))" "$CAP_JSON" "$1" "$2" 2>/dev/null
+    }
+
+    sigma_ret=$(_cap_val sigma_retrieval enabled)
+    sigma_nov=$(_cap_val sigma_novelty_comparison enabled)
+    llm_gen=$(_cap_val llm_generation enabled)
+
+    if [ "$sigma_ret" = "False" ]; then
+        echo "  ⚠️  Sigma rule search in RAG: unavailable ($(_cap_val sigma_retrieval reason))"
+        echo "     → $(_cap_val sigma_retrieval action)"
+    else
+        echo "  ✅ Sigma rule search in RAG: available"
+    fi
+
+    if [ "$sigma_nov" = "False" ]; then
+        echo "  ⚠️  Sigma novelty comparison: unavailable ($(_cap_val sigma_novelty_comparison reason))"
+    else
+        echo "  ✅ Sigma novelty comparison: available"
+    fi
+
+    if [ "$llm_gen" = "False" ]; then
+        echo "  ⚠️  LLM answer generation: unavailable ($(_cap_val llm_generation reason))"
+        echo "     → $(_cap_val llm_generation action)"
+    else
+        echo "  ✅ LLM answer generation: available ($(_cap_val llm_generation reason))"
+    fi
 fi
 
 # Seed eval articles from static files into DB (so evals and Articles list work after rehydration)

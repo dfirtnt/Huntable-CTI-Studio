@@ -92,8 +92,8 @@ class ArticleTable(Base):
     # Quality metrics
     word_count = Column(Integer, nullable=False, default=0)
 
-    # Vector embedding fields
-    embedding = Column(Vector(768), nullable=True, index=True)  # 768-dimensional embedding vector
+    # Vector embedding fields (index via scripts/migrate_pgvector_indexes.py — HNSW, not B-tree)
+    embedding = Column(Vector(768), nullable=True)
     embedding_model = Column(String(100), nullable=True, default="all-mpnet-base-v2")
     embedded_at = Column(DateTime, nullable=True)
 
@@ -151,8 +151,8 @@ class ArticleAnnotationTable(Base):
     context_after = Column(Text, nullable=True)
     confidence_score = Column(Float, nullable=False, default=0.0)
 
-    # Vector embedding fields
-    embedding = Column(Vector(768), nullable=True, index=True)  # 768-dimensional embedding vector
+    # Vector embedding fields (index via scripts/migrate_pgvector_indexes.py — HNSW, not B-tree)
+    embedding = Column(Vector(768), nullable=True)
     embedding_model = Column(String(100), nullable=True, default="all-mpnet-base-v2")
     embedded_at = Column(DateTime, nullable=True)
 
@@ -389,8 +389,8 @@ class SigmaRuleTable(Base):
     false_positives = Column(ARRAY(Text), nullable=False, default=list)
     fields = Column(ARRAY(String), nullable=False, default=list)
 
-    # Embedding fields
-    embedding = Column(Vector(768), nullable=True, index=True)
+    # Embedding fields (index via scripts/migrate_pgvector_indexes.py — HNSW, not B-tree)
+    embedding = Column(Vector(768), nullable=True)
     embedding_model = Column(String(100), nullable=True, default="intfloat/e5-base-v2")
     embedded_at = Column(DateTime, nullable=True)
 

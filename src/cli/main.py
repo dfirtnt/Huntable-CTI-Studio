@@ -10,6 +10,7 @@ src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
 from .commands import archive, backup, collect, compare_sources, export, init, search, stats, sync_sources
+from .commands.capabilities import capabilities_group
 from .commands.embed import embed_group
 from .commands.rescore import rescore
 from .commands.rescore_ml import rescore_ml
@@ -50,6 +51,7 @@ cli.add_command(rescore_ml)
 cli.add_command(embed_group)
 cli.add_command(archive)
 cli.add_command(sigma_group)
+cli.add_command(capabilities_group)
 
 
 if __name__ == "__main__":
