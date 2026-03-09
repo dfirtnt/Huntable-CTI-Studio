@@ -63,7 +63,7 @@ def sync_repo(force: bool):
 @sigma_group.command("index")
 @click.option("--force", is_flag=True, help="Force re-index all rules")
 def index_rules(force: bool):
-    """Index Sigma rules into database."""
+    """Index Sigma rules into database (metadata + embeddings)."""
     console.print("[bold blue]Indexing Sigma rules...[/bold blue]")
 
     try:
@@ -76,18 +76,135 @@ def index_rules(force: bool):
             SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
         ) as progress:
             task = progress.add_task("Indexing rules...", total=None)
+            result = sync_service.index_rules(session, force_reindex=force)
+            progress.update(task, description="Complete")
 
-            indexed_count = sync_service.index_rules(session, force_reindex=force)
-
-            progress.update(task, description=f"Indexed {indexed_count} rules")
-
-        console.print(f"[bold green]✓[/bold green] Successfully indexed {indexed_count} rules")
+        console.print(f"[bold green]✓[/bold green] Metadata indexed: {result['metadata_indexed']}")
+        console.print(f"[bold green]✓[/bold green] Embeddings indexed: {result['embeddings_indexed']}")
+        if result.get("embedding_error"):
+            console.print(f"[yellow]⚠ Embedding warning:[/yellow] {result['embedding_error']}")
+        if result["metadata_errors"] > 0 or result["embeddings_errors"] > 0:
+            console.print(
+                f"[yellow]⚠ Errors:[/yellow] {result['metadata_errors']} metadata, "
+                f"{result['embeddings_errors']} embedding"
+            )
 
         session.close()
 
     except Exception as e:
         console.print(f"[bold red]✗[/bold red] Error: {e}")
         logger.error(f"Indexing failed: {e}")
+
+
+@sigma_group.command("index-metadata")
+@click.option("--force", is_flag=True, help="Force re-index all rules")
+def index_metadata_cmd(force: bool):
+    """Index Sigma rule metadata only (no embeddings)."""
+    console.print("[bold blue]Indexing Sigma rule metadata...[/bold blue]")
+
+    try:
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        sync_service = SigmaSyncService()
+
+        with Progress(
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
+        ) as progress:
+            task = progress.add_task("Indexing metadata...", total=None)
+            result = sync_service.index_metadata(session, force_reindex=force)
+            progress.update(task, description="Complete")
+
+        console.print(
+            f"[bold green]✓[/bold green] Metadata indexed: {result['metadata_indexed']}, "
+            f"skipped: {result['skipped']}, errors: {result['errors']}"
+        )
+
+        session.close()
+
+    except Exception as e:
+        console.print(f"[bold red]✗[/bold red] Error: {e}")
+        logger.error(f"Metadata indexing failed: {e}")
+
+
+@sigma_group.command("index-embeddings")
+@click.option("--force", is_flag=True, help="Force regenerate all embeddings")
+def index_embeddings_cmd(force: bool):
+    """Generate embeddings for Sigma rules (uses local sentence-transformers)."""
+    console.print("[bold blue]Generating Sigma rule embeddings...[/bold blue]")
+
+    try:
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        sync_service = SigmaSyncService()
+
+        with Progress(
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
+        ) as progress:
+            task = progress.add_task("Generating embeddings...", total=None)
+            result = sync_service.index_embeddings(session, force_reindex=force)
+            progress.update(task, description="Complete")
+
+        console.print(
+            f"[bold green]✓[/bold green] Embeddings indexed: {result['embeddings_indexed']}, "
+            f"skipped: {result['skipped']}, errors: {result['errors']}"
+        )
+
+        session.close()
+
+    except Exception as e:
+        console.print(f"[bold red]✗[/bold red] Error: {e}")
+        logger.error(f"Embedding generation failed: {e}")
+
+
+@sigma_group.command("backfill-metadata")
+def backfill_metadata_cmd():
+    """Backfill canonical metadata for existing rules (no file system needed)."""
+    console.print("[bold blue]Backfilling canonical metadata...[/bold blue]")
+
+    try:
+        from src.database.models import SigmaRuleTable
+
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        rules = session.query(SigmaRuleTable).filter(SigmaRuleTable.canonical_json.is_(None)).all()
+
+        console.print(f"Found {len(rules)} rules needing canonical metadata")
+
+        from dataclasses import asdict
+
+        from src.services.sigma_novelty_service import SigmaNoveltyService
+
+        novelty_service = SigmaNoveltyService(db_session=session)
+        updated = 0
+
+        for rule in rules:
+            try:
+                rule_data = {
+                    "logsource": rule.logsource or {},
+                    "detection": rule.detection or {},
+                }
+                canonical_rule = novelty_service.build_canonical_rule(rule_data)
+                rule.canonical_json = asdict(canonical_rule)
+                rule.exact_hash = novelty_service.generate_exact_hash(canonical_rule)
+                rule.canonical_text = novelty_service.generate_canonical_text(canonical_rule)
+                logsource_key, _ = novelty_service.normalize_logsource(rule_data["logsource"])
+                rule.logsource_key = logsource_key
+                updated += 1
+                if updated % 100 == 0:
+                    session.commit()
+            except Exception as e:
+                logger.error(f"Error backfilling rule {rule.rule_id}: {e}")
+
+        session.commit()
+        console.print(f"[bold green]✓[/bold green] Backfilled {updated} rules")
+        session.close()
+
+    except Exception as e:
+        console.print(f"[bold red]✗[/bold red] Error: {e}")
+        logger.error(f"Backfill failed: {e}")
 
 
 @sigma_group.command("match")

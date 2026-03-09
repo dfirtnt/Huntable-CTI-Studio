@@ -703,233 +703,68 @@ class SigmaSyncService:
             "errors": error_count,
         }
 
-    def index_rules(self, db_session, force_reindex: bool = False) -> int:
+    def index_rules(self, db_session, force_reindex: bool = False) -> dict:
         """
-        Index all rules from the repository into the database.
+        Orchestrate metadata + embedding indexing.
+
+        Runs metadata indexing first (always), then attempts embedding generation.
+        Returns partial success if metadata succeeds but embeddings fail.
 
         Args:
             db_session: SQLAlchemy session
-            force_reindex: If True, reindex all rules even if they exist
+            force_reindex: If True, reindex all rules
 
         Returns:
-            Number of rules indexed
+            Dict with metadata_indexed, embeddings_indexed, embedding_error (if any)
         """
-        from src.database.models import SigmaRuleTable
-        from src.services.lmstudio_embedding_client import LMStudioEmbeddingClient
+        logger.info("Starting Sigma rule indexing (orchestrator)...")
 
-        logger.info("Starting Sigma rule indexing...")
+        # Phase 1: Metadata (always runs)
+        metadata_result = self.index_metadata(db_session, force_reindex=force_reindex)
 
-        # Get existing rule IDs if not forcing reindex
-        existing_rule_ids = set()
-        if not force_reindex:
-            existing_rule_ids = self.get_existing_rule_ids(db_session)
-            logger.info(f"Found {len(existing_rule_ids)} existing rules")
-
-        # Find all rule files
-        rule_files = self.find_rule_files()
-
-        # Get commit SHA
-        commit_sha = self.get_repo_commit_sha()
-
-        # Parse and index rules
-        indexed_count = 0
-        skipped_count = 0
-        error_count = 0
-
-        # Initialize LM Studio embedding client
+        # Phase 2: Embeddings (optional, graceful failure)
+        embedding_result = {"embeddings_indexed": 0, "skipped": 0, "errors": 0}
+        embedding_error = None
         try:
-            embedding_service = LMStudioEmbeddingClient()
-            logger.info("LM Studio embedding client initialized")
+            embedding_result = self.index_embeddings(db_session, force_reindex=force_reindex)
         except Exception as e:
-            logger.error(f"Failed to initialize LM Studio embedding client: {e}")
-            raise RuntimeError("LM Studio embedding client unavailable") from e
+            embedding_error = str(e)
+            logger.warning(f"Embedding generation failed (metadata still indexed): {e}")
 
-        for file_path in rule_files:
-            try:
-                # Parse rule
-                rule_data = self.parse_rule_file(file_path)
+        result = {
+            "metadata_indexed": metadata_result["metadata_indexed"],
+            "metadata_skipped": metadata_result["skipped"],
+            "metadata_errors": metadata_result["errors"],
+            "embeddings_indexed": embedding_result.get("embeddings_indexed", 0),
+            "embeddings_skipped": embedding_result.get("skipped", 0),
+            "embeddings_errors": embedding_result.get("errors", 0),
+        }
+        if embedding_error:
+            result["embedding_error"] = embedding_error
 
-                if not rule_data:
-                    skipped_count += 1
-                    continue
-
-                rule_id = rule_data["rule_id"]
-
-                # Skip if already indexed (unless force reindex)
-                if not force_reindex and rule_id in existing_rule_ids:
-                    skipped_count += 1
-                    continue
-
-                # Generate embeddings using LM Studio
-                # Generate main embedding (for backward compatibility)
-                embedding_text = self.create_rule_embedding_text(rule_data)
-                embedding = embedding_service.generate_embedding(embedding_text)
-
-                # Generate section-based embeddings
-                section_texts = self.create_section_embeddings_text(rule_data)
-
-                # Generate embeddings for each section (batch for efficiency)
-                section_texts_list = [
-                    section_texts["title"],
-                    section_texts["description"],
-                    section_texts["tags"],
-                    section_texts["signature"],
-                ]
-
-                section_embeddings = embedding_service.generate_embeddings_batch(section_texts_list)
-
-                # Handle cases where batch might return fewer embeddings than expected
-                while len(section_embeddings) < 4:
-                    section_embeddings.append([0.0] * 768)  # Zero vector for missing sections
-
-                title_emb = (
-                    section_embeddings[0] if section_embeddings[0] and len(section_embeddings[0]) == 768 else None
-                )
-                description_emb = (
-                    section_embeddings[1] if section_embeddings[1] and len(section_embeddings[1]) == 768 else None
-                )
-                tags_emb = (
-                    section_embeddings[2] if section_embeddings[2] and len(section_embeddings[2]) == 768 else None
-                )
-                signature_emb = (
-                    section_embeddings[3] if section_embeddings[3] and len(section_embeddings[3]) == 768 else None
-                )
-
-                # For backward compatibility, store signature in all three fields
-                logsource_emb = signature_emb
-                detection_structure_emb = signature_emb
-                detection_fields_emb = signature_emb
-
-                # Store model name for tracking
-                embedding_model_name = "intfloat/e5-base-v2"
-
-                # Compute canonical fields for behavioral novelty assessment
-                try:
-                    from src.services.sigma_novelty_service import SigmaNoveltyService
-
-                    novelty_service = SigmaNoveltyService(db_session=db_session)
-                    canonical_rule = novelty_service.build_canonical_rule(rule_data)
-
-                    from dataclasses import asdict
-
-                    canonical_json = asdict(canonical_rule)
-                    exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                    canonical_text = novelty_service.generate_canonical_text(canonical_rule)
-                    logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
-                except Exception as e:
-                    logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
-                    canonical_json = None
-                    exact_hash = None
-                    canonical_text = None
-                    logsource_key = None
-
-                # Create or update rule record (with no autoflush to prevent premature commits)
-                with db_session.no_autoflush:
-                    existing_rule = db_session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
-
-                    if existing_rule:
-                        # Update existing rule
-                        for key, value in rule_data.items():
-                            if key != "rule_id":
-                                setattr(existing_rule, key, value)
-                        existing_rule.embedding = embedding
-                        existing_rule.embedding_model = embedding_model_name
-                        existing_rule.embedded_at = datetime.now()
-                        existing_rule.repo_commit_sha = commit_sha
-                        # Update section embeddings
-                        existing_rule.title_embedding = title_emb
-                        existing_rule.description_embedding = description_emb
-                        existing_rule.tags_embedding = tags_emb
-                        existing_rule.logsource_embedding = logsource_emb
-                        existing_rule.detection_structure_embedding = detection_structure_emb
-                        existing_rule.detection_fields_embedding = detection_fields_emb
-                        # Update canonical fields
-                        existing_rule.canonical_json = canonical_json
-                        existing_rule.exact_hash = exact_hash
-                        existing_rule.canonical_text = canonical_text
-                        existing_rule.logsource_key = logsource_key
-                    else:
-                        # Create new rule
-                        new_rule = SigmaRuleTable(
-                            rule_id=rule_id,
-                            title=rule_data["title"],
-                            description=rule_data["description"],
-                            logsource=rule_data["logsource"],
-                            detection=rule_data["detection"],
-                            tags=rule_data["tags"],
-                            level=rule_data["level"],
-                            status=rule_data["status"],
-                            author=rule_data["author"],
-                            date=rule_data["date"],
-                            rule_references=rule_data["rule_references"],
-                            false_positives=rule_data["false_positives"],
-                            fields=rule_data["fields"],
-                            file_path=rule_data["file_path"],
-                            repo_commit_sha=commit_sha,
-                            embedding=embedding,
-                            embedding_model=embedding_model_name,
-                            embedded_at=datetime.now(),
-                            # Section embeddings
-                            title_embedding=title_emb,
-                            description_embedding=description_emb,
-                            tags_embedding=tags_emb,
-                            logsource_embedding=logsource_emb,
-                            detection_structure_embedding=detection_structure_emb,
-                            detection_fields_embedding=detection_fields_emb,
-                            # Canonical fields
-                            canonical_json=canonical_json,
-                            exact_hash=exact_hash,
-                            canonical_text=canonical_text,
-                            logsource_key=logsource_key,
-                        )
-                        db_session.add(new_rule)
-
-                indexed_count += 1
-
-                if indexed_count % 100 == 0:
-                    logger.info(f"Indexed {indexed_count} rules...")
-                    db_session.commit()
-
-            except Exception as e:
-                logger.error(f"Error indexing rule file {file_path}: {e}")
-                error_count += 1
-                continue
-
-        # Final commit
-        db_session.commit()
-
-        logger.info(f"Indexing complete: {indexed_count} indexed, {skipped_count} skipped, {error_count} errors")
-
-        return indexed_count
+        logger.info(
+            f"Indexing complete: {result['metadata_indexed']} metadata, {result['embeddings_indexed']} embeddings"
+        )
+        return result
 
     async def sync(self, db_session, force_reindex: bool = False) -> dict[str, Any]:
-        """
-        Complete sync operation: clone/pull repo, index rules.
-
-        Args:
-            db_session: SQLAlchemy session
-            force_reindex: If True, reindex all rules even if they exist
-
-        Returns:
-            Dictionary with sync results
-        """
         try:
-            # Sync repository
             sync_result = self.clone_or_pull_repository()
-
             if not sync_result["success"]:
                 return sync_result
 
-            # Index rules
-            indexed_count = self.index_rules(db_session, force_reindex=force_reindex)
+            index_result = self.index_rules(db_session, force_reindex=force_reindex)
 
             return {
                 "success": True,
                 "action": sync_result["action"],
-                "rules_indexed": indexed_count,
-                "message": f"Successfully synced and indexed {indexed_count} rules",
+                "rules_indexed": index_result["metadata_indexed"],
+                "embeddings_indexed": index_result.get("embeddings_indexed", 0),
+                "message": (
+                    f"Successfully synced: {index_result['metadata_indexed']} metadata, "
+                    f"{index_result.get('embeddings_indexed', 0)} embeddings"
+                ),
             }
-
         except Exception as e:
             logger.error(f"Sigma sync failed: {e}")
             return {"success": False, "error": str(e)}
