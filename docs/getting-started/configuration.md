@@ -170,11 +170,26 @@ Configure LangFuse either through environment variables or via the Settings UI.
 
 ### SIGMA / GitHub Integration
 
+The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during `./setup.sh`.**
+
+**During setup.sh (interactive):**
+
+1. Create a repo at [github.com/new](https://github.com/new) (e.g. `Huntable-SIGMA-Rules`)
+2. When prompted, enter `owner/repo` (e.g. `myuser/Huntable-SIGMA-Rules`)
+3. The script clones to `../Huntable-SIGMA-Rules` and creates the `rules/` structure
+
+**After setup (required):**
+
+- Add your **GitHub Personal Access Token** in **Settings → GitHub** (repo scope)
+- Create token at [github.com/settings/tokens](https://github.com/settings/tokens)
+
+**Non-interactive:** Set `SIGMA_GITHUB_REPO=owner/repo` before running `./setup.sh --non-interactive` to clone automatically.
+
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SIGMA_REPO_PATH` | Path to SIGMA rules repo | `./data/sigma-repo` |
+| `SIGMA_REPO_PATH` | Path to SIGMA rules repo (PR submission) | `sigma-repo` |
 | `GITHUB_TOKEN` | GitHub PAT for PR submission | — |
-| `GITHUB_REPO` | Target repo for SIGMA rule PRs | `dfirtnt/Huntable-SIGMA-Rules` |
+| `GITHUB_REPO` | Target repo for SIGMA rule PRs | `owner/repo` (from setup) |
 
 ## Source Configuration
 

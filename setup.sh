@@ -565,6 +565,90 @@ verify_installation() {
     fi
 }
 
+# Function to ensure Sigma rules repo exists for PR submission (../Huntable-SIGMA-Rules)
+handle_sigma_repo_setup() {
+    local sigma_repo_dir="../Huntable-SIGMA-Rules"
+    local default_repo="your-username/Huntable-SIGMA-Rules"
+
+    if [[ -d "$sigma_repo_dir" ]] && [[ -d "$sigma_repo_dir/.git" ]]; then
+        print_status "Sigma rules repo already exists at $sigma_repo_dir"
+        return 0
+    fi
+
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        if [[ -n "${SIGMA_GITHUB_REPO:-}" ]]; then
+            print_status "Cloning Sigma repo: $SIGMA_GITHUB_REPO"
+            if git clone "https://github.com/${SIGMA_GITHUB_REPO}.git" "$sigma_repo_dir" 2>/dev/null; then
+                print_status "✅ Sigma rules repo cloned"
+            else
+                print_warning "Sigma repo clone failed (create $sigma_repo_dir manually)"
+            fi
+        else
+            print_warning "Skipping Sigma repo setup (set SIGMA_GITHUB_REPO to clone, or create $sigma_repo_dir manually)"
+        fi
+        return 0
+    fi
+
+    echo ""
+    print_header "Sigma Rules Repo (PR Submission)"
+    echo -e "${CYAN}The app submits approved SIGMA rules via GitHub PRs.${NC}"
+    echo "Docker mounts ../Huntable-SIGMA-Rules at /app/sigma-repo."
+    echo ""
+    echo "If you don't have a repo yet: create one at https://github.com/new (e.g. Huntable-SIGMA-Rules)."
+    echo "Enter your GitHub username in place of 'your-username' below."
+    echo ""
+    if ! prompt_yes_no "Set up Sigma rules repo now?" "yes"; then
+        print_warning "Skipping. Create $sigma_repo_dir and clone your repo manually. Configure Settings → GitHub."
+        return 0
+    fi
+
+    local repo_input=""
+    prompt_input "GitHub repo (owner/repo, e.g. myuser/Huntable-SIGMA-Rules) [$default_repo]: " "$default_repo" "repo_input"
+    repo_input="${repo_input:-$default_repo}"
+    repo_input="${repo_input#https://github.com/}"
+    repo_input="${repo_input%.git}"
+    repo_input="${repo_input%/}"
+
+    print_status "Cloning https://github.com/${repo_input}.git ..."
+    if git clone "https://github.com/${repo_input}.git" "$sigma_repo_dir" 2>/dev/null; then
+        print_status "✅ Sigma rules repo cloned"
+    else
+        print_warning "Clone failed (repo may not exist or be private). Creating local repo with rules structure..."
+        mkdir -p "$sigma_repo_dir"
+        (cd "$sigma_repo_dir" && git init && mkdir -p rules/windows rules/linux rules/macos rules/network rules/cloud)
+        for d in windows linux macos network cloud; do
+            touch "$sigma_repo_dir/rules/$d/.gitkeep"
+        done
+        (cd "$sigma_repo_dir" && git add rules/ && git commit -m "Add rules directory structure" 2>/dev/null || true)
+        if [[ "$repo_input" != "your-username/Huntable-SIGMA-Rules" ]]; then
+            (cd "$sigma_repo_dir" && git remote add origin "https://github.com/${repo_input}.git" 2>/dev/null || true)
+            print_status "Created $sigma_repo_dir with rules structure. Create repo on GitHub, then: cd $sigma_repo_dir && git push -u origin main"
+        else
+            print_status "Created $sigma_repo_dir with rules structure. Create repo on GitHub, then: cd $sigma_repo_dir && git remote add origin https://github.com/YOUR_USER/Huntable-SIGMA-Rules.git && git push -u origin main"
+        fi
+    fi
+
+    # Ensure rules structure exists
+    if [[ -d "$sigma_repo_dir" ]] && [[ ! -d "$sigma_repo_dir/rules" ]]; then
+        print_status "Adding rules directory structure..."
+        mkdir -p "$sigma_repo_dir/rules"/{windows,linux,macos,network,cloud}
+        for d in windows linux macos network cloud; do
+            touch "$sigma_repo_dir/rules/$d/.gitkeep"
+        done
+        (cd "$sigma_repo_dir" && git add rules/ 2>/dev/null && git commit -m "Add rules directory structure" 2>/dev/null || true)
+    fi
+
+    # Update .env GITHUB_REPO if different from default
+    if [[ -f ".env" ]] && [[ "$repo_input" != "$default_repo" ]]; then
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' "s|GITHUB_REPO=.*|GITHUB_REPO=$repo_input|g" .env
+        else
+            sed -i "s|GITHUB_REPO=.*|GITHUB_REPO=$repo_input|g" .env
+        fi
+        print_status "Updated .env GITHUB_REPO=$repo_input"
+    fi
+}
+
 # Function to handle Sigma sync and index
 handle_sigma_sync_and_index() {
     print_status "Sigma: syncing SigmaHQ repo..."
@@ -614,9 +698,31 @@ build_and_serve_mkdocs() {
     if ! "$py" -m mkdocs build --strict 2>/dev/null; then
         "$py" -m mkdocs build
     fi
+    local existing_pids
+    existing_pids="$(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -n "$existing_pids" ]]; then
+        local mkdocs_pids=""
+        local pid
+        for pid in $existing_pids; do
+            local cmd
+            cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+            if [[ "$cmd" == *"mkdocs serve"* ]]; then
+                mkdocs_pids="$mkdocs_pids $pid"
+            fi
+        done
+        if [[ -n "${mkdocs_pids// }" ]]; then
+            print_status "Stopping existing MkDocs server on :8000..."
+            # shellcheck disable=SC2086
+            kill $mkdocs_pids
+            sleep 1
+        else
+            print_warning "Port 8000 is already used by a non-MkDocs process; skipping MkDocs auto-start."
+            return 0
+        fi
+    fi
     print_status "Starting MkDocs server in background..."
     mkdir -p logs
-    nohup "$py" -m mkdocs serve >> logs/mkdocs.log 2>&1 </dev/null &
+    nohup "$py" -m mkdocs serve -a 127.0.0.1:8000 >> logs/mkdocs.log 2>&1 </dev/null &
 }
 
 # Function to show post-installation information
@@ -671,6 +777,10 @@ show_post_install_info() {
     echo "   2. Configure API keys in .env file if needed (OpenAI, Anthropic)"
     echo "   3. Verify automated backups are working"
     echo "   4. Configure your sources in config/sources.yaml"
+    if [[ -d "../Huntable-SIGMA-Rules" ]]; then
+        echo "   5. Sigma PRs: Add your GitHub Personal Access Token (PAT) in Settings → GitHub"
+        echo "      Create token at https://github.com/settings/tokens (repo scope required)"
+    fi
     echo ""
 }
 
@@ -756,6 +866,9 @@ main() {
     
     # Setup environment
     setup_environment
+
+    # Sigma rules repo for PR submission (must exist before Docker mount)
+    handle_sigma_repo_setup
     
     # Start services
     start_services

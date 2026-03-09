@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -3072,14 +3072,28 @@ The system first retrieves a shortlist of candidate rules using pgvector nearest
 <hr />
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># SIGMA repository and matching</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">SIGMA_REPO_PATH</span><span class="o">=</span>./data/sigma-repo
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nv">SIGMA_MATCH_THRESHOLD</span><span class="o">=</span><span class="m">0</span>.7
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># LM Studio embedding configuration (required for SIGMA embeddings)</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="nv">LMSTUDIO_EMBEDDING_URL</span><span class="o">=</span>http://localhost:1234/v1/embeddings
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="nv">LMSTUDIO_EMBEDDING_MODEL</span><span class="o">=</span>intfloat/e5-base-v2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># SIGMA rule indexing (SigmaHQ sync - for similarity search)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="c1"># Uses ./data/sigma-repo by default (sigma sync/index)</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># SIGMA PR submission (your rules repo)</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nv">SIGMA_REPO_PATH</span><span class="o">=</span>sigma-repo
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="nv">GITHUB_REPO</span><span class="o">=</span>owner/repo
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="nv">GITHUB_TOKEN</span><span class="o">=</span>ghp_xxx<span class="w">   </span><span class="c1"># Add in Settings → GitHub (repo scope)</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="c1"># Similarity matching</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="nv">SIGMA_MATCH_THRESHOLD</span><span class="o">=</span><span class="m">0</span>.7
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="c1"># LM Studio embedding configuration (required for SIGMA embeddings)</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="nv">LMSTUDIO_EMBEDDING_URL</span><span class="o">=</span>http://localhost:1234/v1/embeddings
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="nv">LMSTUDIO_EMBEDDING_MODEL</span><span class="o">=</span>intfloat/e5-base-v2
 </code></pre></div>
+<h3 id="github-pr-setup">GitHub PR Setup<a class="headerlink" href="#github-pr-setup" title="Permanent link">&para;</a></h3>
+<p>Submit approved rules from the Sigma Queue to your GitHub repo:</p>
+<ol>
+<li><strong>During <code>./setup.sh</code></strong>: Create repo at <a href="https://github.com/new">github.com/new</a>, enter <code>owner/repo</code> when prompted. The script clones to <code>../Huntable-SIGMA-Rules</code> and creates the <code>rules/</code> structure.</li>
+<li><strong>After setup</strong>: Add your GitHub Personal Access Token in <strong>Settings → GitHub</strong> (repo scope). Create at <a href="https://github.com/settings/tokens">github.com/settings/tokens</a>.</li>
+<li><strong>Settings → GitHub</strong>: SIGMA Repository Path (<code>sigma-repo</code>), GitHub Repository (<code>owner/repo</code>), and Git user name/email for commits.</li>
+</ol>
 <h3 id="ai-model-configuration">AI Model Configuration<a class="headerlink" href="#ai-model-configuration" title="Permanent link">&para;</a></h3>
 <p><strong>ChatGPT (OpenAI)</strong>
 - Model: gpt-4o-mini

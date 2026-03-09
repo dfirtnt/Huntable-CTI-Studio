@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -3376,6 +3376,19 @@
 </table>
 <p>Configure LangFuse either through environment variables or via the Settings UI.</p>
 <h3 id="sigma-github-integration">SIGMA / GitHub Integration<a class="headerlink" href="#sigma-github-integration" title="Permanent link">&para;</a></h3>
+<p>The app submits approved SIGMA rules via GitHub PRs. <strong>Setup is automated during <code>./setup.sh</code>.</strong></p>
+<p><strong>During setup.sh (interactive):</strong></p>
+<ol>
+<li>Create a repo at <a href="https://github.com/new">github.com/new</a> (e.g. <code>Huntable-SIGMA-Rules</code>)</li>
+<li>When prompted, enter <code>owner/repo</code> (e.g. <code>myuser/Huntable-SIGMA-Rules</code>)</li>
+<li>The script clones to <code>../Huntable-SIGMA-Rules</code> and creates the <code>rules/</code> structure</li>
+</ol>
+<p><strong>After setup (required):</strong></p>
+<ul>
+<li>Add your <strong>GitHub Personal Access Token</strong> in <strong>Settings → GitHub</strong> (repo scope)</li>
+<li>Create token at <a href="https://github.com/settings/tokens">github.com/settings/tokens</a></li>
+</ul>
+<p><strong>Non-interactive:</strong> Set <code>SIGMA_GITHUB_REPO=owner/repo</code> before running <code>./setup.sh --non-interactive</code> to clone automatically.</p>
 <table>
 <thead>
 <tr>
@@ -3387,8 +3400,8 @@
 <tbody>
 <tr>
 <td><code>SIGMA_REPO_PATH</code></td>
-<td>Path to SIGMA rules repo</td>
-<td><code>./data/sigma-repo</code></td>
+<td>Path to SIGMA rules repo (PR submission)</td>
+<td><code>sigma-repo</code></td>
 </tr>
 <tr>
 <td><code>GITHUB_TOKEN</code></td>
@@ -3398,7 +3411,7 @@
 <tr>
 <td><code>GITHUB_REPO</code></td>
 <td>Target repo for SIGMA rule PRs</td>
-<td><code>dfirtnt/Huntable-SIGMA-Rules</code></td>
+<td><code>owner/repo</code> (from setup)</td>
 </tr>
 </tbody>
 </table>

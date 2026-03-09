@@ -39,6 +39,32 @@ Run similarity matching outside the workflow or re-classify coverage:
 ```
 This compares the article (and its chunks) to indexed Sigma rules and stores results in the database.
 
+## 5) Submit approved rules as PR (optional)
+
+To submit approved rules from the Sigma Queue to your GitHub repo:
+
+**One-time setup (run during `./setup.sh` or manually):**
+
+1. Create a repo at [github.com/new](https://github.com/new) (e.g. `Huntable-SIGMA-Rules`)
+2. Clone to `../Huntable-SIGMA-Rules` (or let setup.sh do it when prompted)
+3. Add your **GitHub Personal Access Token** in **Settings → GitHub** (repo scope)
+   - Create token at [github.com/settings/tokens](https://github.com/settings/tokens)
+
+**Manual setup if you skipped setup.sh:**
+
+```bash
+git clone https://github.com/YOUR_USER/Huntable-SIGMA-Rules.git ../Huntable-SIGMA-Rules
+cd ../Huntable-SIGMA-Rules
+mkdir -p rules/{windows,linux,macos,network,cloud}
+# Add .gitkeep or initial rules, then commit and push
+```
+
+Configure in **Settings → GitHub**:
+
+- SIGMA Repository Path: `sigma-repo` (default)
+- GitHub Repository: `owner/repo`
+- GitHub Personal Access Token: required
+
 ## Troubleshooting
 - If validation fails, the Sigma agent retries up to three times with pySigma error feedback.
 - No rules are generated when extraction produces zero huntables and the filtered content toggle is disabled.

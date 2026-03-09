@@ -26,27 +26,16 @@ class SigmaPRService:
         Initialize the PR service.
 
         Args:
-            repo_path: Path to local SIGMA repository. Defaults to ../Huntable-SIGMA-Rules
+            repo_path: Path to local SIGMA repository. Defaults to sigma-repo.
         """
         # Try to load from AppSettings first, then fall back to env vars
         self.github_token = self._get_setting("GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN")
-        # Default path: check if we're in Docker (sigma-repo mount) or local (../Huntable-SIGMA-Rules)
-        default_path = (
-            "sigma-repo"
-            if os.path.exists("/.dockerenv") or os.path.exists("/app/sigma-repo")
-            else "../Huntable-SIGMA-Rules"
-        )
+        # Single default: sigma-repo (Docker mounts ../Huntable-SIGMA-Rules at /app/sigma-repo)
+        default_path = "sigma-repo"
         repo_path_setting = self._get_setting("SIGMA_REPO_PATH") or os.getenv("SIGMA_REPO_PATH", default_path)
 
         # Resolve path: if relative, resolve from app root; if absolute, use as-is
-        repo_path_str = repo_path or repo_path_setting
-        if not repo_path_str:
-            # Default fallback based on environment
-            repo_path_str = (
-                "sigma-repo"
-                if os.path.exists("/.dockerenv") or os.path.exists("/app/sigma-repo")
-                else "../Huntable-SIGMA-Rules"
-            )
+        repo_path_str = repo_path or repo_path_setting or default_path
 
         # Clean up the path string (remove leading/trailing whitespace)
         repo_path_str = repo_path_str.strip()
@@ -372,8 +361,8 @@ class SigmaPRService:
                 f"Please verify:\n"
                 f"1. The repository exists at this path\n"
                 f"2. The path in Settings is correct\n"
-                f"   - Relative: '../Huntable-SIGMA-Rules' (from app root)\n"
-                f"   - Absolute: '/Users/starlord/Huntable-SIGMA-Rules'\n"
+                f"   - Relative: 'sigma-repo' (from app root; Docker mounts ../Huntable-SIGMA-Rules there)\n"
+                f"   - Absolute: '/path/to/your/sigma-repo'\n"
                 f"3. You have read/write permissions to this directory\n"
                 f"4. After changing Settings, click 'Save Settings' and refresh the page",
             }
