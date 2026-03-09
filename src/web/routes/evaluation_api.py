@@ -13,7 +13,6 @@ from pathlib import Path
 import yaml
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from langfuse import Langfuse
 from pydantic import BaseModel, Field
 
 from src.database.manager import DatabaseManager
@@ -168,8 +167,10 @@ def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) ->
     return default
 
 
-def get_langfuse_client() -> Langfuse:
+def get_langfuse_client():
     """Initialize Langfuse client from database settings or environment variables."""
+    from langfuse import Langfuse
+
     public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
     secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
     host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")

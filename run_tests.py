@@ -643,7 +643,7 @@ class RunTestRunner:
 
     def _build_pytest_command(self) -> list[str]:
         """Build pytest command based on configuration."""
-        cmd = ["python3", "-m", "pytest"]
+        cmd = ["python3", "-m", "pytest", "-p", "no:langsmith_plugin"]
 
         # Add test paths
         if self.config.test_paths:
@@ -672,6 +672,7 @@ class RunTestRunner:
                     "tests/",
                     "--ignore=tests/test_web_application.py",  # Exclude web app tests (require running server)
                     "--ignore=tests/ui/",  # Exclude UI tests (require browser/Playwright)
+                    "--ignore=tests/api/",  # Exclude api (langfuse+pydantic v1 incompatible with Python 3.14)
                     "-m",
                     "not (smoke or integration or api or ui or e2e or performance "
                     "or infrastructure or prod_data or production_data)",
