@@ -4,7 +4,7 @@
 
 ## ** SECURITY WARNING **
 !! DO NOT DEPLOY IN HOSTILE NETWORK!!
-This app is a suite of utilities for processing open source intel. It is for research, learning, and automation purposes. Code is NOT SECURE, and is not intended to be used in production!!
+This app is a suite of utilities for processing open source intel. It is for research, learning, and automation purposes. Code is NOT SECURE, and is not intended to be used in production!! The app is also not intended to support classified or proprietary threat intelligence at this time. 
 ##
 
 **Huntable CTI Studio v5.0.0 "Callisto"** -  A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 33+ OSINT sources.
