@@ -18,7 +18,6 @@ def mock_db_session():
     session.no_autoflush = MagicMock()
     session.no_autoflush.__enter__ = MagicMock(return_value=None)
     session.no_autoflush.__exit__ = MagicMock(return_value=False)
-    session.begin_nested.return_value = MagicMock()
     return session
 
 
