@@ -51,6 +51,8 @@ cd Huntable-CTI-Studio
 ./setup.sh --no-backups
 # optional: run setup without prompts
 # ./setup.sh --non-interactive --no-backups
+
+For subsequent (no setup) initialization use: 
 ./start.sh
 ```
 
