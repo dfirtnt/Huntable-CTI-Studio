@@ -28,6 +28,7 @@ select = [
 "src/services/llm_service.py" = ["E501"]
 "src/web/routes/workflow_executions.py" = ["E501"]
 "src/cli/main.py" = ["E402"]
+"src/web/routes/chat.py" = ["E501"]
 "src/worker/celery_app.py" = ["E402", "E501", "SIM105", "RET504", "B904", "B905", "F841"]
 
 [tool.ruff.format]
