@@ -6,6 +6,7 @@
 /** RGB substring values for "readable" text (getComputedStyle may return e.g. "rgb(r, g, b)"). */
 export const READABLE_TEXT_RGB = [
   '255, 255, 255',   // white
+  '222, 226, 232',   // text-[#dee2e8] nearly white (Inputs/Output summaries)
   '209, 213, 219',   // text-gray-300
   '55, 65, 81',      // text-gray-700
   '248, 250, 252',   // slate heading (#f8fafc)
