@@ -261,6 +261,25 @@ create_env_file() {
             sed -i "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=${base_url}|g" .env
             sed -i "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=${embed_url}|g" .env
         fi
+    else
+        # User chose not to use LMStudio: persist so Settings hides LMStudio UI
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=|g" .env
+            sed -i '' "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=|g" .env
+        else
+            sed -i "s|LMSTUDIO_API_URL=.*|LMSTUDIO_API_URL=|g" .env
+            sed -i "s|LMSTUDIO_EMBEDDING_URL=.*|LMSTUDIO_EMBEDDING_URL=|g" .env
+        fi
+        if grep -q '^WORKFLOW_LMSTUDIO_ENABLED=' .env 2>/dev/null; then
+            [[ "$(uname)" == "Darwin" ]] && sed -i '' 's/^WORKFLOW_LMSTUDIO_ENABLED=.*/WORKFLOW_LMSTUDIO_ENABLED=false/' .env || sed -i 's/^WORKFLOW_LMSTUDIO_ENABLED=.*/WORKFLOW_LMSTUDIO_ENABLED=false/' .env
+        else
+            echo 'WORKFLOW_LMSTUDIO_ENABLED=false' >> .env
+        fi
+        if grep -q '^PROCEED_WITHOUT_LMSTUDIO=' .env 2>/dev/null; then
+            [[ "$(uname)" == "Darwin" ]] && sed -i '' 's/^PROCEED_WITHOUT_LMSTUDIO=.*/PROCEED_WITHOUT_LMSTUDIO=1/' .env || sed -i 's/^PROCEED_WITHOUT_LMSTUDIO=.*/PROCEED_WITHOUT_LMSTUDIO=1/' .env
+        else
+            echo 'PROCEED_WITHOUT_LMSTUDIO=1' >> .env
+        fi
     fi
     
     print_status ".env file created with your configuration"

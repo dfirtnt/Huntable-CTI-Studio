@@ -46,7 +46,9 @@
                 </span>
             </div>
             <div id="documentation-content" class="space-y-4 hidden">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Open the MkDocs documentation site. If the page does not load, run <code class="bg-gray-700 px-1 rounded">./run_mkdocs.sh</code> in the project directory first.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Open the MkDocs documentation site. If the page does not load, run MkDocs in the background from the project root:</p>
+                <pre class="text-sm bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto"><code>nohup .venv/bin/python3 -m mkdocs serve -a 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &lt;/dev/null &amp;</code></pre>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
                 <a id="launchMkdocsBtn"
                    href="http://127.0.0.1:8000"
                    target="_blank"
@@ -396,7 +398,7 @@
                             </label>
                         </div>
 
-                        <!-- LMStudio Provider (greyed out when user proceeded without LMStudio at start.sh) -->
+                        <!-- LMStudio Provider (hidden when user chose not to use LMStudio during Setup.sh) -->
                         <div id="workflowLmstudioRow" class="flex items-center">
                             <input type="checkbox"
                                    id="workflowLmstudioEnabled"
@@ -404,7 +406,6 @@
                             <label for="workflowLmstudioEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 LMStudio (Local)
                             </label>
-                            <span id="workflowLmstudioProceedNote" class="ml-2 text-xs text-gray-500 dark:text-gray-400 hidden" aria-hidden="true"></span>
                         </div>
                     </div>
                 </div>
@@ -871,17 +872,9 @@
         window.__proceedWithoutLmstudio = proceedWithoutLmstudio;
         if (proceedWithoutLmstudio) {
             const row = document.getElementById('workflowLmstudioRow');
-            if (row) {
-                row.classList.add('opacity-50', 'pointer-events-none');
-                row.title = 'Disabled: you chose to proceed without LMStudio at startup.';
-            }
-            const cb = document.getElementById('workflowLmstudioEnabled');
-            if (cb) cb.disabled = true;
-            const note = document.getElementById('workflowLmstudioProceedNote');
-            if (note) {
-                note.textContent = '(disabled: proceeded without LMStudio at startup)';
-                note.classList.remove('hidden');
-            }
+            if (row) row.style.display = 'none';
+            const section = document.getElementById('workflowLmstudioApiKeySection');
+            if (section) section.style.display = 'none';
         }
 
         const workflowOpenaiApiKey = parseWorkflowStringSetting(
@@ -1507,7 +1500,7 @@
         if (geminiSection) {
             geminiSection.style.display = 'none';
         }
-        lmstudioSection.style.display = lmstudioEnabled ? 'block' : 'none';
+        lmstudioSection.style.display = (window.__proceedWithoutLmstudio || !lmstudioEnabled) ? 'none' : 'block';
     }
 
     // Test workflow API key for specific provider
