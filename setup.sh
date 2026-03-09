@@ -147,7 +147,7 @@ configure_llm() {
         print_warning "LM Studio is not compatible with Intel-based Macs (requires Apple Silicon)"
         print_warning "Skipping LM Studio configuration. Use OpenAI or Anthropic APIs instead."
         USE_LMSTUDIO=false
-    elif prompt_yes_no "Do you want to use LM Studio for local LLM?" "no"; then
+    elif prompt_yes_no "Do you have LM Studio installed and want to use it for local LLM? (If you only want cloud providers #2 and #3, select No)" "no"; then
         USE_LMSTUDIO=true
         print_status "LM Studio will be enabled (ensure it's running on port 1234)"
         if [[ "$NON_INTERACTIVE" != "true" ]]; then
