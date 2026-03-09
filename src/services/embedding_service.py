@@ -41,7 +41,21 @@ class EmbeddingService:
 
         try:
             logger.info(f"Loading Sentence Transformers model: {self.model_name}")
-            self.model = SentenceTransformer(self.model_name, cache_folder=self.cache_dir, device=self.device)
+            try:
+                # Prefer local cache to avoid network round-trips on every load
+                self.model = SentenceTransformer(
+                    self.model_name,
+                    cache_folder=self.cache_dir,
+                    device=self.device,
+                    local_files_only=True,
+                )
+            except Exception:
+                # Model not cached yet — download from HuggingFace
+                self.model = SentenceTransformer(
+                    self.model_name,
+                    cache_folder=self.cache_dir,
+                    device=self.device,
+                )
             self._model_loaded = True
             logger.info(f"Successfully loaded model '{self.model_name}' on {self.device}")
 
@@ -121,7 +135,7 @@ class EmbeddingService:
 
             # Create full result list with zeros for empty texts
             result = [[0.0] * 768] * len(texts)
-            for i, embedding in zip(valid_indices, embeddings):
+            for i, embedding in zip(valid_indices, embeddings, strict=False):
                 result[i] = embedding
 
             logger.info(f"Generated {len(valid_texts)} embeddings in batch processing")
@@ -225,10 +239,7 @@ class EmbeddingService:
         if len(embedding) != 768:
             return False
 
-        if not all(isinstance(x, (int, float)) for x in embedding):
-            return False
-
-        return True
+        return all(isinstance(x, (int, float)) for x in embedding)
 
 
 # Global instance for reuse across the application
