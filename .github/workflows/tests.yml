@@ -143,6 +143,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-test.txt
 
+      - name: Initialize test database schema
+        run: |
+          python - <<'PY'
+          import asyncio
+          import os
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+
+          async def main():
+              os.environ["APP_ENV"] = "test"
+              from src.database.async_manager import async_db_manager
+
+              # Ensure extension + ORM tables are created before API tests run.
+              await async_db_manager.create_tables()
+
+              db_url = os.environ["TEST_DATABASE_URL"]
+              engine = create_async_engine(db_url)
+              try:
+                  async with engine.connect() as conn:
+                      for table_name in ("sources", "articles", "agentic_workflow_config"):
+                          result = await conn.execute(
+                              text("SELECT to_regclass(:tbl)"),
+                              {"tbl": f"public.{table_name}"},
+                          )
+                          if result.scalar() is None:
+                              raise RuntimeError(f"Missing required table after bootstrap: {table_name}")
+              finally:
+                  await engine.dispose()
+
+          asyncio.run(main())
+          PY
+
       - name: Run API tests
         run: python run_tests.py api
 
