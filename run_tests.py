@@ -191,6 +191,7 @@ class RunTestConfig:
     test_paths: list[str] | None = None
     markers: list[str] | None = None
     exclude_markers: list[str] | None = None
+    include_agent_config_tests: bool = False
     config_file: str | None = None
     output_format: str = "progress"
     fail_fast: bool = False
@@ -809,6 +810,9 @@ class RunTestRunner:
         # For unit tests, exclude integration/api/ui/e2e/performance but don't require unit marker
         elif self.config.test_type == RunTestType.UNIT:
             default_excludes.extend(["integration", "api", "ui", "ui_smoke", "e2e", "performance", "smoke"])
+        # UI: by default exclude agent/workflow config-mutating tests (use --include-agent-config-tests to run them)
+        elif self.config.test_type == RunTestType.UI and not self.config.include_agent_config_tests:
+            default_excludes.append("agent_config_mutation")
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:
@@ -1299,9 +1303,11 @@ class RunTestRunner:
 
     def _get_agent_config_exclude_env(self) -> dict[str, str]:
         """Return env vars to exclude Playwright specs that mutate agent/workflow config.
-        Used when --exclude-markers agent_config_mutation is set (no agent config mutation in CI/safe runs).
+        Set when UI runs without --include-agent-config-tests, or when --exclude-markers agent_config_mutation is used.
         """
         if self.config.exclude_markers and "agent_config_mutation" in self.config.exclude_markers:
+            return {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
+        if self.config.test_type == RunTestType.UI and not self.config.include_agent_config_tests:
             return {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
         return {}
 
@@ -1750,8 +1756,8 @@ Examples:
   python run_tests.py smoke                    # Quick health check (stateless, fast)
   python run_tests.py unit --fail-fast         # Unit tests (stateless, no containers)
   python run_tests.py integration              # Integration tests (auto-starts containers)
-  python run_tests.py ui                       # UI tests (may auto-start containers)
-  python run_tests.py ui --exclude-markers agent_config_mutation  # UI tests that do not mutate agent configs
+  python run_tests.py ui                       # UI tests (excludes agent/workflow config mutation by default)
+  python run_tests.py ui --include-agent-config-tests  # Include tests that mutate agent/workflow config
   python run_tests.py all                      # Full suite (auto-starts containers)
   python run_tests.py --debug --verbose        # Debug mode with verbose output
   python run_tests.py --context localhost unit # Force localhost execution
@@ -1799,6 +1805,11 @@ Manual Container Management:
     parser.add_argument("--paths", nargs="+", help="Specific test paths to run")
     parser.add_argument("--markers", nargs="+", help="Test markers to include")
     parser.add_argument("--exclude-markers", nargs="+", help="Test markers to exclude")
+    parser.add_argument(
+        "--include-agent-config-tests",
+        action="store_true",
+        help="Include UI tests that mutate agent/workflow config (only for 'ui' type; default is to exclude them)",
+    )
     parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
 
     # Output and reporting
@@ -1843,6 +1854,7 @@ Manual Container Management:
         test_paths=args.paths,
         markers=args.markers,
         exclude_markers=args.exclude_markers,
+        include_agent_config_tests=args.include_agent_config_tests,
         config_file=args.config,
         output_format=args.output_format,
         fail_fast=args.fail_fast,

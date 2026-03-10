@@ -1,6 +1,6 @@
 ---
 name: test-validation
-description: Runs the standard test sequence (smoke, unit, api, integration, then ui excluding agent_config_mutation), parses pass counts, and validates them against expected baselines. Use when you need to confirm the suite is green with known-good counts; does not fix failures.
+description: Runs the standard test sequence (smoke, unit, api, integration, then ui). UI excludes agent/workflow config-mutating tests by default; parses pass counts and validates against expected baselines. Use when you need to confirm the suite is green with known-good counts; does not fix failures.
 ---
 
 # Test Validation
@@ -15,7 +15,7 @@ Executes in order:
 2. **unit** - Unit tests
 3. **api** - API endpoint tests
 4. **integration** - System integration tests
-5. **ui** (excluding `agent_config_mutation`) - Web interface tests
+5. **ui** - Web interface tests (agent/workflow config-mutating tests excluded by default)
 6. **quality regression** - `regression --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 7. **quality contract** - `contract --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 8. **quality security** - `security --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
@@ -103,7 +103,7 @@ test_groups = [
     ("unit", [], None, None),
     ("api", [], None, None),
     ("integration", [], None, None),
-    ("ui", ["agent_config_mutation"], None, None),
+    ("ui", [], None, None),
     ("regression", [], quality_path_args, None),
     ("contract", [], quality_path_args, None),
     ("security", [], quality_path_args, None),
@@ -161,7 +161,7 @@ print()
 
 - This skill does NOT fix failures - it only reports them
 - For fixing failures, use the `test-runner-fix` skill instead
-- The `ui` group excludes `agent_config_mutation` marker to avoid mutating active configs
+- The `ui` group excludes agent/workflow config-mutating tests by default (run_tests.py ui default)
 - Quality runs (regression, contract, security, a11y) use `--context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 - Unit marker runs: `unit --markers regression|contract|security|a11y` (expected 1 passed each)
 - Each test group runs independently (no shared state)
