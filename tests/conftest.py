@@ -745,6 +745,10 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "quarantine: Quarantined tests that need fixes (tracked in SKIPPED_TESTS.md)")
     config.addinivalue_line("markers", "ui_smoke: UI smoke tests (reclassified Playwright tests)")
     config.addinivalue_line("markers", "sources: Sources page tests")
+    config.addinivalue_line("markers", "regression: Regression tests for previously fixed behavior")
+    config.addinivalue_line("markers", "contract: API/schema contract tests")
+    config.addinivalue_line("markers", "security: Security hardening and abuse-case tests")
+    config.addinivalue_line("markers", "a11y: Accessibility baseline tests")
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -759,6 +763,46 @@ def pytest_sessionfinish(session, exitstatus):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on environment."""
+    primary_markers = ("ui", "smoke", "api", "unit", "integration", "e2e")
+
+    # Enforce one primary marker per test. Auto-assign based on path/conventions
+    # to avoid maintaining hundreds of per-test decorators.
+    for item in items:
+        present_primary = [marker for marker in primary_markers if marker in item.keywords]
+        if not present_primary:
+            # Normalize nodeid so directory detection works whether rootdir is repo root
+            # (e.g., tests/ui/...) or tests/ (e.g., ui/...).
+            nodeid = f"/{item.nodeid.replace('\\\\', '/')}"
+            if "/ui/" in nodeid:
+                item.add_marker(pytest.mark.ui)
+            elif "/api/" in nodeid:
+                item.add_marker(pytest.mark.api)
+            elif "/integration/" in nodeid:
+                item.add_marker(pytest.mark.integration)
+            elif "/e2e/" in nodeid:
+                item.add_marker(pytest.mark.e2e)
+            elif "/smoke/" in nodeid or "ui_smoke" in item.keywords:
+                item.add_marker(pytest.mark.smoke)
+            else:
+                # Default all remaining tests to unit.
+                item.add_marker(pytest.mark.unit)
+
+    missing_primary: list[str] = []
+    for item in items:
+        present_primary = [marker for marker in primary_markers if marker in item.keywords]
+        if not present_primary:
+            missing_primary.append(item.nodeid)
+
+    if missing_primary:
+        samples: list[str] = []
+        for nodeid in missing_primary[:10]:
+            samples.append(f"missing primary marker: {nodeid}")
+        details = "\n".join(samples)
+        raise pytest.UsageError(
+            "Primary marker policy violation. Each test must have at least one of: "
+            f"{', '.join(primary_markers)}.\n{details}"
+        )
+
     # Skip performance tests if not enabled
     if os.getenv("PERFORMANCE_TEST_ENABLED", "false").lower() != "true":
         for item in items:

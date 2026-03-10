@@ -16,6 +16,10 @@ Executes in order:
 3. **api** - API endpoint tests
 4. **integration** - System integration tests
 5. **ui** (excluding `agent_config_mutation`) - Web interface tests
+6. **quality regression** - `regression --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
+7. **quality contract** - `contract --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
+8. **quality security** - `security --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
+9. **quality a11y** - `a11y --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 
 ## Usage
 
@@ -50,11 +54,13 @@ import subprocess
 import re
 from pathlib import Path
 
-def run_test_group(group: str, exclude_markers: list[str] = None) -> dict:
+def run_test_group(group: str, exclude_markers: list[str] = None, extra_args: list[str] = None) -> dict:
     """Run a test group and parse results."""
     cmd = ["./run_tests.py", group]
     if exclude_markers:
         cmd.extend(["--exclude-markers"] + exclude_markers)
+    if extra_args:
+        cmd.extend(extra_args)
     
     result = subprocess.run(
         cmd,
@@ -85,19 +91,28 @@ def run_test_group(group: str, exclude_markers: list[str] = None) -> dict:
         "output": output
     }
 
-# Test groups to run
+# Test groups to run: (name, exclude_markers, extra_args)
+# extra_args used for quality runs: --context localhost --paths ... --output-format quiet
+quality_path_args = ["--context", "localhost", "--paths", "tests/quality/test_quality_categories_seed.py", "--output-format", "quiet"]
 test_groups = [
-    ("smoke", []),
-    ("unit", []),
-    ("api", []),
-    ("integration", []),
-    ("ui", ["agent_config_mutation"]),
+    ("smoke", [], None),
+    ("unit", [], None),
+    ("api", [], None),
+    ("integration", [], None),
+    ("ui", ["agent_config_mutation"], None),
+    ("regression", [], quality_path_args),
+    ("contract", [], quality_path_args),
+    ("security", [], quality_path_args),
+    ("a11y", [], quality_path_args),
 ]
 
 results = []
-for group, exclude_markers in test_groups:
+for item in test_groups:
+    group = item[0]
+    exclude_markers = item[1]
+    extra_args = item[2] if len(item) > 2 else None
     print(f"\n🧪 Running {group} tests...")
-    result = run_test_group(group, exclude_markers if exclude_markers else None)
+    result = run_test_group(group, exclude_markers if exclude_markers else None, extra_args)
     results.append((group, result))
 
 # Print summary table
@@ -138,5 +153,6 @@ print()
 - This skill does NOT fix failures - it only reports them
 - For fixing failures, use the `test-runner-fix` skill instead
 - The `ui` group excludes `agent_config_mutation` marker to avoid mutating active configs
+- Quality runs (regression, contract, security, a11y) use `--context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 - Each test group runs independently (no shared state)
 - Failure logs are saved to `test-results/failures_*.log` by `run_tests.py`

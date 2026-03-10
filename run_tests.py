@@ -154,6 +154,10 @@ class RunTestType(Enum):
     INTEGRATION = "integration"
     UI = "ui"
     E2E = "e2e"
+    REGRESSION = "regression"
+    CONTRACT = "contract"
+    SECURITY = "security"
+    A11Y = "a11y"
     PERFORMANCE = "performance"
     AI = "ai"
     AI_UI = "ai-ui"
@@ -550,6 +554,10 @@ class RunTestRunner:
             RunTestType.INTEGRATION: ["integration"],
             RunTestType.UI: ["ui"],
             RunTestType.E2E: ["e2e"],
+            RunTestType.REGRESSION: ["regression"],
+            RunTestType.CONTRACT: ["contract"],
+            RunTestType.SECURITY: ["security"],
+            RunTestType.A11Y: ["a11y"],
             RunTestType.PERFORMANCE: ["performance"],
             RunTestType.AI: ["ai", "ui", "integration"],
             RunTestType.AI_UI: ["ai", "ui"],
@@ -589,6 +597,10 @@ class RunTestRunner:
             RunTestType.INTEGRATION: [],  # Skip Playwright in integration tests (Python-based)
             RunTestType.UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
             RunTestType.E2E: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.REGRESSION: [],  # Skip Playwright in marker-based category tests
+            RunTestType.CONTRACT: [],  # Skip Playwright in marker-based category tests
+            RunTestType.SECURITY: [],  # Skip Playwright in marker-based category tests
+            RunTestType.A11Y: [],  # Skip Playwright in marker-based category tests
             RunTestType.PERFORMANCE: [],  # Skip Playwright in performance tests
             RunTestType.AI: [],  # Skip Playwright in AI tests (Python-based)
             RunTestType.AI_UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
@@ -737,6 +749,10 @@ class RunTestRunner:
                 ],
                 RunTestType.UI: ["tests/ui/"],
                 RunTestType.E2E: ["tests/e2e/"],
+                RunTestType.REGRESSION: ["tests/", "-m", "regression"],
+                RunTestType.CONTRACT: ["tests/", "-m", "contract"],
+                RunTestType.SECURITY: ["tests/", "-m", "security"],
+                RunTestType.A11Y: ["tests/", "-m", "a11y"],
                 RunTestType.PERFORMANCE: ["tests/", "-m", "performance"],
                 RunTestType.AI: [
                     # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
@@ -771,6 +787,10 @@ class RunTestRunner:
             RunTestType.INTEGRATION: ["integration"],
             RunTestType.UI: ["ui"],
             RunTestType.E2E: ["e2e"],
+            RunTestType.REGRESSION: ["regression"],
+            RunTestType.CONTRACT: ["contract"],
+            RunTestType.SECURITY: ["security"],
+            RunTestType.A11Y: ["a11y"],
             RunTestType.PERFORMANCE: ["performance"],
             RunTestType.AI: ["ai"],
             RunTestType.AI_UI: ["ai", "ui"],
@@ -1652,6 +1672,10 @@ class RunTestRunner:
             ("integration", "System integration tests (~3m)"),
             ("ui", "Web interface tests (~5m)"),
             ("e2e", "End-to-end tests (~3m)"),
+            ("regression", "Regression test category"),
+            ("contract", "API/schema contract category"),
+            ("security", "Security test category"),
+            ("a11y", "Accessibility test category"),
             ("performance", "Performance tests (~2m)"),
             ("ai", "AI tests (~3m)"),  # Note: AI Assistant UI tests removed
             ("ai-ui", "AI UI tests only (~1m)"),
@@ -1703,6 +1727,10 @@ Test Types:
   integration  System integration tests (~3m) - STATEFUL (auto-starts test containers)
   ui           Web interface tests (~5m) - May need containers
   e2e          End-to-end tests (~3m) - STATEFUL (auto-starts test containers)
+  regression   Regression test marker category (usually stateless)
+  contract     API/schema contract marker category (usually stateless)
+  security     Security marker category (usually stateless)
+  a11y         Accessibility marker category (usually stateless)
   performance  Performance tests (~2m) - May need containers
   ai           AI tests (~3m) - LIMITED (external APIs skipped, AI Assistant UI tests removed)
   ai-ui        AI UI tests only (~1m) - May need containers
