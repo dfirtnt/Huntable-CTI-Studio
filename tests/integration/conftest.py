@@ -88,6 +88,12 @@ async def test_database_with_rollback():
 
 
 @pytest_asyncio.fixture(loop_scope="function")
+async def test_database_session(test_database_with_rollback):
+    """Alias for tests that expect test_database_session (e.g. eval execution)."""
+    return test_database_with_rollback
+
+
+@pytest_asyncio.fixture(loop_scope="function")
 async def test_database_manager(test_database_with_rollback):
     """Provide test database manager with transaction rollback.
     Async so it runs in the test's event loop (same as test_database_with_rollback),

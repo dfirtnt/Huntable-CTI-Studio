@@ -187,3 +187,98 @@ jobs:
             test-results/
             allure-results/
           if-no-files-found: ignore
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_DB: cti_scraper_test
+          POSTGRES_USER: cti_user
+          POSTGRES_PASSWORD: cti_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cti_user -d cti_scraper_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      TEST_GROUP: integration
+      TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-test.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+
+      - name: Initialize test database schema
+        run: |
+          python - <<'PY'
+          import asyncio
+          import os
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+
+          async def main():
+              os.environ["APP_ENV"] = "test"
+              from src.database.async_manager import async_db_manager
+
+              await async_db_manager.create_tables()
+
+              db_url = os.environ["TEST_DATABASE_URL"]
+              engine = create_async_engine(db_url)
+              try:
+                  async with engine.connect() as conn:
+                      for table_name in ("sources", "articles", "agentic_workflow_config"):
+                          result = await conn.execute(
+                              text("SELECT to_regclass(:tbl)"),
+                              {"tbl": f"public.{table_name}"},
+                          )
+                          if result.scalar() is None:
+                              raise RuntimeError(f"Missing required table after bootstrap: {table_name}")
+              finally:
+                  await engine.dispose()
+
+          asyncio.run(main())
+          PY
+
+      - name: Run integration tests
+        run: python run_tests.py integration
+
+      - name: Upload integration test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-artifacts
+          path: |
+            test-results/
+            allure-results/
+          if-no-files-found: ignore

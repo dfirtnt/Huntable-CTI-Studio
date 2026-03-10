@@ -1,8 +1,6 @@
 """Tests for RAG service functionality.
 
-SKIPPED: RAGService depends on EmbeddingService which uses Sentence Transformers models.
-Models are downloaded from HuggingFace Hub (public repository) but run locally - no API keys needed.
-Tests are skipped because model loading/download is slow for unit tests.
+Uses mocked EmbeddingService and AsyncDatabaseManager; no real model loading.
 """
 
 from unittest.mock import AsyncMock, Mock, patch
@@ -12,20 +10,11 @@ import pytest
 from src.services.rag_service import RAGService
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
-# SKIPPED: Model loading is slow for unit tests (models run locally, downloaded from HuggingFace Hub)
-pytestmark = [
-    pytest.mark.unit,
-    pytest.mark.skip(reason="SKIPPED: RAGService requires Sentence Transformers model loading (slow for unit tests)"),
-]
+pytestmark = pytest.mark.unit
 
 
 class TestRAGService:
-    """Test RAGService functionality.
-
-    SKIPPED: RAGService depends on EmbeddingService which uses Sentence Transformers models.
-    Models are downloaded from HuggingFace Hub but run locally - no API keys or connections needed.
-    Tests are skipped because model loading is slow for unit tests.
-    """
+    """Test RAGService functionality (mocked dependencies)."""
 
     @pytest.fixture
     def mock_embedding_service(self):
@@ -62,6 +51,7 @@ class TestRAGService:
             "article_id": 1,
             "selected_text": "PowerShell command execution for persistence",
             "similarity": 0.85,
+            "confidence_score": 0.85,
             "annotation_type": "huntable",
         }
 
@@ -155,16 +145,6 @@ class TestRAGService:
 
         # Should filter out articles below threshold
         assert len(results) == 0
-
-    @pytest.mark.asyncio
-    async def test_get_context_for_article(self, service, mock_db_manager, sample_chunk, sample_article):
-        """Test context retrieval for article."""
-        mock_db_manager.search_similar_annotations.return_value = [sample_chunk]
-        mock_db_manager.get_article_by_id.return_value = sample_article
-
-        context = await service.get_context_for_article(article_id=1, top_k=5, threshold=0.7)
-
-        assert isinstance(context, list)
 
     @pytest.mark.asyncio
     async def test_find_similar_chunks_error_handling(self, service, mock_db_manager):

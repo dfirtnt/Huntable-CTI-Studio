@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -4131,6 +4131,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Test container auto-start</strong> (2026-03-09): <code>run_tests.py</code> auto-starts test containers for API and UI tests (in addition to integration, e2e, all). API tests skip the cloud LLM key guard when <code>CHATGPT_API_KEY</code> is set, so <code>./run_tests.py api</code> runs without <code>ALLOW_CLOUD_LLM_IN_TESTS=true</code>.</li>
 <li><strong>LMStudio made optional</strong> (2026-03-09): LMStudio is no longer the implicit default LLM provider. New workflow configs default to an empty provider (<code>""</code>); existing DB configs are unaffected. <code>workflow_lmstudio_enabled</code> now defaults to <code>False</code> (opt-in). Provider fallback removed from <code>LLMService</code> — a missing provider raises a clear <code>RuntimeError</code> instead of silently routing to LMStudio. <code>SigmaMatchingService</code> now uses <code>EmbeddingService(model_name="intfloat/e5-base-v2")</code> for query embeddings (same model as <code>sigma index-embeddings</code>) instead of <code>LMStudioEmbeddingClient</code>. The LMStudio model auto-loader in the agentic workflow is skipped unless at least one agent is configured to use lmstudio.</li>
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>

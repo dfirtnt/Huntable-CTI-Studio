@@ -247,35 +247,35 @@ class RunTestRunner:
         needs_test_containers = self.config.test_type in stateful_test_types
 
         if needs_test_containers:
-            logger.info("Stateful tests detected - checking for test containers...")
-            # Check if test containers are running
-            result = subprocess.run(
-                ["docker", "ps", "--filter", "name=cti_postgres_test", "--format", "{{.Names}}"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if "cti_postgres_test" not in result.stdout:
-                logger.warning("Test containers not running. Starting test containers...")
-                logger.info("Run 'make test-up' or './scripts/test_setup.sh' to start containers")
-                logger.info("Or the test runner will attempt to start them automatically...")
-
-                # Try to start containers
-                setup_script = Path("scripts/test_setup.sh")
-                if setup_script.exists():
-                    result = subprocess.run([str(setup_script)], capture_output=True, text=True, check=False)
-                    if result.returncode != 0:
-                        logger.error("Failed to start test containers")
-                        logger.error(f"Error: {result.stderr}")
+            in_ci = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
+            if not in_ci:
+                logger.info("Stateful tests detected - checking for test containers...")
+                result = subprocess.run(
+                    ["docker", "ps", "--filter", "name=cti_postgres_test", "--format", "{{.Names}}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if "cti_postgres_test" not in result.stdout:
+                    logger.warning("Test containers not running. Starting test containers...")
+                    logger.info("Run 'make test-up' or './scripts/test_setup.sh' to start containers")
+                    setup_script = Path("scripts/test_setup.sh")
+                    if setup_script.exists():
+                        result = subprocess.run([str(setup_script)], capture_output=True, text=True, check=False)
+                        if result.returncode != 0:
+                            logger.error("Failed to start test containers")
+                            logger.error(f"Error: {result.stderr}")
+                            return False
+                        logger.info("Test containers started successfully")
+                    else:
+                        logger.error("Test setup script not found. Please run 'make test-up' manually")
                         return False
-                    logger.info("Test containers started successfully")
-                else:
-                    logger.error("Test setup script not found. Please run 'make test-up' manually")
-                    return False
+            else:
+                logger.info("CI detected - using GitHub Actions services (postgres/redis)")
 
         # Set up test environment variables
         os.environ["APP_ENV"] = "test"
-        if self.config.test_type in (RunTestType.SMOKE, RunTestType.UNIT, RunTestType.API):
+        if self.config.test_type in (RunTestType.SMOKE, RunTestType.UNIT, RunTestType.API, RunTestType.INTEGRATION):
             os.environ["TEST_GROUP"] = self.config.test_type.value
 
         # Set TEST_DATABASE_URL if not already set (password/port match running Postgres via .env)
@@ -290,6 +290,16 @@ class RunTestRunner:
                 postgres_port,
             )
 
+        # Use test Redis port when using local test containers (docker-compose.test maps Redis to 6380)
+        # In CI, GitHub Actions services use 6379 - do not override
+        in_ci = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
+        if needs_test_containers and not in_ci and "REDIS_PORT" not in os.environ:
+            redis_port = os.getenv("REDIS_TEST_PORT", "6380")
+            os.environ["REDIS_PORT"] = redis_port
+            if "REDIS_URL" not in os.environ:
+                os.environ["REDIS_URL"] = f"redis://localhost:{redis_port}/0"
+            logger.info("Auto-set REDIS_PORT=%s for test containers", redis_port)
+
         # Invoke test environment guard
         try:
             from tests.utils.test_environment import assert_test_environment
@@ -303,6 +313,26 @@ class RunTestRunner:
             if not self.config.debug:
                 return False
             logger.warning("Continuing despite guard failure (debug mode)")
+
+        # Initialize test database schema for stateful tests (API, integration, etc.)
+        if needs_test_containers:
+            schema_script = project_root / "scripts" / "init_test_schema.py"
+            if schema_script.exists():
+                result = subprocess.run(
+                    [self.venv_python, str(schema_script)],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=str(project_root),
+                    env={**os.environ, "APP_ENV": "test"},
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        "Schema init failed - some integration tests may fail: %s",
+                        result.stderr or result.stdout,
+                    )
+                else:
+                    logger.info("Test database schema initialized")
 
         if not ENVIRONMENT_UTILS_AVAILABLE:
             logger.warning("Environment utilities not available, skipping advanced environment setup")

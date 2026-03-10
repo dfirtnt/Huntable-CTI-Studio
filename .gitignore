@@ -251,3 +251,9 @@ Workshop/.worktrees/
 
 # Git worktrees
 .worktrees/
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

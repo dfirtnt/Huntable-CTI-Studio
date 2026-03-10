@@ -1,8 +1,6 @@
 """Tests for embedding service functionality.
 
-SKIPPED: EmbeddingService uses Sentence Transformers models.
-Models are downloaded from HuggingFace Hub (public repository) but run locally - no API keys needed.
-Tests are skipped because model loading/download is slow for unit tests.
+Uses mocked SentenceTransformer; no real model loading.
 """
 
 from unittest.mock import Mock, patch
@@ -13,28 +11,18 @@ import pytest
 from src.services.embedding_service import EmbeddingService
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
-# SKIPPED: Model loading is slow for unit tests (models run locally, downloaded from HuggingFace Hub)
-pytestmark = [
-    pytest.mark.unit,
-    pytest.mark.skip(
-        reason="SKIPPED: EmbeddingService requires Sentence Transformers model loading (slow for unit tests)"
-    ),
-]
+pytestmark = pytest.mark.unit
 
 
 class TestEmbeddingService:
-    """Test EmbeddingService functionality.
-
-    SKIPPED: EmbeddingService uses Sentence Transformers models.
-    Models are downloaded from HuggingFace Hub but run locally - no API keys or connections needed.
-    Tests are skipped because model loading is slow for unit tests.
-    """
+    """Test EmbeddingService functionality (mocked model)."""
 
     @pytest.fixture
     def mock_sentence_transformer(self):
         """Create mock SentenceTransformer."""
         model = Mock()
-        model.encode = Mock(return_value=np.array([[0.1] * 768]))
+        # encode returns 1D array for single text, 2D for batch
+        model.encode = Mock(return_value=np.array([0.1] * 768))
         return model
 
     @pytest.fixture
