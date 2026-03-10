@@ -36,6 +36,38 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sigma-queue", tags=["sigma-queue"])
 
 
+def _first_enabled_provider(db_session) -> str:
+    """Return first enabled provider with API key. Raises if none configured."""
+    lmstudio_ok = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
+    if lmstudio_ok:
+        return "lmstudio"
+    for prov, app_key in [
+        ("openai", WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]),
+        ("anthropic", WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]),
+        ("gemini", WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]),
+    ]:
+        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == app_key).first()
+        api_key = (
+            (row.value if row else None)
+            or os.getenv(app_key)
+            or (
+                os.getenv("OPENAI_API_KEY")
+                if prov == "openai"
+                else os.getenv("ANTHROPIC_API_KEY")
+                if prov == "anthropic"
+                else os.getenv("GEMINI_API_KEY")
+                if prov == "gemini"
+                else None
+            )
+        )
+        if api_key and str(api_key).strip():
+            return prov
+    raise HTTPException(
+        status_code=400,
+        detail="No LLM provider configured. Enable LMStudio (WORKFLOW_LMSTUDIO_ENABLED=true) or set API keys for OpenAI/Anthropic/Gemini in Settings.",
+    )
+
+
 def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None]:
     """Resolve provider, model, and API key for Sigma agent from active workflow config and AppSettings.
     Returns (provider, model, api_key). api_key is None for lmstudio."""
@@ -51,9 +83,16 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
             detail="No active workflow config or Sigma agent model. Configure Agents (Sigma Agent) in Workflow.",
         )
     agent_models = config.agent_models or {}
-    provider = (agent_models.get("SigmaAgent_provider") or "lmstudio").lower().strip()
-    if provider not in ("openai", "anthropic", "gemini", "lmstudio"):
-        provider = "lmstudio"
+    raw_provider = (agent_models.get("SigmaAgent_provider") or "").strip().lower()
+    if raw_provider in ("openai", "anthropic", "gemini", "lmstudio"):
+        provider = raw_provider
+    else:
+        provider = _first_enabled_provider(db_session)
+    if provider == "lmstudio" and os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() != "true":
+        raise HTTPException(
+            status_code=400,
+            detail="Sigma agent is set to LMStudio but LMStudio is disabled. Set SigmaAgent_provider to openai, anthropic, or gemini in Workflow Config.",
+        )
     model = (agent_models.get("SigmaAgent") or "").strip()
     if not model and provider != "lmstudio":
         model = {

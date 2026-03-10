@@ -9,9 +9,17 @@ Logs deprecation for legacy keys consumed.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _is_lmstudio_enabled() -> bool:
+    """True if WORKFLOW_LMSTUDIO_ENABLED is explicitly true (opt-in, default False)."""
+    val = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower()
+    return val == "true"
+
 
 V2_VERSION = "2.0"
 
@@ -158,7 +166,9 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         deprecated_used.append("junk_filter_threshold")
 
     # Agent models (flat) -> Agents (nested)
+    # When agent_models is empty, default Provider to "" (no implicit LMStudio)
     agent_models = raw.get("agent_models") or {}
+    _default_provider = "lmstudio" if _is_lmstudio_enabled() else ""
     Agents: dict[str, dict[str, Any]] = {}
     for flat_prefix, v2_name, model_key in _AGENT_FLAT_PREFIXES:
         provider = agent_models.get(f"{flat_prefix}_provider")
@@ -168,7 +178,7 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         temp = agent_models.get(f"{flat_prefix}_temperature")
         top_p = agent_models.get(f"{flat_prefix}_top_p")
         Agents[v2_name] = {
-            "Provider": _str_val(provider, "lmstudio"),
+            "Provider": _str_val(provider, _default_provider),
             "Model": _str_val(model),
             "Temperature": _float_val(temp, 0.0),
             "TopP": _float_val(top_p, 0.9),

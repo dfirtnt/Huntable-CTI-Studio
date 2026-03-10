@@ -14,6 +14,7 @@ This workflow processes articles through 7 steps:
 import contextlib
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Any, TypedDict
 
@@ -750,15 +751,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             config = state.get("config")
             config_snapshot = execution.config_snapshot if execution else {}
             # Handle JSONB - it might be a dict or need parsing
-            if config_snapshot and not isinstance(config_snapshot, dict):
+            if isinstance(config_snapshot, str):
                 import json
 
-            if isinstance(config_snapshot, str):
                 try:
                     config_snapshot = json.loads(config_snapshot)
                 except (json.JSONDecodeError, ValueError):
                     config_snapshot = {}
-            else:
+            if not isinstance(config_snapshot, dict):
                 config_snapshot = {}
 
             # Handle both boolean and string "true"/"false" values from JSON
@@ -788,8 +788,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Import OS detection service
                 from src.services.os_detection_service import OSDetectionService
 
-                # Get OS detection config from workflow config
-                agent_models = config.get("agent_models", {}) if config and isinstance(config, dict) else {}
+                # Get OS detection config from workflow config (None when key exists with null)
+                agent_models = (config.get("agent_models") or {}) if config and isinstance(config, dict) else {}
                 embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
                 fallback_model = agent_models.get("OSDetectionAgent_fallback")
                 fallback_provider = agent_models.get("OSDetectionAgent_fallback_provider")
@@ -797,18 +797,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Initialize service with configured embedding model
                 service = OSDetectionService(model_name=embedding_model)
 
-                # Get LLMService for provider-aware fallback (if fallback is enabled)
-                llm_service_for_os = None
-                if fallback_model or fallback_provider:
-                    llm_service_for_os = LLMService(config_models=agent_models)
+                # LLM fallback only when LMStudio (or another provider) is enabled
+                _lmstudio_enabled = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
+                use_os_fallback = _lmstudio_enabled and (fallback_model or fallback_provider)
+                llm_service_for_os = LLMService(config_models=agent_models) if use_os_fallback else None
 
-                # Detect OS with configured fallback model and provider
+                # Detect OS; no LLM fallback when LMStudio disabled (embedding-only)
                 os_result = await service.detect_os(
                     content=content,
                     use_classifier=True,
-                    use_fallback=True,
-                    fallback_model=fallback_model,
-                    provider=fallback_provider,
+                    use_fallback=use_os_fallback,
+                    fallback_model=fallback_model if use_os_fallback else None,
+                    provider=fallback_provider if use_os_fallback else None,
                     llm_service=llm_service_for_os,
                 )
 
@@ -2786,6 +2786,9 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                         config[key] = {**config[key], **value}
                     else:
                         config[key] = value.copy() if isinstance(value, dict) else value
+                elif key in ("agent_models", "agent_prompts", "qa_enabled") and value is None:
+                    # Snapshot has None (e.g. default config before preset) - keep existing or use {}
+                    config[key] = config.get(key) if isinstance(config.get(key), dict) else {}
                 else:
                     # Overwrite other values (eval flags, thresholds, etc.)
                     config[key] = value
@@ -2816,7 +2819,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         state_skip_rank_flag = _bool_from_value(config.get("skip_rank_agent", False))
 
         # Auto-load LMStudio models before starting workflow (only when lmstudio is actually used)
-        agent_models_for_loading = config.get("agent_models", {})
+        agent_models_for_loading = config.get("agent_models") or {}
         _lmstudio_providers = {
             agent_models_for_loading.get("RankAgent_provider", ""),
             agent_models_for_loading.get("ExtractAgent_provider", ""),

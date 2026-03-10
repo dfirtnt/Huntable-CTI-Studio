@@ -876,12 +876,12 @@ async function updateLLMProviderIndicator() {
         if (configResponse.ok) {
             const config = await configResponse.json();
             if (config && config.agent_models) {
-                provider = config.agent_models.SigmaAgent_provider || 'lmstudio';
+                provider = config.agent_models.SigmaAgent_provider || '';
             }
         }
         
         // If not found in config, check settings
-        if (provider === 'lmstudio' || !provider) {
+        if (!provider || provider === 'lmstudio') {
             const settingsResponse = await fetch('/api/settings');
             if (settingsResponse.ok) {
                 const data = await settingsResponse.json();
@@ -914,6 +914,9 @@ async function updateLLMProviderIndicator() {
         } else if (normalizedProvider.includes('lmstudio') || normalizedProvider === 'lmstudio') {
             providerName = 'LMStudio';
             providerIcon = '🖥️';
+        } else if (!normalizedProvider) {
+            providerName = 'Not configured';
+            providerIcon = '⚠️';
         }
         
         // Update UI

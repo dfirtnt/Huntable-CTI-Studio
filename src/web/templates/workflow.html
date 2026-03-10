@@ -2274,7 +2274,8 @@ function __dbgLog(hypothesisId, message, data) {
 const allProviderOptions = [
     { value: 'lmstudio', label: 'LMStudio (Local)' },
     { value: 'openai', label: 'OpenAI (Cloud)' },
-    { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
+    { value: 'anthropic', label: 'Anthropic Claude (Cloud)' },
+    { value: 'gemini', label: 'Gemini (Cloud)' }
 ];
 
 // Current enabled providers - updated from Settings
@@ -2282,10 +2283,16 @@ let providerOptions = [...allProviderOptions];
 
 // Track enabled provider settings
 let enabledProviders = {
-    lmstudio: true,  // LMStudio always available (local)
+    lmstudio: true,  // LMStudio always available (local) when enabled
     openai: true,
-    anthropic: true
+    anthropic: true,
+    gemini: true
 };
+
+/** First enabled provider, or '' when none (e.g. LMStudio disabled, no API keys). */
+function getDefaultProvider() {
+    return (providerOptions[0]?.value || '').toString().trim().toLowerCase();
+}
 
 const providerDefaults = {
     openai: 'gpt-4o-mini',
@@ -2305,9 +2312,10 @@ async function loadEnabledProviders() {
         
         // Map settings keys to provider names (API returns uppercase keys)
         enabledProviders = {
-            lmstudio: settings.WORKFLOW_LMSTUDIO_ENABLED !== 'false',  // default to true
+            lmstudio: settings.WORKFLOW_LMSTUDIO_ENABLED === 'true',  // opt-in, default false
             openai: settings.WORKFLOW_OPENAI_ENABLED === 'true',
-            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true'
+            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true',
+            gemini: settings.WORKFLOW_GEMINI_ENABLED === 'true'
         };
         
         // Filter providerOptions based on enabled settings
@@ -2513,7 +2521,7 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
     }
     
     const trimmed = modelId.trim();
-    const normalizedProvider = (provider || 'lmstudio').toString().trim().toLowerCase();
+    const normalizedProvider = (provider || getDefaultProvider()).toString().trim().toLowerCase();
     
     let isValid = true;
     let errorMessage = '';
@@ -2596,7 +2604,7 @@ function showProviderModelError(agentPrefix, message) {
     const config = getAgentConfig(agentPrefix);
     if (!config) return;
     
-    const provider = getAgentProvider(agentPrefix) || 'lmstudio';
+    const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
     let modelContainer = null;
     
     if (provider === 'lmstudio') {
@@ -2640,7 +2648,7 @@ function clearProviderModelError(agentPrefix) {
     }
     
     // Remove error styling from inputs
-    const provider = getAgentProvider(agentPrefix) || 'lmstudio';
+    const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
     let modelContainer = null;
     
     if (provider === 'lmstudio') {
@@ -3134,10 +3142,10 @@ if (typeof window !== 'undefined') {
  */
 function getAgentProvider(agentPrefix) {
     const config = getAgentConfig(agentPrefix);
-    if (!config) return 'lmstudio';
+    if (!config) return getDefaultProvider();
     
     const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-    return (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+    return (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
 }
 
 /**
@@ -3159,13 +3167,23 @@ function setAgentProvider(agentPrefix, provider) {
     if (!config) return false;
     
     const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-    if (providerSelect) {
-        providerSelect.value = provider;
-        // Trigger change event to update visibility
-        providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
+    if (!providerSelect) return false;
+    
+    const normalized = (provider || '').toString().trim().toLowerCase();
+    if (!normalized) return false;
+    
+    // Ensure preset provider exists in dropdown (e.g. openai from preset when not yet in providerOptions)
+    if (![...providerSelect.options].some(o => o.value === normalized)) {
+        const label = allProviderOptions.find(o => o.value === normalized)?.label || normalized;
+        const opt = document.createElement('option');
+        opt.value = normalized;
+        opt.textContent = label;
+        providerSelect.appendChild(opt);
     }
-    return false;
+    
+    providerSelect.value = normalized;
+    providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
 }
 
 /**
@@ -3268,7 +3286,7 @@ function applyAgentConfigs(models = null) {
     
     // 1) Set provider, temperature, top_p only (provider change can rebuild model selects)
     Object.values(AGENT_CONFIG).forEach(config => {
-        const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (agentModelsData[config.providerKey] || getDefaultProvider()).toString().trim().toLowerCase();
         setAgentProvider(config.prefix, provider);
         
         // Update temperature limit first based on provider
@@ -3302,7 +3320,7 @@ function applyAgentConfigs(models = null) {
     
     // 3) Set model after rebuilds so preset provider+model are not overwritten
     Object.values(AGENT_CONFIG).forEach(config => {
-        const provider = (agentModelsData[config.providerKey] || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (agentModelsData[config.providerKey] || getDefaultProvider()).toString().trim().toLowerCase();
         const model = agentModelsData[config.modelKey] || '';
         if (model) setAgentModel(config.prefix, model, provider);
     });
@@ -3487,7 +3505,7 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
 
 function buildProviderSelect(agentId, currentProvider) {
     const options = providerOptions.map(opt => {
-        const selected = opt.value === (currentProvider || 'lmstudio') ? 'selected' : '';
+        const selected = opt.value === (currentProvider || getDefaultProvider()) ? 'selected' : '';
         return `<option value="${escapeHtml(opt.value)}" ${selected}>${escapeHtml(opt.label)}</option>`;
     }).join('');
 
@@ -3509,7 +3527,7 @@ function buildProviderSelect(agentId, currentProvider) {
 }
 
 function updateAgentProviderVisibility(agentPrefix, provider) {
-    const normalized = (provider || 'lmstudio').toString().trim().toLowerCase();
+    const normalized = (provider || getDefaultProvider()).toString().trim().toLowerCase();
     const groups = document.querySelectorAll(`[data-agent-prefix="${agentPrefix}"]`);
     groups.forEach(group => {
         if (!group.dataset.provider) return;
@@ -3690,7 +3708,7 @@ function renderAgentModels() {
         }
         
         // Regular agents (RankAgent, ExtractAgent, SigmaAgent)
-        const currentProvider = (agentModels && agentModels[`${agentName}_provider`]) || 'lmstudio';
+        const currentProvider = (agentModels && agentModels[`${agentName}_provider`]) || getDefaultProvider();
         const currentModel = (agentModels && agentModels[agentName]) || '';
         
         return `
@@ -3738,7 +3756,7 @@ function renderAgentModels() {
     };
 
     Object.entries(providerAgentMap).forEach(([prefix, name]) => {
-        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || 'lmstudio';
+        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || getDefaultProvider();
         const providerSelect = document.getElementById(`${prefix}-provider`);
         if (providerSelect) {
             providerSelect.value = storedProvider;
@@ -3748,7 +3766,7 @@ function renderAgentModels() {
     
     // Load and populate models only if any agent uses LMStudio
     const hasLMStudioProvider = Object.entries(providerAgentMap).some(([prefix, name]) => {
-        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || 'lmstudio';
+        const storedProvider = (agentModels && agentModels[`${name}_provider`]) || getDefaultProvider();
         return storedProvider === 'lmstudio';
     });
     if (hasLMStudioProvider) {
@@ -3893,7 +3911,7 @@ function applyProviderSelections(models) {
         const storedModel = config.modelKey ? activeModels?.[config.modelKey] : null;
         const inferredProvider = inferProviderFromModel(storedModel);
 
-        let provider = storedProvider || inferredProvider || 'lmstudio';
+        let provider = storedProvider || inferredProvider || getDefaultProvider();
         if (storedProvider === 'lmstudio' && inferredProvider && inferredProvider !== 'lmstudio') {
             provider = inferredProvider;
         }
@@ -3902,7 +3920,7 @@ function applyProviderSelections(models) {
         }
 
         const select = document.getElementById(`${config.prefix}-provider`);
-        const prevProvider = select?.value?.toString().trim().toLowerCase() || 'lmstudio';
+        const prevProvider = select?.value?.toString().trim().toLowerCase() || getDefaultProvider();
         
         if (select) {
             select.value = provider;
@@ -3976,7 +3994,7 @@ function applyProviderSelections(models) {
     Object.entries(subAgentMap).forEach(([prefix, agentName]) => {
         const providerSelect = document.getElementById(`${prefix}-provider`);
         if (providerSelect) {
-            const provider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+            const provider = (providerSelect.value || getDefaultProvider()).toString().trim().toLowerCase();
             if (provider === 'lmstudio' && typeof repopulateSubAgentModelDropdown === 'function') {
                 repopulateSubAgentModelDropdown(prefix, agentName);
             }
@@ -3993,7 +4011,7 @@ function syncProviderVisibilityAndInputs() {
     Object.values(AGENT_CONFIG).forEach(config => {
         const select = document.getElementById(`${config.prefix}-provider`);
         if (!select) return;
-        const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
         updateAgentProviderVisibility(config.prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(config.prefix);
@@ -4015,7 +4033,7 @@ if (typeof window !== 'undefined') {
         const mapEntry = subAgentCommercialMap[agentPrefix];
         if (!mapEntry) return;
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
 
         const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
 
@@ -4070,7 +4088,7 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
         const mapEntry = subAgentCommercialMap[agentPrefix];
         if (!mapEntry) return;
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
 
         const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
 
@@ -4123,7 +4141,7 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
 function onAgentProviderChange(agentPrefix) {
     const select = document.getElementById(`${agentPrefix}-provider`);
     if (!select) return;
-    const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+    const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
     // __dbgLog('H3', 'onAgentProviderChange', { agentPrefix, provider });
     updateAgentProviderVisibility(agentPrefix, provider);
     
@@ -4205,7 +4223,7 @@ function refreshAllProviderBlocks() {
     const selects = document.querySelectorAll('select[id$="-provider"]');
     selects.forEach(select => {
         const prefix = select.id.replace(/-provider$/, '');
-        const provider = (select.value || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
         // __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
         updateAgentProviderVisibility(prefix, provider);
         // Update temperature limit based on provider
@@ -4244,7 +4262,7 @@ if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInput
         const mapEntry = subAgentCommercialMap[agentPrefix];
         if (!mapEntry) return;
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-        const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+        const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
         const currentModel = agentModels?.[mapEntry.modelKey] || '';
 
         ['openai', 'anthropic'].forEach(p => {
@@ -5114,7 +5132,7 @@ async function loadConfig(skipPromptReload = false) {
                 const tempValue = agentModels[tempKey];
                 if (tempValue !== undefined) {
                     // Get provider for this agent to determine max
-                    const provider = getAgentProvider(subAgent.prefix) || 'lmstudio';
+                    const provider = getAgentProvider(subAgent.prefix) || getDefaultProvider();
                     // LMStudio and Anthropic: max 1, OpenAI: max 2
                     const maxTemp = (provider === 'anthropic' || provider === 'lmstudio') ? 1 : 2;
                     const clampedValue = Math.min(Math.max(0, parseFloat(tempValue) || 0), maxTemp);
@@ -5226,7 +5244,7 @@ async function loadAgentModels() {
         };
         
         const hasLMStudioProvider = Object.entries(providerAgentMap).some(([prefix, name]) => {
-            const storedProvider = agentModelsToCheck[`${name}_provider`] || 'lmstudio';
+            const storedProvider = agentModelsToCheck[`${name}_provider`] || getDefaultProvider();
             return storedProvider === 'lmstudio';
         });
         
@@ -5420,7 +5438,7 @@ function renderAgentModels(lmstudioModels) {
         // Get current provider from DOM first (preserves unsaved user selection), then fallback to config
         const rankProviderSelect = document.getElementById('rankagent-provider');
         const currentProviderFromDOM = rankProviderSelect?.value || '';
-        const currentProviderFromConfig = (agentModels && agentModels['RankAgent_provider']) || 'lmstudio';
+        const currentProviderFromConfig = (agentModels && agentModels['RankAgent_provider']) || getDefaultProvider();
         const currentProvider = currentProviderFromDOM || currentProviderFromConfig;
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
@@ -5481,7 +5499,7 @@ function renderAgentModels(lmstudioModels) {
     if (osContainer) {
         const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
         const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
-        const currentFallbackProvider = agentModels['OSDetectionAgent_fallback_provider'] || 'lmstudio';
+        const currentFallbackProvider = agentModels['OSDetectionAgent_fallback_provider'] || getDefaultProvider();
         const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
         const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
         
@@ -5654,7 +5672,7 @@ function renderAgentModels(lmstudioModels) {
         // Get current provider from DOM first (preserves unsaved user selection), then fallback to config
         const extractProviderSelect = document.getElementById('extractagent-provider');
         const currentProviderFromDOM = extractProviderSelect?.value || '';
-        const currentProviderFromConfig = (agentModels && agentModels['ExtractAgent_provider']) || 'lmstudio';
+        const currentProviderFromConfig = (agentModels && agentModels['ExtractAgent_provider']) || getDefaultProvider();
         const currentProvider = currentProviderFromDOM || currentProviderFromConfig;
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
@@ -5722,7 +5740,7 @@ function renderAgentModels(lmstudioModels) {
         // Clamp top_p to valid range (0-1) if it comes from config with invalid value
         let currentTopP = agentModels['SigmaAgent_top_p'] !== undefined ? agentModels['SigmaAgent_top_p'] : 0.9;
         currentTopP = Math.max(0, Math.min(1, currentTopP));
-        const currentProvider = (agentModels && agentModels['SigmaAgent_provider']) || 'lmstudio';
+        const currentProvider = (agentModels && agentModels['SigmaAgent_provider']) || getDefaultProvider();
         // Only use currentModel for LMStudio dropdown if provider is lmstudio
         const lmstudioModel = currentProvider === 'lmstudio' ? currentModel : '';
         // Use deduplicated sorted models
@@ -5817,7 +5835,7 @@ function renderAgentModels(lmstudioModels) {
             return;
         }
         
-        const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentProvider = (providerSelect.value || getDefaultProvider()).toString().trim().toLowerCase();
         // Get current model from DOM first (preserves unsaved user selection), then fallback to config
         const currentModelFromDOM = select.value || '';
         const currentModelFromConfig = agentModels[config.modelKey] || '';
@@ -5867,7 +5885,7 @@ function renderAgentModels(lmstudioModels) {
             return;
         }
         
-        const currentProvider = (providerSelect.value || 'lmstudio').toString().trim().toLowerCase();
+        const currentProvider = (providerSelect.value || getDefaultProvider()).toString().trim().toLowerCase();
         const currentModel = agentModels[config.modelKey] || '';
         
         // Determine placeholder based on QA agent type
@@ -5905,7 +5923,7 @@ function renderAgentModels(lmstudioModels) {
         ];
 
         mainAgents.forEach(agent => {
-            const provider = (agentModels && agentModels[agent.key]) || 'lmstudio';
+            const provider = (agentModels && agentModels[agent.key]) || getDefaultProvider();
             // Set the provider dropdown value
             const providerSelect = document.getElementById(`${agent.prefix}-provider`);
             if (providerSelect) {
@@ -6224,7 +6242,7 @@ async function testSigmaAgent(articleId) {
         // Get SigmaAgent model from config
         const configAgentModels = currentConfig?.agent_models || agentModels || {};
         const sigmaModel = configAgentModels['SigmaAgent'];
-        const sigmaProvider = configAgentModels['SigmaAgent_provider'] || 'lmstudio';
+        const sigmaProvider = configAgentModels['SigmaAgent_provider'] || getDefaultProvider();
         
         // If using LMStudio, check if model is loaded and load it if needed
         if (sigmaProvider === 'lmstudio' && sigmaModel) {
@@ -6391,7 +6409,7 @@ async function performAutoSave() {
         // Validate all provider/model combinations before saving
         let hasValidationErrors = false;
         Object.values(AGENT_CONFIG).forEach(config => {
-            const provider = getAgentProvider(config.prefix) || 'lmstudio';
+            const provider = getAgentProvider(config.prefix) || getDefaultProvider();
             const model = getAgentModel(config.prefix, provider);
             if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
                 hasValidationErrors = true;
@@ -6442,7 +6460,7 @@ async function performAutoSave() {
             collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
         } else {
             // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
-            const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+            const provider = getAgentProvider('osdetectionagent-fallback') || getDefaultProvider();
             const model = getAgentModel('osdetectionagent-fallback', provider);
             collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
             // Only set model if a value is selected (not empty string)
@@ -6466,7 +6484,7 @@ async function performAutoSave() {
         let rankModelValue = collectedAgentConfigs.RankAgent;
         if (rankModelValue === undefined || rankModelValue === null) {
             // Fallback: read directly from form element
-            const rankProvider = getAgentProvider('rankagent') || 'lmstudio';
+            const rankProvider = getAgentProvider('rankagent') || getDefaultProvider();
             rankModelValue = getAgentModel('rankagent', rankProvider);
         }
         
@@ -6684,7 +6702,7 @@ function validateAllTemperatureInputs() {
     // Check all agents in AGENT_CONFIG
     Object.values(AGENT_CONFIG).forEach(config => {
         if (config.temperatureKey) {
-            const provider = getAgentProvider(config.prefix) || 'lmstudio';
+            const provider = getAgentProvider(config.prefix) || getDefaultProvider();
             updateTemperatureLimit(config.prefix, provider);
         }
     });
@@ -6694,7 +6712,7 @@ function validateAllTemperatureInputs() {
     const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract'];
     
     [...qaAgents, ...subAgents].forEach(prefix => {
-        const provider = getAgentProvider(prefix) || 'lmstudio';
+        const provider = getAgentProvider(prefix) || getDefaultProvider();
         updateTemperatureLimit(prefix, provider);
     });
 }
@@ -6704,7 +6722,7 @@ function validateAllTemperatureInputs() {
  * Can be called from model input onchange/oninput handlers
  */
 function validateAgentModelOnChange(agentPrefix) {
-    const provider = getAgentProvider(agentPrefix) || 'lmstudio';
+    const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
     const model = getAgentModel(agentPrefix, provider);
     return validateProviderModelCombination(agentPrefix, provider, model);
 }
@@ -6725,7 +6743,7 @@ window.autoSaveModelChange = function() {
             // Validate all agent models before saving
             let hasErrors = false;
             Object.values(AGENT_CONFIG).forEach(config => {
-                const provider = getAgentProvider(config.prefix) || 'lmstudio';
+                const provider = getAgentProvider(config.prefix) || getDefaultProvider();
                 const model = getAgentModel(config.prefix, provider);
                 if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
                     hasErrors = true;
@@ -6733,7 +6751,7 @@ window.autoSaveModelChange = function() {
             });
             const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
             if (osFallbackToggle && osFallbackToggle.checked) {
-                const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+                const provider = getAgentProvider('osdetectionagent-fallback') || getDefaultProvider();
                 const model = getAgentModel('osdetectionagent-fallback', provider);
                 if (model && !validateProviderModelCombination('osdetectionagent-fallback', provider, model)) {
                     hasErrors = true;
@@ -6979,7 +6997,7 @@ function getCurrentModelForAgent(agentName) {
     
     // QA Agent (CMD) follows ExtractAgent model and does not have its own provider select
     if (agentName === 'QAAgent') {
-        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        const extractProvider = document.getElementById('extractagent-provider')?.value || getDefaultProvider();
         return getActiveAgentModelValue('extractagent', extractProvider);
     }
     
@@ -6987,7 +7005,7 @@ function getCurrentModelForAgent(agentName) {
     if (!agentPrefix) return null;
     
     const providerSelectId = providerSelectMap[agentName];
-    const provider = providerSelectId ? (document.getElementById(providerSelectId)?.value || 'lmstudio') : 'lmstudio';
+    const provider = providerSelectId ? (document.getElementById(providerSelectId)?.value || getDefaultProvider()) : 'lmstudio';
     
     // Primary: read from the active input for the selected provider
     const activeModel = getActiveAgentModelValue(agentPrefix, provider);
@@ -6996,7 +7014,7 @@ function getCurrentModelForAgent(agentName) {
     // Sub-agent fallback: inherit ExtractAgent model when empty
     const subAgentNames = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA'];
     if (subAgentNames.includes(agentName)) {
-        const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+        const extractProvider = document.getElementById('extractagent-provider')?.value || getDefaultProvider();
         const extractModel = getActiveAgentModelValue('extractagent', extractProvider);
         if (extractModel) return extractModel;
     }
@@ -8740,7 +8758,7 @@ function getAllSelectedModelsWithProviders() {
         const providerSelect = document.getElementById(providerId);
         if (!providerSelect) return null;
         
-        const provider = (providerSelect.value || 'lmstudio').trim().toLowerCase();
+        const provider = (providerSelect.value || getDefaultProvider()).trim().toLowerCase();
         
         // Use getActiveAgentModelValue to get the correct model based on provider
         // This handles LMStudio (uses -model or -model-2) vs commercial providers (uses -model-{provider})
@@ -8752,7 +8770,7 @@ function getAllSelectedModelsWithProviders() {
     
     // Main agents - show with actual enabled state so summary always shows Rank when model is set
     const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
-    const rankProvider = document.getElementById('rankagent-provider')?.value || 'lmstudio';
+    const rankProvider = document.getElementById('rankagent-provider')?.value || getDefaultProvider();
     const rankModel = getActiveAgentModelValue('rankagent', rankProvider);
     const rankAddedFromForm = rankModel && !isEmbeddingModel(rankModel);
     if (rankAddedFromForm) {
@@ -8760,19 +8778,19 @@ function getAllSelectedModelsWithProviders() {
     }
     // Fallback: show Rank from loaded config when form select not yet synced (e.g. placeholder)
     if (!rankAddedFromForm && currentConfig?.agent_models?.RankAgent && !isEmbeddingModel(currentConfig.agent_models.RankAgent)) {
-        const cfgProvider = (currentConfig.agent_models.RankAgent_provider || rankProvider || 'lmstudio').trim().toLowerCase();
+        const cfgProvider = (currentConfig.agent_models.RankAgent_provider || rankProvider || getDefaultProvider()).trim().toLowerCase();
         selectedModels.push({ agent: 'Rank', model: String(currentConfig.agent_models.RankAgent).trim(), provider: cfgProvider, enabled: rankAgentEnabled });
     }
 
     // Extract Agent - always enabled (no toggle)
-    const extractProvider = document.getElementById('extractagent-provider')?.value || 'lmstudio';
+    const extractProvider = document.getElementById('extractagent-provider')?.value || getDefaultProvider();
     const extractModel = getActiveAgentModelValue('extractagent', extractProvider);
     if (extractModel && !isEmbeddingModel(extractModel)) {
         selectedModels.push({ agent: 'Extract', model: extractModel, provider: extractProvider, enabled: true });
     }
     
     // SIGMA Agent - always show if model is configured
-    const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || 'lmstudio';
+    const sigmaProvider = document.getElementById('sigmaagent-provider')?.value || getDefaultProvider();
     const sigmaModel = getActiveAgentModelValue('sigmaagent', sigmaProvider);
     if (sigmaModel && !isEmbeddingModel(sigmaModel)) {
         selectedModels.push({ agent: 'SIGMA', model: sigmaModel, provider: sigmaProvider, enabled: true });
@@ -8825,7 +8843,7 @@ function getAllSelectedModelsWithProviders() {
     // OS Detection fallback
     const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
     if (osFallbackToggle && osFallbackToggle.checked) {
-        const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || 'lmstudio';
+        const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || getDefaultProvider();
         const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
         if (osFallback && !isEmbeddingModel(osFallback)) {
             selectedModels.push({ agent: 'OS Fallback', model: osFallback, provider: osFallbackProvider, enabled: true });
@@ -9495,7 +9513,7 @@ if (workflowConfigForm) {
         collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
     } else {
         // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
-        const provider = getAgentProvider('osdetectionagent-fallback') || 'lmstudio';
+        const provider = getAgentProvider('osdetectionagent-fallback') || getDefaultProvider();
         const model = getAgentModel('osdetectionagent-fallback', provider);
         collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
         // Only set model if a value is selected (not empty string)
@@ -11809,7 +11827,7 @@ async function seedValidateDropdownsFromWorkflowConfig() {
             return;
         }
     }
-    const provider = (agentModels['SigmaAgent_provider'] || 'lmstudio').toLowerCase();
+    const provider = (agentModels['SigmaAgent_provider'] || getDefaultProvider()).toLowerCase();
     const model = (agentModels['SigmaAgent'] || '').trim();
     if (provider && validateProviderSelect.value !== provider) {
         validateProviderSelect.value = provider;
@@ -15910,7 +15928,7 @@ function renderSubAgentCommercialInputsGlobal(agentPrefix) {
     const modelKey = subAgentModelKeysGlobal[agentPrefix];
     if (!modelKey) return;
     const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-    const provider = (providerSelect?.value || 'lmstudio').toString().trim().toLowerCase();
+    const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
     const currentModel = agentModels?.[modelKey] || '';
 
     // Always use buildCommercialProviderInput for consistency with main agents

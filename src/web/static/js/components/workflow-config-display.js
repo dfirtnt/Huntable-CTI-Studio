@@ -126,7 +126,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             const model = agentModels[agentId] || agentModels[`${agentId}_model`];
             if (!model) return;
             
-            const provider = agentModels[`${agentId}_provider`] || 'lmstudio';
+            const provider = agentModels[`${agentId}_provider`] || '';
             const badgeClass = enabled 
                 ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                 : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';

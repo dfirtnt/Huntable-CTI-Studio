@@ -353,8 +353,17 @@ class LLMService:
             )
             for row in query:
                 settings[row.key] = row.value
+            if not settings:
+                logger.debug(
+                    "Workflow provider settings empty from AppSettings; "
+                    "ensure API keys are saved in Settings (click Save) or set in .env"
+                )
         except Exception as exc:
-            logger.warning(f"Unable to load workflow provider settings from AppSettings: {exc}")
+            logger.warning(
+                "Unable to load workflow provider settings from AppSettings: %s. "
+                "Workers read keys from DB; ensure Settings are saved.",
+                exc,
+            )
         finally:
             if db_session:
                 db_session.close()
@@ -826,7 +835,11 @@ class LLMService:
                     "(enable WORKFLOW_ANTHROPIC_ENABLED or set in Settings)."
                 )
             if not self.anthropic_api_key:
-                raise RuntimeError("Anthropic API key is not configured for agentic workflows.")
+                raise RuntimeError(
+                    "Anthropic API key is not configured for agentic workflows. "
+                    "Save the key in Settings (click Save after entering it) or set "
+                    "WORKFLOW_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY in .env and restart workers."
+                )
         elif provider == "gemini":
             raise RuntimeError("Google Gemini provider is not yet supported for agentic workflows.")
         elif provider != "lmstudio":

@@ -1532,15 +1532,15 @@ async def get_config_versions_models(
 
                 # Main agents (only if QA enabled)
                 if agent_models.get("SigmaAgent") and qa_enabled.get("SigmaAgent"):
-                    provider = agent_models.get("SigmaAgent_provider") or "lmstudio"
-                    model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider})")
+                    provider = agent_models.get("SigmaAgent_provider") or ""
+                    model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider or 'not configured'})")
 
                 # Sub-agents (only if enabled and has model)
                 for agent in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
-                        provider = agent_models.get(f"{agent}_provider") or "lmstudio"
-                        model_list.append(f"{agent}: {agent_models[model_key]} ({provider})")
+                        provider = agent_models.get(f"{agent}_provider") or ""
+                        model_list.append(f"{agent}: {agent_models[model_key]} ({provider or 'not configured'})")
 
                 models_by_version[config.version] = {
                     "agent_models": agent_models,
