@@ -744,6 +744,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "priority_low: Low priority E2E tests")
     config.addinivalue_line("markers", "quarantine: Quarantined tests that need fixes (tracked in SKIPPED_TESTS.md)")
     config.addinivalue_line("markers", "ui_smoke: UI smoke tests (reclassified Playwright tests)")
+    config.addinivalue_line("markers", "sources: Sources page tests")
 
 
 def pytest_sessionfinish(session, exitstatus):
