@@ -3,7 +3,7 @@
 ## Overview
 This document tracks tests that are currently skipped and need to be fixed.
 
-**Last Updated**: 2026-01-15
+**Last Updated**: 2026-03-10
 **Current Status**: 
 - **Passing**: 568
 - **Failed**: 12 (down from 128)
@@ -19,15 +19,6 @@ Tests marked with `@pytest.mark.quarantine` that require fixes. All quarantined 
 | test_hybrid_extractor.py | test_dedupe_preserved | Assertion failure: assert 0 == 1 | @system | 2026-01-15 | Fix regex pattern or assertion logic |
 | test_ui/test_prompt_sync_ui.py | test_sigma_help_matches_sigma_generation_prompt | Prompt comparison assertion failure | @system | 2026-01-15 | Update prompt comparison logic |
 | test_observable_training_api.py | test_training_endpoint_fallback | Mock setup issue with Celery task fallback | @system | 2026-01-15 | Fix Celery task mock |
-| test_ai_cross_model_integration.py | test_model_fallback_anthropic_failure | External API dependency or mock setup issue | @system | 2026-01-15 | Fix mocks or mark as requiring external APIs |
-| test_ai_cross_model_integration.py | test_model_specific_feature_support | External API dependency or mock setup issue | @system | 2026-01-15 | Fix mocks or mark as requiring external APIs |
-| test_ai_cross_model_integration.py | test_concurrent_model_requests | External API dependency or mock setup issue | @system | 2026-01-15 | Fix mocks or mark as requiring external APIs |
-| test_ai_cross_model_integration.py | test_model_performance_comparison | External API dependency or mock setup issue | @system | 2026-01-15 | Fix mocks or mark as requiring external APIs |
-| test_ai_cross_model_integration.py | test_model_error_handling_consistency | External API dependency or mock setup issue | @system | 2026-01-15 | Fix mocks or mark as requiring external APIs |
-| test_system_integration.py | test_database_connectivity | Database connectivity issue in test environment | @system | 2026-01-15 | Verify test containers, fix connectivity |
-| test_system_integration.py | test_article_to_analysis_flow | Database/API connectivity issue in test environment | @system | 2026-01-15 | Verify test containers, fix connectivity |
-| test_system_integration.py | test_api_data_consistency | Database/API connectivity issue in test environment | @system | 2026-01-15 | Verify test containers, fix connectivity |
-| test_system_integration.py | test_article_data_integrity | Database/API connectivity issue in test environment | @system | 2026-01-15 | Verify test containers, fix connectivity |
 | test_api/test_endpoints.py | test_api_articles_limit | API may return 500 if database is not accessible | @system | 2026-01-15 | Fix database connectivity or make assertion lenient |
 | test_web_application.py | test_api_articles_with_limit | API may return 500 if database is not accessible | @system | 2026-01-15 | Fix database connectivity or make assertion lenient |
 | e2e/test_web_interface.py | All 13 tests | Playwright browsers not installed in Docker | @system | 2026-01-15 | Install browsers: `playwright install` in container |
@@ -40,6 +31,15 @@ Tests marked with `@pytest.mark.quarantine` that require fixes. All quarantined 
 | test_web_application.py | All 10 tests | Async mock configuration needed | TBD | 2025-01-XX | Mock async web application components |
 | test_core.py | All 8 tests | Async mock configuration needed | TBD | 2025-01-XX | Use AsyncMock for core async operations |
 | test_database.py | All 5 tests | Async mock configuration needed | TBD | 2025-01-XX | Mock async database models and operations |
+| test_annotation_persistence.py | test_create_annotation | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same-loop teardown or avoid rollback+real manager mix; see docs/solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md |
+| test_annotation_persistence.py | test_get_annotation | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same as above |
+| test_annotation_persistence.py | test_get_article_annotations | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same as above |
+
+## Integration (skipped)
+
+The following integration tests are skipped due to async event-loop/teardown issues. For full-system confidence goals and marker semantics, see [docs/development/testing.md](../docs/development/testing.md) (Integration vs lightweight).
+
+- **test_annotation_persistence.py** (3 tests): `test_create_annotation`, `test_get_annotation`, `test_get_article_annotations` — reason and intended fix documented in the Quarantined Tests table above and in [docs/solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md](../docs/solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md).
 
 ## Test Status by Category
 

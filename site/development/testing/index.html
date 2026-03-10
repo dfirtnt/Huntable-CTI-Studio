@@ -448,6 +448,26 @@
   
   
   
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310/" class="md-tabs__link">
+          
+  
+  
+  Solutions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
     <li class="md-tabs__item">
       <a href="../../CONTRIBUTING/" class="md-tabs__link">
         
@@ -2553,6 +2573,93 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Solutions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Solutions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Test failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../CONTRIBUTING/" class="md-nav__link">
         
@@ -2705,15 +2812,14 @@
 </ul>
 <h2 id="api-key-safety">API Key Safety<a class="headerlink" href="#api-key-safety" title="Permanent link">&para;</a></h2>
 <h3 id="cloud-llm-prohibition">Cloud LLM Prohibition<a class="headerlink" href="#cloud-llm-prohibition" title="Permanent link">&para;</a></h3>
-<p>Cloud LLM API keys are <strong>prohibited</strong> in tests by default:
-- <code>OPENAI_API_KEY</code>
-- <code>ANTHROPIC_API_KEY</code>
-- <code>CHATGPT_API_KEY</code></p>
-<p><strong>Behavior:</strong>
-- If cloud keys are present and <code>ALLOW_CLOUD_LLM_IN_TESTS</code> is not set → tests fail
-- If <code>ALLOW_CLOUD_LLM_IN_TESTS=true</code> is set → tests proceed with warning
-- Local LLM keys (<code>LMSTUDIO_API_URL</code>) are allowed by default</p>
-<p><strong>Rationale:</strong> Prevents accidental API usage and costs during test execution.</p>
+<p>Cloud LLM API keys (<code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>CHATGPT_API_KEY</code>) are <strong>never available</strong> to the test process by default:</p>
+<ul>
+<li><strong>At startup</strong>: <code>run_tests.py</code> removes these keys from the process environment (after loading <code>.env</code>, which already does not load them). So tests and the app under test never see the keys — no test run can hit commercial cloud APIs.</li>
+<li><strong>Guard</strong>: For ui, e2e, and all, <code>assert_test_environment()</code> still runs; if keys were present (e.g. before stripping), the run would be blocked unless <code>ALLOW_CLOUD_LLM_IN_TESTS=true</code>.</li>
+<li><strong>Opt-in</strong>: If <code>ALLOW_CLOUD_LLM_IN_TESTS=true</code> is set, keys are not stripped and tests may proceed with warning (use only when you explicitly need cloud LLM in tests).</li>
+<li>Local LLM keys (<code>LMSTUDIO_API_URL</code>) are allowed by default.</li>
+</ul>
+<p><strong>Rationale:</strong> Ensures no test run hits commercial APIs or incurs cost unless explicitly allowed.</p>
 <h2 id="test-containers">Test Containers<a class="headerlink" href="#test-containers" title="Permanent link">&para;</a></h2>
 <h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3052,20 +3158,26 @@
 <h3 id="4-integration">4. integration<a class="headerlink" href="#4-integration" title="Permanent link">&para;</a></h3>
 <p><strong>Description</strong>: System integration tests<br />
 <strong>Duration</strong>: ~3 minutes<br />
-<strong>Dependencies</strong>: Full Docker stack (database, Redis, Celery)<br />
-<strong>Test Path</strong>: <code>tests/integration/</code> with <code>integration_workflow</code> marker<br />
+<strong>Dependencies</strong>: Full Docker stack (database, Redis, web service on test port)<br />
+<strong>Test Path</strong>: <code>tests/integration/</code> with <code>integration</code> marker<br />
 <strong>Integration</strong>: ✅ Fully integrated via <code>run_tests.py</code></p>
-<p><strong>Purpose</strong>: Test cross-component interactions and workflows.</p>
-<p><strong>Test Files</strong>:
+<p><strong>Purpose</strong>: Test cross-component interactions and workflows with real DB/Redis (full-stack confidence).</p>
+<p><strong>Integration vs lightweight</strong></p>
+<ul>
+<li><strong>integration</strong> (<code>@pytest.mark.integration</code>): Requires full stack (test DB, Redis, optionally web). Use for full-system confidence; skip rate should be minimized so critical paths (workflow, Celery+DB, ingestion, annotations) run.</li>
+<li><strong>integration_light</strong> (<code>@pytest.mark.integration_light</code>): Mocked HTTP/DB; does not require full stack. Fast, but does not provide full-system confidence. Not selected by <code>python3 run_tests.py integration</code> (only <code>integration</code> marker is used).</li>
+</ul>
+<p>For full-system confidence, run <code>python3 run_tests.py integration</code>; interpret skip rate as the fraction of full-stack tests that are currently skipped. See <code>tests/SKIPPED_TESTS.md</code> for integration-related skips.</p>
+<p><strong>Test Files</strong> (selected by <code>integration</code> marker in <code>tests/integration/</code>):
+- <code>tests/integration/test_system_integration.py</code> (DB/API connectivity, response times)
 - <code>tests/integration/test_ai_cross_model_integration.py</code>
-- <code>tests/integration/test_ai_real_api_integration.py</code>
-- <code>tests/integration/test_lightweight_integration.py</code>
-- <code>tests/integration/test_system_integration.py</code></p>
+- <code>tests/integration/test_annotation_persistence.py</code> (3 tests currently skipped; see SKIPPED_TESTS.md)
+- <code>tests/integration/test_rss_ingestion_persistence.py</code>, <code>test_celery_state_transitions.py</code>, and others under <code>tests/integration/</code></p>
 <p><strong>Run Command</strong>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python3<span class="w"> </span>run_tests.py<span class="w"> </span>integration
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>python3<span class="w"> </span>scripts/run_tests_by_group.py<span class="w"> </span>--group<span class="w"> </span>integration
 </code></pre></div></p>
-<p><strong>Note</strong>: Uses test database (<code>cti_scraper_test</code>) with transaction rollback for isolation.</p>
+<p><strong>Note</strong>: Uses test database (<code>cti_scraper_test</code>) with transaction rollback for isolation. System integration tests (e.g. <code>test_system_startup</code>) require the web service (e.g. on port 8002 when using test containers).</p>
 <hr />
 <h3 id="5-ui">5. ui<a class="headerlink" href="#5-ui" title="Permanent link">&para;</a></h3>
 <p><strong>Description</strong>: Web interface tests<br />
@@ -3082,6 +3194,7 @@
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python3<span class="w"> </span>scripts/run_tests_by_group.py<span class="w"> </span>--group<span class="w"> </span>ui
 </code></pre></div></p>
 <p><strong>Note</strong>: UI tests are read-only and do not modify database or config files.</p>
+<p><strong>UI test speed</strong>: Defaults are tuned for faster runs. Pytest UI uses <code>PLAYWRIGHT_SLOW_MO=0</code> and no video unless <code>PLAYWRIGHT_VIDEO=1</code> or <code>PLAYWRIGHT_VIDEO_DIR</code> is set. TypeScript Playwright runs with <code>fullyParallel: true</code> and 2 workers in CI. For debugging, set <code>PLAYWRIGHT_SLOW_MO=100</code> (ms per action) and optionally <code>PLAYWRIGHT_VIDEO=1</code>. Further options: run only smoke/UI smoke for quick feedback; in CI, use Playwright sharding (<code>--shard=1/4</code> etc.); for pytest UI, <code>run_tests.py ui --parallel</code> (requires pytest-xdist) runs multiple workers, each with its own browser.</p>
 <hr />
 <h3 id="6-e2e">6. e2e<a class="headerlink" href="#6-e2e" title="Permanent link">&para;</a></h3>
 <p><strong>Description</strong>: End-to-end tests<br />

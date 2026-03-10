@@ -81,6 +81,8 @@ nav:
       - Eval Bundle Analysis: prompts/eval-bundle.md
       - Hunt Query Eval: prompts/huntquery-eval.md
       - Process Tree Eval: prompts/proctree-eval.md
+  - Solutions:
+      - Test failures: solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md
 

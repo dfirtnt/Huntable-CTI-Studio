@@ -39,7 +39,6 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
         cmd.extend(
             [
                 "tests/integration/test_ai_cross_model_integration.py",
-                "tests/integration/test_ai_real_api_integration.py",
                 "-m",
                 "integration and ai",
             ]
@@ -49,7 +48,6 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
             [
                 # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED
                 "tests/integration/test_ai_cross_model_integration.py",
-                "tests/integration/test_ai_real_api_integration.py",
                 "-m",
                 "ai",
             ]

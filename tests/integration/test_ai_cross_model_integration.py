@@ -32,7 +32,6 @@ def generate_sigma_rules(content: str) -> str:
     if SigmaGenerationService is None:
         raise ImportError("SigmaGenerationService not available")
     service = SigmaGenerationService()
-    import asyncio
 
     return asyncio.run(service.generate_sigma_rules(content))
 
@@ -223,36 +222,6 @@ class TestAICrossModelIntegration:
             assert "SIGMA HUNTABILITY SCORE: 9" in anthropic_result
 
     @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_model_fallback_anthropic_failure(self, sample_threat_article, mock_lmstudio_response):
-        """Test fallback from Anthropic to LMStudio when Anthropic fails."""
-        # Mock Anthropic failure
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 429  # Rate limit
-            mock_response.text = "Rate limit exceeded"
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-
-            # Should handle Anthropic failure gracefully
-            try:
-                raise Exception("Rate limit exceeded")
-            except Exception as e:
-                assert "Rate limit exceeded" in str(e)
-
-        # Test fallback to LMStudio (Ollama removed)
-        with patch("subprocess.run") as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stdout = mock_lmstudio_response
-            mock_result.stderr = ""
-            mock_subprocess.return_value = mock_result
-
-            # Fallback should work
-            lmstudio_result = generate_sigma_rules(sample_threat_article["content"])
-            assert "title: APT29 PowerShell Execution" in lmstudio_result
-
-    @pytest.mark.asyncio
     async def test_content_size_limits_per_model(self, sample_threat_article):
         """Test content size limits for different models."""
         # Define content limits for each model
@@ -272,154 +241,6 @@ class TestAICrossModelIntegration:
 
         assert len(large_content) > model_limits["chatgpt"]
         assert len(large_content) > model_limits["anthropic"]
-
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_model_specific_feature_support(self, sample_threat_article):
-        """Test model-specific feature support."""
-        # Test OpenAI GPT-4o specific features
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "choices": [{"message": {"content": "GPT-4o analysis with cost optimization"}}]
-            }
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-
-            # GPT-4o should support cost optimization
-            optimizer = GPT4oContentOptimizer()
-            with patch.object(optimizer.content_filter, "model", None):
-                with patch.object(optimizer.content_filter, "load_model"):
-                    with patch.object(optimizer.content_filter, "filter_content") as mock_filter:
-                        mock_filter_result = Mock(
-                            filtered_content=sample_threat_article["content"],
-                            is_huntable=True,
-                            confidence=0.8,
-                            cost_savings=0.3,
-                            removed_chunks=[],
-                        )
-                        mock_filter.return_value = mock_filter_result
-
-                        result = await optimizer.optimize_content_for_gpt4o(sample_threat_article["content"])
-                        assert result["cost_savings"] > 0
-
-        # Test Anthropic Claude specific features
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"content": [{"text": "Claude analysis with long context support"}]}
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-
-            # Claude should support longer context
-            long_content = "x" * 80000  # 80KB - within Claude's limit
-            assert len(long_content) <= 100000  # Claude's limit
-
-        # Test LMStudio (local) specific features
-        with patch("subprocess.run") as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 0
-            mock_result.stdout = "LMStudio local processing"
-            mock_result.stderr = ""
-            mock_subprocess.return_value = mock_result
-
-            # LMStudio should work offline
-            result = generate_sigma_rules(sample_threat_article["content"])
-            assert result is not None
-
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_concurrent_model_requests(self, sample_threat_article):
-        """Test concurrent requests to different models."""
-        import asyncio
-
-        async def mock_openai_request():
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = {"choices": [{"message": {"content": "OpenAI response"}}]}
-                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-                return "OpenAI response"
-
-        async def mock_anthropic_request():
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = {"content": [{"text": "Anthropic response"}]}
-                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-                return "Anthropic response"
-
-        async def mock_lmstudio_request():
-            with patch("subprocess.run") as mock_subprocess:
-                mock_result = Mock()
-                mock_result.returncode = 0
-                mock_result.stdout = "LMStudio response"
-                mock_result.stderr = ""
-                mock_subprocess.return_value = mock_result
-                return generate_sigma_rules(sample_threat_article["content"])
-
-        # Run concurrent requests
-        results = await asyncio.gather(mock_openai_request(), mock_anthropic_request(), mock_lmstudio_request())
-
-        assert len(results) == 3
-        assert "OpenAI response" in results
-        assert "Anthropic response" in results
-        assert "LMStudio response" in results
-
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_model_performance_comparison(self, sample_threat_article):
-        """Test performance comparison between models."""
-        import time
-
-        # Mock different response times
-        async def mock_openai_request():
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = {"choices": [{"message": {"content": "OpenAI response"}}]}
-                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-                await asyncio.sleep(0.1)  # Simulate 100ms response
-                return "OpenAI response"
-
-        async def mock_anthropic_request():
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = {"content": [{"text": "Anthropic response"}]}
-                mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-                await asyncio.sleep(0.2)  # Simulate 200ms response
-                return "Anthropic response"
-
-        async def mock_lmstudio_request():
-            with patch("subprocess.run") as mock_subprocess:
-                mock_result = Mock()
-                mock_result.returncode = 0
-                mock_result.stdout = "LMStudio response"
-                mock_result.stderr = ""
-                mock_subprocess.return_value = mock_result
-                await asyncio.sleep(0.5)  # Simulate 500ms response
-                return generate_sigma_rules(sample_threat_article["content"])
-
-        # Measure performance
-        start_time = time.time()
-
-        openai_result = await mock_openai_request()
-        anthropic_result = await mock_anthropic_request()
-        lmstudio_result = await mock_lmstudio_request()
-
-        end_time = time.time()
-        total_time = end_time - start_time
-
-        # Verify results
-        assert openai_result == "OpenAI response"
-        assert anthropic_result == "Anthropic response"
-        assert lmstudio_result is not None
-
-        # Total time should be sum of individual times (sequential execution)
-        assert total_time >= 0.8  # 0.1 + 0.2 + 0.5
 
     @pytest.mark.asyncio
     async def test_model_configuration_validation(self):
@@ -470,45 +291,3 @@ class TestAICrossModelIntegration:
             elif config["model"] == "lmstudio" and "model_name" not in config:
                 assert "model_name" not in config
 
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="External API dependency or mock setup issue - needs investigation")
-    async def test_model_error_handling_consistency(self, sample_threat_article):
-        """Test consistent error handling across models."""
-        # Test OpenAI error handling
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 401
-            mock_response.text = "Unauthorized"
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-
-            try:
-                raise Exception("OpenAI API Error: Unauthorized")
-            except Exception as e:
-                assert "OpenAI API Error" in str(e)
-
-        # Test Anthropic error handling
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 429
-            mock_response.text = "Rate limit exceeded"
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-
-            try:
-                raise Exception("Anthropic API Error: Rate limit exceeded")
-            except Exception as e:
-                assert "Anthropic API Error" in str(e)
-
-        # Test LMStudio error handling
-        with patch("subprocess.run") as mock_subprocess:
-            mock_result = Mock()
-            mock_result.returncode = 1
-            mock_result.stdout = ""
-            mock_result.stderr = "Model not found"
-            mock_subprocess.return_value = mock_result
-
-            result = generate_sigma_rules(sample_threat_article["content"])
-            assert result is None
-
-        # All models should handle errors gracefully
-        assert True  # If we reach here, all error handling worked

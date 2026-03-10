@@ -59,8 +59,28 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 
-# Keys from .env that must not be applied in test (guard: TEST_DATABASE_URL only; Redis "redis" doesn't resolve on host)
-_DOTENV_SKIP_IN_TEST = frozenset({"DATABASE_URL", "REDIS_URL"})
+# Keys from .env that must not be applied in test (guard: TEST_DATABASE_URL only).
+# Cloud LLM keys are skipped so they are not loaded from .env into the test process.
+_DOTENV_SKIP_IN_TEST = frozenset(
+    {
+        "DATABASE_URL",
+        "REDIS_URL",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "CHATGPT_API_KEY",
+    }
+)
+
+_CLOUD_LLM_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CHATGPT_API_KEY")
+
+
+def _strip_cloud_llm_keys() -> None:
+    """Remove cloud LLM keys from this process so tests never hit commercial APIs.
+    Skipped if ALLOW_CLOUD_LLM_IN_TESTS=true."""
+    if os.getenv("ALLOW_CLOUD_LLM_IN_TESTS", "").lower() in ("true", "1", "yes"):
+        return
+    for key in _CLOUD_LLM_KEYS:
+        os.environ.pop(key, None)
 
 
 def _load_dotenv() -> None:
@@ -713,7 +733,7 @@ class RunTestRunner:
                 RunTestType.INTEGRATION: [
                     "tests/integration/",
                     "-m",
-                    "integration_workflow",
+                    "integration",
                 ],
                 RunTestType.UI: ["tests/ui/"],
                 RunTestType.E2E: ["tests/e2e/"],
@@ -808,9 +828,8 @@ class RunTestRunner:
             else:
                 logger.info("Running tests on localhost")
 
-        # Add parallel execution
-        if self.config.parallel:
-            logger.warning("Parallel execution requires pytest-xdist. Install with: pip install pytest-xdist")
+        # Add parallel execution (default for UI to reduce wall-clock time; requires pytest-xdist)
+        if self.config.parallel or self.config.test_type == RunTestType.UI:
             cmd.extend(["-n", "auto"])
 
         # Add coverage
@@ -1807,6 +1826,7 @@ Manual Container Management:
 async def main():
     """Main entry point."""
     _load_dotenv()
+    _strip_cloud_llm_keys()
     try:
         # Parse configuration
         config = parse_arguments()

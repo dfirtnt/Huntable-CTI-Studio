@@ -1,5 +1,6 @@
 """Tests for annotation persistence (create/update/delete)."""
 
+import uuid
 from datetime import datetime
 
 import pytest
@@ -15,11 +16,12 @@ class TestAnnotationPersistence:
 
     @pytest_asyncio.fixture
     async def test_article(self, test_database_with_rollback):
-        """Create a test article for annotations."""
+        """Create a test article for annotations. Commits so test_database_manager_real can see it."""
         session = test_database_with_rollback
+        uid = uuid.uuid4().hex[:8]
 
         source = SourceTable(
-            identifier="test-source-annotation",
+            identifier=f"test-source-annotation-{uid}",
             name="Test Source",
             url="https://example.com",
             rss_url="https://example.com/feed.xml",
@@ -33,11 +35,11 @@ class TestAnnotationPersistence:
 
         article = ArticleTable(
             source_id=source.id,
-            canonical_url="https://example.com/test-annotation",
+            canonical_url=f"https://example.com/test-annotation-{uid}",
             title="Test Article for Annotations",
             published_at=datetime.now(),
             content="Test content for annotation testing.",
-            content_hash="test-hash-annotation",
+            content_hash=f"test-hash-annotation-{uid}",
             article_metadata={},
         )
         session.add(article)
@@ -48,11 +50,9 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="async_db_manager event loop conflict with pytest-asyncio")
-    async def test_create_annotation(self, test_article):
+    @pytest.mark.skip(reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix")
+    async def test_create_annotation(self, test_article, test_database_manager_real):
         """Test creating an annotation."""
-        from src.database.async_manager import async_db_manager
-
         annotation_data = AnnotationFactory.create(
             article_id=test_article.id,
             annotation_type="huntable",
@@ -61,7 +61,7 @@ class TestAnnotationPersistence:
             end_position=1000,
         )
 
-        annotation = await async_db_manager.create_annotation(annotation_data)
+        annotation = await test_database_manager_real.create_annotation(annotation_data)
 
         assert annotation is not None
         assert annotation.article_id == test_article.id
@@ -70,18 +70,16 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="async_db_manager event loop conflict with pytest-asyncio")
-    async def test_get_annotation(self, test_article):
+    @pytest.mark.skip(reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix")
+    async def test_get_annotation(self, test_article, test_database_manager_real):
         """Test retrieving an annotation."""
-        from src.database.async_manager import async_db_manager
-
         # Create annotation
         annotation_data = AnnotationFactory.create(article_id=test_article.id, annotation_type="huntable")
-        created = await async_db_manager.create_annotation(annotation_data)
+        created = await test_database_manager_real.create_annotation(annotation_data)
         assert created is not None
 
         # Retrieve annotation
-        retrieved = await async_db_manager.get_annotation(created.id)
+        retrieved = await test_database_manager_real.get_annotation(created.id)
 
         assert retrieved is not None
         assert retrieved.id == created.id
@@ -89,20 +87,18 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="async_db_manager event loop conflict with pytest-asyncio")
-    async def test_get_article_annotations(self, test_article):
+    @pytest.mark.skip(reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix")
+    async def test_get_article_annotations(self, test_article, test_database_manager_real):
         """Test retrieving all annotations for an article."""
-        from src.database.async_manager import async_db_manager
-
         # Create multiple annotations
         for i in range(3):
             annotation_data = AnnotationFactory.create(
                 article_id=test_article.id, annotation_type="huntable" if i % 2 == 0 else "not_huntable"
             )
-            await async_db_manager.create_annotation(annotation_data)
+            await test_database_manager_real.create_annotation(annotation_data)
 
         # Retrieve all annotations
-        annotations = await async_db_manager.get_article_annotations(test_article.id)
+        annotations = await test_database_manager_real.get_article_annotations(test_article.id)
 
         assert len(annotations) == 3
         assert all(ann.article_id == test_article.id for ann in annotations)

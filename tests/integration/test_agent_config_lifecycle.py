@@ -65,14 +65,3 @@ class TestAgentConfigLifecycle:
         assert deserialized["agent_name"] == config["agent_name"]
         assert deserialized["provider"] == config["provider"]
         assert deserialized["version"] == config["version"]
-
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    @pytest.mark.skip(reason="Requires test containers - implement after infrastructure")
-    async def test_config_persistence(self):
-        """Test that agent configs can be persisted to database."""
-        # TODO: Implement with test containers
-        # 1. Create config using factory
-        # 2. Persist to database
-        # 3. Retrieve and verify
-        pass

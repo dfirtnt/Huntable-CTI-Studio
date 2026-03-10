@@ -5,7 +5,7 @@ This directory contains comprehensive tests for AI Assistant features, implement
 ## Priority 1 Coverage (current)
 - UI: 15 cases in `tests/ui/test_ai_assistant_ui.py` covering modal flows, model selection, accessibility, and SIGMA visibility
 - Cross-model integration: 20 cases in `tests/integration/test_ai_cross_model_integration.py` for switching, fallbacks, limits, and error handling
-- Real API integration: 10 cases in `tests/integration/test_ai_real_api_integration.py` for OpenAI/Anthropic/LMStudio, rate limits, and cost tracking
+- Real API integration: removed (was `test_ai_real_api_integration.py`; required external API keys, never run in CI)
 
 
 ## Test Structure
@@ -36,18 +36,8 @@ Tests integration between different AI models:
 - **Configuration Validation**: Model setup and parameter validation
 - **Error Handling**: Consistent error responses across models
 
-### 3. Real API Integration Tests (`tests/integration/test_ai_real_api_integration.py`)
-Tests actual API calls to AI services:
-
-- **OpenAI GPT-4o**: Real API calls with authentication
-- **Anthropic Claude**: Real API calls with rate limiting
-- **LMStudio Local**: Local model execution and validation
-- **GPT-4o Optimizer**: Content filtering and cost optimization
-- **IOC Extractor**: Real IOC extraction and validation
-- **Rate Limiting**: API quota and timeout handling
-- **Error Responses**: Invalid keys, network failures, timeouts
-- **End-to-End Workflow**: Complete AI processing pipeline
-- **Cost Tracking**: Token usage and cost estimation
+### 3. Real API Integration Tests (removed)
+The file `tests/integration/test_ai_real_api_integration.py` was removed; it required external API keys and was never run in CI.
 
 ## Running the Tests
 
@@ -76,11 +66,8 @@ pytest tests/ui/test_ai_assistant_ui.py -v -m "ui and ai"
 # Integration tests only
 pytest tests/integration/test_ai_cross_model_integration.py -v -m "integration and ai"
 
-# Real API tests (requires API keys)
-pytest tests/integration/test_ai_real_api_integration.py -v -m "integration and ai"
-
 # All AI tests
-pytest -v -m "ai" tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cross_model_integration.py tests/integration/test_ai_real_api_integration.py
+pytest -v -m "ai" tests/ui/test_ai_assistant_ui.py tests/integration/test_ai_cross_model_integration.py
 ```
 
 ## Environment Setup

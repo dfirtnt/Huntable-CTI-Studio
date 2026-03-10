@@ -31,10 +31,10 @@ markers =
     slow: marks tests as slow
     headed: marks tests to run with visible browser
 
-# Playwright settings
+# Playwright settings (defaults tuned for speed; set PLAYWRIGHT_SLOW_MO=100 for debugging)
 browser = chromium
 headed = false
-slow_mo = 100
+slow_mo = 0
 timeout = 30000
 video = retain-on-failure
 trace = on-first-retry
@@ -58,10 +58,10 @@ def browser_context_args():
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args():
-    """Browser launch arguments"""
+    """Browser launch arguments (slow_mo=0 for speed; set PLAYWRIGHT_SLOW_MO=100 to debug)."""
     return {
         "headless": True,
-        "slow_mo": 100,
+        "slow_mo": 0,
     }
 
 @pytest.fixture(scope="session")
@@ -83,7 +83,7 @@ def context(browser):
     context = browser.new_context(
         viewport={"width": 1280, "height": 720},
         ignore_https_errors=True,
-        record_video_dir="test-results/videos/",
+        # Set record_video_dir only when PLAYWRIGHT_VIDEO=1 for faster runs
     )
     yield context
     context.close()

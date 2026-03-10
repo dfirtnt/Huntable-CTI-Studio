@@ -171,55 +171,6 @@ class TestCreateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="DEPRECATED: CMD observables features are deprecated")
-    async def test_create_cmd_annotation(self, async_client: httpx.AsyncClient):
-        """Test creating a CMD observable annotation.
-
-        DEPRECATED: CMD observables features are deprecated.
-        """
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-        command_text = "cmd.exe /c whoami"
-        annotation_data = {
-            "annotation_type": "CMD",
-            "selected_text": command_text,
-            "start_position": 0,
-            "end_position": len(command_text),
-            "usage": "train",  # Required for observable annotations
-        }
-
-        response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
-            json=annotation_data,
-            headers={"Content-Type": "application/json"},
-        )
-
-        # CMD annotations may fail validation - check for either success or expected error
-        if response.status_code == 400:
-            # Check if it's a validation error we expect
-            data = response.json()
-            error_detail = data.get("detail", "")
-            # If it's about usage or other validation, that's acceptable
-            assert (
-                "usage" in error_detail.lower()
-                or "required" in error_detail.lower()
-                or "annotation" in error_detail.lower()
-            )
-        else:
-            assert response.status_code == 200
-            payload = response.json()
-            assert payload["success"] is True
-            assert payload["annotation"]["annotation_type"] == "CMD"
-
-    @pytest.mark.api
-    @pytest.mark.asyncio
     async def test_create_annotation_invalid_type(self, async_client: httpx.AsyncClient):
         """Test rejecting unsupported annotation types."""
         articles_response = await async_client.get("/api/articles?limit=1")
@@ -428,11 +379,6 @@ class TestUpdateAnnotation:
             f"/api/annotations/{annotation_id}", json=update_data, headers={"Content-Type": "application/json"}
         )
 
-        if response.status_code == 404:
-            pytest.skip(
-                "Update returned 404 after create; backend update_annotation may not "
-                "see the newly created row (e.g. different session/transaction)."
-            )
         assert response.status_code == 200
         data = response.json()
 
@@ -623,11 +569,6 @@ class TestAnnotationCRUDWorkflow:
             f"/api/annotations/{annotation_id}", json=update_data, headers={"Content-Type": "application/json"}
         )
 
-        if update_response.status_code == 404:
-            pytest.skip(
-                "Update returned 404 after create; backend update_annotation may not "
-                "see the newly created row (e.g. different session/transaction)."
-            )
         assert update_response.status_code == 200
         assert update_response.json()["annotation"]["annotation_type"] == "not_huntable"
 

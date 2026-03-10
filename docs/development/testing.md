@@ -111,17 +111,14 @@ Factories in `tests/factories/` provide reusable test data creation:
 
 ### Cloud LLM Prohibition
 
-Cloud LLM API keys are **prohibited** in tests by default:
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `CHATGPT_API_KEY`
+Cloud LLM API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`) are **never available** to the test process by default:
 
-**Behavior:**
-- If cloud keys are present and `ALLOW_CLOUD_LLM_IN_TESTS` is not set → tests fail
-- If `ALLOW_CLOUD_LLM_IN_TESTS=true` is set → tests proceed with warning
-- Local LLM keys (`LMSTUDIO_API_URL`) are allowed by default
+- **At startup**: `run_tests.py` removes these keys from the process environment (after loading `.env`, which already does not load them). So tests and the app under test never see the keys — no test run can hit commercial cloud APIs.
+- **Guard**: For ui, e2e, and all, `assert_test_environment()` still runs; if keys were present (e.g. before stripping), the run would be blocked unless `ALLOW_CLOUD_LLM_IN_TESTS=true`.
+- **Opt-in**: If `ALLOW_CLOUD_LLM_IN_TESTS=true` is set, keys are not stripped and tests may proceed with warning (use only when you explicitly need cloud LLM in tests).
+- Local LLM keys (`LMSTUDIO_API_URL`) are allowed by default.
 
-**Rationale:** Prevents accidental API usage and costs during test execution.
+**Rationale:** Ensures no test run hits commercial APIs or incurs cost unless explicitly allowed.
 
 ## Test Containers
 
@@ -534,17 +531,24 @@ python3 scripts/run_tests_by_group.py --group api
 
 **Description**: System integration tests  
 **Duration**: ~3 minutes  
-**Dependencies**: Full Docker stack (database, Redis, Celery)  
-**Test Path**: `tests/integration/` with `integration_workflow` marker  
+**Dependencies**: Full Docker stack (database, Redis, web service on test port)  
+**Test Path**: `tests/integration/` with `integration` marker  
 **Integration**: ✅ Fully integrated via `run_tests.py`
 
-**Purpose**: Test cross-component interactions and workflows.
+**Purpose**: Test cross-component interactions and workflows with real DB/Redis (full-stack confidence).
 
-**Test Files**:
+**Integration vs lightweight**
+
+- **integration** (`@pytest.mark.integration`): Requires full stack (test DB, Redis, optionally web). Use for full-system confidence; skip rate should be minimized so critical paths (workflow, Celery+DB, ingestion, annotations) run.
+- **integration_light** (`@pytest.mark.integration_light`): Mocked HTTP/DB; does not require full stack. Fast, but does not provide full-system confidence. Not selected by `python3 run_tests.py integration` (only `integration` marker is used).
+
+For full-system confidence, run `python3 run_tests.py integration`; interpret skip rate as the fraction of full-stack tests that are currently skipped. See `tests/SKIPPED_TESTS.md` for integration-related skips.
+
+**Test Files** (selected by `integration` marker in `tests/integration/`):
+- `tests/integration/test_system_integration.py` (DB/API connectivity, response times)
 - `tests/integration/test_ai_cross_model_integration.py`
-- `tests/integration/test_ai_real_api_integration.py`
-- `tests/integration/test_lightweight_integration.py`
-- `tests/integration/test_system_integration.py`
+- `tests/integration/test_annotation_persistence.py` (3 tests currently skipped; see SKIPPED_TESTS.md)
+- `tests/integration/test_rss_ingestion_persistence.py`, `test_celery_state_transitions.py`, and others under `tests/integration/`
 
 **Run Command**:
 ```bash
@@ -552,7 +556,7 @@ python3 run_tests.py integration
 python3 scripts/run_tests_by_group.py --group integration
 ```
 
-**Note**: Uses test database (`cti_scraper_test`) with transaction rollback for isolation.
+**Note**: Uses test database (`cti_scraper_test`) with transaction rollback for isolation. System integration tests (e.g. `test_system_startup`) require the web service (e.g. on port 8002 when using test containers).
 
 ---
 
@@ -577,6 +581,8 @@ python3 scripts/run_tests_by_group.py --group ui
 ```
 
 **Note**: UI tests are read-only and do not modify database or config files.
+
+**UI test speed**: Pytest UI runs with **parallel workers by default** (`-n auto`, pytest-xdist); each worker has its own browser. Also: `PLAYWRIGHT_SLOW_MO=0`, no video unless `PLAYWRIGHT_VIDEO=1` or `PLAYWRIGHT_VIDEO_DIR`. TypeScript Playwright: `fullyParallel: true`, 2 workers in CI. Cap pytest workers with `PYTEST_XDIST_WORKER_COUNT=4` if needed. For debugging: `PLAYWRIGHT_SLOW_MO=100`, optional `PLAYWRIGHT_VIDEO=1`. Quick feedback: run smoke or a single file; CI: Playwright sharding (`--shard=1/4`).
 
 ---
 
