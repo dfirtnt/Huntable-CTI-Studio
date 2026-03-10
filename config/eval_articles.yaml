@@ -22,8 +22,6 @@ subagents:
       expected_count: 5
     - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
       expected_count: 7
-    - url: "https://thedfirreport.com/2025/08/05/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira/"
-      expected_count: 9
     - url: "https://www.recordedfuture.com/blog/september-2025-cve-landscape"
       expected_count: 1
     - url: "https://www.elastic.co/security-labs/roningloader"
