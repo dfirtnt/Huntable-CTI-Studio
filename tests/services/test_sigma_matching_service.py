@@ -1,6 +1,6 @@
 """Tests for SIGMA matching service functionality."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -25,8 +25,9 @@ class TestSigmaMatchingService:
     def mock_embedding_service(self):
         """Create mock embedding service."""
         service = Mock()
-        service.generate_embedding = AsyncMock(return_value=[0.1] * 768)
-        service.generate_embeddings_batch = AsyncMock(return_value=[[0.1] * 768] * 4)
+        # EmbeddingService methods are synchronous in production code.
+        service.generate_embedding = Mock(return_value=[0.1] * 768)
+        service.generate_embeddings_batch = Mock(return_value=[[0.1] * 768] * 4)
         return service
 
     @pytest.fixture

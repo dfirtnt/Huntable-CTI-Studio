@@ -2885,6 +2885,69 @@
 <li><strong>Playwright TypeScript (tests/playwright/)</strong>: specs that change workflow/agent config are ignored via <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code> (e.g. <code>agent_config_*.spec.ts</code>, <code>workflow_save_button.spec.ts</code>, <code>workflow_config_persistence.spec.ts</code>, <code>workflow_config_versions.spec.ts</code>).</li>
 </ul>
 <h2 id="ci-recommendations">CI Recommendations<a class="headerlink" href="#ci-recommendations" title="Permanent link">&para;</a></h2>
+<h3 id="which-tests-to-run-in-github-actions">Which tests to run in GitHub Actions<a class="headerlink" href="#which-tests-to-run-in-github-actions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>In CI?</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Smoke</strong></td>
+<td>✅ Yes</td>
+<td>Fast; catches basic breakage. Current workflow starts Postgres, Redis, web app, then <code>run_tests.py smoke</code>.</td>
+</tr>
+<tr>
+<td><strong>Unit</strong></td>
+<td>✅ Add</td>
+<td>No containers; fast. Run <code>python run_tests.py unit</code>. High signal, no extra services.</td>
+</tr>
+<tr>
+<td><strong>API</strong></td>
+<td>✅ Yes</td>
+<td>HTTP/contracts; needs Postgres, Redis, web app. Current workflow runs <code>run_tests.py api</code>.</td>
+</tr>
+<tr>
+<td><strong>Integration</strong></td>
+<td>✅ Yes</td>
+<td>DB + app behavior; same stack. Current workflow runs <code>run_tests.py integration</code>.</td>
+</tr>
+<tr>
+<td><strong>UI (pytest)</strong></td>
+<td>⚠️ Optional</td>
+<td>Many tests; needs browsers + app. If added: <code>run_tests.py ui --exclude-markers agent_config_mutation</code> and install Playwright for pytest. Consider separate job or scheduled run to keep PRs fast.</td>
+</tr>
+<tr>
+<td><strong>Playwright (TS)</strong></td>
+<td>⚠️ Fix then keep</td>
+<td>Current <code>playwright.yml</code> runs <code>npx playwright test</code> (root config → <code>e2e/</code> only) and <strong>does not start the web app</strong>; tests expect <code>http://127.0.0.1:8001</code>. Either: (1) Start web app in Playwright job (like smoke) and run root e2e, or (2) Use <code>tests/playwright.config.ts</code> with <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code> and run <code>tests/playwright/*.spec.ts</code> (richer suite).</td>
+</tr>
+<tr>
+<td><strong>agent_config_mutation</strong></td>
+<td>❌ No</td>
+<td>Do not run in CI; mutates live config. Excluded via <code>--exclude-markers</code> (pytest) and <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code> (Playwright).</td>
+</tr>
+<tr>
+<td><strong>Quarantined / SKIPPED</strong></td>
+<td>❌ No</td>
+<td>Already skipped; see <code>tests/SKIPPED_TESTS.md</code>.</td>
+</tr>
+<tr>
+<td><strong>AI/LLM (real APIs)</strong></td>
+<td>❌ No (or nightly)</td>
+<td>Require secrets and cost; run only in scheduled/manual workflows if at all.</td>
+</tr>
+<tr>
+<td><strong>Full <code>all</code></strong></td>
+<td>❌ No</td>
+<td>Too heavy for every push; use locally or scheduled.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommended CI layout:</strong> Smoke + Unit + API + Integration (current minus unit, plus one unit job). Optionally one Playwright job with app started and either e2e or tests/playwright, excluding agent-config specs.</p>
 <h3 id="speed">Speed<a class="headerlink" href="#speed" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Run stateless tests in parallel</li>
@@ -3194,7 +3257,7 @@
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python3<span class="w"> </span>scripts/run_tests_by_group.py<span class="w"> </span>--group<span class="w"> </span>ui
 </code></pre></div></p>
 <p><strong>Note</strong>: UI tests are read-only and do not modify database or config files.</p>
-<p><strong>UI test speed</strong>: Defaults are tuned for faster runs. Pytest UI uses <code>PLAYWRIGHT_SLOW_MO=0</code> and no video unless <code>PLAYWRIGHT_VIDEO=1</code> or <code>PLAYWRIGHT_VIDEO_DIR</code> is set. TypeScript Playwright runs with <code>fullyParallel: true</code> and 2 workers in CI. For debugging, set <code>PLAYWRIGHT_SLOW_MO=100</code> (ms per action) and optionally <code>PLAYWRIGHT_VIDEO=1</code>. Further options: run only smoke/UI smoke for quick feedback; in CI, use Playwright sharding (<code>--shard=1/4</code> etc.); for pytest UI, <code>run_tests.py ui --parallel</code> (requires pytest-xdist) runs multiple workers, each with its own browser.</p>
+<p><strong>UI test speed</strong>: Pytest UI runs with <strong>parallel workers by default</strong> (<code>-n auto</code>, pytest-xdist); each worker has its own browser. Also: <code>PLAYWRIGHT_SLOW_MO=0</code>, no video unless <code>PLAYWRIGHT_VIDEO=1</code> or <code>PLAYWRIGHT_VIDEO_DIR</code>. TypeScript Playwright: <code>fullyParallel: true</code>, 2 workers in CI. Cap pytest workers with <code>PYTEST_XDIST_WORKER_COUNT=4</code> if needed. For debugging: <code>PLAYWRIGHT_SLOW_MO=100</code>, optional <code>PLAYWRIGHT_VIDEO=1</code>. Quick feedback: run smoke or a single file; CI: Playwright sharding (<code>--shard=1/4</code>).</p>
 <hr />
 <h3 id="6-e2e">6. e2e<a class="headerlink" href="#6-e2e" title="Permanent link">&para;</a></h3>
 <p><strong>Description</strong>: End-to-end tests<br />
