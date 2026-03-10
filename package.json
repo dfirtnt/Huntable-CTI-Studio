@@ -1,0 +1,20 @@
+{
+  "name": "cti-scraper",
+  "version": "1.0.0",
+  "description": "Playwright UI test tooling for the CTIScraper project.",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:playwright": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^20.14.10",
+    "allure-playwright": "^3.4.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@openrouter/sdk": "^0.2.11"
+  }
+}

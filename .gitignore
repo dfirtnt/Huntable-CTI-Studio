@@ -169,6 +169,8 @@ datasets/
 !workflows/presets/*.json
 !config/presets/AgentConfigs/quickstart/*.json
 !config/eval_articles_data/**/articles.json
+!package.json
+!package-lock.json
 *.parquet
 
 
