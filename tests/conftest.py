@@ -2,6 +2,7 @@
 Test configuration and fixtures for CTI Scraper tests.
 """
 
+import contextlib
 import logging
 import os
 import sys
@@ -121,9 +122,10 @@ def _install_transformers_compat_hooks():
 
 _install_transformers_compat_hooks()
 
-import pydantic.warnings
-import pytest
-import pytest_asyncio
+# Late imports after compat hooks (conftest convention)
+import pydantic.warnings  # noqa: E402
+import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
 
 try:
     import pytest_asyncio
@@ -139,13 +141,13 @@ except ImportError:  # Allow running targeted tests without pytest-asyncio
         RuntimeWarning,
         stacklevel=2,
     )
-import shutil
-from collections.abc import AsyncGenerator
-from pathlib import Path
-from unittest.mock import AsyncMock
+import shutil  # noqa: E402
+from collections.abc import AsyncGenerator  # noqa: E402
+from pathlib import Path  # noqa: E402
+from unittest.mock import AsyncMock  # noqa: E402
 
-import httpx
-from playwright.sync_api import sync_playwright
+import httpx  # noqa: E402
+from playwright.sync_api import sync_playwright  # noqa: E402
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -157,11 +159,9 @@ warnings.filterwarnings(
     category=pydantic.warnings.PydanticDeprecatedSince20,
 )
 
-# Import AI test fixtures
-try:
-    from tests.conftest_ai import ai_test_config
-except ImportError:
-    pass  # AI fixtures not required for all tests
+# Import AI test fixtures (load module for side effects)
+with contextlib.suppress(ImportError):
+    from tests.conftest_ai import ai_test_config  # noqa: F401
 
 # Import test environment guard (required)
 try:
@@ -174,14 +174,11 @@ except ImportError as e:
 
 # Import test environment utilities (optional)
 try:
-    from tests.utils.async_debug_utils import AsyncDebugger, debug_async_test
-    from tests.utils.performance_profiler import PerformanceProfiler, profile_test
+    from tests.utils.async_debug_utils import AsyncDebugger
+    from tests.utils.performance_profiler import PerformanceProfiler
     from tests.utils.test_environment import (
         TestContext,
-        TestEnvironmentManager,
-        TestEnvironmentValidator,
         get_test_config,
-        setup_test_environment,
         validate_test_environment,
     )
 
@@ -394,10 +391,8 @@ async def async_client(
     try:
         yield client
     finally:
-        try:
+        with contextlib.suppress(RuntimeError):
             await client.aclose()
-        except RuntimeError:
-            pass
 
 
 @pytest.fixture
@@ -670,7 +665,8 @@ def _noop(*args, **kwargs):
 
 
 class _NoOpReporter:
-    __getattr__ = lambda self, _: _noop
+    def __getattr__(self, _):
+        return _noop
 
 
 # Enhanced debugging fixtures
@@ -772,7 +768,7 @@ def pytest_collection_modifyitems(config, items):
         if not present_primary:
             # Normalize nodeid so directory detection works whether rootdir is repo root
             # (e.g., tests/ui/...) or tests/ (e.g., ui/...).
-            nodeid = f"/{item.nodeid.replace('\\\\', '/')}"
+            nodeid = "/" + item.nodeid.replace("\\", "/")
             if "/ui/" in nodeid:
                 item.add_marker(pytest.mark.ui)
             elif "/api/" in nodeid:
@@ -857,31 +853,6 @@ def pytest_runtest_logreport(report):
         logger.info("Test passed: %s (%.3fs)", report.nodeid, report.duration)
     elif report.outcome == "skipped":
         logger.warning("Test skipped: %s", report.nodeid)
-
-
-def pytest_runtest_setup(item):
-    """Enhanced test setup with debugging."""
-    # Start performance profiling if enabled
-    if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
-        try:
-            from tests.utils.performance_profiler import start_performance_monitoring
-
-            start_performance_monitoring()
-        except Exception as e:
-            logger.error(f"Failed to start performance monitoring: {e}")
-
-
-def pytest_runtest_teardown(item):
-    """Enhanced test teardown with debugging."""
-    # Stop performance profiling if enabled
-    if hasattr(item, "get_closest_marker") and item.get_closest_marker("performance"):
-        try:
-            from tests.utils.performance_profiler import save_performance_report, stop_performance_monitoring
-
-            stop_performance_monitoring()
-            save_performance_report()
-        except Exception as e:
-            logger.error(f"Failed to stop performance monitoring: {e}")
 
 
 # Environment-specific test skipping utilities
