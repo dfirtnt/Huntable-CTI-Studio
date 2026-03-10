@@ -3,9 +3,29 @@ Playwright tests for Agent Evaluations page.
 """
 
 import contextlib
+import json
 
 import pytest
 from playwright.sync_api import Page, expect
+
+
+def _mock_eval_articles_api(page: Page, articles: list | None = None):
+    """Mock subagent-eval-articles API so Load Eval Articles completes (avoids timeout skip)."""
+    if articles is None:
+        articles = []
+    payload = {"articles": articles}
+
+    def handle(route):
+        if "/api/evaluations/subagent-eval-articles" in route.request.url:
+            route.fulfill(
+                status=200,
+                body=json.dumps(payload),
+                headers={"Content-Type": "application/json"},
+            )
+        else:
+            route.continue_()
+
+    page.route("**/api/evaluations/subagent-eval-articles**", handle)
 
 
 @pytest.mark.ui
@@ -45,6 +65,7 @@ def _click_load_eval_articles_and_wait(page: Page) -> None:
 @pytest.mark.ui
 def test_load_dataset_articles(page: Page):
     """Test loading articles from dataset."""
+    _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
@@ -54,7 +75,7 @@ def test_load_dataset_articles(page: Page):
     article_list = page.locator("#articleList")
     expect(article_list).to_be_visible()
 
-    # Check for either articles or "No articles" message (loadEvalArticles: "No eval articles found..."; legacy: "No articles found in dataset")
+    # Check for either articles or "No articles" message (loadEvalArticles vs legacy text)
     has_articles = page.locator("#articleList input[type='checkbox']").count() > 0
     has_no_articles_msg = (
         page.get_by_text("No eval articles found", exact=False).is_visible()
@@ -67,6 +88,7 @@ def test_load_dataset_articles(page: Page):
 @pytest.mark.ui
 def test_select_articles_and_presets(page: Page):
     """Test selecting articles (presets no longer exist on this page)."""
+    _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
@@ -93,6 +115,7 @@ def test_select_articles_and_presets(page: Page):
 @pytest.mark.agent_config_mutation
 def test_run_evaluation_button(page: Page):
     """Test that run evaluation button works."""
+    _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
@@ -158,6 +181,7 @@ def test_export_bundles_button_visible_when_results_loaded(page: Page):
 @pytest.mark.ui
 def test_select_all_deselect_all_buttons(page: Page):
     """Test select all and deselect all buttons."""
+    _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize

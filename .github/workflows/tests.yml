@@ -91,6 +91,44 @@ jobs:
             web.log
           if-no-files-found: ignore
 
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: test
+      TEST_GROUP: unit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-test.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+
+      - name: Run unit tests
+        run: python run_tests.py unit
+
+      - name: Upload unit test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-artifacts
+          path: |
+            test-results/
+            allure-results/
+          if-no-files-found: ignore
+
   api:
     name: API Tests
     runs-on: ubuntu-latest

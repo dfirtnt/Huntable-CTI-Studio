@@ -579,6 +579,46 @@ pytest -m ui --video=on
 pytest -m ui --trace=on
 ```
 
+### OpenCode Playwright agents (run outside Cursor)
+
+To run the Playwright planner/generator/healer agents **without using Cursor** (e.g. to avoid burning Cursor tokens), use [OpenCode](https://open-code.ai) in this repo.
+
+**1. Install OpenCode** (pick one):
+
+```bash
+# Recommended
+curl -fsSL https://opencode.ai/install | bash
+
+# Or Homebrew
+brew install opencode-ai/tap/opencode
+
+# Or npm
+npm install -g opencode-ai
+```
+
+**2. Auth** (once): `opencode auth login` and add a provider (e.g. Anthropic, OpenAI).
+
+**3. Run from project root:**
+
+- **TUI (interactive):**  
+  `opencode`  
+  Then switch to the Playwright agent (Tab or agent selector) and type your task (e.g. “Explore the app and create a test plan” for Planner, “Generate tests from the plan in specs/plan.md” for Generator, “Run Playwright tests and fix failures” for Healer).
+
+- **CLI (one-shot):**  
+  `opencode run --agent playwright-planner "Explore the app and produce a test plan, then save it with planner_save_plan"`  
+  (Use `playwright-generator` or `playwright-healer` for the other agents.)
+
+**4. Agents and prompts:**  
+The repo defines three OpenCode agents that use the prompts in `.opencode/prompts/`:
+
+| Agent                 | Prompt file                          | Purpose |
+|-----------------------|--------------------------------------|--------|
+| `playwright-planner`  | `playwright-test-planner.md`         | Explore app, design scenarios, save plan |
+| `playwright-generator`| `playwright-test-generator.md`       | Turn a plan into `.spec.ts` tests |
+| `playwright-healer`   | `playwright-test-healer.md`          | Run tests, debug failures, fix selectors/timing |
+
+They are configured in **`opencode.json`** at the project root (agent `prompt` points at the corresponding file). Ensure the MCP (or plugin) that provides the tools referenced in those prompts (e.g. `planner_setup_page`, `generator_setup_page`, `test_run`, `test_debug`, `browser_*`) is enabled in OpenCode so the agents can run correctly.
+
 ## 🔧 Debugging UI Tests
 
 ### Common Issues

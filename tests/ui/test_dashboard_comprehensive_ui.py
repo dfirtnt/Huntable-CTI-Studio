@@ -340,17 +340,6 @@ class TestHighScoreArticlesWidget:
 
     @pytest.mark.ui
     @pytest.mark.dashboard
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification badges removed from dashboard")
-    def test_article_classification_badges(self, page: Page):
-        """Test article classification badges (chosen/rejected/unclassified). Deprecated."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(2000)
-        # No longer asserts Chosen/Rejected/Unclassified; skip.
-
-    @pytest.mark.ui
-    @pytest.mark.dashboard
     def test_article_hunt_score_display(self, page: Page):
         """Test article hunt score display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

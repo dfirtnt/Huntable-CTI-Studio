@@ -1,9 +1,31 @@
 """UI tests for SIGMA rule enrichment functionality."""
 
+import json
 import os
 
 import pytest
 from playwright.sync_api import Page, expect
+
+# Minimal queued rule so tests don't skip when queue is empty (fixture mocks list API).
+_SIGMA_QUEUE_LIST_MOCK = [
+    {
+        "id": 1,
+        "article_id": 1,
+        "article_title": "Test Article",
+        "workflow_execution_id": None,
+        "rule_yaml": "title: Test Rule\ndetection:\n  condition: true\n",
+        "rule_metadata": {"title": "Test Rule"},
+        "similarity_scores": [],
+        "max_similarity": 0.5,
+        "status": "pending",
+        "reviewed_by": None,
+        "review_notes": None,
+        "pr_submitted": False,
+        "pr_url": None,
+        "created_at": "2024-01-01T12:00:00",
+        "reviewed_at": None,
+    }
+]
 
 
 @pytest.mark.ui
@@ -12,8 +34,25 @@ class TestSigmaEnrichUI:
     """Test SIGMA rule enrichment UI functionality."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, page: Page):
-        """Setup: Navigate to sigma queue page."""
+    def mock_sigma_queue_list(self, page: Page):
+        """Mock sigma queue list API so table has one rule (avoids 'No rules in queue to test' skip)."""
+
+        def handle(route):
+            if "/api/sigma-queue/list" in route.request.url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps(_SIGMA_QUEUE_LIST_MOCK),
+                    headers={"Content-Type": "application/json"},
+                )
+            else:
+                route.continue_()
+
+        page.route("**/api/sigma-queue/list**", handle)
+        yield
+
+    @pytest.fixture(autouse=True)
+    def setup(self, page: Page, mock_sigma_queue_list):
+        """Setup: Navigate to sigma queue page (after list mock is applied)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sigma-queue")
         page.wait_for_load_state("networkidle")

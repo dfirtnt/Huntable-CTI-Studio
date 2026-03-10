@@ -36,8 +36,8 @@ class TestHealthChecksPageLoad:
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
 
-        # Verify controls section exists
-        controls_section = page.locator("text=🔧 Health Check Controls")
+        # Verify Quick Actions section exists (diags.html)
+        controls_section = page.locator("text=⚡ Quick Actions")
         expect(controls_section).to_be_visible()
 
         # Verify Run All Health Checks button exists (diags.html: only this button exists;
@@ -60,7 +60,11 @@ class TestHealthCheckButtons:
         def handle_route(route):
             if "/api/health" in route.request.url and route.request.method == "GET":
                 mock_response = {"status": "healthy", "timestamp": "2025-01-01T00:00:00Z", "version": "1.0.0"}
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+                route.fulfill(
+                    status=200,
+                    body=json.dumps(mock_response),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
@@ -80,214 +84,167 @@ class TestHealthCheckButtons:
 
     @pytest.mark.ui
     @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#runDatabaseCheck does not exist; diags uses single #runAllHealthChecks")
     def test_database_health_button(self, page: Page):
-        """Test Database Health button."""
+        """Test database health content after Run All Health Checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock API response
         def handle_route(route):
-            if "/api/health/database" in route.request.url:
-                mock_response = {
-                    "status": "healthy",
-                    "database": {
-                        "connection": "Connected",
-                        "total_articles": 1000,
-                        "total_sources": 50,
-                        "simhash": {"coverage": "95%"},
-                        "deduplication": {"total_articles": 1000, "unique_urls": 950, "duplicate_rate": "5%"},
-                        "performance": [{"test": "Query Test", "query_time_ms": 10, "rows_returned": 100}],
-                    },
-                }
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+            url = route.request.url
+            if "/api/health/database" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps(
+                        {
+                            "status": "healthy",
+                            "database": {"connection": "Connected", "total_articles": 1000},
+                        }
+                    ),
+                    headers={"Content-Type": "application/json"},
+                )
+            elif "/api/health" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"status": "healthy"}),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
-        page.route("**/api/health/database", handle_route)
-
+        page.route("**/api/health**", handle_route)
         page.goto(f"{base_url}/diags")
-        page.wait_for_load_state("networkidle")
-
-        # Click Database Health button
-        database_btn = page.locator("#runDatabaseCheck")
-        database_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify database health content updates
+        page.locator("#runAllHealthChecks").click()
+        page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
         database_content = page.locator("#databaseHealthContent")
-        expect(database_content).to_be_visible()
+        expect(database_content).to_contain_text("1000", timeout=5000)
 
     @pytest.mark.ui
     @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#runDeduplicationCheck does not exist; diags uses single #runAllHealthChecks")
     def test_deduplication_health_button(self, page: Page):
-        """Test Deduplication Health button."""
+        """Test deduplication health content after Run All Health Checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock API response
         def handle_route(route):
-            if "/api/health/deduplication" in route.request.url:
-                mock_response = {
-                    "status": "healthy",
-                    "deduplication": {
-                        "exact_duplicates": {"content_hash_duplicates": 0, "duplicate_details": []},
-                        "near_duplicates": {"potential_near_duplicates": 0, "simhash_coverage": "95%"},
-                        "simhash_buckets": {
-                            "bucket_distribution": [{"bucket_id": 1, "articles_count": 100}],
-                            "most_active_bucket": [1, 100],
-                        },
-                    },
-                }
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+            url = route.request.url
+            if "/api/health/deduplication" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps(
+                        {
+                            "status": "healthy",
+                            "deduplication": {
+                                "exact_duplicates": {"content_hash_duplicates": 0},
+                                "near_duplicates": {"simhash_coverage": "95%"},
+                            },
+                        }
+                    ),
+                    headers={"Content-Type": "application/json"},
+                )
+            elif "/api/health" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"status": "healthy"}),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
-        page.route("**/api/health/deduplication", handle_route)
-
+        page.route("**/api/health**", handle_route)
         page.goto(f"{base_url}/diags")
-        page.wait_for_load_state("networkidle")
-
-        # Click Deduplication Health button
-        deduplication_btn = page.locator("#runDeduplicationCheck")
-        deduplication_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify deduplication health content updates
+        page.locator("#runAllHealthChecks").click()
+        page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
         deduplication_content = page.locator("#deduplicationHealthContent")
-        expect(deduplication_content).to_be_visible()
+        expect(deduplication_content).to_contain_text("0", timeout=5000)
 
     @pytest.mark.ui
     @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#runServicesCheck does not exist; diags uses single #runAllHealthChecks")
     def test_services_health_button(self, page: Page):
-        """Test Services Health button."""
+        """Test services health content after Run All Health Checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock API response
         def handle_route(route):
-            if "/api/health/services" in route.request.url:
-                mock_response = {
-                    "status": "healthy",
-                    "services": {"redis": {"status": "healthy", "info": {"used_memory": 1024000}}},
-                }
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+            url = route.request.url
+            if "/api/health/services" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"status": "healthy", "services": {"redis": {"status": "healthy"}}}),
+                    headers={"Content-Type": "application/json"},
+                )
+            elif "/api/health" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"status": "healthy"}),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
-        page.route("**/api/health/services", handle_route)
-
+        page.route("**/api/health**", handle_route)
         page.goto(f"{base_url}/diags")
-        page.wait_for_load_state("networkidle")
-
-        # Click Services Health button
-        services_btn = page.locator("#runServicesCheck")
-        services_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify services health content updates
+        page.locator("#runAllHealthChecks").click()
+        page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
         services_content = page.locator("#servicesHealthContent")
-        expect(services_content).to_be_visible()
+        expect(services_content).to_contain_text("redis", timeout=5000)
 
     @pytest.mark.ui
     @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#runCeleryCheck does not exist; diags uses single #runAllHealthChecks")
     def test_celery_health_button(self, page: Page):
-        """Test Celery Health button."""
+        """Test Celery health content after Run All Health Checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock API response
         def handle_route(route):
-            if "/api/health/celery" in route.request.url:
-                mock_response = {"status": "healthy", "celery": {"workers": 2, "active_tasks": 0}}
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+            url = route.request.url
+            if "/api/health/celery" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps(
+                        {
+                            "status": "healthy",
+                            "celery": {"workers": {"status": "healthy", "active_workers": 2}},
+                        }
+                    ),
+                    headers={"Content-Type": "application/json"},
+                )
+            elif "/api/health" in url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"status": "healthy"}),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
-        page.route("**/api/health/celery", handle_route)
-
+        page.route("**/api/health**", handle_route)
         page.goto(f"{base_url}/diags")
-        page.wait_for_load_state("networkidle")
-
-        # Click Celery Health button
-        celery_btn = page.locator("#runCeleryCheck")
-        celery_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify celery health content updates
+        page.locator("#runAllHealthChecks").click()
+        page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
         celery_content = page.locator("#celeryHealthContent")
-        expect(celery_content).to_be_visible()
+        expect(celery_content).to_contain_text("healthy", timeout=5000)
 
     @pytest.mark.ui
     @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#runIngestionCheck does not exist; diags uses single #runAllHealthChecks")
-    def test_ingestion_analytics_button(self, page: Page):
-        """Test Ingestion Analytics button."""
+    def test_refresh_job_data_button(self, page: Page):
+        """Test Refresh Job Data button (diags: #refreshJobData, #lastUpdated)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock API response
         def handle_route(route):
-            if "/api/health/ingestion" in route.request.url:
-                mock_response = {
-                    "status": "healthy",
-                    "ingestion": {
-                        "total_stats": {
-                            "total_articles": 1000,
-                            "total_sources": 50,
-                            "earliest_article": "2025-01-01T00:00:00Z",
-                            "latest_article": "2025-01-31T00:00:00Z",
-                        },
-                        "daily_trends": [],
-                        "hunt_score_ranges": [],
-                        "hourly_distribution": [],
-                        "source_breakdown": [],
-                    },
-                }
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+            if "/api/jobs" in route.request.url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"status": "ok"}),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
-        page.route("**/api/health/ingestion", handle_route)
-
+        page.route("**/api/jobs**", handle_route)
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
-
-        # Click Ingestion Analytics button
-        ingestion_btn = page.locator("#runIngestionCheck")
-        ingestion_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify ingestion analytics content updates
-        ingestion_content = page.locator("#ingestionAnalyticsContent")
-        expect(ingestion_content).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#refreshTimestamp and #overallStatusContent do not exist in diags template")
-    def test_refresh_timestamp_button(self, page: Page):
-        """Test Refresh Timestamp button."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-
-        # Mock API response
-        def handle_route(route):
-            if "/api/health" in route.request.url:
-                mock_response = {"status": "healthy", "timestamp": "2025-01-01T00:00:00Z", "version": "1.0.0"}
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
-            else:
-                route.continue_()
-
-        page.route("**/api/health", handle_route)
-
-        page.goto(f"{base_url}/diags")
-        page.wait_for_load_state("networkidle")
-
-        # Click Refresh Timestamp button
-        refresh_btn = page.locator("#refreshTimestamp")
+        refresh_btn = page.locator("#refreshJobData")
+        expect(refresh_btn).to_be_visible()
         refresh_btn.click()
         page.wait_for_timeout(2000)
-
-        # Verify overall status updates
-        overall_status = page.locator("#overallStatusContent")
-        expect(overall_status).to_be_visible()
+        last_updated = page.locator("#lastUpdated")
+        expect(last_updated).to_be_visible()
 
 
 class TestHealthCheckLoadingOverlay:
@@ -318,9 +275,8 @@ class TestHealthCheckLoadingOverlay:
         loading_message = page.locator("#loadingMessage")
         expect(loading_message).to_be_visible()
 
-        # Verify loading text exists
-        loading_text = page.locator("text=Running Health Checks")
-        expect(loading_text).to_be_visible()
+        # Initial placeholder is "Please wait..."; run-all uses "Checking ..." messages
+        expect(loading_message).to_contain_text("wait")
 
 
 class TestHealthCheckStatusDisplay:
@@ -334,13 +290,9 @@ class TestHealthCheckStatusDisplay:
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("networkidle")
 
-        # Verify overall status section exists
-        overall_status = page.locator("#overallStatus")
+        # Verify overall status section exists (diags: #overallHealthStatus)
+        overall_status = page.locator("#overallHealthStatus")
         expect(overall_status).to_be_visible()
-
-        # Verify overall status content exists
-        overall_status_content = page.locator("#overallStatusContent")
-        expect(overall_status_content).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.health_checks
@@ -428,35 +380,31 @@ class TestHealthCheckErrorHandling:
 
     @pytest.mark.ui
     @pytest.mark.health_checks
-    @pytest.mark.skip(reason="#runDatabaseCheck does not exist; diags uses single #runAllHealthChecks")
     def test_health_check_error_display(self, page: Page):
-        """Test health check error display."""
+        """Test health check error display when Run All triggers a failed check."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock API error
         def handle_route(route):
-            if "/api/health/database" in route.request.url:
+            url = route.request.url
+            if "/api/health/database" in url:
                 route.fulfill(
                     status=500,
                     body=json.dumps({"status": "error", "error": "Database connection failed"}),
                     headers={"Content-Type": "application/json"},
                 )
+            elif "/api/health" in url:
+                route.fulfill(
+                    status=200, body=json.dumps({"status": "healthy"}), headers={"Content-Type": "application/json"}
+                )
             else:
                 route.continue_()
 
-        page.route("**/api/health/database", handle_route)
-
+        page.route("**/api/health**", handle_route)
         page.goto(f"{base_url}/diags")
-        page.wait_for_load_state("networkidle")
-
-        # Click Database Health button
-        database_btn = page.locator("#runDatabaseCheck")
-        database_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify error message appears
-        error_message = page.locator("text=Database Health Check Failed")
-        expect(error_message).to_be_visible()
+        page.locator("#runAllHealthChecks").click()
+        page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
+        db_content = page.locator("#databaseHealthContent")
+        expect(db_content).to_contain_text("failed", timeout=5000)
 
 
 class TestHealthCheckAutoRefresh:
@@ -475,7 +423,11 @@ class TestHealthCheckAutoRefresh:
             if "/api/health" in route.request.url:
                 api_call_count["count"] += 1
                 mock_response = {"status": "healthy", "timestamp": "2025-01-01T00:00:00Z", "version": "1.0.0"}
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+                route.fulfill(
+                    status=200,
+                    body=json.dumps(mock_response),
+                    headers={"Content-Type": "application/json"},
+                )
             else:
                 route.continue_()
 
@@ -510,7 +462,6 @@ class TestHealthCheckSessionStorage:
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2000)
 
-        # Verify flag was set (checked via page behavior)
-        # Note: Auto-run may trigger health checks automatically
-        overall_status = page.locator("#overallStatusContent")
+        # Verify diags page has overall health status element (diags: #overallHealthStatus)
+        overall_status = page.locator("#overallHealthStatus")
         expect(overall_status).to_be_visible()
