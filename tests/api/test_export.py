@@ -14,6 +14,8 @@ import pytest
 
 from src.web.routes import export as export_module
 
+pytestmark = pytest.mark.api
+
 
 class _FakeResult:
     """Minimal fake result to satisfy SQLAlchemy query interface."""

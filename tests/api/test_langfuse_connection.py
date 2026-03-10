@@ -12,6 +12,8 @@ from starlette.requests import Request
 
 from src.web.routes.ai import api_test_langfuse_connection
 
+pytestmark = pytest.mark.api
+
 
 class _DummySessionResult:
     def scalar_one_or_none(self):

@@ -8,6 +8,8 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
+pytestmark = pytest.mark.ui
+
 # Disable in environments without full UI/data stack.
 # pytestmark = pytest.mark.skip(reason="UI flow tests disabled in this environment.")
 

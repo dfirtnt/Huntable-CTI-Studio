@@ -2,6 +2,10 @@
 
 from unittest.mock import patch
 
+import pytest
+
+pytestmark = pytest.mark.api
+
 
 class TestCapabilitiesEndpoint:
     def test_capabilities_endpoint_returns_all_keys(self):

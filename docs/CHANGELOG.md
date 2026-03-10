@@ -8,12 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive test coverage improvements** (2026-03-10): Added 38 new tests across API, UI, and Playwright suites with full cleanup and restoration:
+  - 15 workflow config API tests (CRUD operations, validation, prompts, versions) - `tests/api/test_workflow_config_api.py`
+  - 8 preset lifecycle API tests with import/export and save/restore - `tests/api/test_workflow_preset_lifecycle.py`
+  - 6 agent config UI smoke tests (<5s runtime) - `tests/ui/test_agent_config_smoke_ui.py`
+  - 9 sources page UI smoke tests (<5s runtime) - `tests/ui/test_sources_smoke_ui.py`
+  - 1 Playwright test for importing real preset files with automatic config restoration - `tests/playwright/agent_config_presets.spec.ts`
+  - All new tests integrated into `run_tests.py` and GitHub CI workflows
+  - Total test count: 595 tests → 633 tests across 106 files
+- **Test coverage roadmap** (2026-03-10): Created `TEST_COVERAGE_ROADMAP.md` documenting:
+  - Current test coverage analysis across all test types
+  - 18 recommended new test files (~110-155 additional tests)
+  - 3-sprint implementation plan prioritized by impact
+  - Detailed test case specifications for SIGMA Queue, Analytics, Article Detail, Observable Training, Evaluation Comparison, Backup/Export, Settings, Search, Mobile, Error Recovery, RAG Chat, and Performance
+  - Testing standards and best practices (markers, database usage, cleanup requirements)
 - **Integration test full-system confidence** (2026-03-10): New integration tests for critical paths: (1) `test_workflow_execution_integration.py` — workflow run with real DB and mocked LLM; (2) `test_trigger_agentic_workflow_eager_touches_db` in `test_celery_state_transitions.py` — Celery task (eager) + DB; (3) `test_ingestion_via_create_article_real_db` in `test_rss_ingestion_persistence.py` — ingestion via `AsyncDatabaseManager.create_article`. Run integration with `integration` marker only; docs clarify integration vs lightweight and system integration web requirement. SKIPPED_TESTS.md updated with Integration subsection and annotation-persistence skip rows.
 - **Solutions documentation** (2026-03-10): `docs/solutions/` added for institutional knowledge; first entry documents async fixture teardown / "Future attached to a different loop" in integration tests (`test_annotation_persistence.py`), with symptoms, attempted fixes, and current skip/workaround. MkDocs nav includes Solutions.
 - **Sigma GitHub repo setup in setup.sh** (2026-03-09): `./setup.sh` now prompts to clone or create the Sigma rules repo (`../Huntable-SIGMA-Rules`) for PR submission. Creates repo at github.com/new first, then enters `owner/repo`; clones or creates local rules structure on failure. Default prompt `your-username/Huntable-SIGMA-Rules`. Post-install reminds user to add GitHub PAT in Settings. Non-interactive: set `SIGMA_GITHUB_REPO=owner/repo`. Docs updated (configuration, generate-sigma, sigma-rules, DOCKER_ARCHITECTURE).
 - **Sigma path standardization** (2026-03-09): `SIGMA_REPO_PATH` standardized on `sigma-repo` (single path for Docker and local). Removed Docker vs Local branching in `SigmaPRService`. Settings UI placeholder and helper text simplified.
 
 ### Changed
+- **Test runner integration and coverage** (2026-03-10): Pytest tests integrated into `run_tests.py` per category (smoke, unit, api, integration, ui); ongoing tests must be runnable via `python3 run_tests.py <category>`. Unit coverage gates in CI verified: src.services + src.utils ≥39%, src.services ≥45%, src.utils ≥20%.
+
+### Fixed
+- **Test database credential security** (2026-03-10): Removed 5 hardcoded test database passwords (`cti_pass`) from integration tests. All tests now read password from `POSTGRES_PASSWORD` environment variable (sourced from `.env`), eliminating credential exposure in code. Fixed files:
+  - `tests/integration/conftest.py` (3 instances)
+  - `tests/integration/test_celery_state_transitions.py` (1 instance)
+  - `tests/integration/test_workflow_execution_integration.py` (1 instance)
 - **UI test speed** (2026-03-10): Pytest UI defaults: `PLAYWRIGHT_SLOW_MO=0`, video only when `PLAYWRIGHT_VIDEO=1` or `PLAYWRIGHT_VIDEO_DIR`. TypeScript Playwright: `fullyParallel: true`, 2 workers in CI. Docs: testing.md (UI test speed), web-app-testing.md (slow_mo/video).
 - **Cloud LLM keys stripped at test startup** (2026-03-10): `run_tests.py` removes `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CHATGPT_API_KEY` from the process environment at startup (unless `ALLOW_CLOUD_LLM_IN_TESTS=true`). Tests and the app under test never see these keys, so no test run hits commercial cloud APIs. Keys in `.env` are not loaded into the test process; stripping applies to shell-exported keys. Guard still runs for ui, e2e, and all (would block if keys remained). Docs: testing.md API Key Safety updated.
 - **Test container auto-start** (2026-03-09): `run_tests.py` auto-starts test containers for API and UI tests (in addition to integration, e2e, all). API tests skip the cloud LLM key guard when `CHATGPT_API_KEY` is set, so `./run_tests.py api` runs without `ALLOW_CLOUD_LLM_IN_TESTS=true`.
