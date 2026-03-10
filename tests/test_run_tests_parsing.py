@@ -62,9 +62,9 @@ class TestParsePlaywrightOutput:
 
 
 class TestAgentConfigExcludeEnv:
-    """Test that --exclude-markers agent_config_mutation sets CTI_EXCLUDE_AGENT_CONFIG_TESTS in env (no agent config mutation)."""
+    """UI excludes agent config tests by default; --include-agent-config-tests or --exclude-markers control env."""
 
-    def test_exclude_agent_config_mutation_sets_env(self):
+    def test_exclude_markers_agent_config_mutation_sets_env(self):
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
@@ -75,25 +75,41 @@ class TestAgentConfigExcludeEnv:
         env = runner._get_agent_config_exclude_env()
         assert env == {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
 
-    def test_no_exclude_markers_returns_empty(self):
+    def test_ui_default_excludes_agent_config_tests(self):
+        """UI without --include-agent-config-tests sets CTI_EXCLUDE_AGENT_CONFIG_TESTS=1."""
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
             validate_env=False,
             exclude_markers=None,
+            include_agent_config_tests=False,
+        )
+        runner = RunTestRunner(config)
+        assert runner._get_agent_config_exclude_env() == {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
+
+    def test_ui_include_agent_config_tests_returns_empty(self):
+        """UI with --include-agent-config-tests does not set exclude env."""
+        config = RunTestConfig(
+            test_type=RunTestType.UI,
+            context=ExecutionContext.LOCALHOST,
+            validate_env=False,
+            exclude_markers=None,
+            include_agent_config_tests=True,
         )
         runner = RunTestRunner(config)
         assert runner._get_agent_config_exclude_env() == {}
 
-    def test_exclude_other_marker_returns_empty(self):
+    def test_exclude_other_marker_ui_still_excludes_agent_config_by_default(self):
+        """UI with other exclude_markers but not include_agent_config_tests still sets exclude env."""
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
             validate_env=False,
             exclude_markers=["slow", "integration"],
+            include_agent_config_tests=False,
         )
         runner = RunTestRunner(config)
-        assert runner._get_agent_config_exclude_env() == {}
+        assert runner._get_agent_config_exclude_env() == {"CTI_EXCLUDE_AGENT_CONFIG_TESTS": "1"}
 
 
 class TestRunTestsSummaryOutput:

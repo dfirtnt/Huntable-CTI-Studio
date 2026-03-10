@@ -809,7 +809,7 @@ class TestSigmaRuleResultsDisplay:
         page.wait_for_timeout(500)
 
         # Verify file path appears
-        file_path = page.locator("text=/rules/test.yml")
+        file_path = page.get_by_text("/rules/test.yml", exact=True)
         expect(file_path).to_be_visible()
 
 
@@ -870,7 +870,7 @@ class TestYAMLModal:
         page.wait_for_timeout(500)
 
         # Click file path to open YAML modal
-        file_path_link = page.locator("text=/rules/test.yml")
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
@@ -927,7 +927,7 @@ class TestYAMLModal:
         rule_card.click()
         page.wait_for_timeout(500)
 
-        file_path_link = page.locator("text=/rules/test.yml")
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
@@ -990,7 +990,7 @@ class TestYAMLModal:
         rule_card.click()
         page.wait_for_timeout(500)
 
-        file_path_link = page.locator("text=/rules/test.yml")
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
@@ -1052,7 +1052,7 @@ class TestYAMLModal:
         rule_card.click()
         page.wait_for_timeout(500)
 
-        file_path_link = page.locator("text=/rules/test.yml")
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
@@ -1115,7 +1115,7 @@ class TestYAMLModal:
         rule_card.click()
         page.wait_for_timeout(500)
 
-        file_path_link = page.locator("text=/rules/test.yml")
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
@@ -1174,7 +1174,7 @@ class TestYAMLModal:
         rule_card.click()
         page.wait_for_timeout(500)
 
-        file_path_link = page.locator("text=/rules/test.yml")
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
