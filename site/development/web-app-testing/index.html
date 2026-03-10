@@ -3239,6 +3239,61 @@
 <a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="c1"># Run with trace</span>
 <a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>pytest<span class="w"> </span>-m<span class="w"> </span>ui<span class="w"> </span>--trace<span class="o">=</span>on
 </code></pre></div>
+<h3 id="opencode-playwright-agents-run-outside-cursor">OpenCode Playwright agents (run outside Cursor)<a class="headerlink" href="#opencode-playwright-agents-run-outside-cursor" title="Permanent link">&para;</a></h3>
+<p>To run the Playwright planner/generator/healer agents <strong>without using Cursor</strong> (e.g. to avoid burning Cursor tokens), use <a href="https://open-code.ai">OpenCode</a> in this repo.</p>
+<p><strong>1. Install OpenCode</strong> (pick one):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Recommended</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://opencode.ai/install<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Or Homebrew</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>brew<span class="w"> </span>install<span class="w"> </span>opencode-ai/tap/opencode
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="c1"># Or npm</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>npm<span class="w"> </span>install<span class="w"> </span>-g<span class="w"> </span>opencode-ai
+</code></pre></div>
+<p><strong>2. Auth</strong> (once): <code>opencode auth login</code> and add a provider (e.g. Anthropic, OpenAI).</p>
+<p><strong>3. Run from project root:</strong></p>
+<ul>
+<li>
+<p><strong>TUI (interactive):</strong><br />
+<code>opencode</code><br />
+  Then switch to the Playwright agent (Tab or agent selector) and type your task (e.g. “Explore the app and create a test plan” for Planner, “Generate tests from the plan in specs/plan.md” for Generator, “Run Playwright tests and fix failures” for Healer).</p>
+</li>
+<li>
+<p><strong>CLI (one-shot):</strong><br />
+<code>opencode run --agent playwright-planner "Explore the app and produce a test plan, then save it with planner_save_plan"</code><br />
+  (Use <code>playwright-generator</code> or <code>playwright-healer</code> for the other agents.)</p>
+</li>
+</ul>
+<p><strong>4. Agents and prompts:</strong><br />
+The repo defines three OpenCode agents that use the prompts in <code>.opencode/prompts/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Prompt file</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>playwright-planner</code></td>
+<td><code>playwright-test-planner.md</code></td>
+<td>Explore app, design scenarios, save plan</td>
+</tr>
+<tr>
+<td><code>playwright-generator</code></td>
+<td><code>playwright-test-generator.md</code></td>
+<td>Turn a plan into <code>.spec.ts</code> tests</td>
+</tr>
+<tr>
+<td><code>playwright-healer</code></td>
+<td><code>playwright-test-healer.md</code></td>
+<td>Run tests, debug failures, fix selectors/timing</td>
+</tr>
+</tbody>
+</table>
+<p>They are configured in <strong><code>opencode.json</code></strong> at the project root (agent <code>prompt</code> points at the corresponding file). Ensure the MCP (or plugin) that provides the tools referenced in those prompts (e.g. <code>planner_setup_page</code>, <code>generator_setup_page</code>, <code>test_run</code>, <code>test_debug</code>, <code>browser_*</code>) is enabled in OpenCode so the agents can run correctly.</p>
 <h2 id="debugging-ui-tests">🔧 Debugging UI Tests<a class="headerlink" href="#debugging-ui-tests" title="Permanent link">&para;</a></h2>
 <h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
 <ol>
@@ -3248,21 +3303,21 @@
 <li><strong>Browser crashes</strong> → Check resource usage</li>
 </ol>
 <h3 id="debug-commands">Debug Commands<a class="headerlink" href="#debug-commands" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Run with visible browser</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>pytest<span class="w"> </span>-m<span class="w"> </span>ui<span class="w"> </span>--headed<span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Run with debug output</span>
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>pytest<span class="w"> </span>-m<span class="w"> </span>ui<span class="w"> </span>-v<span class="w"> </span>-s<span class="w"> </span>--log-cli-level<span class="o">=</span>DEBUG
-<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>
-<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="c1"># Run single test with debug</span>
-<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>pytest<span class="w"> </span>tests/e2e/test_web_interface.py::test_homepage_loads<span class="w"> </span>-v<span class="w"> </span>-s
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Run with visible browser</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>pytest<span class="w"> </span>-m<span class="w"> </span>ui<span class="w"> </span>--headed<span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="c1"># Run with debug output</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>pytest<span class="w"> </span>-m<span class="w"> </span>ui<span class="w"> </span>-v<span class="w"> </span>-s<span class="w"> </span>--log-cli-level<span class="o">=</span>DEBUG
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="c1"># Run single test with debug</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>pytest<span class="w"> </span>tests/e2e/test_web_interface.py::test_homepage_loads<span class="w"> </span>-v<span class="w"> </span>-s
 </code></pre></div>
 <h3 id="debug-mode">Debug Mode<a class="headerlink" href="#debug-mode" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Enable Playwright debug mode</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="n">PWDEBUG</span><span class="o">=</span><span class="mi">1</span> <span class="n">pytest</span> <span class="o">-</span><span class="n">m</span> <span class="n">ui</span> <span class="o">-</span><span class="n">s</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="c1"># Use browser developer tools</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="n">page</span><span class="o">.</span><span class="n">pause</span><span class="p">()</span>  <span class="c1"># Pause execution for manual inspection</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Enable Playwright debug mode</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="n">PWDEBUG</span><span class="o">=</span><span class="mi">1</span> <span class="n">pytest</span> <span class="o">-</span><span class="n">m</span> <span class="n">ui</span> <span class="o">-</span><span class="n">s</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># Use browser developer tools</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="n">page</span><span class="o">.</span><span class="n">pause</span><span class="p">()</span>  <span class="c1"># Pause execution for manual inspection</span>
 </code></pre></div>
 <h2 id="test-reports">📊 Test Reports<a class="headerlink" href="#test-reports" title="Permanent link">&para;</a></h2>
 <h3 id="html-reports">HTML Reports<a class="headerlink" href="#html-reports" title="Permanent link">&para;</a></h3>

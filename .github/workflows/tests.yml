@@ -119,6 +119,36 @@ jobs:
       - name: Run unit tests
         run: python run_tests.py unit
 
+      - name: Enforce unit coverage gates
+        env:
+          APP_ENV: test
+          TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
+        run: |
+          python -m coverage erase
+
+          # Baseline gate for unit-focused runtime code.
+          python -m pytest tests/services/ tests/utils/ \
+            -m "not integration" \
+            --cov=src.services \
+            --cov=src.utils \
+            --cov-report=term-missing \
+            --cov-fail-under=39
+
+          # Package-specific gates to prevent regressions from being hidden by aggregate numbers.
+          python -m coverage erase
+          python -m pytest tests/services/ tests/utils/ \
+            -m "not integration" \
+            --cov=src.services \
+            --cov-report=term \
+            --cov-fail-under=45
+
+          python -m coverage erase
+          python -m pytest tests/services/ tests/utils/ \
+            -m "not integration" \
+            --cov=src.utils \
+            --cov-report=term \
+            --cov-fail-under=20
+
       - name: Upload unit test artifacts
         if: always()
         uses: actions/upload-artifact@v4
