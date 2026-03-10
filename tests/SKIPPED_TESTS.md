@@ -3,12 +3,30 @@
 ## Overview
 This document tracks tests that are currently skipped and need to be fixed.
 
-**Last Updated**: 2026-03-10
+**Last Updated**: 2026-03-10 (audit: doc vs code)
 **Current Status**: 
-- **Passing**: 568
+- **Passing**: 568+ (many modules previously listed as SKIPPED now pass; see Test Status by Category)
 - **Failed**: 12 (down from 128)
 - **Skipped**: 167
 - **Errors**: 583 (mostly async coroutine warnings, down from 625)
+
+**Audit note**: The following modules were listed in this doc as "SKIPPED" but run **PASSING** when executed (unit/integration context): RSS Parser (46), Content Processor (50), Deduplication Service (35), Database Operations (23), Modern Scraper (18), test_search_parser (16), test_core (3), test_database (16). Counts and status below have been corrected.
+
+## Unskip candidates (actually skipped, worth enabling)
+
+| Target | Count | Blocker | Fix |
+|--------|-------|---------|-----|
+| **test_source_manager.py** `TestSourceConfigLoader` | 5 | Tests mock JSON + single `write()`; implementation uses **YAML** and multiple `write()` calls | Use YAML in mocks (or patch `yaml.safe_load`); assert `write` called with expected content or drop `assert_called_once()` |
+| **test_annotations_api.py** | many | `pytest.skip("No articles available")` | Seed test DB with articles in API test setup (or shared fixture) |
+| **test_endpoints.py** | 4 | 500 / "No articles" / 422 skips | Same: ensure DB + seed data in API job |
+| **test_article_detail_advanced_ui.py** | 2 | No articles; observables mode inactive | Seed data; skip observables test if feature off |
+| **test_annotation_ui_persistence.py** | 3 | "Requires article with content" | Add test data/fixtures per doc |
+| **test_eval_ui_rendering.py** | 1 | "Requires eval data" | Add eval fixtures |
+| **integration/test_annotation_persistence.py** | 3 | Async fixture teardown in different event loop | Same-loop teardown or dedicated integration run (see docs/solutions/...) |
+| **Fixture-not-found** (sigma similarity, scraper_parsing, sigma_validator_roundtrip, compare_sources, workflow_config_schema) | 1 each | Golden/input/fixture file missing | Commit files to repo or skip only when file absent in CI |
+| **test_sigma_enrich_ui.py** | 8 | "No rules in queue" | Seed rules or mock queue |
+| **test_workflow_config_api.py** | 2 | No presets / ExtractAgent prompt not configured | Config or fixtures |
+| **Quarantined** (dedupe_preserved, prompt_sync, training_endpoint_fallback, api_articles_limit) | 5 | Assertion/mock/500 issues | See Quarantined table for intended fixes |
 
 ## Quarantined Tests
 
@@ -22,15 +40,7 @@ Tests marked with `@pytest.mark.quarantine` that require fixes. All quarantined 
 | test_api/test_endpoints.py | test_api_articles_limit | API may return 500 if database is not accessible | @system | 2026-01-15 | Fix database connectivity or make assertion lenient |
 | test_web_application.py | test_api_articles_with_limit | API may return 500 if database is not accessible | @system | 2026-01-15 | Fix database connectivity or make assertion lenient |
 | e2e/test_web_interface.py | All 13 tests | Playwright browsers not installed in Docker | @system | 2026-01-15 | Install browsers: `playwright install` in container |
-| test_rss_parser.py | All 46 tests | Async mock configuration needed for HTTP client and feedparser | TBD | 2025-01-XX | Use respx/aioresponses for HTTP mocking, mock feedparser responses |
-| test_content_processor.py | All 47 tests | Async mock configuration needed for deduplication service and DB | TBD | 2025-01-XX | Use AsyncMock for deduplication service, mock async DB operations |
-| test_deduplication_service.py | All 35 tests | SimHash algorithm tests need refinement, async mocks needed | TBD | 2025-01-XX | Fix SimHash assertions, use AsyncMock for service methods |
-| test_database_operations.py | All 33 tests | Async mock configuration needed for AsyncDatabaseManager | TBD | 2025-01-XX | Mock async SQLAlchemy session with proper context managers |
-| test_modern_scraper.py | All 18 tests | Async mock configuration needed for HTTP client | TBD | 2025-01-XX | Use respx for HTTP mocking, mock BeautifulSoup parsing |
-| test_search_parser.py | All 15 tests | Async mock configuration needed | TBD | 2025-01-XX | Use AsyncMock for search operations |
-| test_web_application.py | All 10 tests | Async mock configuration needed | TBD | 2025-01-XX | Mock async web application components |
-| test_core.py | All 8 tests | Async mock configuration needed | TBD | 2025-01-XX | Use AsyncMock for core async operations |
-| test_database.py | All 5 tests | Async mock configuration needed | TBD | 2025-01-XX | Mock async database models and operations |
+| test_web_application.py | All 10 API/route tests | Conditional skip on 500 / ASGI | @system | 2025-01-XX | Run in API job (USE_ASGI_CLIENT); may pass with DB up |
 | test_annotation_persistence.py | test_create_annotation | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same-loop teardown or avoid rollback+real manager mix; see docs/solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md |
 | test_annotation_persistence.py | test_get_annotation | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same as above |
 | test_annotation_persistence.py | test_get_article_annotations | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same as above |
@@ -50,14 +60,8 @@ All threat hunting scorer tests are working correctly and validate:
 - Edge cases
 - Return formats
 
-### ⏭️ RSS Parser (46 tests - SKIPPED)
-**Skip Reason**: Async mock configuration needed for RSS parser tests
-
-**What needs fixing**:
-- Mock HTTP client for async operations
-- Mock feedparser responses
-- Mock database session for config retrieval
-- Fix time struct mocking for date parsing
+### ✅ RSS Parser (46 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 46 tests pass. Doc previously said SKIPPED; code has no skip decorators.
 
 **Test coverage includes**:
 - Feed parsing and validation
@@ -66,13 +70,8 @@ All threat hunting scorer tests are working correctly and validate:
 - Quality filtering
 - Author/tag extraction
 
-### ⏭️ Content Processor (47 tests - SKIPPED)
-**Skip Reason**: Async mock configuration needed for ContentProcessor tests
-
-**What needs fixing**:
-- Mock async deduplication service
-- Mock async database operations
-- Fix batch processing mocks
+### ✅ Content Processor (50 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 50 tests pass (doc said 47 SKIPPED).
 
 **Test coverage includes**:
 - Article processing pipeline
@@ -81,15 +80,8 @@ All threat hunting scorer tests are working correctly and validate:
 - Metadata enhancement
 - URL normalization
 
-### ⏭️ Deduplication Service (35 tests - SKIPPED)
-**Skip Reasons**: 
-- SimHash algorithm tests need refinement
-- Async mock configuration needed for service tests
-
-**What needs fixing**:
-- SimHash algorithm test assertions
-- Mock async database session
-- Fix similarity threshold tests
+### ✅ Deduplication Service (35 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 35 tests pass.
 
 **Test coverage includes**:
 - SimHash computation
@@ -97,13 +89,8 @@ All threat hunting scorer tests are working correctly and validate:
 - Content hashing
 - Database integration
 
-### ⏭️ Modern Scraper (18 tests - SKIPPED)
-**Skip Reason**: Async mock configuration needed for scraper tests
-
-**What needs fixing**:
-- Mock HTTP client for async requests
-- Mock BeautifulSoup parsing
-- Fix JSON-LD extraction mocks
+### ✅ Modern Scraper (18 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 18 tests pass.
 
 **Test coverage includes**:
 - URL discovery strategies
@@ -111,20 +98,23 @@ All threat hunting scorer tests are working correctly and validate:
 - CSS selector scraping
 - Legacy scraper fallback
 
-### ⏭️ Database Operations (33 tests - SKIPPED)
-**Skip Reason**: Async mock configuration needed for AsyncDatabaseManager tests
-
-**What needs fixing**:
-- Mock async SQLAlchemy session
-- Mock async engine and connections
-- Fix async context managers (`__aenter__`/`__aexit__`)
-- Mock database query results
+### ✅ Database Operations (23 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 23 tests pass (doc said 33 tests SKIPPED; actual count 23).
 
 **Test coverage includes**:
 - CRUD operations (sources, articles, annotations)
 - Database statistics
 - Health metrics
 - Performance analytics
+
+### ✅ test_search_parser (16 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 16 tests pass (doc previously implied SKIPPED).
+
+### ✅ test_core (3 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 3 tests pass.
+
+### ✅ test_database (16 tests - PASSING)
+**Status**: AUDIT 2026-03-10 — All 16 tests pass (doc said 5; actual 16).
 
 ### ✅ Content Filter (25 tests - ALL PASSING)
 **Status**: FIXED - All tests now passing
@@ -156,17 +146,11 @@ All threat hunting scorer tests are working correctly and validate:
 - Custom validators
 - Batch validation
 
-### ✅ Source Manager (35 tests - ALL PASSING)
-**Status**: FIXED - All tests now passing
-
-**What was fixed**:
-- ✅ Implemented SourceConfig and SourceConfigLoader classes
-- ✅ Fixed source validation logic
-- ✅ Added configuration management and import/export functionality
-- ✅ Fixed error handling for validation errors
+### ✅ Source Manager (41 tests - 36 passed, 5 skipped)
+**Status**: AUDIT 2026-03-10 — `tests/core/test_source_manager.py` (5 tests) all pass. `tests/test_source_manager.py`: 36 pass, **5 skipped** (class `TestSourceConfigLoader` — "SourceManager implementation needs review - missing SourceConfigLoader class", i.e. file-level loader vs core’s SourceConfigLoader).
 
 **Test coverage includes**:
-- Source configuration management
+- Source configuration management (core)
 - Source validation
 - Import/export functionality
 - Statistics tracking
@@ -241,16 +225,16 @@ All threat hunting scorer tests are working correctly and validate:
    ```
 
 ## Priority Order
-1. **Database Operations** - Core infrastructure (33 tests) - SKIPPED
-2. **Content Processor** - Main processing logic (47 tests) - SKIPPED
-3. **RSS Parser** - Primary data ingestion (46 tests) - SKIPPED
-4. **Deduplication Service** - Critical for data quality (35 tests) - SKIPPED
-5. **Source Manager** - Source configuration (35 tests) - ✅ FIXED
+1. **Database Operations** - Core infrastructure (23 tests) - ✅ PASSING (audit 2026-03-10)
+2. **Content Processor** - Main processing logic (50 tests) - ✅ PASSING
+3. **RSS Parser** - Primary data ingestion (46 tests) - ✅ PASSING
+4. **Deduplication Service** - Critical for data quality (35 tests) - ✅ PASSING
+5. **Source Manager** - Source configuration (41 tests: 36 passed, 5 skipped in test_source_manager) - ✅ MOSTLY PASSING
 6. **SIGMA Validator** - Rule validation (50 tests) - ✅ FIXED
 7. **Content Filter** - ML-based filtering (25 tests) - ✅ FIXED
 8. **HTTP Client** - Network operations (39 tests) - ⚠️ MOSTLY FIXED (1 failing)
 9. **Content Cleaner** - Content processing (30 tests) - ✅ FIXED
-10. **Modern Scraper** - Alternative ingestion (18 tests) - SKIPPED
+10. **Modern Scraper** - Alternative ingestion (18 tests) - ✅ PASSING
 
 ### ⏭️ ML Model Version Tests (3 tests - SKIPPED)
 **Skip Reason**: Tests increment ML model versions in production database
