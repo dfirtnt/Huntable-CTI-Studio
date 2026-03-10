@@ -8,9 +8,6 @@ import os
 import pytest
 from playwright.sync_api import Page, expect
 
-# Disable in environments without full sources UI/backend.
-pytestmark = pytest.mark.skip(reason="Sources UI tests disabled in this environment.")
-
 
 class TestSourcesListDisplay:
     """Test source list display features."""

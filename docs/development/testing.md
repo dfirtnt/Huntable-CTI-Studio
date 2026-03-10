@@ -197,6 +197,23 @@ This excludes:
 
 ## CI Recommendations
 
+### Which tests to run in GitHub Actions
+
+| Group | In CI? | Notes |
+|-------|--------|--------|
+| **Smoke** | ✅ Yes | Fast; catches basic breakage. Current workflow starts Postgres, Redis, web app, then `run_tests.py smoke`. |
+| **Unit** | ✅ Add | No containers; fast. Run `python run_tests.py unit`. High signal, no extra services. |
+| **API** | ✅ Yes | HTTP/contracts; needs Postgres, Redis, web app. Current workflow runs `run_tests.py api`. |
+| **Integration** | ✅ Yes | DB + app behavior; same stack. Current workflow runs `run_tests.py integration`. |
+| **UI (pytest)** | ⚠️ Optional | Many tests; needs browsers + app. If added: `run_tests.py ui --exclude-markers agent_config_mutation` and install Playwright for pytest. Consider separate job or scheduled run to keep PRs fast. |
+| **Playwright (TS)** | ⚠️ Fix then keep | Current `playwright.yml` runs `npx playwright test` (root config → `e2e/` only) and **does not start the web app**; tests expect `http://127.0.0.1:8001`. Either: (1) Start web app in Playwright job (like smoke) and run root e2e, or (2) Use `tests/playwright.config.ts` with `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` and run `tests/playwright/*.spec.ts` (richer suite). |
+| **agent_config_mutation** | ❌ No | Do not run in CI; mutates live config. Excluded via `--exclude-markers` (pytest) and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (Playwright). |
+| **Quarantined / SKIPPED** | ❌ No | Already skipped; see `tests/SKIPPED_TESTS.md`. |
+| **AI/LLM (real APIs)** | ❌ No (or nightly) | Require secrets and cost; run only in scheduled/manual workflows if at all. |
+| **Full `all`** | ❌ No | Too heavy for every push; use locally or scheduled. |
+
+**Recommended CI layout:** Smoke + Unit + API + Integration (current minus unit, plus one unit job). Optionally one Playwright job with app started and either e2e or tests/playwright, excluding agent-config specs.
+
 ### Speed
 
 - Run stateless tests in parallel

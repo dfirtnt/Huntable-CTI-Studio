@@ -8,9 +8,6 @@ import os
 import pytest
 from playwright.sync_api import Page, expect
 
-# Disable in environments without full settings UI/backend.
-pytestmark = pytest.mark.skip(reason="Settings UI tests disabled in this environment.")
-
 
 class TestSettingsPageLoad:
     """Test settings page basic loading."""
@@ -299,37 +296,6 @@ class TestLMStudioURLSettings:
         # Labels indicate purpose
         expect(page.locator("label[for='lmstudioApiUrl']")).to_contain_text("LM Studio server URL")
         expect(page.locator("label[for='lmstudioEmbeddingUrl']")).to_contain_text("embedding URL")
-
-
-class TestAIMLConfiguration:
-    """DEPRECATED: Test AI/ML Assistant configuration - removed."""
-
-    @pytest.mark.ui
-    @pytest.mark.settings
-    @pytest.mark.skip(reason="AI/ML Assistant Configuration section has been deprecated")
-    def test_ai_model_selection_dropdown(self, page: Page):
-        """Test AI model selection dropdown - DEPRECATED."""
-        pytest.skip("AI/ML Assistant Configuration section removed")
-
-    @pytest.mark.ui
-    @pytest.mark.settings
-    @pytest.mark.skip(reason="AI/ML Assistant Configuration section has been deprecated")
-    def test_lmstudio_model_section_visibility(self, page: Page):
-        """Test LMStudio model section visibility toggle - DEPRECATED."""
-        pytest.skip("AI/ML Assistant Configuration section removed")
-
-        # # Verify it's hidden initially (display: none)
-        # display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")
-        # assert display_style == "none"
-
-        # # Select LMStudio model
-        # ai_model = page.locator("#aiModel")
-        # ai_model.select_option("lmstudio")
-        # page.wait_for_timeout(500)
-
-        # # Verify section is now visible
-        # display_style = lmstudio_section.evaluate("el => window.getComputedStyle(el).display")
-        # assert display_style != "none"
 
     @pytest.mark.ui
     @pytest.mark.settings

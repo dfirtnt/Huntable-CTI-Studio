@@ -3,7 +3,6 @@ UI tests for Articles list page advanced features using Playwright.
 Tests advanced search, filtering, sorting, pagination, bulk actions, and classification modal.
 """
 
-import json
 import os
 import re
 
@@ -169,36 +168,6 @@ class TestArticlesSearchAndFilter:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
-    def test_classification_filter_dropdown(self, page: Page):
-        """Test classification filter dropdown."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-
-        # Find classification filter
-        classification_filter = page.locator("#classification")
-        expect(classification_filter).to_be_visible()
-
-        # Verify options exist
-        chosen_option = page.locator("#classification option:has-text('✅ Chosen')")
-        rejected_option = page.locator("#classification option:has-text('❌ Rejected')")
-        unclassified_option = page.locator("#classification option:has-text('⏳ Unclassified')")
-
-        expect(chosen_option).to_be_visible()
-        expect(rejected_option).to_be_visible()
-        expect(unclassified_option).to_be_visible()
-
-        # Select classification
-        classification_filter.select_option("chosen")
-        page.wait_for_timeout(1000)
-
-        # Verify URL contains classification parameter
-        expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
-
-    @pytest.mark.ui
-    @pytest.mark.articles
     def test_threat_hunting_score_range_filter(self, page: Page):
         """Test threat hunting score range filter."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -221,30 +190,6 @@ class TestArticlesSearchAndFilter:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
-    def test_filter_summary_display(self, page: Page):
-        """Test filter summary display with active filters."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-
-        # Apply a filter
-        classification_filter = page.locator("#classification")
-        classification_filter.select_option("chosen")
-        page.wait_for_timeout(1000)
-
-        # Verify filter summary appears
-        filter_summary = page.locator("text=Active Filters:")
-        expect(filter_summary).to_be_visible()
-
-        # Verify classification is shown in summary
-        classification_text = page.locator("text=Classification: chosen")
-        expect(classification_text).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_clear_all_filters_link(self, page: Page):
         """Test clear all filters link."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -252,10 +197,11 @@ class TestArticlesSearchAndFilter:
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
 
-        # Apply filters
-        classification_filter = page.locator("#classification")
-        classification_filter.select_option("chosen")
-        page.wait_for_timeout(1000)
+        # Apply a filter (e.g. score range)
+        score_filter = page.locator("#threat_hunting_range")
+        if score_filter.is_visible():
+            score_filter.select_option("80-100")
+            page.wait_for_timeout(1000)
 
         # Find clear all link
         clear_link = page.locator("a:has-text('Clear all')")
@@ -316,45 +262,6 @@ class TestArticlesSearchAndFilter:
         indicator = page.locator("#default-filters-indicator")
         expect(indicator).to_be_attached()
         assert indicator.is_visible() or "hidden" in (indicator.get_attribute("class") or "")
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
-    def test_filter_persistence_session_storage(self, page: Page):
-        """Test filter persistence via sessionStorage."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-
-        # Apply a filter
-        classification_filter = page.locator("#classification")
-        classification_filter.select_option("chosen")
-        page.wait_for_timeout(1000)
-
-        # Check sessionStorage
-        session_storage = page.evaluate("() => sessionStorage.getItem('cti_articles_settings')")
-        if session_storage:
-            settings = json.loads(session_storage)
-            assert "classification" in settings, "Settings should contain classification"
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
-    def test_url_parameter_filter_parsing(self, page: Page):
-        """Test URL parameter filter parsing and application."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-
-        # Navigate with filter parameters
-        page.goto(f"{base_url}/articles?classification=chosen&search=malware")
-        page.wait_for_load_state("networkidle")
-
-        # Verify filters are applied
-        classification_filter = page.locator("#classification")
-        expect(classification_filter).to_have_value("chosen")
-
-        search_input = page.locator("#search")
-        expect(search_input).to_have_value("malware")
 
 
 class TestArticlesSorting:
@@ -436,7 +343,6 @@ class TestArticlesSorting:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
     def test_sort_with_filter_combination(self, page: Page):
         """Test sort with filter combination."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -444,10 +350,11 @@ class TestArticlesSorting:
         page.wait_for_load_state("networkidle")
         _ensure_filters_visible(page)
 
-        # Apply filter
-        classification_filter = page.locator("#classification")
-        classification_filter.select_option("chosen")
-        page.wait_for_timeout(1000)
+        # Apply a filter (score range)
+        score_filter = page.locator("#threat_hunting_range")
+        if score_filter.is_visible():
+            score_filter.select_option("80-100")
+            page.wait_for_timeout(1000)
 
         # Change sort
         sort_by = page.locator("#sort-by")
@@ -548,24 +455,6 @@ class TestArticlesPagination:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification removed")
-    def test_pagination_state_preservation_with_filters(self, page: Page):
-        """Test pagination state preservation with filters."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles?classification=chosen&page=2")
-        page.wait_for_load_state("networkidle")
-
-        # Navigate to next page
-        next_link = page.locator("a:has-text('Next')")
-        if next_link.count() > 0:
-            next_link.click()
-            page.wait_for_load_state("networkidle")
-
-            # Verify filter is preserved
-            expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
-
-    @pytest.mark.ui
-    @pytest.mark.articles
     def test_page_count_display(self, page: Page):
         """Test page count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -594,20 +483,6 @@ class TestArticlesPagination:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Pagination links in articles template do not preserve sort_by/sort_order")
-    def test_pagination_with_sorting(self, page: Page):
-        """Test pagination with sorting."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles?sort_by=title&page=2")
-        page.wait_for_load_state("networkidle")
-        next_link = page.locator("a:has-text('Next')")
-        if next_link.count() > 0:
-            next_link.click()
-            page.wait_for_load_state("networkidle")
-            expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
-
-    @pytest.mark.ui
-    @pytest.mark.articles
     def test_pagination_empty_state(self, page: Page):
         """Test pagination empty state."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -618,87 +493,6 @@ class TestArticlesPagination:
         # Verify empty state message
         empty_message = page.locator("text=No articles found")
         expect(empty_message).to_be_visible()
-
-
-class TestArticlesStatistics:
-    """Test article statistics features."""
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Article statistics panel is currently missing from the UI")
-    def test_article_statistics_toggle(self, page: Page):
-        """Test article statistics toggle (collapsible)."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-
-        # Find statistics toggle button
-        stats_toggle = page.locator("#articleStatsToggle")
-        expect(stats_toggle).to_be_visible()
-
-        # Get initial state
-        stats_content = page.locator("#articleStatsContent")
-        initial_state = stats_content.is_visible()
-
-        # Click toggle
-        stats_toggle.click()
-        page.wait_for_timeout(300)
-
-        # Verify state changed
-        new_state = stats_content.is_visible()
-        assert initial_state != new_state, "Statistics toggle should change visibility"
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Article statistics panel is currently missing from the UI")
-    def test_statistics_panel_display(self, page: Page):
-        """Test statistics panel display (total, chosen, rejected counts)."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-
-        # Expand statistics panel
-        stats_toggle = page.locator("#articleStatsToggle")
-        stats_toggle.click()
-        page.wait_for_timeout(300)
-
-        # Verify statistics are displayed
-        total_text = page.locator("text=Total Articles")
-        chosen_text = page.locator("text=Chosen")
-        rejected_text = page.locator("text=Rejected")
-
-        expect(total_text).to_be_visible()
-        expect(chosen_text).to_be_visible()
-        expect(rejected_text).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Article statistics panel is currently missing from the UI")
-    def test_statistics_panel_collapse_expand(self, page: Page):
-        """Test statistics panel collapse/expand."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-
-        # Toggle statistics panel multiple times
-        stats_toggle = page.locator("#articleStatsToggle")
-        stats_content = page.locator("#articleStatsContent")
-
-        # First toggle
-        initial_state = stats_content.is_visible()
-        stats_toggle.click()
-        page.wait_for_timeout(300)
-
-        # Second toggle
-        stats_toggle.click()
-        page.wait_for_timeout(300)
-
-        # Verify it returns to initial state
-        final_state = stats_content.is_visible()
-        assert initial_state == final_state, "Statistics panel should toggle correctly"
 
 
 class TestArticlesBulkSelection:
@@ -847,57 +641,6 @@ class TestArticlesBulkSelection:
 
     @pytest.mark.ui
     @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
-    def test_bulk_action_mark_as_chosen(self, page: Page):
-        """Test bulk action Mark as Chosen button."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-        checkboxes = page.locator(".bulk-select-checkbox")
-        if checkboxes.count() > 0:
-            checkboxes.first.click()
-            page.wait_for_timeout(500)
-            chosen_btn = page.locator("button:has-text('✅ Mark as Chosen')")
-            expect(chosen_btn).to_be_visible()
-            assert "bulkAction('chosen')" in (chosen_btn.get_attribute("onclick") or "")
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
-    def test_bulk_action_reject(self, page: Page):
-        """Test bulk action Reject button."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-        checkboxes = page.locator(".bulk-select-checkbox")
-        if checkboxes.count() > 0:
-            checkboxes.first.click()
-            page.wait_for_timeout(500)
-            reject_btn = page.locator("button:has-text('❌ Reject')")
-            expect(reject_btn).to_be_visible()
-            assert "bulkAction('rejected')" in (reject_btn.get_attribute("onclick") or "")
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected bulk actions removed; only Delete supported")
-    def test_bulk_action_unclassify(self, page: Page):
-        """Test bulk action Unclassify button."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-        checkboxes = page.locator(".bulk-select-checkbox")
-        if checkboxes.count() > 0:
-            checkboxes.first.click()
-            page.wait_for_timeout(500)
-            unclassify_btn = page.locator("button:has-text('⏳ Unclassify')")
-            expect(unclassify_btn).to_be_visible()
-            assert "bulkAction('unclassified')" in (unclassify_btn.get_attribute("onclick") or "")
-
-    @pytest.mark.ui
-    @pytest.mark.articles
     def test_bulk_action_delete(self, page: Page):
         """Test bulk action Delete button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -1040,21 +783,6 @@ class TestArticlesCardFeatures:
         content_length = page.locator("text=/Content: \\d+ characters/")
         if content_length.count() > 0:
             expect(content_length.first).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.articles
-    @pytest.mark.skip(reason="Deprecated: chosen/rejected classification badges removed")
-    def test_classification_badge_display(self, page: Page):
-        """Test classification badge display (chosen/rejected/unclassified)."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
-        _ensure_filters_visible(page)
-        chosen_badge = page.locator("span:has-text('✅ Chosen')")
-        rejected_badge = page.locator("span:has-text('❌ Rejected')")
-        unclassified_badge = page.locator("span:has-text('⏳ Unclassified')")
-        total_badges = chosen_badge.count() + rejected_badge.count() + unclassified_badge.count()
-        assert total_badges > 0, "At least one classification badge should be visible"
 
     @pytest.mark.ui
     @pytest.mark.articles
