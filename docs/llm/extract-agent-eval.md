@@ -45,9 +45,11 @@ Evaluation framework for measuring Extract Agent performance before and after fi
 - **Error Rate**: Failures during extraction
 - **Processing Time**: Time per article (optional)
 
-## Eval articles rehydration
+## Eval articles and rehydration
 
-Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) currently depend on articles existing in the DB; after rehydration they fail. Work to use static files as the source of eval data is tracked in the project (archived spec in git history).
+Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **static files** as the source of eval data so evals work after DB rehydration (fresh DB or new environment). Article snapshots live in `config/eval_articles_data/{subagent}/articles.json`; the API and Agent Evals UI load from these files and can run evals without the DB when static data exists.
+
+- **New installs / rehydration:** Run once: `python3 scripts/fetch_eval_articles_static.py`. This fetches each URL in `config/eval_articles.yaml` and writes the JSON files. See [Installation → Agent evals setup](../getting-started/installation.md#agent-evals-setup-optional) and `config/eval_articles_data/README.md`.
 
 ## Test Dataset
 
