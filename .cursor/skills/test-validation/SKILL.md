@@ -20,6 +20,10 @@ Executes in order:
 7. **quality contract** - `contract --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 8. **quality security** - `security --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 9. **quality a11y** - `a11y --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
+10. **unit --markers regression** - `unit --markers regression`
+11. **unit --markers contract** - `unit --markers contract`
+12. **unit --markers security** - `unit --markers security`
+13. **unit --markers a11y** - `unit --markers a11y`
 
 ## Usage
 
@@ -91,19 +95,23 @@ def run_test_group(group: str, exclude_markers: list[str] = None, extra_args: li
         "output": output
     }
 
-# Test groups to run: (name, exclude_markers, extra_args)
-# extra_args used for quality runs: --context localhost --paths ... --output-format quiet
+# Test groups: (run_tests.py category, exclude_markers, extra_args, display_name=None)
+# display_name used in table; if None, category is used.
 quality_path_args = ["--context", "localhost", "--paths", "tests/quality/test_quality_categories_seed.py", "--output-format", "quiet"]
 test_groups = [
-    ("smoke", [], None),
-    ("unit", [], None),
-    ("api", [], None),
-    ("integration", [], None),
-    ("ui", ["agent_config_mutation"], None),
-    ("regression", [], quality_path_args),
-    ("contract", [], quality_path_args),
-    ("security", [], quality_path_args),
-    ("a11y", [], quality_path_args),
+    ("smoke", [], None, None),
+    ("unit", [], None, None),
+    ("api", [], None, None),
+    ("integration", [], None, None),
+    ("ui", ["agent_config_mutation"], None, None),
+    ("regression", [], quality_path_args, None),
+    ("contract", [], quality_path_args, None),
+    ("security", [], quality_path_args, None),
+    ("a11y", [], quality_path_args, None),
+    ("unit", [], ["--markers", "regression"], "unit regression"),
+    ("unit", [], ["--markers", "contract"], "unit contract"),
+    ("unit", [], ["--markers", "security"], "unit security"),
+    ("unit", [], ["--markers", "a11y"], "unit a11y"),
 ]
 
 results = []
@@ -111,9 +119,10 @@ for item in test_groups:
     group = item[0]
     exclude_markers = item[1]
     extra_args = item[2] if len(item) > 2 else None
-    print(f"\n🧪 Running {group} tests...")
+    display_name = item[3] if (len(item) > 3 and item[3] is not None) else group
+    print(f"\n🧪 Running {display_name} tests...")
     result = run_test_group(group, exclude_markers if exclude_markers else None, extra_args)
-    results.append((group, result))
+    results.append((display_name, result))
 
 # Print summary table
 print("\n" + "=" * 70)
@@ -154,5 +163,6 @@ print()
 - For fixing failures, use the `test-runner-fix` skill instead
 - The `ui` group excludes `agent_config_mutation` marker to avoid mutating active configs
 - Quality runs (regression, contract, security, a11y) use `--context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
+- Unit marker runs: `unit --markers regression|contract|security|a11y` (expected 1 passed each)
 - Each test group runs independently (no shared state)
 - Failure logs are saved to `test-results/failures_*.log` by `run_tests.py`

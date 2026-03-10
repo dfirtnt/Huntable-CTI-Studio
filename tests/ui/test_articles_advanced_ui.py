@@ -361,8 +361,8 @@ class TestArticlesSorting:
         sort_by.select_option("title")
         page.wait_for_timeout(1000)
 
-        # Verify both parameters are in URL
-        expect(page).to_have_url(re.compile(r".*classification=chosen.*"))
+        # Verify both parameters are in URL (threat_hunting_range from filter, sort_by from sort dropdown)
+        expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
         expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
 
     @pytest.mark.ui

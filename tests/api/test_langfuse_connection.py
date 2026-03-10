@@ -5,9 +5,6 @@ Unit tests for the Langfuse connection test endpoint.
 from types import SimpleNamespace
 
 import pytest
-from langfuse.api.resources.commons.errors.unauthorized_error import (
-    UnauthorizedError,
-)
 from starlette.requests import Request
 
 from src.web.routes.ai import api_test_langfuse_connection
@@ -114,9 +111,16 @@ async def test_langfuse_connection_success(monkeypatch):
 async def test_langfuse_connection_invalid_keys(monkeypatch):
     """Unauthorized errors are converted into clear validation failures."""
 
+    class _UnauthorizedError(Exception):
+        """Mock for langfuse UnauthorizedError - the internal module path changed in langfuse 3.x."""
+
+        def __init__(self, message):
+            self.message = message
+            super().__init__(message)
+
     class _ErrorProjectsClient:
         async def get(self):
-            raise UnauthorizedError({"message": "Invalid credentials"})
+            raise _UnauthorizedError({"message": "Invalid credentials"})
 
     class _ErrorFernClient:
         def __init__(self, **kwargs):

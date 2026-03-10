@@ -195,6 +195,53 @@ This excludes:
 - **Pytest (tests/ui/)**: tests marked `@pytest.mark.agent_config_mutation` (run evaluation, save settings, save workflow config).
 - **Playwright TypeScript (tests/playwright/)**: specs that change workflow/agent config are ignored via `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (e.g. `agent_config_*.spec.ts`, `workflow_save_button.spec.ts`, `workflow_config_persistence.spec.ts`, `workflow_config_versions.spec.ts`).
 
+## CI / GitHub Actions Coverage
+
+### Current CI Jobs
+
+| CI Job | Command | Test Marker/Directory | Status |
+|--------|---------|----------------------|--------|
+| **smoke** | `python run_tests.py smoke` | `-m smoke` | ✅ Running |
+| **unit** | `python run_tests.py unit` | `not (smoke/integration/api/ui/e2e)` | ✅ Running |
+| **api** | `python run_tests.py api` | `-m api` | ✅ Running |
+| **integration** | `python run_tests.py integration` | `-m integration` | ✅ Running |
+| **playwright** | `npx playwright test` | TypeScript specs | ✅ Running |
+
+### Test Directory Coverage in CI Jobs
+
+**Unit Job** covers:
+- `tests/` (root level test files) - auto-marked as unit
+- `tests/cli/` - auto-marked as unit via conftest.py
+- `tests/config/` - explicitly marked `@pytest.mark.unit`
+- `tests/core/` - explicitly marked `@pytest.mark.unit`
+- `tests/database/` - auto-marked as unit
+- `tests/docs/` - test_mkdocs_build.py, auto-marked as unit
+- `tests/services/` - explicitly marked `@pytest.mark.unit` (with coverage gates)
+- `tests/utils/` - explicitly marked `@pytest.mark.unit`
+- `tests/worker/` - auto-marked as unit
+- `tests/workflows/` - auto-marked as unit
+- `tests/quality/` - marked with `@pytest.mark.unit` + regression/contract/security/a11y
+
+**Quality Categories** (also run in unit job):
+- `@pytest.mark.regression` - tests/quality/test_quality_categories_seed.py
+- `@pytest.mark.contract` - tests/quality/test_quality_categories_seed.py
+- `@pytest.mark.security` - tests/quality/test_quality_categories_seed.py
+- `@pytest.mark.a11y` - tests/quality/test_quality_categories_seed.py
+
+### What NOT to Run in CI
+
+| Group | Reason | How to Exclude |
+|-------|--------|----------------|
+| **agent_config_mutation** | Mutates live config | `--exclude-markers agent_config_mutation` + `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` |
+| **Performance** | Requires `PERFORMANCE_TEST_ENABLED=true` | Marker excluded by default |
+| **AI (real APIs)** | Requires secrets, costs money | No marker in codebase |
+| **Quarantined** | Known failures | Already in `tests/SKIPPED_TESTS.md` |
+
+### CI Workflow Files
+
+- `.github/workflows/tests.yml` - Smoke, Unit, API, Integration jobs
+- `.github/workflows/playwright.yml` - Playwright E2E/UI tests
+
 ## CI Recommendations
 
 ### Which tests to run in GitHub Actions
@@ -202,17 +249,17 @@ This excludes:
 | Group | In CI? | Notes |
 |-------|--------|--------|
 | **Smoke** | ✅ Yes | Fast; catches basic breakage. Current workflow starts Postgres, Redis, web app, then `run_tests.py smoke`. |
-| **Unit** | ✅ Add | No containers; fast. Run `python run_tests.py unit`. High signal, no extra services. |
+| **Unit** | ✅ Yes | No containers; fast. Run `python run_tests.py unit`. High signal, no extra services. Includes cli, config, core, database, docs, services, utils, worker, workflows. |
 | **API** | ✅ Yes | HTTP/contracts; needs Postgres, Redis, web app. Current workflow runs `run_tests.py api`. |
 | **Integration** | ✅ Yes | DB + app behavior; same stack. Current workflow runs `run_tests.py integration`. |
 | **UI (pytest)** | ⚠️ Optional | Many tests; needs browsers + app. If added: `run_tests.py ui --exclude-markers agent_config_mutation` and install Playwright for pytest. Consider separate job or scheduled run to keep PRs fast. |
-| **Playwright (TS)** | ⚠️ Fix then keep | Current `playwright.yml` runs `npx playwright test` (root config → `e2e/` only) and **does not start the web app**; tests expect `http://127.0.0.1:8001`. Either: (1) Start web app in Playwright job (like smoke) and run root e2e, or (2) Use `tests/playwright.config.ts` with `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` and run `tests/playwright/*.spec.ts` (richer suite). |
+| **Playwright (TS)** | ✅ Yes | Current `playwright.yml` runs `npx playwright test` with web app started and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1`. |
 | **agent_config_mutation** | ❌ No | Do not run in CI; mutates live config. Excluded via `--exclude-markers` (pytest) and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (Playwright). |
 | **Quarantined / SKIPPED** | ❌ No | Already skipped; see `tests/SKIPPED_TESTS.md`. |
 | **AI/LLM (real APIs)** | ❌ No (or nightly) | Require secrets and cost; run only in scheduled/manual workflows if at all. |
 | **Full `all`** | ❌ No | Too heavy for every push; use locally or scheduled. |
 
-**Recommended CI layout:** Smoke + Unit + API + Integration (current minus unit, plus one unit job). Optionally one Playwright job with app started and either e2e or tests/playwright, excluding agent-config specs.
+**Current CI layout:** Smoke + Unit + API + Integration + Playwright (all implemented). Unit tests include coverage gates for src.services and src.utils.
 
 ### Speed
 
@@ -727,13 +774,7 @@ Tests are executed in this order when running all groups:
 - e2e
 - performance
 - ai
-
-### Partially Integrated ⚠️
-- **CLI tests** (`tests/cli/`) - Falls under unit, not explicitly mapped
-- **Workflows tests** (`tests/workflows/`) - Falls under unit, not explicitly mapped
-- **Services tests** (`tests/services/`) - Falls under unit, not explicitly mapped
-
-**Recommendation**: These are covered by the `unit` group but could benefit from explicit mapping for clarity.
+- playwright (TypeScript E2E/UI tests)
 
 ### Separate Runners (Not Integrated)
 - `tests/run_ai_tests.py` - Specialized AI test runner

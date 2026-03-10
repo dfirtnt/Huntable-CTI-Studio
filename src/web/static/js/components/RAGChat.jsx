@@ -4,7 +4,7 @@ const RAGChat = () => {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Hello! I\'m your threat intelligence assistant. I can help you search through our database of cybersecurity articles using semantic search. What would you like to know about?',
+      content: 'Hello! I\'m your threat intelligence assistant. I can help you search through our database of cybersecurity articles using semantic search. What would you like to find?',
       timestamp: new Date().toISOString()
     }
   ]);

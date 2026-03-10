@@ -53,11 +53,11 @@ class TestMessageDisplay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(3000)
-
-        # Verify greeting message exists
-        greeting = page.locator("text=Hello! I'm your threat intelligence assistant")
-        expect(greeting).to_be_visible()
+        # Wait for React (Babel) to mount: chat input is a reliable signal the app has rendered
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
+        # Greeting matches live UI: "What would you like to find?" / "Search across your threat intelligence articles"
+        greeting = page.get_by_text("what would you like to find", exact=False)
+        expect(greeting).to_be_visible(timeout=10000)
 
     @pytest.mark.ui
     @pytest.mark.chat
@@ -1227,21 +1227,23 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(3000)
+        page.locator("#rag-chat-container").wait_for(state="visible", timeout=10000)
+        page.wait_for_timeout(1000)
 
         # Send message and open modal
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
-
-        # Expand rule and click file path
-        rule_card = page.locator("text=Test Rule").locator("..")
-        rule_card.click()
+        # Wait for mock response to render the rules section and rule title
+        rule_title = page.get_by_text("Test Rule", exact=True)
+        rule_title.wait_for(state="visible", timeout=15000)
         page.wait_for_timeout(500)
-
-        file_path_link = page.locator("text=/rules/test.yml")
+        # Expand rule by clicking the rule row (title area), then click file path link
+        rule_title.click()
+        page.wait_for_timeout(500)
+        file_path_link = page.get_by_text("/rules/test.yml", exact=True)
+        file_path_link.wait_for(state="visible", timeout=5000)
         file_path_link.click()
         page.wait_for_timeout(1000)
 
@@ -1851,6 +1853,7 @@ class TestModelSelection:
         # Set localStorage with various model names
         test_cases = [("openai", "chatgpt"), ("gpt4o", "chatgpt"), ("gpt-4o", "chatgpt"), ("anthropic", "anthropic")]
 
+        request_capture = {}
         for model_input, expected_normalized in test_cases:
             page.goto(f"{base_url}/chat")
             page.evaluate(f"""
@@ -1863,12 +1866,11 @@ class TestModelSelection:
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(3000)
 
-            # Verify normalization (via API call)
-            request_body = {}
+            request_capture.clear()
 
             def handle_route(route):
                 if "/api/chat/rag" in route.request.url and route.request.method == "POST":
-                    request_body.update(json.loads(route.request.post_data or "{}"))
+                    request_capture.update(json.loads(route.request.post_data or "{}"))
                     mock_response = {
                         "response": "Response",
                         "timestamp": "2025-01-01T00:00:00Z",
@@ -1891,7 +1893,7 @@ class TestModelSelection:
             page.wait_for_timeout(2000)
 
             # Verify normalized model was used
-            assert request_body.get("llm_provider") == expected_normalized, (
+            assert request_capture.get("llm_provider") == expected_normalized, (
                 f"Model {model_input} should normalize to {expected_normalized}"
             )
 

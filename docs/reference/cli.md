@@ -274,21 +274,24 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### sigma
 
-**When:** Sync SigmaHQ rules, index them (with embeddings), and match articles to rules. Required for Sigma similarity search and workflow Sigma generation.
+**When:** Sync SigmaHQ rules, index them (metadata and optionally embeddings), and match articles to rules. Required for Sigma similarity search and workflow Sigma generation. Indexing is split into metadata (always available) and embeddings (optional; uses local sentence-transformers, no LM Studio required).
 
 **Subcommands:**
 
 | Subcommand | Description |
 |------------|-------------|
 | `sync` | Clone or pull SigmaHQ rules repository |
-| `index` | Index rules into DB (generates embeddings); use `--force` to re-index |
+| `index` | Full index: metadata then embeddings (orchestrator; use for backward compatibility) |
+| `index-metadata` | Index rule metadata and canonical fields only (no embeddings) |
+| `index-embeddings` | Generate embeddings for rules (uses local intfloat/e5-base-v2) |
+| `backfill-metadata` | Recompute canonical fields for existing rules (no repo access needed) |
 | `match ARTICLE_ID` | Match one article to Sigma rules; `--save` to persist |
 | `match-all` | Match all articles (optional filters) |
 | `stats` | Show Sigma rule and match statistics |
 
 **Options (sync):** `--force` — force re-clone.
 
-**Options (index):** `--force` — re-index all rules.
+**Options (index, index-metadata, index-embeddings):** `--force` — re-index all (or all embeddings).
 
 **Options (match):** `--threshold T` (default `0.7`), `--save`.
 
@@ -299,15 +302,40 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ```bash
 ./run_cli.sh sigma sync
 ./run_cli.sh sigma index
-./run_cli.sh sigma index --force
+./run_cli.sh sigma index-metadata --force
+./run_cli.sh sigma index-embeddings
+./run_cli.sh sigma backfill-metadata
 ./run_cli.sh sigma match 123 --threshold 0.7 --save
 ./run_cli.sh sigma match-all --min-hunt-score 50 --limit 100
 ./run_cli.sh sigma stats
 ```
 
-**Note:** `sigma index` needs the LM Studio embedding API (for rule embeddings). The `cli` service in `docker-compose.yml` is configured with `LMSTUDIO_EMBEDDING_URL` (default `http://host.docker.internal:1234/v1/embeddings`) and `extra_hosts` so it can reach LM Studio on the host. Ensure the embedding model (e.g. text-embedding-e5-base-v2) is loaded in LM Studio.
+**Note:** Sigma rule embeddings use local sentence-transformers (`intfloat/e5-base-v2`) inside the CLI container; LM Studio is not required for indexing. Run `sigma index-metadata` first (or `sigma index`); then run `sigma index-embeddings` to enable Sigma rule retrieval in RAG. Use `capabilities check` to see current feature status.
 
 **See also:** [Generate Sigma](../guides/generate-sigma.md), [Sigma Detection Rules](../features/sigma-rules.md).
+
+---
+
+### capabilities
+
+**When:** Check which features are available in the current environment (article retrieval, Sigma metadata/embedding indexing, Sigma retrieval in RAG, LLM generation). Used by setup/start scripts and for troubleshooting.
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `check` | Print capability table (enabled/disabled, reason, action) |
+
+**Options (check):** `--json-output` — output JSON for shell scripts (e.g. startup warnings).
+
+**Examples:**
+
+```bash
+./run_cli.sh capabilities check
+./run_cli.sh capabilities check --json-output
+```
+
+**See also:** [Sigma](#sigma), [RAG Search](../features/rag-search.md).
 
 ---
 
@@ -394,7 +422,8 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `rescore` | Recompute keyword-based threat hunting scores |
 | `rescore-ml` | Recompute ML-based hunt scores |
 | `embed embed` / `embed stats` / `embed search` | Embedding coverage, generation, coverage stats, semantic search |
-| `sigma sync/index/match/match-all/stats` | Sigma rules sync, index, matching |
+| `sigma sync/index/index-metadata/index-embeddings/backfill-metadata/match/match-all/stats` | Sigma rules sync, index, matching |
+| `capabilities check` | Runtime feature capability status |
 | `export` | Dump articles to JSON/CSV |
 | `stats` | DB summary (sources, articles, activity) |
 | `archive add/remove/list/cleanup` | Soft-delete, or restore, or clean up articles |
