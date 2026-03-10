@@ -170,9 +170,11 @@ class TestDashboardFlows:
             )
 
         # Check for success notification (common pattern for copy operations)
-        success_notification = page.locator(
-            "text=URLs copied, text=Copied to clipboard, text=URLs copied to clipboard, .notification.success, .alert.success"
+        selector = (
+            "text=URLs copied, text=Copied to clipboard, text=URLs copied to clipboard, "
+            ".notification.success, .alert.success"
         )
+        success_notification = page.locator(selector)
         # The notification might appear and then disappear, so we check if it exists
         if success_notification.count() > 0:
             expect(success_notification.first()).to_be_visible()
@@ -187,9 +189,7 @@ class TestDashboardFlows:
         page.wait_for_timeout(1000)
 
         # Check for success notification (common pattern for copy operations)
-        success_notification = page.locator(
-            "text=URLs copied, text=Copied to clipboard, text=URLs copied to clipboard, .notification.success, .alert.success"
-        )
+        success_notification = page.locator(selector)
         # The notification might appear and then disappear, so we check if it exists
         if success_notification.count() > 0:
             expect(success_notification.first()).to_be_visible()

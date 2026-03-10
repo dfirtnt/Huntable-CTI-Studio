@@ -46,7 +46,9 @@ def test_contract_capability_service_shape_is_stable(monkeypatch):
     monkeypatch.setattr(service, "_check_sigma_embedding_indexing", lambda: {"enabled": True, "reason": "ok"})
     monkeypatch.setattr(service, "_check_sigma_retrieval", lambda _session: {"enabled": False, "reason": "missing"})
     monkeypatch.setattr(service, "_check_sigma_novelty", lambda _session: {"enabled": True, "reason": "ok"})
-    monkeypatch.setattr(service, "_check_llm_generation", lambda: {"enabled": False, "provider": "none", "reason": "unset"})
+    monkeypatch.setattr(
+        service, "_check_llm_generation", lambda: {"enabled": False, "provider": "none", "reason": "unset"}
+    )
 
     class _Session:
         def close(self):
@@ -99,5 +101,5 @@ def test_a11y_chat_template_has_basic_accessibility_landmarks():
 
     assert template.count("<h1") == 1
     assert 'aria-label="Breadcrumb"' in template
-    assert "placeholder=\"Ask about cybersecurity threats, malware, vulnerabilities...\"" in template
+    assert 'placeholder="Ask about cybersecurity threats, malware, vulnerabilities..."' in template
     assert "{isLoading ? 'Sending...' : 'Send'}" in template

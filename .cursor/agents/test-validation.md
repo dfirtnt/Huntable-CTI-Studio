@@ -23,10 +23,10 @@ Run from the project root. Use `./run_tests.py` or `python3 run_tests.py` per pr
 
 | Category     | Expected passed |
 |-------------|-----------------|
-| smoke       | 25              |
-| unit        | 603             |
-| api         | 74              |
-| integration | 31              |
+| smoke       | 46              |
+| unit        | 831             |
+| api         | 122             |
+| integration | 38              |
 | ui (--exclude-markers agent_config_mutation) | 43  |
 | quality regression | 1         |
 | quality contract   | 1         |
@@ -50,8 +50,8 @@ Keep a compact summary:
 
 ```
 ## Test sequence
-1. smoke — <cmd> → passed: N, failed: N, skipped: N → PASS/FAIL (expected 25)
-2. unit && api && integration — <cmd> → unit N, api N, integration N → PASS/FAIL (expected 603, 74, 31)
+1. smoke — <cmd> → passed: N, failed: N, skipped: N → PASS/FAIL (expected 46)
+2. unit && api && integration — <cmd> → unit N, api N, integration N → PASS/FAIL (expected 831, 122, 38)
 3. ui (--exclude-markers agent_config_mutation) — <cmd> → passed: N → PASS/FAIL (expected 43)
 4. quality regression — <cmd> → passed: N → PASS/FAIL (expected 1)
 5. quality contract — <cmd> → passed: N → PASS/FAIL (expected 1)
@@ -66,4 +66,4 @@ All baselines met / Baseline mismatch: <category>: expected X, got Y.
 
 - Do **not** modify code or tests; only run and validate.
 - If expected counts drift (e.g. new tests added), report the new actual counts and note that the agent's expected table may need updating.
-- For ui, the expected count (43) may need adjustment; if the run consistently shows a different number, report it so the baseline can be updated.
+- Smoke/unit/api/integration baselines updated 2026-03-10 from a full run. UI baseline (43) left as-is; re-run ui and update this table if the count has changed.

@@ -26,8 +26,7 @@ from src.config.workflow_config_schema import WorkflowConfigV2
 
 # Minimal agent_prompts so migrated config satisfies prompt symmetry.
 _MINIMAL_AGENT_PROMPTS = {
-    name: {"prompt": "", "instructions": ""}
-    for name in (CORE_AGENTS + EXTRACT_AGENTS + QA_AGENTS + UTILITY_AGENTS)
+    name: {"prompt": "", "instructions": ""} for name in (CORE_AGENTS + EXTRACT_AGENTS + QA_AGENTS + UTILITY_AGENTS)
 }
 
 
@@ -115,7 +114,13 @@ def test_v2_passthrough():
     raw = {
         "Version": "2.0",
         "Metadata": {"CreatedAt": "x", "Description": "x"},
-        "Thresholds": {"MinHuntScore": 97.0, "RankingThreshold": 6.0, "SimilarityThreshold": 0.5, "JunkFilterThreshold": 0.8, "AutoTriggerHuntScoreThreshold": 60.0},
+        "Thresholds": {
+            "MinHuntScore": 97.0,
+            "RankingThreshold": 6.0,
+            "SimilarityThreshold": 0.5,
+            "JunkFilterThreshold": 0.8,
+            "AutoTriggerHuntScoreThreshold": 60.0,
+        },
         "Agents": {
             "RankAgent": {"Provider": "lmstudio", "Model": "x", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "RankAgentQA": {"Provider": "lmstudio", "Model": "x", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},

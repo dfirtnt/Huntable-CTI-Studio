@@ -290,4 +290,3 @@ class TestAICrossModelIntegration:
                 assert "api_key" not in config
             elif config["model"] == "lmstudio" and "model_name" not in config:
                 assert "model_name" not in config
-

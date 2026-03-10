@@ -50,7 +50,9 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix")
+    @pytest.mark.skip(
+        reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix"
+    )
     async def test_create_annotation(self, test_article, test_database_manager_real):
         """Test creating an annotation."""
         annotation_data = AnnotationFactory.create(
@@ -70,7 +72,9 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix")
+    @pytest.mark.skip(
+        reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix"
+    )
     async def test_get_annotation(self, test_article, test_database_manager_real):
         """Test retrieving an annotation."""
         # Create annotation
@@ -87,7 +91,9 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix")
+    @pytest.mark.skip(
+        reason="Async fixture teardown (rollback) runs in different event loop; needs pytest-asyncio/asyncpg fix"
+    )
     async def test_get_article_annotations(self, test_article, test_database_manager_real):
         """Test retrieving all annotations for an article."""
         # Create multiple annotations

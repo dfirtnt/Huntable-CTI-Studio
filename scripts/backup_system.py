@@ -353,7 +353,11 @@ def backup_directory(
                 file_path = root_path / file
 
                 # Skip ignored files (if respecting .gitignore)
-                if respect_gitignore and not is_always_included(file_path) and should_ignore_path(file_path, ignore_patterns):
+                if (
+                    respect_gitignore
+                    and not is_always_included(file_path)
+                    and should_ignore_path(file_path, ignore_patterns)
+                ):
                     continue
 
                 # Calculate relative path for backup
