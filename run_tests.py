@@ -18,7 +18,7 @@ Test Infrastructure:
 - Test environment guards prevent production database access
   * Requires APP_ENV=test and TEST_DATABASE_URL (auto-set by wrapper)
   * Blocks cloud LLM API keys by default (set ALLOW_CLOUD_LLM_IN_TESTS=true to allow)
-- Test containers auto-started for stateful tests (integration, e2e, all)
+- Test containers auto-started for stateful tests (api, ui, integration, e2e, all)
   * Postgres:5433, Redis:6380, Web:8002 (isolated from production ports)
   * Ephemeral containers (no named volumes, data destroyed on removal)
 - Failure reports automatically generated (with timestamps to preserve history):
@@ -236,6 +236,8 @@ class RunTestRunner:
         """Set up test environment."""
         # Check if test containers are needed for stateful tests
         stateful_test_types = {
+            RunTestType.API,
+            RunTestType.UI,
             RunTestType.INTEGRATION,
             RunTestType.E2E,
             RunTestType.ALL,

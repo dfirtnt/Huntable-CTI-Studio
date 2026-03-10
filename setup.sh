@@ -695,9 +695,9 @@ main() {
         # Prompt: embeddings now or later? (only when not already in limited-env mode)
         if [[ -z "$SKIP_SIGMA_INDEX" ]] && [[ "$NON_INTERACTIVE" != "true" ]]; then
             echo ""
-            if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run ./run_cli.sh sigma index-embeddings later)" "yes"; then
+            if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run \"./run_cli.sh sigma index-embeddings\" later)" "yes"; then
                 SKIP_SIGMA_INDEX=1
-                print_status "Skipping embeddings. Run ./run_cli.sh sigma index-embeddings when ready."
+                print_status "Skipping embeddings. Run \"./run_cli.sh sigma index-embeddings\" when ready."
             fi
         fi
 

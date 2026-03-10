@@ -896,17 +896,24 @@ async def retry_workflow_execution(request: Request, execution_id: int):
             if execution.status not in ["failed", "completed"]:
                 raise HTTPException(status_code=400, detail="Can only retry failed or completed executions")
 
-            # Merge old config_snapshot with current active config to ensure rank_agent_enabled is up-to-date
+            # Merge old config_snapshot with current active config so retries use current providers/models
             from src.services.workflow_trigger_service import WorkflowTriggerService
 
             trigger_service = WorkflowTriggerService(db_session)
             current_config = trigger_service.get_active_config()
 
-            # Start with old snapshot (preserves eval flags, thresholds, etc.)
+            # Start with old snapshot (preserves eval flags, subagent_eval, etc.)
             new_config_snapshot = execution.config_snapshot.copy() if execution.config_snapshot else {}
 
+            # Refresh agent_models from current config so preset changes (e.g. LMStudio→OpenAI) apply on retry
+            if current_config and getattr(current_config, "agent_models", None):
+                new_config_snapshot["agent_models"] = dict(current_config.agent_models)
+                logger.info(
+                    f"Retry execution {execution_id}: Refreshed agent_models from current config "
+                    f"(keys: {list((current_config.agent_models or {}).keys())[:8]}...)"
+                )
+
             # Update rank_agent_enabled from current active config (if available)
-            # CRITICAL: Always use current active config value, not the old snapshot value
             if current_config and hasattr(current_config, "rank_agent_enabled"):
                 new_config_snapshot["rank_agent_enabled"] = bool(current_config.rank_agent_enabled)
                 logger.info(

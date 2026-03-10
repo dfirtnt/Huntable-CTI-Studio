@@ -12,12 +12,52 @@ from sqlalchemy import func
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
 from src.database.manager import DatabaseManager
-from src.database.models import AgenticWorkflowConfigTable, AgentPromptVersionTable, WorkflowConfigPresetTable
+from src.database.models import (
+    AgenticWorkflowConfigTable,
+    AgentPromptVersionTable,
+    AppSettingsTable,
+    WorkflowConfigPresetTable,
+)
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
+
+# Map provider names to Settings keys for auto-enabling on preset import
+_PROVIDER_TO_SETTINGS_KEY = {
+    "openai": "WORKFLOW_OPENAI_ENABLED",
+    "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
+    "gemini": "WORKFLOW_GEMINI_ENABLED",
+    "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
+}
+
+
+def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]) -> None:
+    """Enable in Settings any providers referenced in agent_models (openai, anthropic, gemini, lmstudio)."""
+    if not agent_models:
+        return
+    providers = set()
+    for key, value in agent_models.items():
+        if key.endswith("_provider") and value and isinstance(value, str):
+            prov = value.strip().lower()
+            if prov in _PROVIDER_TO_SETTINGS_KEY:
+                providers.add(prov)
+    if not providers:
+        return
+    from datetime import datetime
+
+    for prov in providers:
+        settings_key = _PROVIDER_TO_SETTINGS_KEY[prov]
+        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == settings_key).first()
+        if row:
+            row.value = "true"
+            row.updated_at = datetime.now()
+        else:
+            db_session.add(AppSettingsTable(key=settings_key, value="true", category="user"))
+    if providers:
+        db_session.commit()
+        logger.info("Auto-enabled providers from preset: %s", sorted(providers))
 
 
 class WorkflowConfigResponse(BaseModel):
@@ -283,6 +323,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 logger.info(
                     f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})"
                 )
+                # Auto-enable providers used in preset so any provider (OpenAI, Anthropic, Gemini, LMStudio) works
+                _enable_providers_from_agent_models(db_session, merged_agent_models)
             elif current_config:
                 merged_agent_models = current_config.agent_models
 

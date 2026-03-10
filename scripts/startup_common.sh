@@ -218,10 +218,10 @@ startup_sigma_sync_and_index() {
             if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
                 _startup_log_info "✅ Sigma rule embeddings generated"
             else
-                _startup_log_warn "Sigma embeddings skipped (run manually: ./run_cli.sh sigma index-embeddings)"
+                _startup_log_warn "Sigma embeddings skipped (run manually: \"./run_cli.sh sigma index-embeddings\")"
             fi
         else
-            _startup_log_warn "Skipping Sigma embeddings (limited-env mode). Run ./run_cli.sh sigma index-embeddings when ready."
+            _startup_log_warn "Skipping Sigma embeddings (limited-env mode). Run \"./run_cli.sh sigma index-embeddings\" when ready."
         fi
     else
         _startup_log_warn "Sigma sync failed (run manually: ./run_cli.sh sigma sync)"

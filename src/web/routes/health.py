@@ -161,30 +161,34 @@ async def api_services_health() -> dict[str, Any]:
                 "error": str(redis_exc),
             }
 
-        # Check LMStudio
-        try:
-            from src.utils.lmstudio_url import get_lmstudio_base_url
+        # Check LMStudio (only when WORKFLOW_LMSTUDIO_ENABLED)
+        lmstudio_enabled = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
+        if lmstudio_enabled:
+            try:
+                from src.utils.lmstudio_url import get_lmstudio_base_url
 
-            lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
-                if response.status_code == 200:
-                    models_data = response.json()
-                    services_status["lmstudio"] = {
-                        "status": "healthy",
-                        "models_available": len(models_data.get("data", [])),
-                        "models": [model.get("id", "unknown") for model in models_data.get("data", [])],
-                    }
-                else:
-                    services_status["lmstudio"] = {
-                        "status": "unhealthy",
-                        "error": f"HTTP {response.status_code}",
-                    }
-        except Exception as lmstudio_exc:
-            services_status["lmstudio"] = {
-                "status": "unhealthy",
-                "error": str(lmstudio_exc),
-            }
+                lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(f"{lmstudio_url}/models", timeout=5.0)
+                    if response.status_code == 200:
+                        models_data = response.json()
+                        services_status["lmstudio"] = {
+                            "status": "healthy",
+                            "models_available": len(models_data.get("data", [])),
+                            "models": [model.get("id", "unknown") for model in models_data.get("data", [])],
+                        }
+                    else:
+                        services_status["lmstudio"] = {
+                            "status": "unhealthy",
+                            "error": f"HTTP {response.status_code}",
+                        }
+            except Exception as lmstudio_exc:
+                services_status["lmstudio"] = {
+                    "status": "unhealthy",
+                    "error": str(lmstudio_exc),
+                }
+        else:
+            services_status["lmstudio"] = {"status": "not_configured", "message": "LMStudio disabled"}
 
         # Check LangFuse
         try:

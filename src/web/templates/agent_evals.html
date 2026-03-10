@@ -1330,8 +1330,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                             const modelInfo = modelsByVersion[version];
                             let modelText = '';
                             if (modelInfo && modelInfo.agentModel && modelInfo.agentModel !== 'N/A') {
-                                const provider = modelInfo.agentProvider || 'lmstudio';
-                                modelText = `\nModel: ${modelInfo.agentModel} (${provider})`;
+                                const provider = modelInfo.agentProvider || '';
+                                modelText = `\nModel: ${modelInfo.agentModel} (${provider || 'not configured'})`;
                             }
                             return `v${version}${modelText}`;
                         },
@@ -1626,7 +1626,7 @@ async function loadAggregateScores() {
                             // Get agent-specific parameters
                             const temperature = models[`${agentName}_temperature`] || models[`${agentName}_model_temperature`] || 'N/A';
                             const topP = models[`${agentName}_top_p`] || models[`${agentName}_model_top_p`] || 'N/A';
-                            const agentProvider = models[`${agentName}_provider`] || 'lmstudio';
+                            const agentProvider = models[`${agentName}_provider`] || '';
                             const agentModelKey = `${agentName}_model`;
                             const agentModel = models[agentModelKey] || 'N/A';
                             
