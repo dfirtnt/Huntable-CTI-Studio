@@ -31,21 +31,6 @@ class TestSystemHealth:
     @pytest.mark.integration
     @pytest.mark.integration_full
     @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="Database connectivity issue in test environment - needs investigation")
-    async def test_database_connectivity(self, async_client: httpx.AsyncClient):
-        """Test database connectivity through API endpoints."""
-        # Test articles API
-        response = await async_client.get("/api/articles")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert "articles" in data
-        assert isinstance(data["articles"], list)
-
-    @pytest.mark.integration
-    @pytest.mark.integration_full
-    @pytest.mark.asyncio
     async def test_quality_assessment_pipeline(self, async_client: httpx.AsyncClient):
         """Verify articles page and detail render without legacy quality UI."""
         response = await async_client.get("/articles")
@@ -58,46 +43,6 @@ class TestSystemHealth:
             assert detail.status_code in [200, 404]
             if detail.status_code == 200:
                 assert "Article Content" in detail.text
-
-
-class TestDataFlow:
-    """Test data flow through the system."""
-
-    @pytest.mark.integration
-    @pytest.mark.integration_full
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="Database/API connectivity issue in test environment - needs investigation")
-    async def test_article_to_analysis_flow(self, async_client: httpx.AsyncClient):
-        """Ensure articles listing aligns with API data."""
-        articles_response = await async_client.get("/articles")
-        assert articles_response.status_code == 200
-        api_response = await async_client.get("/api/articles")
-        assert api_response.status_code == 200
-        api_data = api_response.json()
-        if api_data["articles"]:
-            assert len(api_data["articles"]) > 0
-
-    @pytest.mark.integration
-    @pytest.mark.integration_full
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="Database/API connectivity issue in test environment - needs investigation")
-    async def test_api_data_consistency(self, async_client: httpx.AsyncClient):
-        """Test consistency between HTML and API endpoints."""
-        # Get HTML articles page
-        html_response = await async_client.get("/articles")
-        assert html_response.status_code == 200
-
-        # Get API articles
-        api_response = await async_client.get("/api/articles")
-        assert api_response.status_code == 200
-
-        # Check if data is consistent
-        api_data = api_response.json()
-        if api_data["articles"]:
-            # Should have at least one article
-            assert len(api_data["articles"]) > 0
 
 
 class TestErrorHandling:
@@ -199,31 +144,6 @@ class TestSecurity:
 
 class TestDataIntegrity:
     """Test data integrity and consistency."""
-
-    @pytest.mark.integration
-    @pytest.mark.integration_full
-    @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="Database/API connectivity issue in test environment - needs investigation")
-    async def test_article_data_integrity(self, async_client: httpx.AsyncClient):
-        """Test article data integrity."""
-        # Get articles via API
-        response = await async_client.get("/api/articles")
-        assert response.status_code == 200
-
-        data = response.json()
-        if data["articles"]:
-            article = data["articles"][0]
-
-            # Check required fields
-            required_fields = ["id", "title", "content"]
-            for field in required_fields:
-                assert field in article
-
-            # Check data types
-            assert isinstance(article["id"], int)
-            assert isinstance(article["title"], str)
-            assert isinstance(article["content"], str)
 
     @pytest.mark.integration
     @pytest.mark.integration_full

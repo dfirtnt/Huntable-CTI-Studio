@@ -107,7 +107,6 @@
 | `test_ai_api.py` | 10+ | ✅ Passing | AI API integration |
 | `test_ai_assistant.py` | 10+ | ✅ Passing | AI integration (not modal-specific) |
 | `test_ai_cross_model_integration.py` | 11 | ✅ Passing | Cross-model AI integration |
-| `test_ai_real_api_integration.py` | 10 | ✅ Passing | Real AI API integration |
 | `test_analytics_integration.py` | 10+ | ✅ Passing | Analytics integration |
 | `test_annotation_feedback_integration.py` | 10+ | ✅ Passing | Annotation and feedback loop |
 | `test_celery_workflow_integration.py` | 10+ | ✅ Passing | Celery task workflows |
@@ -127,6 +126,9 @@
 | `test_source_management_integration.py` | 10+ | ✅ Passing | Source lifecycle management |
 | `test_summarization.py` | 10+ | ✅ Passing | Summarization integration |
 | `test_system_integration.py` | 13 | ✅ Passing | Full system integration |
+| `test_workflow_execution_integration.py` | 1 | ✅ Passing | Workflow run with real DB, mocked LLM (full-stack) |
+| `test_celery_state_transitions.py` | 2 | ✅ Passing | Celery eager + DB (trigger_agentic_workflow) |
+| `test_rss_ingestion_persistence.py` | 3 | ✅ Passing | Article persistence, dedup, ingestion via create_article |
 
 ### API Tests (12 files, 123+ tests)
 

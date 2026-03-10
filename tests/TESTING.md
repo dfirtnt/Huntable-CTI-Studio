@@ -102,7 +102,7 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 | **API**         | `pytest tests/api -v`                        | FastAPI endpoint validation            |
 | **Database**    | `pytest tests/database -v`                   | Schema and data validation             |
 | **ML Feedback** | `./scripts/run_ml_feedback_tests.sh`         | Regression and feedback loop stability |
-| **Integration Workflow** | `pytest tests/integration -m integration_workflow -v` | End-to-end workflow tests |
+| **Integration** | `python run_tests.py integration` or `pytest tests/integration -m integration -v` | Full-stack integration (DB, Redis, web); see docs/development/testing.md for integration vs lightweight |
 | **Security**    | `pytest tests/security -v`                   | Bandit, safety, and dependency checks  |
 | **Grouped Execution** | `python scripts/run_tests_by_group.py` | Execute tests by group with failure reporting |
 | **Performance** | `pytest tests/performance -v`                | Load and profiling tests               |
@@ -230,7 +230,6 @@ Cross-component testing with real dependencies:
 - **`test_ai_api.py`** - AI API integration
 - **`test_ai_assistant.py`** - AI Assistant integration
 - **`test_ai_cross_model_integration.py`** (11 tests) - Cross-model AI integration
-- **`test_ai_real_api_integration.py`** (10 tests) - Real AI API integration
 - **`test_analytics_integration.py`** - Analytics integration
 - **`test_annotation_feedback_integration.py`** - Annotation feedback loop
 - **`test_celery_workflow_integration.py`** - Celery workflows

@@ -318,6 +318,58 @@ def ensure_workflow_config_schema():
     return
 
 
+@pytest.fixture(scope="session")
+def seed_workflow_execution(ensure_workflow_config_schema):
+    """Ensure at least one workflow execution exists in test DB for debug-info tests."""
+    if not os.getenv("TEST_DATABASE_URL"):
+        return
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from src.database.manager import DatabaseManager
+    from src.database.models import AgenticWorkflowExecutionTable, ArticleTable, SourceTable
+    from src.utils.content import ContentCleaner
+
+    db = DatabaseManager()
+    with db.get_session() as session:
+        existing = session.query(AgenticWorkflowExecutionTable).limit(1).first()
+        if existing:
+            return
+        article = session.query(ArticleTable).limit(1).first()
+        if not article:
+            uid = str(uuid4())
+            source = SourceTable(
+                identifier=f"test_exec_{uid[:8]}",
+                name="Test Workflow Exec",
+                url="https://test/workflow-exec",
+                rss_url=None,
+                check_frequency=86400,
+                lookback_days=365,
+                active=False,
+                config={},
+            )
+            session.add(source)
+            session.flush()
+            title = "Test Article for Workflow Debug"
+            content = f"Minimal content {uid}"
+            content_hash = ContentCleaner.calculate_content_hash(title, content)
+            article = ArticleTable(
+                source_id=source.id,
+                canonical_url=f"https://test/workflow-exec/{uid}",
+                title=title,
+                published_at=datetime.now(UTC),
+                content=content,
+                content_hash=content_hash,
+                article_metadata={},
+                word_count=len(content.split()),
+            )
+            session.add(article)
+            session.flush()
+        exec_row = AgenticWorkflowExecutionTable(article_id=article.id, status="pending")
+        session.add(exec_row)
+        session.commit()
+
+
 @pytest_asyncio.fixture
 async def async_client(
     ensure_workflow_config_schema, test_environment_config
@@ -508,27 +560,29 @@ def mock_llm_service(test_environment_config):
 # Playwright fixtures for UI testing
 @pytest.fixture(scope="session")
 def browser_context_args(test_environment_config):
-    """Browser context arguments for Playwright tests"""
-    return {
-        "viewport": {
-            "width": int(os.getenv("BROWSER_WIDTH", "1280")),
-            "height": int(os.getenv("BROWSER_HEIGHT", "720")),
-        },
-        "ignore_https_errors": os.getenv("BROWSER_IGNORE_HTTPS", "true").lower() == "true",
-        "record_video_dir": os.getenv("PLAYWRIGHT_VIDEO_DIR", "test-results/videos/"),
-        "record_video_size": {
-            "width": int(os.getenv("BROWSER_WIDTH", "1280")),
-            "height": int(os.getenv("BROWSER_HEIGHT", "720")),
-        },
+    """Browser context arguments for Playwright tests.
+    Video recording is off by default; set PLAYWRIGHT_VIDEO=1 to enable (or PLAYWRIGHT_VIDEO_DIR for dir).
+    """
+    viewport = {
+        "width": int(os.getenv("BROWSER_WIDTH", "1280")),
+        "height": int(os.getenv("BROWSER_HEIGHT", "720")),
     }
+    args = {
+        "viewport": viewport,
+        "ignore_https_errors": os.getenv("BROWSER_IGNORE_HTTPS", "true").lower() == "true",
+        "record_video_size": viewport,
+    }
+    if os.getenv("PLAYWRIGHT_VIDEO", "0") == "1" or os.getenv("PLAYWRIGHT_VIDEO_DIR"):
+        args["record_video_dir"] = os.getenv("PLAYWRIGHT_VIDEO_DIR", "test-results/videos/")
+    return args
 
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args():
-    """Browser launch arguments"""
+    """Browser launch arguments. Default slow_mo=0 for speed; set PLAYWRIGHT_SLOW_MO (ms) for debugging."""
     return {
         "headless": os.getenv("PLAYWRIGHT_HEADLESS", "true").lower() == "true",
-        "slow_mo": int(os.getenv("PLAYWRIGHT_SLOW_MO", "100")),
+        "slow_mo": int(os.getenv("PLAYWRIGHT_SLOW_MO", "0")),
     }
 
 

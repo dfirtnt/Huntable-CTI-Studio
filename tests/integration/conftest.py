@@ -115,6 +115,20 @@ async def test_database_manager(test_database_with_rollback):
     return TestAsyncDatabaseManager(database_url=db_url)
 
 
+@pytest_asyncio.fixture(loop_scope="function")
+async def test_database_manager_real():
+    """Real AsyncDatabaseManager (own engine/sessions) for tests that must not share the rollback session.
+    Use when the test commits data and needs a separate connection (e.g. annotation persistence).
+    """
+    from src.database.async_manager import AsyncDatabaseManager
+
+    _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
+    db_url = os.getenv("TEST_DATABASE_URL", _default)
+    manager = AsyncDatabaseManager(database_url=db_url)
+    yield manager
+    # Do not dispose engine in teardown: can trigger "Future attached to a different loop" with pytest-asyncio.
+
+
 @pytest.fixture
 async def external_api_preference():
     """

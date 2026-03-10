@@ -4,6 +4,7 @@ Modern Async Database Manager for CTI Scraper
 Uses PostgreSQL with SQLAlchemy async for production-grade performance.
 """
 
+import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -144,15 +145,13 @@ class AsyncDatabaseManager:
 
                 # Count active sources
                 active_sources_result = await session.execute(
-                    select(func.count(SourceTable.id)).where(SourceTable.active == True)
+                    select(func.count(SourceTable.id)).where(SourceTable.active)
                 )
                 active_sources = active_sources_result.scalar()
 
                 # Count articles
                 articles_result = await session.execute(
-                    select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
-                    .where(ArticleTable.archived == False)
+                    select(func.count(ArticleTable.id)).where(~ArticleTable.archived)
                 )
                 total_articles = articles_result.scalar()
 
@@ -164,21 +163,21 @@ class AsyncDatabaseManager:
 
                 recent_articles_result = await session.execute(
                     select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
+                    .where(~ArticleTable.archived)
                     .where(ArticleTable.discovered_at >= yesterday)
                 )
                 articles_last_24h = recent_articles_result.scalar()
 
                 week_articles_result = await session.execute(
                     select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
+                    .where(~ArticleTable.archived)
                     .where(ArticleTable.discovered_at >= week_ago)
                 )
                 articles_last_week = week_articles_result.scalar()
 
                 month_articles_result = await session.execute(
                     select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
+                    .where(~ArticleTable.archived)
                     .where(ArticleTable.discovered_at >= month_ago)
                 )
                 articles_last_month = month_articles_result.scalar()
@@ -186,7 +185,7 @@ class AsyncDatabaseManager:
                 # Database size (approximate)
                 # Calculate size based on content length
                 content_size_result = await session.execute(
-                    select(func.sum(func.length(ArticleTable.content))).where(ArticleTable.archived == False)
+                    select(func.sum(func.length(ArticleTable.content))).where(~ArticleTable.archived)
                 )
                 total_content_bytes = content_size_result.scalar() or 0
 
@@ -1637,45 +1636,50 @@ class AsyncDatabaseManager:
     ) -> ArticleAnnotation | None:
         """Update an existing annotation."""
         try:
-            async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
-                )
-                db_annotation = result.scalar_one_or_none()
-
-                if not db_annotation:
-                    return None
-
-                # Enforce usage immutability: usage cannot be changed after insert
-                if update_data.usage is not None and update_data.usage != db_annotation.usage:
-                    raise ValueError(
-                        f"Annotation usage cannot be modified once set. "
-                        f"Current usage: '{db_annotation.usage}', attempted: '{update_data.usage}'"
+            for attempt in range(2):
+                async with self.get_session() as session:
+                    result = await session.execute(
+                        select(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
                     )
+                    db_annotation = result.scalar_one_or_none()
 
-                # Update fields
-                if update_data.annotation_type is not None:
-                    db_annotation.annotation_type = update_data.annotation_type
-                if update_data.confidence_score is not None:
-                    db_annotation.confidence_score = update_data.confidence_score
-                if update_data.selected_text is not None:
-                    db_annotation.selected_text = update_data.selected_text
-                if update_data.start_position is not None:
-                    db_annotation.start_position = update_data.start_position
-                if update_data.end_position is not None:
-                    db_annotation.end_position = update_data.end_position
-                if update_data.context_before is not None:
-                    db_annotation.context_before = update_data.context_before
-                if update_data.context_after is not None:
-                    db_annotation.context_after = update_data.context_after
+                    if not db_annotation:
+                        if attempt == 0:
+                            await asyncio.sleep(0.05)
+                            continue
+                        return None
 
-                db_annotation.updated_at = datetime.now()
+                    # Enforce usage immutability: usage cannot be changed after insert
+                    usage_val = getattr(update_data, "usage", None)
+                    if usage_val is not None and usage_val != db_annotation.usage:
+                        raise ValueError(
+                            f"Annotation usage cannot be modified once set. "
+                            f"Current usage: '{db_annotation.usage}', attempted: '{usage_val}'"
+                        )
 
-                await session.commit()
-                await session.refresh(db_annotation)
+                    # Update fields
+                    if update_data.annotation_type is not None:
+                        db_annotation.annotation_type = update_data.annotation_type
+                    if update_data.confidence_score is not None:
+                        db_annotation.confidence_score = update_data.confidence_score
+                    if update_data.selected_text is not None:
+                        db_annotation.selected_text = update_data.selected_text
+                    if update_data.start_position is not None:
+                        db_annotation.start_position = update_data.start_position
+                    if update_data.end_position is not None:
+                        db_annotation.end_position = update_data.end_position
+                    if update_data.context_before is not None:
+                        db_annotation.context_before = update_data.context_before
+                    if update_data.context_after is not None:
+                        db_annotation.context_after = update_data.context_after
 
-                logger.info(f"Updated annotation {annotation_id}")
-                return self._db_annotation_to_model(db_annotation)
+                    db_annotation.updated_at = datetime.now()
+
+                    await session.commit()
+                    await session.refresh(db_annotation)
+
+                    logger.info(f"Updated annotation {annotation_id}")
+                    return self._db_annotation_to_model(db_annotation)
 
         except Exception as e:
             logger.error(f"Failed to update annotation {annotation_id}: {e}")

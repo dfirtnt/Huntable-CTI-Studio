@@ -116,8 +116,6 @@ class TestAPIEndpoints:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    @pytest.mark.quarantine
-    @pytest.mark.skip(reason="API may return 500 if database is not accessible - needs investigation")
     async def test_api_articles_limit(self, async_client: httpx.AsyncClient):
         """Test articles API with limit parameter."""
         response = await async_client.get("/api/articles?limit=5")
@@ -692,14 +690,15 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_workflow_execution_debug_info_uses_langfuse(self, async_client: httpx.AsyncClient):
+    async def test_workflow_execution_debug_info_uses_langfuse(
+        self, async_client: httpx.AsyncClient, seed_workflow_execution
+    ):
         """Debug info returns uses_langfuse (LangSmith deprecated, use Langfuse)."""
         list_resp = await async_client.get("/api/workflow/executions?limit=1")
         assert list_resp.status_code == 200
         data = list_resp.json()
         executions = data.get("executions", [])
-        if not executions:
-            pytest.skip("No workflow executions in DB")
+        assert executions, "seed_workflow_execution should ensure at least one execution"
         exec_id = executions[0]["id"]
         resp = await async_client.get(f"/api/workflow/executions/{exec_id}/debug-info")
         assert resp.status_code == 200

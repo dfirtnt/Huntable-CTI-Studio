@@ -45,6 +45,7 @@ def assert_test_environment():
 
     # API Key Safety: Prohibit cloud LLM API keys without explicit authorization.
     # Smoke, unit, api, and integration runs use mocks/isolated services; skip guard so local dev with keys set can run.
+    # ui, e2e, all: guard runs so tests never use commercial cloud models unless ALLOW_CLOUD_LLM_IN_TESTS=true.
     test_group = os.getenv("TEST_GROUP", "")
     if test_group not in ("smoke", "unit", "api", "integration"):
         cloud_llm_keys = {
@@ -63,7 +64,8 @@ def assert_test_environment():
                     f"Cloud LLM API keys detected in test environment: {', '.join(present_keys)}. "
                     "Tests are prohibited from using cloud LLM APIs to prevent accidental costs. "
                     "If you explicitly need cloud LLM APIs in tests, set ALLOW_CLOUD_LLM_IN_TESTS=true. "
-                    "Use local LLM (LMSTUDIO_API_URL) or mocks for testing instead."
+                    "Use local LLM (LMSTUDIO_API_URL) or mocks for testing instead. "
+                    "To run without using the key for this run: env -u CHATGPT_API_KEY ./run_tests.py ui"
                 )
             warnings.warn(
                 f"Cloud LLM API keys are enabled in tests: {', '.join(present_keys)}. "
