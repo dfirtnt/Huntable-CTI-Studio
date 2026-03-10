@@ -4,6 +4,22 @@ import pytest
 
 
 @pytest.mark.integration
+def test_task_execution_eager_mode():
+    """Task runs and returns result when task_always_eager=True (no worker)."""
+    from src.worker.celery_app import celery_app, test_source_connectivity
+
+    celery_app.conf.task_always_eager = True
+    try:
+        result = test_source_connectivity.apply_async(kwargs={"source_id": 42})
+        data = result.get(timeout=5)
+    finally:
+        celery_app.conf.task_always_eager = False
+    assert data["status"] == "success"
+    assert data["source_id"] == 42
+    assert "message" in data
+
+
+@pytest.mark.integration
 class TestCeleryStateTransitions:
     """Test Celery task state machine transitions."""
 

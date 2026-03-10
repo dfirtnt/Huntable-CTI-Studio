@@ -661,7 +661,6 @@ class TestCriticalAPIs:
         assert isinstance(data["executions"], list)
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_executions_list_with_sort_params(self, async_client: httpx.AsyncClient):
         """Workflow executions list accepts sort_by and sort_order params."""
@@ -672,7 +671,6 @@ class TestCriticalAPIs:
         assert isinstance(data["executions"], list)
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_executions_list_with_step_filter(self, async_client: httpx.AsyncClient):
         """Workflow executions list accepts step filter param."""
@@ -683,7 +681,6 @@ class TestCriticalAPIs:
         assert isinstance(data["executions"], list)
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_executions_list_with_article_id(self, async_client: httpx.AsyncClient):
         """Workflow executions list accepts article_id filter param."""
@@ -694,7 +691,6 @@ class TestCriticalAPIs:
         assert isinstance(data["executions"], list)
 
     @pytest.mark.api
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_workflow_execution_debug_info_uses_langfuse(self, async_client: httpx.AsyncClient):
         """Debug info returns uses_langfuse (LangSmith deprecated, use Langfuse)."""
@@ -793,7 +789,6 @@ class TestPerformance:
 
     @pytest.mark.api
     @pytest.mark.slow
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_response_times(self, async_client: httpx.AsyncClient):
         """Test that endpoints respond within reasonable time."""
@@ -808,7 +803,6 @@ class TestPerformance:
 
     @pytest.mark.api
     @pytest.mark.slow
-    @pytest.mark.skip(reason="Requires test database (cti_scraper_test)")
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, async_client: httpx.AsyncClient):
         """Test handling of concurrent requests."""

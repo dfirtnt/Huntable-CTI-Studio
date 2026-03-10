@@ -106,12 +106,3 @@ class TestScraperParsing:
         assert len(articles) > 0
         assert articles[0].title == "Test Threat Intelligence Article"
         assert articles[0].canonical_url == "https://example.com/article1"
-
-    @pytest.mark.skip(reason="Requires database for deduplication - implement with test containers")
-    def test_deduplication_with_fixtures(self):
-        """Test deduplication using fixture articles."""
-        # TODO: Implement with test containers
-        # Load article fixtures
-        # Create articles
-        # Test deduplication logic
-        pass

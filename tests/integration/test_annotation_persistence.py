@@ -5,7 +5,7 @@ from datetime import datetime
 import pytest
 import pytest_asyncio
 
-from src.database.models import ArticleTable
+from src.database.models import ArticleTable, SourceTable
 from tests.factories.annotation_factory import AnnotationFactory
 
 
@@ -16,10 +16,23 @@ class TestAnnotationPersistence:
     @pytest_asyncio.fixture
     async def test_article(self, test_database_with_rollback):
         """Create a test article for annotations."""
+        session = test_database_with_rollback
 
-        # Create test article
+        source = SourceTable(
+            identifier="test-source-annotation",
+            name="Test Source",
+            url="https://example.com",
+            rss_url="https://example.com/feed.xml",
+            check_frequency=3600,
+            lookback_days=180,
+            active=True,
+        )
+        session.add(source)
+        await session.commit()
+        await session.refresh(source)
+
         article = ArticleTable(
-            source_id=1,
+            source_id=source.id,
             canonical_url="https://example.com/test-annotation",
             title="Test Article for Annotations",
             published_at=datetime.now(),
@@ -27,20 +40,15 @@ class TestAnnotationPersistence:
             content_hash="test-hash-annotation",
             article_metadata={},
         )
-
-        test_database_with_rollback.add(article)
-        await test_database_with_rollback.commit()
-        await test_database_with_rollback.refresh(article)
+        session.add(article)
+        await session.commit()
+        await session.refresh(article)
 
         yield article
 
-        # Cleanup (rollback will handle it, but explicit delete for clarity)
-        await test_database_with_rollback.delete(article)
-        await test_database_with_rollback.commit()
-
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Requires test containers and async_db_manager - implement after infrastructure setup")
+    @pytest.mark.skip(reason="async_db_manager event loop conflict with pytest-asyncio")
     async def test_create_annotation(self, test_article):
         """Test creating an annotation."""
         from src.database.async_manager import async_db_manager
@@ -62,7 +70,7 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Requires test containers - implement after infrastructure setup")
+    @pytest.mark.skip(reason="async_db_manager event loop conflict with pytest-asyncio")
     async def test_get_annotation(self, test_article):
         """Test retrieving an annotation."""
         from src.database.async_manager import async_db_manager
@@ -81,7 +89,7 @@ class TestAnnotationPersistence:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Requires test containers - implement after infrastructure setup")
+    @pytest.mark.skip(reason="async_db_manager event loop conflict with pytest-asyncio")
     async def test_get_article_annotations(self, test_article):
         """Test retrieving all annotations for an article."""
         from src.database.async_manager import async_db_manager
