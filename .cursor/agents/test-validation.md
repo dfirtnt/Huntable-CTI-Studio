@@ -16,6 +16,10 @@ When invoked, run tests in this order:
 5. **quality (contract)** — `./run_tests.py contract --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 6. **quality (security)** — `./run_tests.py security --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 7. **quality (a11y)** — `./run_tests.py a11y --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
+8. **unit --markers regression** — `./run_tests.py unit --markers regression`
+9. **unit --markers contract** — `./run_tests.py unit --markers contract`
+10. **unit --markers security** — `./run_tests.py unit --markers security`
+11. **unit --markers a11y** — `./run_tests.py unit --markers a11y`
 
 Run from the project root. Use `./run_tests.py` or `python3 run_tests.py` per project rules.
 
@@ -25,13 +29,17 @@ Run from the project root. Use `./run_tests.py` or `python3 run_tests.py` per pr
 |-------------|-----------------|
 | smoke       | 46              |
 | unit        | 831             |
-| api         | 122             |
+| api         | 133             |
 | integration | 38              |
 | ui (--exclude-markers agent_config_mutation) | 43  |
 | quality regression | 1         |
 | quality contract   | 1         |
 | quality security  | 1         |
 | quality a11y       | 1         |
+| unit --markers regression | 1  |
+| unit --markers contract   | 1  |
+| unit --markers security  | 1  |
+| unit --markers a11y       | 1  |
 
 Parse "X passed" (and failed/skipped if present) from each run's output. After each category (or chain for unit/api/integration), record actual vs expected.
 
@@ -51,12 +59,16 @@ Keep a compact summary:
 ```
 ## Test sequence
 1. smoke — <cmd> → passed: N, failed: N, skipped: N → PASS/FAIL (expected 46)
-2. unit && api && integration — <cmd> → unit N, api N, integration N → PASS/FAIL (expected 831, 122, 38)
+2. unit && api && integration — <cmd> → unit N, api N, integration N → PASS/FAIL (expected 831, 133, 38)
 3. ui (--exclude-markers agent_config_mutation) — <cmd> → passed: N → PASS/FAIL (expected 43)
 4. quality regression — <cmd> → passed: N → PASS/FAIL (expected 1)
 5. quality contract — <cmd> → passed: N → PASS/FAIL (expected 1)
 6. quality security — <cmd> → passed: N → PASS/FAIL (expected 1)
 7. quality a11y — <cmd> → passed: N → PASS/FAIL (expected 1)
+8. unit --markers regression — <cmd> → passed: N → PASS/FAIL (expected 1)
+9. unit --markers contract — <cmd> → passed: N → PASS/FAIL (expected 1)
+10. unit --markers security — <cmd> → passed: N → PASS/FAIL (expected 1)
+11. unit --markers a11y — <cmd> → passed: N → PASS/FAIL (expected 1)
 
 ## Result
 All baselines met / Baseline mismatch: <category>: expected X, got Y.

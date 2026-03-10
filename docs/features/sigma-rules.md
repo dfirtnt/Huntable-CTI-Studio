@@ -94,10 +94,7 @@ Article → Match Existing Rules → Classify Coverage → Generate New Rules (i
 - AI model configured:
   - **ChatGPT**: OpenAI API key required
   - **LMStudio**: Local server running (no API key)
-- **LM Studio for Embeddings**: Required for SIGMA rule similarity search
-  - Model: intfloat/e5-base-v2 loaded in LM Studio
-  - API: http://localhost:1234/v1/embeddings
-  - Environment variables: `LMSTUDIO_EMBEDDING_URL` and `LMSTUDIO_EMBEDDING_MODEL`
+- **Sigma rule indexing** (for similarity search and RAG): No LM Studio required. Indexing is split into metadata (always) and embeddings (optional). Metadata is indexed with `sigma index-metadata`; embeddings use local sentence-transformers (`intfloat/e5-base-v2`) via `sigma index-embeddings`. Run `sigma index-metadata` first, then `sigma index-embeddings` to enable Sigma rule retrieval in RAG. Use `sigma backfill-metadata` to recompute canonical fields for rules already in the DB. See [CLI Reference](../reference/cli.md#sigma) and `capabilities check` for status.
 - pySIGMA library installed
 
 ### Generation Process
@@ -171,7 +168,9 @@ A three-layer pipeline that matches CTI articles to existing Sigma detection rul
 - `find_rule_files()`: Recursive file discovery
 - `parse_rule_file()`: YAML parsing and normalization
 - `create_rule_embedding_text()`: Embedding text generation
-- `index_rules()`: Batch indexing with embeddings
+- `index_metadata()`: Index rule metadata and canonical fields only (no embedding service required)
+- `index_embeddings()`: Generate embeddings for rules (local sentence-transformers, intfloat/e5-base-v2)
+- `index_rules()`: Orchestrator: runs metadata then embeddings (partial success if embeddings fail)
 
 #### 3. Sigma Matching Service
 

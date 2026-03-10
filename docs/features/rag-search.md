@@ -35,7 +35,7 @@ Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm
 5. **API Endpoint** (`src/web/routes/chat.py`)
    - **Endpoint**: `POST /api/chat/rag`
    - **Parameters**: Message, conversation history, LLM provider selection
-   - **Response**: Synthesized analysis with source citations
+   - **Response**: Synthesized analysis with source citations and a **capabilities** block (`article_retrieval`, `sigma_retrieval`, `llm_generation`) indicating what is currently available and why (e.g. Sigma retrieval disabled until embeddings are indexed)
 
 ## Features
 
@@ -49,6 +49,10 @@ Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm
 - **Anthropic Claude**: Alternative provider with different strengths
 - **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
 - **Template Fallback**: Structured responses when LLM unavailable
+
+### Capability visibility
+- **Response metadata**: Every RAG response includes a `capabilities` block so clients can distinguish "no matches" from "feature unavailable".
+- **UI warnings**: The RAG chat page shows banners when Sigma rule search or LLM generation is disabled, with suggested actions (e.g. run `sigma index-embeddings`, set API key). Status is also shown at setup/start via `capabilities check`.
 
 ### Semantic Search
 - **Vector Similarity**: 768-dimensional embeddings for semantic matching
@@ -98,9 +102,16 @@ Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm
   "llm_provider": "openai",
   "llm_model_name": "gpt-4o",
   "use_llm_generation": true,
-  "timestamp": "2025-01-23T00:00:00Z"
+  "timestamp": "2025-01-23T00:00:00Z",
+  "capabilities": {
+    "article_retrieval": { "enabled": true, "reason": "..." },
+    "sigma_retrieval": { "enabled": false, "reason": "No Sigma embeddings", "action": "Run sigma index-embeddings to enable Sigma rule retrieval in RAG" },
+    "llm_generation": { "enabled": true, "reason": "..." }
+  }
 }
 ```
+
+The **capabilities** block reflects current feature availability. The Web UI uses it to show warning banners when Sigma rule search or LLM generation is unavailable and displays the suggested **action** (e.g. run `sigma index-embeddings` or set an API key).
 
 ## Configuration
 
@@ -164,13 +175,15 @@ You analyze retrieved CTI article content to answer user questions about threat 
 
 ### Common Issues
 1. **LLM Timeout**: Falls back to template responses
-2. **API Key Missing**: Uses template mode
-3. **No Results**: Adjust similarity threshold or query
-4. **Slow Responses**: Check LLM provider status
+2. **API Key Missing**: Uses template mode; set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` (or use LM Studio). The RAG page shows a capability warning with an actionable message.
+3. **Sigma rule search unavailable**: The UI shows a banner when `sigma_retrieval` is disabled. Run `./run_cli.sh sigma index-metadata` then `./run_cli.sh sigma index-embeddings` to enable Sigma rule retrieval in RAG. Check status with `./run_cli.sh capabilities check`.
+4. **No Results**: Adjust similarity threshold or query
+5. **Slow Responses**: Check LLM provider status
 
 ### Debugging
 - Check service logs: `docker-compose logs web`
 - Verify API keys: `docker-compose exec web env | grep API_KEY`
+- Check capability status: `./run_cli.sh capabilities check` or `capabilities check --json-output`
 - Test LLM providers individually
 - Monitor conversation history in database
 
