@@ -308,6 +308,20 @@ jobs:
           asyncio.run(main())
           PY
 
+      - name: Start web app
+        run: |
+          nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
+              echo "Web app is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Web app did not become healthy in time"
+          tail -n 200 web.log || true
+          exit 1
+
       - name: Run integration tests
         run: python run_tests.py integration
 
@@ -319,4 +333,5 @@ jobs:
           path: |
             test-results/
             allure-results/
+            web.log
           if-no-files-found: ignore
