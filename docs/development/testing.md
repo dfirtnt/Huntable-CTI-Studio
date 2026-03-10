@@ -134,7 +134,7 @@ Cloud LLM API keys are **prohibited** in tests by default:
 
 ### Lifecycle (Script-Driven)
 
-- **Start**: `make test-up` or `./scripts/test_setup.sh`
+- **Start**: `make test-up` or `./scripts/test_setup.sh` — or let `run_tests.py` auto-start when running `api`, `ui`, `integration`, `e2e`, or `all`
 - **Run tests**: `make test` or `./scripts/run_tests.sh` (auto-configures env vars)
 - **Tear down**: `make test-down` or `./scripts/test_teardown.sh`
 

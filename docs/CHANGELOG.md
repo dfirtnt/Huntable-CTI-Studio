@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sigma path standardization** (2026-03-09): `SIGMA_REPO_PATH` standardized on `sigma-repo` (single path for Docker and local). Removed Docker vs Local branching in `SigmaPRService`. Settings UI placeholder and helper text simplified.
 
 ### Changed
+- **Test container auto-start** (2026-03-09): `run_tests.py` auto-starts test containers for API and UI tests (in addition to integration, e2e, all). API tests skip the cloud LLM key guard when `CHATGPT_API_KEY` is set, so `./run_tests.py api` runs without `ALLOW_CLOUD_LLM_IN_TESTS=true`.
 - **LMStudio made optional** (2026-03-09): LMStudio is no longer the implicit default LLM provider. New workflow configs default to an empty provider (`""`); existing DB configs are unaffected. `workflow_lmstudio_enabled` now defaults to `False` (opt-in). Provider fallback removed from `LLMService` — a missing provider raises a clear `RuntimeError` instead of silently routing to LMStudio. `SigmaMatchingService` now uses `EmbeddingService(model_name="intfloat/e5-base-v2")` for query embeddings (same model as `sigma index-embeddings`) instead of `LMStudioEmbeddingClient`. The LMStudio model auto-loader in the agentic workflow is skipped unless at least one agent is configured to use lmstudio.
 
 ### Fixed
