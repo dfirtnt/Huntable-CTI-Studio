@@ -44,9 +44,9 @@ def assert_test_environment():
         raise RuntimeError(f"Cannot use production database 'cti_scraper' in tests: {test_db_url}")
 
     # API Key Safety: Prohibit cloud LLM API keys without explicit authorization.
-    # Smoke and unit runs do not rely on cloud LLMs; skip this check so local dev with keys set can run.
+    # Smoke, unit, and api runs use mocks and do not call cloud LLMs; skip so local dev with keys set can run.
     test_group = os.getenv("TEST_GROUP", "")
-    if test_group not in ("smoke", "unit"):
+    if test_group not in ("smoke", "unit", "api"):
         cloud_llm_keys = {
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),

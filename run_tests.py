@@ -275,7 +275,7 @@ class RunTestRunner:
 
         # Set up test environment variables
         os.environ["APP_ENV"] = "test"
-        if self.config.test_type in (RunTestType.SMOKE, RunTestType.UNIT):
+        if self.config.test_type in (RunTestType.SMOKE, RunTestType.UNIT, RunTestType.API):
             os.environ["TEST_GROUP"] = self.config.test_type.value
 
         # Set TEST_DATABASE_URL if not already set (password/port match running Postgres via .env)
