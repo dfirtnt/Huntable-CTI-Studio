@@ -58,7 +58,9 @@ def celery_worker_available():
 
 def _integration_db_url():
     """TEST_DATABASE_URL only; never DATABASE_URL (production guard)."""
-    _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
+    # Use POSTGRES_PASSWORD from env if available, fallback to default
+    password = os.getenv("POSTGRES_PASSWORD", "cti_password")
+    _default = f"postgresql+asyncpg://cti_user:{password}@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
     if "test" not in db_url.lower():
         raise RuntimeError(
@@ -110,7 +112,8 @@ async def test_database_manager(test_database_with_rollback):
         async def get_session(self):
             yield session
 
-    _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
+    password = os.getenv("POSTGRES_PASSWORD", "cti_password")
+    _default = f"postgresql+asyncpg://cti_user:{password}@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
     return TestAsyncDatabaseManager(database_url=db_url)
 
@@ -122,7 +125,8 @@ async def test_database_manager_real():
     """
     from src.database.async_manager import AsyncDatabaseManager
 
-    _default = "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test"
+    password = os.getenv("POSTGRES_PASSWORD", "cti_password")
+    _default = f"postgresql+asyncpg://cti_user:{password}@localhost:5433/cti_scraper_test"
     db_url = os.getenv("TEST_DATABASE_URL", _default)
     manager = AsyncDatabaseManager(database_url=db_url)
     yield manager

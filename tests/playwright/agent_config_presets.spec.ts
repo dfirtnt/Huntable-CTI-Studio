@@ -329,6 +329,95 @@ test.describe('Agent Config Presets', () => {
     const sigmaModelValue = await sigmaModelOpenAI.inputValue();
     expect(sigmaModelValue).toBe('gpt-4o-mini-2024-07-18');
   });
+
+  test('should import real preset file from config/presets and restore config', async ({ page }) => {
+    // Step 1: Get current config BEFORE import (to restore later)
+    const currentConfigRes = await page.request.get(`${BASE}/api/workflow/config`);
+    const currentConfig = await currentConfigRes.json();
+    const originalSimilarityThreshold = currentConfig.similarity_threshold;
+    const originalRankingThreshold = currentConfig.ranking_threshold;
+    const originalJunkFilterThreshold = currentConfig.junk_filter_threshold;
+
+    // Step 2: Load a real preset file from config/presets
+    const presetPath = path.join(__dirname, '..', '..', 'config', 'presets', 'AgentConfigs', 'lmstudio-qwen2.5-8b.json');
+    
+    // Verify the preset file exists
+    if (!fs.existsSync(presetPath)) {
+      console.log('Real preset file not found, skipping test');
+      test.skip();
+      return;
+    }
+
+    // Read the preset to verify key values
+    const presetContent = fs.readFileSync(presetPath, 'utf-8');
+    const preset = JSON.parse(presetContent);
+    const expectedSimilarity = preset.thresholds.similarity_threshold;
+    const expectedRanking = preset.thresholds.ranking_threshold;
+
+    // Set up dialog handler to accept the import
+    page.on('dialog', async dialog => {
+      await dialog.accept();
+    });
+
+    // Step 3: Import the preset
+    const fileInput = page.locator('#import-preset-input');
+    await fileInput.setInputFiles(presetPath);
+    
+    // Wait for preset to be applied
+    await page.waitForTimeout(3000);
+
+    // Expand panels to verify values were applied
+    // similarityThreshold is in sigma-agent-panel
+    // rankingThreshold is in rank-agent-configs-panel
+    await expandPanelIfNeeded(page, 'sigma-agent-panel');
+    await page.waitForTimeout(500);
+    await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
+    await page.waitForTimeout(500);
+
+    // Step 4: Verify the preset was applied correctly
+    const similarityInput = page.locator('#similarityThreshold');
+    await similarityInput.waitFor({ state: 'visible', timeout: 10000 });
+    const actualSimilarity = parseFloat(await similarityInput.inputValue());
+    expect(actualSimilarity).toBeCloseTo(expectedSimilarity, 2);
+
+    const rankingInput = page.locator('#rankingThreshold');
+    await rankingInput.waitFor({ state: 'visible', timeout: 10000 });
+    const actualRanking = parseFloat(await rankingInput.inputValue());
+    expect(actualRanking).toBeCloseTo(expectedRanking, 1);
+
+    // Step 5: Restore the original config (cleanup)
+    // We need to update the config back to original values via API
+    await page.request.put(`${BASE}/api/workflow/config`, {
+      data: {
+        similarity_threshold: originalSimilarityThreshold,
+        ranking_threshold: originalRankingThreshold,
+        junk_filter_threshold: originalJunkFilterThreshold,
+        description: 'Restored after Playwright preset import test'
+      }
+    });
+
+    // Wait for restore to complete
+    await page.waitForTimeout(2000);
+
+    // Step 6: Verify restoration worked
+    const restoredConfigRes = await page.request.get(`${BASE}/api/workflow/config`);
+    const restoredConfig = await restoredConfigRes.json();
+    
+    // Reload the page to reflect restored values
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Expand panels to see restored values
+    await expandPanelIfNeeded(page, 'sigma-agent-panel');
+    await page.waitForTimeout(500);
+
+    // Verify the values were restored in the UI
+    const restoredSimilarityInput = page.locator('#similarityThreshold');
+    await restoredSimilarityInput.waitFor({ state: 'visible', timeout: 10000 });
+    const restoredSimilarity = parseFloat(await restoredSimilarityInput.inputValue());
+    expect(restoredSimilarity).toBeCloseTo(originalSimilarityThreshold, 2);
+  });
 });
 
 async function expandPanelIfNeeded(page: any, panelId: string) {

@@ -179,10 +179,9 @@ def test_workflow_execution_with_real_db_mocked_llm():
 def _sync_test_db_url() -> str:
     import os
 
-    url = os.getenv(
-        "TEST_DATABASE_URL",
-        "postgresql+asyncpg://cti_user:cti_pass@localhost:5433/cti_scraper_test",
-    )
+    password = os.getenv("POSTGRES_PASSWORD", "cti_password")
+    default_url = f"postgresql+asyncpg://cti_user:{password}@localhost:5433/cti_scraper_test"
+    url = os.getenv("TEST_DATABASE_URL", default_url)
     if "+asyncpg" in url:
         url = url.replace("+asyncpg", "")
     return url
