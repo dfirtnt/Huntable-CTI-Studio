@@ -36,19 +36,35 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sigma-queue", tags=["sigma-queue"])
 
 
+def _load_workflow_provider_settings(db_session) -> dict[str, str | None]:
+    """Load workflow provider API keys and flags from AppSettings (same keys/source as LLMService)."""
+    try:
+        rows = (
+            db_session.query(AppSettingsTable)
+            .filter(AppSettingsTable.key.in_(WORKFLOW_PROVIDER_APPSETTING_KEYS.values()))
+            .all()
+        )
+        return {r.key: r.value for r in rows} if rows else {}
+    except Exception as e:
+        logger.warning("Failed to load workflow provider settings from AppSettings: %s", e)
+        return {}
+
+
 def _first_enabled_provider(db_session) -> str:
-    """Return first enabled provider with API key. Raises if none configured."""
+    """Return first enabled provider with API key. Raises if none configured.
+    Uses same resolution order as LLMService: AppSettings dict, then env (WORKFLOW_* then legacy)."""
     lmstudio_ok = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
     if lmstudio_ok:
         return "lmstudio"
+    settings = _load_workflow_provider_settings(db_session)
     for prov, app_key in [
         ("openai", WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]),
         ("anthropic", WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]),
         ("gemini", WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]),
     ]:
-        row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == app_key).first()
+        val = settings.get(app_key)
         api_key = (
-            (row.value if row else None)
+            (val if val and str(val).strip() else None)
             or os.getenv(app_key)
             or (
                 os.getenv("OPENAI_API_KEY")
@@ -103,30 +119,21 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
     if not model:
         model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
 
+    # Resolve API key from same source as LLMService (AppSettings batch + env)
+    workflow_settings = _load_workflow_provider_settings(db_session)
     api_key = None
     if provider == "openai":
-        row = (
-            db_session.query(AppSettingsTable)
-            .filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"])
-            .first()
-        )
-        api_key = (row.value if row else None) or os.getenv("WORKFLOW_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        k = WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]
+        val = workflow_settings.get(k)
+        api_key = (val if val and str(val).strip() else None) or os.getenv("WORKFLOW_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
     elif provider == "anthropic":
-        row = (
-            db_session.query(AppSettingsTable)
-            .filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"])
-            .first()
-        )
-        api_key = (
-            (row.value if row else None) or os.getenv("WORKFLOW_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
-        )
+        k = WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]
+        val = workflow_settings.get(k)
+        api_key = (val if val and str(val).strip() else None) or os.getenv("WORKFLOW_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
     elif provider == "gemini":
-        row = (
-            db_session.query(AppSettingsTable)
-            .filter(AppSettingsTable.key == WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"])
-            .first()
-        )
-        api_key = (row.value if row else None) or os.getenv("WORKFLOW_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+        k = WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]
+        val = workflow_settings.get(k)
+        api_key = (val if val and str(val).strip() else None) or os.getenv("WORKFLOW_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
     elif provider == "lmstudio":
         api_key = "not_required"
 
