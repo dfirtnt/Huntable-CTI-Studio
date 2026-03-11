@@ -2128,6 +2128,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        capabilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#export" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3383,7 +3394,7 @@
 <p><strong>See also:</strong> <a href="../../features/rag-search/">RAG Search</a>, <a href="../../features/sigma-rules/">Sigma Detection Rules</a>.</p>
 <hr />
 <h3 id="sigma">sigma<a class="headerlink" href="#sigma" title="Permanent link">&para;</a></h3>
-<p><strong>When:</strong> Sync SigmaHQ rules, index them (with embeddings), and match articles to rules. Required for Sigma similarity search and workflow Sigma generation.</p>
+<p><strong>When:</strong> Sync SigmaHQ rules, index them (metadata and optionally embeddings), and match articles to rules. Required for Sigma similarity search and workflow Sigma generation. Indexing is split into metadata (always available) and embeddings (optional; uses local sentence-transformers, no LM Studio required).</p>
 <p><strong>Subcommands:</strong></p>
 <table>
 <thead>
@@ -3399,15 +3410,23 @@
 </tr>
 <tr>
 <td><code>index</code></td>
-<td>Index rules into DB (generates embeddings); use <code>--force</code> to re-index</td>
+<td>Full index: metadata then embeddings (orchestrator; use for backward compatibility)</td>
+</tr>
+<tr>
+<td><code>index-metadata</code></td>
+<td>Index rule metadata and canonical fields only (no embeddings)</td>
+</tr>
+<tr>
+<td><code>index-embeddings</code></td>
+<td>Generate embeddings for rules (uses local intfloat/e5-base-v2)</td>
+</tr>
+<tr>
+<td><code>backfill-metadata</code></td>
+<td>Recompute canonical fields for existing rules (no repo access needed)</td>
 </tr>
 <tr>
 <td><code>match ARTICLE_ID</code></td>
 <td>Match one article to Sigma rules; <code>--save</code> to persist</td>
-</tr>
-<tr>
-<td><code>match-all</code></td>
-<td>Match all articles (optional filters)</td>
 </tr>
 <tr>
 <td><code>stats</code></td>
@@ -3416,19 +3435,43 @@
 </tbody>
 </table>
 <p><strong>Options (sync):</strong> <code>--force</code> — force re-clone.</p>
-<p><strong>Options (index):</strong> <code>--force</code> — re-index all rules.</p>
+<p><strong>Options (index, index-metadata, index-embeddings):</strong> <code>--force</code> — re-index all (or all embeddings).</p>
 <p><strong>Options (match):</strong> <code>--threshold T</code> (default <code>0.7</code>), <code>--save</code>.</p>
-<p><strong>Options (match-all):</strong> <code>--threshold T</code>, <code>--limit N</code>, <code>--min-hunt-score N</code> (default <code>50</code>).</p>
 <p><strong>Examples:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>sync
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index<span class="w"> </span>--force
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match<span class="w"> </span><span class="m">123</span><span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.7<span class="w"> </span>--save
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match-all<span class="w"> </span>--min-hunt-score<span class="w"> </span><span class="m">50</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">100</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index-metadata<span class="w"> </span>--force
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>index-embeddings
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>backfill-metadata
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>match<span class="w"> </span><span class="m">123</span><span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.7<span class="w"> </span>--save
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>./run_cli.sh<span class="w"> </span>sigma<span class="w"> </span>stats
 </code></pre></div>
-<p><strong>Note:</strong> <code>sigma index</code> needs the LM Studio embedding API (for rule embeddings). The <code>cli</code> service in <code>docker-compose.yml</code> is configured with <code>LMSTUDIO_EMBEDDING_URL</code> (default <code>http://host.docker.internal:1234/v1/embeddings</code>) and <code>extra_hosts</code> so it can reach LM Studio on the host. Ensure the embedding model (e.g. text-embedding-e5-base-v2) is loaded in LM Studio.</p>
+<p><strong>Note:</strong> Sigma rule embeddings use local sentence-transformers (<code>intfloat/e5-base-v2</code>) inside the CLI container; LM Studio is not required for indexing. Run <code>sigma index-metadata</code> first (or <code>sigma index</code>); then run <code>sigma index-embeddings</code> to enable Sigma rule retrieval in RAG. Use <code>capabilities check</code> to see current feature status.</p>
 <p><strong>See also:</strong> <a href="../../guides/generate-sigma/">Generate Sigma</a>, <a href="../../features/sigma-rules/">Sigma Detection Rules</a>.</p>
+<hr />
+<h3 id="capabilities">capabilities<a class="headerlink" href="#capabilities" title="Permanent link">&para;</a></h3>
+<p><strong>When:</strong> Check which features are available in the current environment (article retrieval, Sigma metadata/embedding indexing, Sigma retrieval in RAG, LLM generation). Used by setup/start scripts and for troubleshooting.</p>
+<p><strong>Subcommands:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Subcommand</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>check</code></td>
+<td>Print capability table (enabled/disabled, reason, action)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Options (check):</strong> <code>--json-output</code> — output JSON for shell scripts (e.g. startup warnings).</p>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>./run_cli.sh<span class="w"> </span>capabilities<span class="w"> </span>check
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>./run_cli.sh<span class="w"> </span>capabilities<span class="w"> </span>check<span class="w"> </span>--json-output
+</code></pre></div>
+<p><strong>See also:</strong> <a href="#sigma">Sigma</a>, <a href="../../features/rag-search/">RAG Search</a>.</p>
 <hr />
 <h3 id="export">export<a class="headerlink" href="#export" title="Permanent link">&para;</a></h3>
 <p><strong>When:</strong> Dump articles to JSON or CSV for analysis, reporting, or migration. Uses last N days and optional source filter.</p>
@@ -3465,16 +3508,16 @@
 </tbody>
 </table>
 <p><strong>Examples:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>./run_cli.sh<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--days<span class="w"> </span><span class="m">14</span><span class="w"> </span>--output<span class="w"> </span>articles.json
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>./run_cli.sh<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>csv<span class="w"> </span>--source<span class="w"> </span>threatpost
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>./run_cli.sh<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--days<span class="w"> </span><span class="m">30</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>./run_cli.sh<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--days<span class="w"> </span><span class="m">14</span><span class="w"> </span>--output<span class="w"> </span>articles.json
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>./run_cli.sh<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--format<span class="w"> </span>csv<span class="w"> </span>--source<span class="w"> </span>threatpost
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>./run_cli.sh<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--days<span class="w"> </span><span class="m">30</span>
 </code></pre></div>
 <hr />
 <h3 id="stats">stats<a class="headerlink" href="#stats" title="Permanent link">&para;</a></h3>
 <p><strong>When:</strong> Quick overview of database state (sources, article counts, recent activity).</p>
 <p><strong>Options:</strong> None.</p>
 <p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>./run_cli.sh<span class="w"> </span>stats
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./run_cli.sh<span class="w"> </span>stats
 </code></pre></div>
 <hr />
 <h3 id="archive">archive<a class="headerlink" href="#archive" title="Permanent link">&para;</a></h3>
@@ -3534,10 +3577,10 @@
 </tbody>
 </table>
 <p><strong>Examples:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>add<span class="w"> </span>--article-id<span class="w"> </span><span class="m">456</span><span class="w"> </span>--dry-run
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>add<span class="w"> </span>--source-id<span class="w"> </span><span class="m">2</span><span class="w"> </span>--force
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>remove<span class="w"> </span>--article-id<span class="w"> </span><span class="m">456</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>list<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>add<span class="w"> </span>--article-id<span class="w"> </span><span class="m">456</span><span class="w"> </span>--dry-run
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>add<span class="w"> </span>--source-id<span class="w"> </span><span class="m">2</span><span class="w"> </span>--force
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>remove<span class="w"> </span>--article-id<span class="w"> </span><span class="m">456</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>./run_cli.sh<span class="w"> </span>archive<span class="w"> </span>list<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span>
 </code></pre></div>
 <hr />
 <h2 id="quick-reference-table">Quick reference table<a class="headerlink" href="#quick-reference-table" title="Permanent link">&para;</a></h2>
@@ -3586,8 +3629,12 @@
 <td>Embedding coverage, generation, coverage stats, semantic search</td>
 </tr>
 <tr>
-<td><code>sigma sync/index/match/match-all/stats</code></td>
+<td><code>sigma sync/index/index-metadata/index-embeddings/backfill-metadata/match/stats</code></td>
 <td>Sigma rules sync, index, matching</td>
+</tr>
+<tr>
+<td><code>capabilities check</code></td>
+<td>Runtime feature capability status</td>
 </tr>
 <tr>
 <td><code>export</code></td>

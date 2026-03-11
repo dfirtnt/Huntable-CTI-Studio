@@ -2823,8 +2823,11 @@
 <li><strong>Error Rate</strong>: Failures during extraction</li>
 <li><strong>Processing Time</strong>: Time per article (optional)</li>
 </ul>
-<h2 id="eval-articles-rehydration">Eval articles rehydration<a class="headerlink" href="#eval-articles-rehydration" title="Permanent link">&para;</a></h2>
-<p>Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) currently depend on articles existing in the DB; after rehydration they fail. Work to use static files as the source of eval data is tracked in the project (archived spec in git history).</p>
+<h2 id="eval-articles-and-rehydration">Eval articles and rehydration<a class="headerlink" href="#eval-articles-and-rehydration" title="Permanent link">&para;</a></h2>
+<p>Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use <strong>static files</strong> as the source of eval data so evals work after DB rehydration (fresh DB or new environment). Article snapshots live in <code>config/eval_articles_data/{subagent}/articles.json</code>; the API and Agent Evals UI load from these files and can run evals without the DB when static data exists.</p>
+<ul>
+<li><strong>New installs / rehydration:</strong> Run once: <code>python3 scripts/fetch_eval_articles_static.py</code>. This fetches each URL in <code>config/eval_articles.yaml</code> and writes the JSON files. See <a href="../../getting-started/installation/#agent-evals-setup-optional">Installation → Agent evals setup</a> and <code>config/eval_articles_data/README.md</code>.</li>
+</ul>
 <h2 id="test-dataset">Test Dataset<a class="headerlink" href="#test-dataset" title="Permanent link">&para;</a></h2>
 <p><strong>Location:</strong> <code>outputs/training_data/test_finetuning_data.json</code></p>
 <p><strong>Contents:</strong>

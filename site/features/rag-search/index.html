@@ -1695,6 +1695,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#capability-visibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability visibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#semantic-search" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3110,7 +3121,7 @@
 </li>
 <li><strong>Endpoint</strong>: <code>POST /api/chat/rag</code></li>
 <li><strong>Parameters</strong>: Message, conversation history, LLM provider selection</li>
-<li><strong>Response</strong>: Synthesized analysis with source citations</li>
+<li><strong>Response</strong>: Synthesized analysis with source citations and a <strong>capabilities</strong> block (<code>article_retrieval</code>, <code>sigma_retrieval</code>, <code>llm_generation</code>) indicating what is currently available and why (e.g. Sigma retrieval disabled until embeddings are indexed)</li>
 </ol>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <h3 id="conversational-ai">Conversational AI<a class="headerlink" href="#conversational-ai" title="Permanent link">&para;</a></h3>
@@ -3125,6 +3136,11 @@
 <li><strong>Anthropic Claude</strong>: Alternative provider with different strengths</li>
 <li><strong>LMStudio (Local)</strong>: Fully supported via LMStudio (see <a href="../../llm/lmstudio/">LM Studio Integration</a>)</li>
 <li><strong>Template Fallback</strong>: Structured responses when LLM unavailable</li>
+</ul>
+<h3 id="capability-visibility">Capability visibility<a class="headerlink" href="#capability-visibility" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Response metadata</strong>: Every RAG response includes a <code>capabilities</code> block so clients can distinguish "no matches" from "feature unavailable".</li>
+<li><strong>UI warnings</strong>: The RAG chat page shows banners when Sigma rule search or LLM generation is disabled, with suggested actions (e.g. run <code>sigma index-embeddings</code>, set API key). Status is also shown at setup/start via <code>capabilities check</code>.</li>
 </ul>
 <h3 id="semantic-search">Semantic Search<a class="headerlink" href="#semantic-search" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3172,9 +3188,15 @@
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">&quot;llm_provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openai&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">&quot;llm_model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">&quot;use_llm_generation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-01-23T00:00:00Z&quot;</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">}</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-01-23T00:00:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">&quot;capabilities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">&quot;article_retrieval&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">&quot;sigma_retrieval&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;No Sigma embeddings&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;action&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Run sigma index-embeddings to enable Sigma rule retrieval in RAG&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="nt">&quot;llm_generation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">}</span>
 </code></pre></div>
+<p>The <strong>capabilities</strong> block reflects current feature availability. The Web UI uses it to show warning banners when Sigma rule search or LLM generation is unavailable and displays the suggested <strong>action</strong> (e.g. run <code>sigma index-embeddings</code> or set an API key).</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3235,7 +3257,8 @@
 <h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>LLM Timeout</strong>: Falls back to template responses</li>
-<li><strong>API Key Missing</strong>: Uses template mode</li>
+<li><strong>API Key Missing</strong>: Uses template mode; set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> (or use LM Studio). The RAG page shows a capability warning with an actionable message.</li>
+<li><strong>Sigma rule search unavailable</strong>: The UI shows a banner when <code>sigma_retrieval</code> is disabled. Run <code>./run_cli.sh sigma index-metadata</code> then <code>./run_cli.sh sigma index-embeddings</code> to enable Sigma rule retrieval in RAG. Check status with <code>./run_cli.sh capabilities check</code>.</li>
 <li><strong>No Results</strong>: Adjust similarity threshold or query</li>
 <li><strong>Slow Responses</strong>: Check LLM provider status</li>
 </ol>
@@ -3243,6 +3266,7 @@
 <ul>
 <li>Check service logs: <code>docker-compose logs web</code></li>
 <li>Verify API keys: <code>docker-compose exec web env | grep API_KEY</code></li>
+<li>Check capability status: <code>./run_cli.sh capabilities check</code> or <code>capabilities check --json-output</code></li>
 <li>Test LLM providers individually</li>
 <li>Monitor conversation history in database</li>
 </ul>

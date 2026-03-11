@@ -7,14 +7,15 @@ test.describe('Collapsible Sections', () => {
   test.describe('Settings Page', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto(`${BASE}/settings`);
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(1000); // Wait for JavaScript to initialize
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(800); // Wait for JavaScript to initialize
     });
 
     test('should expand and collapse Backup Configuration section', async ({ page }) => {
-      const content = page.locator('#backupConfigContent');
-      const chevron = page.locator('#backupConfigChevron');
-      const header = page.locator('h2:has-text("💾 Backup Configuration")').locator('..');
+      const panelId = 'backupConfig';
+      const content = page.locator(`#${panelId}-content`);
+      const chevron = page.locator(`#${panelId}-toggle`);
+      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
       // Initially should be hidden
       await expect(content).toHaveClass(/hidden/);
@@ -25,10 +26,7 @@ test.describe('Collapsible Sections', () => {
 
       // Should be visible now
       await expect(content).toBeVisible();
-      // Check transform value (browser may normalize to matrix, so check it's not the default)
-      const expandedTransform = await chevron.evaluate(el => window.getComputedStyle(el).transform);
-      expect(expandedTransform).not.toBe('none');
-      expect(expandedTransform).not.toBe('matrix(1, 0, 0, 1, 0, 0)');
+      await expect(header).toHaveAttribute('aria-expanded', 'true');
 
       // Click to collapse
       await header.click();
@@ -36,13 +34,14 @@ test.describe('Collapsible Sections', () => {
 
       // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
+      await expect(header).toHaveAttribute('aria-expanded', 'false');
     });
   });
 
   test.describe('Workflow Config Page', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto(`${BASE}/workflow#config`);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await page.waitForTimeout(2000); // Wait for page to fully load
 
       // Switch to config tab using JavaScript if needed
@@ -56,6 +55,20 @@ test.describe('Collapsible Sections', () => {
       // Wait for config form to be visible
       await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
       await page.waitForTimeout(1000);
+
+      // Stabilize initial state so all panel tests start collapsed.
+      await page.evaluate(() => {
+        document.querySelectorAll('[data-collapsible-panel]').forEach((headerEl) => {
+          const panelId = headerEl.getAttribute('data-collapsible-panel');
+          if (!panelId) return;
+          const content = document.getElementById(`${panelId}-content`);
+          const toggle = document.getElementById(`${panelId}-toggle`);
+          if (!content) return;
+          content.classList.add('hidden');
+          if (toggle) toggle.textContent = '▼';
+          headerEl.setAttribute('aria-expanded', 'false');
+        });
+      });
     });
 
     test('should expand and collapse Junk Filter panel', async ({ page }) => {
