@@ -17,7 +17,6 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-
 class SigmaSyncService:
     """Service for syncing and indexing Sigma rules from SigmaHQ repository."""
 
@@ -588,35 +587,29 @@ class SigmaSyncService:
 
         return {"metadata_indexed": indexed_count, "skipped": skipped_count, "errors": error_count}
 
+    # Number of rules to embed in one encoder batch (5 texts per rule → 5*N texts per call)
+    _EMBED_RULES_PER_CHUNK = 64
+    _EMBED_ENCODER_BATCH_SIZE = 64
+
     def index_embeddings(self, db_session, force_reindex: bool = False, progress_callback=None) -> dict:
         """
         Generate embeddings for Sigma rules that lack them.
 
         Uses local sentence-transformers (intfloat/e5-base-v2), no LMStudio dependency.
+        Builds texts in main process; runs encoder in chunks (one model load, batched encode).
 
         Args:
             db_session: SQLAlchemy session
             force_reindex: If True, regenerate embeddings for all rules
-            progress_callback: Optional callable(current, total) called after each rule
+            progress_callback: Optional callable(current, total) called after each chunk
 
         Returns:
             Dict with embeddings_indexed, skipped, errors counts
         """
         from src.database.models import SigmaRuleTable
 
-        logger.info("Starting Sigma rule embedding generation...")
+        logger.info("Starting Sigma rule embedding generation (batched)...")
 
-        # Initialize local embedding service (lazy import to avoid breaking
-        # metadata-only paths when sentence-transformers is unavailable)
-        try:
-            from src.services.embedding_service import EmbeddingService
-
-            embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
-        except Exception as e:
-            logger.error(f"Failed to initialize embedding service: {e}")
-            return {"embeddings_indexed": 0, "skipped": 0, "errors": 1, "error": str(e)}
-
-        # Get rules that need embeddings
         if force_reindex:
             rules = db_session.query(SigmaRuleTable).all()
         else:
@@ -624,10 +617,16 @@ class SigmaSyncService:
 
         logger.info(f"Found {len(rules)} rules needing embeddings")
 
-        embeddings_indexed = 0
         error_count = 0
         embedding_model_name = "intfloat/e5-base-v2"
+        now = datetime.now()
 
+        def _valid(emb):
+            return emb if emb and len(emb) == 768 else None
+
+        # First pass: build (rule_id, 5 texts) for each rule; skip on text-build failure
+        rule_by_id: dict[str, Any] = {}
+        payload_list: list[tuple[str, list[str]]] = []
         for rule in rules:
             try:
                 rule_data = {
@@ -637,50 +636,79 @@ class SigmaSyncService:
                     "logsource": rule.logsource or {},
                     "detection": rule.detection or {},
                 }
-
-                embedding_text = self.create_rule_embedding_text(rule_data)
-                embedding = embedding_service.generate_embedding(embedding_text)
-
+                full_text = self.create_rule_embedding_text(rule_data)
                 section_texts = self.create_section_embeddings_text(rule_data)
-                section_embeddings = embedding_service.generate_embeddings_batch(
-                    [
-                        section_texts["title"],
-                        section_texts["description"],
-                        section_texts["tags"],
-                        section_texts["signature"],
-                    ]
+                texts = [
+                    full_text,
+                    section_texts["title"],
+                    section_texts["description"],
+                    section_texts["tags"],
+                    section_texts["signature"],
+                ]
+                payload_list.append((rule.rule_id, texts))
+                rule_by_id[rule.rule_id] = rule
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error preparing embeddings for rule {rule.rule_id}: {e}")
+                if progress_callback:
+                    progress_callback(len(payload_list) + error_count, len(rules))
+
+        if not payload_list:
+            db_session.commit()
+            return {
+                "embeddings_indexed": 0,
+                "skipped": len(rules) - error_count,
+                "errors": error_count,
+            }
+
+        chunk_size = self._EMBED_RULES_PER_CHUNK
+        encoder_batch = self._EMBED_ENCODER_BATCH_SIZE
+
+        try:
+            from src.services.embedding_service import EmbeddingService
+
+            embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
+        except Exception as e:
+            logger.error(f"Failed to initialize embedding service: {e}")
+            return {"embeddings_indexed": 0, "skipped": len(rules) - error_count, "errors": error_count + 1, "error": str(e)}
+
+        embeddings_indexed = 0
+        for chunk_start in range(0, len(payload_list), chunk_size):
+            chunk_payloads = payload_list[chunk_start : chunk_start + chunk_size]
+            flat_texts = [t for _, texts in chunk_payloads for t in texts]
+            try:
+                all_embeddings = embedding_service.generate_embeddings_batch(
+                    flat_texts, batch_size=encoder_batch
                 )
-
-                while len(section_embeddings) < 4:
-                    section_embeddings.append([0.0] * 768)
-
-                def _valid(emb):
-                    return emb if emb and len(emb) == 768 else None
-
-                rule.embedding = embedding
+            except Exception as e:
+                logger.error(f"Encoder batch failed: {e}")
+                error_count += len(chunk_payloads)
+                if progress_callback:
+                    progress_callback(embeddings_indexed + error_count, len(rules))
+                continue
+            dim = 5
+            for i, (rule_id, _) in enumerate(chunk_payloads):
+                start = i * dim
+                slice_emb = all_embeddings[start : start + dim]
+                if len(slice_emb) < dim:
+                    slice_emb = slice_emb + [[0.0] * 768] * (dim - len(slice_emb))
+                rule = rule_by_id[rule_id]
+                rule.embedding = slice_emb[0]
                 rule.embedding_model = embedding_model_name
-                rule.embedded_at = datetime.now()
-                rule.title_embedding = _valid(section_embeddings[0])
-                rule.description_embedding = _valid(section_embeddings[1])
-                rule.tags_embedding = _valid(section_embeddings[2])
-                sig_emb = _valid(section_embeddings[3])
+                rule.embedded_at = now
+                rule.title_embedding = _valid(slice_emb[1])
+                rule.description_embedding = _valid(slice_emb[2])
+                rule.tags_embedding = _valid(slice_emb[3])
+                sig_emb = _valid(slice_emb[4])
                 rule.logsource_embedding = sig_emb
                 rule.detection_structure_embedding = sig_emb
                 rule.detection_fields_embedding = sig_emb
-
                 embeddings_indexed += 1
-                if progress_callback:
-                    progress_callback(embeddings_indexed + error_count, len(rules))
-                if embeddings_indexed % 100 == 0:
-                    logger.info(f"Embedded {embeddings_indexed} rules...")
-                    db_session.flush()
-
-            except Exception as e:
-                error_count += 1
-                if progress_callback:
-                    progress_callback(embeddings_indexed + error_count, len(rules))
-                logger.error(f"Error generating embeddings for rule {rule.rule_id}: {e}")
-                continue
+            if progress_callback:
+                progress_callback(embeddings_indexed + error_count, len(rules))
+            if embeddings_indexed % 100 == 0 and embeddings_indexed > 0:
+                logger.info(f"Embedded {embeddings_indexed} rules...")
+            db_session.flush()
 
         db_session.commit()
         skipped = len(rules) - embeddings_indexed - error_count

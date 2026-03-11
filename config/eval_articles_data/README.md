@@ -1,8 +1,9 @@
 # Static Eval Articles Data
 
-Eval inputs and expected outputs for extractor subagent evals, stored as committed snapshots so evals work after DB rehydration (fresh DB or new environment).
+Eval inputs and expected outputs for extractor subagent evals. **Article snapshots are committed in this directory** so evals work without any network fetch.
 
-**New installs:** To use Agent evals (MLOps → Agent evals, "Load Eval Articles"), run **once**: `python3 scripts/fetch_eval_articles_static.py`. This fetches article content from the URLs in `config/eval_articles.yaml` and writes `config/eval_articles_data/{subagent}/articles.json`. The app seeds from these files at startup; if they are missing, the eval article list will be empty. See [Installation → Agent evals setup](../../docs/getting-started/installation.md#agent-evals-setup-optional) in the docs.
+- **Normal install:** No action needed. `config/eval_articles_data/{subagent}/articles.json` are in the repo. Setup (e.g. `start.sh`) seeds them into the DB at startup. Agent evals (MLOps → Agent evals, "Load Eval Articles") use these committed copies.
+- **If articles are missing:** Ensure you have the latest repo (the JSON files are tracked). See [Installation → Agent evals](../../docs/getting-started/installation.md#agent-evals).
 
 ## Layout
 
@@ -28,25 +29,27 @@ Each element in `articles.json`:
 - **filtered_content** (string, optional): Content after junk filter; if present, eval path may use it instead of `content`.
 - **expected_count** (int): Expected observable count for this subagent.
 
-## Generating the files
+## Maintainers: updating article snapshots
 
-**Option A — Fetch from URLs (no DB required)**  
-When you have a fresh DB or rehydrated environment, populate static files by fetching article content from the web:
+When adding or changing URLs in `config/eval_articles.yaml`, update the committed JSON so the repo stays self-contained (no dependency on articles being online).
+
+**Option A — Fetch from URLs**  
+Fetches each external URL and writes `config/eval_articles_data/{subagent}/articles.json`. Localhost URLs are skipped.
 
 ```bash
 python3 scripts/fetch_eval_articles_static.py
 ```
 
-This fetches each external URL in [config/eval_articles.yaml](../eval_articles.yaml) and writes `config/eval_articles_data/{subagent}/articles.json`. Localhost URLs (e.g. `http://127.0.0.1:8001/articles/123`) are skipped.
+Then commit the updated `articles.json` files.
 
 **Option B — Dump from database**  
-When the application DB already contains the eval articles:
+When the application DB already contains the eval articles (e.g. after ingesting new URLs):
 
 ```bash
 python3 scripts/dump_eval_articles_static.py
 ```
 
-This writes or overwrites `config/eval_articles_data/{subagent}/articles.json` for each subagent from the DB (includes localhost articles and applies the junk filter for `filtered_content`). Commit the updated JSON files so evals can run without the DB.
+Writes or overwrites the JSON files from the DB (includes localhost articles and applies the junk filter). Commit the updated files.
 
 ## Duplicates across subagents
 

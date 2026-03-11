@@ -90,6 +90,8 @@ To resolve conflicts, either:
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key | No |
 | `GEMINI_API_KEY` | Google Gemini API key | No |
 
+**Keys set during `./setup.sh`**: If you enter OpenAI or Anthropic API keys when prompted by `setup.sh`, they are written to `.env` only. The application uses these values at runtime—**you do not need to enter them again in the Settings page**. The Settings page shows values stored in the database; keys that exist only in `.env` are not displayed there, so the OpenAI/Anthropic fields may appear empty even though the keys are in use. To have keys visible and editable in Settings, add them there; values saved in Settings are stored in the database and take precedence over `.env` for the workflow UI.
+
 ### Workflow-Specific LLM Configuration
 
 | Variable | Purpose | Default |

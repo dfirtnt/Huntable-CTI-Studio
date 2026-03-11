@@ -1,31 +1,55 @@
 #!/usr/bin/env python3
 """
-Fetch eval article content from URLs and write static JSON for filesystem-based evals.
+Fetch eval article content from URLs and write static JSON (maintainer script).
 
 Reads config/eval_articles.yaml, fetches each external URL, and writes
-config/eval_articles_data/{subagent}/articles.json so the Agent Evals page
-shows articles as "Found" and evals can run without the DB.
+config/eval_articles_data/{subagent}/articles.json. Run when adding or changing
+URLs in eval_articles.yaml; then commit the updated JSON so the repo stays
+self-contained (no dependency on articles being online). Normal installs use the
+committed copies and seed from them at startup.
 
-Localhost URLs (e.g. http://127.0.0.1:8001/articles/123) are skipped; use
-dump_eval_articles_static.py when the DB contains those articles.
+Localhost URLs are skipped; use dump_eval_articles_static.py when the DB has those.
 
 Usage:
-    python3 scripts/fetch_eval_articles_static.py
-    .venv/bin/python scripts/fetch_eval_articles_static.py
+    python3 scripts/fetch_eval_articles_static.py   # re-execs with .venv if present
 """
 
 import asyncio
 import json
+import os
 import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-import httpx
-import yaml
-from bs4 import BeautifulSoup
+# Re-exec with project .venv so httpx/yaml/bs4 are available when run as python3 script
+_project_root = Path(__file__).resolve().parent.parent
+_venv_dir = _project_root / ".venv"
+_venv_python = _venv_dir / "bin" / ("python3" if (_venv_dir / "bin" / "python3").exists() else "python")
+if _venv_python.exists():
+    _prefix_real = os.path.realpath(sys.prefix)
+    _venv_real = os.path.realpath(str(_venv_dir))
+    if _prefix_real != _venv_real:
+        os.execv(str(_venv_python), [str(_venv_python)] + sys.argv)
 
-project_root = Path(__file__).resolve().parent.parent
+try:
+    import httpx
+    import yaml
+    from bs4 import BeautifulSoup
+except ModuleNotFoundError as e:
+    print(
+        "Missing dependency:",
+        e.name or "httpx/yaml/beautifulsoup4",
+        file=sys.stderr,
+    )
+    if not _venv_python.exists():
+        print(
+            "Create project venv: python3 -m venv .venv && .venv/bin/pip3 install -r requirements.txt",
+            file=sys.stderr,
+        )
+    sys.exit(1)
+
+project_root = _project_root
 sys.path.insert(0, str(project_root))
 
 CONFIG_EVAL_ARTICLES = project_root / "config" / "eval_articles.yaml"

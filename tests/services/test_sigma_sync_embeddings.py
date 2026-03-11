@@ -37,8 +37,8 @@ class TestIndexEmbeddings:
         mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_rule]
 
         mock_emb_instance = MagicMock()
-        mock_emb_instance.generate_embedding.return_value = [0.1] * 768
-        mock_emb_instance.generate_embeddings_batch.return_value = [[0.1] * 768] * 4
+        # Batched path: 5 texts per rule (full + title, description, tags, signature)
+        mock_emb_instance.generate_embeddings_batch.return_value = [[0.1] * 768] * 5
         mock_emb_cls.return_value = mock_emb_instance
 
         result = sync_service.index_embeddings(mock_db_session)
@@ -67,7 +67,16 @@ class TestIndexEmbeddings:
         assert result["embeddings_indexed"] == 0
 
     def test_handles_embedding_service_failure_gracefully(self, sync_service, mock_db_session):
-        """If EmbeddingService cannot load, return error result instead of raising."""
+        """If EmbeddingService cannot load (when we need it), return error result instead of raising."""
+        mock_rule = MagicMock()
+        mock_rule.rule_id = "test-rule-1"
+        mock_rule.title = "Test"
+        mock_rule.description = "Desc"
+        mock_rule.tags = []
+        mock_rule.logsource = {}
+        mock_rule.detection = {}
+        mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_rule]
+
         with patch(
             "src.services.embedding_service.EmbeddingService",
             side_effect=RuntimeError("Model not available"),

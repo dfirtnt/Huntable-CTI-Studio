@@ -416,6 +416,8 @@ OPENAI_API_KEY=sk-your-key
 ANTHROPIC_API_KEY=sk-ant-your-key
 ```
 
+Keys in `.env` (including those set during `./setup.sh`) are used at runtime; they are not shown on the Settings page, which displays database-stored values only. You do not need to re-enter them in the UI for workflows to use them. See [Configuration](../getting-started/configuration.md#llm-provider-keys).
+
 #### Docker Configuration
 ```yaml
 # docker-compose.yml

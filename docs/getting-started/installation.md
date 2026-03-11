@@ -51,9 +51,10 @@ Before running `./start.sh`, run `./setup.sh` (which creates and configures `.en
 - `POSTGRES_PASSWORD=<strong password>` - Database authentication
 
 ### Optional LLM Keys
-- `OPENAI_API_KEY` - For OpenAI models
-- `ANTHROPIC_API_KEY` - For Claude models
-- `CHATGPT_API_KEY` - For ChatGPT API
+- `OPENAI_API_KEY` - For OpenAI - ChatGPT models
+- `ANTHROPIC_API_KEY` - For Anthropic - Claude models
+
+If you enter these during `./setup.sh`, they are written to `.env` and used at runtime; you do not need to re-enter them in the web Settings page. They will not appear in the Settings UI (those fields show database-stored values), but workflows will still use the keys from `.env`. See [Configuration](configuration.md#llm-provider-keys) for details.
 
 ### LM Studio Configuration
 - `LMSTUDIO_API_URL` - Default: `http://host.docker.internal:1234/v1`
@@ -180,20 +181,9 @@ See `configuration.md` for detailed port configuration.
 - Verify Docker daemon is running
 - Try rebuilding: `docker-compose up --build -d`
 
-## Agent evals setup (optional)
+## Agent evals
 
-To use **MLOps → Agent evals** (Load Eval Articles, run subagent evals), article content must be available. The app seeds from static files at startup; if those files are missing, "Load Eval Articles" will show no articles.
-
-**One-time setup:** From the project root (or inside the `web` container), run:
-
-```bash
-python3 scripts/fetch_eval_articles_static.py
-```
-
-This reads `config/eval_articles.yaml`, fetches each external URL, and writes `config/eval_articles_data/{subagent}/articles.json`. After that, restart the app so the startup seed can load them into the DB, or run evals directly (the API can use the static files without the DB).
-
-- **Docker:** `docker-compose exec web python3 scripts/fetch_eval_articles_static.py` (then restart `web` if you want them in the DB).
-- **Details:** See `config/eval_articles_data/README.md` in the repository for fetch vs dump and seeding.
+**MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: setup seeds these files into the DB at startup (see start.sh). If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present; seeding runs automatically on start.
 
 ## Next Steps
 
