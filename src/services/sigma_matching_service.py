@@ -763,6 +763,10 @@ Return JSON array only, no markdown formatting."""
                                         else None
                                     ),
                                 },
+                                # Penalties so UI can show weighted subtotal vs final
+                                "service_penalty": match.get("service_penalty", 0.0),
+                                "filter_penalty": match.get("filter_penalty", 0.0),
+                                "weighted_before_penalties": match.get("weighted_before_penalties"),
                             }
                         )
 

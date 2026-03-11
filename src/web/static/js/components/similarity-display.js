@@ -37,6 +37,13 @@ function normalizeSimilarityData(match) {
         noveltyLabel = calculateNoveltyLabel(similarity, atomJaccard, logicShape);
     }
     
+    const logicVal = (logicShape !== null && logicShape !== undefined) ? logicShape : 0;
+    const weightedBeforePenalties = match.weighted_before_penalties !== undefined
+        ? match.weighted_before_penalties
+        : (0.70 * atomJaccard + 0.30 * logicVal);
+    const servicePenalty = match.service_penalty !== undefined ? match.service_penalty : 0;
+    const filterPenalty = match.filter_penalty !== undefined ? match.filter_penalty : 0;
+
     return {
         similarity: similarity,
         atom_jaccard: atomJaccard,
@@ -47,6 +54,9 @@ function normalizeSimilarityData(match) {
             atom_jaccard: atomJaccard,
             logic_shape_similarity: logicShape
         },
+        weighted_before_penalties: weightedBeforePenalties,
+        service_penalty: servicePenalty,
+        filter_penalty: filterPenalty,
         // Preserve explainability data if present
         shared_atoms: match.shared_atoms || [],
         added_atoms: match.added_atoms || [],
@@ -376,9 +386,19 @@ function updateSimilarityDisplay(data, options = {}) {
         }
     }
     
-    // Update weighted total
+    // Update weighted total: show formula result (70%×atom + 30%×logic); if penalties exist, show "X% − Y% penalties = Z%"
     const totalEl = document.getElementById(getId('weightedTotal'));
-    if (totalEl) totalEl.textContent = `${similarityPercent}%`;
+    if (totalEl) {
+        const weightedSubtotal = normalized.weighted_before_penalties ?? (0.70 * atomJaccard + 0.30 * (logicShape != null ? logicShape : 0));
+        const weightedSubtotalPercent = (weightedSubtotal * 100).toFixed(1);
+        const totalPenalty = (normalized.service_penalty || 0) + (normalized.filter_penalty || 0);
+        if (totalPenalty > 0) {
+            const penaltiesPercent = (totalPenalty * 100).toFixed(1);
+            totalEl.textContent = `${weightedSubtotalPercent}% − ${penaltiesPercent}% penalties = ${similarityPercent}%`;
+        } else {
+            totalEl.textContent = `${weightedSubtotalPercent}%`;
+        }
+    }
     
     // Update explainability sections
     if (normalized.shared_atoms && normalized.shared_atoms.length > 0) {

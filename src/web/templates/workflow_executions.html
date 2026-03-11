@@ -2148,15 +2148,15 @@ async function checkSimilarRulesForQueuedRule() {
         }
         
         const data = await response.json();
-        
-        if (data.success && data.similar_rules && data.similar_rules.length > 0) {
-            // Update the rule with new similarity scores and re-render
-            currentQueuedRule.similarity_scores = data.similar_rules;
-            currentQueuedRule.max_similarity = Math.max(...data.similar_rules.map(r => r.similarity || 0));
+        const matches = data.matches || data.similar_rules || [];
+
+        if (data.success && matches.length > 0) {
+            currentQueuedRule.similarity_scores = matches;
+            currentQueuedRule.max_similarity = data.max_similarity != null ? data.max_similarity : Math.max(...matches.map(r => r.similarity || 0));
             renderQueuedRulePreview(currentQueuedRule);
-            showNotification('Found ' + data.similar_rules.length + ' similar rules. Results updated in preview.', 'success');
+            showNotification('Found ' + matches.length + ' similar rules. Results updated in preview.', 'success');
         } else {
-            showNotification('No similar rules found.', 'info');
+            showNotification(data.diagnostic?.error ? 'Similarity search failed: ' + data.diagnostic.error : 'No similar rules found.', data.diagnostic?.error ? 'error' : 'info');
         }
     } catch (error) {
         const loadingEl = document.getElementById('similarRulesLoading');

@@ -182,6 +182,7 @@ class SigmaNoveltyService:
                 if atom_jaccard == 1.0 and service_penalty == 0.0 and filter_penalty == 0.0:
                     weighted_sim = 1.0
                     logic_similarity = None  # Not computed - N/A when atoms are identical
+                    weighted_before_penalties = 1.0
                 else:
                     # Compute logic shape similarity only if needed
                     logic_similarity = self.compute_logic_shape_similarity(canonical_rule, candidate_canonical)
@@ -190,6 +191,8 @@ class SigmaNoveltyService:
                     weighted_sim = self.compute_weighted_similarity(
                         atom_jaccard, logic_similarity, service_penalty=service_penalty, filter_penalty=filter_penalty
                     )
+                    logic_val = logic_similarity if logic_similarity is not None else 0.0
+                    weighted_before_penalties = 0.70 * atom_jaccard + 0.30 * logic_val
 
                 if weighted_sim >= threshold:
                     # Generate explainability
@@ -200,6 +203,9 @@ class SigmaNoveltyService:
                         "atom_jaccard": atom_jaccard,
                         "logic_shape_similarity": logic_similarity,
                         "similarity": weighted_sim,
+                        "service_penalty": service_penalty,
+                        "filter_penalty": filter_penalty,
+                        "weighted_before_penalties": weighted_before_penalties,
                         **explainability,
                     }
 
@@ -274,9 +280,14 @@ class SigmaNoveltyService:
             logger.warning(f"Invalid logsource type: {type(logsource)}, expected dict")
             return "|", None
 
-        product = logsource.get("product", "").lower().strip() if logsource.get("product") else ""
-        category = logsource.get("category", "").lower().strip() if logsource.get("category") else ""
-        service = logsource.get("service", "").lower().strip() if logsource.get("service") else None
+        def _str_val(v: Any) -> str:
+            if v is None:
+                return ""
+            return str(v).lower().strip()
+
+        product = _str_val(logsource.get("product")) if logsource.get("product") else ""
+        category = _str_val(logsource.get("category")) if logsource.get("category") else ""
+        service = _str_val(logsource.get("service")) if logsource.get("service") else None
 
         logsource_key = f"{product}|{category}"
         logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}' (service: {service})")
