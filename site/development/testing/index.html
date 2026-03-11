@@ -2884,6 +2884,105 @@
 <li><strong>Pytest (tests/ui/)</strong>: tests marked <code>@pytest.mark.agent_config_mutation</code> (run evaluation, save settings, save workflow config).</li>
 <li><strong>Playwright TypeScript (tests/playwright/)</strong>: specs that change workflow/agent config are ignored via <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code> (e.g. <code>agent_config_*.spec.ts</code>, <code>workflow_save_button.spec.ts</code>, <code>workflow_config_persistence.spec.ts</code>, <code>workflow_config_versions.spec.ts</code>).</li>
 </ul>
+<h2 id="ci-github-actions-coverage">CI / GitHub Actions Coverage<a class="headerlink" href="#ci-github-actions-coverage" title="Permanent link">&para;</a></h2>
+<h3 id="current-ci-jobs">Current CI Jobs<a class="headerlink" href="#current-ci-jobs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>CI Job</th>
+<th>Command</th>
+<th>Test Marker/Directory</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>smoke</strong></td>
+<td><code>python run_tests.py smoke</code></td>
+<td><code>-m smoke</code></td>
+<td>✅ Running</td>
+</tr>
+<tr>
+<td><strong>unit</strong></td>
+<td><code>python run_tests.py unit</code></td>
+<td><code>not (smoke/integration/api/ui/e2e)</code></td>
+<td>✅ Running</td>
+</tr>
+<tr>
+<td><strong>api</strong></td>
+<td><code>python run_tests.py api</code></td>
+<td><code>-m api</code></td>
+<td>✅ Running</td>
+</tr>
+<tr>
+<td><strong>integration</strong></td>
+<td><code>python run_tests.py integration</code></td>
+<td><code>-m integration</code></td>
+<td>✅ Running</td>
+</tr>
+<tr>
+<td><strong>playwright</strong></td>
+<td><code>npx playwright test</code></td>
+<td>TypeScript specs</td>
+<td>✅ Running</td>
+</tr>
+</tbody>
+</table>
+<h3 id="test-directory-coverage-in-ci-jobs">Test Directory Coverage in CI Jobs<a class="headerlink" href="#test-directory-coverage-in-ci-jobs" title="Permanent link">&para;</a></h3>
+<p><strong>Unit Job</strong> covers:
+- <code>tests/</code> (root level test files) - auto-marked as unit
+- <code>tests/cli/</code> - auto-marked as unit via conftest.py
+- <code>tests/config/</code> - explicitly marked <code>@pytest.mark.unit</code>
+- <code>tests/core/</code> - explicitly marked <code>@pytest.mark.unit</code>
+- <code>tests/database/</code> - auto-marked as unit
+- <code>tests/docs/</code> - test_mkdocs_build.py, auto-marked as unit
+- <code>tests/services/</code> - explicitly marked <code>@pytest.mark.unit</code> (with coverage gates)
+- <code>tests/utils/</code> - explicitly marked <code>@pytest.mark.unit</code>
+- <code>tests/worker/</code> - auto-marked as unit
+- <code>tests/workflows/</code> - auto-marked as unit
+- <code>tests/quality/</code> - marked with <code>@pytest.mark.unit</code> + regression/contract/security/a11y</p>
+<p><strong>Quality Categories</strong> (also run in unit job):
+- <code>@pytest.mark.regression</code> - tests/quality/test_quality_categories_seed.py
+- <code>@pytest.mark.contract</code> - tests/quality/test_quality_categories_seed.py
+- <code>@pytest.mark.security</code> - tests/quality/test_quality_categories_seed.py
+- <code>@pytest.mark.a11y</code> - tests/quality/test_quality_categories_seed.py</p>
+<h3 id="what-not-to-run-in-ci">What NOT to Run in CI<a class="headerlink" href="#what-not-to-run-in-ci" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Reason</th>
+<th>How to Exclude</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>agent_config_mutation</strong></td>
+<td>Mutates live config</td>
+<td><code>--exclude-markers agent_config_mutation</code> + <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code></td>
+</tr>
+<tr>
+<td><strong>Performance</strong></td>
+<td>Requires <code>PERFORMANCE_TEST_ENABLED=true</code></td>
+<td>Marker excluded by default</td>
+</tr>
+<tr>
+<td><strong>AI (real APIs)</strong></td>
+<td>Requires secrets, costs money</td>
+<td>No marker in codebase</td>
+</tr>
+<tr>
+<td><strong>Quarantined</strong></td>
+<td>Known failures</td>
+<td>Already in <code>tests/SKIPPED_TESTS.md</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="ci-workflow-files">CI Workflow Files<a class="headerlink" href="#ci-workflow-files" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>.github/workflows/tests.yml</code> - Smoke, Unit, API, Integration jobs</li>
+<li><code>.github/workflows/playwright.yml</code> - Playwright E2E/UI tests</li>
+</ul>
 <h2 id="ci-recommendations">CI Recommendations<a class="headerlink" href="#ci-recommendations" title="Permanent link">&para;</a></h2>
 <h3 id="which-tests-to-run-in-github-actions">Which tests to run in GitHub Actions<a class="headerlink" href="#which-tests-to-run-in-github-actions" title="Permanent link">&para;</a></h3>
 <table>
@@ -2902,8 +3001,8 @@
 </tr>
 <tr>
 <td><strong>Unit</strong></td>
-<td>✅ Add</td>
-<td>No containers; fast. Run <code>python run_tests.py unit</code>. High signal, no extra services.</td>
+<td>✅ Yes</td>
+<td>No containers; fast. Run <code>python run_tests.py unit</code>. High signal, no extra services. Includes cli, config, core, database, docs, services, utils, worker, workflows.</td>
 </tr>
 <tr>
 <td><strong>API</strong></td>
@@ -2922,8 +3021,8 @@
 </tr>
 <tr>
 <td><strong>Playwright (TS)</strong></td>
-<td>⚠️ Fix then keep</td>
-<td>Current <code>playwright.yml</code> runs <code>npx playwright test</code> (root config → <code>e2e/</code> only) and <strong>does not start the web app</strong>; tests expect <code>http://127.0.0.1:8001</code>. Either: (1) Start web app in Playwright job (like smoke) and run root e2e, or (2) Use <code>tests/playwright.config.ts</code> with <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code> and run <code>tests/playwright/*.spec.ts</code> (richer suite).</td>
+<td>✅ Yes</td>
+<td>Current <code>playwright.yml</code> runs <code>npx playwright test</code> with web app started and <code>CTI_EXCLUDE_AGENT_CONFIG_TESTS=1</code>.</td>
 </tr>
 <tr>
 <td><strong>agent_config_mutation</strong></td>
@@ -2947,7 +3046,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Recommended CI layout:</strong> Smoke + Unit + API + Integration (current minus unit, plus one unit job). Optionally one Playwright job with app started and either e2e or tests/playwright, excluding agent-config specs.</p>
+<p><strong>Current CI layout:</strong> Smoke + Unit + API + Integration + Playwright (all implemented). Unit tests include coverage gates for src.services and src.utils.</p>
 <h3 id="speed">Speed<a class="headerlink" href="#speed" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Run stateless tests in parallel</li>
@@ -3413,14 +3512,8 @@
 <li>e2e</li>
 <li>performance</li>
 <li>ai</li>
+<li>playwright (TypeScript E2E/UI tests)</li>
 </ul>
-<h3 id="partially-integrated">Partially Integrated ⚠️<a class="headerlink" href="#partially-integrated" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>CLI tests</strong> (<code>tests/cli/</code>) - Falls under unit, not explicitly mapped</li>
-<li><strong>Workflows tests</strong> (<code>tests/workflows/</code>) - Falls under unit, not explicitly mapped</li>
-<li><strong>Services tests</strong> (<code>tests/services/</code>) - Falls under unit, not explicitly mapped</li>
-</ul>
-<p><strong>Recommendation</strong>: These are covered by the <code>unit</code> group but could benefit from explicit mapping for clarity.</p>
 <h3 id="separate-runners-not-integrated">Separate Runners (Not Integrated)<a class="headerlink" href="#separate-runners-not-integrated" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>tests/run_ai_tests.py</code> - Specialized AI test runner</li>
