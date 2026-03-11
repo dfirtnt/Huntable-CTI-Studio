@@ -50,6 +50,17 @@ validate_env_for_startup() {
 main() {
     echo "🚀 Starting CTI Scraper..."
 
+    # Check if setup.sh has been run and .env exists
+    if [ ! -f "$SCRIPT_DIR/.setup_complete" ]; then
+        echo "❌ Setup not complete. Please run ./setup.sh first."
+        exit 1
+    fi
+
+    if [ ! -f ".env" ]; then
+        echo "❌ .env not found. Please run ./setup.sh first."
+        exit 1
+    fi
+
     startup_check_directory
     startup_check_prerequisites
     validate_env_for_startup ".env"
