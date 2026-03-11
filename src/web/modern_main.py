@@ -119,7 +119,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             from src.services.seed_eval_articles import run as seed_eval_articles
 
-            created, errs = await asyncio.to_thread(seed_eval_articles, None)
+            created, errs, _ = await asyncio.to_thread(seed_eval_articles, None)
             logger.info("Eval articles seed at startup: %s created, %s errors", created, errs)
         except Exception as e:
             logger.exception("Eval articles seed at startup failed: %s", e)

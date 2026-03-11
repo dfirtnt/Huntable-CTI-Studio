@@ -516,11 +516,6 @@ handle_sigma_sync_and_index() {
     startup_sigma_sync_and_index
 }
 
-# Function to seed eval articles from static files into DB
-seed_eval_articles() {
-    startup_seed_eval_articles
-}
-
 # Build MkDocs site and start dev server so docs are ready and running
 build_and_serve_mkdocs() {
     startup_build_and_serve_mkdocs
@@ -707,10 +702,6 @@ main() {
 
         # Capability-driven warnings
         startup_show_capability_warnings
-
-        # Seed eval articles
-        echo ""
-        seed_eval_articles
 
         # Build and serve MkDocs
         echo ""

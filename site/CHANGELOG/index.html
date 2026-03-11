@@ -4265,6 +4265,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Eval articles: repo-first, no network fetch</strong> (2026-03-11): Eval article snapshots are committed in <code>config/eval_articles_data/{subagent}/articles.json</code>. Setup seeds them into the DB at startup; no run of <code>fetch_eval_articles_static.py</code> required for normal install. Docs and Agent Evals UI updated: install uses committed copies; fetch/dump scripts are for maintainers when adding URLs. See Installation → Agent evals and <code>config/eval_articles_data/README.md</code>.</li>
 <li><strong>Documentation (MDU)</strong> (2026-03-10): Changelog, README, and docs verified; MkDocs build OK. Unlinked doc pages (plans/, deployment/, operations/) remain intentionally outside nav.</li>
 <li><strong>Test runner integration and coverage</strong> (2026-03-10): Pytest tests integrated into <code>run_tests.py</code> per category (smoke, unit, api, integration, ui); ongoing tests must be runnable via <code>python3 run_tests.py &lt;category&gt;</code>. Unit coverage gates in CI verified: src.services + src.utils ≥39%, src.services ≥45%, src.utils ≥20%.</li>
 </ul>
