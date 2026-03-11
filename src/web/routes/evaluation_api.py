@@ -1100,10 +1100,13 @@ async def get_subagent_eval_results(
             url_to_static = _load_static_eval_articles(canonical_subagent)
 
             def _title_for_record(rec: SubagentEvaluationTable) -> str:
+                # Prefer static (committed JSON) so results table matches repo titles
+                if rec.article_url and rec.article_url in url_to_static:
+                    t = (url_to_static[rec.article_url].get("title") or "").strip()
+                    if t:
+                        return t
                 if rec.article_id is not None:
                     return (id_to_title.get(rec.article_id) or "").strip()
-                if rec.article_url and rec.article_url in url_to_static:
-                    return (url_to_static[rec.article_url].get("title") or "").strip()
                 return ""
 
             results = []
