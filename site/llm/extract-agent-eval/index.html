@@ -2824,10 +2824,7 @@
 <li><strong>Processing Time</strong>: Time per article (optional)</li>
 </ul>
 <h2 id="eval-articles-and-rehydration">Eval articles and rehydration<a class="headerlink" href="#eval-articles-and-rehydration" title="Permanent link">&para;</a></h2>
-<p>Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use <strong>static files</strong> as the source of eval data so evals work after DB rehydration (fresh DB or new environment). Article snapshots live in <code>config/eval_articles_data/{subagent}/articles.json</code>; the API and Agent Evals UI load from these files and can run evals without the DB when static data exists.</p>
-<ul>
-<li><strong>New installs / rehydration:</strong> Run once: <code>python3 scripts/fetch_eval_articles_static.py</code>. This fetches each URL in <code>config/eval_articles.yaml</code> and writes the JSON files. See <a href="../../getting-started/installation/#agent-evals-setup-optional">Installation → Agent evals setup</a> and <code>config/eval_articles_data/README.md</code>.</li>
-</ul>
+<p>Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use <strong>static files</strong> as the source of eval data. Article snapshots are <strong>committed</strong> in <code>config/eval_articles_data/{subagent}/articles.json</code> so evals work without any network fetch. Setup seeds these files into the DB at startup; the API and Agent Evals UI load from the committed JSON. See <a href="../../getting-started/installation/#agent-evals">Installation → Agent evals</a> and <code>config/eval_articles_data/README.md</code>. Maintainers: when adding URLs to <code>config/eval_articles.yaml</code>, run <code>scripts/fetch_eval_articles_static.py</code> (or <code>dump_eval_articles_static.py</code>) and commit the updated JSON.</p>
 <h2 id="test-dataset">Test Dataset<a class="headerlink" href="#test-dataset" title="Permanent link">&para;</a></h2>
 <p><strong>Location:</strong> <code>outputs/training_data/test_finetuning_data.json</code></p>
 <p><strong>Contents:</strong>

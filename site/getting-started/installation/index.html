@@ -924,10 +924,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#agent-evals-setup-optional" class="md-nav__link">
+  <a href="#agent-evals" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Agent evals setup (optional)
+        Agent evals
       
     </span>
   </a>
@@ -3038,10 +3038,10 @@
 </ul>
 <h3 id="optional-llm-keys">Optional LLM Keys<a class="headerlink" href="#optional-llm-keys" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>OPENAI_API_KEY</code> - For OpenAI models</li>
-<li><code>ANTHROPIC_API_KEY</code> - For Claude models</li>
-<li><code>CHATGPT_API_KEY</code> - For ChatGPT API</li>
+<li><code>OPENAI_API_KEY</code> - For OpenAI - ChatGPT models</li>
+<li><code>ANTHROPIC_API_KEY</code> - For Anthropic - Claude models</li>
 </ul>
+<p>If you enter these during <code>./setup.sh</code>, they are written to <code>.env</code> and used at runtime; you do not need to re-enter them in the web Settings page. They will not appear in the Settings UI (those fields show database-stored values), but workflows will still use the keys from <code>.env</code>. See <a href="../configuration/#llm-provider-keys">Configuration</a> for details.</p>
 <h3 id="lm-studio-configuration">LM Studio Configuration<a class="headerlink" href="#lm-studio-configuration" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>LMSTUDIO_API_URL</code> - Default: <code>http://host.docker.internal:1234/v1</code></li>
@@ -3152,16 +3152,8 @@ See <code>configuration.md</code> for detailed port configuration.</p>
 <li>Verify Docker daemon is running</li>
 <li>Try rebuilding: <code>docker-compose up --build -d</code></li>
 </ul>
-<h2 id="agent-evals-setup-optional">Agent evals setup (optional)<a class="headerlink" href="#agent-evals-setup-optional" title="Permanent link">&para;</a></h2>
-<p>To use <strong>MLOps → Agent evals</strong> (Load Eval Articles, run subagent evals), article content must be available. The app seeds from static files at startup; if those files are missing, "Load Eval Articles" will show no articles.</p>
-<p><strong>One-time setup:</strong> From the project root (or inside the <code>web</code> container), run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>scripts/fetch_eval_articles_static.py
-</code></pre></div>
-<p>This reads <code>config/eval_articles.yaml</code>, fetches each external URL, and writes <code>config/eval_articles_data/{subagent}/articles.json</code>. After that, restart the app so the startup seed can load them into the DB, or run evals directly (the API can use the static files without the DB).</p>
-<ul>
-<li><strong>Docker:</strong> <code>docker-compose exec web python3 scripts/fetch_eval_articles_static.py</code> (then restart <code>web</code> if you want them in the DB).</li>
-<li><strong>Details:</strong> See <code>config/eval_articles_data/README.md</code> in the repository for fetch vs dump and seeding.</li>
-</ul>
+<h2 id="agent-evals">Agent evals<a class="headerlink" href="#agent-evals" title="Permanent link">&para;</a></h2>
+<p><strong>MLOps → Agent evals</strong> (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under <code>config/eval_articles_data/{subagent}/articles.json</code>. No network fetch is required: setup seeds these files into the DB at startup (see start.sh). If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present; seeding runs automatically on start.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Configure your sources in <a href="../configuration/"><code>configuration.md</code></a></li>

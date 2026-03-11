@@ -78,12 +78,13 @@ def _load_articles_by_url(data_dir: Path) -> dict[str, dict]:
     return by_url
 
 
-def run(project_root: Path | None = None) -> tuple[int, int]:
+def run(project_root: Path | None = None) -> tuple[int, int, str]:
     """
     Seed eval articles from config/eval_articles_data into the DB.
 
     Returns:
-        (created_count, error_count)
+        (created_count, error_count, reason) where reason is
+        "no_config_data" | "already_present" | "" (when created or errors)
     """
     root = project_root or _project_root()
     data_dir = root / "config" / "eval_articles_data"
@@ -100,7 +101,7 @@ def run(project_root: Path | None = None) -> tuple[int, int]:
     articles_by_url = _load_articles_by_url(data_dir)
     logger.info("Eval articles seed: loaded %d unique URL(s) from static files", len(articles_by_url))
     if not articles_by_url:
-        return 0, 0
+        return 0, 0, "no_config_data"
 
     with db_manager.get_session() as session:
         existing_urls = {
@@ -115,7 +116,7 @@ def run(project_root: Path | None = None) -> tuple[int, int]:
             EVAL_SOURCE_NAME,
             source_id,
         )
-        return 0, 0
+        return 0, 0, "already_present"
 
     now = datetime.now(UTC)
     article_creates: list[ArticleCreate] = []
@@ -153,4 +154,4 @@ def run(project_root: Path | None = None) -> tuple[int, int]:
         source_id,
         len(errors),
     )
-    return len(created), len(errors)
+    return len(created), len(errors), ""

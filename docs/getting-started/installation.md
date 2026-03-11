@@ -183,7 +183,7 @@ See `configuration.md` for detailed port configuration.
 
 ## Agent evals
 
-**MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: setup seeds these files into the DB at startup (see start.sh). If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present; seeding runs automatically on start.
+**MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
 
 ## Next Steps
 

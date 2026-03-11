@@ -3281,6 +3281,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Keys set during <code>./setup.sh</code></strong>: If you enter OpenAI or Anthropic API keys when prompted by <code>setup.sh</code>, they are written to <code>.env</code> only. The application uses these values at runtime—<strong>you do not need to enter them again in the Settings page</strong>. The Settings page shows values stored in the database; keys that exist only in <code>.env</code> are not displayed there, so the OpenAI/Anthropic fields may appear empty even though the keys are in use. To have keys visible and editable in Settings, add them there; values saved in Settings are stored in the database and take precedence over <code>.env</code> for the workflow UI.</p>
 <h3 id="workflow-specific-llm-configuration">Workflow-Specific LLM Configuration<a class="headerlink" href="#workflow-specific-llm-configuration" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

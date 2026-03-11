@@ -25,13 +25,17 @@ from src.services.seed_eval_articles import run
 
 
 def main() -> int:
-    created, errors = run(project_root=project_root)
+    created, errors, reason = run(project_root=project_root)
     if created:
         print(f"Seeded {created} eval article(s) into DB.")
     elif errors:
         print(f"Errors during seed: {errors}")
+    elif reason == "already_present":
+        print("No new eval articles to seed (all already present in DB).")
+    elif reason == "no_config_data":
+        print("No eval articles to seed (no config data: config/eval_articles_data/*/articles.json missing or empty).")
     else:
-        print("No new eval articles to seed (already present or no config data).")
+        print("No new eval articles to seed.")
     return 0 if errors == 0 else 1
 
 
