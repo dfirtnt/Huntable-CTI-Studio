@@ -88,7 +88,7 @@
                 <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     ❌ Reject
                 </button>
-                <button onclick="validateRule()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                <button onclick="validateRule()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
                     ✓ Validate
                 </button>
                 <button onclick="openEnrichModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
@@ -508,7 +508,7 @@ function updateActionButtons() {
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
-            <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
+            <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
                 ✓ Validate
             </button>
             <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
@@ -673,27 +673,11 @@ async function validateRule() {
         return;
     }
     
-    // Get API key
-    let apiKey = null;
-    try {
-        const response = await fetch('/api/settings');
-        if (response.ok) {
-            const data = await response.json();
-            const settings = data.settings || {};
-            apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
-        }
-    } catch (error) {
-        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
-    }
-    
-    if (!apiKey) {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
-    }
-    
-    if (!apiKey) {
-        showNotification('Please configure your OpenAI API key in Settings first.', 'error');
-        return;
+    // Current rule YAML: from editor if in edit mode, else from editedYaml
+    let currentYaml = editedYaml;
+    if (isEditMode) {
+        const editor = document.getElementById('yamlEditor');
+        if (editor) currentYaml = editor.value;
     }
     
     // Remove any existing validation result
@@ -710,7 +694,7 @@ async function validateRule() {
         <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 dark:text-gray-300">Validating rule with LLM + pySIGMA...</p>
+                <p class="text-gray-700 dark:text-gray-300">Validating rule with workflow Sigma agent (LLM + pySIGMA)...</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take up to 3 attempts</p>
             </div>
         </div>
@@ -720,24 +704,47 @@ async function validateRule() {
     try {
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/validate`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-OpenAI-API-Key': apiKey
-            }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                use_workflow_sigma_agent: true,
+                rule_yaml: currentYaml && currentYaml.trim() ? currentYaml.trim() : undefined
+            })
         });
         
         // Remove loading indicator
         const loadingEl = document.getElementById('validationLoading');
         if (loadingEl) loadingEl.remove();
         
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (_) {
+            data = { message: 'Invalid response from server' };
+        }
         
         // Create result container
         const resultContainer = document.createElement('div');
         resultContainer.id = 'validationResult';
         resultContainer.className = 'mt-4 p-4 rounded-md border';
         
-        if (response.ok && data.success) {
+        if (!response.ok) {
+            // Server error (e.g. 400 no workflow config, 404, 500)
+            resultContainer.className += ' bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700';
+            const msg = data.detail || data.message || `Request failed (${response.status})`;
+            resultContainer.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h4 class="text-sm font-medium text-red-800 dark:text-red-200">Validation request failed</h4>
+                        <p class="mt-1 text-sm text-red-700 dark:text-red-300">${escapeHtml(typeof msg === 'string' ? msg : JSON.stringify(msg))}</p>
+                    </div>
+                </div>
+            `;
+        } else if (data.success) {
             // Validation succeeded
             resultContainer.className += ' bg-green-50 dark:bg-green-900 border-green-200 dark:border-green-700';
             resultContainer.innerHTML = `
