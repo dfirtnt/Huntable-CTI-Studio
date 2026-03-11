@@ -388,13 +388,6 @@ Matches for Article 123
 └─────────────────┴─────────────────────────────────────────┴────────────┴───────┴──────────┘
 ```
 
-### Batch Matching
-
-```bash
-# Match all articles with embeddings and hunt_score >= 50
-./run_cli.sh sigma match-all --min-hunt-score 50 --threshold 0.7
-```
-
 ### Web Interface Usage
 
 1. Navigate to any article
@@ -422,9 +415,6 @@ Matches for Article 123
 
 # Match single article
 ./run_cli.sh sigma match <article_id> [--save]
-
-# Batch match articles
-./run_cli.sh sigma match-all [--limit N] [--min-hunt-score N]
 
 # Show index statistics
 ./run_cli.sh sigma stats

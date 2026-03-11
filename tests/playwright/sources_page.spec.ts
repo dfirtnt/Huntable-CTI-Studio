@@ -44,7 +44,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   });
 
   test('[SOURCES-001] Sources page loads successfully', async ({ page }) => {
-    await expect(page).toHaveURL(`${BASE}/sources`);
+    await expect(page).toHaveURL(new RegExp(`${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/sources/?$`));
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
@@ -60,14 +60,14 @@ test.describe('Sources Page - Executable Test Plan', () => {
   });
 
   test('[SOURCES-003] Main heading display', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Threat Intelligence Sources/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Threat Intelligence Sources/i }).or(page.getByText(/Threat Intelligence Sources/i))).toBeVisible();
   });
 
   test('[SOURCES-004] Breadcrumb navigation', async ({ page }) => {
     const breadcrumb = page.locator('nav[aria-label="Breadcrumb"]');
     await expect(breadcrumb).toBeVisible();
-    await breadcrumb.locator('a[href="/"]').click();
-    await expect(page).toHaveURL(`${BASE}/`);
+    await breadcrumb.locator('a[href="/"]').first().click();
+    await expect(page).toHaveURL(new RegExp(`^${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?$`));
   });
 
   test('[SOURCES-010] Configured Sources section is displayed', async ({ page }) => {

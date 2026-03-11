@@ -47,8 +47,10 @@ import argparse
 import asyncio
 import logging
 import os
+import queue
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -192,6 +194,7 @@ class RunTestConfig:
     markers: list[str] | None = None
     exclude_markers: list[str] | None = None
     include_agent_config_tests: bool = False
+    playwright_last_failed: bool = False
     config_file: str | None = None
     output_format: str = "progress"
     fail_fast: bool = False
@@ -588,6 +591,13 @@ class RunTestRunner:
     def _build_playwright_command(self) -> list[str]:
         """Build Playwright test command based on configuration."""
         # Use tests/ config so testIgnore and paths resolve correctly when cwd is project root
+        # When --playwright-last-failed, run from tests/ with local config so .last-run.json is found
+        if self.config.playwright_last_failed:
+            cmd = ["npx", "playwright", "test", "--config", "playwright.config.ts", "--last-failed"]
+            if self.config.verbose or self.config.debug:
+                cmd.append("--reporter=list")
+            return cmd
+
         cmd = ["npx", "playwright", "test", "--config", "tests/playwright.config.ts"]
 
         # Determine which Playwright tests to run based on test type
@@ -1008,9 +1018,15 @@ class RunTestRunner:
 
             env.update(self._get_agent_config_exclude_env())
 
-            # Run pytest tests (always run pytest, except when only Playwright tests are needed)
+            # Run pytest tests (skip when --playwright-last-failed: only rerun failed Playwright)
+            run_pytest = not (self.config.playwright_last_failed and self.config.test_type == RunTestType.UI)
             pytest_success = True
             pytest_start_time = time.time()
+
+            if self.config.playwright_last_failed and self.config.test_type == RunTestType.UI:
+                print("\n" + "=" * 80)
+                print("🎭 PLAYWRIGHT LAST-FAILED MODE: Skipping pytest, rerunning only failed Playwright tests")
+                print("=" * 80 + "\n")
 
             # CRITICAL: Ensure directories exist BEFORE building command
             # pytest-html writes during test execution (not just at end), so directory must exist
@@ -1026,178 +1042,29 @@ class RunTestRunner:
                 logger.error("Failed to create test-results directory")
                 return False
 
-            # Build and run pytest command
-            cmd = self._build_pytest_command()
-            cmd_str = " ".join(cmd)
+            if run_pytest:
+                # Build and run pytest command
+                cmd = self._build_pytest_command()
+                cmd_str = " ".join(cmd)
 
-            # Determine which test groups are being executed
-            pytest_groups = self._get_pytest_test_groups()
-            if pytest_groups:
-                self.test_groups_executed.extend([f"pytest:{group}" for group in pytest_groups])
-
-            print("\n" + "=" * 80)
-            print("🧪 RUNNING PYTEST TESTS")
-            if pytest_groups:
-                print(f"   Test Categories: {', '.join(pytest_groups)}")
-                print(f"   Progress: [{' ' * len(pytest_groups)}] 0/{len(pytest_groups)} categories")
-            print("=" * 80)
-            logger.info(f"Executing pytest: {cmd_str}")
-            print()
-
-            try:
-                # Run with real-time output for progress visibility
-                process = subprocess.Popen(
-                    cmd,
-                    env=env,
-                    cwd=project_root,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,  # Line buffered
-                )
-
-                # Track progress by parsing output in real-time
-                output_lines = []
-                categories_seen = set()
-                test_count = 0
-                last_progress_update = time.time()
-
-                # Print output line by line and track progress
-                for line in process.stdout:
-                    output_lines.append(line)
-                    print(line, end="", flush=True)
-
-                    # Parse test execution lines to detect categories
-                    if "::" in line and ("PASSED" in line or "FAILED" in line or "SKIPPED" in line or "ERROR" in line):
-                        test_count += 1
-                        # Extract category from test path
-                        if "tests/" in line:
-                            try:
-                                path_part = line.split("tests/")[1].split("/")[0]
-                                category_map = {
-                                    "services": "services",
-                                    "utils": "utils",
-                                    "api": "api",
-                                    "integration": "integration",
-                                    "ui": "ui",
-                                    "e2e": "e2e",
-                                    "docs": "docs",
-                                }
-                                detected_category = category_map.get(path_part)
-                                if detected_category and detected_category not in categories_seen:
-                                    categories_seen.add(detected_category)
-                                    elapsed = time.time() - pytest_start_time
-                                    progress_chars = (
-                                        ["=" if cat in categories_seen else " " for cat in pytest_groups]
-                                        if pytest_groups
-                                        else []
-                                    )
-                                    progress_bar = "".join(progress_chars)
-                                    n_cat = len(pytest_groups) if pytest_groups else 1
-                                    print(
-                                        f"\n📊 Category: {detected_category.upper()} | Progress: [{progress_bar}] "
-                                        f"{len(categories_seen)}/{n_cat} | Tests: {test_count} | Time: {elapsed:.1f}s",
-                                        flush=True,
-                                    )
-                            except (IndexError, AttributeError):
-                                pass  # Ignore parsing errors
-
-                    # Update progress indicator periodically (every 3 seconds)
-                    if time.time() - last_progress_update > 3.0 and pytest_groups:
-                        elapsed = time.time() - pytest_start_time
-                        progress_chars = ["=" if cat in categories_seen else " " for cat in pytest_groups]
-                        progress_bar = "".join(progress_chars)
-                        msg = (
-                            f"\r⏳ Overall: [{progress_bar}] {len(categories_seen)}/{len(pytest_groups)} "
-                            f"categories | {test_count} tests | {elapsed:.1f}s"
-                        )
-                        print(msg, end="", flush=True)
-                        last_progress_update = time.time()
-
-                # Wait for process to complete
-                returncode = process.wait(
-                    timeout=self.config.timeout - (time.time() - pytest_start_time) if self.config.timeout else None
-                )
-
-                # Get any remaining output
-                stdout_text = "".join(output_lines)
-                stderr_text = ""  # Combined with stdout above
-
-                pytest_success = returncode == 0
-                pytest_duration = time.time() - pytest_start_time
-
-                # Parse test counts from output
-                pytest_counts = self._parse_pytest_output(stdout_text + stderr_text)
-
-                self.results["pytest"] = {
-                    "success": pytest_success,
-                    "returncode": returncode,
-                    "duration": pytest_duration,
-                    "counts": pytest_counts,
-                }
-
-                # Save failure details to file (even if pytest had internal errors)
-                if not pytest_success:
-                    failed_count = pytest_counts.get("failed", 0) + pytest_counts.get("errors", 0)
-                    if failed_count > 0 or "INTERNALERROR" in stdout_text or "FAILED" in stdout_text:
-                        self._save_failure_log(stdout_text + stderr_text, pytest_counts)
-
-                # Clear progress line and show final status
+                # Determine which test groups are being executed
+                pytest_groups = self._get_pytest_test_groups()
                 if pytest_groups:
-                    print("\r" + " " * 100 + "\r", end="")  # Clear progress line
-                print()
-                print("=" * 80)
-                status = "✅ PASSED" if pytest_success else "❌ FAILED"
-                print(f"PYTEST TESTS: {status} ({pytest_duration:.2f}s)")
-                passed = pytest_counts.get("passed", 0)
-                failed = pytest_counts.get("failed", 0)
-                skipped = pytest_counts.get("skipped", 0)
-                err_suffix = f" | Errors: {pytest_counts.get('errors', 0)}" if pytest_counts.get("errors", 0) else ""
-                print(f"   Passed: {passed} | Failed: {failed} | Skipped: {skipped}{err_suffix}")
-                if not pytest_success:
-                    print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
-                    print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
-                    print(f"   📈 JUnit XML: test-results/junit_{self.timestamp}.xml")
-                    print("   📈 Allure report: allure serve allure-results")
-                print("=" * 80)
-
-            except subprocess.TimeoutExpired:
-                process.kill()
-                logger.error(f"Pytest execution timed out after {self.config.timeout} seconds")
-                pytest_success = False
-            except KeyboardInterrupt:
-                logger.info("Pytest execution interrupted by user")
-                pytest_success = False
-            except Exception as e:
-                logger.error(f"Pytest execution failed: {e}")
-                if self.config.debug:
-                    logger.exception("Full traceback:")
-                pytest_success = False
-
-            # Run Playwright tests
-            playwright_success = True
-            if run_playwright:
-                playwright_start_time = time.time()
-                cmd_str = " ".join(playwright_cmd)
-
-                # Determine which Playwright test groups are being executed
-                playwright_groups = self._get_playwright_test_groups()
-                if playwright_groups:
-                    self.test_groups_executed.extend([f"playwright:{group}" for group in playwright_groups])
+                    self.test_groups_executed.extend([f"pytest:{group}" for group in pytest_groups])
 
                 print("\n" + "=" * 80)
-                print("🎭 RUNNING PLAYWRIGHT TESTS")
-                if playwright_groups:
-                    print(f"   Test Groups: {', '.join(playwright_groups)}")
-                    print(f"   Progress: [{' ' * len(playwright_groups)}] 0/{len(playwright_groups)} groups")
+                print("🧪 RUNNING PYTEST TESTS")
+                if pytest_groups:
+                    print(f"   Test Categories: {', '.join(pytest_groups)}")
+                    print(f"   Progress: [{' ' * len(pytest_groups)}] 0/{len(pytest_groups)} categories")
                 print("=" * 80)
-                logger.info(f"Executing Playwright: {cmd_str}")
+                logger.info(f"Executing pytest: {cmd_str}")
                 print()
 
                 try:
-                    # Run with real-time output
+                    # Reader drains pipe into queue (avoids BlockingIOError); main thread prints + parses
                     process = subprocess.Popen(
-                        playwright_cmd,
+                        cmd,
                         env=env,
                         cwd=project_root,
                         stdout=subprocess.PIPE,
@@ -1206,87 +1073,287 @@ class RunTestRunner:
                         bufsize=1,
                     )
 
-                    output_lines = []
+                    output_queue: queue.Queue[str | None] = queue.Queue()
+
+                    def drain_to_queue(stream) -> None:
+                        for line in stream:
+                            output_queue.put(line)
+                        output_queue.put(None)
+
+                    reader = threading.Thread(target=drain_to_queue, args=(process.stdout,))
+                    reader.daemon = True
+                    reader.start()
+
+                    output_lines: list[str] = []
                     test_count = 0
+                    categories_seen: set[str] = set()
                     last_progress_update = time.time()
 
-                    for line in process.stdout:
+                    while True:
+                        line = output_queue.get()
+                        if line is None:
+                            break
                         output_lines.append(line)
                         print(line, end="", flush=True)
 
-                        # Track Playwright test execution
-                        if any(word in line.lower() for word in ["passed", "failed", "skipped", "✓", "×"]):
+                        # Parse test execution lines for progress
+                        if "::" in line and (
+                            "PASSED" in line or "FAILED" in line or "SKIPPED" in line or "ERROR" in line
+                        ):
                             test_count += 1
+                            if "tests/" in line:
+                                try:
+                                    path_part = line.split("tests/")[1].split("/")[0]
+                                    category_map = {
+                                        "services": "services",
+                                        "utils": "utils",
+                                        "api": "api",
+                                        "integration": "integration",
+                                        "ui": "ui",
+                                        "e2e": "e2e",
+                                        "docs": "docs",
+                                    }
+                                    detected = category_map.get(path_part)
+                                    if detected and detected not in categories_seen:
+                                        categories_seen.add(detected)
+                                        elapsed = time.time() - pytest_start_time
+                                        if pytest_groups:
+                                            progress_chars = [
+                                                "=" if c in categories_seen else " " for c in pytest_groups
+                                            ]
+                                            n, total = len(categories_seen), len(pytest_groups)
+                                            print(
+                                                f"\n📊 Category: {detected.upper()} | [{''.join(progress_chars)}] "
+                                                f"{n}/{total} | Tests: {test_count} | {elapsed:.1f}s",
+                                                flush=True,
+                                            )
+                                except (IndexError, AttributeError):
+                                    pass
 
-                        # Update progress periodically (every 3 seconds)
-                        if time.time() - last_progress_update > 3.0:
-                            elapsed = time.time() - playwright_start_time
-                            if playwright_groups:
-                                # Estimate progress based on test count (rough)
-                                estimated_progress = min(len(playwright_groups), max(1, test_count // 5))
-                                progress_chars = [
-                                    "=" if i < estimated_progress else " " for i in range(len(playwright_groups))
-                                ]
-                                progress_bar = "".join(progress_chars)
-                                pmsg = (
-                                    f"\r⏳ Progress: [{progress_bar}] {estimated_progress}/"
-                                    f"{len(playwright_groups)} groups | Tests: {test_count} | Time: {elapsed:.1f}s"
-                                )
-                                print(pmsg, end="", flush=True)
+                        if time.time() - last_progress_update > 3.0 and pytest_groups:
+                            elapsed = time.time() - pytest_start_time
+                            progress_chars = ["=" if c in categories_seen else " " for c in pytest_groups]
+                            print(
+                                f"\r⏳ [{''.join(progress_chars)}] {len(categories_seen)}/{len(pytest_groups)} "
+                                f"| {test_count} tests | {elapsed:.1f}s",
+                                end="",
+                                flush=True,
+                            )
                             last_progress_update = time.time()
 
                     returncode = process.wait(
-                        timeout=self.config.timeout - (time.time() - playwright_start_time)
-                        if self.config.timeout
-                        else None
+                        timeout=self.config.timeout - (time.time() - pytest_start_time) if self.config.timeout else None
                     )
+                    reader.join(timeout=5.0)
 
                     stdout_text = "".join(output_lines)
                     stderr_text = ""
 
-                    playwright_success = returncode == 0
-                    playwright_duration = time.time() - playwright_start_time
+                    pytest_success = returncode == 0
+                    pytest_duration = time.time() - pytest_start_time
 
-                    # Parse test counts from output
-                    playwright_counts = self._parse_playwright_output(stdout_text + stderr_text)
+                    # Parse test counts from output; fallback to JUnit or line counts if summary missing
+                    pytest_counts = self._parse_pytest_output(stdout_text + stderr_text)
+                    if (
+                        pytest_counts.get("passed", 0) == 0
+                        and pytest_counts.get("failed", 0) == 0
+                        and pytest_counts.get("skipped", 0) == 0
+                    ):
+                        fallback = self._parse_pytest_output_fallback(
+                            stdout_text + stderr_text,
+                            Path("test-results") / f"junit_{self.timestamp}.xml",
+                        )
+                        if fallback:
+                            pytest_counts = fallback
 
-                    self.results["playwright"] = {
-                        "success": playwright_success,
+                    self.results["pytest"] = {
+                        "success": pytest_success,
                         "returncode": returncode,
-                        "duration": playwright_duration,
-                        "counts": playwright_counts,
+                        "duration": pytest_duration,
+                        "counts": pytest_counts,
                     }
 
+                    # Save failure details to file (even if pytest had internal errors)
+                    if not pytest_success:
+                        failed_count = pytest_counts.get("failed", 0) + pytest_counts.get("errors", 0)
+                        if failed_count > 0 or "INTERNALERROR" in stdout_text or "FAILED" in stdout_text:
+                            self._save_failure_log(stdout_text + stderr_text, pytest_counts)
+
                     # Clear progress line and show final status
-                    if playwright_groups:
+                    if pytest_groups:
                         print("\r" + " " * 100 + "\r", end="")  # Clear progress line
                     print()
                     print("=" * 80)
-                    status = "✅ PASSED" if playwright_success else "❌ FAILED"
-                    print(f"PLAYWRIGHT TESTS: {status} ({playwright_duration:.2f}s)")
-                    pp, pf, ps = (
-                        playwright_counts.get("passed", 0),
-                        playwright_counts.get("failed", 0),
-                        playwright_counts.get("skipped", 0),
+                    status = "✅ PASSED" if pytest_success else "❌ FAILED"
+                    print(f"PYTEST TESTS: {status} ({pytest_duration:.2f}s)")
+                    passed = pytest_counts.get("passed", 0)
+                    failed = pytest_counts.get("failed", 0)
+                    skipped = pytest_counts.get("skipped", 0)
+                    err_suffix = (
+                        f" | Errors: {pytest_counts.get('errors', 0)}" if pytest_counts.get("errors", 0) else ""
                     )
-                    print(f"   Passed: {pp} | Failed: {pf} | Skipped: {ps}")
+                    print(f"   Passed: {passed} | Failed: {failed} | Skipped: {skipped}{err_suffix}")
+                    if not pytest_success:
+                        print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
+                        print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
+                        print(f"   📈 JUnit XML: test-results/junit_{self.timestamp}.xml")
+                        print("   📈 Allure report: allure serve allure-results")
                     print("=" * 80)
 
                 except subprocess.TimeoutExpired:
                     process.kill()
-                    logger.error(f"Playwright execution timed out after {self.config.timeout} seconds")
-                    playwright_success = False
+                    logger.error(f"Pytest execution timed out after {self.config.timeout} seconds")
+                    pytest_success = False
                 except KeyboardInterrupt:
-                    logger.info("Playwright execution interrupted by user")
-                    playwright_success = False
+                    logger.info("Pytest execution interrupted by user")
+                    pytest_success = False
                 except Exception as e:
-                    logger.error(f"Playwright execution failed: {e}")
+                    logger.error(f"Pytest execution failed: {e}")
                     if self.config.debug:
                         logger.exception("Full traceback:")
-                    playwright_success = False
+                    pytest_success = False
+
+            if not run_pytest:
+                self.results["pytest"] = {"success": True, "skipped": True}
+
+            # Run Playwright tests
+            playwright_success = True
+            if run_playwright:
+                # --playwright-last-failed requires a previous run to create .last-run.json
+                if self.config.playwright_last_failed:
+                    last_run = project_root / "tests" / "test-results" / ".last-run.json"
+                    if not last_run.is_file():
+                        print("\n" + "=" * 80)
+                        print("⚠️  --playwright-last-failed requires a previous Playwright run with failures.")
+                        print(
+                            "   Run './run_tests.py ui' first (let Playwright complete), "
+                            "then rerun with --playwright-last-failed."
+                        )
+                        print("   Missing: tests/test-results/.last-run.json")
+                        print("=" * 80 + "\n")
+                        run_playwright = False
+                        playwright_success = False
+                        self.results["playwright"] = {"success": False, "skipped": True}
+
+                if run_playwright:
+                    playwright_start_time = time.time()
+                    cmd_str = " ".join(playwright_cmd)
+
+                    # Determine which Playwright test groups are being executed
+                    playwright_groups = self._get_playwright_test_groups()
+                    if playwright_groups:
+                        self.test_groups_executed.extend([f"playwright:{group}" for group in playwright_groups])
+
+                    print("\n" + "=" * 80)
+                    print("🎭 RUNNING PLAYWRIGHT TESTS")
+                    if playwright_groups:
+                        print(f"   Test Groups: {', '.join(playwright_groups)}")
+                        print(f"   Progress: [{' ' * len(playwright_groups)}] 0/{len(playwright_groups)} groups")
+                    print("=" * 80)
+                    logger.info(f"Executing Playwright: {cmd_str}")
+                    print()
+
+                    try:
+                        # Queue-based drain for real-time output (same as pytest)
+                        pw_cwd = project_root / "tests" if self.config.playwright_last_failed else project_root
+                        process = subprocess.Popen(
+                            playwright_cmd,
+                            env=env,
+                            cwd=pw_cwd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            bufsize=1,
+                        )
+
+                        pw_queue: queue.Queue[str | None] = queue.Queue()
+
+                        def pw_drain(stream) -> None:
+                            for line in stream:
+                                pw_queue.put(line)
+                            pw_queue.put(None)
+
+                        pw_reader = threading.Thread(target=pw_drain, args=(process.stdout,))
+                        pw_reader.daemon = True
+                        pw_reader.start()
+
+                        pw_output_lines: list[str] = []
+                        pw_test_count = 0
+                        pw_last_update = time.time()
+
+                        while True:
+                            line = pw_queue.get()
+                            if line is None:
+                                break
+                            pw_output_lines.append(line)
+                            print(line, end="", flush=True)
+                            if any(w in line.lower() for w in ["passed", "failed", "skipped", "✓", "×"]):
+                                pw_test_count += 1
+                            if time.time() - pw_last_update > 3.0 and playwright_groups:
+                                elapsed = time.time() - playwright_start_time
+                                est = min(len(playwright_groups), max(1, pw_test_count // 5))
+                                bar = "=" * est + " " * (len(playwright_groups) - est)
+                                msg = f"\r⏳ [{bar}] {est}/{len(playwright_groups)} | {pw_test_count} | {elapsed:.1f}s"
+                                print(msg, end="", flush=True)
+                                pw_last_update = time.time()
+
+                        returncode = process.wait(
+                            timeout=self.config.timeout - (time.time() - playwright_start_time)
+                            if self.config.timeout
+                            else None
+                        )
+                        pw_reader.join(timeout=5.0)
+
+                        stdout_text = "".join(pw_output_lines)
+                        stderr_text = ""
+
+                        playwright_success = returncode == 0
+                        playwright_duration = time.time() - playwright_start_time
+
+                        # Parse test counts from output
+                        playwright_counts = self._parse_playwright_output(stdout_text + stderr_text)
+
+                        self.results["playwright"] = {
+                            "success": playwright_success,
+                            "returncode": returncode,
+                            "duration": playwright_duration,
+                            "counts": playwright_counts,
+                        }
+
+                        # Clear progress line and show final status
+                        if playwright_groups:
+                            print("\r" + " " * 100 + "\r", end="")  # Clear progress line
+                        print()
+                        print("=" * 80)
+                        status = "✅ PASSED" if playwright_success else "❌ FAILED"
+                        print(f"PLAYWRIGHT TESTS: {status} ({playwright_duration:.2f}s)")
+                        pp, pf, ps = (
+                            playwright_counts.get("passed", 0),
+                            playwright_counts.get("failed", 0),
+                            playwright_counts.get("skipped", 0),
+                        )
+                        print(f"   Passed: {pp} | Failed: {pf} | Skipped: {ps}")
+                        print("=" * 80)
+
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        logger.error(f"Playwright execution timed out after {self.config.timeout} seconds")
+                        playwright_success = False
+                    except KeyboardInterrupt:
+                        logger.info("Playwright execution interrupted by user")
+                        playwright_success = False
+                    except Exception as e:
+                        logger.error(f"Playwright execution failed: {e}")
+                        if self.config.debug:
+                            logger.exception("Full traceback:")
+                        playwright_success = False
 
             # Overall success requires both to pass (if both ran)
-            overall_success = pytest_success and playwright_success if run_playwright else pytest_success
+            # When --playwright-last-failed but we skipped (no .last-run.json), fail the run
+            if self.config.playwright_last_failed and not run_playwright and "playwright" in self.results:
+                overall_success = False
+            else:
+                overall_success = pytest_success and playwright_success if run_playwright else pytest_success
 
             self.results[self.config.test_type.value] = {
                 "success": overall_success,
@@ -1336,6 +1403,51 @@ class RunTestRunner:
             counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"] + counts["errors"]
 
         return counts
+
+    def _parse_pytest_output_fallback(self, output: str, junit_path: Path) -> dict[str, int] | None:
+        """When normal summary is missing (e.g. pytest crashed), derive counts from JUnit XML or output."""
+        import re
+        import xml.etree.ElementTree as ET
+
+        counts = {"total": 0, "passed": 0, "failed": 0, "skipped": 0, "errors": 0}
+
+        # Prefer JUnit XML if present (written by pytest even when terminal summary is lost)
+        if junit_path.is_file():
+            try:
+                tree = ET.parse(junit_path)
+                root = tree.getroot()
+                # Handle both <testsuites> and single <testsuite>
+                suites = list(root.iter("testsuite")) if root.tag != "testsuite" else [root]
+                for suite in suites:
+                    for tc in suite.iter("testcase"):
+                        counts["total"] += 1
+                        if tc.find("failure") is not None:
+                            counts["failed"] += 1
+                        elif tc.find("error") is not None:
+                            counts["errors"] += 1
+                        elif tc.find("skipped") is not None:
+                            counts["skipped"] += 1
+                        else:
+                            counts["passed"] += 1
+                if counts["total"]:
+                    return counts
+            except (ET.ParseError, OSError):
+                pass
+
+        # Fallback: count result lines in output (xdist: "[gwN] PASSED path::test", or plain "path::test PASSED")
+        for line in output.splitlines():
+            if "::" not in line:
+                continue
+            if re.search(r"\bPASSED\b", line) and "FAILED" not in line:
+                counts["passed"] += 1
+            elif re.search(r"\bFAILED\b", line):
+                counts["failed"] += 1
+            elif re.search(r"\bSKIPPED\b", line):
+                counts["skipped"] += 1
+        if counts["passed"] or counts["failed"] or counts["skipped"]:
+            counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
+            return counts
+        return None
 
     def _save_failure_log(self, output: str, counts: dict[str, int]) -> None:
         """Save failure details to a log file."""
@@ -1758,6 +1870,7 @@ Examples:
   python run_tests.py integration              # Integration tests (auto-starts containers)
   python run_tests.py ui                       # UI tests (excludes agent/workflow config mutation by default)
   python run_tests.py ui --include-agent-config-tests  # Include tests that mutate agent/workflow config
+  python run_tests.py ui --playwright-last-failed      # Rerun only failed Playwright tests (skips pytest)
   python run_tests.py all                      # Full suite (auto-starts containers)
   python run_tests.py --debug --verbose        # Debug mode with verbose output
   python run_tests.py --context localhost unit # Force localhost execution
@@ -1810,6 +1923,11 @@ Manual Container Management:
         action="store_true",
         help="Include UI tests that mutate agent/workflow config (only for 'ui' type; default is to exclude them)",
     )
+    parser.add_argument(
+        "--playwright-last-failed",
+        action="store_true",
+        help="Rerun only Playwright tests that failed in the last run (skips pytest; use after 'ui' run with failures)",
+    )
     parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
 
     # Output and reporting
@@ -1855,6 +1973,7 @@ Manual Container Management:
         markers=args.markers,
         exclude_markers=args.exclude_markers,
         include_agent_config_tests=args.include_agent_config_tests,
+        playwright_last_failed=args.playwright_last_failed,
         config_file=args.config,
         output_format=args.output_format,
         fail_fast=args.fail_fast,

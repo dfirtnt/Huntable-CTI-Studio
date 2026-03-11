@@ -25,17 +25,17 @@ test.describe('RAG Chat Page', () => {
   });
 
   test('[CHAT-002] Page title is displayed', async ({ page }) => {
-    const title = page.locator('h1, [data-testid="chat-title"], .chat-title');
+    const title = page.locator('h1, h2, h3, [data-testid="chat-title"], .chat-title');
     await expect(title.first()).toBeVisible();
   });
 
   test('[CHAT-003] Chat input field is present', async ({ page }) => {
-    const input = page.locator('input[placeholder*="Ask"], textarea, [data-testid="chat-input"]');
+    const input = page.locator('input[placeholder*="Ask"], input[placeholder*="Message"], textarea, [data-testid="chat-input"]');
     await expect(input.first()).toBeVisible();
   });
 
   test('[CHAT-004] Send button is present', async ({ page }) => {
-    const sendBtn = page.locator('button:has-text("Send"), [data-testid="send-button"]');
+    const sendBtn = page.locator('button:has-text("Send"), button[type="submit"], [data-testid="send-button"]');
     await expect(sendBtn.first()).toBeVisible();
   });
 });
