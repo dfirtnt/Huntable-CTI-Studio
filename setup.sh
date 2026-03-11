@@ -733,6 +733,9 @@ main() {
     # Exit with appropriate code
     if [ "$setup_success" = false ]; then
         exit 1
+    else
+        # Mark setup as complete
+        touch "$SCRIPT_DIR/.setup_complete"
     fi
 }
 
