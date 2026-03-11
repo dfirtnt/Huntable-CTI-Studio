@@ -115,6 +115,35 @@ class TestEmbeddingService:
             assert service.model is not None
             assert service._model_loaded is True
 
+    def test_load_model_uses_cache_first(self):
+        """When cached load succeeds, only one SentenceTransformer call (local_files_only=True)."""
+        with patch("src.services.embedding_service.SentenceTransformer") as mock_st:
+            mock_model = Mock()
+            mock_model.encode = Mock(return_value=np.array([0.1] * 768))
+            mock_st.return_value = mock_model
+
+            svc = EmbeddingService(model_name="some-model")
+            svc._load_model()
+
+            assert mock_st.call_count == 1
+            call_kw = mock_st.call_args[1]
+            assert call_kw.get("local_files_only") is True
+
+    def test_load_model_falls_back_to_download_when_cache_misses(self):
+        """When cached load fails, second call is without local_files_only (download allowed)."""
+        with patch("src.services.embedding_service.SentenceTransformer") as mock_st:
+            mock_model = Mock()
+            mock_model.encode = Mock(return_value=np.array([0.1] * 768))
+            mock_st.side_effect = [OSError("not in cache"), mock_model]
+
+            svc = EmbeddingService(model_name="some-model")
+            svc._load_model()
+
+            assert mock_st.call_count == 2
+            assert mock_st.call_args_list[0][1].get("local_files_only") is True
+            # Second call has no local_files_only (default False)
+            assert mock_st.call_args_list[1][1].get("local_files_only", False) is False
+
     def test_generate_embedding_error_handling(self, service, mock_sentence_transformer):
         """Test error handling in embedding generation."""
         mock_sentence_transformer.encode.side_effect = Exception("Model error")

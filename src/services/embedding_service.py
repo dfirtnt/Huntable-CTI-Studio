@@ -6,6 +6,7 @@ Supports batch processing and model caching for efficiency.
 """
 
 import logging
+import os
 from typing import Any
 
 import numpy as np
@@ -42,15 +43,23 @@ class EmbeddingService:
         try:
             logger.info(f"Loading Sentence Transformers model: {self.model_name}")
             try:
-                # Prefer local cache to avoid network round-trips on every load
-                self.model = SentenceTransformer(
-                    self.model_name,
-                    cache_folder=self.cache_dir,
-                    device=self.device,
-                    local_files_only=True,
-                )
+                # Offline mode so cached load does not trigger "unauthenticated requests" warning
+                prev = os.environ.get("HF_HUB_OFFLINE")
+                os.environ["HF_HUB_OFFLINE"] = "1"
+                try:
+                    self.model = SentenceTransformer(
+                        self.model_name,
+                        cache_folder=self.cache_dir,
+                        device=self.device,
+                        local_files_only=True,
+                    )
+                finally:
+                    if prev is None:
+                        os.environ.pop("HF_HUB_OFFLINE", None)
+                    else:
+                        os.environ["HF_HUB_OFFLINE"] = prev
             except Exception:
-                # Model not cached yet — download from HuggingFace
+                # Model not cached yet — download from HuggingFace (network allowed)
                 self.model = SentenceTransformer(
                     self.model_name,
                     cache_folder=self.cache_dir,

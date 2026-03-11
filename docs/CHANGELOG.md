@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sigma path standardization** (2026-03-09): `SIGMA_REPO_PATH` standardized on `sigma-repo` (single path for Docker and local). Removed Docker vs Local branching in `SigmaPRService`. Settings UI placeholder and helper text simplified.
 
 ### Changed
+- **Eval articles: repo-first, no network fetch** (2026-03-11): Eval article snapshots are committed in `config/eval_articles_data/{subagent}/articles.json`. Setup seeds them into the DB at startup; no run of `fetch_eval_articles_static.py` required for normal install. Docs and Agent Evals UI updated: install uses committed copies; fetch/dump scripts are for maintainers when adding URLs. See Installation → Agent evals and `config/eval_articles_data/README.md`.
 - **Documentation (MDU)** (2026-03-10): Changelog, README, and docs verified; MkDocs build OK. Unlinked doc pages (plans/, deployment/, operations/) remain intentionally outside nav.
 - **Test runner integration and coverage** (2026-03-10): Pytest tests integrated into `run_tests.py` per category (smoke, unit, api, integration, ui); ongoing tests must be runnable via `python3 run_tests.py <category>`. Unit coverage gates in CI verified: src.services + src.utils ≥39%, src.services ≥45%, src.utils ≥20%.
 
