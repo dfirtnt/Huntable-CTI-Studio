@@ -8,10 +8,9 @@ import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from sqlalchemy import Float, cast
 
 from src.database.manager import DatabaseManager
-from src.database.models import ArticleTable, SigmaRuleTable
+from src.database.models import SigmaRuleTable
 from src.services.sigma_coverage_service import SigmaCoverageService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_sync_service import SigmaSyncService
@@ -307,88 +306,6 @@ def match_article(article_id: int, threshold: float, save: bool):
     except Exception as e:
         console.print(f"[bold red]✗[/bold red] Error: {e}")
         logger.error(f"Matching failed: {e}")
-
-
-@sigma_group.command("match-all")
-@click.option("--threshold", default=0.7, help="Similarity threshold (0-1)")
-@click.option("--limit", default=None, type=int, help="Limit number of articles to process")
-@click.option("--min-hunt-score", default=50, type=int, help="Minimum hunt score")
-def match_all_articles(threshold: float, limit: int | None, min_hunt_score: int):
-    """Match all articles to Sigma rules."""
-    console.print("[bold blue]Matching all articles to Sigma rules...[/bold blue]")
-
-    try:
-        db_manager = DatabaseManager()
-        session = db_manager.get_session()
-
-        matching_service = SigmaMatchingService(session)
-        coverage_service = SigmaCoverageService(session)
-
-        # Get articles with embeddings and high hunt scores
-        query = session.query(ArticleTable).filter(ArticleTable.embedding.isnot(None))
-
-        # Filter by hunt score if specified
-        query = query.filter(
-            cast(ArticleTable.article_metadata["threat_hunting_score"].op("->>")("text"), Float) >= min_hunt_score
-        )
-
-        if limit:
-            query = query.limit(limit)
-
-        articles = query.all()
-
-        console.print(f"Processing {len(articles)} articles...")
-
-        matched_count = 0
-        total_matches = 0
-
-        with Progress(console=console) as progress:
-            task = progress.add_task("Matching articles...", total=len(articles))
-
-            for article in articles:
-                try:
-                    # Match article
-                    article_matches = matching_service.match_article_to_rules(article.id, threshold=threshold, limit=5)
-
-                    if article_matches:
-                        matched_count += 1
-                        total_matches += len(article_matches)
-
-                        # Store matches with coverage classification
-                        for match in article_matches:
-                            rule = session.query(SigmaRuleTable).filter_by(rule_id=match["rule_id"]).first()
-
-                            if rule:
-                                classification = coverage_service.classify_match(article.id, rule, match["similarity"])
-
-                                matching_service.store_match(
-                                    article_id=article.id,
-                                    sigma_rule_id=rule.id,
-                                    similarity_score=match["similarity"],
-                                    match_level="article",
-                                    coverage_status=classification["coverage_status"],
-                                    coverage_confidence=classification["coverage_confidence"],
-                                    coverage_reasoning=classification["coverage_reasoning"],
-                                    matched_discriminators=classification["matched_discriminators"],
-                                    matched_lolbas=classification["matched_lolbas"],
-                                    matched_intelligence=classification["matched_intelligence"],
-                                )
-
-                    progress.update(task, advance=1)
-
-                except Exception as e:
-                    logger.error(f"Error matching article {article.id}: {e}")
-                    progress.update(task, advance=1)
-                    continue
-
-        console.print(f"[bold green]✓[/bold green] Matched {matched_count}/{len(articles)} articles")
-        console.print(f"[bold green]✓[/bold green] Total {total_matches} matches stored")
-
-        session.close()
-
-    except Exception as e:
-        console.print(f"[bold red]✗[/bold red] Error: {e}")
-        logger.error(f"Batch matching failed: {e}")
 
 
 @sigma_group.command("stats")

@@ -286,7 +286,6 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `index-embeddings` | Generate embeddings for rules (uses local intfloat/e5-base-v2) |
 | `backfill-metadata` | Recompute canonical fields for existing rules (no repo access needed) |
 | `match ARTICLE_ID` | Match one article to Sigma rules; `--save` to persist |
-| `match-all` | Match all articles (optional filters) |
 | `stats` | Show Sigma rule and match statistics |
 
 **Options (sync):** `--force` — force re-clone.
@@ -294,8 +293,6 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 **Options (index, index-metadata, index-embeddings):** `--force` — re-index all (or all embeddings).
 
 **Options (match):** `--threshold T` (default `0.7`), `--save`.
-
-**Options (match-all):** `--threshold T`, `--limit N`, `--min-hunt-score N` (default `50`).
 
 **Examples:**
 
@@ -306,7 +303,6 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma index-embeddings
 ./run_cli.sh sigma backfill-metadata
 ./run_cli.sh sigma match 123 --threshold 0.7 --save
-./run_cli.sh sigma match-all --min-hunt-score 50 --limit 100
 ./run_cli.sh sigma stats
 ```
 
@@ -422,7 +418,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `rescore` | Recompute keyword-based threat hunting scores |
 | `rescore-ml` | Recompute ML-based hunt scores |
 | `embed embed` / `embed stats` / `embed search` | Embedding coverage, generation, coverage stats, semantic search |
-| `sigma sync/index/index-metadata/index-embeddings/backfill-metadata/match/match-all/stats` | Sigma rules sync, index, matching |
+| `sigma sync/index/index-metadata/index-embeddings/backfill-metadata/match/stats` | Sigma rules sync, index, matching |
 | `capabilities check` | Runtime feature capability status |
 | `export` | Dump articles to JSON/CSV |
 | `stats` | DB summary (sources, articles, activity) |

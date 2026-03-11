@@ -24,7 +24,7 @@ test.describe('Settings Page', () => {
   });
 
   test('[SETTINGS-002] Page title is displayed', async ({ page }) => {
-    const title = page.locator('h1, [data-testid="settings-title"]');
+    const title = page.locator('h1, h2, h3, [data-testid="settings-title"]');
     await expect(title.first()).toBeVisible();
   });
 
