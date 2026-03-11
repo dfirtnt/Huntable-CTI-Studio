@@ -294,10 +294,11 @@
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📁 Restore from Backup File</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload a backup file (.sql or .sql.gz) to restore the database.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Pick the <strong class="text-gray-700 dark:text-gray-300">main database dump</strong> (e.g. <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">cti_scraper_backup_YYYYMMDD_HHMMSS.sql.gz</code>, usually the largest .sql.gz file). Do not use the small <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">postgres_data_*.tar.gz</code> or <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">redis_data_*.tar.gz</code> files.</p>
                     <div class="flex flex-wrap items-center gap-3">
                         <input type="file"
                                id="restoreBackupFileInput"
-                               accept=".sql,.sql.gz"
+                               accept=".sql,.sql.gz,.gz,application/gzip,application/x-gzip"
                                class="block w-full max-w-xs text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-500 file:text-white hover:file:bg-orange-600 file:cursor-pointer">
                         <button id="restoreFromFileBtn"
                                 type="button"
@@ -314,6 +315,10 @@
                     </div>
                     <div id="restoreFromFileError" class="hidden mt-2 p-3 bg-red-900 border border-red-700 rounded-lg">
                         <p class="text-sm text-red-200"></p>
+                    </div>
+                    <div id="restoreFromFileSuccess" class="hidden mt-2 p-3 bg-green-900/30 border border-green-700 rounded-lg">
+                        <p class="text-sm font-medium text-green-200">✓ Restore completed successfully.</p>
+                        <p id="restoreFromFileSuccessDetail" class="text-sm text-green-300/90 mt-1 hidden"></p>
                     </div>
                 </div>
 
@@ -1844,6 +1849,8 @@
         if (restoreBackupFileInput && restoreFromFileBtn) {
             restoreBackupFileInput.addEventListener('change', function() {
                 restoreFromFileBtn.disabled = !restoreBackupFileInput.files || restoreBackupFileInput.files.length === 0;
+                document.getElementById('restoreFromFileSuccess')?.classList.add('hidden');
+                document.getElementById('restoreFromFileError')?.classList.add('hidden');
             });
             restoreFromFileBtn.addEventListener('click', restoreFromBackupFile);
         }
@@ -2131,6 +2138,7 @@
         if (!confirmed) return;
 
         errorEl.classList.add('hidden');
+        document.getElementById('restoreFromFileSuccess')?.classList.add('hidden');
         progressEl.classList.remove('hidden');
         btn.disabled = true;
         try {
@@ -2142,6 +2150,17 @@
             });
             var data = response.ok ? await response.json() : await response.json().catch(function() { return { detail: 'Restore failed' }; });
             if (response.ok) {
+                var successEl = document.getElementById('restoreFromFileSuccess');
+                var detailEl = document.getElementById('restoreFromFileSuccessDetail');
+                if (successEl) {
+                    if (data.output && typeof data.output === 'string' && data.output.trim()) {
+                        detailEl.textContent = data.output.trim().split('\n').slice(-3).join('\n');
+                        detailEl.classList.remove('hidden');
+                    } else {
+                        detailEl.classList.add('hidden');
+                    }
+                    successEl.classList.remove('hidden');
+                }
                 showNotification('Restore from file completed successfully', 'success');
                 fileInput.value = '';
                 btn.disabled = true;

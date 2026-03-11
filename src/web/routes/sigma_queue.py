@@ -2037,26 +2037,32 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
+            if not rule.rule_yaml or not rule.rule_yaml.strip():
+                raise HTTPException(status_code=400, detail="Queued rule has no YAML content")
+
             # Parse the rule YAML
             try:
                 rule_yaml = yaml.safe_load(rule.rule_yaml)
             except yaml.YAMLError as e:
                 raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}") from e
+            if not isinstance(rule_yaml, dict):
+                raise HTTPException(status_code=400, detail="Rule YAML did not parse to a dictionary")
 
-            # Normalize rule structure
+            # Normalize rule structure (allow missing/empty title or detection so search can run)
+            detection = rule_yaml.get("detection")
+            if not isinstance(detection, dict):
+                detection = {}
             normalized_rule = {
-                "title": rule_yaml.get("title", ""),
-                "description": rule_yaml.get("description", ""),
-                "tags": rule_yaml.get("tags", []),
-                "logsource": rule_yaml.get("logsource", {}),
-                "detection": rule_yaml.get("detection", {}),
+                "title": (rule_yaml.get("title") or "") if rule_yaml.get("title") is not None else "",
+                "description": (rule_yaml.get("description") or "") if rule_yaml.get("description") is not None else "",
+                "tags": rule_yaml.get("tags") if isinstance(rule_yaml.get("tags"), list) else [],
+                "logsource": rule_yaml.get("logsource") if isinstance(rule_yaml.get("logsource"), dict) else {},
+                "detection": detection,
                 "level": rule_yaml.get("level"),
                 "status": rule_yaml.get("status", "experimental"),
             }
-
-            # Skip if essential fields are missing
-            if not normalized_rule["title"] or not normalized_rule["detection"]:
-                raise HTTPException(status_code=400, detail="Rule missing essential fields (title or detection)")
+            if not normalized_rule["title"]:
+                normalized_rule["title"] = "Untitled"
 
             # Use behavioral novelty assessment to find similar rules
             matching_service = SigmaMatchingService(db_session)
@@ -2073,27 +2079,52 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             # When no matches, attach diagnostic so UI can explain (e.g. repo not synced or no rules for this logsource)
             diagnostic = None
             if not similar_matches:
-                from src.services.sigma_novelty_service import SigmaNoveltyService
+                try:
+                    from src.services.sigma_novelty_service import SigmaNoveltyService
 
-                novelty = SigmaNoveltyService(db_session=db_session)
-                logsource_key, _ = novelty.normalize_logsource(normalized_rule.get("logsource", {}))
-                total_rules = db_session.query(SigmaRuleTable).count()
-                rules_with_logsource = (
-                    db_session.query(SigmaRuleTable).filter(SigmaRuleTable.logsource_key == logsource_key).count()
-                    if logsource_key and logsource_key != "|"
-                    else 0
-                )
-                diagnostic = {
-                    "total_sigma_rules": total_rules,
-                    "rules_with_logsource": rules_with_logsource,
-                    "logsource_key": logsource_key or "",
+                    novelty = SigmaNoveltyService(db_session=db_session)
+                    logsource_key, _ = novelty.normalize_logsource(normalized_rule.get("logsource", {}))
+                    total_rules = db_session.query(SigmaRuleTable).count()
+                    rules_with_logsource = (
+                        db_session.query(SigmaRuleTable).filter(SigmaRuleTable.logsource_key == logsource_key).count()
+                        if logsource_key and logsource_key != "|"
+                        else 0
+                    )
+                    diagnostic = {
+                        "total_sigma_rules": total_rules,
+                        "rules_with_logsource": rules_with_logsource,
+                        "logsource_key": logsource_key or "",
+                    }
+                except Exception as diag_err:
+                    logger.warning(f"Could not build similarity diagnostic: {diag_err}")
+                    diagnostic = {"error": str(diag_err)}
+
+            # Build JSON-safe list for JSONB storage (avoid numpy/custom types breaking commit)
+            def _json_safe_match(m: dict) -> dict:
+                return {
+                    "id": int(m["id"]) if m.get("id") is not None else None,
+                    "rule_id": str(m.get("rule_id", "")),
+                    "title": str(m.get("title", "")),
+                    "similarity": float(m.get("similarity", 0.0)),
+                    "similarity_score": float(m.get("similarity_score", m.get("similarity", 0.0))),
+                    "similarity_method": str(m.get("similarity_method", "novelty_assessment")),
+                    "novelty_label": str(m.get("novelty_label", "NOVEL")),
+                    "file_path": str(m["file_path"]) if m.get("file_path") is not None else None,
+                    "level": str(m["level"]) if m.get("level") is not None else None,
+                    "status": str(m["status"]) if m.get("status") is not None else None,
                 }
+
+            to_store = [_json_safe_match(m) for m in similar_matches[:10]]
 
             # Update the queued rule's max_similarity if it's None or different
             if rule.max_similarity is None or abs(rule.max_similarity - max_similarity) > 0.001:
                 rule.max_similarity = max_similarity
-                rule.similarity_scores = similar_matches[:10]  # Store top 10
-                db_session.commit()
+                rule.similarity_scores = to_store
+                try:
+                    db_session.commit()
+                except Exception as commit_err:
+                    logger.warning(f"Could not persist similarity_scores (non-fatal): {commit_err}")
+                    db_session.rollback()
 
             # Prepare response
             response = {
