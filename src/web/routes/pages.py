@@ -12,7 +12,9 @@ from fastapi.responses import HTMLResponse
 
 from src.database.async_manager import async_db_manager
 from src.utils.search_parser import parse_boolean_search
-from src.web.dependencies import ENVIRONMENT, logger, templates
+from fastapi.responses import RedirectResponse
+
+from src.web.dependencies import ENVIRONMENT, logger, rag_enabled, templates
 from src.web.routes.articles import SimpleFilter
 
 router = APIRouter()
@@ -81,7 +83,9 @@ def _build_share_excerpt(article: object, max_length: int = 420) -> str:
 
 @router.get("/chat")
 async def chat_page(request: Request):
-    """Serve the RAG chat interface."""
+    """Serve the RAG chat interface. 404 when RAG is disabled (ENABLE_RAG=0)."""
+    if not rag_enabled():
+        return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("chat.html", {"request": request})
 
 

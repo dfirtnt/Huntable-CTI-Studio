@@ -958,6 +958,26 @@ def retroactive_embed_all_articles(self, batch_size: int = 1000):
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 
+def _set_collection_task_error(task_id: str, exc: BaseException) -> None:
+    """Write last collection error to Redis so the UI can show it (key TTL 10 min)."""
+    if not redis_url:
+        return
+    try:
+        import traceback
+
+        import redis
+
+        client = redis.from_url(redis_url, decode_responses=True)
+        msg = str(exc).strip() or exc.__class__.__name__
+        tb = traceback.format_exc()
+        if tb and tb.strip():
+            msg = f"{msg}\n{tb.strip()}"
+        client.setex(f"collection_task_error:{task_id}", 600, msg[:8000])
+        client.close()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not write collection error to Redis: %s", e)
+
+
 @celery_app.task(bind=True, max_retries=3)
 def collect_from_source(self, source_id: int):
     """Collect new content from a specific source."""
@@ -1177,6 +1197,7 @@ def collect_from_source(self, source_id: int):
 
     except Exception as exc:
         logger.error(f"Source collection task failed: {exc}")
+        _set_collection_task_error(self.request.id, exc)
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 

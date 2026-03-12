@@ -951,15 +951,47 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
     const statusText = document.getElementById('collectionStatusText');
     const terminalContent = document.getElementById('terminalContent');
     const spinner = document.getElementById('collectionStatus').querySelector('.animate-spin');
-    
+    let lastStatus = null;
+    const pollStartTime = Date.now();
+    const MAX_POLL_MS = 10 * 60 * 1000; // 10 minutes
+
     const pollInterval = setInterval(() => {
+        if (Date.now() - pollStartTime > MAX_POLL_MS) {
+            clearInterval(pollInterval);
+            const logDiv = document.createElement('div');
+            logDiv.className = 'text-yellow-400';
+            logDiv.textContent = `[${new Date().toLocaleTimeString()}] Collection is taking longer than expected. Check worker logs or try again later.`;
+            terminalContent.appendChild(logDiv);
+            if (spinner) spinner.classList.add('hidden');
+            statusText.textContent = `Collection timed out for ${sourceName}`;
+            return;
+        }
+
         fetch(`/api/tasks/${taskId}/status`)
         .then(response => response.json())
         .then(data => {
-            // Update terminal output with task status
+            const elapsedSec = Math.floor((Date.now() - pollStartTime) / 1000);
+            const elapsedStr = elapsedSec >= 60 ? `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s` : `${elapsedSec}s`;
+
+            if (data.status === 'PENDING') {
+                statusText.textContent = `Collection queued for ${sourceName}… (${elapsedStr} — start collection worker if nothing happens)`;
+            } else if (data.status === 'RETRY') {
+                const errHint = (data.info && String(data.info).trim()) ? String(data.info).trim().replace(/\s+/g, ' ').substring(0, 120) : null;
+                statusText.textContent = errHint
+                    ? `Collection retrying for ${sourceName}… (${elapsedStr}) — ${errHint}${errHint.length >= 120 ? '…' : ''}`
+                    : `Collection retrying for ${sourceName}… (${elapsedStr} — check worker logs)`;
+            }
+
+            const statusChanged = data.status !== lastStatus;
+            const isTerminal = data.ready || ['SUCCESS', 'FAILURE', 'REVOKED'].includes(data.status);
+            if (!statusChanged && !isTerminal) {
+                return;
+            }
+            lastStatus = data.status;
+
             const timestamp = new Date().toLocaleTimeString();
             let logEntry = `[${timestamp}] `;
-            
+
             switch(data.status) {
                 case 'PENDING':
                     logEntry += 'Task queued, waiting to start...';
@@ -1056,7 +1088,13 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                     clearInterval(pollInterval);
                     break;
                 case 'RETRY':
-                    logEntry += 'Task retrying...';
+                    logEntry += 'Task retrying (worker will try again).';
+                    if (data.info && String(data.info).trim()) {
+                        const errLine = document.createElement('div');
+                        errLine.className = 'text-red-400 text-xs ml-4 mt-1 whitespace-pre-wrap font-mono';
+                        errLine.textContent = `Error: ${String(data.info).trim()}`;
+                        terminalContent.appendChild(errLine);
+                    }
                     break;
                 case 'REVOKED':
                     logEntry += 'Task was cancelled';

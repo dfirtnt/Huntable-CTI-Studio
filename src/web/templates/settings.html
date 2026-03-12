@@ -290,6 +290,50 @@
                     </div>
                 </div>
 
+                <div>
+                    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-3">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">⏱️ Cron Jobs</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                CTI-managed backup jobs are editable here. Other cron jobs are shown read-only.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button id="refreshBackupCronBtn"
+                                    class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                Refresh Cron Jobs
+                            </button>
+                            <button id="applyBackupCronBtn"
+                                    class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                Apply Backup Cron
+                            </button>
+                            <button id="disableBackupCronBtn"
+                                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                Disable Backup Cron
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Cron Support</div>
+                            <div id="backupCronAvailability" class="mt-1 text-sm font-medium text-gray-200">Checking...</div>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Managed Automation</div>
+                            <div id="backupCronManagedStatus" class="mt-1 text-sm font-medium text-gray-200">Checking...</div>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Visible Jobs</div>
+                            <div id="backupCronJobCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
+                        </div>
+                    </div>
+
+                    <div id="backupCronJobsList" class="space-y-2">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Loading cron jobs...</div>
+                    </div>
+                </div>
+
                 <!-- Restore from backup file -->
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📁 Restore from Backup File</h3>
@@ -848,7 +892,7 @@
         await loadLangfuseSettings();
 
         // Load backup configuration
-        loadBackupSettings();
+        await loadBackupSettings();
         
         // Load GitHub PR settings from database
         await loadGitHubPRSettings();
@@ -1060,38 +1104,235 @@
 
 
 
-    // Load backup settings
-    function loadBackupSettings() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        const backupSettings = settings.backupSettings || {};
-        
-        // Set backup schedule
+    function applyBackupSettingsToForm(backupSettings) {
         document.getElementById('backupTime').value = backupSettings.backupTime || '02:00';
         document.getElementById('cleanupTime').value = backupSettings.cleanupTime || '03:00';
-        
-        // Set retention policy
         document.getElementById('dailyRetention').value = backupSettings.dailyRetention || 7;
         document.getElementById('weeklyRetention').value = backupSettings.weeklyRetention || 4;
         document.getElementById('monthlyRetention').value = backupSettings.monthlyRetention || 3;
         document.getElementById('maxSizeGb').value = backupSettings.maxSizeGb || 50;
-        
-        // Set backup components
         document.getElementById('backupDatabase').checked = backupSettings.backupDatabase !== false;
         document.getElementById('backupModels').checked = backupSettings.backupModels !== false;
         document.getElementById('backupConfig').checked = backupSettings.backupConfig !== false;
         document.getElementById('backupOutputs').checked = backupSettings.backupOutputs !== false;
         document.getElementById('backupLogs').checked = backupSettings.backupLogs !== false;
         document.getElementById('backupDockerVolumes').checked = backupSettings.backupDockerVolumes !== false;
-        
-        // Set backup settings
         document.getElementById('backupDirectory').value = backupSettings.backupDirectory || 'backups';
         document.getElementById('backupType').value = backupSettings.backupType || 'full';
         document.getElementById('enableCompression').checked = backupSettings.enableCompression !== false;
         document.getElementById('enableVerification').checked = backupSettings.enableVerification !== false;
     }
+
+    function collectBackupSettingsFromForm() {
+        return {
+            backupTime: document.getElementById('backupTime').value,
+            cleanupTime: document.getElementById('cleanupTime').value,
+            dailyRetention: parseInt(document.getElementById('dailyRetention').value, 10),
+            weeklyRetention: parseInt(document.getElementById('weeklyRetention').value, 10),
+            monthlyRetention: parseInt(document.getElementById('monthlyRetention').value, 10),
+            maxSizeGb: parseInt(document.getElementById('maxSizeGb').value, 10),
+            backupDatabase: document.getElementById('backupDatabase').checked,
+            backupModels: document.getElementById('backupModels').checked,
+            backupConfig: document.getElementById('backupConfig').checked,
+            backupOutputs: document.getElementById('backupOutputs').checked,
+            backupLogs: document.getElementById('backupLogs').checked,
+            backupDockerVolumes: document.getElementById('backupDockerVolumes').checked,
+            backupDirectory: document.getElementById('backupDirectory').value,
+            backupType: document.getElementById('backupType').value,
+            enableCompression: document.getElementById('enableCompression').checked,
+            enableVerification: document.getElementById('enableVerification').checked
+        };
+    }
+
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, function(char) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char];
+        });
+    }
+
+    function renderBackupCronJobs(state) {
+        const availability = document.getElementById('backupCronAvailability');
+        const managedStatus = document.getElementById('backupCronManagedStatus');
+        const jobCount = document.getElementById('backupCronJobCount');
+        const jobsList = document.getElementById('backupCronJobsList');
+
+        availability.textContent = state.cron_available ? 'Available' : 'Unavailable';
+        availability.className = `mt-1 text-sm font-medium ${state.cron_available ? 'text-green-400' : 'text-red-400'}`;
+        managedStatus.textContent = state.automated ? 'Enabled' : 'Disabled';
+        managedStatus.className = `mt-1 text-sm font-medium ${state.automated ? 'text-green-400' : 'text-yellow-400'}`;
+        jobCount.textContent = String((state.jobs || []).length);
+
+        if (!state.cron_available) {
+            jobsList.innerHTML = '<div class="text-sm text-red-400">crontab is not available on this host.</div>';
+            return;
+        }
+
+        if (!state.jobs || state.jobs.length === 0) {
+            jobsList.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400">No cron jobs found.</div>';
+            return;
+        }
+
+        jobsList.innerHTML = state.jobs.map(function(job) {
+            const scopeClass = job.managed ? 'text-blue-300' : 'text-gray-400';
+            const scopeLabel = job.managed ? 'CTI managed' : 'External';
+            const kindLabel = job.kind === 'external' ? 'cron job' : job.kind;
+            const commentHtml = job.comment
+                ? `<div class="text-xs text-gray-500 mt-2 whitespace-pre-wrap">${escapeHtml(job.comment)}</div>`
+                : '';
+
+            return `
+                <div class="rounded-lg border border-gray-700 bg-gray-900/60 p-3">
+                    <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <div class="font-mono text-sm text-gray-100">${escapeHtml(job.schedule)}</div>
+                            <div class="mt-1 text-sm text-gray-300 break-all">${escapeHtml(job.command)}</div>
+                            ${commentHtml}
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs uppercase tracking-wide ${scopeClass}">${scopeLabel}</div>
+                            <div class="mt-1 text-xs text-gray-500">${kindLabel}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadBackupSettings() {
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const backupSettings = settings.backupSettings || {};
+
+        applyBackupSettingsToForm(backupSettings);
+
+        try {
+            const response = await fetch('/api/backup/cron');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const state = await response.json();
+            const config = state.config || {};
+            const mergedSettings = {
+                backupTime: config.backup_time || backupSettings.backupTime || '02:00',
+                cleanupTime: config.cleanup_time || backupSettings.cleanupTime || '03:00',
+                dailyRetention: config.daily ?? backupSettings.dailyRetention ?? 7,
+                weeklyRetention: config.weekly ?? backupSettings.weeklyRetention ?? 4,
+                monthlyRetention: config.monthly ?? backupSettings.monthlyRetention ?? 3,
+                maxSizeGb: config.max_size_gb ?? backupSettings.maxSizeGb ?? 50,
+                backupDatabase: config.components ? config.components.database !== false : backupSettings.backupDatabase !== false,
+                backupModels: config.components ? config.components.models !== false : backupSettings.backupModels !== false,
+                backupConfig: config.components ? config.components.config !== false : backupSettings.backupConfig !== false,
+                backupOutputs: config.components ? config.components.outputs !== false : backupSettings.backupOutputs !== false,
+                backupLogs: config.components ? config.components.logs !== false : backupSettings.backupLogs !== false,
+                backupDockerVolumes: config.components ? config.components.docker_volumes !== false : backupSettings.backupDockerVolumes !== false,
+                backupDirectory: config.backup_dir || backupSettings.backupDirectory || 'backups',
+                backupType: config.backup_type || backupSettings.backupType || 'full',
+                enableCompression: config.compress !== false,
+                enableVerification: config.verify !== false
+            };
+
+            applyBackupSettingsToForm(mergedSettings);
+            settings.backupSettings = mergedSettings;
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+            renderBackupCronJobs(state);
+        } catch (error) {
+            console.warn('Could not load backup cron state from server', error);
+            renderBackupCronJobs({
+                cron_available: false,
+                automated: false,
+                jobs: []
+            });
+        }
+    }
+
+    async function persistBackupSettingsToServer(installCrontab) {
+        const backupSettings = collectBackupSettingsFromForm();
+        const response = await fetch('/api/backup/cron', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                backup_time: backupSettings.backupTime,
+                cleanup_time: backupSettings.cleanupTime,
+                daily: backupSettings.dailyRetention,
+                weekly: backupSettings.weeklyRetention,
+                monthly: backupSettings.monthlyRetention,
+                max_size_gb: backupSettings.maxSizeGb,
+                backup_dir: backupSettings.backupDirectory || 'backups',
+                backup_type: backupSettings.backupType,
+                compress: backupSettings.enableCompression,
+                verify: backupSettings.enableVerification,
+                database: backupSettings.backupDatabase,
+                models: backupSettings.backupModels,
+                config: backupSettings.backupConfig,
+                outputs: backupSettings.backupOutputs,
+                logs: backupSettings.backupLogs,
+                docker_volumes: backupSettings.backupDockerVolumes,
+                install_crontab: installCrontab
+            })
+        });
+
+        if (!response.ok) {
+            let detail = `HTTP ${response.status}`;
+            try {
+                const errorBody = await response.json();
+                if (typeof errorBody.detail === 'string') {
+                    detail = errorBody.detail;
+                } else if (errorBody.detail && errorBody.detail.errors) {
+                    detail = errorBody.detail.errors.join(', ');
+                }
+            } catch (error) {
+                console.warn('Failed to parse backup settings error payload', error);
+            }
+            throw new Error(detail);
+        }
+
+        const state = await response.json();
+        renderBackupCronJobs(state);
+        return state;
+    }
+
+    async function applyBackupCronSchedule() {
+        try {
+            await persistBackupSettingsToServer(true);
+            showNotification('Backup cron schedule updated', 'success');
+        } catch (error) {
+            showNotification(`Failed to update backup cron: ${error.message}`, 'error');
+        }
+    }
+
+    async function disableBackupCronSchedule() {
+        try {
+            const response = await fetch('/api/backup/cron', { method: 'DELETE' });
+            if (!response.ok) {
+                let detail = `HTTP ${response.status}`;
+                try {
+                    const errorBody = await response.json();
+                    detail = errorBody.detail || detail;
+                } catch (error) {
+                    console.warn('Failed to parse backup cron delete error payload', error);
+                }
+                throw new Error(detail);
+            }
+
+            const state = await response.json();
+            renderBackupCronJobs(state);
+            showNotification('Backup cron schedule disabled', 'success');
+        } catch (error) {
+            showNotification(`Failed to disable backup cron: ${error.message}`, 'error');
+        }
+    }
     
     // Save settings to localStorage
     async function saveSettings() {
+        const backupSettings = collectBackupSettingsFromForm();
         const settings = {
             langfusePublicKey: document.getElementById('langfusePublicKey').value.trim() || '',
             langfuseSecretKey: document.getElementById('langfuseSecretKey').value.trim() || '',
@@ -1106,24 +1347,7 @@
             workflowGeminiApiKey: document.getElementById('workflowGeminiApiKey').value.trim() || '',
             lmstudioApiUrl: document.getElementById('lmstudioApiUrl')?.value.trim() || '',
             lmstudioEmbeddingUrl: document.getElementById('lmstudioEmbeddingUrl')?.value.trim() || '',
-            backupSettings: {
-                backupTime: document.getElementById('backupTime').value,
-                cleanupTime: document.getElementById('cleanupTime').value,
-                dailyRetention: parseInt(document.getElementById('dailyRetention').value),
-                weeklyRetention: parseInt(document.getElementById('weeklyRetention').value),
-                monthlyRetention: parseInt(document.getElementById('monthlyRetention').value),
-                maxSizeGb: parseInt(document.getElementById('maxSizeGb').value),
-                backupDatabase: document.getElementById('backupDatabase').checked,
-                backupModels: document.getElementById('backupModels').checked,
-                backupConfig: document.getElementById('backupConfig').checked,
-                backupOutputs: document.getElementById('backupOutputs').checked,
-                backupLogs: document.getElementById('backupLogs').checked,
-                backupDockerVolumes: document.getElementById('backupDockerVolumes').checked,
-                backupDirectory: document.getElementById('backupDirectory').value,
-                backupType: document.getElementById('backupType').value,
-                enableCompression: document.getElementById('enableCompression').checked,
-                enableVerification: document.getElementById('enableVerification').checked
-            }
+            backupSettings: backupSettings
         };
 
         localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
@@ -1141,6 +1365,12 @@
             'LMSTUDIO_EMBEDDING_URL': settings.lmstudioEmbeddingUrl || ''
         };
         await persistWorkflowAppSettings(workflowSettingsPayload);
+
+        try {
+            await persistBackupSettingsToServer(false);
+        } catch (error) {
+            console.error('❌ Error saving backup settings:', error);
+        }
 
         // Save GitHub PR settings to backend API
         try {
@@ -1784,6 +2014,14 @@
                 element.addEventListener('change', saveSettings);
             }
         });
+
+        safeAddListener('refreshBackupCronBtn', 'click', function() {
+            loadBackupSettings().catch(function(error) {
+                showNotification(`Failed to refresh cron jobs: ${error.message}`, 'error');
+            });
+        });
+        safeAddListener('applyBackupCronBtn', 'click', applyBackupCronSchedule);
+        safeAddListener('disableBackupCronBtn', 'click', disableBackupCronSchedule);
 
         // Save settings button
         document.getElementById('saveSettings').addEventListener('click', function() {

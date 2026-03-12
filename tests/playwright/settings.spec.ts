@@ -108,6 +108,20 @@ test.describe('Settings - Save and Persistence', () => {
       await expect(page.getByText('Settings saved successfully!', { exact: false })).toBeVisible();
     }
   });
+
+  test('[SETTINGS-023] Backup cron controls load from backend', async ({ page }) => {
+    await page.locator('#backupConfig-header').click();
+    await expect(page.locator('#refreshBackupCronBtn')).toBeVisible();
+    await expect(page.locator('#applyBackupCronBtn')).toBeVisible();
+    await expect(page.locator('#disableBackupCronBtn')).toBeVisible();
+
+    const refreshResponse = page.waitForResponse((response) => response.url().includes('/api/backup/cron') && response.request().method() === 'GET');
+    await page.locator('#refreshBackupCronBtn').click();
+    const response = await refreshResponse;
+
+    expect(response.ok()).toBeTruthy();
+    await expect(page.locator('#backupCronJobCount')).not.toHaveText('');
+  });
 });
 
 test.describe('Settings - API Keys', () => {

@@ -43,6 +43,8 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       CTI_SCRAPER_URL: http://127.0.0.1:8001
       CTI_EXCLUDE_AGENT_CONFIG_TESTS: "1"
+      DISABLE_SOURCE_AUTO_SYNC: "true"
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
     steps:
       - name: Checkout
@@ -94,8 +96,11 @@ jobs:
           PY
 
       - name: Start web app
+        env:
+          PYTHONUNBUFFERED: "1"
         run: |
           nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          sleep 5
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
               echo "Web app is healthy"
@@ -104,8 +109,17 @@ jobs:
             sleep 2
           done
           echo "Web app did not become healthy in time"
+          echo "--- web.log (last 200 lines) ---"
           tail -n 200 web.log || true
           exit 1
+
+      - name: Upload web log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-log-failure
+          path: web.log
+          if-no-files-found: ignore
 
       - name: Setup Node
         uses: actions/setup-node@v4

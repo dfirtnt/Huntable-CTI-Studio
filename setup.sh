@@ -687,12 +687,24 @@ main() {
         # Align with start.sh startup path: validate pgvector index shape first.
         startup_migrate_pgvector_indexes
 
-        # Prompt: embeddings now or later? (only when not already in limited-env mode)
+        # RAG decision: chat with CTI articles and link to relevant Sigma rules (only when interactive and not already limited-env)
         if [[ -z "$SKIP_SIGMA_INDEX" ]] && [[ "$NON_INTERACTIVE" != "true" ]]; then
             echo ""
-            if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run \"./run_cli.sh sigma index-embeddings\" later)" "yes"; then
+            print_header "RAG (Chat + Sigma Rules)"
+            echo -e "${CYAN}RAG lets you chat with CTI articles and get answers linked to relevant Sigma detection rules.${NC}"
+            echo "Setup can generate Sigma rule embeddings now (several minutes) or you can run it later."
+            echo ""
+            if ! prompt_yes_no "Do you want RAG setup (chat with CTI articles and link to relevant Sigma rules)?" "yes"; then
                 SKIP_SIGMA_INDEX=1
-                print_status "Skipping embeddings. Run \"./run_cli.sh sigma index-embeddings\" when ready."
+                startup_set_env_key ".env" "ENABLE_RAG" "0"
+                print_status "RAG disabled. RAG will not appear in the UI. To enable later: set ENABLE_RAG=1 in .env, run \"./run_cli.sh sigma index-embeddings\", then restart services."
+            else
+                startup_set_env_key ".env" "ENABLE_RAG" "1"
+                # Prompt: embeddings now or later?
+                if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run \"./run_cli.sh sigma index-embeddings\" later)" "yes"; then
+                    SKIP_SIGMA_INDEX=1
+                    print_status "Skipping embeddings. Run \"./run_cli.sh sigma index-embeddings\" when ready."
+                fi
             fi
         fi
 

@@ -4,6 +4,7 @@ Backup management API routes.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -11,10 +12,64 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field
 
+from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
+from src.utils.backup_config import BackupConfigManager, get_backup_config_manager
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/backup", tags=["Backup"])
+
+
+class BackupCronUpdate(BaseModel):
+    """Request model for saving backup config and optionally applying cron."""
+
+    backup_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    cleanup_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    daily: int = Field(ge=0)
+    weekly: int = Field(ge=0)
+    monthly: int = Field(ge=0)
+    max_size_gb: int = Field(gt=0)
+    backup_dir: str = "backups"
+    backup_type: str = Field(default="full", pattern=r"^(full|database|files)$")
+    compress: bool = True
+    verify: bool = True
+    database: bool = True
+    models: bool = True
+    config: bool = True
+    outputs: bool = True
+    logs: bool = True
+    docker_volumes: bool = True
+    install_crontab: bool = False
+
+
+def _sync_backup_config(manager: BackupConfigManager, payload: BackupCronUpdate):
+    """Apply UI payload to the backup config manager."""
+    config = manager.get_config()
+    config.backup_time = payload.backup_time
+    config.cleanup_time = payload.cleanup_time
+    config.daily = payload.daily
+    config.weekly = payload.weekly
+    config.monthly = payload.monthly
+    config.max_size_gb = payload.max_size_gb
+    config.backup_dir = payload.backup_dir
+    config.backup_type = payload.backup_type
+    config.compress = payload.compress
+    config.verify = payload.verify
+    config.database = payload.database
+    config.models = payload.models
+    config.config = payload.config
+    config.outputs = payload.outputs
+    config.logs = payload.logs
+    config.docker_volumes = payload.docker_volumes
+    return config
+
+
+def _get_cron_state() -> dict[str, Any]:
+    """Return current backup cron state and config."""
+    manager = get_backup_config_manager()
+    service = BackupCronService()
+    return service.get_state(manager.get_config())
 
 
 @router.post("/create")
@@ -119,27 +174,77 @@ async def api_list_backups():
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@router.get("/cron")
+async def api_get_backup_cron():
+    """Return current CTI-managed backup cron state and all visible cron jobs."""
+    try:
+        state = _get_cron_state()
+        return {"success": True, **state}
+    except CronCommandError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Backup cron state error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/cron")
+async def api_update_backup_cron(payload: BackupCronUpdate):
+    """Save backup config and optionally install/update CTI-managed cron jobs."""
+    try:
+        manager = get_backup_config_manager()
+        config = _sync_backup_config(manager, payload)
+        errors = manager.validate_config()
+        if errors:
+            raise HTTPException(status_code=422, detail={"errors": errors})
+        if not manager.save_config():
+            raise HTTPException(status_code=500, detail="Failed to save backup config")
+
+        service = BackupCronService()
+        state = service.get_state(config)
+        if payload.install_crontab:
+            state = service.install_backup_schedule(config)
+
+        return {
+            "success": True,
+            "config_saved": True,
+            "crontab_applied": payload.install_crontab,
+            **state,
+        }
+    except CronUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except CronCommandError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Backup cron update error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.delete("/cron")
+async def api_delete_backup_cron():
+    """Disable CTI-managed backup cron jobs while preserving other crontab entries."""
+    try:
+        manager = get_backup_config_manager()
+        service = BackupCronService()
+        state = service.remove_backup_schedule(manager.get_config())
+        return {"success": True, **state}
+    except CronUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except CronCommandError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Backup cron delete error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @router.get("/status")
 async def api_backup_status():
     """API endpoint for retrieving backup status and summary."""
     try:
         project_root = Path(__file__).parent.parent.parent.parent
 
-        # Check for automated backups by looking for cron jobs
-        automated = False
-        try:
-            crontab_result = subprocess.run(
-                ["crontab", "-l"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-            )
-            if crontab_result.returncode == 0 and "scripts/backup_restore.sh" in crontab_result.stdout:
-                automated = True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            # crontab not available or timed out - assume not automated
-            pass
+        cron_state = _get_cron_state()
 
         # Get backup statistics
         result = subprocess.run(
@@ -197,7 +302,9 @@ async def api_backup_status():
                         break
 
         return {
-            "automated": automated,
+            "automated": cron_state["automated"],
+            "cron_available": cron_state["cron_available"],
+            "managed_jobs": cron_state["managed_jobs"],
             "total_backups": total_backups,
             "total_size_gb": total_size_gb,
             "last_backup": last_backup,
@@ -205,6 +312,8 @@ async def api_backup_status():
 
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="Status check timed out") from exc
+    except CronCommandError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup status error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
