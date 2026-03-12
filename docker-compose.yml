@@ -91,6 +91,7 @@ services:
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
+      - ENABLE_RAG=${ENABLE_RAG:-1}
       - TZ=America/New_York
     ports:
       - "8001:8001"

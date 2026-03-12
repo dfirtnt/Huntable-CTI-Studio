@@ -699,8 +699,12 @@ main() {
                 RAG_DISABLED_BY_USER=1
                 startup_set_env_key ".env" "ENABLE_RAG" "0"
                 print_status "RAG disabled. RAG will not appear in the UI. To enable later: set ENABLE_RAG=1 in .env, run \"./run_cli.sh sigma index-embeddings\", then restart services."
+                print_status "Recreating web container to apply ENABLE_RAG=0..."
+                $DOCKER_COMPOSE_CMD up -d web
             else
                 startup_set_env_key ".env" "ENABLE_RAG" "1"
+                print_status "Recreating web container to apply ENABLE_RAG=1..."
+                $DOCKER_COMPOSE_CMD up -d web
                 # Prompt: embeddings now or later?
                 if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run \"./run_cli.sh sigma index-embeddings\" later)" "yes"; then
                     SKIP_SIGMA_INDEX=1
