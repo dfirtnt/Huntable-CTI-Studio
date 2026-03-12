@@ -161,8 +161,9 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' }
         ];
         
-        // Get disabled state if available
-        const disabled = window.disabledExtractAgents || new Set();
+        // Disabled state from config only so Workflow and Agent-evals show the same status
+        const fromConfig = currentConfig?.agent_prompts?.ExtractAgentSettings?.disabled_agents;
+        const disabled = Array.isArray(fromConfig) ? new Set(fromConfig) : new Set();
         
         subAgentOrder.forEach(agent => {
             const isEnabled = !disabled.has(agent.id);
