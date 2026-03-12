@@ -179,6 +179,35 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ---
 
+### cron
+
+**When:** Inspect or replace the current user's crontab (e.g. for backup schedule). Used by the Settings UI and automation; run via CLI to view or edit cron jobs directly.
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `show` | Show cron jobs from current user's crontab |
+| `replace` | Replace crontab with jobs from stdin or a file |
+
+**Options (show):**
+
+| Option | Description |
+|--------|-------------|
+| `--raw` | Print raw crontab instead of parsed job list |
+
+**Examples:**
+
+```bash
+./run_cli.sh cron show
+./run_cli.sh cron show --raw
+./run_cli.sh cron replace < new_crontab.txt
+```
+
+**See also:** [Backup & Restore](../guides/backup-and-restore.md) (Automated Backups), Settings → Backup schedule.
+
+---
+
 ### rescore
 
 **When:** Regenerate **keyword-based** threat hunting scores (`threat_hunting_score` in article metadata). Use after changing scoring rules or to backfill missing scores. Does not change ML-based scores (use `rescore-ml` for that).

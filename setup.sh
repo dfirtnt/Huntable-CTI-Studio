@@ -696,6 +696,7 @@ main() {
             echo ""
             if ! prompt_yes_no "Do you want RAG setup (chat with CTI articles and link to relevant Sigma rules)?" "yes"; then
                 SKIP_SIGMA_INDEX=1
+                RAG_DISABLED_BY_USER=1
                 startup_set_env_key ".env" "ENABLE_RAG" "0"
                 print_status "RAG disabled. RAG will not appear in the UI. To enable later: set ENABLE_RAG=1 in .env, run \"./run_cli.sh sigma index-embeddings\", then restart services."
             else

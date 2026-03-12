@@ -221,7 +221,10 @@ startup_sigma_sync_and_index() {
                 _startup_log_warn "Sigma embeddings skipped (run manually: \"./run_cli.sh sigma index-embeddings\")"
             fi
         else
-            _startup_log_warn "Skipping Sigma embeddings (limited-env mode). Run \"./run_cli.sh sigma index-embeddings\" when ready."
+            # When user chose "No RAG" in setup, RAG_DISABLED_BY_USER is set; skip the warning (they already got instructions).
+            if [ -z "${RAG_DISABLED_BY_USER:-}" ]; then
+                _startup_log_warn "Skipping Sigma embeddings (limited-env mode). Run \"./run_cli.sh sigma index-embeddings\" when ready."
+            fi
         fi
     else
         _startup_log_warn "Sigma sync failed (run manually: ./run_cli.sh sigma sync)"

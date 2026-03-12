@@ -17,6 +17,7 @@ from . import (
     articles,
     backup,
     chat,
+    cron,
     dashboard,
     debug,
     embeddings,
@@ -58,6 +59,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(health.router)
     app.include_router(sources.router)
     app.include_router(backup.router)
+    app.include_router(cron.router)
     app.include_router(analytics.router)
     app.include_router(articles.router)
     app.include_router(search.router)
