@@ -79,4 +79,4 @@ Applied in: `saveAgentPrompt`, `saveAgentPrompt2`, and the rollback-to-latest ha
 
 ## Related Issues
 
-No related issues documented yet.
+- See also: [agent-prompt-state-refactor-stop-recurring-save-display-20260311.md](../workflow-issues/agent-prompt-state-refactor-stop-recurring-save-display-20260311.md) — planned refactor to stop this bug recurring.
