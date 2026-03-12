@@ -35,6 +35,7 @@ from . import (
     pdf,
     scrape,
     search,
+    scheduled_jobs,
     settings,
     sigma_ab_test,
     sigma_queue,
@@ -83,6 +84,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(observable_training.router)
     app.include_router(observable_evaluation.router)
     app.include_router(settings.router)
+    app.include_router(scheduled_jobs.router)
     app.include_router(gpt4o_router)
     app.include_router(workflow_config.router)
     app.include_router(workflow_executions.router)
