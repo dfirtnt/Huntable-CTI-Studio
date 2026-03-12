@@ -109,13 +109,15 @@ test.describe('Settings - Save and Persistence', () => {
     }
   });
 
-  test('[SETTINGS-023] Backup cron controls load from backend', async ({ page }) => {
-    await page.locator('#backupConfig-header').click();
+  test('[SETTINGS-023] Cron panel loads from backend', async ({ page }) => {
+    await page.locator('#cronJobs-header').click();
     await expect(page.locator('#refreshBackupCronBtn')).toBeVisible();
+    await expect(page.locator('#saveCronEditorBtn')).toBeVisible();
     await expect(page.locator('#applyBackupCronBtn')).toBeVisible();
     await expect(page.locator('#disableBackupCronBtn')).toBeVisible();
+    await expect(page.locator('#cronEditor')).toBeVisible();
 
-    const refreshResponse = page.waitForResponse((response) => response.url().includes('/api/backup/cron') && response.request().method() === 'GET');
+    const refreshResponse = page.waitForResponse((response) => response.url().includes('/api/cron') && response.request().method() === 'GET');
     await page.locator('#refreshBackupCronBtn').click();
     const response = await refreshResponse;
 

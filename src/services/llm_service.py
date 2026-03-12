@@ -2076,7 +2076,7 @@ class LLMService:
                         # Find all potential JSON object start positions
                         json_candidates = []
                         search_pos = 0
-                        while True:
+                        while search_pos <= len(response_text):
                             open_pos = response_text.find("{", search_pos)
                             if open_pos == -1:
                                 break
@@ -2548,7 +2548,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     # Strategy: Find ALL potential JSON objects, then take the one with expected keys from the end
                     json_candidates = []
                     search_pos = 0
-                    while True:
+                    while search_pos <= len(response_text):
                         open_pos = response_text.find("{", search_pos)
                         if open_pos == -1:
                             break
@@ -3379,7 +3379,7 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                                 # Look for all potential JSON objects and try the largest one
                                 json_candidates = []
                                 search_pos = 0
-                                while True:
+                                while search_pos <= len(response_text):
                                     open_pos = response_text.find("{", search_pos)
                                     if open_pos == -1:
                                         break

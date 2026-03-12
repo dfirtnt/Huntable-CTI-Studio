@@ -290,50 +290,6 @@
                     </div>
                 </div>
 
-                <div>
-                    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-3">
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">⏱️ Cron Jobs</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                CTI-managed backup jobs are editable here. Other cron jobs are shown read-only.
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap gap-3">
-                            <button id="refreshBackupCronBtn"
-                                    class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                Refresh Cron Jobs
-                            </button>
-                            <button id="applyBackupCronBtn"
-                                    class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                Apply Backup Cron
-                            </button>
-                            <button id="disableBackupCronBtn"
-                                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                Disable Backup Cron
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Cron Support</div>
-                            <div id="backupCronAvailability" class="mt-1 text-sm font-medium text-gray-200">Checking...</div>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Managed Automation</div>
-                            <div id="backupCronManagedStatus" class="mt-1 text-sm font-medium text-gray-200">Checking...</div>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Visible Jobs</div>
-                            <div id="backupCronJobCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
-                        </div>
-                    </div>
-
-                    <div id="backupCronJobsList" class="space-y-2">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Loading cron jobs...</div>
-                    </div>
-                </div>
-
                 <!-- Restore from backup file -->
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📁 Restore from Backup File</h3>
@@ -395,7 +351,83 @@
                      </div>
                  </div>
              </div>
-         </div>
+        </div>
+
+        <!-- Cron Jobs -->
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+            <div id="cronJobs-header" data-collapsible-panel="cronJobs" class="flex items-center justify-between cursor-pointer">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">⏱️ Cron Jobs</h2>
+                <span id="cronJobs-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </span>
+            </div>
+
+            <div id="cronJobs-content" class="space-y-6 hidden">
+                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            View the full user crontab, edit it directly, or apply/remove the CTI-managed backup schedule.
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Saving replaces the current user's crontab exactly as shown in the editor.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button id="refreshBackupCronBtn"
+                                class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Refresh Cron Jobs
+                        </button>
+                        <button id="saveCronEditorBtn"
+                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Save Cron Jobs
+                        </button>
+                        <button id="applyBackupCronBtn"
+                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Apply Backup Cron
+                        </button>
+                        <button id="disableBackupCronBtn"
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Disable Backup Cron
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Cron Support</div>
+                        <div id="backupCronAvailability" class="mt-1 text-sm font-medium text-gray-200">Checking...</div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Managed Automation</div>
+                        <div id="backupCronManagedStatus" class="mt-1 text-sm font-medium text-gray-200">Checking...</div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Visible Jobs</div>
+                        <div id="backupCronJobCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="cronEditor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Crontab Editor
+                    </label>
+                    <textarea id="cronEditor"
+                              rows="12"
+                              spellcheck="false"
+                              class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm text-gray-50 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              placeholder="# Example&#10;0 2 * * * /path/to/command"></textarea>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Visible Jobs</h3>
+                    <div id="backupCronJobsList" class="space-y-2">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Loading cron jobs...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Agentic Workflow Configuration -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
@@ -1161,12 +1193,21 @@
         const managedStatus = document.getElementById('backupCronManagedStatus');
         const jobCount = document.getElementById('backupCronJobCount');
         const jobsList = document.getElementById('backupCronJobsList');
+        const cronEditor = document.getElementById('cronEditor');
+        const saveCronEditorBtn = document.getElementById('saveCronEditorBtn');
 
         availability.textContent = state.cron_available ? 'Available' : 'Unavailable';
         availability.className = `mt-1 text-sm font-medium ${state.cron_available ? 'text-green-400' : 'text-red-400'}`;
         managedStatus.textContent = state.automated ? 'Enabled' : 'Disabled';
         managedStatus.className = `mt-1 text-sm font-medium ${state.automated ? 'text-green-400' : 'text-yellow-400'}`;
         jobCount.textContent = String((state.jobs || []).length);
+        if (cronEditor) {
+            cronEditor.value = state.raw || '';
+            cronEditor.disabled = !state.cron_available;
+        }
+        if (saveCronEditorBtn) {
+            saveCronEditorBtn.disabled = !state.cron_available;
+        }
 
         if (!state.cron_available) {
             jobsList.innerHTML = '<div class="text-sm text-red-400">crontab is not available on this host.</div>';
@@ -1246,8 +1287,50 @@
             renderBackupCronJobs({
                 cron_available: false,
                 automated: false,
-                jobs: []
+                jobs: [],
+                raw: ''
             });
+        }
+    }
+
+    async function loadCronState() {
+        const response = await fetch('/api/cron');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const state = await response.json();
+        renderBackupCronJobs(state);
+        return state;
+    }
+
+    async function saveCronEditor() {
+        const cronEditor = document.getElementById('cronEditor');
+        try {
+            const response = await fetch('/api/cron', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ content: cronEditor.value })
+            });
+
+            if (!response.ok) {
+                let detail = `HTTP ${response.status}`;
+                try {
+                    const errorBody = await response.json();
+                    detail = errorBody.detail || detail;
+                } catch (error) {
+                    console.warn('Failed to parse cron editor error payload', error);
+                }
+                throw new Error(detail);
+            }
+
+            const state = await response.json();
+            renderBackupCronJobs(state);
+            showNotification('Cron jobs updated', 'success');
+        } catch (error) {
+            showNotification(`Failed to update cron jobs: ${error.message}`, 'error');
         }
     }
 
@@ -2016,10 +2099,11 @@
         });
 
         safeAddListener('refreshBackupCronBtn', 'click', function() {
-            loadBackupSettings().catch(function(error) {
+            loadCronState().catch(function(error) {
                 showNotification(`Failed to refresh cron jobs: ${error.message}`, 'error');
             });
         });
+        safeAddListener('saveCronEditorBtn', 'click', saveCronEditor);
         safeAddListener('applyBackupCronBtn', 'click', applyBackupCronSchedule);
         safeAddListener('disableBackupCronBtn', 'click', disableBackupCronSchedule);
 

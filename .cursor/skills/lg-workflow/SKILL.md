@@ -1,0 +1,28 @@
+---
+name: lg-workflow
+description: Runs the full LG (Looks Good) workflow: hygiene (changelog, docs, deps, security, vulture), stage, commit, and push to the current branch. Use when the user says "lg" or "LG". Do not commit or push on "go" or "implement" unless they also say LG.
+---
+
+# LG (Looks Good) Workflow
+
+When the user says **lg** or **LG**, run the full workflow yourself from hygiene through **push to the current branch**. Do not stop at commit or ask the user to push manually.
+
+## Order
+
+1. **Full hygiene** (so the commit includes these updates):
+   - **Changelog** — Update CHANGELOG (or `docs/CHANGELOG.md`) with this session's changes.
+   - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
+   - **Deps** — Verify dependency hygiene (e.g. `pip check`, lockfiles).
+   - **Security** — Run project security checks if defined (e.g. `npm audit`, safety).
+   - **Vulture** — Run `.venv/bin/vulture src scripts` for dead-code detection. Fix or whitelist findings before commit.
+2. **Stage** — `git add` (or equivalent) so all changes are staged.
+3. **Commit** — Commit with a clear message (no auto-commit before user says LG).
+4. **Push** — Push the current branch (e.g. `git push origin HEAD` or `git push`). Complete the push; do not hand off to the user.
+
+## Fallback
+
+If the environment's `git` wrapper breaks (e.g. unsupported `--trailer`), use the real git binary (e.g. `/usr/local/bin/git`) so the workflow completes.
+
+## Trigger
+
+Only run this workflow when the user has said **LG**. Do not commit/push on "go" or "implement" unless they also say LG.

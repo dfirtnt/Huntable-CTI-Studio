@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cron CLI and API** (2026-03-12): `cron` CLI subcommands (`show`, `replace`) to view and replace the current user's crontab; `/api/cron/*` endpoints for snapshot and replace; Settings UI for backup cron schedule. `BackupCronService` used by CLI and API. Tests: `tests/api/test_cron_api.py`, `tests/cli/test_cron_cli.py`; Playwright settings spec updated.
 - **Comprehensive test coverage improvements** (2026-03-10): Added 38 new tests across API, UI, and Playwright suites with full cleanup and restoration:
   - 15 workflow config API tests (CRUD operations, validation, prompts, versions) - `tests/api/test_workflow_config_api.py`
   - 8 preset lifecycle API tests with import/export and save/restore - `tests/api/test_workflow_preset_lifecycle.py`

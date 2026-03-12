@@ -62,56 +62,36 @@ class BackupCronService:
 
     def list_jobs(self) -> list[CronJob]:
         """List cron jobs from the current user's crontab."""
-        crontab_text = self._read_crontab()
-        jobs: list[CronJob] = []
-        pending_comments: list[str] = []
+        return self._parse_jobs(self._read_crontab())
 
-        for raw_line in crontab_text.splitlines():
-            line = raw_line.strip()
-            if not line:
-                pending_comments = []
-                continue
+    def get_snapshot(self) -> dict[str, Any]:
+        """Return current cron availability, raw text, and parsed jobs."""
+        try:
+            raw = self._read_crontab()
+        except CronUnavailableError:
+            return {
+                "cron_available": False,
+                "automated": False,
+                "jobs": [],
+                "managed_jobs": [],
+                "raw": "",
+            }
 
-            if line.startswith("#"):
-                pending_comments.append(raw_line)
-                continue
-
-            parts = raw_line.split(None, 5)
-            if len(parts) < 6:
-                pending_comments = []
-                continue
-
-            schedule = " ".join(parts[:5])
-            command = parts[5].strip()
-            comment = "\n".join(pending_comments) if pending_comments else None
-            kind = self._detect_kind(command)
-            managed = kind != "external" or any(MANAGED_COMMENT_PREFIX in item for item in pending_comments)
-
-            jobs.append(
-                CronJob(
-                    schedule=schedule,
-                    command=command,
-                    raw=raw_line,
-                    managed=managed,
-                    kind=kind,
-                    comment=comment,
-                )
-            )
-            pending_comments = []
-
-        return jobs
-
-    def get_state(self, config: BackupConfig) -> dict[str, Any]:
-        """Return current cron availability, jobs, and config state."""
-        available = self.cron_available()
-        jobs = self.list_jobs() if available else []
+        jobs = self._parse_jobs(raw)
         managed_jobs = [job.to_dict() for job in jobs if job.managed]
-
         return {
-            "cron_available": available,
+            "cron_available": True,
             "automated": any(job.managed for job in jobs),
             "jobs": [job.to_dict() for job in jobs],
             "managed_jobs": managed_jobs,
+            "raw": raw,
+        }
+
+    def get_state(self, config: BackupConfig) -> dict[str, Any]:
+        """Return current cron availability, jobs, and config state."""
+        snapshot = self.get_snapshot()
+        return {
+            **snapshot,
             "config": {
                 "backup_time": config.backup_time,
                 "cleanup_time": config.cleanup_time,
@@ -134,6 +114,11 @@ class BackupCronService:
                 },
             },
         }
+
+    def replace_crontab(self, contents: str) -> dict[str, Any]:
+        """Replace the entire current user's crontab."""
+        self._write_crontab(contents)
+        return self.get_snapshot()
 
     def install_backup_schedule(self, config: BackupConfig) -> dict[str, Any]:
         """Install or update the managed backup cron entries."""
@@ -208,6 +193,45 @@ class BackupCronService:
             kept_lines.pop()
 
         return "\n".join(kept_lines)
+
+    def _parse_jobs(self, crontab_text: str) -> list[CronJob]:
+        jobs: list[CronJob] = []
+        pending_comments: list[str] = []
+
+        for raw_line in crontab_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                pending_comments = []
+                continue
+
+            if line.startswith("#"):
+                pending_comments.append(raw_line)
+                continue
+
+            parts = raw_line.split(None, 5)
+            if len(parts) < 6:
+                pending_comments = []
+                continue
+
+            schedule = " ".join(parts[:5])
+            command = parts[5].strip()
+            comment = "\n".join(pending_comments) if pending_comments else None
+            kind = self._detect_kind(command)
+            managed = kind != "external" or any(MANAGED_COMMENT_PREFIX in item for item in pending_comments)
+
+            jobs.append(
+                CronJob(
+                    schedule=schedule,
+                    command=command,
+                    raw=raw_line,
+                    managed=managed,
+                    kind=kind,
+                    comment=comment,
+                )
+            )
+            pending_comments = []
+
+        return jobs
 
     def _render_managed_entries(self, config: BackupConfig) -> str:
         backup_minute, backup_hour = self._time_to_hour_minute(config.backup_time)

@@ -20,6 +20,7 @@ def test_cli_help_shows_usage_and_subcommands(runner):
     assert "Usage:" in result.output
     assert "collect" in result.output
     assert "backup" in result.output
+    assert "cron" in result.output
     assert "rescore" in result.output
 
 

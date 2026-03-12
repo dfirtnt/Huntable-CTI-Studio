@@ -9,7 +9,7 @@ import click
 src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
-from .commands import archive, backup, collect, compare_sources, export, init, search, stats, sync_sources
+from .commands import archive, backup, collect, compare_sources, cron, export, init, search, stats, sync_sources
 from .commands.capabilities import capabilities_group
 from .commands.embed import embed_group
 from .commands.rescore import rescore
@@ -44,6 +44,7 @@ cli.add_command(search)
 cli.add_command(export)
 cli.add_command(stats)
 cli.add_command(backup)
+cli.add_command(cron)
 cli.add_command(sync_sources)
 cli.add_command(compare_sources)
 cli.add_command(rescore)
