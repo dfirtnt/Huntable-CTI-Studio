@@ -6,6 +6,9 @@ from pathlib import Path
 
 import click
 
+from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
+from src.utils.backup_config import get_backup_config_manager
+
 from ..context import CLIContext
 
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)
@@ -251,3 +254,134 @@ def stats(ctx: CLIContext, backup_dir: str):
     except subprocess.CalledProcessError as e:
         click.echo(f"❌ Failed to show backup stats: {e}", err=True)
         sys.exit(1)
+
+
+@backup.group("cron")
+def backup_cron():
+    """Show and manage CTI-owned backup cron jobs."""
+    pass
+
+
+@backup_cron.command("show")
+@pass_context
+def backup_cron_show(ctx: CLIContext):
+    """Show current cron jobs and CTI-managed backup automation state."""
+    manager = get_backup_config_manager()
+    service = BackupCronService()
+
+    try:
+        state = service.get_state(manager.get_config())
+    except CronCommandError as exc:
+        click.echo(f"❌ Failed to read cron jobs: {exc}", err=True)
+        sys.exit(1)
+
+    if not state["cron_available"]:
+        click.echo("⚠️ crontab is not available on this host.")
+        return
+
+    click.echo(f"Automated backups: {'enabled' if state['automated'] else 'disabled'}")
+    click.echo(f"Configured backup time: {state['config']['backup_time']}")
+    click.echo(f"Configured cleanup time: {state['config']['cleanup_time']}")
+    click.echo("")
+
+    if not state["jobs"]:
+        click.echo("No cron jobs found.")
+        return
+
+    click.echo("Cron jobs:")
+    for job in state["jobs"]:
+        scope = "managed" if job["managed"] else "external"
+        click.echo(f"- [{scope}] {job['schedule']} -> {job['command']}")
+
+
+@backup_cron.command("apply")
+@click.option("--backup-time", help="Daily backup time in HH:MM")
+@click.option("--cleanup-time", help="Weekly cleanup time in HH:MM")
+@click.option("--daily", type=int, help="Keep last N daily backups")
+@click.option("--weekly", type=int, help="Keep last N weekly backups")
+@click.option("--monthly", type=int, help="Keep last N monthly backups")
+@click.option("--max-size-gb", type=int, help="Maximum total backup size in GB")
+@click.option("--backup-dir", help="Backup directory")
+@click.option("--type", "backup_type", type=click.Choice(["full", "database", "files"]), help="Backup type")
+@click.option("--compress/--no-compress", default=None, help="Enable or disable compression")
+@click.option("--verify/--no-verify", default=None, help="Enable or disable verification")
+@pass_context
+def backup_cron_apply(
+    ctx: CLIContext,
+    backup_time: str | None,
+    cleanup_time: str | None,
+    daily: int | None,
+    weekly: int | None,
+    monthly: int | None,
+    max_size_gb: int | None,
+    backup_dir: str | None,
+    backup_type: str | None,
+    compress: bool | None,
+    verify: bool | None,
+):
+    """Save backup config and install/update CTI-managed cron jobs."""
+    manager = get_backup_config_manager()
+    config = manager.get_config()
+
+    if backup_time is not None:
+        config.backup_time = backup_time
+    if cleanup_time is not None:
+        config.cleanup_time = cleanup_time
+    if daily is not None:
+        config.daily = daily
+    if weekly is not None:
+        config.weekly = weekly
+    if monthly is not None:
+        config.monthly = monthly
+    if max_size_gb is not None:
+        config.max_size_gb = max_size_gb
+    if backup_dir is not None:
+        config.backup_dir = backup_dir
+    if backup_type is not None:
+        config.backup_type = backup_type
+    if compress is not None:
+        config.compress = compress
+    if verify is not None:
+        config.verify = verify
+
+    errors = manager.validate_config()
+    if errors:
+        for error in errors:
+            click.echo(f"❌ {error}", err=True)
+        sys.exit(1)
+
+    if not manager.save_config():
+        click.echo("❌ Failed to save backup configuration", err=True)
+        sys.exit(1)
+
+    service = BackupCronService()
+    try:
+        state = service.install_backup_schedule(config)
+    except CronUnavailableError as exc:
+        click.echo(f"❌ {exc}", err=True)
+        sys.exit(1)
+    except CronCommandError as exc:
+        click.echo(f"❌ Failed to update cron jobs: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo("✅ Backup cron schedule applied")
+    click.echo(f"Managed jobs: {len(state['managed_jobs'])}")
+
+
+@backup_cron.command("disable")
+@pass_context
+def backup_cron_disable(ctx: CLIContext):
+    """Remove CTI-managed backup cron jobs."""
+    manager = get_backup_config_manager()
+    service = BackupCronService()
+
+    try:
+        service.remove_backup_schedule(manager.get_config())
+    except CronUnavailableError as exc:
+        click.echo(f"❌ {exc}", err=True)
+        sys.exit(1)
+    except CronCommandError as exc:
+        click.echo(f"❌ Failed to remove cron jobs: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo("✅ Backup cron schedule removed")

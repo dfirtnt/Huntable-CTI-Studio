@@ -38,8 +38,26 @@ async def api_get_task_status(task_id: str):
                 response["result"] = result.result
             elif result.failed():
                 response["error"] = str(result.result)
-        elif hasattr(result, "info") and result.info:
-            response["info"] = result.info
+        else:
+            try:
+                import redis
+
+                redis_url = os.getenv("REDIS_URL") or (
+                    "redis://localhost:6379/0" if os.getenv("APP_ENV") == "test" else "redis://redis:6379/0"
+                )
+                r = redis.from_url(redis_url, decode_responses=True)
+                worker_error = r.get(f"collection_task_error:{task_id}")
+                r.close()
+                if worker_error:
+                    response["info"] = worker_error
+            except Exception:  # noqa: S110
+                pass
+            if "info" not in response and hasattr(result, "info") and result.info is not None:
+                raw = result.info
+                if isinstance(raw, str):
+                    response["info"] = raw
+                else:
+                    response["info"] = str(raw)
 
         return response
 

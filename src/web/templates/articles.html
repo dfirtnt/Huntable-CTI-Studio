@@ -30,10 +30,12 @@
                 <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[63px] h-[63px]" />
                 Threat Intelligence Articles
             </h1>
+            {% if rag_enabled %}
             <a href="/chat" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 font-medium shadow-lg" title="AI-powered semantic search across threat intelligence content">
                 <span>🔍</span>
                 <span>RAG Search</span>
             </a>
+            {% endif %}
         </div>
         <p class="text-gray-600 dark:text-gray-400">Browse and search collected threat intelligence articles</p>
     </div>

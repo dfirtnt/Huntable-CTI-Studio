@@ -7,11 +7,18 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
 from src.database.models import RagPresetTable
+from src.web.dependencies import rag_enabled
+
+
+def _require_rag() -> None:
+    """Dependency: raise 403 if RAG is disabled."""
+    if not rag_enabled():
+        raise HTTPException(status_code=403, detail="RAG is disabled (ENABLE_RAG=0)")
 from src.utils.sentence_splitter import split_sentences
 from src.web.dependencies import logger
 
@@ -96,7 +103,7 @@ def _filter_by_lexical_relevance(articles: list, terms: list[str], max_results: 
 
 
 @router.post("/api/chat/preset/save")
-async def save_rag_preset(save_request: SaveRagPresetRequest):
+async def save_rag_preset(save_request: SaveRagPresetRequest, _: None = Depends(_require_rag)):
     """Save a new RAG preset."""
     try:
         db_manager = DatabaseManager()
@@ -145,7 +152,7 @@ async def save_rag_preset(save_request: SaveRagPresetRequest):
 
 
 @router.get("/api/chat/preset/list")
-async def list_rag_presets():
+async def list_rag_presets(_: None = Depends(_require_rag)):
     """Get list of all saved RAG presets."""
     try:
         db_manager = DatabaseManager()
@@ -175,7 +182,7 @@ async def list_rag_presets():
 
 
 @router.get("/api/chat/preset/{preset_id}")
-async def get_rag_preset(preset_id: int):
+async def get_rag_preset(preset_id: int, _: None = Depends(_require_rag)):
     """Get a specific RAG preset by ID."""
     try:
         db_manager = DatabaseManager()
@@ -206,7 +213,7 @@ async def get_rag_preset(preset_id: int):
 
 
 @router.delete("/api/chat/preset/{preset_id}")
-async def delete_rag_preset(preset_id: int):
+async def delete_rag_preset(preset_id: int, _: None = Depends(_require_rag)):
     """Delete a RAG preset."""
     try:
         db_manager = DatabaseManager()
@@ -228,7 +235,7 @@ async def delete_rag_preset(preset_id: int):
 
 
 @router.post("/api/chat/rag")
-async def api_rag_chat(request: Request):
+async def api_rag_chat(request: Request, _: None = Depends(_require_rag)):
     """
     Chat with the database using RAG (Retrieval-Augmented Generation).
     """

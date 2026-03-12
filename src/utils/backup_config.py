@@ -341,57 +341,65 @@ class BackupConfigManager:
             # Create directory if it doesn't exist
             config_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Convert config to dictionary
-            config_data = {
-                "schedule": {
-                    "backup_time": self.config.backup_time,
-                    "cleanup_time": self.config.cleanup_time,
-                    "cleanup_day": self.config.cleanup_day,
-                },
-                "retention": {
-                    "daily": self.config.daily,
-                    "weekly": self.config.weekly,
-                    "monthly": self.config.monthly,
-                    "max_size_gb": self.config.max_size_gb,
-                },
-                "backup": {
-                    "directory": self.config.backup_dir,
-                    "compress": self.config.compress,
-                    "verify": self.config.verify,
-                    "type": self.config.backup_type,
-                },
-                "components": {
-                    "database": self.config.database,
-                    "models": self.config.models,
-                    "config": self.config.config,
-                    "outputs": self.config.outputs,
-                    "logs": self.config.logs,
-                    "docker_volumes": self.config.docker_volumes,
-                },
-                "docker_volumes": {"volumes": self.config.volume_list, "stop_containers": self.config.stop_containers},
-                "verification": {
-                    "checksums": self.config.checksums,
-                    "test_restore": self.config.test_restore,
-                    "critical_patterns": self.config.critical_patterns,
-                },
-                "logging": {
-                    "log_file": self.config.log_file,
-                    "level": self.config.log_level,
-                    "rotate": self.config.rotate_logs,
-                    "keep_logs": self.config.keep_logs,
-                },
-                "security": {
-                    "encrypt": self.config.encrypt,
-                    "key_file": self.config.key_file,
-                    "file_permissions": self.config.file_permissions,
-                    "dir_permissions": self.config.dir_permissions,
-                },
-                "performance": {
-                    "max_threads": self.config.max_threads,
-                    "timeout": self.config.timeout,
-                    "progress": self.config.progress,
-                    "chunk_size": self.config.chunk_size,
-                },
+            config_data: dict[str, Any] = {}
+            if config_path.exists():
+                with open(config_path) as f:
+                    existing = yaml.safe_load(f) or {}
+                if isinstance(existing, dict):
+                    config_data = existing
+
+            # Update managed sections while preserving unrelated top-level keys.
+            config_data["schedule"] = {
+                "backup_time": self.config.backup_time,
+                "cleanup_time": self.config.cleanup_time,
+                "cleanup_day": self.config.cleanup_day,
+            }
+            config_data["retention"] = {
+                "daily": self.config.daily,
+                "weekly": self.config.weekly,
+                "monthly": self.config.monthly,
+                "max_size_gb": self.config.max_size_gb,
+            }
+            config_data["backup"] = {
+                "directory": self.config.backup_dir,
+                "compress": self.config.compress,
+                "verify": self.config.verify,
+                "type": self.config.backup_type,
+            }
+            config_data["components"] = {
+                "database": self.config.database,
+                "models": self.config.models,
+                "config": self.config.config,
+                "outputs": self.config.outputs,
+                "logs": self.config.logs,
+                "docker_volumes": self.config.docker_volumes,
+            }
+            config_data["docker_volumes"] = {
+                "volumes": self.config.volume_list,
+                "stop_containers": self.config.stop_containers,
+            }
+            config_data["verification"] = {
+                "checksums": self.config.checksums,
+                "test_restore": self.config.test_restore,
+                "critical_patterns": self.config.critical_patterns,
+            }
+            config_data["logging"] = {
+                "log_file": self.config.log_file,
+                "level": self.config.log_level,
+                "rotate": self.config.rotate_logs,
+                "keep_logs": self.config.keep_logs,
+            }
+            config_data["security"] = {
+                "encrypt": self.config.encrypt,
+                "key_file": self.config.key_file,
+                "file_permissions": self.config.file_permissions,
+                "dir_permissions": self.config.dir_permissions,
+            }
+            config_data["performance"] = {
+                "max_threads": self.config.max_threads,
+                "timeout": self.config.timeout,
+                "progress": self.config.progress,
+                "chunk_size": self.config.chunk_size,
             }
 
             with open(config_path, "w") as f:

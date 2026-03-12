@@ -82,6 +82,19 @@ async function waitForConfigUpdate(page: Page, oldVersion: number) {
 }
 
 test.describe('Workflow Config Persistence', () => {
+  test('workflow#config loads with scroll at top', async ({ page }) => {
+    await page.goto(`${BASE}/workflow#config`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
+    await page.waitForFunction(
+      () => typeof currentConfig !== 'undefined' && currentConfig !== null,
+      { timeout: 10000 }
+    );
+    await page.waitForTimeout(600);
+    const scrollY = await page.evaluate(() => window.scrollY);
+    expect(scrollY).toBeLessThanOrEqual(50);
+  });
+
   test('config display updates after save using shared component', async ({ page }) => {
     await gotoWorkflowConfig(page);
     await ensureRankAgentPanel(page);
@@ -117,6 +130,50 @@ test.describe('Workflow Config Persistence', () => {
     expect(text).toContain('Junk Filter Threshold');
     expect(text).toContain('Similarity Threshold');
     expect(text).toContain('Updated');
+  });
+
+  test('config display includes RankAgentQA when Rank is disabled', async ({ page }) => {
+    await gotoWorkflowConfig(page);
+    await ensureRankAgentPanel(page);
+    const toggle = page.locator('#rank-agent-enabled');
+    const initiallyEnabled = await toggle.isChecked();
+    const saveButton = page.locator('#save-config-button');
+
+    try {
+      if (initiallyEnabled) {
+        await page.evaluate(() => {
+          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
+          if (!input) throw new Error('Rank Agent toggle not found');
+          input.checked = false;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForTimeout(400);
+        await expect(saveButton).toBeEnabled();
+        await Promise.all([
+          page.waitForResponse((r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT'),
+          saveButton.click(),
+        ]);
+        await page.waitForTimeout(500);
+      }
+      const displayText = await page.locator('#configDisplay').innerText();
+      expect(displayText).toContain('RankAgentQA');
+    } finally {
+      if (initiallyEnabled) {
+        await page.evaluate(() => {
+          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
+          if (!input) return;
+          input.checked = true;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForTimeout(400);
+        if (await saveButton.isEnabled()) {
+          await Promise.all([
+            page.waitForResponse((r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT'),
+            saveButton.click(),
+          ]);
+        }
+      }
+    }
   });
 
   test('Rank Agent enabled toggle persists after save + refresh', async ({ page }) => {
