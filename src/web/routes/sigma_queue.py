@@ -6,6 +6,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any
 
@@ -34,6 +35,21 @@ from src.utils.prompt_loader import format_prompt
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sigma-queue", tags=["sigma-queue"])
+
+
+def _extract_yaml_block(text: str) -> str:
+    """Extract YAML from text (strip markdown code fences, leading prose). Used for similarity search parsing."""
+    if not text or not text.strip():
+        return text.strip() if text else ""
+    text = text.strip()
+    match = re.search(r"```(?:yaml)?\s*\n(.*?)(?:\n```|$)", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    for start in ("title:", "id:", "logsource:", "detection:"):
+        idx = text.find(start)
+        if idx != -1:
+            return text[idx:].strip()
+    return text
 
 
 def _load_workflow_provider_settings(db_session) -> dict[str, str | None]:
@@ -2044,12 +2060,18 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
-            if not rule.rule_yaml or not rule.rule_yaml.strip():
+            raw_yaml = (rule.rule_yaml or "").strip()
+            if not raw_yaml:
                 raise HTTPException(status_code=400, detail="Queued rule has no YAML content")
+
+            # Extract YAML block if content has markdown/prose (e.g. from enrichment or paste)
+            content_to_parse = _extract_yaml_block(rule.rule_yaml)
+            if not content_to_parse:
+                content_to_parse = raw_yaml
 
             # Parse the rule YAML
             try:
-                rule_yaml = yaml.safe_load(rule.rule_yaml)
+                rule_yaml = yaml.safe_load(content_to_parse)
             except yaml.YAMLError as e:
                 raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}") from e
             if not isinstance(rule_yaml, dict):
