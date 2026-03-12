@@ -82,6 +82,43 @@ async function waitForConfigUpdate(page: Page, oldVersion: number) {
 }
 
 test.describe('Workflow Config Persistence', () => {
+  test('config display updates after save using shared component', async ({ page }) => {
+    await gotoWorkflowConfig(page);
+    await ensureRankAgentPanel(page);
+    const display = page.locator('#configDisplay');
+    await expect(display).toBeVisible();
+    await page.waitForFunction(() => {
+      const el = document.getElementById('configDisplay');
+      return el && el.innerText.includes('Version') && el.innerText.includes('Ranking Threshold');
+    }, { timeout: 10000 });
+
+    const rankingThreshold = page.locator('#rankingThreshold');
+    await expect(rankingThreshold).toBeVisible();
+    const initialValue = await rankingThreshold.inputValue();
+    const newValue = (parseFloat(initialValue) || 6.0) + 0.5;
+
+    const saveButton = page.locator('#save-config-button');
+    await rankingThreshold.fill(newValue.toString());
+    await rankingThreshold.dispatchEvent('change');
+    await page.waitForTimeout(400);
+    await expect(saveButton).toBeEnabled();
+
+    await Promise.all([
+      page.waitForResponse((resp) =>
+        resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT'
+      ),
+      saveButton.click(),
+    ]);
+
+    await page.waitForTimeout(500);
+    const text = await display.innerText();
+    expect(text).toContain('Version');
+    expect(text).toContain('Ranking Threshold');
+    expect(text).toContain('Junk Filter Threshold');
+    expect(text).toContain('Similarity Threshold');
+    expect(text).toContain('Updated');
+  });
+
   test('Rank Agent enabled toggle persists after save + refresh', async ({ page }) => {
     await gotoWorkflowConfig(page);
     await ensureRankAgentPanel(page);
