@@ -1,0 +1,8 @@
+title: Test Rule Two
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection:
+    Image: powershell.exe
+  condition: selection
