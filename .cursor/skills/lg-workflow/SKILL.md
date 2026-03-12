@@ -1,6 +1,6 @@
 ---
 name: lg-workflow
-description: Runs the full LG (Looks Good) workflow: hygiene (changelog, docs, deps, security, vulture), stage, commit, and push to the current branch. Use when the user says "lg" or "LG". Do not commit or push on "go" or "implement" unless they also say LG.
+description: Performs full pre-commit hygiene (changelog, docs, deps, security, Vulture dead-code check), then stages, commits, and pushes to the current branch. Use when the user says "lg" or "LG"; do not commit or push on "go" or "implement" unless they also say LG.
 ---
 
 # LG (Looks Good) Workflow
