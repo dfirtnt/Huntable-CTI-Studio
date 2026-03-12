@@ -5169,6 +5169,15 @@ async function loadConfig(skipPromptReload = false) {
                 // Reset original state after initialization to clear any false "unsaved changes"
                 resetOriginalConfigStateFromCurrent();
                 updateSaveButtonState();
+                // Scroll to top when page was opened with #config (override any scroll from loadConfig)
+                if (window._workflowScrollToTopOnLoad) {
+                    window._workflowScrollToTopOnLoad = false;
+                    requestAnimationFrame(function () {
+                        window.scrollTo(0, 0);
+                        if (document.documentElement) document.documentElement.scrollTop = 0;
+                        if (document.body) document.body.scrollTop = 0;
+                    });
+                }
             }, 100);
         } else {
             // If skipping prompt reload, restore previous initialization state
@@ -5182,6 +5191,14 @@ async function loadConfig(skipPromptReload = false) {
         
         // Clear initialization flag even on error
         if (!skipPromptReload) {
+            if (window._workflowScrollToTopOnLoad) {
+                window._workflowScrollToTopOnLoad = false;
+                requestAnimationFrame(function () {
+                    window.scrollTo(0, 0);
+                    if (document.documentElement) document.documentElement.scrollTop = 0;
+                    if (document.body) document.body.scrollTop = 0;
+                });
+            }
             setTimeout(() => {
                 isInitializing = false;
                 console.log('Initialization complete (with errors), autosave enabled');
@@ -9652,44 +9669,13 @@ if (workflowConfigForm) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
             }
             
-            // Update config display
-            const configDisplay = document.getElementById('configDisplay');
-            if (configDisplay) {
-                // Build selected models summary from UI state (not just saved config)
-                // This ensures we show all models currently selected in the UI
-                const uiModels = getAllSelectedModelsWithProviders();
-                // Order models by workflow execution order and add indentation for sub-agents
-                const orderedModels = orderModelsByWorkflow(uiModels);
-                const selectedModels = orderedModels.map(m => ({
-                    text: `${m.agent}: ${m.model} (${m.provider})`,
-                    indent: m.indent,
-                    indentLevel: m.indentLevel || (m.indent ? 1 : 0)
-                }));
-                
-                const modelsHtml = selectedModels.length > 0 
-                    ? `<div class="mt-2"><strong>Selected Models:</strong><ul class="list-disc list-inside ml-2 mt-1">${selectedModels.map(m => {
-                        let indentClass = '';
-                        if (m.indentLevel === 2) {
-                            indentClass = 'ml-12';  // Second indent for QA agents under Extract
-                        } else if (m.indentLevel === 1) {
-                            indentClass = 'ml-6';   // First indent for extract agents
-                        }
-                        return `<li class="text-xs ${indentClass}">${m.text}</li>`;
-                    }).join('')}</ul></div>`
-                    : '';
-                
-                configDisplay.innerHTML = `
-                    <div class="space-y-1">
-                        <p><strong>Version:</strong> ${updatedConfig.version || 'N/A'}</p>
-                        <p><strong>Ranking Threshold:</strong> ${updatedConfig.ranking_threshold || 'N/A'}</p>
-                        <p><strong>Junk Filter Threshold:</strong> ${updatedConfig.junk_filter_threshold || 'N/A'}</p>
-                        <p><strong>Similarity Threshold:</strong> ${updatedConfig.similarity_threshold || 'N/A'}</p>
-                        <p><strong>Updated:</strong> ${parseUTCDate(updatedConfig.updated_at).toLocaleString()}</p>
-                        ${modelsHtml}
-                    </div>
-                `;
+            // Update config display using shared component (same as Agent-evals and loadConfig path)
+            if (typeof renderWorkflowConfigDisplay === 'function') {
+                renderWorkflowConfigDisplay(updatedConfig, {
+                    uiModels: typeof getAllSelectedModelsWithProviders === 'function' ? getAllSelectedModelsWithProviders() : []
+                });
             }
-            
+
             // Update currentConfig first to ensure syncExtractAgentTogglesFromConfig uses the latest config
             currentConfig = updatedConfig;
             
@@ -15899,6 +15885,26 @@ function initializeTabs() {
         switchTab(initialHash);
     } else {
         switchTab('config');
+    }
+    // Prevent hash-driven scroll: we use hash only for tab state. Reset scroll so the page
+    // opens at the top. Also set flag so loadConfig can scroll after it finishes (async).
+    function scrollWorkflowToTop() {
+        window.scrollTo(0, 0);
+        if (document.documentElement) {
+            document.documentElement.scrollTop = 0;
+        }
+        if (document.body) {
+            document.body.scrollTop = 0;
+        }
+    }
+    if (window.location.hash) {
+        if (typeof history !== 'undefined' && history.scrollRestoration) {
+            history.scrollRestoration = 'manual';
+        }
+        window._workflowScrollToTopOnLoad = true;
+        scrollWorkflowToTop();
+        requestAnimationFrame(scrollWorkflowToTop);
+        setTimeout(scrollWorkflowToTop, 200);
     }
 }
 
