@@ -212,32 +212,9 @@ The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during
 
 See [Source Configuration Precedence](../guides/source-config.md) for details.
 
-## Celery Task Queues
+## Celery and Scheduled Jobs
 
-The system uses specialized queues for workload isolation:
-
-| Queue | Purpose |
-|-------|---------|
-| `default` | General tasks, embeddings |
-| `source_checks` | Periodic source polling |
-| `maintenance` | Cleanup, pruning, SIGMA sync |
-| `reports` | Daily report generation |
-| `connectivity` | Source connectivity testing |
-| `collection` | Manual source collection |
-| `workflows` | Agentic workflow execution |
-
-## Periodic Tasks
-
-| Task | Schedule | Queue |
-|------|----------|-------|
-| `check_all_sources` | Every 30 minutes | `source_checks` |
-| `cleanup_old_data` | Daily at 2:00 AM | `maintenance` |
-| `generate_daily_report` | Daily at 6:00 AM | `reports` |
-| `embed_new_articles` | Daily at 3:00 PM | `default` |
-| `sync_sigma_rules` | Weekly (Sunday 4:00 AM) | `maintenance` |
-| `update_provider_model_catalogs` | Daily at 4:00 AM | `maintenance` |
-
-The provider model catalog is also refreshed **at setup** (`./setup.sh`) and **at start** (`./start.sh`) so users see the current OpenAI/Anthropic/Gemini model list immediately; the daily run keeps it updated for long-running instances.
+Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh), and host backup cron are documented in [Scheduled Jobs](../reports/SCHEDULED_JOBS_REPORT.md). The provider model catalog is also refreshed at **setup** (`./setup.sh`) and **start** (`./start.sh`) so workflow model dropdowns show the current list immediately.
 
 ## Health Checks and Diagnostics
 

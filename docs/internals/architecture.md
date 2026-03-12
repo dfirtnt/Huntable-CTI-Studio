@@ -284,7 +284,6 @@ API Endpoints:
 │ • check_all_sources│
 │ • check_source  │
 │ • cleanup_old_data│
-│ • generate_daily_report│
 └─────────┬───────┘
           │
           ▼
@@ -294,7 +293,6 @@ API Endpoints:
 │ • Source Health │
 │ • Content Collection│
 │ • Data Cleanup  │
-│ • Report Gen    │
 └─────────┬───────┘
           │
           ▼

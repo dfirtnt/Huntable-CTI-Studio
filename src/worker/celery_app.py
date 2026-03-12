@@ -13,6 +13,8 @@ from pathlib import Path
 from celery import Celery
 from celery.schedules import crontab
 
+from src.services.scheduled_jobs_service import ScheduledJobsService, cron_expression_to_kwargs
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -106,6 +108,27 @@ except ImportError:
 
 
 # Define periodic tasks
+def register_configurable_periodic_tasks(sender, jobs, crontab_factory=crontab):
+    """Register UI-managed periodic tasks from persisted schedule config."""
+    configurable_jobs = {
+        "cleanup_old_data": cleanup_old_data.s,
+        "embed_new_articles": embed_new_articles.s,
+        "sync_sigma_rules": sync_sigma_rules.s,
+        "update_provider_model_catalogs": update_provider_model_catalogs.s,
+    }
+
+    for job in jobs:
+        if not job["enabled"]:
+            logger.info("Skipping disabled scheduled job: %s", job["id"])
+            continue
+        signature_factory = configurable_jobs[job["id"]]
+        sender.add_periodic_task(
+            crontab_factory(**cron_expression_to_kwargs(job["cron"])),
+            signature_factory(),
+            name=job["registered_name"],
+        )
+
+
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     """Setup periodic tasks for the CTI Scraper."""
@@ -117,40 +140,7 @@ def setup_periodic_tasks(sender, **kwargs):
         name="check-all-sources-every-30min",
     )
 
-    # Clean up old data daily at 2 AM
-    sender.add_periodic_task(
-        crontab(hour=2, minute=0),  # Daily at 2 AM
-        cleanup_old_data.s(),
-        name="cleanup-old-data-daily",
-    )
-
-    # Generate daily reports at 6 AM
-    sender.add_periodic_task(
-        crontab(hour=6, minute=0),  # Daily at 6 AM
-        generate_daily_report.s(),
-        name="generate-daily-report",
-    )
-
-    # Embed new articles daily at 3 PM
-    sender.add_periodic_task(
-        crontab(hour=15, minute=0),  # Daily at 3 PM
-        embed_new_articles.s(),
-        name="embed-new-articles-daily",
-    )
-
-    # Sync SigmaHQ repository and update embeddings weekly on Sundays at 4 AM
-    sender.add_periodic_task(
-        crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
-        sync_sigma_rules.s(),
-        name="sync-sigma-rules-weekly",
-    )
-
-    # Refresh OpenAI/Anthropic/Gemini model catalog daily at 4 AM
-    sender.add_periodic_task(
-        crontab(hour=4, minute=0),  # Daily at 4 AM
-        update_provider_model_catalogs.s(),
-        name="update-provider-model-catalogs-daily",
-    )
+    register_configurable_periodic_tasks(sender, ScheduledJobsService().get_periodic_jobs())
 
     # Generate annotation embeddings weekly on Sundays at 4 AM
     # sender.add_periodic_task(
@@ -330,24 +320,6 @@ def cleanup_old_data(self):
 
     except Exception as exc:
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
-
-
-@celery_app.task(bind=True, max_retries=2)
-def generate_daily_report(self):
-    """Generate daily threat intelligence report."""
-    try:
-        logger.info("Generating daily threat intelligence report...")
-
-        # Daily report generation implementation
-        # - Collect statistics from the past 24 hours
-        # - Generate TTP analysis summary
-        # - Create executive summary
-        # - Send notifications if configured
-
-        return {"status": "success", "message": "Daily report generated"}
-
-    except Exception as exc:
-        raise self.retry(exc=exc, countdown=600 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)

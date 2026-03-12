@@ -109,21 +109,21 @@ test.describe('Settings - Save and Persistence', () => {
     }
   });
 
-  test('[SETTINGS-023] Cron panel loads from backend', async ({ page }) => {
-    await page.locator('#cronJobs-header').click();
-    await expect(page.locator('#refreshBackupCronBtn')).toBeVisible();
-    await expect(page.locator('#saveCronEditorBtn')).toBeVisible();
-    await expect(page.locator('#applyBackupCronBtn')).toBeVisible();
-    await expect(page.locator('#disableBackupCronBtn')).toBeVisible();
-    await expect(page.locator('#cronEditor')).toBeVisible();
+  test('[SETTINGS-023] Scheduled jobs panel loads from backend', async ({ page }) => {
+    await page.locator('#scheduledJobs-header').click();
+    await expect(page.locator('#refreshScheduledJobsBtn')).toBeVisible();
+    await expect(page.locator('#saveScheduledJobsBtn')).toBeVisible();
+    await expect(page.locator('#scheduledJobsList')).toBeVisible();
+    await expect(page.getByText('Generate Daily Report', { exact: true })).toHaveCount(0);
 
-    const refreshResponse = page.waitForResponse((response) => response.url().includes('/api/cron') && response.request().method() === 'GET');
-    await page.locator('#refreshBackupCronBtn').click();
+    const refreshResponse = page.waitForResponse((response) => response.url().includes('/api/scheduled-jobs') && response.request().method() === 'GET');
+    await page.locator('#refreshScheduledJobsBtn').click();
     const response = await refreshResponse;
 
     expect(response.ok()).toBeTruthy();
-    await expect(page.locator('#backupCronJobCount')).not.toHaveText('');
+    await expect(page.locator('#scheduledJobsCount')).toHaveText('4');
   });
+
 });
 
 test.describe('Settings - API Keys', () => {
