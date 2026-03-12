@@ -969,21 +969,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#celery-task-queues" class="md-nav__link">
+  <a href="#celery-and-scheduled-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Celery Task Queues
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#periodic-tasks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Periodic Tasks
+        Celery and Scheduled Jobs
       
     </span>
   </a>
@@ -2409,6 +2398,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reports/SCHEDULED_JOBS_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/ml-features/" class="md-nav__link">
         
   
@@ -3573,89 +3590,8 @@
 <li><strong>Disable auto-sync</strong>: Set <code>DISABLE_SOURCE_AUTO_SYNC=true</code></li>
 </ul>
 <p>See <a href="../../guides/source-config/">Source Configuration Precedence</a> for details.</p>
-<h2 id="celery-task-queues">Celery Task Queues<a class="headerlink" href="#celery-task-queues" title="Permanent link">&para;</a></h2>
-<p>The system uses specialized queues for workload isolation:</p>
-<table>
-<thead>
-<tr>
-<th>Queue</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>default</code></td>
-<td>General tasks, embeddings</td>
-</tr>
-<tr>
-<td><code>source_checks</code></td>
-<td>Periodic source polling</td>
-</tr>
-<tr>
-<td><code>maintenance</code></td>
-<td>Cleanup, pruning, SIGMA sync</td>
-</tr>
-<tr>
-<td><code>reports</code></td>
-<td>Daily report generation</td>
-</tr>
-<tr>
-<td><code>connectivity</code></td>
-<td>Source connectivity testing</td>
-</tr>
-<tr>
-<td><code>collection</code></td>
-<td>Manual source collection</td>
-</tr>
-<tr>
-<td><code>workflows</code></td>
-<td>Agentic workflow execution</td>
-</tr>
-</tbody>
-</table>
-<h2 id="periodic-tasks">Periodic Tasks<a class="headerlink" href="#periodic-tasks" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Task</th>
-<th>Schedule</th>
-<th>Queue</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>check_all_sources</code></td>
-<td>Every 30 minutes</td>
-<td><code>source_checks</code></td>
-</tr>
-<tr>
-<td><code>cleanup_old_data</code></td>
-<td>Daily at 2:00 AM</td>
-<td><code>maintenance</code></td>
-</tr>
-<tr>
-<td><code>generate_daily_report</code></td>
-<td>Daily at 6:00 AM</td>
-<td><code>reports</code></td>
-</tr>
-<tr>
-<td><code>embed_new_articles</code></td>
-<td>Daily at 3:00 PM</td>
-<td><code>default</code></td>
-</tr>
-<tr>
-<td><code>sync_sigma_rules</code></td>
-<td>Weekly (Sunday 4:00 AM)</td>
-<td><code>maintenance</code></td>
-</tr>
-<tr>
-<td><code>update_provider_model_catalogs</code></td>
-<td>Daily at 4:00 AM</td>
-<td><code>maintenance</code></td>
-</tr>
-</tbody>
-</table>
-<p>The provider model catalog is also refreshed <strong>at setup</strong> (<code>./setup.sh</code>) and <strong>at start</strong> (<code>./start.sh</code>) so users see the current OpenAI/Anthropic/Gemini model list immediately; the daily run keeps it updated for long-running instances.</p>
+<h2 id="celery-and-scheduled-jobs">Celery and Scheduled Jobs<a class="headerlink" href="#celery-and-scheduled-jobs" title="Permanent link">&para;</a></h2>
+<p>Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh), and host backup cron are documented in <a href="../../reports/SCHEDULED_JOBS_REPORT/">Scheduled Jobs</a>. The provider model catalog is also refreshed at <strong>setup</strong> (<code>./setup.sh</code>) and <strong>start</strong> (<code>./start.sh</code>) so workflow model dropdowns show the current list immediately.</p>
 <h2 id="health-checks-and-diagnostics">Health Checks and Diagnostics<a class="headerlink" href="#health-checks-and-diagnostics" title="Permanent link">&para;</a></h2>
 <h3 id="application-health">Application Health<a class="headerlink" href="#application-health" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>http://localhost:8001/health
