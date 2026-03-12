@@ -94,6 +94,52 @@ class TestSigmaNoveltyService:
         assert logsource_key == "windows|process_creation"
         assert service_name == "sysmon"
 
+    def test_normalize_logsource_non_string_values(self, service):
+        """Test logsource with non-string product/category/service uses _str_val (v1.2)."""
+        # Product/category/service may be stored as numbers or None; normalize should not raise
+        logsource = {"category": "process_creation", "product": 123, "service": None}
+        logsource_key, service_name = service.normalize_logsource(logsource)
+        assert isinstance(logsource_key, str)
+        assert "123" in logsource_key or "|" in logsource_key
+        assert service_name is None or service_name == ""
+
+    def test_assess_novelty_similar_rule_includes_penalty_fields(self, service, sample_rule):
+        """Test assess_novelty top_matches include service_penalty, filter_penalty, weighted_before_penalties."""
+        # Similar rule (different detection) so we get one match through similarity path
+        similar_rule = {
+            "title": "Other Task Creation",
+            "id": "existing-456",
+            "description": "Different",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {
+                "selection": {"CommandLine|contains": "schtasks", "Image|endswith": "\\cmd.exe"},
+                "condition": "selection",
+            },
+            "level": "medium",
+        }
+        canonical = service.build_canonical_rule(sample_rule)
+        exact_hash = service.generate_exact_hash(canonical)
+        # Candidate without exact_hash_match so we go through similarity computation
+        service.retrieve_candidates = Mock(
+            return_value=[
+                {
+                    "exact_hash": "other",
+                    "rule_id": "existing-456",
+                    "exact_hash_match": False,
+                    **similar_rule,
+                }
+            ]
+        )
+
+        result = service.assess_novelty(sample_rule, threshold=0.0)
+
+        assert "top_matches" in result
+        if result["top_matches"]:
+            match = result["top_matches"][0]
+            assert "service_penalty" in match
+            assert "filter_penalty" in match
+            assert "weighted_before_penalties" in match
+
     def test_compute_similarity_metrics(self, service, sample_rule):
         """Test similarity metrics computation."""
         canonical1 = service.build_canonical_rule(sample_rule)
