@@ -4244,6 +4244,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Cron CLI and API</strong> (2026-03-12): <code>cron</code> CLI subcommands (<code>show</code>, <code>replace</code>) to view and replace the current user's crontab; <code>/api/cron/*</code> endpoints for snapshot and replace; Settings UI for backup cron schedule. <code>BackupCronService</code> used by CLI and API. Tests: <code>tests/api/test_cron_api.py</code>, <code>tests/cli/test_cron_cli.py</code>; Playwright settings spec updated.</li>
 <li><strong>Comprehensive test coverage improvements</strong> (2026-03-10): Added 38 new tests across API, UI, and Playwright suites with full cleanup and restoration:</li>
 <li>15 workflow config API tests (CRUD operations, validation, prompts, versions) - <code>tests/api/test_workflow_config_api.py</code></li>
 <li>8 preset lifecycle API tests with import/export and save/restore - <code>tests/api/test_workflow_preset_lifecycle.py</code></li>
