@@ -8843,10 +8843,7 @@ function getAllSelectedModelsWithProviders() {
             // Check QA enabled state for sub-agent QA
             isQAEnabled = qaEnabled[qaAgent.subAgent] || false;
         } else {
-            // For RankAgentQA: check if RankAgent is enabled
-            const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
-            if (!rankAgentEnabled) return;
-            // Check QA enabled state for RankAgent
+            // For RankAgentQA: show in list even when Rank is disabled (match Agent-evals structure)
             isQAEnabled = qaEnabled['RankAgent'] || false;
         }
         
@@ -8870,12 +8867,10 @@ function getAllSelectedModelsWithProviders() {
     return selectedModels;
 }
 
-// Function to update the config display with current UI state
+// Function to update the config display (same source as Agent-evals: saved config only)
 function updateConfigDisplay() {
-    if (typeof renderWorkflowConfigDisplay === 'function') {
-        renderWorkflowConfigDisplay(currentConfig, {
-            uiModels: typeof getAllSelectedModelsWithProviders === 'function' ? getAllSelectedModelsWithProviders() : []
-        });
+    if (typeof renderWorkflowConfigDisplay === 'function' && currentConfig) {
+        renderWorkflowConfigDisplay(currentConfig);
     }
 }
 
@@ -9669,11 +9664,9 @@ if (workflowConfigForm) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
             }
             
-            // Update config display using shared component (same as Agent-evals and loadConfig path)
+            // Update config display using shared component (same source as Agent-evals: saved config only)
             if (typeof renderWorkflowConfigDisplay === 'function') {
-                renderWorkflowConfigDisplay(updatedConfig, {
-                    uiModels: typeof getAllSelectedModelsWithProviders === 'function' ? getAllSelectedModelsWithProviders() : []
-                });
+                renderWorkflowConfigDisplay(updatedConfig);
             }
 
             // Update currentConfig first to ensure syncExtractAgentTogglesFromConfig uses the latest config
