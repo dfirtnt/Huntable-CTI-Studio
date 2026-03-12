@@ -14331,11 +14331,11 @@ async function checkSimilarRulesForQueue() {
             signal: AbortSignal.timeout(60000)  // 60 second timeout
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
         const data = await response.json();
+        if (!response.ok) {
+            const detail = data.detail || data.message || `HTTP error! status: ${response.status}`;
+            throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
         
         // Remove loading indicator
         const loadingEl = document.getElementById('similarRulesLoading');

@@ -23,6 +23,7 @@ from . import (
     embeddings,
     evaluation,
     evaluation_api,
+    evaluation_ui,
     export,
     feedback,
     health,
@@ -37,6 +38,7 @@ from . import (
     search,
     scheduled_jobs,
     settings,
+    sigma_ab_test,
     sigma_queue,
     sources,
     tasks,
@@ -88,5 +90,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(workflow_config.router)
     app.include_router(workflow_executions.router)
     app.include_router(workflow_ui.router)
+    app.include_router(evaluation_ui.router)
     app.include_router(evaluation_api.router)
+    app.include_router(sigma_ab_test.router)
     app.include_router(sigma_queue.router)

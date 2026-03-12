@@ -1,8 +1,8 @@
 """
-Smoke test runner script for CTI Scraper.
+Smoke test runner wrapper for Huntable CTI Studio.
 
-This script provides a dedicated runner for smoke tests with proper
-configuration and reporting.
+This script delegates to the unified ``run_tests.py smoke`` entrypoint so the
+standalone smoke command matches CI and local docs.
 """
 
 #!/usr/bin/env python3
@@ -18,6 +18,7 @@ import argparse
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 
 def run_smoke_tests(docker_mode: bool = False, verbose: bool = False) -> bool:
@@ -25,41 +26,27 @@ def run_smoke_tests(docker_mode: bool = False, verbose: bool = False) -> bool:
     print("🔥 CTI Scraper Smoke Test Runner")
     print("=" * 50)
 
-    # Build pytest command
+    project_root = Path(__file__).resolve().parents[2]
+    run_tests_path = project_root / "run_tests.py"
+
     cmd_parts = []
 
     if docker_mode:
-        cmd_parts.append("docker exec cti_web")
-
-    cmd_parts.extend(
-        [
-            "python",
-            "-m",
-            "pytest",
-            "tests/smoke/",
-            "-m",
-            "smoke",
-            "--tb=short",
-            "--maxfail=5",  # Stop after 5 failures
-        ]
-    )
+        cmd_parts.extend(["docker", "exec", "cti_web", "python", "/app/run_tests.py", "smoke"])
+    else:
+        cmd_parts.extend([sys.executable, str(run_tests_path), "smoke"])
 
     if verbose:
-        cmd_parts.append("-v")
-    else:
-        cmd_parts.append("-q")
+        cmd_parts.append("--verbose")
 
-    cmd = " ".join(cmd_parts)
-
-    print(f"Running: {cmd}")
-    print("Timeout: 30 seconds per test")
-    print("Max failures: 5")
+    print(f"Running: {' '.join(cmd_parts)}")
+    print("Smoke suite: unified runner (`run_tests.py smoke`)")
     print()
 
     start_time = time.time()
 
     try:
-        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        result = subprocess.run(cmd_parts, check=True, capture_output=True, text=True)
         end_time = time.time()
 
         print("✅ Smoke tests completed successfully!")
