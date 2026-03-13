@@ -326,23 +326,23 @@ function renderRulePreview(rule, observablesData) {
     
     let similarRulesHtml = '';
     if (similarityScores.length > 0) {
+        const chipConfig = mapSimilarityResponseFromCache(similarityScores, rule);
         similarRulesHtml = `
             <div class="mt-4">
                 <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
-                <ul class="list-disc list-inside space-y-1">
-                    ${similarityScores.slice(0, 5).map(s => {
-                        const pct = (s.similarity * 100).toFixed(1);
-                        let tip = '';
-                        if (s.similarity_engine === 'deterministic' && s.semantic_details) {
-                            const d = s.semantic_details;
-                            const j = d.jaccard != null ? (d.jaccard * 100).toFixed(1) + '%' : '—';
-                            const c = d.containment_factor != null ? (d.containment_factor * 100).toFixed(1) + '%' : '—';
-                            tip = 'Engine: Deterministic Semantic Engine | Canonical class: ' + (d.canonical_class || '—') + ' | Jaccard: ' + j + ' | Containment: ' + c;
-                        }
-                        const titleAttr = tip ? ' title="' + tip.replace(/"/g, '&quot;') + '"' : '';
-                        return '<li' + titleAttr + '>' + (s.title || s.rule_id).replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' (' + pct + '% similar)</li>';
-                    }).join('')}
-                </ul>
+                <div id="similarityChips" class="flex flex-col gap-1.5 mt-2">
+                </div>
+            </div>
+        `;
+        // Defer chip render until after innerHTML is set
+        window.__pendingSimilarityChipConfig = chipConfig;
+    } else {
+        similarRulesHtml = `
+            <div class="mt-4">
+                <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
+                <div id="similarityChips" class="flex flex-col gap-1.5 mt-2">
+                    <p class="text-xs text-gray-500">No similar rules found. Run Similarity Search to check.</p>
+                </div>
             </div>
         `;
     }
@@ -443,6 +443,10 @@ function renderRulePreview(rule, observablesData) {
     `;
     
     document.getElementById('rulePreviewContent').innerHTML = content;
+    if (window.__pendingSimilarityChipConfig) {
+        renderSimilarityChips(window.__pendingSimilarityChipConfig);
+        window.__pendingSimilarityChipConfig = null;
+    }
     updateActionButtons();
 }
 
@@ -537,6 +541,153 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function buildSimilarityDetailHtml(m) {
+    if (!m) return '<p class="text-sm text-gray-500 py-8 text-center">No data available.</p>';
+    const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
+    const jaccard = m.jaccard != null ? (typeof m.jaccard === 'number' ? m.jaccard : m.jaccard * 100) : 0;
+    const contain = m.containment != null ? (typeof m.containment === 'number' ? m.containment : m.containment * 100) : 0;
+    const showFlag = contain >= 50 && simVal < 30;
+    const surfCur = m.surface_cur != null ? m.surface_cur : (m.semantic_details?.surface_score_a ?? '—');
+    const surfCand = m.surface_cand != null ? m.surface_cand : (m.semantic_details?.surface_score_b ?? '—');
+    const atomBlock = (label, atoms, color) => {
+        if (!atoms || !atoms.length) return '';
+        const pal = { green: ['bg-green-950 text-green-400','bg-green-950/40 text-green-300'], amber: ['bg-amber-950 text-amber-300','bg-amber-950/40 text-amber-200'], red: ['bg-red-950 text-red-300','bg-red-950/40 text-red-200'] };
+        const [h, r] = pal[color] || pal.green;
+        return `<div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 ${h}">${label} (${atoms.length})</div>${atoms.map(a => `<div class="text-xs font-mono px-2 py-1 ${r} border-t border-black/20 break-all">${_escHtml(a)}</div>`).join('')}</div>`;
+    };
+    const detCur = m.detection_cur != null ? m.detection_cur : 'not available';
+    const detCand = m.detection_cand != null ? m.detection_cand : 'not available';
+    return `<div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">score summary</div>
+    <div class="grid grid-cols-4 gap-2">
+      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">similarity</div><div class="text-lg font-medium text-purple-400">${simVal.toFixed(1)}%</div></div>
+      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">jaccard</div><div class="text-lg font-medium text-gray-100">${jaccard.toFixed(1)}%</div></div>
+      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">containment</div><div class="text-lg font-medium text-gray-100">${contain.toFixed(1)}%</div>${showFlag ? '<div class="text-xs mt-1 px-1.5 py-0.5 rounded inline-block bg-amber-950 text-amber-400">high — may be subset</div>' : ''}</div>
+      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">surface</div><div class="text-lg font-medium text-gray-100">${surfCur}b / ${surfCand}b</div><div class="text-xs text-gray-500 mt-0.5">cur / candidate</div></div>
+    </div>
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">atom diff</div>
+    <div class="flex flex-col gap-1.5">${atomBlock('shared', m.shared_atoms || [], 'green')}${atomBlock('current only', m.unique_to_current || m.removed_atoms || [], 'amber')}${atomBlock('candidate only', m.unique_to_candidate || m.added_atoms || [], 'red')}</div>
+    <div><div class="simYamlToggle flex items-center gap-2 cursor-pointer py-2 border-t border-gray-700 hover:opacity-80"><span class="simYamlArrow text-gray-500 text-xs">▶</span><span class="text-xs text-gray-400">logsource &amp; detection comparison</span></div>
+    <div class="simYamlBlock hidden"><div class="grid grid-cols-2 gap-2 mt-1"><div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 bg-amber-950 text-amber-300">current rule</div><pre class="text-xs font-mono p-2 bg-gray-800 text-gray-400 overflow-x-auto leading-relaxed whitespace-pre">${_escHtml(detCur)}</pre></div><div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 bg-green-950 text-green-400">candidate</div><pre class="text-xs font-mono p-2 bg-gray-800 text-gray-400 overflow-x-auto leading-relaxed whitespace-pre">${_escHtml(detCand)}</pre></div></div></div></div>
+    <div class="flex flex-col gap-2 pb-2"><div class="flex flex-wrap items-center gap-2 text-xs font-mono text-gray-500"><span>${_escHtml(m.rule_id)}</span><span>·</span><span>status: ${_escHtml(m.status)}</span></div><div class="flex flex-wrap gap-1.5">${(m.tags || []).map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">${_escHtml(t)}</span>`).join('')}</div></div>`;
+}
+
+function _escHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function mapSimilarityResponse(data, currentRuleInfo) {
+    const curDet = currentRuleInfo?.detection;
+    const curDetStr = curDet != null ? (typeof curDet === 'string' ? curDet : JSON.stringify(curDet, null, 2)) : '';
+    const rawMatches = (data.matches || []).filter(m => {
+        const j = m.semantic_details?.jaccard ?? m.atom_jaccard ?? 0;
+        return j > 0;
+    });
+    const canonical = (rawMatches[0]?.semantic_details?.canonical_class) || '—';
+    return {
+        rule_id: currentRuleInfo?.queueId ?? data.rule_id ?? null,
+        rule_title: currentRuleInfo?.title ?? data.rule_title ?? '',
+        canonical_class: canonical,
+        candidates_evaluated: data.total_candidates_evaluated ?? 0,
+        matches: rawMatches.map(m => {
+            const sd = m.semantic_details || {};
+            const jaccard = sd.jaccard ?? m.atom_jaccard ?? 0;
+            const containment = sd.containment_factor ?? 0;
+            const sim = (m.similarity ?? m.similarity_score ?? 0) * 100;
+            const detectionCand = m.detection != null ? (typeof m.detection === 'string' ? m.detection : JSON.stringify(m.detection, null, 2)) : '';
+            return {
+                title: m.title,
+                sim: sim,
+                similarity: m.similarity ?? m.similarity_score,
+                jaccard: jaccard * 100,
+                containment: containment * 100,
+                surface_cur: sd.surface_score_a,
+                surface_cand: sd.surface_score_b,
+                semantic_details: m.semantic_details,
+                shared_atoms: m.shared_atoms || [],
+                unique_to_current: m.removed_atoms || [],
+                unique_to_candidate: m.added_atoms || [],
+                rule_id: m.rule_id,
+                status: m.status,
+                tags: m.tags || [],
+                detection_cur: curDetStr,
+                detection_cand: detectionCand,
+            };
+        })
+    };
+}
+
+function mapSimilarityResponseFromCache(similarityScores, rule) {
+    const metadata = rule.rule_metadata || {};
+    const first = similarityScores[0];
+    const sd = first?.semantic_details;
+    const canonical = sd?.canonical_class || '—';
+    const curDet = metadata.detection;
+    const curDetStr = curDet != null ? JSON.stringify(curDet, null, 2) : '';
+    return {
+        rule_id: rule.id,
+        rule_title: metadata.title || 'Untitled',
+        canonical_class: canonical,
+        candidates_evaluated: -1,
+        matches: similarityScores.map(s => {
+            const sd = s.semantic_details || {};
+            const jaccard = (sd.jaccard ?? s.atom_jaccard ?? 0) * 100;
+            const containment = (sd.containment_factor ?? 0) * 100;
+            const sim = (s.similarity ?? 0) * 100;
+            return {
+                title: s.title || s.rule_id,
+                sim: sim,
+                similarity: s.similarity,
+                jaccard: jaccard,
+                containment: containment,
+                surface_cur: sd.surface_score_a,
+                surface_cand: sd.surface_score_b,
+                semantic_details: s.semantic_details,
+                shared_atoms: s.shared_atoms || [],
+                unique_to_current: s.removed_atoms || [],
+                unique_to_candidate: s.added_atoms || [],
+                rule_id: s.rule_id,
+                status: s.status,
+                tags: s.tags || [],
+                detection_cur: curDetStr,
+                detection_cand: '',
+            };
+        })
+    };
+}
+
+function renderSimilarityChips(config) {
+    const container = document.getElementById('similarityChips');
+    if (!container) return;
+
+    if (!config || !config.matches || !config.matches.length) {
+        container.innerHTML = '<p class="text-xs text-gray-500">No similar rules found.</p>';
+        return;
+    }
+
+    container.innerHTML = config.matches.map((m, i) => {
+        const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
+        return `
+    <button class="text-xs px-3 py-1.5 rounded-lg text-left w-full cursor-pointer
+                   bg-purple-900/40 text-purple-300 border border-purple-700
+                   hover:bg-purple-800/60 transition-colors"
+            data-index="${i}">
+      ${_escHtml(m.title)}
+      <span class="ml-2 text-gray-400">· ${simVal.toFixed(1)}%</span>
+    </button>`;
+    }).join('');
+
+    container.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showSimilarRulesModal(config, parseInt(btn.dataset.index, 10));
+        });
+    });
 }
 
 async function approveRule(ruleId) {
@@ -1740,9 +1891,14 @@ async function checkSimilarRulesForQueue() {
                 };
             }
             
-            // Use parsed rule or create from metadata
-            const generatedRules = currentRuleParsed ? [currentRuleParsed] : [];
-            showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules);
+            const currentRuleInfo = {
+                queueId: currentRuleId,
+                title: (rule.rule_metadata && rule.rule_metadata.title) || (currentRuleParsed && currentRuleParsed.title) || 'Untitled',
+                detection: currentRuleParsed && currentRuleParsed.detection
+            };
+            const config = mapSimilarityResponse(data, currentRuleInfo);
+            renderSimilarityChips(config);
+            showSimilarRulesModal(config, 0);
         } else {
             showNotification('Failed to find similar rules: ' + (data.message || 'Unknown error'), 'error');
         }
@@ -1760,9 +1916,12 @@ async function checkSimilarRulesForQueue() {
     }
 }
 
-async function showSimilarRulesModal(matches, coverageSummary, generatedRules = []) {
-    // Remove any existing modal
+async function showSimilarRulesModal(config, initialIndex = 0) {
     closeSimilarRulesModal();
+    const matches = config?.matches || [];
+    let selectedIndex = Math.min(initialIndex, Math.max(0, matches.length - 1));
+    const totalCandidatesEvaluated = config?.candidates_evaluated ?? -1;
+    const hasMetadata = totalCandidatesEvaluated >= 0;
     
     // Clean up existing modal properly
     const existingModal = document.getElementById('similarRulesModal');
@@ -1780,7 +1939,8 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     
     const modal = document.createElement('div');
     modal.id = 'similarRulesModal';
-    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+    modal.className = 'fixed inset-0 z-[60] flex items-center justify-center';
+    modal.style.background = 'rgba(0,0,0,0.55)';
     
     // Add click outside to close
     modal.addEventListener('click', function(e) {
@@ -1802,229 +1962,77 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     // Build matches HTML
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
+        const emptyTitle = (hasMetadata && totalCandidatesEvaluated === 0)
+            ? 'SigmaHQ Corpus Unavailable'
+            : 'No Behavioral Overlap Found';
+        const emptySubtitle = (hasMetadata && totalCandidatesEvaluated === 0)
+            ? 'No SigmaHQ rules were available for behavioral comparison.'
+            : 'No SigmaHQ rules share detection logic with this rule.';
         matchesHtml = `
             <div class="text-center py-8">
-                <div class="w-16 h-16 mx-auto mb-4 text-emerald-400 flex items-center justify-center">
-                    <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                    </svg>
-                </div>
-                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">✨ Novel Detection Pattern</p>
-                <p class="text-gray-600 dark:text-gray-400 mb-1">No similar rules found in SigmaHQ repository</p>
-                <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing SigmaHQ rules.</p>
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
+                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${emptyTitle}</p>
+                ${hasMetadata ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${totalCandidatesEvaluated} candidates evaluated</p>` : ''}
+                <p class="text-gray-600 dark:text-gray-400">${emptySubtitle}</p>
             </div>
         `;
     } else {
-        // Get parsed data from current rule
-        let newRuleLogsource = null;
-        let newRuleDetection = null;
-        if (generatedRules.length > 0) {
-            const firstRule = generatedRules[0];
-            newRuleLogsource = firstRule.logsource || null;
-            newRuleDetection = firstRule.detection || null;
-        }
-        
-        matchesHtml = matches.map((match, index) => {
-            const similarityPercent = ((match.similarity_score || match.similarity || 0) * 100).toFixed(1);
-            const coverageStatus = match.coverage_status || 'unknown';
-            const statusIcon = coverageStatus === 'covered' ? '✓' : 
-                              coverageStatus === 'extend' ? '⚡' : '✨';
-            
-            // Determine status color classes (using full class names for Tailwind)
-            let similarityColorClass = 'text-purple-600 dark:text-purple-400';
-            let statusBadgeClass = 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900';
-            if (coverageStatus === 'covered') {
-                similarityColorClass = 'text-emerald-400';
-                statusBadgeClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-            } else if (coverageStatus === 'extend') {
-                similarityColorClass = 'text-amber-400';
-                statusBadgeClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/30';
-            }
-            
-            // Escape rule_id for JavaScript
-            const escapedRuleId = match.rule_id ? match.rule_id.replace(/'/g, "\\'") : '';
-            // Escape logsource and detection for safe JSON display
-            const logsourceJson = match.logsource ? JSON.stringify(match.logsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
-            const detectionJson = match.detection ? JSON.stringify(match.detection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
-            // Escape new rule logsource and detection
-            const newRuleLogsourceJson = newRuleLogsource ? JSON.stringify(newRuleLogsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
-            const newRuleDetectionJson = newRuleDetection ? JSON.stringify(newRuleDetection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
-            
-            return `
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                            <h5 class="font-medium text-gray-900 dark:text-white">${escapeHtml(match.title || 'Untitled Rule')}</h5>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(match.description || 'No description')}</p>
-                        </div>
-                        <div class="ml-4 flex flex-col items-end">
-                            ${(() => {
-                                let simTitle = '';
-                                if (match.similarity_engine === 'deterministic' && match.semantic_details) {
-                                    const d = match.semantic_details;
-                                    const j = d.jaccard != null ? (d.jaccard * 100).toFixed(1) + '%' : '—';
-                                    const c = d.containment_factor != null ? (d.containment_factor * 100).toFixed(1) + '%' : '—';
-                                    simTitle = ' title="' + ('Engine: Deterministic | Canonical class: ' + (d.canonical_class || '—') + ' | Jaccard: ' + j + ' | Containment: ' + c).replace(/"/g, '&quot;') + '"';
-                                }
-                                return '<div class="text-2xl font-bold ' + similarityColorClass + '"' + simTitle + '>' + similarityPercent + '%</div>';
-                            })()}
-                            <div class="text-xs ${statusBadgeClass} px-2 py-1 rounded mt-1">
-                                ${statusIcon} ${coverageStatus.toUpperCase()}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    ${match.llm_explanation ? `
-                        <div class="mt-3 p-2 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded">
-                            <div class="text-xs font-bold text-green-900 dark:text-green-100 mb-1">🤖 LLM Explanation:</div>
-                            <div class="text-xs text-emerald-400 italic">${escapeHtml(match.llm_explanation)}</div>
-                        </div>
-                    ` : ''}
-                    
-                    ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { 
-                        mode: 'compact', 
-                        includeExplainability: true,
-                        ruleALabel: 'Current Rule',
-                        ruleBLabel: 'Similar Rule'
-                    }) : ''}
-                    
-                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-gray-100">${escapeHtml(match.rule_id || 'N/A')}</code></div>
-                        <div><span class="font-medium text-gray-700 dark:text-gray-300">Status:</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(match.status || 'N/A')}</span></div>
-                    </div>
-                    
-                    ${match.tags && match.tags.length > 0 ? `
-                        <div class="mt-2">
-                            <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Tags:</div>
-                            <div class="flex flex-wrap gap-1 mt-1">
-                                ${match.tags.slice(0, 5).map(tag => 
-                                    `<span class="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded">${escapeHtml(tag)}</span>`
-                                ).join('')}
-                                ${match.tags.length > 5 ? `<span class="text-xs text-gray-500 dark:text-gray-400">+${match.tags.length - 5} more</span>` : ''}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${match.matched_discriminators && match.matched_discriminators.length > 0 ? `
-                        <div class="mt-2">
-                            <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Matched Behaviors:</div>
-                            <div class="flex flex-wrap gap-1 mt-1">
-                                ${match.matched_discriminators.slice(0, 5).map(d => 
-                                    `<span class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">${escapeHtml(d)}</span>`
-                                ).join('')}
-                                ${match.matched_discriminators.length > 5 ? `<span class="text-xs text-gray-500 dark:text-gray-400">+${match.matched_discriminators.length - 5} more</span>` : ''}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${(match.logsource || match.detection || (generatedRules.length > 0 && (generatedRules[0].logsource || generatedRules[0].detection))) ? `
-                        <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-                            <button onclick="event.stopPropagation(); toggleRuleDetails('rule-details-${index}', 'toggle-icon-${index}')" 
-                                    class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium flex items-center">
-                                <svg id="toggle-icon-${index}" class="w-4 h-4 mr-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                                <span>Show Logsource & Detection Comparison</span>
-                            </button>
-                            <div id="rule-details-${index}" class="hidden mt-2">
-                                ${generatedRules.length > 0 ? `
-                                    <div class="mb-4 p-2 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded">
-                                        <h6 class="text-xs font-bold text-yellow-900 dark:text-yellow-100 mb-1">📝 Current Rule: ${escapeHtml(generatedRules[0].title || 'Untitled')}</h6>
-                                    </div>
-                                ` : ''}
-                                <div class="space-y-4">
-                                    <!-- Logsource Comparison -->
-                                    <div>
-                                        <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">📋 Logsource Comparison</h6>
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div class="border border-gray-700 rounded-lg p-2 bg-amber-500/10">
-                                                <h6 class="text-xs font-bold text-amber-400 mb-2">Current Rule</h6>
-                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${newRuleLogsourceJson}</pre>
-                                            </div>
-                                            <div class="border border-gray-700 rounded-lg p-2 bg-blue-500/10">
-                                                <h6 class="text-xs font-bold text-blue-400 mb-2">Similar Rule</h6>
-                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-48 text-gray-900 dark:text-gray-100">${logsourceJson}</pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <!-- Detection Comparison -->
-                                    <div>
-                                        <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">🔍 Detection Comparison</h6>
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div class="border border-gray-700 rounded-lg p-2 bg-amber-500/10">
-                                                <h6 class="text-xs font-bold text-amber-400 mb-2">Current Rule</h6>
-                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${newRuleDetectionJson}</pre>
-                                            </div>
-                                            <div class="border border-gray-700 rounded-lg p-2 bg-emerald-500/10">
-                                                <h6 class="text-xs font-bold text-emerald-400 mb-2">Similar Rule</h6>
-                                                <pre class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-64 text-gray-900 dark:text-gray-100">${detectionJson}</pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        📁 ${escapeHtml(match.file_path || 'N/A')}
-                    </div>
-                </div>
-            `;
+        matchesHtml = matches.map((m, i) => {
+            const isActive = i === selectedIndex;
+            const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
+            const barWidth = Math.min(Math.round(simVal * 3), 100);
+            return `<div class="sim-match-item px-3 py-2.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${isActive ? 'border-l-2 border-l-purple-500 bg-gray-800' : 'border-l-2 border-l-transparent'} text-left" data-index="${i}">
+              <div class="text-xs font-medium leading-snug mb-1.5 ${isActive ? 'text-purple-400' : 'text-gray-200'}">${escapeHtml(m.title)}</div>
+              <div class="flex items-center gap-2"><span class="text-xs font-medium text-purple-400 w-10 flex-shrink-0">${simVal.toFixed(1)}%</span><div class="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden"><div class="h-full bg-purple-500 rounded-full" style="width:${barWidth}%"></div></div></div>
+            </div>`;
         }).join('');
     }
     
     modal.innerHTML = `
-        <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 max-w-6xl shadow-lg rounded-xl bg-gray-800 transition-all duration-300">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rules in SigmaHQ Repository</h3>
-                <div class="flex items-center space-x-2">
-                    <button onclick="toggleSimilarRulesModalExpand()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Expand to full screen">
-                        <svg id="expandIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
-                        </svg>
-                    </button>
-                    <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+        <div id="similarRulesModalContent" class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-4xl mx-4 flex flex-col overflow-hidden" style="max-height: 85vh;">
+            <div class="px-4 py-3 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm font-medium text-white">Similar rules in SigmaHQ repository</span>
+                    <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-white text-xs border border-gray-600 rounded px-2 py-1 hover:bg-gray-700" aria-label="Close">✕</button>
                 </div>
+                <span class="text-xs text-gray-400">${(config.candidates_evaluated ?? 0).toLocaleString()} candidates evaluated · ${matches.length} rules with behavioral overlap · ${config.canonical_class || '—'}</span>
             </div>
-            
-            <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                ${(() => {
-                    const maxSim = matches && matches.length > 0 ? Math.max(...matches.map(m => m.similarity ?? 0)) : 0;
-                    if (maxSim === 0) {
-                        return 'No behaviorally similar rules found in SigmaHQ (same telemetry class shown for reference)';
-                    }
-                    return `Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)`;
-                })()}
-                ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
-                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}
-                    </div>
-                ` : ''}
+            <div class="flex flex-1 overflow-hidden min-h-0">
+                <div id="simMatchList" class="w-64 flex-shrink-0 border-r border-gray-700 overflow-y-auto">${matchesHtml}</div>
+                <div id="simDetailPane" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">${matches.length ? buildSimilarityDetailHtml(matches[selectedIndex]) : '<p class="text-sm text-gray-500 py-8 text-center">No data available.</p>'}</div>
             </div>
-            
-            <div id="similarRulesMatchesContainer" class="space-y-3 max-h-96 overflow-y-auto">
-                ${matchesHtml}
-            </div>
-            
-            <div class="mt-6 flex justify-end">
-                <button onclick="closeSimilarRulesModal()" 
-                        class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
-                    Close
-                </button>
+            <div class="px-4 py-3 border-t border-gray-700 flex items-center justify-between flex-shrink-0">
+                <span class="text-xs text-gray-500 truncate mr-4">Reviewing rule #${config.rule_id} — ${(config.rule_title || '').slice(0, 50)}${(config.rule_title || '').length > 50 ? '…' : ''}</span>
+                <button onclick="closeSimilarRulesModal()" class="text-sm text-purple-400 border border-purple-600 rounded-lg px-4 py-1.5 hover:bg-purple-900/40">← back to rule preview</button>
             </div>
         </div>
     `;
     
     document.body.appendChild(modal);
-    
-    // Ensure modal is visible
-    modal.classList.remove('hidden');
-    
+    document.body.style.overflow = 'hidden';
+
+    modal.querySelectorAll('.sim-match-item').forEach(el => {
+        el.addEventListener('click', () => {
+            selectedIndex = parseInt(el.dataset.index, 10);
+            modal.querySelectorAll('.sim-match-item').forEach((item, i) => {
+                item.classList.toggle('border-l-purple-500', i === selectedIndex);
+                item.classList.toggle('bg-gray-800', i === selectedIndex);
+                item.classList.toggle('border-l-transparent', i !== selectedIndex);
+                const titleDiv = item.querySelector('div:first-child');
+                if (titleDiv) { titleDiv.classList.toggle('text-purple-400', i === selectedIndex); titleDiv.classList.toggle('text-gray-200', i !== selectedIndex); }
+            });
+            const pane = modal.querySelector('#simDetailPane');
+            if (pane) { pane.innerHTML = buildSimilarityDetailHtml(matches[selectedIndex]); pane.scrollTop = 0; }
+            pane?.querySelectorAll('.simYamlToggle').forEach(tog => {
+                tog.onclick = () => { const b = tog.closest('#simDetailPane')?.querySelector('.simYamlBlock'); const ar = tog.querySelector('.simYamlArrow'); if (b) b.classList.toggle('hidden'); if (ar) ar.style.transform = b?.classList.contains('hidden') ? '' : 'rotate(90deg)'; };
+            });
+        });
+    });
+
+    modal.querySelectorAll('.simYamlToggle').forEach(tog => {
+        tog.onclick = () => { const b = tog.closest('#simDetailPane')?.querySelector('.simYamlBlock'); const ar = tog.querySelector('.simYamlArrow'); if (b) b.classList.toggle('hidden'); if (ar) ar.style.transform = b?.classList.contains('hidden') ? '' : 'rotate(90deg)'; };
+    });
+
     // Register and open with ModalManager
     if (window.ModalManager) {
         setTimeout(() => {
@@ -2096,10 +2104,9 @@ function closeSimilarRulesModal() {
         window.ModalManager.close('similarRulesModal');
     } else {
         const modal = document.getElementById('similarRulesModal');
-        if (modal) {
-            modal.remove();
-        }
+        if (modal) modal.remove();
     }
+    document.body.style.overflow = '';
     isSimilarRulesModalExpanded = false;
 }
 

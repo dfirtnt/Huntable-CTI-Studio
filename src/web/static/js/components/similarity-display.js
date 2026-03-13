@@ -263,6 +263,8 @@ function renderSimilarityDisplay(data, options = {}) {
             ` : ''}
             ${engine === 'deterministic' && normalized.semantic_details && !canonicalMismatch && !unsupportedOrDnf ? (() => {
                 const sd = normalized.semantic_details;
+                const jVal = sd.jaccard ?? atomJaccard;
+                const jIsZero = jVal === 0;
                 const j = (sd.jaccard != null ? (sd.jaccard * 100).toFixed(1) : '—') + '%';
                 const c = sd.containment_factor != null ? (sd.containment_factor * 100).toFixed(1) + '%' : '—';
                 const fp = sd.filter_penalty != null ? (sd.filter_penalty * 100).toFixed(1) + '%' : '—';
@@ -282,14 +284,14 @@ function renderSimilarityDisplay(data, options = {}) {
                     </summary>
                     <div class="px-4 pb-4 grid grid-cols-1 gap-2 text-sm">
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Canonical class</span><span class="font-mono text-gray-800 dark:text-slate-100">${cc}</span></div>
-                        ${sd.surface_score_a != null && sd.surface_score_b != null ? `
+                        ${!jIsZero && sd.surface_score_a != null && sd.surface_score_b != null ? `
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Surface (Current)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_a} branches</span></div>
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Surface (Candidate)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_b} branches</span></div>
                         ` : ''}
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Jaccard</span><span class="text-gray-800 dark:text-slate-100">${j}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Containment factor</span><span class="text-gray-800 dark:text-slate-100">${c}</span></div>
+                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Containment factor</span><span class="text-gray-800 dark:text-slate-100">${c}</span></div>` : ''}
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Filter penalty</span><span class="text-gray-800 dark:text-slate-100">${fp}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Overlap ratio A/B</span><span class="text-gray-800 dark:text-slate-100">${oa} / ${ob}</span></div>
+                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Overlap ratio A/B</span><span class="text-gray-800 dark:text-slate-100">${oa} / ${ob}</span></div>` : ''}
                         ${rf !== '—' ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Reason flags</span><span class="text-xs font-mono text-gray-800 dark:text-slate-100">${escapeHtml(rf)}</span></div>` : ''}
                     </div>
                 </details>
@@ -335,15 +337,18 @@ function renderSimilarityDisplay(data, options = {}) {
         const showCompactDeterministic = engine === 'deterministic' && normalized.semantic_details && !canonicalMismatch && !unsupportedOrDnf;
         const compactDeterministicBlock = showCompactDeterministic ? (() => {
             const sd = normalized.semantic_details;
+            const jVal = sd.jaccard ?? atomJaccard;
+            const jIsZero = jVal === 0;
             const j = (sd.jaccard != null ? (sd.jaccard * 100).toFixed(1) : '—') + '%';
             const c = sd.containment_factor != null ? (sd.containment_factor * 100).toFixed(1) + '%' : '—';
             const cc = escapeHtml(sd.canonical_class || '—');
             const compactScoreDisplay = jaccardZeroDeterministic ? 'No Shared Behavioral Atoms' : similarityPercent + '%';
-            const compactScoreTitle = jaccardZeroDeterministic ? `Similarity: ${similarityPercent}% | Jaccard: 0% | Containment: ${c} | Filter penalty: ${sd.filter_penalty != null ? (sd.filter_penalty * 100).toFixed(1) + '%' : '0%'}` : 'Similarity = (Jaccard × Containment) − Filter Penalty';
-            const surfaceRows = sd.surface_score_a != null && sd.surface_score_b != null ? `
+            const compactScoreTitle = jaccardZeroDeterministic ? `Similarity: ${similarityPercent}% | Jaccard: 0% | Filter penalty: ${sd.filter_penalty != null ? (sd.filter_penalty * 100).toFixed(1) + '%' : '0%'}` : 'Similarity = (Jaccard × Containment) − Filter Penalty';
+            const surfaceRows = !jIsZero && sd.surface_score_a != null && sd.surface_score_b != null ? `
                     <span class="text-gray-600 dark:text-gray-400">Surface (Current)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_a} branches</span>
                     <span class="text-gray-600 dark:text-gray-400">Surface (Candidate)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_b} branches</span>
                 ` : '';
+            const containmentRow = !jIsZero ? `<span class="text-gray-600 dark:text-gray-400">Containment</span><span class="text-gray-800 dark:text-slate-100">${c}</span>` : '';
             return `
             <div class="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs">
                 <div class="font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-1">
@@ -355,7 +360,7 @@ function renderSimilarityDisplay(data, options = {}) {
                     <span class="text-gray-600 dark:text-gray-400">Canonical class</span><span class="font-mono text-gray-800 dark:text-slate-100">${cc}</span>
                     ${surfaceRows}
                     <span class="text-gray-600 dark:text-gray-400">Jaccard</span><span class="text-gray-800 dark:text-slate-100">${j}</span>
-                    <span class="text-gray-600 dark:text-gray-400">Containment</span><span class="text-gray-800 dark:text-slate-100">${c}</span>
+                    ${containmentRow}
                 </div>
             </div>`;
         })() : '';

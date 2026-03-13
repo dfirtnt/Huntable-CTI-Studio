@@ -2269,10 +2269,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Assess novelty for each generated rule using behavioral novelty assessment
             for rule in sigma_rules:
                 # compare_proposed_rule_to_embeddings now uses novelty assessment internally
-                similar_rules = sigma_matching_service.compare_proposed_rule_to_embeddings(
+                match_result = sigma_matching_service.compare_proposed_rule_to_embeddings(
                     proposed_rule=rule,
                     threshold=0.0,  # Get all results, filter by threshold below
                 )
+                similar_rules = match_result.get("matches", [])
 
                 # Filter by threshold and limit to top 10
                 filtered_rules = [r for r in similar_rules if r.get("similarity", 0.0) >= similarity_threshold][:10]

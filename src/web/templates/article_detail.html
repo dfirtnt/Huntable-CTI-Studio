@@ -8070,6 +8070,9 @@ Please provide a detailed analysis based on the article content and the user's s
         // Remove any existing modal
         closeSimilarRulesModal();
         await cleanupExistingModal('similarRulesModal');
+        // Behavioral Overlap Engine: display only rules with jaccard > 0 (at least one shared atom)
+        const jaccard = (m) => m.atom_jaccard ?? m.semantic_details?.jaccard ?? 0;
+        matches = (matches || []).filter(m => jaccard(m) > 0);
         
         const modal = document.createElement('div');
         modal.id = 'similarRulesModal';
@@ -8097,14 +8100,9 @@ Please provide a detailed analysis based on the article content and the user's s
         if (!matches || matches.length === 0) {
             matchesHtml = `
                 <div class="text-center py-8">
-                    <div class="w-16 h-16 mx-auto mb-4 text-green-500 flex items-center justify-center">
-                        <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                        </svg>
-                    </div>
-                    <p class="text-lg font-semibold text-gray-900 mb-2">✨ Novel Detection Pattern</p>
-                    <p class="text-gray-600 mb-1">No similar rules found in SigmaHQ repository</p>
-                    <p class="text-sm text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing SigmaHQ rules.</p>
+                    <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
+                    <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Behavioral Overlap Found</p>
+                    <p class="text-gray-600 dark:text-gray-400">No SigmaHQ rules share detection logic with this rule.</p>
                 </div>
             `;
         } else {
@@ -8279,13 +8277,9 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
-                    ${(() => {
-                        const maxSim = matches && matches.length > 0 ? Math.max(...matches.map(m => m.similarity ?? 0)) : 0;
-                        if (maxSim === 0) {
-                            return 'No behaviorally similar rules found in SigmaHQ (same telemetry class shown for reference)';
-                        }
-                        return `Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)`;
-                    })()}
+                    ${matches && matches.length > 0
+                        ? `Found ${matches.length} rules with behavioral overlap (sorted by similarity)`
+                        : 'No SigmaHQ rules share detection logic with this rule.'}
                     ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                         <div class="mt-1 text-xs text-gray-500">
                             Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? ' — ' + matches[0].llm_model : ''}
