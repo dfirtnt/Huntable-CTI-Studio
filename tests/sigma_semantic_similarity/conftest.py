@@ -1,14 +1,6 @@
 """Pytest fixtures: minimal valid Sigma YAML rules."""
 
-import sys
-from pathlib import Path
-
 import pytest
-
-# Ensure package root is on path when running tests from repo or package dir
-_root = Path(__file__).resolve().parent.parent
-if str(_root) not in sys.path:
-    sys.path.insert(0, str(_root))
 
 
 @pytest.fixture
