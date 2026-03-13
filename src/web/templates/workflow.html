@@ -294,6 +294,61 @@
     background: var(--purple-bg-10) !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THRESHOLD SLIDERS (purple track/thumb, dark theme)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.threshold-slider-input {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--panel-bg-2);
+    outline: none;
+}
+
+.threshold-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--purple-primary);
+    cursor: pointer;
+    box-shadow: 0 0 0 2px var(--panel-bg-2);
+    transition: background 0.15s, transform 0.1s;
+}
+
+.threshold-slider-input::-webkit-slider-thumb:hover {
+    background: var(--purple-hover);
+    transform: scale(1.1);
+}
+
+.threshold-slider-input::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--purple-primary);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 0 2px var(--panel-bg-2);
+}
+
+.threshold-slider-input::-moz-range-thumb:hover {
+    background: var(--purple-hover);
+}
+
+.threshold-slider-input::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--panel-bg-2);
+}
+
+.threshold-slider-input {
+    accent-color: var(--purple-primary);
+}
+
 </style>
 <script>
     window.initialCommercialModelCatalog = {{ provider_model_catalog | tojson | safe }};
@@ -362,28 +417,36 @@
                     <div id="other-thresholds-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Junk Filter Threshold -->
-                            <div>
-                                <label for="junkFilterThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Junk Filter Threshold
-                                    <button type="button" 
-                                            onclick="showHelp('junkFilterThreshold')"
-                                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
-                                            title="Help">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                        </svg>
-                                    </button>
-                                </label>
-                                <input type="number" 
-                                       id="junkFilterThreshold" 
+                            <div class="threshold-slider">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label for="junkFilterThreshold" class="flex items-center gap-2 text-sm font-semibold" style="color: var(--text-primary) !important;">
+                                        Junk filter threshold
+                                        <button type="button"
+                                                onclick="showHelp('junkFilterThreshold')"
+                                                class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                title="Help">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </button>
+                                    </label>
+                                    <span id="junkFilterThreshold-value" class="text-purple-400 dark:text-purple-400 font-medium">0.8</span>
+                                </div>
+                                <input type="range"
+                                       id="junkFilterThreshold"
                                        name="junk_filter_threshold"
-                                       min="0" 
-                                       max="1" 
+                                       min="0"
+                                       max="1"
                                        step="0.05"
+                                       value="0.8"
                                        required
-                                       oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
-                                       class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence (0-1) for content filtering</p>
+                                       class="threshold-slider-input w-full"
+                                       oninput="updateThresholdDisplay('junkFilterThreshold'); validateThreshold(this, 0, 1); autoSaveConfig()">
+                                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    <span>0.0</span>
+                                    <span>1.0</span>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence for content filtering - higher = more aggressive</p>
                                 <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                             </div>
                         </div>
@@ -497,28 +560,36 @@
                         <div>
                             <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Rank Agent Thresholds</h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="rankingThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Ranking Threshold
-                            <button type="button" 
-                                                onclick="showHelp('rankingThreshold')"
-                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
-                                    title="Help">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                </svg>
-                            </button>
-                        </label>
-                        <input type="number" 
-                                           id="rankingThreshold" 
+                                <div class="threshold-slider">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label for="rankingThreshold" class="flex items-center gap-2 text-sm font-semibold" style="color: var(--text-primary) !important;">
+                                            Ranking threshold
+                                            <button type="button"
+                                                    onclick="showHelp('rankingThreshold')"
+                                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                                    title="Help">
+                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </button>
+                                        </label>
+                                        <span id="rankingThreshold-value" class="text-purple-400 dark:text-purple-400 font-medium">6</span>
+                                    </div>
+                                    <input type="range"
+                                           id="rankingThreshold"
                                            name="ranking_threshold"
-                               min="0" 
-                                           max="10" 
-                               step="0.1"
+                                           min="0"
+                                           max="10"
+                                           step="0.1"
+                                           value="6"
                                            required
-                                           oninput="validateThreshold(this, 0, 10); autoSaveConfig()"
-                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                                    <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM ranking (0-10) to continue workflow</p>
+                                           class="threshold-slider-input w-full"
+                                           oninput="updateThresholdDisplay('rankingThreshold'); validateThreshold(this, 0, 10); autoSaveConfig()">
+                                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        <span>0</span>
+                                        <span>10</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM score to continue workflow - articles below this are dropped</p>
                                     <p id="rankingThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                                 </div>
                             </div>
@@ -601,35 +672,25 @@
                                        oninput="validateAgentModelOnChange('rankqa'); autoSaveModelChange()">
                             </div>
                              <div class="mt-3 flex gap-3">
-                                <div class="flex-1">
-                                    <label for="rankqa-temperature" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Rank QA Temperature
-                                    </label>
-                                    <input type="number" 
-                                           id="rankqa-temperature" 
-                                           name="agent_models[RankAgentQA_temperature]"
-                                           min="0" 
-                                           max="2" 
-                                           step="0.1"
-                                           value="0.1"
-                                           onchange="autoSaveModelChange()"
-                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Temperature for QA evaluation (0.0-2.0 for OpenAI, 0.0-1.0 for LMStudio/Anthropic, default: 0.1)</p>
+                                <div class="flex-1 threshold-slider">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label for="rankqa-temperature" class="block text-sm font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                        <span id="rankqa-temperature-value" class="text-purple-400 font-medium">0.1</span>
+                                    </div>
+                                    <input type="range" id="rankqa-temperature" name="agent_models[RankAgentQA_temperature]" min="0" max="2" step="0.1" value="0.1"
+                                           class="threshold-slider-input w-full" oninput="updateThresholdDisplay('rankqa-temperature'); autoSaveModelChange()">
+                                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1"><span>0</span><span>2</span></div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                 </div>
-                                <div class="flex-1">
-                                    <label for="rankqa-top-p" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Rank QA Top_P
-                                    </label>
-                                    <input type="number"
-                                           id="rankqa-top-p"
-                                           name="agent_models[RankAgentQA_top_p]"
-                                           min="0"
-                                           max="1"
-                                           step="0.01"
-                                           value="0.9"
-                                           onchange="autoSaveModelChange()"
-                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Top_P for QA evaluation (0.0-1.0, default: 0.9)</p>
+                                <div class="flex-1 threshold-slider">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label for="rankqa-top-p" class="block text-sm font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                        <span id="rankqa-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                    </div>
+                                    <input type="range" id="rankqa-top-p" name="agent_models[RankAgentQA_top_p]" min="0" max="1" step="0.01" value="0.9"
+                                           class="threshold-slider-input w-full" oninput="updateThresholdDisplay('rankqa-top-p'); autoSaveModelChange()">
+                                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1"><span>0.0</span><span>1.0</span></div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Top-p sampling (0.0-1.0, default: 0.9)</p>
                                 </div>
                             </div>
                         </div>
@@ -749,15 +810,23 @@
                                         <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-3">
-                                                <div class="flex-1">
-                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                                    <input type="number" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="cmdlineextract-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                                        <span id="cmdlineextract-temperature-value" class="text-purple-400 font-medium">0</span>
+                                                    </div>
+                                                    <input type="range" id="cmdlineextract-temperature" name="agent_models[CmdlineExtract_temperature]" min="0" max="2" step="0.1" value="0.0" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('cmdlineextract-temperature'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                                 </div>
-                                                <div class="flex-1">
-                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                                    <input type="number" id="cmdlineextract-top-p" name="agent_models[CmdlineExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="cmdlineextract-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                                        <span id="cmdlineextract-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                                    </div>
+                                                    <input type="range" id="cmdlineextract-top-p" name="agent_models[CmdlineExtract_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('cmdlineextract-top-p'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling (0.0-1.0, default: 0.9)</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -843,29 +912,21 @@
                                                        onchange="autoSaveModelChange()">
                                             </div>
                                              <div class="mt-2 flex gap-3">
-                                                 <div class="flex-1">
-                                                     <label for="cmdlineqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                    <input type="number" 
-                                                           id="cmdlineqa-temperature" 
-                                                           name="agent_models[CmdLineQA_temperature]"
-                                                           min="0" 
-                                                           max="2" 
-                                                           step="0.1"
-                                                           value="0.1"
-                                                           onchange="autoSaveModelChange()"
-                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="cmdlineqa-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                                        <span id="cmdlineqa-temperature-value" class="text-purple-400 font-medium">0.1</span>
+                                                    </div>
+                                                    <input type="range" id="cmdlineqa-temperature" name="agent_models[CmdLineQA_temperature]" min="0" max="2" step="0.1" value="0.1" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('cmdlineqa-temperature'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
                                                 </div>
-                                                <div class="flex-1">
-                                                    <label for="cmdlineqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                    <input type="number" 
-                                                           id="cmdlineqa-top-p" 
-                                                           name="agent_models[CmdLineQA_top_p]"
-                                                           min="0" 
-                                                           max="1" 
-                                                           step="0.01"
-                                                           value="0.9"
-                                                           onchange="autoSaveModelChange()"
-                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="cmdlineqa-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                                        <span id="cmdlineqa-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                                    </div>
+                                                    <input type="range" id="cmdlineqa-top-p" name="agent_models[CmdLineQA_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('cmdlineqa-top-p'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -956,15 +1017,23 @@
                                         <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-3">
-                                                <div class="flex-1">
-                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                                    <input type="number" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="proctreeextract-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                                        <span id="proctreeextract-temperature-value" class="text-purple-400 font-medium">0</span>
+                                                    </div>
+                                                    <input type="range" id="proctreeextract-temperature" name="agent_models[ProcTreeExtract_temperature]" min="0" max="2" step="0.1" value="0.0" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('proctreeextract-temperature'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                                 </div>
-                                                <div class="flex-1">
-                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                                    <input type="number" id="proctreeextract-top-p" name="agent_models[ProcTreeExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="proctreeextract-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                                        <span id="proctreeextract-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                                    </div>
+                                                    <input type="range" id="proctreeextract-top-p" name="agent_models[ProcTreeExtract_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('proctreeextract-top-p'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling (0.0-1.0, default: 0.9)</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1040,29 +1109,21 @@
                                                        oninput="validateAgentModelOnChange('proctreeqa'); autoSaveModelChange()">
                                             </div>
                                              <div class="mt-2 flex gap-3">
-                                                 <div class="flex-1">
-                                                     <label for="proctreeqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                    <input type="number" 
-                                                           id="proctreeqa-temperature" 
-                                                           name="agent_models[ProcTreeQA_temperature]"
-                                                           min="0" 
-                                                           max="2" 
-                                                           step="0.1"
-                                                           value="0.1"
-                                                           onchange="autoSaveModelChange()"
-                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="proctreeqa-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                                        <span id="proctreeqa-temperature-value" class="text-purple-400 font-medium">0.1</span>
+                                                    </div>
+                                                    <input type="range" id="proctreeqa-temperature" name="agent_models[ProcTreeQA_temperature]" min="0" max="2" step="0.1" value="0.1" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('proctreeqa-temperature'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
                                                 </div>
-                                                <div class="flex-1">
-                                                    <label for="proctreeqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                    <input type="number" 
-                                                           id="proctreeqa-top-p" 
-                                                           name="agent_models[ProcTreeQA_top_p]"
-                                                           min="0" 
-                                                           max="1" 
-                                                           step="0.01"
-                                                           value="0.9"
-                                                           onchange="autoSaveModelChange()"
-                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="proctreeqa-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                                        <span id="proctreeqa-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                                    </div>
+                                                    <input type="range" id="proctreeqa-top-p" name="agent_models[ProcTreeQA_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('proctreeqa-top-p'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1151,15 +1212,23 @@
                                         <!-- Temperature and Top_P -->
                                         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                                             <div class="flex gap-3">
-                                                <div class="flex-1">
-                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                                                    <input type="number" id="huntqueriesextract-temperature" name="agent_models[HuntQueriesExtract_temperature]" min="0" max="2" step="0.1" value="0.0" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="huntqueriesextract-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                                        <span id="huntqueriesextract-temperature-value" class="text-purple-400 font-medium">0</span>
+                                                    </div>
+                                                    <input type="range" id="huntqueriesextract-temperature" name="agent_models[HuntQueriesExtract_temperature]" min="0" max="2" step="0.1" value="0.0" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('huntqueriesextract-temperature'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
                                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">0.0 = deterministic, higher = more creative</p>
                                                 </div>
-                                                <div class="flex-1">
-                                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                                                    <input type="number" id="huntqueriesextract-top-p" name="agent_models[HuntQueriesExtract_top_p]" min="0" max="1" step="0.01" value="0.9" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling parameter (0.0-1.0, default: 0.9)</p>
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="huntqueriesextract-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                                        <span id="huntqueriesextract-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                                    </div>
+                                                    <input type="range" id="huntqueriesextract-top-p" name="agent_models[HuntQueriesExtract_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('huntqueriesextract-top-p'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
+                                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Top-p sampling (0.0-1.0, default: 0.9)</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1235,29 +1304,21 @@
                                                        oninput="validateAgentModelOnChange('huntqueriesqa'); autoSaveModelChange()">
                                             </div>
                                              <div class="mt-2 flex gap-3">
-                                                 <div class="flex-1">
-                                                     <label for="huntqueriesqa-temperature" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
-                                                    <input type="number" 
-                                                           id="huntqueriesqa-temperature" 
-                                                           name="agent_models[HuntQueriesQA_temperature]"
-                                                           min="0" 
-                                                           max="2" 
-                                                           step="0.1"
-                                                           value="0.1"
-                                                           onchange="autoSaveModelChange()"
-                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="huntqueriesqa-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+                                                        <span id="huntqueriesqa-temperature-value" class="text-purple-400 font-medium">0.1</span>
+                                                    </div>
+                                                    <input type="range" id="huntqueriesqa-temperature" name="agent_models[HuntQueriesQA_temperature]" min="0" max="2" step="0.1" value="0.1" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('huntqueriesqa-temperature'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
                                                 </div>
-                                                <div class="flex-1">
-                                                    <label for="huntqueriesqa-top-p" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Top_P</label>
-                                                    <input type="number" 
-                                                           id="huntqueriesqa-top-p" 
-                                                           name="agent_models[HuntQueriesQA_top_p]"
-                                                           min="0" 
-                                                           max="1" 
-                                                           step="0.01"
-                                                           value="0.9"
-                                                           onchange="autoSaveModelChange()"
-                                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs">
+                                                <div class="flex-1 threshold-slider">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <label for="huntqueriesqa-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+                                                        <span id="huntqueriesqa-top-p-value" class="text-purple-400 font-medium">0.9</span>
+                                                    </div>
+                                                    <input type="range" id="huntqueriesqa-top-p" name="agent_models[HuntQueriesQA_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('huntqueriesqa-top-p'); autoSaveModelChange()">
+                                                    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1283,28 +1344,36 @@
                         <!-- SIGMA Agent Model -->
                         <div id="sigma-agent-model-container"></div>
                         <!-- Similarity Threshold -->
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
-                            <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Similarity Threshold
-                                <button type="button" 
-                                        onclick="showHelp('similarityThreshold')"
-                                        class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
-                                        title="Help">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                    </svg>
-                                </button>
-                            </label>
-                            <input type="number" 
-                                   id="similarityThreshold" 
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 threshold-slider" style="background: var(--panel-bg-5) !important;">
+                            <div class="flex justify-between items-center mb-1">
+                                <label for="similarityThreshold" class="flex items-center gap-2 text-sm font-semibold" style="color: var(--text-primary) !important;">
+                                    Similarity threshold
+                                    <button type="button"
+                                            onclick="showHelp('similarityThreshold')"
+                                            class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
+                                            title="Help">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </button>
+                                </label>
+                                <span id="similarityThreshold-value" class="text-purple-400 dark:text-purple-400 font-medium">0.5</span>
+                            </div>
+                            <input type="range"
+                                   id="similarityThreshold"
                                    name="similarity_threshold"
-                                   min="0" 
-                                   max="1" 
+                                   min="0"
+                                   max="1"
                                    step="0.05"
+                                   value="0.5"
                                    required
-                                   oninput="validateThreshold(this, 0, 1); autoSaveConfig()"
-                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity (0-1) to queue rule</p>
+                                   class="threshold-slider-input w-full"
+                                   oninput="updateThresholdDisplay('similarityThreshold'); validateThreshold(this, 0, 1); autoSaveConfig()">
+                            <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <span>0.0</span>
+                                <span>1.0</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity to queue a rule - rules above this are considered duplicates</p>
                             <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                         </div>
                         <!-- SIGMA Agent Test Buttons -->
@@ -3324,6 +3393,12 @@ function applyAgentConfigs(models = null) {
         const model = agentModelsData[config.modelKey] || '';
         if (model) setAgentModel(config.prefix, model, provider);
     });
+
+    // 4) Update temp/top_p slider value displays
+    Object.values(AGENT_CONFIG).forEach(config => {
+        if (config.temperatureKey) updateThresholdDisplay(`${config.prefix}-temperature`);
+        if (config.topPKey) updateThresholdDisplay(`${config.prefix}-top-p`);
+    });
 }
 
 /**
@@ -3374,34 +3449,12 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     const openaiInput = buildCommercialProviderInput(agentPrefix, 'openai', currentProvider, currentModel);
     const anthropicInput = buildCommercialProviderInput(agentPrefix, 'anthropic', currentProvider, currentModel);
     
-    // Build temperature and top_p inputs on same row if needed
+    // Build temperature and top_p sliders on same row if needed
     const topPDefault = options.topPDefault !== undefined ? options.topPDefault : 0.9;
+    const tempMax = (currentProvider === 'anthropic' || currentProvider === 'lmstudio') ? 1 : 2;
     const temperatureTopPRow = showTemperature && (config.temperatureKey || config.topPKey) ? `
         <div class="mt-3 flex gap-3">
-            ${config.temperatureKey ? `
-            <div class="flex-1">
-                <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                <input type="number" 
-                       id="${agentPrefix}-temperature" 
-                       name="agent_models[${config.temperatureKey}]"
-                       min="0" max="${(currentProvider === 'anthropic' || currentProvider === 'lmstudio') ? '1' : '2'}" step="0.1" 
-                       value="${temperatureDefault}" 
-                       onchange="autoSaveModelChange()" 
-                       class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
-            </div>
-            ` : ''}
-            ${config.topPKey ? `
-            <div class="flex-1">
-                <label class="block ${sizeClass} font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                <input type="number" 
-                       id="${agentPrefix}-top-p" 
-                       name="agent_models[${config.topPKey}]"
-                       min="0" max="1" step="0.01" 
-                       value="${topPDefault}" 
-                       onchange="autoSaveModelChange()" 
-                       class="w-full ${paddingClass} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white ${sizeClass}">
-            </div>
-            ` : ''}
+            ${buildTempTopPSliderRow(agentPrefix, temperatureDefault, topPDefault, config.temperatureKey, config.topPKey, tempMax)}
         </div>
     ` : '';
     
@@ -4785,6 +4838,41 @@ async function rollbackPrompt(agentName, versionId) {
     }
 }
 
+// Build temperature + top_p slider pair HTML (for dynamic agent model rows). tempMax defaults to 2.
+function buildTempTopPSliderRow(prefix, tempVal, topPVal, tempKey, topPKey, tempMax) {
+    const t = typeof tempVal === 'number' ? tempVal : parseFloat(tempVal) || 0;
+    const p = typeof topPVal === 'number' ? topPVal : parseFloat(topPVal) || 0.9;
+    const maxT = tempMax !== undefined ? tempMax : 2;
+    return `
+    <div class="flex-1 threshold-slider">
+        <div class="flex justify-between items-center mb-1">
+            <label for="${prefix}-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label>
+            <span id="${prefix}-temperature-value" class="text-purple-400 font-medium">${t}</span>
+        </div>
+        <input type="range" id="${prefix}-temperature" name="agent_models[${tempKey}]" min="0" max="${maxT}" step="0.1" value="${t}"
+               class="threshold-slider-input w-full" oninput="updateThresholdDisplay('${prefix}-temperature'); autoSaveModelChange()">
+        <div class="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-1"><span>0</span><span>${maxT}</span></div>
+    </div>
+    <div class="flex-1 threshold-slider">
+        <div class="flex justify-between items-center mb-1">
+            <label for="${prefix}-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label>
+            <span id="${prefix}-top-p-value" class="text-purple-400 font-medium">${p}</span>
+        </div>
+        <input type="range" id="${prefix}-top-p" name="agent_models[${topPKey}]" min="0" max="1" step="0.01" value="${p}"
+               class="threshold-slider-input w-full" oninput="updateThresholdDisplay('${prefix}-top-p'); autoSaveModelChange()">
+        <div class="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-1"><span>0.0</span><span>1.0</span></div>
+    </div>`;
+}
+
+// Update threshold slider value display (call on input and when loading config)
+function updateThresholdDisplay(inputId) {
+    const input = document.getElementById(inputId);
+    const valueSpan = document.getElementById(inputId + '-value');
+    if (!input || !valueSpan) return;
+    const v = parseFloat(input.value);
+    valueSpan.textContent = Number.isInteger(v) ? String(v) : v.toFixed(v < 1 ? 2 : 1);
+}
+
 // Validation function for thresholds
 function validateThreshold(input, min, max) {
     const value = parseFloat(input.value);
@@ -5020,6 +5108,7 @@ async function loadConfig(skipPromptReload = false) {
             if (currentConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = currentConfig.similarity_threshold;
             }
+            ['junkFilterThreshold', 'rankingThreshold', 'similarityThreshold'].forEach(updateThresholdDisplay);
             if (currentConfig.qa_max_retries !== undefined) {
                 const qaMaxRetriesInput = document.getElementById('qaMaxRetries');
                 if (qaMaxRetriesInput) {
@@ -5498,17 +5587,11 @@ function renderAgentModels(lmstudioModels) {
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Rank Agent scoring.</p>
                 ${enabledProviders.lmstudio && currentProvider === 'lmstudio' && sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
                 <div class="mt-3 flex gap-3">
-                    <div class="flex-1">
-                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                        <input type="number" id="rankagent-temperature" name="agent_models[RankAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                        <input type="number" id="rankagent-top-p" name="agent_models[RankAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                    </div>
+                    ${buildTempTopPSliderRow('rankagent', currentTemperature, currentTopP, 'RankAgent_temperature', 'RankAgent_top_p')}
                 </div>
             </div>
         `;
+        ['rankagent-temperature', 'rankagent-top-p'].forEach(updateThresholdDisplay);
     }
     
     // Render OS Detection Model
@@ -5590,14 +5673,7 @@ function renderAgentModels(lmstudioModels) {
                             ${buildCommercialProviderInput('osdetectionagent-fallback', 'anthropic', currentFallbackProvider, currentFallbackModel)}
                         </div>
                         <div class="mt-3 flex gap-3">
-                            <div class="flex-1">
-                                <label for="osdetectionagent-fallback-temperature" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Temperature</label>
-                                <input type="number" id="osdetectionagent-fallback-temperature" name="agent_models[OSDetectionAgent_fallback_temperature]" min="0" max="1" step="0.1" value="${currentFallbackTemp}" onchange="autoSaveModelChange()" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
-                            </div>
-                            <div class="flex-1">
-                                <label for="osdetectionagent-fallback-top-p" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Top_P</label>
-                                <input type="number" id="osdetectionagent-fallback-top-p" name="agent_models[OSDetectionAgent_fallback_top_p]" min="0" max="1" step="0.01" value="${currentFallbackTopP}" onchange="autoSaveModelChange()" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-sm">
-                            </div>
+                            ${buildTempTopPSliderRow('osdetectionagent-fallback', currentFallbackTemp, currentFallbackTopP, 'OSDetectionAgent_fallback_temperature', 'OSDetectionAgent_fallback_top_p', 1)}
                         </div>
                     </div>
                 </div>
@@ -5673,6 +5749,7 @@ function renderAgentModels(lmstudioModels) {
                 </div>
             </div>
         `;
+        ['osdetectionagent-fallback-temperature', 'osdetectionagent-fallback-top-p'].forEach(updateThresholdDisplay);
     }
     
     // Render Extract Agents Fallback Model
@@ -5736,17 +5813,11 @@ function renderAgentModels(lmstudioModels) {
                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Required for Extract Agent operations.</p>
                  ${enabledProviders.lmstudio && currentProvider === 'lmstudio' && sortedModelIds.length === 0 ? '<p class="text-xs text-orange-500 dark:text-orange-400 mt-1">⚠️ LM Studio is not available. Start LM Studio to load models.</p>' : ''}
                  <div class="mt-3 flex gap-3">
-                     <div class="flex-1">
-                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                         <input type="number" id="extractagent-temperature" name="agent_models[ExtractAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                     </div>
-                     <div class="flex-1">
-                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                         <input type="number" id="extractagent-top-p" name="agent_models[ExtractAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                     </div>
+                     ${buildTempTopPSliderRow('extractagent', currentTemperature, currentTopP, 'ExtractAgent_temperature', 'ExtractAgent_top_p')}
                  </div>
              </div>
         `;
+        ['extractagent-temperature', 'extractagent-top-p'].forEach(updateThresholdDisplay);
     }
     
     // Render SIGMA Agent Model
@@ -5801,17 +5872,11 @@ function renderAgentModels(lmstudioModels) {
                     </div>
                  </div>
                  <div class="mt-3 flex gap-3">
-                     <div class="flex-1">
-                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
-                         <input type="number" id="sigmaagent-temperature" name="agent_models[SigmaAgent_temperature]" min="0" max="2" step="0.1" value="${currentTemperature}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                     </div>
-                     <div class="flex-1">
-                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Top_P</label>
-                         <input type="number" id="sigmaagent-top-p" name="agent_models[SigmaAgent_top_p]" min="0" max="1" step="0.01" value="${currentTopP}" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white text-xs">
-                     </div>
+                     ${buildTempTopPSliderRow('sigmaagent', currentTemperature, currentTopP, 'SigmaAgent_temperature', 'SigmaAgent_top_p')}
                  </div>
              </div>
         `;
+        ['sigmaagent-temperature', 'sigmaagent-top-p'].forEach(updateThresholdDisplay);
     }
     
     // Populate sub-agent model dropdowns using unified system
@@ -8258,8 +8323,9 @@ async function applyPreset(preset) {
             if (similarityInput && preset.thresholds.similarity_threshold !== undefined) {
                 similarityInput.value = preset.thresholds.similarity_threshold;
             }
+            ['junkFilterThreshold', 'rankingThreshold', 'similarityThreshold'].forEach(updateThresholdDisplay);
         }
-        
+
         // Apply agent models using unified system
         if (preset.agent_models) {
             // Use the unified applyAgentConfigs function which handles providers correctly
@@ -9663,7 +9729,8 @@ if (workflowConfigForm) {
             if (updatedConfig.similarity_threshold !== undefined) {
                 document.getElementById('similarityThreshold').value = updatedConfig.similarity_threshold;
             }
-            
+            ['junkFilterThreshold', 'rankingThreshold', 'similarityThreshold'].forEach(updateThresholdDisplay);
+
             // Update config display using shared component (same source as Agent-evals: saved config only)
             if (typeof renderWorkflowConfigDisplay === 'function') {
                 renderWorkflowConfigDisplay(updatedConfig);
@@ -14545,7 +14612,11 @@ async function checkSimilarRulesForQueue() {
             
             // Use parsed rule or create from metadata
             const generatedRules = currentRuleParsed ? [currentRuleParsed] : [];
-            showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules, data.assessment_method, data.diagnostic);
+            showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules, data.assessment_method, data.diagnostic, {
+                totalCandidatesEvaluated: data.total_candidates_evaluated,
+                behavioralMatchesFound: data.behavioral_matches_found,
+                engineUsed: data.engine_used
+            });
         } else {
             showNotification('Failed to find similar rules: ' + (data.message || 'Unknown error'), 'error');
         }
@@ -14563,9 +14634,15 @@ async function checkSimilarRulesForQueue() {
     }
 }
 
-async function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], assessmentMethod = null, diagnostic = null) {
+async function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], assessmentMethod = null, diagnostic = null, metadata = {}) {
     // Remove any existing modal
     closeSimilarRulesModal();
+    // Behavioral Overlap Engine: display only rules with jaccard > 0 (at least one shared atom)
+    const jaccard = (m) => m.atom_jaccard ?? m.semantic_details?.jaccard ?? 0;
+    matches = (matches || []).filter(m => jaccard(m) > 0);
+    const totalCandidatesEvaluated = metadata?.totalCandidatesEvaluated ?? -1;
+    const behavioralMatchesFound = metadata?.behavioralMatchesFound ?? -1;
+    const hasMetadata = totalCandidatesEvaluated >= 0;
     
     // Clean up existing modal properly
     const existingModal = document.getElementById('similarRulesModal');
@@ -14615,22 +14692,18 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     // Build matches HTML
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
-        const noData = diagnostic && (diagnostic.total_sigma_rules === 0 || diagnostic.rules_with_logsource === 0);
-        const hint = noData
-            ? (diagnostic.total_sigma_rules === 0
-                ? 'SigmaHQ repository has not been synced or indexed. From project root run: ./run_cli.sh sigma sync then ./run_cli.sh sigma index (or python3 -m src.cli.main sigma sync then sigma index without Docker).'
-                : `No Sigma rules in the database for logsource "${diagnostic.logsource_key}". Run ./run_cli.sh sigma index (or python3 -m src.cli.main sigma index). If rules were synced before logsource_key existed, run: python3 scripts/migrate_sigma_to_canonical.py`)
-            : 'This rule represents a unique detection pattern that is not currently covered by existing SigmaHQ rules.';
+        const emptyTitle = (hasMetadata && totalCandidatesEvaluated === 0)
+            ? 'SigmaHQ Corpus Unavailable'
+            : 'No Behavioral Overlap Found';
+        const emptySubtitle = (hasMetadata && totalCandidatesEvaluated === 0)
+            ? 'No SigmaHQ rules were available for behavioral comparison.'
+            : 'No SigmaHQ rules share detection logic with this rule.';
         matchesHtml = `
             <div class="text-center py-8">
-                <div class="w-16 h-16 mx-auto mb-4 text-green-500 dark:text-green-400 flex items-center justify-center">
-                    <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                </svg>
-                </div>
-                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${noData ? 'No similar rules (check setup)' : 'Novel Detection Pattern'}</p>
-                <p class="text-gray-600 dark:text-gray-400 mb-1">No similar rules found in SigmaHQ repository</p>
-                <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">${hint}</p>
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
+                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${emptyTitle}</p>
+                ${hasMetadata ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${totalCandidatesEvaluated} candidates evaluated</p>` : ''}
+                <p class="text-gray-600 dark:text-gray-400">${emptySubtitle}</p>
             </div>
         `;
     } else {
@@ -14800,20 +14873,16 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
                 </div>
             </div>
             
+            ${matches && matches.length > 0 ? `
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                ${(() => {
-                    const maxSim = matches && matches.length > 0 ? Math.max(...matches.map(m => m.similarity ?? 0)) : 0;
-                    if (maxSim === 0) {
-                        return 'No behaviorally similar rules found in SigmaHQ (same telemetry class shown for reference)';
-                    }
-                    return `Found ${matches ? matches.length : 0} most similar rules${assessmentMethod === 'behavioral_novelty' || (matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment') ? ' (behavioral novelty assessment)' : matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : ' (behavioral novelty assessment)'} (sorted by similarity)`;
-                })()}
-                ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
+                ${hasMetadata ? totalCandidatesEvaluated + ' candidates evaluated · ' : ''}Found ${matches.length} rules with behavioral overlap (sorted by similarity)
+                ${matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}
                     </div>
                 ` : ''}
             </div>
+            ` : ''}
             
             <div id="similarRulesMatchesContainer" class="space-y-3 max-h-96 overflow-y-auto">
                 ${matchesHtml}
