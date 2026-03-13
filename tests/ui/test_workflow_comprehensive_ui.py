@@ -783,21 +783,31 @@ class TestWorkflowConfigurationExtractAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand panels
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
-
-        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
-        cmdline_toggle.click()
+        # Expand panels (use JS to ensure expand works even if element is off-screen)
+        page.evaluate("""() => {
+            const extractContent = document.getElementById('extract-agent-panel-content');
+            const extractToggle = document.getElementById('extract-agent-panel-toggle');
+            if (extractContent?.classList.contains('hidden') && extractToggle) {
+                extractContent.classList.remove('hidden');
+                extractToggle.textContent = '▲';
+            }
+            const cmdlineBtn = document.getElementById('cmdlineextract-panel-btn');
+            const cmdlineContent = document.getElementById('cmdlineextract-agent-panel-content');
+            if (cmdlineContent?.classList.contains('hidden') && cmdlineBtn) {
+                cmdlineContent.classList.remove('hidden');
+                const toggle = document.getElementById('cmdlineextract-agent-panel-toggle');
+                if (toggle) toggle.textContent = '▲';
+            }
+        }""")
         page.wait_for_timeout(300)
 
-        # Find temperature input (slider)
+        # Find temperature input (slider; max is provider-specific: 1 for Anthropic, 2 for OpenAI/LMStudio)
         temp_input = page.locator("#cmdlineextract-temperature")
         expect(temp_input).to_be_visible()
         expect(temp_input).to_have_attribute("type", "range")
         expect(temp_input).to_have_attribute("min", "0")
-        expect(temp_input).to_have_attribute("max", "2")
+        max_val = temp_input.get_attribute("max")
+        assert max_val in ("1", "2"), f"Expected max 1 or 2, got {max_val}"
         expect(temp_input).to_have_attribute("step", "0.1")
 
     @pytest.mark.ui
@@ -811,13 +821,22 @@ class TestWorkflowConfigurationExtractAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand panels
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
-
-        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
-        cmdline_toggle.click()
+        # Expand panels (use JS to ensure expand works even if element is off-screen)
+        page.evaluate("""() => {
+            const extractContent = document.getElementById('extract-agent-panel-content');
+            const extractToggle = document.getElementById('extract-agent-panel-toggle');
+            if (extractContent?.classList.contains('hidden') && extractToggle) {
+                extractContent.classList.remove('hidden');
+                extractToggle.textContent = '▲';
+            }
+            const cmdlineBtn = document.getElementById('cmdlineextract-panel-btn');
+            const cmdlineContent = document.getElementById('cmdlineextract-agent-panel-content');
+            if (cmdlineContent?.classList.contains('hidden') && cmdlineBtn) {
+                cmdlineContent.classList.remove('hidden');
+                const toggle = document.getElementById('cmdlineextract-agent-panel-toggle');
+                if (toggle) toggle.textContent = '▲';
+            }
+        }""")
         page.wait_for_timeout(300)
 
         # Find Top_P input (slider)
@@ -828,6 +847,138 @@ class TestWorkflowConfigurationExtractAgent:
         expect(top_p_input).to_have_attribute("min", "0")
         expect(top_p_input).to_have_attribute("max", "1")
         expect(top_p_input).to_have_attribute("step", "0.01")
+
+    def _expand_extract_subagent_panel(self, page: Page, subagent: str) -> None:
+        """Expand Extract Agent and given sub-agent panel via JS (avoids off-screen visibility)."""
+        content_id = f"{subagent}-agent-panel-content"
+        toggle_id = f"{subagent}-agent-panel-toggle"
+        page.evaluate(
+            f"""() => {{
+                const extractContent = document.getElementById('extract-agent-panel-content');
+                const extractToggle = document.getElementById('extract-agent-panel-toggle');
+                if (extractContent?.classList.contains('hidden') && extractToggle) {{
+                    extractContent.classList.remove('hidden');
+                    extractToggle.textContent = '▲';
+                }}
+                const subContent = document.getElementById('{content_id}');
+                const subToggle = document.getElementById('{toggle_id}');
+                if (subContent?.classList.contains('hidden') && subToggle) {{
+                    subContent.classList.remove('hidden');
+                    subToggle.textContent = '▲';
+                }}
+            }}"""
+        )
+        page.wait_for_timeout(300)
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_proctreeextract_temperature_input(self, page: Page):
+        """Test ProcTreeExtract temperature slider."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(500)
+
+        self._expand_extract_subagent_panel(page, "proctreeextract")
+
+        temp_input = page.locator("#proctreeextract-temperature")
+        expect(temp_input).to_be_visible()
+        expect(temp_input).to_have_attribute("type", "range")
+        expect(temp_input).to_have_attribute("min", "0")
+        max_val = temp_input.get_attribute("max")
+        assert max_val in ("1", "2"), f"Expected max 1 or 2, got {max_val}"
+        expect(temp_input).to_have_attribute("step", "0.1")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_proctreeextract_top_p_input(self, page: Page):
+        """Test ProcTreeExtract Top_P slider."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(500)
+
+        self._expand_extract_subagent_panel(page, "proctreeextract")
+
+        top_p_input = page.locator("#proctreeextract-top-p")
+        expect(top_p_input).to_be_visible()
+        expect(top_p_input).to_have_attribute("type", "range")
+        expect(top_p_input).to_have_attribute("name", "agent_models[ProcTreeExtract_top_p]")
+        expect(top_p_input).to_have_attribute("min", "0")
+        expect(top_p_input).to_have_attribute("max", "1")
+        expect(top_p_input).to_have_attribute("step", "0.01")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_huntqueriesextract_temperature_input(self, page: Page):
+        """Test HuntQueriesExtract temperature slider."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(500)
+
+        self._expand_extract_subagent_panel(page, "huntqueriesextract")
+
+        temp_input = page.locator("#huntqueriesextract-temperature")
+        expect(temp_input).to_be_visible()
+        expect(temp_input).to_have_attribute("type", "range")
+        expect(temp_input).to_have_attribute("min", "0")
+        max_val = temp_input.get_attribute("max")
+        assert max_val in ("1", "2"), f"Expected max 1 or 2, got {max_val}"
+        expect(temp_input).to_have_attribute("step", "0.1")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_huntqueriesextract_top_p_input(self, page: Page):
+        """Test HuntQueriesExtract Top_P slider."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(500)
+
+        self._expand_extract_subagent_panel(page, "huntqueriesextract")
+
+        top_p_input = page.locator("#huntqueriesextract-top-p")
+        expect(top_p_input).to_be_visible()
+        expect(top_p_input).to_have_attribute("type", "range")
+        expect(top_p_input).to_have_attribute("name", "agent_models[HuntQueriesExtract_top_p]")
+        expect(top_p_input).to_have_attribute("min", "0")
+        expect(top_p_input).to_have_attribute("max", "1")
+        expect(top_p_input).to_have_attribute("step", "0.01")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_provider_switch_updates_temp_max(self, page: Page):
+        """Test that provider switch updates CmdlineExtract temperature max (Anthropic 1, OpenAI 2)."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(500)
+
+        self._expand_extract_subagent_panel(page, "cmdlineextract")
+
+        temp_input = page.locator("#cmdlineextract-temperature")
+        expect(temp_input).to_be_visible()
+
+        # Select Anthropic
+        page.select_option("#cmdlineextract-provider", "anthropic")
+        page.wait_for_timeout(800)
+        expect(temp_input).to_have_attribute("max", "1")
+
+        # Switch to OpenAI
+        page.select_option("#cmdlineextract-provider", "openai")
+        page.wait_for_timeout(800)
+        expect(temp_input).to_have_attribute("max", "2")
 
     @pytest.mark.ui
     @pytest.mark.workflow

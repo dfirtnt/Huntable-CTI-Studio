@@ -68,6 +68,7 @@ nav:
       - ML Feature Definitions: reference/ml-features.md
       - Versioning: reference/versioning.md
   - Development:
+      - Agent Orientation: development/agent-orientation.md
       - Setup: development/setup.md
       - Testing Strategy: development/testing.md
       - Manual Testing: development/manual-testing.md
