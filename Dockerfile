@@ -86,8 +86,8 @@ RUN pip install --no-cache-dir pip-audit==2.9.0 safety==3.2.0
 # Copy project
 COPY . .
 
-# Optional: deterministic Sigma similarity (sigma_semantic_similarity)
-RUN if [ -f /app/sigma_semantic_similarity/pyproject.toml ]; then pip install -e /app/sigma_semantic_similarity; fi
+# Deterministic Sigma similarity (required for sigma recompute-semantics)
+RUN pip install --no-cache-dir -r requirements-sigma.txt
 
 # Create non-root user and add to root group for socket access
 # Docker socket is root:root (GID 0) on macOS Docker Desktop

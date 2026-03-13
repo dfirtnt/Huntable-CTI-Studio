@@ -8,6 +8,9 @@ from click.testing import CliRunner
 from src.cli.main import cli
 
 
+pytestmark = pytest.mark.smoke
+
+
 @pytest.fixture
 def runner():
     return CliRunner()
@@ -43,6 +46,14 @@ def test_rescore_help_shows_options(runner):
     result = runner.invoke(cli, ["rescore", "--help"])
     assert result.exit_code == 0, result.output
     assert "rescore" in result.output.lower() or "Rescore" in result.output
+
+
+def test_sigma_help_shows_recompute_semantics(runner):
+    """sigma --help lists recompute-semantics subcommand."""
+    result = runner.invoke(cli, ["sigma", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "sigma" in result.output.lower()
+    assert "recompute-semantics" in result.output
 
 
 def test_stats_runs_and_shows_summary(runner):

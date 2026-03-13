@@ -25,8 +25,15 @@ logger = logging.getLogger(__name__)
 # Optional: deterministic sigma similarity engine (install sigma_semantic_similarity)
 try:
     from sigma_similarity import compare_rules as _sigma_compare_rules
+    from sigma_similarity.containment_estimator import compute_containment
+    from sigma_similarity.filter_analyzer import filter_penalty as _sigma_filter_penalty
+
+    _sigma_compare_rules_available = True
 except ImportError:
     _sigma_compare_rules = None
+    compute_containment = None
+    _sigma_filter_penalty = None
+    _sigma_compare_rules_available = False
 
 
 class NoveltyLabel(str, Enum):
@@ -144,10 +151,32 @@ class SigmaNoveltyService:
             canonical_text = self.generate_canonical_text(canonical_rule)
             logsource_key, proposed_service = self.normalize_logsource(proposed_rule.get("logsource", {}))
 
-            # Step 3: Retrieve candidates (hard gate: same logsource_key)
-            logger.debug(f"Retrieving candidates for logsource_key: '{logsource_key}'")
-            candidates = self.retrieve_candidates(exact_hash=exact_hash, logsource_key=logsource_key, top_k=top_k)
-            logger.debug(f"Retrieved {len(candidates)} candidates for logsource_key '{logsource_key}'")
+            # Try deterministic semantic precompute for proposed rule (enables precomputed-atom path)
+            proposed_sem = None
+            if _sigma_compare_rules_available:
+                try:
+                    from src.services.sigma_semantic_precompute import precompute_semantic_fields
+
+                    proposed_sem = precompute_semantic_fields(proposed_rule)
+                except Exception:
+                    pass
+
+            use_deterministic = proposed_sem is not None
+            canonical_class = proposed_sem["canonical_class"] if proposed_sem else None
+
+            # Step 3: Retrieve candidates (deterministic: by canonical_class, no limit; else: logsource_key + top_k)
+            logger.debug(
+                f"Retrieving candidates for logsource_key: '{logsource_key}'"
+                + (f", canonical_class: '{canonical_class}'" if canonical_class else "")
+            )
+            candidates = self.retrieve_candidates(
+                exact_hash=exact_hash,
+                logsource_key=logsource_key,
+                top_k=top_k,
+                canonical_class=canonical_class,
+                use_deterministic=use_deterministic,
+            )
+            logger.debug(f"Retrieved {len(candidates)} candidates")
 
             # Step 4: Compute similarity metrics for each candidate
             matches = []
@@ -155,11 +184,11 @@ class SigmaNoveltyService:
                 # Check for exact hash match first (duplicate detection)
                 is_exact_match = isinstance(candidate, dict) and candidate.get("exact_hash_match", False)
 
-                # Parse candidate rule if needed
-                if isinstance(candidate, dict):
+                # Parse candidate rule only when needed (skip for precomputed-atom path)
+                candidate_canonical = None
+                if isinstance(candidate, dict) and candidate.get("positive_atoms") is None:
                     candidate_canonical = self.build_canonical_rule(candidate)
-                else:
-                    # Assume it's already a CanonicalRule
+                elif not isinstance(candidate, dict):
                     candidate_canonical = candidate
 
                 # If exact hash match, short-circuit to duplicate (skip similarity computation)
@@ -177,10 +206,65 @@ class SigmaNoveltyService:
                     )
                     continue
 
-                # Prefer deterministic sigma_semantic_similarity when available
+                # Prefer precomputed-atom path when both sides have atoms; else full compare
                 used_deterministic = False
                 deterministic_result = None
-                if _sigma_compare_rules is not None and isinstance(candidate, dict):
+                candidate_pos = candidate.get("positive_atoms") if isinstance(candidate, dict) else None
+                candidate_neg = candidate.get("negative_atoms") if isinstance(candidate, dict) else []
+                candidate_surface = candidate.get("surface_score", 1) if isinstance(candidate, dict) else 1
+
+                if (
+                    proposed_sem is not None
+                    and candidate_pos is not None
+                    and compute_containment is not None
+                    and _sigma_filter_penalty is not None
+                ):
+                    # Pure set math: no YAML parsing
+                    A1 = set(proposed_sem["positive_atoms"])
+                    A2 = set(candidate_pos)
+                    F1 = set(proposed_sem["negative_atoms"])
+                    F2 = set(candidate_neg) if candidate_neg else set()
+                    surface_a = float(proposed_sem["surface_score"])
+                    surface_b = float(candidate_surface)
+
+                    intersection = A1 & A2
+                    union = A1 | A2
+                    if len(union) == 0:
+                        atom_jaccard = 0.0
+                        logic_similarity = 0.65
+                        filter_penalty = 0.0
+                        weighted_sim = 0.0
+                        weighted_before_penalties = 0.0
+                        overlap_ratio_a, overlap_ratio_b = 0.0, 0.0
+                        reason_flags = ["no_shared_atoms"]
+                    else:
+                        atom_jaccard = len(intersection) / len(union)
+                        B, overlap_ratio_a, overlap_ratio_b = compute_containment(
+                            len(intersection), len(A1), len(A2), surface_a, surface_b
+                        )
+                        logic_similarity = B
+                        filter_penalty = _sigma_filter_penalty(F1, F2, len(A1), len(A2))
+                        weighted_sim = max(0.0, min(1.0, (atom_jaccard * B) - filter_penalty))
+                        weighted_before_penalties = weighted_sim + filter_penalty
+                        reason_flags = []
+
+                    used_deterministic = True
+                    service_penalty = 0.0
+                    deterministic_result = type("Result", (), {
+                        "jaccard": atom_jaccard,
+                        "containment_factor": logic_similarity,
+                        "filter_penalty": filter_penalty,
+                        "surface_score_a": surface_a,
+                        "surface_score_b": surface_b,
+                        "canonical_class": proposed_sem["canonical_class"],
+                        "explanation": {
+                            "overlap_ratio_a": overlap_ratio_a,
+                            "overlap_ratio_b": overlap_ratio_b,
+                            "reason_flags": reason_flags,
+                        },
+                    })()
+
+                elif _sigma_compare_rules is not None and isinstance(candidate, dict):
                     try:
                         result = _sigma_compare_rules(proposed_rule, candidate)
                         used_deterministic = True
@@ -224,9 +308,26 @@ class SigmaNoveltyService:
                         weighted_before_penalties = 0.70 * atom_jaccard + 0.30 * logic_val
 
                 if weighted_sim >= threshold:
-                    explainability = self.generate_explainability(
-                        canonical_rule, candidate_canonical, candidate
-                    )
+                    if used_deterministic and candidate_pos is not None and proposed_sem is not None:
+                        # Explainability from precomputed atom sets (no parsing)
+                        A1 = set(proposed_sem["positive_atoms"])
+                        A2 = set(candidate_pos)
+                        F1 = set(proposed_sem["negative_atoms"])
+                        F2 = set(candidate_neg) if candidate_neg else set()
+                        shared = A1 & A2
+                        added = A2 - A1
+                        removed = A1 - A2
+                        filter_diff = (F1 | F2) - (F1 & F2)
+                        explainability = {
+                            "shared_atoms": sorted(shared),
+                            "added_atoms": sorted(added),
+                            "removed_atoms": sorted(removed),
+                            "filter_differences": sorted(filter_diff),
+                        }
+                    else:
+                        explainability = self.generate_explainability(
+                            canonical_rule, candidate_canonical, candidate
+                        )
 
                     match_dict = {
                         "rule_id": candidate.get("rule_id", "") if isinstance(candidate, dict) else "",
@@ -269,6 +370,18 @@ class SigmaNoveltyService:
             # Step 5: Classify novelty
             novelty_label, novelty_score = self.classify_novelty(exact_hash, matches)
 
+            # Metadata for empty-state differentiation (corpus unavailable vs no behavioral overlap)
+            def _jaccard(m: dict) -> float:
+                sd = m.get("semantic_details")
+                return sd.get("jaccard", m.get("atom_jaccard", 0.0)) if sd else m.get("atom_jaccard", 0.0)
+
+            behavioral_matches_found = sum(1 for m in matches if _jaccard(m) > 0)
+            engine_used = (
+                "deterministic"
+                if any(m.get("similarity_engine") == "deterministic" for m in matches)
+                else "legacy"
+            )
+
             return {
                 "novelty_label": novelty_label,
                 "novelty_score": novelty_score,
@@ -276,6 +389,9 @@ class SigmaNoveltyService:
                 "exact_hash": exact_hash,
                 "top_matches": matches[:10],  # Top 10 for explainability
                 "canonical_rule": asdict(canonical_rule),  # For debugging
+                "total_candidates_evaluated": len(candidates),
+                "behavioral_matches_found": behavioral_matches_found,
+                "engine_used": engine_used,
             }
 
         except Exception as e:
@@ -289,6 +405,9 @@ class SigmaNoveltyService:
                 "logsource_key": "",
                 "error": str(e),
                 "top_matches": [],
+                "total_candidates_evaluated": 0,
+                "behavioral_matches_found": 0,
+                "engine_used": "legacy",
             }
 
     def build_canonical_rule(self, rule_data: dict[str, Any]) -> CanonicalRule:
@@ -896,19 +1015,29 @@ class SigmaNoveltyService:
             return f"NOT({self._logic_to_string(logic['NOT'])})"
         return "EMPTY"
 
-    def retrieve_candidates(self, exact_hash: str, logsource_key: str, top_k: int = 20) -> list[dict[str, Any]]:
+    def retrieve_candidates(
+        self,
+        exact_hash: str,
+        logsource_key: str,
+        top_k: int = 20,
+        canonical_class: str | None = None,
+        use_deterministic: bool = False,
+    ) -> list[dict[str, Any]]:
         """
         Retrieve candidate rules for comparison.
 
-        Hard gate: same logsource_key
+        Hard gate: same logsource_key (or canonical_class when use_deterministic).
+        When use_deterministic and canonical_class provided: filter by canonical_class, no top_k limit.
 
         Args:
             exact_hash: Exact hash of proposed rule
             logsource_key: Logsource key (product|category)
-            top_k: Maximum number of candidates
+            top_k: Maximum number of candidates (ignored when use_deterministic)
+            canonical_class: Resolved telemetry class (for deterministic mode)
+            use_deterministic: If True, filter by canonical_class and return all (no limit)
 
         Returns:
-            List of candidate rule dictionaries
+            List of candidate rule dictionaries (includes positive_atoms, negative_atoms, surface_score when available)
         """
         if not self.db_session:
             logger.warning("No database session provided, returning empty candidates")
@@ -918,56 +1047,80 @@ class SigmaNoveltyService:
             from src.database.models import SigmaRuleTable
 
             # First, check for exact hash match (duplicate)
-            # Check if exact_hash column exists (may not be migrated yet)
             try:
                 exact_match = (
                     self.db_session.query(SigmaRuleTable).filter(SigmaRuleTable.exact_hash == exact_hash).first()
                 )
-
                 if exact_match:
-                    return [
-                        {
-                            "rule_id": exact_match.rule_id,
-                            "title": exact_match.title,
-                            "logsource": exact_match.logsource,
-                            "detection": exact_match.detection,
-                            "exact_hash_match": True,
-                        }
-                    ]
+                    out = {
+                        "rule_id": exact_match.rule_id,
+                        "title": exact_match.title,
+                        "logsource": exact_match.logsource,
+                        "detection": exact_match.detection,
+                        "exact_hash_match": True,
+                    }
+                    if hasattr(exact_match, "positive_atoms") and exact_match.positive_atoms is not None:
+                        out["positive_atoms"] = exact_match.positive_atoms
+                        out["negative_atoms"] = getattr(exact_match, "negative_atoms", None) or []
+                        out["surface_score"] = getattr(exact_match, "surface_score", None) or 1
+                    return [out]
             except Exception:
-                # Column may not exist yet
                 pass
 
-            # Retrieve candidates with same logsource_key (HARD GATE - per spec)
-            # If logsource_key is empty or invalid, return empty (no candidates)
-            if not logsource_key or logsource_key == "|":
-                logger.warning(f"Invalid logsource_key '{logsource_key}', returning no candidates")
+            # Build query
+            candidates = []
+            if use_deterministic and canonical_class:
+                # Deterministic mode: filter by canonical_class, no limit
+                try:
+                    if hasattr(SigmaRuleTable, "canonical_class"):
+                        candidates = (
+                            self.db_session.query(SigmaRuleTable)
+                            .filter(SigmaRuleTable.canonical_class == canonical_class)
+                            .all()
+                        )
+                except Exception:
+                    pass
+                if not candidates and logsource_key and logsource_key != "|":
+                    # Fallback to logsource_key + limit when canonical_class column missing or no matches
+                    candidates = (
+                        self.db_session.query(SigmaRuleTable)
+                        .filter(SigmaRuleTable.logsource_key == logsource_key)
+                        .limit(top_k)
+                        .all()
+                    )
+            else:
+                if not logsource_key or logsource_key == "|":
+                    logger.warning(f"Invalid logsource_key '{logsource_key}', returning no candidates")
+                    return []
+                try:
+                    candidates = (
+                        self.db_session.query(SigmaRuleTable)
+                        .filter(SigmaRuleTable.logsource_key == logsource_key)
+                        .limit(top_k)
+                        .all()
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to query candidates by logsource_key '{logsource_key}': {e}")
+                    return []
+
+            if not candidates:
                 return []
 
-            try:
-                candidates = (
-                    self.db_session.query(SigmaRuleTable)
-                    .filter(SigmaRuleTable.logsource_key == logsource_key)
-                    .limit(top_k)
-                    .all()
-                )
-            except Exception as e:
-                # If column doesn't exist or query fails, log error and return empty
-                # DO NOT fall back to all rules - this violates the hard gate requirement
-                logger.error(f"Failed to query candidates by logsource_key '{logsource_key}': {e}")
-                logger.error("Returning empty candidates to enforce logsource gate")
-                return []
-
-            return [
-                {
+            def _row_to_candidate(c):
+                out = {
                     "rule_id": c.rule_id,
                     "title": c.title,
                     "logsource": c.logsource,
                     "detection": c.detection,
                     "exact_hash": getattr(c, "exact_hash", None),
                 }
-                for c in candidates
-            ]
+                if hasattr(c, "positive_atoms") and c.positive_atoms is not None:
+                    out["positive_atoms"] = c.positive_atoms
+                    out["negative_atoms"] = getattr(c, "negative_atoms", None) or []
+                    out["surface_score"] = getattr(c, "surface_score", None) or 1
+                return out
+
+            return [_row_to_candidate(c) for c in candidates]
 
         except Exception as e:
             logger.error(f"Failed to retrieve candidates: {e}")

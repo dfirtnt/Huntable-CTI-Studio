@@ -525,6 +525,23 @@ class SigmaSyncService:
                     except Exception as e:
                         logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
 
+                # Deterministic semantic precompute (sigma_similarity) — eliminates recomputation during comparison
+                canonical_class = None
+                positive_atoms = None
+                negative_atoms = None
+                surface_score = None
+                try:
+                    from src.services.sigma_semantic_precompute import precompute_semantic_fields
+
+                    sem = precompute_semantic_fields(rule_data)
+                    if sem:
+                        canonical_class = sem["canonical_class"]
+                        positive_atoms = sem["positive_atoms"]
+                        negative_atoms = sem["negative_atoms"]
+                        surface_score = sem["surface_score"]
+                except Exception as e:
+                    logger.debug("Semantic precompute skipped for rule %s: %s", rule_id, e)
+
                 # Create or update rule record (with no autoflush to prevent premature commits)
                 with db_session.no_autoflush:
                     existing_rule = db_session.query(SigmaRuleTable).filter_by(rule_id=rule_id).first()
@@ -540,6 +557,11 @@ class SigmaSyncService:
                         existing_rule.exact_hash = exact_hash
                         existing_rule.canonical_text = canonical_text
                         existing_rule.logsource_key = logsource_key
+                        # Deterministic semantic precompute
+                        existing_rule.canonical_class = canonical_class
+                        existing_rule.positive_atoms = positive_atoms
+                        existing_rule.negative_atoms = negative_atoms
+                        existing_rule.surface_score = surface_score
                     else:
                         # Create new rule (embedding columns left as None)
                         new_rule = SigmaRuleTable(
@@ -563,6 +585,11 @@ class SigmaSyncService:
                             exact_hash=exact_hash,
                             canonical_text=canonical_text,
                             logsource_key=logsource_key,
+                            # Deterministic semantic precompute
+                            canonical_class=canonical_class,
+                            positive_atoms=positive_atoms,
+                            negative_atoms=negative_atoms,
+                            surface_score=surface_score,
                         )
                         db_session.add(new_rule)
 
