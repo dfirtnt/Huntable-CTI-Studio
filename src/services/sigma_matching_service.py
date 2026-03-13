@@ -668,19 +668,19 @@ Return JSON array only, no markdown formatting."""
 
     def compare_proposed_rule_to_embeddings(
         self, proposed_rule: dict[str, Any], threshold: float = 0.0
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         Compare proposed Sigma rule to existing Sigma rules using behavioral novelty assessment.
 
         This method now delegates to the novelty service for behavioral comparison.
-        Maintains backward compatibility by converting novelty results to similarity format.
+        Returns matches plus metadata for empty-state differentiation.
 
         Args:
             proposed_rule: The proposed Sigma rule to compare.
             threshold: Minimum similarity score (0-1, default 0.0 = no filtering).
 
         Returns:
-            List of Sigma rules with similarity scores (sorted by similarity, no threshold filter).
+            Dict with keys: matches, total_candidates_evaluated, behavioral_matches_found, engine_used.
         """
         try:
             from src.services.sigma_novelty_service import SigmaNoveltyService
@@ -690,6 +690,11 @@ Return JSON array only, no markdown formatting."""
 
             # Assess novelty
             novelty_result = novelty_service.assess_novelty(proposed_rule=proposed_rule, threshold=threshold, top_k=20)
+
+            # Metadata for empty-state differentiation
+            total_candidates_evaluated = novelty_result.get("total_candidates_evaluated", 0)
+            behavioral_matches_found = novelty_result.get("behavioral_matches_found", 0)
+            engine_used = novelty_result.get("engine_used", "legacy")
 
             # Convert novelty results to backward-compatible similarity format
             matches = []
@@ -776,14 +781,24 @@ Return JSON array only, no markdown formatting."""
             # Sort by similarity (descending)
             matches.sort(key=lambda x: x["similarity"], reverse=True)
 
-            return matches
+            return {
+                "matches": matches,
+                "total_candidates_evaluated": total_candidates_evaluated,
+                "behavioral_matches_found": behavioral_matches_found,
+                "engine_used": engine_used,
+            }
 
         except Exception as e:
             logger.error(f"Failed to compare proposed rule: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
-            return []
+            return {
+                "matches": [],
+                "total_candidates_evaluated": 0,
+                "behavioral_matches_found": 0,
+                "engine_used": "legacy",
+            }
 
     def _calculate_weighted_similarity(
         self, title_sim: float, desc_sim: float, tags_sim: float, signature_sim: float

@@ -1,0 +1,3 @@
+# Deterministic Sigma similarity (local package)
+# Required for sigma recompute-semantics and novelty comparison
+-e ./sigma_semantic_similarity

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Sigma deterministic semantic precompute** (2026-03-13): Precompute and persist `canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score` during SigmaHQ indexing. Eliminates recomputation during novelty comparison. New columns via `scripts/migrate_sigma_semantic_precompute.py`. Indexing pipeline and `sigma index-metadata` compute these when sigma_similarity is installed. CLI: `python3 -m src.cli.main sigma recompute-semantics` backfills existing rules. Novelty service uses precomputed atoms when available (pure set math); deterministic mode removes top_k limit and filters by canonical_class.
 - **Cron CLI and API** (2026-03-12): `cron` CLI subcommands (`show`, `replace`) to view and replace the current user's crontab; `/api/cron/*` endpoints for snapshot and replace; Settings UI for backup cron schedule. `BackupCronService` used by CLI and API. Tests: `tests/api/test_cron_api.py`, `tests/cli/test_cron_cli.py`; Playwright settings spec updated.
 - **Comprehensive test coverage improvements** (2026-03-10): Added 38 new tests across API, UI, and Playwright suites with full cleanup and restoration:
   - 15 workflow config API tests (CRUD operations, validation, prompts, versions) - `tests/api/test_workflow_config_api.py`

@@ -483,11 +483,19 @@ python3 scripts/migrate_sigma_to_canonical.py
 ```
 
 ### `migrate_sigma_canonical_fields.py`
-**Purpose**: Migrate Sigma canonical fields  
+**Purpose**: Migrate Sigma canonical fields
 **Usage**:
 ```bash
 python3 scripts/migrate_sigma_canonical_fields.py
 ```
+
+### `migrate_sigma_semantic_precompute.py`
+**Purpose**: Add deterministic semantic precompute columns to sigma_rules (canonical_class, positive_atoms, negative_atoms, surface_score)
+**Usage**:
+```bash
+DATABASE_URL=postgresql://... python3 scripts/migrate_sigma_semantic_precompute.py
+```
+**Note**: Run before `sigma recompute-semantics`. Requires sigma_semantic_similarity package for backfill.
 
 ### `migrate_subagent_evaluation_table.py`
 **Purpose**: Migrate subagent evaluation table  
