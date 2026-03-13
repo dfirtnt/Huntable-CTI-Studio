@@ -3005,9 +3005,10 @@ async def api_generate_sigma(article_id: int, request: Request):
 
             # For each generated rule, find similar existing Sigma rules
             for rule in rules:
-                similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                match_result = matching_service.compare_proposed_rule_to_embeddings(
                     proposed_rule=rule, threshold=0.0
                 )
+                similar_matches = match_result.get("matches", [])
                 if similar_matches:
                     similar_rules_by_generated.append(
                         {
@@ -3262,10 +3263,11 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
                     # Behavioral novelty assessment (per build spec)
                     # Uses canonicalization, atomic predicates, and structural similarity metrics
                     # No LLM reranking - purely algorithmic as per specification
-                    similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                    match_result = matching_service.compare_proposed_rule_to_embeddings(
                         proposed_rule=normalized_rule,
                         threshold=0.0,  # No threshold - get top matches
                     )
+                    similar_matches = match_result.get("matches", [])
 
                     logger.debug(
                         f"Rule '{normalized_rule['title']}' found {len(similar_matches)} similar rules via behavioral novelty assessment"

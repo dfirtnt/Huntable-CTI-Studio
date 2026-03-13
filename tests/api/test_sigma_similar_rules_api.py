@@ -93,12 +93,19 @@ class TestSigmaSimilarRulesAPI:
             patch.object(_sigma_queue_module, "SigmaMatchingService") as mock_matching_cls,
         ):
             mock_db.return_value.get_session.return_value = mock_session
-            mock_matching_cls.return_value.compare_proposed_rule_to_embeddings.return_value = []
+            mock_matching_cls.return_value.compare_proposed_rule_to_embeddings.return_value = {
+                "matches": [],
+                "total_candidates_evaluated": 0,
+                "behavioral_matches_found": 0,
+                "engine_used": "legacy",
+            }
 
             response = await get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
 
         assert response["success"] is True
         assert response["matches"] == []
+        assert response.get("total_candidates_evaluated") == 0
+        assert response.get("behavioral_matches_found") == 0
         assert "diagnostic" in response
         d = response["diagnostic"]
         assert "total_sigma_rules" in d
@@ -188,7 +195,12 @@ class TestSigmaSimilarRulesAPI:
             patch.object(_sigma_queue_module, "SigmaMatchingService") as mock_matching_cls,
         ):
             mock_db.return_value.get_session.return_value = mock_session
-            mock_matching_cls.return_value.compare_proposed_rule_to_embeddings.return_value = []
+            mock_matching_cls.return_value.compare_proposed_rule_to_embeddings.return_value = {
+                "matches": [],
+                "total_candidates_evaluated": 0,
+                "behavioral_matches_found": 0,
+                "engine_used": "legacy",
+            }
 
             response = await get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
 

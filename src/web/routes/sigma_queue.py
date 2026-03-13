@@ -298,10 +298,11 @@ async def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest
                         "level": rule_dict.get("level"),
                         "status": rule_dict.get("status", "experimental"),
                     }
-                    similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                    match_result = matching_service.compare_proposed_rule_to_embeddings(
                         proposed_rule=normalized_rule,
                         threshold=0.0,
                     )
+                    similar_matches = match_result.get("matches", [])
                     similarity_scores = similar_matches[:10] if similar_matches else []
                     max_similarity = (
                         max([m.get("similarity", 0.0) for m in similar_matches], default=0.0)
@@ -382,10 +383,11 @@ async def list_queued_rules(request: Request, status: str | None = None, limit: 
                             }
 
                             # Calculate similarity using algorithmic evaluator
-                            similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+                            match_result = matching_service.compare_proposed_rule_to_embeddings(
                                 proposed_rule=normalized_rule,
                                 threshold=0.0,  # Get all matches
                             )
+                            similar_matches = match_result.get("matches", [])
 
                             # Calculate max similarity
                             max_similarity = (
@@ -1460,10 +1462,11 @@ async def compare_rules_similarity(compare_request: CompareRulesRequest):
                     }
 
                     if normalized_original["title"] and normalized_original["detection"]:
-                        original_matches = matching_service.compare_proposed_rule_to_embeddings(
+                        orig_result = matching_service.compare_proposed_rule_to_embeddings(
                             proposed_rule=normalized_original,
                             threshold=0.0,
                         )
+                        original_matches = orig_result.get("matches", [])
                         results["original"]["matches"] = original_matches[:10]
                         results["original"]["max_similarity"] = (
                             max([m.get("similarity", 0.0) for m in original_matches], default=0.0)
@@ -1488,10 +1491,11 @@ async def compare_rules_similarity(compare_request: CompareRulesRequest):
                     }
 
                     if normalized_enriched["title"] and normalized_enriched["detection"]:
-                        enriched_matches = matching_service.compare_proposed_rule_to_embeddings(
+                        enr_result = matching_service.compare_proposed_rule_to_embeddings(
                             proposed_rule=normalized_enriched,
                             threshold=0.0,
                         )
+                        enriched_matches = enr_result.get("matches", [])
                         results["enriched"]["matches"] = enriched_matches[:10]
                         results["enriched"]["max_similarity"] = (
                             max([m.get("similarity", 0.0) for m in enriched_matches], default=0.0)
@@ -2095,10 +2099,14 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
 
             # Use behavioral novelty assessment to find similar rules
             matching_service = SigmaMatchingService(db_session)
-            similar_matches = matching_service.compare_proposed_rule_to_embeddings(
+            match_result = matching_service.compare_proposed_rule_to_embeddings(
                 proposed_rule=normalized_rule,
                 threshold=0.0,  # No threshold - get top matches
             )
+            similar_matches = match_result.get("matches", [])
+            total_candidates_evaluated = match_result.get("total_candidates_evaluated", 0)
+            behavioral_matches_found = match_result.get("behavioral_matches_found", 0)
+            engine_used = match_result.get("engine_used", "legacy")
 
             # Calculate max similarity
             max_similarity = (
@@ -2160,11 +2168,14 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                     logger.warning(f"Could not persist similarity_scores (non-fatal): {commit_err}")
                     db_session.rollback()
 
-            # Prepare response
+            # Prepare response (include metadata for empty-state differentiation)
             response = {
                 "success": True,
                 "matches": similar_matches[:20],  # Return top 20
                 "max_similarity": max_similarity,
+                "total_candidates_evaluated": total_candidates_evaluated,
+                "behavioral_matches_found": behavioral_matches_found,
+                "engine_used": engine_used,
                 "coverage_summary": {
                     "covered": len([m for m in similar_matches if m.get("coverage_status") == "covered"]),
                     "extend": len([m for m in similar_matches if m.get("coverage_status") == "extend"]),
